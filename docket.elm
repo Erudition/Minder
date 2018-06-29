@@ -1,16 +1,5 @@
 port module Todo exposing (..)
 
-{-| TodoMVC implemented in Elm, using plain HTML and CSS for rendering.
-This application is broken up into three key parts:
-
-1.  Model - a full definition of the application's state
-2.  Update - a way to step the application state forward
-3.  View - a way to visualize our application state with HTML
-    This clean division of concerns is a core part of Elm. You can read more about
-    this in <http://guide.elm-lang.org/architecture/index.html>
-
--}
-
 import Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -19,7 +8,7 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
 import Json.Decode as Json
 import String
-import Task
+import Task as Job
 
 
 main : Program (Maybe Model) Model Msg
@@ -54,53 +43,39 @@ updateWithStorage msg model =
 -- The full application state of our todo app.
 
 
+-- Entire program
 type alias Model =
-    { todos : List Todo
+    { tasks : List Task
     , field : String
     , uid : Int
     , visibility : String
     }
 
 
-type alias Todo =
+-- a single Task
+type alias Task =
     { title : String
-    , completion : Float
+    , completion : Progress
     , editing : Bool
-    , id : Int -- make UUID-type?
+    , id : TaskId
     , effort : Duration -- make Fuzzy Duration in seconds
     , effortHistory : List ( Date, Duration )
-    , subtasks : List Int
+    , parent : Maybe TaskId
     , created : Date
     }
-
-
-completed : Todo -> Bool
-completed todo =
-    .completion todo == 1
-
 
 type TaskListFilter
     = AllTasks
     | ActiveTasksOnly
     | CompletedTasksOnly
 
-
-
-type alias UUID= Int
+type alias TaskId = Int
 
 type alias Progress = Float
 
+type alias Duration = Int          --seconds
 
-type alias Duration =
-    Int
-
-
-
---seconds
-
-
-type alias Date =
-    Int
+type alias Date = Int
 
 
 
@@ -109,15 +84,15 @@ type alias Date =
 
 emptyModel : Model
 emptyModel =
-    { todos = []
+    { tasks = []
     , visibility = "All"
     , field = ""
     , uid = 0
     }
 
 
-newTodo : String -> Int -> Todo
-newTodo desc id =
+newTask : String -> Int -> Task
+newTask desc id =
     { title = desc
     , editing = False
     , id = id
@@ -125,35 +100,42 @@ newTodo desc id =
     , created = 0
     , effort = 0
     , effortHistory = []
-    , subtasks = []
+    , parent = Nothing
     }
 
 
+-- initialize model
 init : Maybe Model -> ( Model, Cmd Msg )
 init savedModel =
     Maybe.withDefault emptyModel savedModel ! []
 
+--helper functions
+completed : Task -> Bool
+completed task =
+    .completion task == 1
 
 
--- UPDATE
+
+
+-- UPDATE -------------------- UPDATE -------------------- UPDATE -------------------- UPDATE
 
 
 {-| Users of our app can trigger messages by clicking and typing. These
 messages are fed into the `update` function as they occur, letting us react
 to them.
 -}
+
 type Msg
     = NoOp
     | UpdateField String
-    | EditingTodo Int Bool
-    | UpdateTodo Int String
+    | EditingTask TaskId Bool
+    | UpdateTask TaskId String
     | Add
-    | Delete Int
+    | Delete TaskId
     | DeleteComplete
-    | UpdateProgress UUID Progress
+    | UpdateProgress TaskId Progress
     | CheckAll Progress
     | ChangeVisibility String
-
 
 
 -- How we update our Model on a given Msg?
@@ -169,11 +151,11 @@ update msg model =
             { model
                 | uid = model.uid + 1
                 , field = ""
-                , todos =
+                , tasks =
                     if String.isEmpty model.field then
-                        model.todos
+                        model.tasks
                     else
-                        model.todos ++ [ newTodo model.field model.uid ]
+                        model.tasks ++ [ newTask model.field model.uid ]
             }
                 ! []
 
@@ -181,56 +163,56 @@ update msg model =
             { model | field = str }
                 ! []
 
-        EditingTodo id isEditing ->
+        EditingTask id isEditing ->
             let
-                updateTodo t =
+                updateTask t =
                     if t.id == id then
                         { t | editing = isEditing }
                     else
                         t
 
                 focus =
-                    Dom.focus ("todo-" ++ toString id)
+                    Dom.focus ("task-" ++ toString id)
             in
-            { model | todos = List.map updateTodo model.todos }
-                ! [ Task.attempt (\_ -> NoOp) focus ]
+            { model | tasks = List.map updateTask model.tasks }
+                ! [ Job.attempt (\_ -> NoOp) focus ]
 
-        UpdateTodo id task ->
+        UpdateTask id task ->
             let
-                updateTodo t =
+                updateTask t =
                     if t.id == id then
                         { t | title = task }
                     else
                         t
             in
-            { model | todos = List.map updateTodo model.todos }
+            { model | tasks = List.map updateTask model.tasks }
                 ! []
 
         Delete id ->
-            { model | todos = List.filter (\t -> t.id /= id) model.todos }
+            { model | tasks = List.filter (\t -> t.id /= id) model.tasks }
                 ! []
 
         DeleteComplete ->
-            { model | todos = List.filter (not << completed) model.todos }
+            { model | tasks = List.filter (not << completed) model.tasks }
                 ! []
 
         UpdateProgress id completion ->
             let
-                updateTodo t =
+                updateTask t =
                     if t.id == id then
                         { t | completion = completion }
                     else
                         t
             in
-            { model | todos = List.map updateTodo model.todos }
+            { model | tasks = List.map updateTask model.tasks }
                 ! []
 
         CheckAll completion ->
             let
-                updateTodo t =
+                updateTask t =
                     { t | completion = completion }
             in
-            { model | todos = List.map updateTodo model.todos }
+            { model | tasks = List.map updateTask model.tasks }
                 ! []
 
         ChangeVisibility visibility ->
@@ -239,7 +221,7 @@ update msg model =
 
 
 
--- VIEW
+------------------- VIEW ------------------- VIEW ------------------- VIEW ------------------- VIEW
 
 
 view : Model -> Html Msg
@@ -251,8 +233,8 @@ view model =
         [ section
             [ class "todoapp" ]
             [ lazy viewInput model.field
-            , lazy2 viewTodos model.visibility model.todos
-            , lazy2 viewControls model.visibility model.todos
+            , lazy2 viewTasks model.visibility model.tasks
+            , lazy2 viewControls model.visibility model.tasks
             ]
         , infoFooter
         ]
@@ -264,11 +246,11 @@ viewInput task =
         [ class "header" ]
         [ h1 [] [ text "docket" ]
         , input
-            [ class "new-todo"
+            [ class "new-task"
             , placeholder "What needs to be done?"
             , autofocus True
             , value task
-            , name "newTodo"
+            , name "newTask"
             , onInput UpdateField
             , onEnter Add
             ]
@@ -292,25 +274,25 @@ onEnter msg =
 -- VIEW ALL TODOS
 
 
-viewTodos : String -> List Todo -> Html Msg
-viewTodos visibility todos =
+viewTasks : String -> List Task -> Html Msg
+viewTasks visibility tasks =
     let
-        isVisible todo =
+        isVisible task =
             case visibility of
                 "Completed" ->
-                    completed todo
+                    completed task
 
                 "Active" ->
-                    not (completed todo)
+                    not (completed task)
 
                 _ ->
                     True
 
         allCompleted =
-            List.all completed todos
+            List.all completed tasks
 
         cssVisibility =
-            if List.isEmpty todos then
+            if List.isEmpty tasks then
                 "hidden"
             else
                 "visible"
@@ -324,14 +306,21 @@ viewTodos visibility todos =
             , type_ "checkbox"
             , name "toggle"
             , checked allCompleted
-            , onClick (CheckAll (if (not allCompleted) then 1 else 0 ) )
+            , onClick
+                (CheckAll
+                    (if not allCompleted then
+                        1
+                     else
+                        0
+                    )
+                )
             ]
             []
         , label
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
-        , Keyed.ul [ class "todo-list" ] <|
-            List.map viewKeyedTodo (List.filter isVisible todos)
+        , Keyed.ul [ class "task-list" ] <|
+            List.map viewKeyedTask (List.filter isVisible tasks)
         ]
 
 
@@ -339,41 +328,48 @@ viewTodos visibility todos =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTodo : Todo -> ( String, Html Msg )
-viewKeyedTodo todo =
-    ( toString todo.id, lazy viewTodo todo )
+viewKeyedTask : Task -> ( String, Html Msg )
+viewKeyedTask task =
+    ( toString task.id, lazy viewTask task )
 
 
-viewTodo : Todo -> Html Msg
-viewTodo todo =
+viewTask : Task -> Html Msg
+viewTask task =
     li
-        [ classList [ ( "completed", completed todo ), ( "editing", todo.editing ) ] ]
+        [ classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
         [ div
             [ class "view" ]
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
-                , checked (completed todo)
-                , onClick (UpdateProgress todo.id (if not (completed todo) then 1 else 0 ))
+                , checked (completed task)
+                , onClick
+                    (UpdateProgress task.id
+                        (if not (completed task) then
+                            1
+                         else
+                            0
+                        )
+                    )
                 ]
                 []
             , label
-                [ onDoubleClick (EditingTodo todo.id True) ]
-                [ text todo.title ]
+                [ onDoubleClick (EditingTask task.id True) ]
+                [ text task.title ]
             , button
                 [ class "destroy"
-                , onClick (Delete todo.id)
+                , onClick (Delete task.id)
                 ]
                 []
             ]
         , input
             [ class "edit"
-            , value todo.title
+            , value task.title
             , name "title"
-            , id ("todo-" ++ toString todo.id)
-            , onInput (UpdateTodo todo.id)
-            , onBlur (EditingTodo todo.id False)
-            , onEnter (EditingTodo todo.id False)
+            , id ("task-" ++ toString task.id)
+            , onInput (UpdateTask task.id)
+            , onBlur (EditingTask task.id False)
+            , onEnter (EditingTask task.id False)
             ]
             []
         ]
@@ -383,37 +379,37 @@ viewTodo todo =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : String -> List Todo -> Html Msg
-viewControls visibility todos =
+viewControls : String -> List Task -> Html Msg
+viewControls visibility tasks =
     let
-        todosCompleted =
-            List.length (List.filter completed todos)
+        tasksCompleted =
+            List.length (List.filter completed tasks)
 
-        todosLeft =
-            List.length todos - todosCompleted
+        tasksLeft =
+            List.length tasks - tasksCompleted
     in
     footer
         [ class "footer"
-        , hidden (List.isEmpty todos)
+        , hidden (List.isEmpty tasks)
         ]
-        [ lazy viewControlsCount todosLeft
+        [ lazy viewControlsCount tasksLeft
         , lazy viewControlsFilters visibility
-        , lazy viewControlsClear todosCompleted
+        , lazy viewControlsClear tasksCompleted
         ]
 
 
 viewControlsCount : Int -> Html Msg
-viewControlsCount todosLeft =
+viewControlsCount tasksLeft =
     let
         item_ =
-            if todosLeft == 1 then
+            if tasksLeft == 1 then
                 " item"
             else
                 " items"
     in
     span
-        [ class "todo-count" ]
-        [ strong [] [ text (toString todosLeft) ]
+        [ class "task-count" ]
+        [ strong [] [ text (toString tasksLeft) ]
         , text (item_ ++ " left")
         ]
 
@@ -440,20 +436,20 @@ visibilitySwap uri visibility actualVisibility =
 
 
 viewControlsClear : Int -> Html Msg
-viewControlsClear todosCompleted =
+viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
-        , hidden (todosCompleted == 0)
+        , hidden (tasksCompleted == 0)
         , onClick DeleteComplete
         ]
-        [ text ("Clear completed (" ++ toString todosCompleted ++ ")")
+        [ text ("Clear completed (" ++ toString tasksCompleted ++ ")")
         ]
 
 
 infoFooter : Html msg
 infoFooter =
     footer [ class "info" ]
-        [ p [] [ text "Double-click to edit a todo" ]
+        [ p [] [ text "Double-click to edit a task" ]
         , p []
             [ text "Written by "
             , a [ href "https://github.com/Erudition" ] [ text "Connor" ]

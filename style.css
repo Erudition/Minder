@@ -87,7 +87,7 @@ input[type="checkbox"] {
     text-rendering: optimizeLegibility;
 }
 
-.new-todo,
+.new-task,
 .edit {
     position: relative;
     margin: 0;
@@ -108,7 +108,7 @@ input[type="checkbox"] {
     font-smoothing: antialiased;
 }
 
-.new-todo {
+.new-task {
     padding: 16px 16px 16px 60px;
     border: none;
     background: rgba(0, 0, 0, 0.003);
@@ -146,39 +146,39 @@ label[for='toggle-all'] {
     color: #737373;
 }
 
-.todo-list {
+.task-list {
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.todo-list li {
+.task-list li {
     position: relative;
     font-size: 24px;
     border-bottom: 1px solid #ededed;
 }
 
-.todo-list li:last-child {
+.task-list li:last-child {
     border-bottom: none;
 }
 
-.todo-list li.editing {
+.task-list li.editing {
     border-bottom: none;
     padding: 0;
 }
 
-.todo-list li.editing .edit {
+.task-list li.editing .edit {
     display: block;
     width: 506px;
     padding: 13px 17px 12px 17px;
     margin: 0 0 0 43px;
 }
 
-.todo-list li.editing .view {
+.task-list li.editing .view {
     display: none;
 }
 
-.todo-list li .toggle {
+.task-list li .toggle {
     text-align: center;
     width: 40px;
     /* auto, since non-WebKit browsers doesn't support input styling */
@@ -192,15 +192,15 @@ label[for='toggle-all'] {
     appearance: none;
 }
 
-.todo-list li .toggle:after {
+.task-list li .toggle:after {
     content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="-10 -18 100 135"><circle cx="50" cy="50" r="50" fill="none" stroke="#ededed" stroke-width="3"/></svg>');
 }
 
-.todo-list li .toggle:checked:after {
+.task-list li .toggle:checked:after {
     content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="-10 -18 100 135"><circle cx="50" cy="50" r="50" fill="none" stroke="#bddad5" stroke-width="3"/><path fill="#5dc2af" d="M72 25L42 71 27 56l-4 4 20 20 34-52z"/></svg>');
 }
 
-.todo-list li label {
+.task-list li label {
     white-space: pre-line;
     word-break: break-all;
     padding: 15px 60px 15px 15px;
@@ -210,12 +210,12 @@ label[for='toggle-all'] {
     transition: color 0.4s;
 }
 
-.todo-list li.completed label {
+.task-list li.completed label {
     color: #d9d9d9;
     text-decoration: line-through;
 }
 
-.todo-list li .destroy {
+.task-list li .destroy {
     display: none;
     position: absolute;
     top: 0;
@@ -230,23 +230,23 @@ label[for='toggle-all'] {
     transition: color 0.2s ease-out;
 }
 
-.todo-list li .destroy:hover {
+.task-list li .destroy:hover {
     color: #af5b5e;
 }
 
-.todo-list li .destroy:after {
+.task-list li .destroy:after {
     content: '×';
 }
 
-.todo-list li:hover .destroy {
+.task-list li:hover .destroy {
     display: block;
 }
 
-.todo-list li .edit {
+.task-list li .edit {
     display: none;
 }
 
-.todo-list li.editing:last-child {
+.task-list li.editing:last-child {
     margin-bottom: -1px;
 }
 
@@ -273,12 +273,12 @@ label[for='toggle-all'] {
                 0 17px 2px -6px rgba(0, 0, 0, 0.2);
 }
 
-.todo-count {
+.task-count {
     float: left;
     text-align: left;
 }
 
-.todo-count strong {
+.task-count strong {
     font-weight: 300;
 }
 
@@ -355,11 +355,11 @@ html .clear-completed:active {
 */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
     .toggle-all,
-    .todo-list li .toggle {
+    .task-list li .toggle {
         background: none;
     }
 
-    .todo-list li .toggle {
+    .task-list li .toggle {
         height: 40px;
     }
 
