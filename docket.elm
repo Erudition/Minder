@@ -10,8 +10,9 @@ import Json.Decode as Json
 import String
 import Task as Job
 
+type alias ModelAsJson = String
 
-main : Program (Maybe Model) Model Msg
+main : Program (Maybe ModelAsJson) Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -21,7 +22,17 @@ main =
         }
 
 
-port setStorage : Model -> Cmd msg
+-- main : Program Model Msg
+-- main =
+--     Html.program
+--         { init = init
+--         , view = view
+--         , update = update
+--         , subscriptions = \_ -> Sub.none
+--         }
+
+
+port setStorage : ModelAsJson -> Cmd msg
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -34,7 +45,7 @@ updateWithStorage msg model =
             update msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage newModel, cmds ]
+    , Cmd.batch [ setStorage (modelToJson newModel), cmds ]
     )
 
 
@@ -51,36 +62,74 @@ type alias Model =
     , visibility : String
     }
 
+type alias PortableModel =
+    { tasks : List Task
+    , field : String
+    , uid : Int
+    , visibility : String
+    }
 
--- a single Task
+{-- Definition of a single task.
+    Working rules:
+    * there should be no fields for storing data that can be fully derived from other fields [consistency]
+    * combine related fields into a single one with a tuple value [minimalism]
+--}
 type alias Task =
     { title : String
     , completion : Progress
     , editing : Bool
     , id : TaskId
-    , effort : Duration -- make Fuzzy Duration in seconds
-    , effortHistory : List ( Date, Duration )
+    , predictedEffort : Duration -- make Fuzzy Duration in seconds
+    , history : List (TaskChange, Moment)
     , parent : Maybe TaskId
-    , created : Date
+    , tags : List String
+    , created : (Moment, User)
+    , assigned : (Moment, User)
+    , project : Maybe ProjectId
+    , deadline : Maybe MomentOrDay
+    , plannedStart : Maybe MomentOrDay
+    , plannedFinish : Maybe MomentOrDay
+    , relevanceStarts : Maybe MomentOrDay
+    , relevanceEnds : Maybe MomentOrDay
     }
+{-- Additional meta-fields (realized via functions):
+    + completed : Bool
+--}
 
+
+-- possible ways to filter the list of tasks (legacy)
 type TaskListFilter
     = AllTasks
     | ActiveTasksOnly
     | CompletedTasksOnly
 
+
+
+{-- possible activities that can be logged about a task.
+    Working rules:
+    * names should just be '(exact name of field being changed)+Change' [consistency]
+    * value always includes the full value it was changed to at the time, never the delta [consistency]
+--}
+type TaskChange
+    = CompletionChange Progress
+    | TitleChange String
+    | PredictedEffortChange Duration
+    | ParentChange TaskId
+    | TagsChange
+
+type MomentOrDay = AtExactly Moment | OnDayOf Moment
+
 type alias TaskId = Int
+
+type alias ProjectId = Int
 
 type alias Progress = Float
 
-type alias Duration = Int          --seconds
+type alias Duration = Int                 --seconds
 
-type alias Date = Int
+type alias Moment = Int                     --seconds since epoch or something
 
-
-
---seconds since epoch or something
-
+type alias User = Int                   -- to be determined
 
 emptyModel : Model
 emptyModel =
@@ -97,19 +146,51 @@ newTask desc id =
     , editing = False
     , id = id
     , completion = 0
-    , created = 0
-    , effort = 0
-    , effortHistory = []
     , parent = Nothing
+    , predictedEffort = 0
+    , history = []
+    , tags = []
+    , created = (0, 0)              --TODO put in actual creation time
+    , assigned = (0, 0)             --TODO put in actual users
+    , project = Just 0
+    , deadline = Nothing
+    , plannedStart = Nothing
+    , plannedFinish = Nothing
+    , relevanceStarts = Nothing
+    , relevanceEnds = Nothing
     }
 
 
 -- initialize model
-init : Maybe Model -> ( Model, Cmd Msg )
-init savedModel =
-    Maybe.withDefault emptyModel savedModel ! []
+init : Maybe ModelAsJson -> ( Model, Cmd Msg )
+init maybeModelAsJson =
+  let finalModel =
+      case maybeModelAsJson of
+          Just modelAsJson ->
+              case modelFromJson modelAsJson of
+                  Ok restoredModel ->
+                      restoredModel
 
---helper functions
+                  Err msg ->
+                      emptyModel
+
+          -- no json stored at all
+          Nothing ->
+              emptyModel
+  in
+      finalModel ! []
+
+
+modelFromJson : ModelAsJson -> Result String Model
+modelFromJson incomingJson =
+    Err "Always Fails for now"
+
+modelToJson : Model -> ModelAsJson
+modelToJson model =
+    "hiya there"
+
+
+-- adroit's helper functions
 completed : Task -> Bool
 completed task =
     .completion task == 1
