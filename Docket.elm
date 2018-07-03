@@ -1,6 +1,6 @@
 port module Todo exposing (..)
 
--- libraries
+-- core libraries
 import Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -11,8 +11,25 @@ import Json.Decode as Json
 import String
 import Task as Job
 
+--community libraries
+import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
+import Time.TimeZones as TimeZones
+import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
+
 -- ours
 import DocketPorting
+
+
+{-- IMPORT HANDLING
+    Section where we massage imports to be the way we like
+--}
+type alias Moment = DateTime
+type alias LocalMoment = ZonedDateTime
+
+
+
+
+
 
 type alias ModelAsJson = String
 
@@ -83,12 +100,10 @@ type alias Task =
     , completion : Progress
     , editing : Bool
     , id : TaskId
-    , predictedEffort : Duration -- make Fuzzy Duration in seconds
+    , predictedEffort : Duration
     , history : List (TaskChange, Moment)
     , parent : Maybe TaskId
     , tags : List String
-    , created : (Moment, User)
-    , assigned : (Moment, User)
     , project : Maybe ProjectId
     , deadline : Maybe MomentOrDay
     , plannedStart : Maybe MomentOrDay
@@ -115,7 +130,8 @@ type TaskListFilter
     * value always includes the full value it was changed to at the time, never the delta [consistency]
 --}
 type TaskChange
-    = CompletionChange Progress
+    = Created Moment
+    | CompletionChange Progress
     | TitleChange String
     | PredictedEffortChange Duration
     | ParentChange TaskId
@@ -131,7 +147,6 @@ type alias Progress = Float
 
 type alias Duration = Int                 --seconds
 
-type alias Moment = Int                     --seconds since epoch or something
 
 type alias User = Int                   -- to be determined
 
@@ -154,8 +169,6 @@ newTask desc id =
     , predictedEffort = 0
     , history = []
     , tags = []
-    , created = (0, 0)              --TODO put in actual creation time
-    , assigned = (0, 0)             --TODO put in actual users
     , project = Just 0
     , deadline = Nothing
     , plannedStart = Nothing
