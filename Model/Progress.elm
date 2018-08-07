@@ -1,5 +1,6 @@
 module Model.Progress exposing (..)
 
+
 type alias Progress = (Part, Unit)
 type alias Part = Float
 type Unit = None | Permille | Percent | Word Int | Minute Int | CustomUnit (String, String) Int
@@ -32,6 +33,9 @@ max unit = case unit of
 
 progressFromFloat : Float -> Progress
 progressFromFloat float = (float, Percent)
+
+
+
 
 
 -- zeroPercent : ( Fraction, ProgressUnits )
