@@ -6,7 +6,6 @@ import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, h
 --import Time.TimeZones as TimeZones
 import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 --import String
-{--Encoders and such--}
 
 
 type alias Moment = DateTime

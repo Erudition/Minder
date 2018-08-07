@@ -5,9 +5,7 @@ port module Docket exposing (..)
 import Update exposing (..)
 import View exposing (..)
 
-import Json.Decode as Decode
-import Json.Encode as Encode
-import String
+
 
 
 --community libraries
@@ -16,7 +14,7 @@ import String
 --import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
 -- ours
-import Porting exposing (..)
+
 import Model exposing (..)
 import Model.Progress exposing (..)
 
@@ -26,7 +24,7 @@ import Model.Progress exposing (..)
 --}
 
 
-type alias ModelAsJson = String
+
 
 main : Program (Maybe ModelAsJson) Model Msg
 main =
@@ -92,12 +90,3 @@ init maybeModelAsJson =
               emptyModel
   in
       finalModel ! []
-
-
-modelFromJson : ModelAsJson -> Result String Model
-modelFromJson incomingJson =
-  Decode.decodeString decodeModel incomingJson
-
-modelToJson : Model -> ModelAsJson
-modelToJson model =
-    Encode.encode 0 (encodeModel model)

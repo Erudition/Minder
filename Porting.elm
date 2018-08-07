@@ -19,6 +19,14 @@ import Time.Iso8601ErrorMsg exposing (renderText)
 {------------------------------------------------------------------------}
 {-- ENCODING AND DECODING TO AND FROM JSON FOR PORTING DATA IN AND OUT --}
 
+type alias ModelAsJson = String
+modelFromJson : ModelAsJson -> Result String Model
+modelFromJson incomingJson =
+  Decode.decodeString decodeModel incomingJson
+
+modelToJson : Model -> ModelAsJson
+modelToJson model =
+    Encode.encode 0 (encodeModel model)
 
 decodeMaybe : Decoder a -> Decoder (Maybe a)
 decodeMaybe = Decode.maybe
