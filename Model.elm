@@ -1,8 +1,13 @@
 module Model exposing (..)
 
+import Model.Progress exposing (..)
+
 import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
-import Time.TimeZones as TimeZones
+--import Time.TimeZones as TimeZones
 import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
+--import String
+{--Encoders and such--}
+
 
 type alias Moment = DateTime
 type alias LocalMoment = ZonedDateTime
@@ -13,6 +18,25 @@ type alias Model =
     , field : String
     , uid : Int
     , visibility : String
+    , errors : List String
+    }
+{--keep in sync with --}
+emptyModel : Model
+emptyModel =
+    { tasks = []
+    , visibility = "All"
+    , field = ""
+    , uid = 0
+    , errors = []
+    }
+
+testModel : Model
+testModel =
+    { tasks = []
+    , visibility = "All"
+    , field = ""
+    , uid = 0
+    , errors = []
     }
 
 {-- Definition of a single task.
@@ -39,6 +63,25 @@ type alias Task =
 {-- Additional meta-fields (realized via functions):
     + completed : Bool
 --}
+newTask : String -> Int -> Task
+newTask desc id =
+    { title = desc
+    , editing = False
+    , id = id
+    , completion = (0, Percent)
+    , parent = Nothing
+    , predictedEffort = 0
+    , history = []
+    , tags = []
+    , project = Just 0
+    , deadline = Nothing
+    , plannedStart = Nothing
+    , plannedFinish = Nothing
+    , relevanceStarts = Nothing
+    , relevanceEnds = Nothing
+    }
+
+
 
 type alias HistoryEntry = (TaskChange, Moment)
 
@@ -67,38 +110,9 @@ type MomentOrDay = AtExactly Moment | OnDayOf Moment
 
 type alias TaskId = Int
 
-type alias ProjectId = Int
-
-type alias Progress = Float
 
 type alias Duration = Int                 --seconds
 
+type alias ProjectId = Int
 
 type alias User = Int                   -- to be determined
-
-emptyModel : Model
-emptyModel =
-    { tasks = []
-    , visibility = "All"
-    , field = ""
-    , uid = 0
-    }
-
-
-newTask : String -> Int -> Task
-newTask desc id =
-    { title = desc
-    , editing = False
-    , id = id
-    , completion = 0
-    , parent = Nothing
-    , predictedEffort = 0
-    , history = []
-    , tags = []
-    , project = Just 0
-    , deadline = Nothing
-    , plannedStart = Nothing
-    , plannedFinish = Nothing
-    , relevanceStarts = Nothing
-    , relevanceEnds = Nothing
-    }

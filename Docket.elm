@@ -2,23 +2,31 @@ port module Docket exposing (..)
 
 -- core libraries
 import Dom
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy, lazy2)
-import Json.Decode as Json
+import List
+import Css exposing (..)
+import VirtualDom
+
+-- import Html exposing (..)
+import Html.Styled exposing (..)
+--import Html.Attributes exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+import Html.Styled.Keyed as Keyed
+import Html.Styled.Lazy exposing (lazy, lazy2)
+import Json.Decode as Decode
+import Json.Encode as Encode
 import String
 import Task as Job
 
 --community libraries
-import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
-import Time.TimeZones as TimeZones
-import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
+--import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
+--import Time.TimeZones as TimeZones
+--import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
 -- ours
-import Porting
-import Model
+import Porting exposing (..)
+import Model exposing (..)
+import Model.Progress exposing (..)
 
 
 {-- IMPORT HANDLING
@@ -26,16 +34,11 @@ import Model
 --}
 
 
-
-
-
-
-
 type alias ModelAsJson = String
 
 main : Program (Maybe ModelAsJson) Model Msg
 main =
-    Html.programWithFlags
+    Html.Styled.programWithFlags
         { init = init
         , view = view
         , update = updateWithStorage
@@ -89,8 +92,8 @@ init maybeModelAsJson =
                   Ok restoredModel ->
                       restoredModel
 
-                  Err msg ->
-                      emptyModel
+                  Err errormsg ->
+                      { emptyModel | errors = [(Debug.log "Errors" errormsg)] }
 
           -- no json stored at all
           Nothing ->
@@ -101,17 +104,17 @@ init maybeModelAsJson =
 
 modelFromJson : ModelAsJson -> Result String Model
 modelFromJson incomingJson =
-    Err "Always Fails for now"
+  Decode.decodeString decodeModel incomingJson
 
 modelToJson : Model -> ModelAsJson
 modelToJson model =
-    "hiya there"
+    Encode.encode 0 (encodeModel model)
 
 
 -- adroit's helper functions
 completed : Task -> Bool
 completed task =
-    .completion task == 1
+    part (.completion task) == toFloat ( whole (.completion task))
 
 
 
@@ -132,7 +135,7 @@ type Msg
     | Add
     | Delete TaskId
     | DeleteComplete
-    | UpdateProgress TaskId Progress
+    | UpdateProgressPart TaskId Part
     | CheckAll Progress
     | ChangeVisibility String
 
@@ -195,11 +198,11 @@ update msg model =
             { model | tasks = List.filter (not << completed) model.tasks }
                 ! []
 
-        UpdateProgress id completion ->
+        UpdateProgressPart id new_completion ->
             let
                 updateTask t =
                     if t.id == id then
-                        { t | completion = completion }
+                        { t | completion = (new_completion, units t.completion)  }
                     else
                         t
             in
@@ -226,20 +229,25 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div
-        [ class "todomvc-wrapper"
-        , style [ ( "visibility", "hidden" ) ]
-        ]
+        [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ]]
         [ section
             [ class "todoapp" ]
+
             [ lazy viewInput model.field
             , lazy2 viewTasks model.visibility model.tasks
             , lazy2 viewControls model.visibility model.tasks
             ]
+
         , infoFooter
+        , section [css [opacity (num 0.1)]]
+            [
+              text (modelToJson model)
+            ]
         ]
 
 
-viewInput : String -> Html Msg
+-- viewInput : String -> Html Msg
+viewInput : String -> VirtualDom.Node Msg
 viewInput task =
     header
         [ class "header" ]
@@ -255,6 +263,7 @@ viewInput task =
             ]
             []
         ]
+    |> toUnstyled
 
 
 onEnter : Msg -> Attribute Msg
@@ -262,18 +271,19 @@ onEnter msg =
     let
         isEnter code =
             if code == 13 then
-                Json.succeed msg
+                Decode.succeed msg
             else
-                Json.fail "not ENTER"
+                Decode.fail "not ENTER"
     in
-    on "keydown" (Json.andThen isEnter keyCode)
+    on "keydown" (Decode.andThen isEnter keyCode)
 
 
 
 -- VIEW ALL TODOS
 
 
-viewTasks : String -> List Task -> Html Msg
+-- viewTasks : String -> List Task -> Html Msg
+viewTasks : String -> List Task -> VirtualDom.Node Msg
 viewTasks visibility tasks =
     let
         isVisible task =
@@ -304,13 +314,13 @@ viewTasks visibility tasks =
             [ class "toggle-all"
             , type_ "checkbox"
             , name "toggle"
-            , checked allCompleted
+            , Html.Styled.Attributes.checked allCompleted
             , onClick
                 (CheckAll
                     (if not allCompleted then
-                        1
+                        progressFromFloat 1
                      else
-                        0
+                        progressFromFloat 0
                     )
                 )
             ]
@@ -321,6 +331,7 @@ viewTasks visibility tasks =
         , Keyed.ul [ class "task-list" ] <|
             List.map viewKeyedTask (List.filter isVisible tasks)
         ]
+    |> toUnstyled
 
 
 
@@ -332,20 +343,32 @@ viewKeyedTask task =
     ( toString task.id, lazy viewTask task )
 
 
-viewTask : Task -> Html Msg
+-- viewTask : Task -> Html Msg
+viewTask : Task -> VirtualDom.Node Msg
 viewTask task =
     li
         [ classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
-        [ div
+        [ input
+            [ class "task-progress"
+            , type_ "range"
+            , value <| toString <| part task.completion
+            , Html.Styled.Attributes.min "0"
+            , Html.Styled.Attributes.max <| toString <| whole task.completion
+            , step (if (discrete <| units task.completion) then "1" else "any")
+            , onInput (extractSliderInput task)
+            , onDoubleClick (EditingTask task.id True)
+            , dynamicSliderThumbCss (normalizedPart task.completion)
+            ] []
+        , div
             [ class "view" ]
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
-                , checked (completed task)
+                , Html.Styled.Attributes.checked (completed task)
                 , onClick
-                    (UpdateProgress task.id
+                    (UpdateProgressPart task.id
                         (if not (completed task) then
-                            1
+                            toFloat <| whole task.completion
                          else
                             0
                         )
@@ -372,13 +395,24 @@ viewTask task =
             ]
             []
         ]
+    |> toUnstyled
+
+dynamicSliderThumbCss : Float -> Attribute msg
+dynamicSliderThumbCss portion =
+  let (angle, offset) = (portion * -90, abs ( (portion - 0.5) * 10) )
+  in  css [ focus [pseudoElement "-moz-range-thumb" [transforms [translateY (px (-50 + offset)), rotate (deg angle)]]]]
+
+extractSliderInput : Task -> String -> Msg
+extractSliderInput task input =
+  UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
 
 
 
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : String -> List Task -> Html Msg
+-- viewControls : String -> List Task -> Html Msg
+viewControls : String -> List Task -> VirtualDom.Node Msg
 viewControls visibility tasks =
     let
         tasksCompleted =
@@ -389,15 +423,16 @@ viewControls visibility tasks =
     in
     footer
         [ class "footer"
-        , hidden (List.isEmpty tasks)
+        , Html.Styled.Attributes.hidden (List.isEmpty tasks)
         ]
         [ lazy viewControlsCount tasksLeft
         , lazy viewControlsFilters visibility
         , lazy viewControlsClear tasksCompleted
         ]
+    |> toUnstyled
 
-
-viewControlsCount : Int -> Html Msg
+viewControlsCount : number -> VirtualDom.Node msg
+-- viewControlsCount : Int -> VirtualDom.Node msg
 viewControlsCount tasksLeft =
     let
         item_ =
@@ -411,9 +446,11 @@ viewControlsCount tasksLeft =
         [ strong [] [ text (toString tasksLeft) ]
         , text (item_ ++ " left")
         ]
+    |> toUnstyled
 
+viewControlsFilters : String -> VirtualDom.Node Msg
 
-viewControlsFilters : String -> Html Msg
+-- viewControlsFilters : String -> VirtualDom.Node Msg
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
@@ -423,6 +460,7 @@ viewControlsFilters visibility =
         , text " "
         , visibilitySwap "#/completed" "Completed" visibility
         ]
+    |> toUnstyled
 
 
 visibilitySwap : String -> String -> String -> Html Msg
@@ -434,16 +472,23 @@ visibilitySwap uri visibility actualVisibility =
         ]
 
 
-viewControlsClear : Int -> Html Msg
+-- viewControlsClear : Int -> VirtualDom.Node Msg
+viewControlsClear : number -> VirtualDom.Node Msg
 viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
-        , hidden (tasksCompleted == 0)
+        , Html.Styled.Attributes.hidden (tasksCompleted == 0)
         , onClick DeleteComplete
         ]
         [ text ("Clear completed (" ++ toString tasksCompleted ++ ")")
         ]
+    |> toUnstyled
 
+-- myStyle = (style, "color:red")
+--
+-- div [(att1, "hi"), (att2, "yo"), (myStyle completion)] [nodes]
+--
+-- <div att1="hi" att2="yo">nodes</div>
 
 infoFooter : Html msg
 infoFooter =
@@ -458,3 +503,9 @@ infoFooter =
             , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
             ]
         ]
+
+-- type Phrase = Written_by
+--             | Double_click_to_edit_a_task
+-- say : Phrase -> Language -> String
+-- say phrase language =
+--     ""

@@ -1,0 +1,209 @@
+
+/**Everything I added is below **/
+
+progress {
+  width:100%;
+  position: relative;
+  display: block;
+}
+
+progress::progress-bar {
+    background: "black";
+}
+
+/*Chrome*/
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+    input[type='range'] {
+      overflow: hidden;
+      width: 80px;
+      -webkit-appearance: none;
+      background-color: #9a905d;
+    }
+
+    input[type='range']::-webkit-slider-runnable-track {
+      height: 10px;
+      -webkit-appearance: none;
+      color: #13bba4;
+      margin-top: -1px;
+    }
+
+    input[type='range']::-webkit-slider-thumb {
+      width: 10px;
+      -webkit-appearance: none;
+      height: 10px;
+      cursor: ew-resize;
+      background: #434343;
+      box-shadow: -80px 0 0 80px #43e5f7;
+    }
+
+}
+/** FF*/
+input[type="range"]::-moz-range-progress {
+  background-color: transparent;
+  background: repeating-linear-gradient(
+    45deg,
+    #808ddc30,
+    #808ddc30 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  height: 100%;
+}
+input[type="range"]::-moz-range-track {
+  background-color: transparent;
+}
+/* IE*/
+input[type="range"]::-ms-fill-lower {
+  background-color: red;
+}
+input[type="range"]::-ms-fill-upper {
+  background-color: transparent;
+}
+
+
+.task-progress {
+  margin: 0;
+  padding: 0;
+  width:100%;
+  position: absolute;
+  display: block;
+    height: 100%;
+}
+
+/* all to customize the sliders */
+
+input[type=range] {
+  -webkit-appearance: none; /* Hides the slider so that custom slider can be made */
+  width: 100%; /* Specific width is required for Firefox. */
+  background: transparent; /* Otherwise white in Chrome */
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+}
+
+input[type=range]:focus {
+  outline: none; /* Removes the blue border. You should probably do some kind of focus styling for accessibility reasons though. */
+}
+
+input[type=range]::-ms-track {
+  width: 100%;
+  cursor: pointer;
+
+  /* Hides the slider so custom styles can be added */
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+
+
+/* Thumb */
+/* Special styling for WebKit/Blink */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  border: none;
+  height: 0;
+  width: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  margin-top: -14px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
+  /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; /* Add cool effects to your sliders! */
+}
+
+/* All the same stuff for Firefox */
+input[type=range]::-moz-range-thumb {
+  /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; */
+  border: none;
+  height: 0;
+  width: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Thumb on focus */
+input[type=range]:focus::-moz-range-thumb {
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: #89849b;
+  /* transform: translateY(-50px) rotate(-45deg); */
+  position: absolute;
+  top: -3em;
+  animation-name: bounce;
+  animation-fill-mode: both;
+  animation-duration: 1s;
+}
+
+/* All the same stuff for IE */
+input[type=range]::-ms-thumb {
+  /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; */
+  border: none;
+  height: 0;
+  width: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Track */
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; */
+  background: #3071a9;
+  border-radius: 1.3px;
+  /* border: 0.2px solid #010101; */
+}
+
+input[type=range]:focus::-webkit-slider-runnable-track {
+  background: #367ebd;
+}
+
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; */
+  background: transparent;
+  border-radius: 1.3px;
+  /* border: 0.2px solid #010101; */
+}
+
+input[type=range]::-ms-track {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  background: transparent;
+  border-color: transparent;
+  border-width: 16px 0;
+  color: transparent;
+}
+input[type=range]::-ms-fill-lower {
+  background: #2a6495;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]:focus::-ms-fill-lower {
+  background: #3071a9;
+}
+input[type=range]::-ms-fill-upper {
+  background: white;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]:focus::-ms-fill-upper {
+  background: #367ebd;
+}
+
+/* end customize the sliders */
+
+
+.view {
+  /* margin-top: -2em; */
+}
