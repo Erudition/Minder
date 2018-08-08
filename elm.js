@@ -19423,6 +19423,9 @@ var _evancz$elm_todomvc$View$viewControls = F2(
 					}
 				}));
 	});
+var _evancz$elm_todomvc$View$timingInfo = function (task) {
+	return _rtfeldman$elm_css$Html_Styled$text('');
+};
 var _evancz$elm_todomvc$View$extractSliderInput = F2(
 	function (task, input) {
 		return A2(
@@ -19611,19 +19614,38 @@ var _evancz$elm_todomvc$View$viewTask = function (task) {
 								_1: {
 									ctor: '::',
 									_0: A2(
-										_rtfeldman$elm_css$Html_Styled$button,
+										_rtfeldman$elm_css$Html_Styled$div,
 										{
 											ctor: '::',
-											_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('destroy'),
-											_1: {
-												ctor: '::',
-												_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
-													_evancz$elm_todomvc$Update$Delete(task.id)),
-												_1: {ctor: '[]'}
-											}
+											_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('timing-info'),
+											_1: {ctor: '[]'}
 										},
-										{ctor: '[]'}),
-									_1: {ctor: '[]'}
+										{
+											ctor: '::',
+											_0: _evancz$elm_todomvc$View$timingInfo(task),
+											_1: {ctor: '[]'}
+										}),
+									_1: {
+										ctor: '::',
+										_0: A2(
+											_rtfeldman$elm_css$Html_Styled$button,
+											{
+												ctor: '::',
+												_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('destroy'),
+												_1: {
+													ctor: '::',
+													_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
+														_evancz$elm_todomvc$Update$Delete(task.id)),
+													_1: {ctor: '[]'}
+												}
+											},
+											{
+												ctor: '::',
+												_0: _rtfeldman$elm_css$Html_Styled$text('×'),
+												_1: {ctor: '[]'}
+											}),
+										_1: {ctor: '[]'}
+									}
 								}
 							}
 						}),

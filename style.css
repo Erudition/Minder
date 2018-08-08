@@ -183,10 +183,11 @@ label[for='toggle-all'] {
     width: 40px;
     /* auto, since non-WebKit browsers doesn't support input styling */
     height: auto;
-    position: absolute;
+    /* position: absolute;
     top: 0;
-    bottom: 0;
-    margin: auto 0;
+    bottom: 0; */
+    margin: 0 20px 0 0;
+    flex: none;
     border: none; /* Mobile Safari */
     -webkit-appearance: none;
     appearance: none;
@@ -200,14 +201,20 @@ label[for='toggle-all'] {
     content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="-10 -18 100 135"><circle cx="50" cy="50" r="50" fill="none" stroke="#bddad5" stroke-width="3"/><path fill="#5dc2af" d="M72 25L42 71 27 56l-4 4 20 20 34-52z"/></svg>');
 }
 
-.task-list li label {
+.task-list li .view {
     white-space: pre-line;
     word-break: break-all;
-    padding: 15px 60px 15px 15px;
-    margin-left: 45px;
-    display: block;
+    padding: 15px 0 15px 0;
+    /* margin-left: 45px; */
+    display: flex;
+    align-items: center;
     line-height: 1.2;
     transition: color 0.4s;
+}
+
+
+.task-list li label {
+    flex-grow: 1;
 }
 
 .task-list li.completed label {
@@ -215,31 +222,35 @@ label[for='toggle-all'] {
     text-decoration: line-through;
 }
 
+.task-list li .timing-info {
+    font-size: 10px;
+}
+
 .task-list li .destroy {
-    display: none;
-    position: absolute;
+    /* display: none; */
+    width: 0;
+    /* position: absolute;
     top: 0;
     right: 10px;
-    bottom: 0;
-    width: 40px;
-    height: 40px;
-    margin: auto 0;
+    bottom: 0; */
+    overflow-x: hidden;
+    /* height: 40px; */
+    /* margin: auto 0; */
+    padding: 0;
     font-size: 30px;
+     line-height: 20px; /* Trim excess fat above/below */
     color: #cc9a9a;
-    margin-bottom: 11px;
-    transition: color 0.2s ease-out;
+    /* margin-bottom: 11px; */
+    transition: color 0.2s ease-out, width 0.2s ease-out;
 }
 
 .task-list li .destroy:hover {
     color: #af5b5e;
 }
 
-.task-list li .destroy:after {
-    content: '×';
-}
-
 .task-list li:hover .destroy {
-    display: block;
+    /* display: inline; */
+    width: 40px;
 }
 
 .task-list li .edit {

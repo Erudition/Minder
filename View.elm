@@ -167,11 +167,14 @@ viewTask task =
             , label
                 [ onDoubleClick (EditingTask task.id True) ]
                 [ text task.title ]
+            , div
+                [ class "timing-info" ]
+                [ timingInfo task ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.id)
                 ]
-                []
+                [text "×"]
             ]
         , input
             [ class "edit"
@@ -218,6 +221,9 @@ extractSliderInput : Task -> String -> Msg
 extractSliderInput task input =
   UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
 
+timingInfo : Task -> Html Msg
+timingInfo task =
+    text ""
 
 
 -- VIEW CONTROLS AND FOOTER
