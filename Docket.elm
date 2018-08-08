@@ -2,9 +2,7 @@ port module Docket exposing (..)
 
 -- core libraries
 
-import Update exposing (..)
-import View exposing (..)
-
+import Html.Styled exposing (..)
 
 
 
@@ -16,7 +14,9 @@ import View exposing (..)
 -- ours
 
 import Model exposing (..)
-import Model.Progress exposing (..)
+import Update exposing (..)
+import View exposing (..)
+import Porting exposing (..)
 
 
 {-- IMPORT HANDLING

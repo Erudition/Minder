@@ -147,17 +147,7 @@ viewTask : Task -> VirtualDom.Node Msg
 viewTask task =
     li
         [ classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
-        [ input
-            [ class "task-progress"
-            , type_ "range"
-            , value <| toString <| part task.completion
-            , Html.Styled.Attributes.min "0"
-            , Html.Styled.Attributes.max <| toString <| whole task.completion
-            , step (if (discrete <| units task.completion) then "1" else "any")
-            , onInput (extractSliderInput task)
-            , onDoubleClick (EditingTask task.id True)
-            , dynamicSliderThumbCss (normalizedPart task.completion)
-            ] []
+        [ progressSlider task
         , div
             [ class "view" ]
             [ input
@@ -196,9 +186,32 @@ viewTask task =
         ]
     |> toUnstyled
 
+
+{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
+-}
+progressSlider : Task -> Html Msg
+progressSlider task = input
+    [ class "task-progress"
+    , type_ "range"
+    , value <| toString <| part task.completion
+    , Html.Styled.Attributes.min "0"
+    , Html.Styled.Attributes.max <| toString <| whole task.completion
+    , step (if (discrete <| units task.completion) then "1" else "any")
+    , onInput (extractSliderInput task)
+    , onDoubleClick (EditingTask task.id True)
+    , dynamicSliderThumbCss (normalizedPart task.completion)
+    ] []
+
+
+{-| The Slider has a thumb control that we push outside of the box, and shape it kinda like a pin, like the text selector on Android. Unfortunately, it expects the track to have side margins, so it only bumps up against the edges and doesn't line up with the actual progress since the track has been stretched to not have these standard margins.
+
+Rather than force the thumb to push past the walls, I came up with this cool-looking way to warp the tip of the pin to always line up correctly. The pin is rotated more or less than the original 45deg (center) based on the progress being more or less than 50%.
+
+Also, since this caused the thumb to appear to float a few pixels higher when at extreme rotations, I added a small linear offset to make it line up better. This is technically still wrong, TODO it should be a trigonometric offset (sin/cos) since rotation is causing the need for it.
+-}
 dynamicSliderThumbCss : Float -> Attribute msg
 dynamicSliderThumbCss portion =
-  let (angle, offset) = (portion * -90, abs ( (portion - 0.5) * 10) )
+  let (angle, offset) = (portion * -90, abs ( (portion - 0.5) * 5) )
   in  css [ focus [pseudoElement "-moz-range-thumb" [transforms [translateY (px (-50 + offset)), rotate (deg angle)]]]]
 
 extractSliderInput : Task -> String -> Msg

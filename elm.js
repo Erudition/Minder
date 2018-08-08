@@ -17817,484 +17817,6 @@ var _rtfeldman$elm_css$Html_Styled$summary = _rtfeldman$elm_css$Html_Styled$node
 var _rtfeldman$elm_css$Html_Styled$menuitem = _rtfeldman$elm_css$Html_Styled$node('menuitem');
 var _rtfeldman$elm_css$Html_Styled$menu = _rtfeldman$elm_css$Html_Styled$node('menu');
 
-var _rtfeldman$elm_css$Html_Styled_Attributes$css = _rtfeldman$elm_css$Html_Styled_Internal$css;
-var _rtfeldman$elm_css$Html_Styled_Attributes$map = _rtfeldman$elm_css$VirtualDom_Styled$mapProperty;
-var _rtfeldman$elm_css$Html_Styled_Attributes$attribute = _rtfeldman$elm_css$VirtualDom_Styled$attribute;
-var _rtfeldman$elm_css$Html_Styled_Attributes$contextmenu = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'contextmenu', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$draggable = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'draggable', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$itemprop = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'itemprop', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$tabindex = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'tabIndex',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$charset = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'charset', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$height = function (value) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'height',
-		_elm_lang$core$Basics$toString(value));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$width = function (value) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'width',
-		_elm_lang$core$Basics$toString(value));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$formaction = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'formAction', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$list = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'list', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$minlength = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'minLength',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$maxlength = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'maxlength',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$size = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'size',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$form = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'form', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$cols = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'cols',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$rows = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'rows',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$challenge = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'challenge', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$media = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'media', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$rel = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'rel', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$datetime = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'datetime', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$pubdate = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'pubdate', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$colspan = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'colspan',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$rowspan = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
-		'rowspan',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$manifest = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'manifest', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$property = _rtfeldman$elm_css$VirtualDom_Styled$property;
-var _rtfeldman$elm_css$Html_Styled_Attributes$stringProperty = F2(
-	function (name, string) {
-		return A2(
-			_rtfeldman$elm_css$Html_Styled_Attributes$property,
-			name,
-			_elm_lang$core$Json_Encode$string(string));
-	});
-var _rtfeldman$elm_css$Html_Styled_Attributes$class = function (name) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'className', name);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$id = function (name) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'id', name);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$title = function (name) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'title', name);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$accesskey = function ($char) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
-		'accessKey',
-		_elm_lang$core$String$fromChar($char));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$dir = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'dir', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$dropzone = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'dropzone', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$lang = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'lang', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$content = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'content', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$httpEquiv = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'httpEquiv', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$language = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'language', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$src = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'src', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$alt = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'alt', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$preload = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'preload', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$poster = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'poster', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$kind = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'kind', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$srclang = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'srclang', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$sandbox = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'sandbox', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$srcdoc = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'srcdoc', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$type_ = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'type', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$value = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'value', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$defaultValue = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'defaultValue', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$placeholder = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'placeholder', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$accept = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'accept', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$acceptCharset = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'acceptCharset', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$action = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'action', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$autocomplete = function (bool) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
-		'autocomplete',
-		bool ? 'on' : 'off');
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$enctype = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'enctype', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$method = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'method', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$name = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'name', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$pattern = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'pattern', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$for = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'htmlFor', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$max = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'max', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$min = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'min', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$step = function (n) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'step', n);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$wrap = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'wrap', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$usemap = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'useMap', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$shape = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'shape', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$coords = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'coords', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$keytype = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'keytype', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$align = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'align', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$cite = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'cite', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$href = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'href', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$target = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'target', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$downloadAs = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'download', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$hreflang = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'hreflang', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$ping = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'ping', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$start = function (n) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
-		'start',
-		_elm_lang$core$Basics$toString(n));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$headers = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'headers', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$scope = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'scope', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$boolProperty = F2(
-	function (name, bool) {
-		return A2(
-			_rtfeldman$elm_css$Html_Styled_Attributes$property,
-			name,
-			_elm_lang$core$Json_Encode$bool(bool));
-	});
-var _rtfeldman$elm_css$Html_Styled_Attributes$hidden = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'hidden', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$contenteditable = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'contentEditable', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$spellcheck = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'spellcheck', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$async = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'async', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$defer = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'defer', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$scoped = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'scoped', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$autoplay = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'autoplay', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$controls = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'controls', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$loop = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'loop', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$default = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'default', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$seamless = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'seamless', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$checked = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'checked', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$selected = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'selected', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$autofocus = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'autofocus', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$disabled = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'disabled', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$multiple = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'multiple', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$novalidate = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'noValidate', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$readonly = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'readOnly', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$required = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'required', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$ismap = function (value) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'isMap', value);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$download = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'download', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$reversed = function (bool) {
-	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'reversed', bool);
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$classList = function (list) {
-	return _rtfeldman$elm_css$Html_Styled_Attributes$class(
-		A2(
-			_elm_lang$core$String$join,
-			' ',
-			A2(
-				_elm_lang$core$List$map,
-				_elm_lang$core$Tuple$first,
-				A2(_elm_lang$core$List$filter, _elm_lang$core$Tuple$second, list))));
-};
-var _rtfeldman$elm_css$Html_Styled_Attributes$fromUnstyled = _rtfeldman$elm_css$VirtualDom_Styled$unstyledProperty;
-var _rtfeldman$elm_css$Html_Styled_Attributes$style = function (_p0) {
-	return _rtfeldman$elm_css$Html_Styled_Attributes$fromUnstyled(
-		_elm_lang$virtual_dom$VirtualDom$style(_p0));
-};
-
-var _rtfeldman$elm_css$Html_Styled_Events$keyCode = A2(_elm_lang$core$Json_Decode$field, 'keyCode', _elm_lang$core$Json_Decode$int);
-var _rtfeldman$elm_css$Html_Styled_Events$targetChecked = A2(
-	_elm_lang$core$Json_Decode$at,
-	{
-		ctor: '::',
-		_0: 'target',
-		_1: {
-			ctor: '::',
-			_0: 'checked',
-			_1: {ctor: '[]'}
-		}
-	},
-	_elm_lang$core$Json_Decode$bool);
-var _rtfeldman$elm_css$Html_Styled_Events$targetValue = A2(
-	_elm_lang$core$Json_Decode$at,
-	{
-		ctor: '::',
-		_0: 'target',
-		_1: {
-			ctor: '::',
-			_0: 'value',
-			_1: {ctor: '[]'}
-		}
-	},
-	_elm_lang$core$Json_Decode$string);
-var _rtfeldman$elm_css$Html_Styled_Events$defaultOptions = _elm_lang$virtual_dom$VirtualDom$defaultOptions;
-var _rtfeldman$elm_css$Html_Styled_Events$onWithOptions = _rtfeldman$elm_css$VirtualDom_Styled$onWithOptions;
-var _rtfeldman$elm_css$Html_Styled_Events$on = _rtfeldman$elm_css$VirtualDom_Styled$on;
-var _rtfeldman$elm_css$Html_Styled_Events$onFocus = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'focus',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onBlur = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'blur',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onSubmitOptions = _elm_lang$core$Native_Utils.update(
-	_rtfeldman$elm_css$Html_Styled_Events$defaultOptions,
-	{preventDefault: true});
-var _rtfeldman$elm_css$Html_Styled_Events$onSubmit = function (msg) {
-	return A3(
-		_rtfeldman$elm_css$Html_Styled_Events$onWithOptions,
-		'submit',
-		_rtfeldman$elm_css$Html_Styled_Events$onSubmitOptions,
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onCheck = function (tagger) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'change',
-		A2(_elm_lang$core$Json_Decode$map, tagger, _rtfeldman$elm_css$Html_Styled_Events$targetChecked));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onInput = function (tagger) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'input',
-		A2(_elm_lang$core$Json_Decode$map, tagger, _rtfeldman$elm_css$Html_Styled_Events$targetValue));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseOut = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mouseout',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseOver = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mouseover',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseLeave = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mouseleave',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseEnter = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mouseenter',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseUp = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mouseup',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onMouseDown = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'mousedown',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'dblclick',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$onClick = function (msg) {
-	return A2(
-		_rtfeldman$elm_css$Html_Styled_Events$on,
-		'click',
-		_elm_lang$core$Json_Decode$succeed(msg));
-};
-var _rtfeldman$elm_css$Html_Styled_Events$Options = F2(
-	function (a, b) {
-		return {stopPropagation: a, preventDefault: b};
-	});
-
-var _rtfeldman$elm_css$Html_Styled_Keyed$node = _rtfeldman$elm_css$VirtualDom_Styled$keyedNode;
-var _rtfeldman$elm_css$Html_Styled_Keyed$ol = _rtfeldman$elm_css$Html_Styled_Keyed$node('ol');
-var _rtfeldman$elm_css$Html_Styled_Keyed$ul = _rtfeldman$elm_css$Html_Styled_Keyed$node('ul');
-
-var _rtfeldman$elm_css$Html_Styled_Lazy$lazy3 = _rtfeldman$elm_css$VirtualDom_Styled$lazy3;
-var _rtfeldman$elm_css$Html_Styled_Lazy$lazy2 = _rtfeldman$elm_css$VirtualDom_Styled$lazy2;
-var _rtfeldman$elm_css$Html_Styled_Lazy$lazy = _rtfeldman$elm_css$VirtualDom_Styled$lazy;
-
 var _evancz$elm_todomvc$Model_Progress$max = function (unit) {
 	var _p0 = unit;
 	switch (_p0.ctor) {
@@ -18440,6 +17962,194 @@ var _evancz$elm_todomvc$Model$OnDayOf = function (a) {
 var _evancz$elm_todomvc$Model$AtExactly = function (a) {
 	return {ctor: 'AtExactly', _0: a};
 };
+
+var _evancz$elm_todomvc$Update$completed = function (task) {
+	return _elm_lang$core$Native_Utils.eq(
+		_evancz$elm_todomvc$Model_Progress$part(
+			function (_) {
+				return _.completion;
+			}(task)),
+		_elm_lang$core$Basics$toFloat(
+			_evancz$elm_todomvc$Model_Progress$whole(
+				function (_) {
+					return _.completion;
+				}(task))));
+};
+var _evancz$elm_todomvc$Update$ChangeVisibility = function (a) {
+	return {ctor: 'ChangeVisibility', _0: a};
+};
+var _evancz$elm_todomvc$Update$CheckAll = function (a) {
+	return {ctor: 'CheckAll', _0: a};
+};
+var _evancz$elm_todomvc$Update$UpdateProgressPart = F2(
+	function (a, b) {
+		return {ctor: 'UpdateProgressPart', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Update$DeleteComplete = {ctor: 'DeleteComplete'};
+var _evancz$elm_todomvc$Update$Delete = function (a) {
+	return {ctor: 'Delete', _0: a};
+};
+var _evancz$elm_todomvc$Update$Add = {ctor: 'Add'};
+var _evancz$elm_todomvc$Update$UpdateTask = F2(
+	function (a, b) {
+		return {ctor: 'UpdateTask', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Update$EditingTask = F2(
+	function (a, b) {
+		return {ctor: 'EditingTask', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Update$UpdateField = function (a) {
+	return {ctor: 'UpdateField', _0: a};
+};
+var _evancz$elm_todomvc$Update$NoOp = {ctor: 'NoOp'};
+var _evancz$elm_todomvc$Update$update = F2(
+	function (msg, model) {
+		var _p0 = msg;
+		switch (_p0.ctor) {
+			case 'NoOp':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					model,
+					{ctor: '[]'});
+			case 'Add':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							uid: model.uid + 1,
+							field: '',
+							tasks: _elm_lang$core$String$isEmpty(model.field) ? model.tasks : A2(
+								_elm_lang$core$Basics_ops['++'],
+								model.tasks,
+								{
+									ctor: '::',
+									_0: A2(_evancz$elm_todomvc$Model$newTask, model.field, model.uid),
+									_1: {ctor: '[]'}
+								})
+						}),
+					{ctor: '[]'});
+			case 'UpdateField':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{field: _p0._0}),
+					{ctor: '[]'});
+			case 'EditingTask':
+				var _p2 = _p0._0;
+				var focus = _elm_lang$dom$Dom$focus(
+					A2(
+						_elm_lang$core$Basics_ops['++'],
+						'task-',
+						_elm_lang$core$Basics$toString(_p2)));
+				var updateTask = function (t) {
+					return _elm_lang$core$Native_Utils.eq(t.id, _p2) ? _elm_lang$core$Native_Utils.update(
+						t,
+						{editing: _p0._1}) : t;
+				};
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
+						}),
+					{
+						ctor: '::',
+						_0: A2(
+							_elm_lang$core$Task$attempt,
+							function (_p1) {
+								return _evancz$elm_todomvc$Update$NoOp;
+							},
+							focus),
+						_1: {ctor: '[]'}
+					});
+			case 'UpdateTask':
+				var updateTask = function (t) {
+					return _elm_lang$core$Native_Utils.eq(t.id, _p0._0) ? _elm_lang$core$Native_Utils.update(
+						t,
+						{title: _p0._1}) : t;
+				};
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
+						}),
+					{ctor: '[]'});
+			case 'Delete':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(
+								_elm_lang$core$List$filter,
+								function (t) {
+									return !_elm_lang$core$Native_Utils.eq(t.id, _p0._0);
+								},
+								model.tasks)
+						}),
+					{ctor: '[]'});
+			case 'DeleteComplete':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(
+								_elm_lang$core$List$filter,
+								function (_p3) {
+									return !_evancz$elm_todomvc$Update$completed(_p3);
+								},
+								model.tasks)
+						}),
+					{ctor: '[]'});
+			case 'UpdateProgressPart':
+				var updateTask = function (t) {
+					return _elm_lang$core$Native_Utils.eq(t.id, _p0._0) ? _elm_lang$core$Native_Utils.update(
+						t,
+						{
+							completion: {
+								ctor: '_Tuple2',
+								_0: _p0._1,
+								_1: _evancz$elm_todomvc$Model_Progress$units(t.completion)
+							}
+						}) : t;
+				};
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
+						}),
+					{ctor: '[]'});
+			case 'CheckAll':
+				var updateTask = function (t) {
+					return _elm_lang$core$Native_Utils.update(
+						t,
+						{completion: _p0._0});
+				};
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
+						}),
+					{ctor: '[]'});
+			default:
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{visibility: _p0._0}),
+					{ctor: '[]'});
+		}
+	});
 
 var _evancz$elm_todomvc$Porting$encodeMoment = function (moment) {
 	return _elm_lang$core$Json_Encode$string(
@@ -18942,6 +18652,15 @@ var _evancz$elm_todomvc$Porting$decodeModel = A6(
 		_elm_lang$core$Json_Decode$field,
 		'errors',
 		_elm_lang$core$Json_Decode$list(_elm_lang$core$Json_Decode$string)));
+var _evancz$elm_todomvc$Porting$modelToJson = function (model) {
+	return A2(
+		_elm_lang$core$Json_Encode$encode,
+		0,
+		_evancz$elm_todomvc$Porting$encodeModel(model));
+};
+var _evancz$elm_todomvc$Porting$modelFromJson = function (incomingJson) {
+	return A2(_elm_lang$core$Json_Decode$decodeString, _evancz$elm_todomvc$Porting$decodeModel, incomingJson);
+};
 var _evancz$elm_todomvc$Porting$Rectangle = F2(
 	function (a, b) {
 		return {width: a, height: b};
@@ -18992,7 +18711,485 @@ var _evancz$elm_todomvc$Porting$decodeShape = _elm_lang$core$Json_Decode$oneOf(
 		}
 	});
 
-var _evancz$elm_todomvc$Docket$infoFooter = A2(
+var _rtfeldman$elm_css$Html_Styled_Attributes$css = _rtfeldman$elm_css$Html_Styled_Internal$css;
+var _rtfeldman$elm_css$Html_Styled_Attributes$map = _rtfeldman$elm_css$VirtualDom_Styled$mapProperty;
+var _rtfeldman$elm_css$Html_Styled_Attributes$attribute = _rtfeldman$elm_css$VirtualDom_Styled$attribute;
+var _rtfeldman$elm_css$Html_Styled_Attributes$contextmenu = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'contextmenu', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$draggable = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'draggable', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$itemprop = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'itemprop', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$tabindex = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'tabIndex',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$charset = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'charset', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$height = function (value) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'height',
+		_elm_lang$core$Basics$toString(value));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$width = function (value) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'width',
+		_elm_lang$core$Basics$toString(value));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$formaction = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'formAction', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$list = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'list', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$minlength = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'minLength',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$maxlength = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'maxlength',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$size = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'size',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$form = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'form', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$cols = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'cols',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$rows = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'rows',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$challenge = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'challenge', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$media = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'media', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$rel = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'rel', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$datetime = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'datetime', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$pubdate = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'pubdate', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$colspan = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'colspan',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$rowspan = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$attribute,
+		'rowspan',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$manifest = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$attribute, 'manifest', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$property = _rtfeldman$elm_css$VirtualDom_Styled$property;
+var _rtfeldman$elm_css$Html_Styled_Attributes$stringProperty = F2(
+	function (name, string) {
+		return A2(
+			_rtfeldman$elm_css$Html_Styled_Attributes$property,
+			name,
+			_elm_lang$core$Json_Encode$string(string));
+	});
+var _rtfeldman$elm_css$Html_Styled_Attributes$class = function (name) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'className', name);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$id = function (name) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'id', name);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$title = function (name) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'title', name);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$accesskey = function ($char) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
+		'accessKey',
+		_elm_lang$core$String$fromChar($char));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$dir = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'dir', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$dropzone = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'dropzone', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$lang = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'lang', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$content = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'content', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$httpEquiv = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'httpEquiv', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$language = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'language', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$src = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'src', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$alt = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'alt', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$preload = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'preload', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$poster = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'poster', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$kind = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'kind', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$srclang = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'srclang', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$sandbox = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'sandbox', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$srcdoc = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'srcdoc', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$type_ = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'type', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$value = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'value', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$defaultValue = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'defaultValue', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$placeholder = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'placeholder', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$accept = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'accept', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$acceptCharset = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'acceptCharset', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$action = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'action', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$autocomplete = function (bool) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
+		'autocomplete',
+		bool ? 'on' : 'off');
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$enctype = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'enctype', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$method = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'method', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$name = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'name', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$pattern = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'pattern', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$for = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'htmlFor', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$max = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'max', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$min = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'min', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$step = function (n) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'step', n);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$wrap = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'wrap', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$usemap = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'useMap', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$shape = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'shape', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$coords = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'coords', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$keytype = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'keytype', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$align = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'align', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$cite = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'cite', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$href = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'href', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$target = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'target', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$downloadAs = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'download', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$hreflang = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'hreflang', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$ping = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'ping', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$start = function (n) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty,
+		'start',
+		_elm_lang$core$Basics$toString(n));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$headers = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'headers', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$scope = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$stringProperty, 'scope', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$boolProperty = F2(
+	function (name, bool) {
+		return A2(
+			_rtfeldman$elm_css$Html_Styled_Attributes$property,
+			name,
+			_elm_lang$core$Json_Encode$bool(bool));
+	});
+var _rtfeldman$elm_css$Html_Styled_Attributes$hidden = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'hidden', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$contenteditable = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'contentEditable', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$spellcheck = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'spellcheck', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$async = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'async', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$defer = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'defer', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$scoped = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'scoped', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$autoplay = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'autoplay', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$controls = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'controls', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$loop = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'loop', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$default = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'default', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$seamless = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'seamless', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$checked = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'checked', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$selected = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'selected', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$autofocus = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'autofocus', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$disabled = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'disabled', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$multiple = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'multiple', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$novalidate = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'noValidate', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$readonly = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'readOnly', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$required = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'required', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$ismap = function (value) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'isMap', value);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$download = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'download', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$reversed = function (bool) {
+	return A2(_rtfeldman$elm_css$Html_Styled_Attributes$boolProperty, 'reversed', bool);
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$classList = function (list) {
+	return _rtfeldman$elm_css$Html_Styled_Attributes$class(
+		A2(
+			_elm_lang$core$String$join,
+			' ',
+			A2(
+				_elm_lang$core$List$map,
+				_elm_lang$core$Tuple$first,
+				A2(_elm_lang$core$List$filter, _elm_lang$core$Tuple$second, list))));
+};
+var _rtfeldman$elm_css$Html_Styled_Attributes$fromUnstyled = _rtfeldman$elm_css$VirtualDom_Styled$unstyledProperty;
+var _rtfeldman$elm_css$Html_Styled_Attributes$style = function (_p0) {
+	return _rtfeldman$elm_css$Html_Styled_Attributes$fromUnstyled(
+		_elm_lang$virtual_dom$VirtualDom$style(_p0));
+};
+
+var _rtfeldman$elm_css$Html_Styled_Events$keyCode = A2(_elm_lang$core$Json_Decode$field, 'keyCode', _elm_lang$core$Json_Decode$int);
+var _rtfeldman$elm_css$Html_Styled_Events$targetChecked = A2(
+	_elm_lang$core$Json_Decode$at,
+	{
+		ctor: '::',
+		_0: 'target',
+		_1: {
+			ctor: '::',
+			_0: 'checked',
+			_1: {ctor: '[]'}
+		}
+	},
+	_elm_lang$core$Json_Decode$bool);
+var _rtfeldman$elm_css$Html_Styled_Events$targetValue = A2(
+	_elm_lang$core$Json_Decode$at,
+	{
+		ctor: '::',
+		_0: 'target',
+		_1: {
+			ctor: '::',
+			_0: 'value',
+			_1: {ctor: '[]'}
+		}
+	},
+	_elm_lang$core$Json_Decode$string);
+var _rtfeldman$elm_css$Html_Styled_Events$defaultOptions = _elm_lang$virtual_dom$VirtualDom$defaultOptions;
+var _rtfeldman$elm_css$Html_Styled_Events$onWithOptions = _rtfeldman$elm_css$VirtualDom_Styled$onWithOptions;
+var _rtfeldman$elm_css$Html_Styled_Events$on = _rtfeldman$elm_css$VirtualDom_Styled$on;
+var _rtfeldman$elm_css$Html_Styled_Events$onFocus = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'focus',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onBlur = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'blur',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onSubmitOptions = _elm_lang$core$Native_Utils.update(
+	_rtfeldman$elm_css$Html_Styled_Events$defaultOptions,
+	{preventDefault: true});
+var _rtfeldman$elm_css$Html_Styled_Events$onSubmit = function (msg) {
+	return A3(
+		_rtfeldman$elm_css$Html_Styled_Events$onWithOptions,
+		'submit',
+		_rtfeldman$elm_css$Html_Styled_Events$onSubmitOptions,
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onCheck = function (tagger) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'change',
+		A2(_elm_lang$core$Json_Decode$map, tagger, _rtfeldman$elm_css$Html_Styled_Events$targetChecked));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onInput = function (tagger) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'input',
+		A2(_elm_lang$core$Json_Decode$map, tagger, _rtfeldman$elm_css$Html_Styled_Events$targetValue));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseOut = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mouseout',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseOver = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mouseover',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseLeave = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mouseleave',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseEnter = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mouseenter',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseUp = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mouseup',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onMouseDown = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'mousedown',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'dblclick',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$onClick = function (msg) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled_Events$on,
+		'click',
+		_elm_lang$core$Json_Decode$succeed(msg));
+};
+var _rtfeldman$elm_css$Html_Styled_Events$Options = F2(
+	function (a, b) {
+		return {stopPropagation: a, preventDefault: b};
+	});
+
+var _rtfeldman$elm_css$Html_Styled_Keyed$node = _rtfeldman$elm_css$VirtualDom_Styled$keyedNode;
+var _rtfeldman$elm_css$Html_Styled_Keyed$ol = _rtfeldman$elm_css$Html_Styled_Keyed$node('ol');
+var _rtfeldman$elm_css$Html_Styled_Keyed$ul = _rtfeldman$elm_css$Html_Styled_Keyed$node('ul');
+
+var _rtfeldman$elm_css$Html_Styled_Lazy$lazy3 = _rtfeldman$elm_css$VirtualDom_Styled$lazy3;
+var _rtfeldman$elm_css$Html_Styled_Lazy$lazy2 = _rtfeldman$elm_css$VirtualDom_Styled$lazy2;
+var _rtfeldman$elm_css$Html_Styled_Lazy$lazy = _rtfeldman$elm_css$VirtualDom_Styled$lazy;
+
+var _evancz$elm_todomvc$View$infoFooter = A2(
 	_rtfeldman$elm_css$Html_Styled$footer,
 	{
 		ctor: '::',
@@ -19063,7 +19260,109 @@ var _evancz$elm_todomvc$Docket$infoFooter = A2(
 			}
 		}
 	});
-var _evancz$elm_todomvc$Docket$viewControlsCount = function (tasksLeft) {
+var _evancz$elm_todomvc$View$viewControlsClear = function (tasksCompleted) {
+	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
+		A2(
+			_rtfeldman$elm_css$Html_Styled$button,
+			{
+				ctor: '::',
+				_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('clear-completed'),
+				_1: {
+					ctor: '::',
+					_0: _rtfeldman$elm_css$Html_Styled_Attributes$hidden(
+						_elm_lang$core$Native_Utils.eq(tasksCompleted, 0)),
+					_1: {
+						ctor: '::',
+						_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(_evancz$elm_todomvc$Update$DeleteComplete),
+						_1: {ctor: '[]'}
+					}
+				}
+			},
+			{
+				ctor: '::',
+				_0: _rtfeldman$elm_css$Html_Styled$text(
+					A2(
+						_elm_lang$core$Basics_ops['++'],
+						'Clear completed (',
+						A2(
+							_elm_lang$core$Basics_ops['++'],
+							_elm_lang$core$Basics$toString(tasksCompleted),
+							')'))),
+				_1: {ctor: '[]'}
+			}));
+};
+var _evancz$elm_todomvc$View$visibilitySwap = F3(
+	function (uri, visibility, actualVisibility) {
+		return A2(
+			_rtfeldman$elm_css$Html_Styled$li,
+			{
+				ctor: '::',
+				_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
+					_evancz$elm_todomvc$Update$ChangeVisibility(visibility)),
+				_1: {ctor: '[]'}
+			},
+			{
+				ctor: '::',
+				_0: A2(
+					_rtfeldman$elm_css$Html_Styled$a,
+					{
+						ctor: '::',
+						_0: _rtfeldman$elm_css$Html_Styled_Attributes$href(uri),
+						_1: {
+							ctor: '::',
+							_0: _rtfeldman$elm_css$Html_Styled_Attributes$classList(
+								{
+									ctor: '::',
+									_0: {
+										ctor: '_Tuple2',
+										_0: 'selected',
+										_1: _elm_lang$core$Native_Utils.eq(visibility, actualVisibility)
+									},
+									_1: {ctor: '[]'}
+								}),
+							_1: {ctor: '[]'}
+						}
+					},
+					{
+						ctor: '::',
+						_0: _rtfeldman$elm_css$Html_Styled$text(visibility),
+						_1: {ctor: '[]'}
+					}),
+				_1: {ctor: '[]'}
+			});
+	});
+var _evancz$elm_todomvc$View$viewControlsFilters = function (visibility) {
+	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
+		A2(
+			_rtfeldman$elm_css$Html_Styled$ul,
+			{
+				ctor: '::',
+				_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('filters'),
+				_1: {ctor: '[]'}
+			},
+			{
+				ctor: '::',
+				_0: A3(_evancz$elm_todomvc$View$visibilitySwap, '#/', 'All', visibility),
+				_1: {
+					ctor: '::',
+					_0: _rtfeldman$elm_css$Html_Styled$text(' '),
+					_1: {
+						ctor: '::',
+						_0: A3(_evancz$elm_todomvc$View$visibilitySwap, '#/active', 'Active', visibility),
+						_1: {
+							ctor: '::',
+							_0: _rtfeldman$elm_css$Html_Styled$text(' '),
+							_1: {
+								ctor: '::',
+								_0: A3(_evancz$elm_todomvc$View$visibilitySwap, '#/completed', 'Completed', visibility),
+								_1: {ctor: '[]'}
+							}
+						}
+					}
+				}
+			}));
+};
+var _evancz$elm_todomvc$View$viewControlsCount = function (tasksLeft) {
 	var item_ = _elm_lang$core$Native_Utils.eq(tasksLeft, 1) ? ' item' : ' items';
 	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
 		A2(
@@ -19092,11 +19391,53 @@ var _evancz$elm_todomvc$Docket$viewControlsCount = function (tasksLeft) {
 				}
 			}));
 };
-var _evancz$elm_todomvc$Docket$dynamicSliderThumbCss = function (portion) {
+var _evancz$elm_todomvc$View$viewControls = F2(
+	function (visibility, tasks) {
+		var tasksCompleted = _elm_lang$core$List$length(
+			A2(_elm_lang$core$List$filter, _evancz$elm_todomvc$Update$completed, tasks));
+		var tasksLeft = _elm_lang$core$List$length(tasks) - tasksCompleted;
+		return _rtfeldman$elm_css$Html_Styled$toUnstyled(
+			A2(
+				_rtfeldman$elm_css$Html_Styled$footer,
+				{
+					ctor: '::',
+					_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('footer'),
+					_1: {
+						ctor: '::',
+						_0: _rtfeldman$elm_css$Html_Styled_Attributes$hidden(
+							_elm_lang$core$List$isEmpty(tasks)),
+						_1: {ctor: '[]'}
+					}
+				},
+				{
+					ctor: '::',
+					_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$View$viewControlsCount, tasksLeft),
+					_1: {
+						ctor: '::',
+						_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$View$viewControlsFilters, visibility),
+						_1: {
+							ctor: '::',
+							_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$View$viewControlsClear, tasksCompleted),
+							_1: {ctor: '[]'}
+						}
+					}
+				}));
+	});
+var _evancz$elm_todomvc$View$extractSliderInput = F2(
+	function (task, input) {
+		return A2(
+			_evancz$elm_todomvc$Update$UpdateProgressPart,
+			task.id,
+			A2(
+				_elm_lang$core$Result$withDefault,
+				0,
+				_elm_lang$core$String$toFloat(input)));
+	});
+var _evancz$elm_todomvc$View$dynamicSliderThumbCss = function (portion) {
 	var _p0 = {
 		ctor: '_Tuple2',
 		_0: portion * -90,
-		_1: _elm_lang$core$Basics$abs((portion - 0.5) * 10)
+		_1: _elm_lang$core$Basics$abs((portion - 0.5) * 5)
 	};
 	var angle = _p0._0;
 	var offset = _p0._1;
@@ -19130,7 +19471,58 @@ var _evancz$elm_todomvc$Docket$dynamicSliderThumbCss = function (portion) {
 			_1: {ctor: '[]'}
 		});
 };
-var _evancz$elm_todomvc$Docket$onEnter = function (msg) {
+var _evancz$elm_todomvc$View$progressSlider = function (task) {
+	return A2(
+		_rtfeldman$elm_css$Html_Styled$input,
+		{
+			ctor: '::',
+			_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('task-progress'),
+			_1: {
+				ctor: '::',
+				_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('range'),
+				_1: {
+					ctor: '::',
+					_0: _rtfeldman$elm_css$Html_Styled_Attributes$value(
+						_elm_lang$core$Basics$toString(
+							_evancz$elm_todomvc$Model_Progress$part(task.completion))),
+					_1: {
+						ctor: '::',
+						_0: _rtfeldman$elm_css$Html_Styled_Attributes$min('0'),
+						_1: {
+							ctor: '::',
+							_0: _rtfeldman$elm_css$Html_Styled_Attributes$max(
+								_elm_lang$core$Basics$toString(
+									_evancz$elm_todomvc$Model_Progress$whole(task.completion))),
+							_1: {
+								ctor: '::',
+								_0: _rtfeldman$elm_css$Html_Styled_Attributes$step(
+									_evancz$elm_todomvc$Model_Progress$discrete(
+										_evancz$elm_todomvc$Model_Progress$units(task.completion)) ? '1' : 'any'),
+								_1: {
+									ctor: '::',
+									_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+										_evancz$elm_todomvc$View$extractSliderInput(task)),
+									_1: {
+										ctor: '::',
+										_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
+											A2(_evancz$elm_todomvc$Update$EditingTask, task.id, true)),
+										_1: {
+											ctor: '::',
+											_0: _evancz$elm_todomvc$View$dynamicSliderThumbCss(
+												_evancz$elm_todomvc$Model_Progress$normalizedPart(task.completion)),
+											_1: {ctor: '[]'}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		{ctor: '[]'});
+};
+var _evancz$elm_todomvc$View$onEnter = function (msg) {
 	var isEnter = function (code) {
 		return _elm_lang$core$Native_Utils.eq(code, 13) ? _elm_lang$core$Json_Decode$succeed(msg) : _elm_lang$core$Json_Decode$fail('not ENTER');
 	};
@@ -19139,227 +19531,7 @@ var _evancz$elm_todomvc$Docket$onEnter = function (msg) {
 		'keydown',
 		A2(_elm_lang$core$Json_Decode$andThen, isEnter, _rtfeldman$elm_css$Html_Styled_Events$keyCode));
 };
-var _evancz$elm_todomvc$Docket$completed = function (task) {
-	return _elm_lang$core$Native_Utils.eq(
-		_evancz$elm_todomvc$Model_Progress$part(
-			function (_) {
-				return _.completion;
-			}(task)),
-		_elm_lang$core$Basics$toFloat(
-			_evancz$elm_todomvc$Model_Progress$whole(
-				function (_) {
-					return _.completion;
-				}(task))));
-};
-var _evancz$elm_todomvc$Docket$modelToJson = function (model) {
-	return A2(
-		_elm_lang$core$Json_Encode$encode,
-		0,
-		_evancz$elm_todomvc$Porting$encodeModel(model));
-};
-var _evancz$elm_todomvc$Docket$modelFromJson = function (incomingJson) {
-	return A2(_elm_lang$core$Json_Decode$decodeString, _evancz$elm_todomvc$Porting$decodeModel, incomingJson);
-};
-var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
-	var finalModel = function () {
-		var _p1 = maybeModelAsJson;
-		if (_p1.ctor === 'Just') {
-			var _p2 = _evancz$elm_todomvc$Docket$modelFromJson(_p1._0);
-			if (_p2.ctor === 'Ok') {
-				return _p2._0;
-			} else {
-				return _elm_lang$core$Native_Utils.update(
-					_evancz$elm_todomvc$Model$emptyModel,
-					{
-						errors: {
-							ctor: '::',
-							_0: A2(_elm_lang$core$Debug$log, 'Errors', _p2._0),
-							_1: {ctor: '[]'}
-						}
-					});
-			}
-		} else {
-			return _evancz$elm_todomvc$Model$emptyModel;
-		}
-	}();
-	return A2(
-		_elm_lang$core$Platform_Cmd_ops['!'],
-		finalModel,
-		{ctor: '[]'});
-};
-var _evancz$elm_todomvc$Docket$setStorage = _elm_lang$core$Native_Platform.outgoingPort(
-	'setStorage',
-	function (v) {
-		return v;
-	});
-var _evancz$elm_todomvc$Docket$ChangeVisibility = function (a) {
-	return {ctor: 'ChangeVisibility', _0: a};
-};
-var _evancz$elm_todomvc$Docket$visibilitySwap = F3(
-	function (uri, visibility, actualVisibility) {
-		return A2(
-			_rtfeldman$elm_css$Html_Styled$li,
-			{
-				ctor: '::',
-				_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
-					_evancz$elm_todomvc$Docket$ChangeVisibility(visibility)),
-				_1: {ctor: '[]'}
-			},
-			{
-				ctor: '::',
-				_0: A2(
-					_rtfeldman$elm_css$Html_Styled$a,
-					{
-						ctor: '::',
-						_0: _rtfeldman$elm_css$Html_Styled_Attributes$href(uri),
-						_1: {
-							ctor: '::',
-							_0: _rtfeldman$elm_css$Html_Styled_Attributes$classList(
-								{
-									ctor: '::',
-									_0: {
-										ctor: '_Tuple2',
-										_0: 'selected',
-										_1: _elm_lang$core$Native_Utils.eq(visibility, actualVisibility)
-									},
-									_1: {ctor: '[]'}
-								}),
-							_1: {ctor: '[]'}
-						}
-					},
-					{
-						ctor: '::',
-						_0: _rtfeldman$elm_css$Html_Styled$text(visibility),
-						_1: {ctor: '[]'}
-					}),
-				_1: {ctor: '[]'}
-			});
-	});
-var _evancz$elm_todomvc$Docket$viewControlsFilters = function (visibility) {
-	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
-		A2(
-			_rtfeldman$elm_css$Html_Styled$ul,
-			{
-				ctor: '::',
-				_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('filters'),
-				_1: {ctor: '[]'}
-			},
-			{
-				ctor: '::',
-				_0: A3(_evancz$elm_todomvc$Docket$visibilitySwap, '#/', 'All', visibility),
-				_1: {
-					ctor: '::',
-					_0: _rtfeldman$elm_css$Html_Styled$text(' '),
-					_1: {
-						ctor: '::',
-						_0: A3(_evancz$elm_todomvc$Docket$visibilitySwap, '#/active', 'Active', visibility),
-						_1: {
-							ctor: '::',
-							_0: _rtfeldman$elm_css$Html_Styled$text(' '),
-							_1: {
-								ctor: '::',
-								_0: A3(_evancz$elm_todomvc$Docket$visibilitySwap, '#/completed', 'Completed', visibility),
-								_1: {ctor: '[]'}
-							}
-						}
-					}
-				}
-			}));
-};
-var _evancz$elm_todomvc$Docket$CheckAll = function (a) {
-	return {ctor: 'CheckAll', _0: a};
-};
-var _evancz$elm_todomvc$Docket$UpdateProgressPart = F2(
-	function (a, b) {
-		return {ctor: 'UpdateProgressPart', _0: a, _1: b};
-	});
-var _evancz$elm_todomvc$Docket$extractSliderInput = F2(
-	function (task, input) {
-		return A2(
-			_evancz$elm_todomvc$Docket$UpdateProgressPart,
-			task.id,
-			A2(
-				_elm_lang$core$Result$withDefault,
-				0,
-				_elm_lang$core$String$toFloat(input)));
-	});
-var _evancz$elm_todomvc$Docket$DeleteComplete = {ctor: 'DeleteComplete'};
-var _evancz$elm_todomvc$Docket$viewControlsClear = function (tasksCompleted) {
-	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
-		A2(
-			_rtfeldman$elm_css$Html_Styled$button,
-			{
-				ctor: '::',
-				_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('clear-completed'),
-				_1: {
-					ctor: '::',
-					_0: _rtfeldman$elm_css$Html_Styled_Attributes$hidden(
-						_elm_lang$core$Native_Utils.eq(tasksCompleted, 0)),
-					_1: {
-						ctor: '::',
-						_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(_evancz$elm_todomvc$Docket$DeleteComplete),
-						_1: {ctor: '[]'}
-					}
-				}
-			},
-			{
-				ctor: '::',
-				_0: _rtfeldman$elm_css$Html_Styled$text(
-					A2(
-						_elm_lang$core$Basics_ops['++'],
-						'Clear completed (',
-						A2(
-							_elm_lang$core$Basics_ops['++'],
-							_elm_lang$core$Basics$toString(tasksCompleted),
-							')'))),
-				_1: {ctor: '[]'}
-			}));
-};
-var _evancz$elm_todomvc$Docket$viewControls = F2(
-	function (visibility, tasks) {
-		var tasksCompleted = _elm_lang$core$List$length(
-			A2(_elm_lang$core$List$filter, _evancz$elm_todomvc$Docket$completed, tasks));
-		var tasksLeft = _elm_lang$core$List$length(tasks) - tasksCompleted;
-		return _rtfeldman$elm_css$Html_Styled$toUnstyled(
-			A2(
-				_rtfeldman$elm_css$Html_Styled$footer,
-				{
-					ctor: '::',
-					_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('footer'),
-					_1: {
-						ctor: '::',
-						_0: _rtfeldman$elm_css$Html_Styled_Attributes$hidden(
-							_elm_lang$core$List$isEmpty(tasks)),
-						_1: {ctor: '[]'}
-					}
-				},
-				{
-					ctor: '::',
-					_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$Docket$viewControlsCount, tasksLeft),
-					_1: {
-						ctor: '::',
-						_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$Docket$viewControlsFilters, visibility),
-						_1: {
-							ctor: '::',
-							_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$Docket$viewControlsClear, tasksCompleted),
-							_1: {ctor: '[]'}
-						}
-					}
-				}));
-	});
-var _evancz$elm_todomvc$Docket$Delete = function (a) {
-	return {ctor: 'Delete', _0: a};
-};
-var _evancz$elm_todomvc$Docket$Add = {ctor: 'Add'};
-var _evancz$elm_todomvc$Docket$UpdateTask = F2(
-	function (a, b) {
-		return {ctor: 'UpdateTask', _0: a, _1: b};
-	});
-var _evancz$elm_todomvc$Docket$EditingTask = F2(
-	function (a, b) {
-		return {ctor: 'EditingTask', _0: a, _1: b};
-	});
-var _evancz$elm_todomvc$Docket$viewTask = function (task) {
+var _evancz$elm_todomvc$View$viewTask = function (task) {
 	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
 		A2(
 			_rtfeldman$elm_css$Html_Styled$li,
@@ -19371,7 +19543,7 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 						_0: {
 							ctor: '_Tuple2',
 							_0: 'completed',
-							_1: _evancz$elm_todomvc$Docket$completed(task)
+							_1: _evancz$elm_todomvc$Update$completed(task)
 						},
 						_1: {
 							ctor: '::',
@@ -19383,55 +19555,7 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 			},
 			{
 				ctor: '::',
-				_0: A2(
-					_rtfeldman$elm_css$Html_Styled$input,
-					{
-						ctor: '::',
-						_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('task-progress'),
-						_1: {
-							ctor: '::',
-							_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('range'),
-							_1: {
-								ctor: '::',
-								_0: _rtfeldman$elm_css$Html_Styled_Attributes$value(
-									_elm_lang$core$Basics$toString(
-										_evancz$elm_todomvc$Model_Progress$part(task.completion))),
-								_1: {
-									ctor: '::',
-									_0: _rtfeldman$elm_css$Html_Styled_Attributes$min('0'),
-									_1: {
-										ctor: '::',
-										_0: _rtfeldman$elm_css$Html_Styled_Attributes$max(
-											_elm_lang$core$Basics$toString(
-												_evancz$elm_todomvc$Model_Progress$whole(task.completion))),
-										_1: {
-											ctor: '::',
-											_0: _rtfeldman$elm_css$Html_Styled_Attributes$step(
-												_evancz$elm_todomvc$Model_Progress$discrete(
-													_evancz$elm_todomvc$Model_Progress$units(task.completion)) ? '1' : 'any'),
-											_1: {
-												ctor: '::',
-												_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
-													_evancz$elm_todomvc$Docket$extractSliderInput(task)),
-												_1: {
-													ctor: '::',
-													_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
-														A2(_evancz$elm_todomvc$Docket$EditingTask, task.id, true)),
-													_1: {
-														ctor: '::',
-														_0: _evancz$elm_todomvc$Docket$dynamicSliderThumbCss(
-															_evancz$elm_todomvc$Model_Progress$normalizedPart(task.completion)),
-														_1: {ctor: '[]'}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					},
-					{ctor: '[]'}),
+				_0: _evancz$elm_todomvc$View$progressSlider(task),
 				_1: {
 					ctor: '::',
 					_0: A2(
@@ -19454,14 +19578,14 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 										_1: {
 											ctor: '::',
 											_0: _rtfeldman$elm_css$Html_Styled_Attributes$checked(
-												_evancz$elm_todomvc$Docket$completed(task)),
+												_evancz$elm_todomvc$Update$completed(task)),
 											_1: {
 												ctor: '::',
 												_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
 													A2(
-														_evancz$elm_todomvc$Docket$UpdateProgressPart,
+														_evancz$elm_todomvc$Update$UpdateProgressPart,
 														task.id,
-														(!_evancz$elm_todomvc$Docket$completed(task)) ? _elm_lang$core$Basics$toFloat(
+														(!_evancz$elm_todomvc$Update$completed(task)) ? _elm_lang$core$Basics$toFloat(
 															_evancz$elm_todomvc$Model_Progress$whole(task.completion)) : 0)),
 												_1: {ctor: '[]'}
 											}
@@ -19476,7 +19600,7 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 									{
 										ctor: '::',
 										_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
-											A2(_evancz$elm_todomvc$Docket$EditingTask, task.id, true)),
+											A2(_evancz$elm_todomvc$Update$EditingTask, task.id, true)),
 										_1: {ctor: '[]'}
 									},
 									{
@@ -19494,7 +19618,7 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 											_1: {
 												ctor: '::',
 												_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
-													_evancz$elm_todomvc$Docket$Delete(task.id)),
+													_evancz$elm_todomvc$Update$Delete(task.id)),
 												_1: {ctor: '[]'}
 											}
 										},
@@ -19526,15 +19650,15 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 											_1: {
 												ctor: '::',
 												_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
-													_evancz$elm_todomvc$Docket$UpdateTask(task.id)),
+													_evancz$elm_todomvc$Update$UpdateTask(task.id)),
 												_1: {
 													ctor: '::',
 													_0: _rtfeldman$elm_css$Html_Styled_Events$onBlur(
-														A2(_evancz$elm_todomvc$Docket$EditingTask, task.id, false)),
+														A2(_evancz$elm_todomvc$Update$EditingTask, task.id, false)),
 													_1: {
 														ctor: '::',
-														_0: _evancz$elm_todomvc$Docket$onEnter(
-															A2(_evancz$elm_todomvc$Docket$EditingTask, task.id, false)),
+														_0: _evancz$elm_todomvc$View$onEnter(
+															A2(_evancz$elm_todomvc$Update$EditingTask, task.id, false)),
 														_1: {ctor: '[]'}
 													}
 												}
@@ -19549,24 +19673,24 @@ var _evancz$elm_todomvc$Docket$viewTask = function (task) {
 				}
 			}));
 };
-var _evancz$elm_todomvc$Docket$viewKeyedTask = function (task) {
+var _evancz$elm_todomvc$View$viewKeyedTask = function (task) {
 	return {
 		ctor: '_Tuple2',
 		_0: _elm_lang$core$Basics$toString(task.id),
-		_1: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$Docket$viewTask, task)
+		_1: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$View$viewTask, task)
 	};
 };
-var _evancz$elm_todomvc$Docket$viewTasks = F2(
+var _evancz$elm_todomvc$View$viewTasks = F2(
 	function (visibility, tasks) {
 		var cssVisibility = _elm_lang$core$List$isEmpty(tasks) ? 'hidden' : 'visible';
-		var allCompleted = A2(_elm_lang$core$List$all, _evancz$elm_todomvc$Docket$completed, tasks);
+		var allCompleted = A2(_elm_lang$core$List$all, _evancz$elm_todomvc$Update$completed, tasks);
 		var isVisible = function (task) {
-			var _p3 = visibility;
-			switch (_p3) {
+			var _p1 = visibility;
+			switch (_p1) {
 				case 'Completed':
-					return _evancz$elm_todomvc$Docket$completed(task);
+					return _evancz$elm_todomvc$Update$completed(task);
 				case 'Active':
-					return !_evancz$elm_todomvc$Docket$completed(task);
+					return !_evancz$elm_todomvc$Update$completed(task);
 				default:
 					return true;
 			}
@@ -19607,7 +19731,7 @@ var _evancz$elm_todomvc$Docket$viewTasks = F2(
 										_1: {
 											ctor: '::',
 											_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
-												_evancz$elm_todomvc$Docket$CheckAll(
+												_evancz$elm_todomvc$Update$CheckAll(
 													(!allCompleted) ? _evancz$elm_todomvc$Model_Progress$progressFromFloat(1) : _evancz$elm_todomvc$Model_Progress$progressFromFloat(0))),
 											_1: {ctor: '[]'}
 										}
@@ -19641,17 +19765,14 @@ var _evancz$elm_todomvc$Docket$viewTasks = F2(
 								},
 								A2(
 									_elm_lang$core$List$map,
-									_evancz$elm_todomvc$Docket$viewKeyedTask,
+									_evancz$elm_todomvc$View$viewKeyedTask,
 									A2(_elm_lang$core$List$filter, isVisible, tasks))),
 							_1: {ctor: '[]'}
 						}
 					}
 				}));
 	});
-var _evancz$elm_todomvc$Docket$UpdateField = function (a) {
-	return {ctor: 'UpdateField', _0: a};
-};
-var _evancz$elm_todomvc$Docket$viewInput = function (task) {
+var _evancz$elm_todomvc$View$viewInput = function (task) {
 	return _rtfeldman$elm_css$Html_Styled$toUnstyled(
 		A2(
 			_rtfeldman$elm_css$Html_Styled$header,
@@ -19691,10 +19812,10 @@ var _evancz$elm_todomvc$Docket$viewInput = function (task) {
 											_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('newTask'),
 											_1: {
 												ctor: '::',
-												_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(_evancz$elm_todomvc$Docket$UpdateField),
+												_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(_evancz$elm_todomvc$Update$UpdateField),
 												_1: {
 													ctor: '::',
-													_0: _evancz$elm_todomvc$Docket$onEnter(_evancz$elm_todomvc$Docket$Add),
+													_0: _evancz$elm_todomvc$View$onEnter(_evancz$elm_todomvc$Update$Add),
 													_1: {ctor: '[]'}
 												}
 											}
@@ -19708,7 +19829,7 @@ var _evancz$elm_todomvc$Docket$viewInput = function (task) {
 				}
 			}));
 };
-var _evancz$elm_todomvc$Docket$view = function (model) {
+var _evancz$elm_todomvc$View$view = function (model) {
 	return A2(
 		_rtfeldman$elm_css$Html_Styled$div,
 		{
@@ -19736,20 +19857,20 @@ var _evancz$elm_todomvc$Docket$view = function (model) {
 				},
 				{
 					ctor: '::',
-					_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$Docket$viewInput, model.field),
+					_0: A2(_rtfeldman$elm_css$Html_Styled_Lazy$lazy, _evancz$elm_todomvc$View$viewInput, model.field),
 					_1: {
 						ctor: '::',
-						_0: A3(_rtfeldman$elm_css$Html_Styled_Lazy$lazy2, _evancz$elm_todomvc$Docket$viewTasks, model.visibility, model.tasks),
+						_0: A3(_rtfeldman$elm_css$Html_Styled_Lazy$lazy2, _evancz$elm_todomvc$View$viewTasks, model.visibility, model.tasks),
 						_1: {
 							ctor: '::',
-							_0: A3(_rtfeldman$elm_css$Html_Styled_Lazy$lazy2, _evancz$elm_todomvc$Docket$viewControls, model.visibility, model.tasks),
+							_0: A3(_rtfeldman$elm_css$Html_Styled_Lazy$lazy2, _evancz$elm_todomvc$View$viewControls, model.visibility, model.tasks),
 							_1: {ctor: '[]'}
 						}
 					}
 				}),
 			_1: {
 				ctor: '::',
-				_0: _evancz$elm_todomvc$Docket$infoFooter,
+				_0: _evancz$elm_todomvc$View$infoFooter,
 				_1: {
 					ctor: '::',
 					_0: A2(
@@ -19768,7 +19889,7 @@ var _evancz$elm_todomvc$Docket$view = function (model) {
 						{
 							ctor: '::',
 							_0: _rtfeldman$elm_css$Html_Styled$text(
-								_evancz$elm_todomvc$Docket$modelToJson(model)),
+								_evancz$elm_todomvc$Porting$modelToJson(model)),
 							_1: {ctor: '[]'}
 						}),
 					_1: {ctor: '[]'}
@@ -19776,160 +19897,44 @@ var _evancz$elm_todomvc$Docket$view = function (model) {
 			}
 		});
 };
-var _evancz$elm_todomvc$Docket$NoOp = {ctor: 'NoOp'};
-var _evancz$elm_todomvc$Docket$update = F2(
-	function (msg, model) {
-		var _p4 = msg;
-		switch (_p4.ctor) {
-			case 'NoOp':
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					model,
-					{ctor: '[]'});
-			case 'Add':
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							uid: model.uid + 1,
-							field: '',
-							tasks: _elm_lang$core$String$isEmpty(model.field) ? model.tasks : A2(
-								_elm_lang$core$Basics_ops['++'],
-								model.tasks,
-								{
-									ctor: '::',
-									_0: A2(_evancz$elm_todomvc$Model$newTask, model.field, model.uid),
-									_1: {ctor: '[]'}
-								})
-						}),
-					{ctor: '[]'});
-			case 'UpdateField':
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{field: _p4._0}),
-					{ctor: '[]'});
-			case 'EditingTask':
-				var _p6 = _p4._0;
-				var focus = _elm_lang$dom$Dom$focus(
-					A2(
-						_elm_lang$core$Basics_ops['++'],
-						'task-',
-						_elm_lang$core$Basics$toString(_p6)));
-				var updateTask = function (t) {
-					return _elm_lang$core$Native_Utils.eq(t.id, _p6) ? _elm_lang$core$Native_Utils.update(
-						t,
-						{editing: _p4._1}) : t;
-				};
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
-						}),
+
+var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
+	var finalModel = function () {
+		var _p0 = maybeModelAsJson;
+		if (_p0.ctor === 'Just') {
+			var _p1 = _evancz$elm_todomvc$Porting$modelFromJson(_p0._0);
+			if (_p1.ctor === 'Ok') {
+				return _p1._0;
+			} else {
+				return _elm_lang$core$Native_Utils.update(
+					_evancz$elm_todomvc$Model$emptyModel,
 					{
-						ctor: '::',
-						_0: A2(
-							_elm_lang$core$Task$attempt,
-							function (_p5) {
-								return _evancz$elm_todomvc$Docket$NoOp;
-							},
-							focus),
-						_1: {ctor: '[]'}
+						errors: {
+							ctor: '::',
+							_0: A2(_elm_lang$core$Debug$log, 'Errors', _p1._0),
+							_1: {ctor: '[]'}
+						}
 					});
-			case 'UpdateTask':
-				var updateTask = function (t) {
-					return _elm_lang$core$Native_Utils.eq(t.id, _p4._0) ? _elm_lang$core$Native_Utils.update(
-						t,
-						{title: _p4._1}) : t;
-				};
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
-						}),
-					{ctor: '[]'});
-			case 'Delete':
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(
-								_elm_lang$core$List$filter,
-								function (t) {
-									return !_elm_lang$core$Native_Utils.eq(t.id, _p4._0);
-								},
-								model.tasks)
-						}),
-					{ctor: '[]'});
-			case 'DeleteComplete':
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(
-								_elm_lang$core$List$filter,
-								function (_p7) {
-									return !_evancz$elm_todomvc$Docket$completed(_p7);
-								},
-								model.tasks)
-						}),
-					{ctor: '[]'});
-			case 'UpdateProgressPart':
-				var updateTask = function (t) {
-					return _elm_lang$core$Native_Utils.eq(t.id, _p4._0) ? _elm_lang$core$Native_Utils.update(
-						t,
-						{
-							completion: {
-								ctor: '_Tuple2',
-								_0: _p4._1,
-								_1: _evancz$elm_todomvc$Model_Progress$units(t.completion)
-							}
-						}) : t;
-				};
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
-						}),
-					{ctor: '[]'});
-			case 'CheckAll':
-				var updateTask = function (t) {
-					return _elm_lang$core$Native_Utils.update(
-						t,
-						{completion: _p4._0});
-				};
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{
-							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
-						}),
-					{ctor: '[]'});
-			default:
-				return A2(
-					_elm_lang$core$Platform_Cmd_ops['!'],
-					_elm_lang$core$Native_Utils.update(
-						model,
-						{visibility: _p4._0}),
-					{ctor: '[]'});
+			}
+		} else {
+			return _evancz$elm_todomvc$Model$emptyModel;
 		}
+	}();
+	return A2(
+		_elm_lang$core$Platform_Cmd_ops['!'],
+		finalModel,
+		{ctor: '[]'});
+};
+var _evancz$elm_todomvc$Docket$setStorage = _elm_lang$core$Native_Platform.outgoingPort(
+	'setStorage',
+	function (v) {
+		return v;
 	});
 var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 	function (msg, model) {
-		var _p8 = A2(_evancz$elm_todomvc$Docket$update, msg, model);
-		var newModel = _p8._0;
-		var cmds = _p8._1;
+		var _p2 = A2(_evancz$elm_todomvc$Update$update, msg, model);
+		var newModel = _p2._0;
+		var cmds = _p2._1;
 		return {
 			ctor: '_Tuple2',
 			_0: newModel,
@@ -19937,7 +19942,7 @@ var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 				{
 					ctor: '::',
 					_0: _evancz$elm_todomvc$Docket$setStorage(
-						_evancz$elm_todomvc$Docket$modelToJson(newModel)),
+						_evancz$elm_todomvc$Porting$modelToJson(newModel)),
 					_1: {
 						ctor: '::',
 						_0: cmds,
@@ -19949,9 +19954,9 @@ var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 var _evancz$elm_todomvc$Docket$main = _rtfeldman$elm_css$Html_Styled$programWithFlags(
 	{
 		init: _evancz$elm_todomvc$Docket$init,
-		view: _evancz$elm_todomvc$Docket$view,
+		view: _evancz$elm_todomvc$View$view,
 		update: _evancz$elm_todomvc$Docket$updateWithStorage,
-		subscriptions: function (_p9) {
+		subscriptions: function (_p3) {
 			return _elm_lang$core$Platform_Sub$none;
 		}
 	})(
