@@ -47,7 +47,7 @@ viewInput : String -> VirtualDom.Node Msg
 viewInput task =
     header
         [ class "header" ]
-        [ h1 [] [ text "docket" ]
+        [ h1 [] [ text "Docket" ]
         , input
             [ class "new-task"
             , placeholder "What needs to be done?"
