@@ -110,7 +110,7 @@ viewTasks visibility tasks =
             [ class "toggle-all"
             , type_ "checkbox"
             , name "toggle"
-            , Html.Styled.Attributes.checked allCompleted
+            , checked allCompleted
             , onClick
                 (CheckAll
                     (if not allCompleted then
