@@ -1,21 +1,20 @@
 module View exposing (..)
 
-import Model exposing (..)
-import Model.Progress exposing (..)
-import Porting exposing (modelToJson)
-import Update exposing (..)
-
 -- import Html exposing (..)
-import Html.Styled exposing (..)
 --import Html.Attributes exposing (..)
+
+import Css exposing (..)
+import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
-import VirtualDom
-import Css exposing (..)
-
 import Json.Decode as Decode
+import Model exposing (..)
+import Model.Progress exposing (..)
+import Porting exposing (modelToJson)
+import Update exposing (..)
+import VirtualDom
 
 
 -- import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
@@ -23,29 +22,27 @@ import Json.Decode as Decode
 -- import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
 
-
-
 view : Model -> Html Msg
 view model =
     div
-        [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ]]
+        [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
         [ section
             [ class "todoapp" ]
-
             [ lazy viewInput model.field
             , lazy2 viewTasks model.visibility model.tasks
             , lazy2 viewControls model.visibility model.tasks
             ]
-
         , infoFooter
-        , section [css [opacity (num 0.1)]]
-            [
-              text (modelToJson model)
+        , section [ css [ opacity (num 0.1) ] ]
+            [ text (modelToJson model)
             ]
         ]
 
 
+
 -- viewInput : String -> Html Msg
+
+
 viewInput : String -> VirtualDom.Node Msg
 viewInput task =
     header
@@ -62,7 +59,7 @@ viewInput task =
             ]
             []
         ]
-    |> toUnstyled
+        |> toUnstyled
 
 
 onEnter : Msg -> Attribute Msg
@@ -79,9 +76,9 @@ onEnter msg =
 
 
 -- VIEW ALL TODOS
-
-
 -- viewTasks : String -> List Task -> Html Msg
+
+
 viewTasks : String -> List Task -> VirtualDom.Node Msg
 viewTasks visibility tasks =
     let
@@ -130,7 +127,7 @@ viewTasks visibility tasks =
         , Keyed.ul [ class "task-list" ] <|
             List.map viewKeyedTask (List.filter isVisible tasks)
         ]
-    |> toUnstyled
+        |> toUnstyled
 
 
 
@@ -142,11 +139,14 @@ viewKeyedTask task =
     ( toString task.id, lazy viewTask task )
 
 
+
 -- viewTask : Task -> Html Msg
+
+
 viewTask : Task -> VirtualDom.Node Msg
 viewTask task =
     li
-        [ classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
+        [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
         [ progressSlider task
         , div
             [ class "view" ]
@@ -174,7 +174,7 @@ viewTask task =
                 [ class "destroy"
                 , onClick (Delete task.id)
                 ]
-                [text "×"]
+                [ text "×" ]
             ]
         , input
             [ class "edit"
@@ -187,23 +187,31 @@ viewTask task =
             ]
             []
         ]
-    |> toUnstyled
+        |> toUnstyled
 
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
 -}
 progressSlider : Task -> Html Msg
-progressSlider task = input
-    [ class "task-progress"
-    , type_ "range"
-    , value <| toString <| part task.completion
-    , Html.Styled.Attributes.min "0"
-    , Html.Styled.Attributes.max <| toString <| whole task.completion
-    , step (if (discrete <| units task.completion) then "1" else "any")
-    , onInput (extractSliderInput task)
-    , onDoubleClick (EditingTask task.id True)
-    , dynamicSliderThumbCss (normalizedPart task.completion)
-    ] []
+progressSlider task =
+    input
+        [ class "task-progress"
+        , type_ "range"
+        , value <| toString <| part task.completion
+        , Html.Styled.Attributes.min "0"
+        , Html.Styled.Attributes.max <| toString <| whole task.completion
+        , step
+            (if discrete <| units task.completion then
+                "1"
+             else
+                "any"
+            )
+        , onInput (extractSliderInput task)
+        , onDoubleClick (EditingTask task.id True)
+
+        --    , dynamicSliderThumbCss (normalizedPart task.completion)
+        ]
+        []
 
 
 {-| The Slider has a thumb control that we push outside of the box, and shape it kinda like a pin, like the text selector on Android. Unfortunately, it expects the track to have side margins, so it only bumps up against the edges and doesn't line up with the actual progress since the track has been stretched to not have these standard margins.
@@ -211,25 +219,32 @@ progressSlider task = input
 Rather than force the thumb to push past the walls, I came up with this cool-looking way to warp the tip of the pin to always line up correctly. The pin is rotated more or less than the original 45deg (center) based on the progress being more or less than 50%.
 
 Also, since this caused the thumb to appear to float a few pixels higher when at extreme rotations, I added a small linear offset to make it line up better. This is technically still wrong, TODO it should be a trigonometric offset (sin/cos) since rotation is causing the need for it.
+
 -}
 dynamicSliderThumbCss : Float -> Attribute msg
 dynamicSliderThumbCss portion =
-  let (angle, offset) = (portion * -90, abs ( (portion - 0.5) * 5) )
-  in  css [ focus [pseudoElement "-moz-range-thumb" [transforms [translateY (px (-50 + offset)), rotate (deg angle)]]]]
+    let
+        ( angle, offset ) =
+            ( portion * -90, abs ((portion - 0.5) * 5) )
+    in
+    css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
+
 
 extractSliderInput : Task -> String -> Msg
 extractSliderInput task input =
-  UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
+    UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
+
 
 timingInfo : Task -> Html Msg
 timingInfo task =
     text ""
 
 
+
 -- VIEW CONTROLS AND FOOTER
-
-
 -- viewControls : String -> List Task -> Html Msg
+
+
 viewControls : String -> List Task -> VirtualDom.Node Msg
 viewControls visibility tasks =
     let
@@ -247,10 +262,16 @@ viewControls visibility tasks =
         , lazy viewControlsFilters visibility
         , lazy viewControlsClear tasksCompleted
         ]
-    |> toUnstyled
+        |> toUnstyled
+
 
 viewControlsCount : number -> VirtualDom.Node msg
+
+
+
 -- viewControlsCount : Int -> VirtualDom.Node msg
+
+
 viewControlsCount tasksLeft =
     let
         item_ =
@@ -264,11 +285,16 @@ viewControlsCount tasksLeft =
         [ strong [] [ text (toString tasksLeft) ]
         , text (item_ ++ " left")
         ]
-    |> toUnstyled
+        |> toUnstyled
+
 
 viewControlsFilters : String -> VirtualDom.Node Msg
 
+
+
 -- viewControlsFilters : String -> VirtualDom.Node Msg
+
+
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
@@ -278,7 +304,7 @@ viewControlsFilters visibility =
         , text " "
         , visibilitySwap "#/completed" "Completed" visibility
         ]
-    |> toUnstyled
+        |> toUnstyled
 
 
 visibilitySwap : String -> String -> String -> Html Msg
@@ -290,7 +316,10 @@ visibilitySwap uri visibility actualVisibility =
         ]
 
 
+
 -- viewControlsClear : Int -> VirtualDom.Node Msg
+
+
 viewControlsClear : number -> VirtualDom.Node Msg
 viewControlsClear tasksCompleted =
     button
@@ -300,13 +329,16 @@ viewControlsClear tasksCompleted =
         ]
         [ text ("Clear completed (" ++ toString tasksCompleted ++ ")")
         ]
-    |> toUnstyled
+        |> toUnstyled
+
+
 
 -- myStyle = (style, "color:red")
 --
 -- div [(att1, "hi"), (att2, "yo"), (myStyle completion)] [nodes]
 --
 -- <div att1="hi" att2="yo">nodes</div>
+
 
 infoFooter : Html msg
 infoFooter =
@@ -321,6 +353,8 @@ infoFooter =
             , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
             ]
         ]
+
+
 
 -- type Phrase = Written_by
 --             | Double_click_to_edit_a_task

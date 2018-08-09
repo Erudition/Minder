@@ -19509,12 +19509,7 @@ var _evancz$elm_todomvc$View$progressSlider = function (task) {
 										ctor: '::',
 										_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
 											A2(_evancz$elm_todomvc$Update$EditingTask, task.id, true)),
-										_1: {
-											ctor: '::',
-											_0: _evancz$elm_todomvc$View$dynamicSliderThumbCss(
-												_evancz$elm_todomvc$Model_Progress$normalizedPart(task.completion)),
-											_1: {ctor: '[]'}
-										}
+										_1: {ctor: '[]'}
 									}
 								}
 							}

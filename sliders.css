@@ -130,7 +130,7 @@ input[type=range]:focus::-moz-range-thumb {
   height: 30px;
   border-radius: 50% 50% 50% 0;
   background: #89849b;
-  /* transform: translateY(-50px) rotate(-45deg); */
+  transform: translateY(-50px) rotate(-45deg);
   position: absolute;
   top: -3em;
   animation-name: bounce;

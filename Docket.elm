@@ -1,29 +1,22 @@
 port module Docket exposing (..)
 
 -- core libraries
-
-import Html.Styled exposing (..)
-
-
-
 --community libraries
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
 --import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
-
 -- ours
 
+import Html.Styled exposing (..)
 import Model exposing (..)
+import Porting exposing (..)
 import Update exposing (..)
 import View exposing (..)
-import Porting exposing (..)
 
 
-{-- IMPORT HANDLING
+{--IMPORT HANDLING
     Section where we massage imports to be the way we like
 --}
-
-
 
 
 main : Program (Maybe ModelAsJson) Model Msg
@@ -34,6 +27,7 @@ main =
         , update = updateWithStorage
         , subscriptions = \_ -> Sub.none
         }
+
 
 
 -- main : Program Model Msg
@@ -66,27 +60,25 @@ updateWithStorage msg model =
 
 -- MODEL
 -- The full application state of our todo app.
-
-
 -- Entire program
-
-
-
 -- initialize model
+
+
 init : Maybe ModelAsJson -> ( Model, Cmd Msg )
 init maybeModelAsJson =
-  let finalModel =
-      case maybeModelAsJson of
-          Just modelAsJson ->
-              case modelFromJson modelAsJson of
-                  Ok restoredModel ->
-                      restoredModel
+    let
+        finalModel =
+            case maybeModelAsJson of
+                Just modelAsJson ->
+                    case modelFromJson modelAsJson of
+                        Ok restoredModel ->
+                            restoredModel
 
-                  Err errormsg ->
-                      { emptyModel | errors = [(Debug.log "Errors" errormsg)] }
+                        Err errormsg ->
+                            { emptyModel | errors = [ Debug.log "Errors" errormsg ] }
 
-          -- no json stored at all
-          Nothing ->
-              emptyModel
-  in
-      finalModel ! []
+                -- no json stored at all
+                Nothing ->
+                    emptyModel
+    in
+    finalModel ! []

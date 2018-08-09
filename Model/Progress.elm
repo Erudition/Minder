@@ -1,40 +1,73 @@
 module Model.Progress exposing (..)
 
 
-type alias Progress = (Part, Unit)
-type alias Part = Float
-type Unit = None | Permille | Percent | Word Int | Minute Int | CustomUnit (String, String) Int
+type alias Progress =
+    ( Part, Unit )
+
+
+type alias Part =
+    Float
+
+
+type Unit
+    = None
+    | Permille
+    | Percent
+    | Word Int
+    | Minute Int
+    | CustomUnit ( String, String ) Int
 
 
 part : Progress -> Float
-part (part, _) = part
+part ( part, _ ) =
+    part
+
 
 whole : Progress -> Int
-whole (_, unit) = max unit
+whole ( _, unit ) =
+    max unit
+
 
 units : Progress -> Unit
-units (_, unit) = unit
+units ( _, unit ) =
+    unit
+
 
 discrete : Unit -> Bool
-discrete _ = False
+discrete _ =
+    False
+
 
 normalizedPart : Progress -> Float
-normalizedPart (part, unit) = part / toFloat (max unit)
+normalizedPart ( part, unit ) =
+    part / toFloat (max unit)
+
 
 max : Unit -> Int
-max unit = case unit of
-    None -> 1
-    Percent -> 100
-    Permille -> 1000
-    Word wordTarget -> wordTarget
-    Minute minuteTarget -> minuteTarget
-    CustomUnit (_,_) customTarget -> customTarget
+max unit =
+    case unit of
+        None ->
+            1
+
+        Percent ->
+            100
+
+        Permille ->
+            1000
+
+        Word wordTarget ->
+            wordTarget
+
+        Minute minuteTarget ->
+            minuteTarget
+
+        CustomUnit ( _, _ ) customTarget ->
+            customTarget
 
 
 progressFromFloat : Float -> Progress
-progressFromFloat float = (float, Percent)
-
-
+progressFromFloat float =
+    ( float, Percent )
 
 
 

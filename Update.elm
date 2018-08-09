@@ -1,20 +1,15 @@
 module Update exposing (..)
 
-
-
+import Dom
 import Model exposing (..)
 import Model.Progress exposing (..)
 import Task as Job
-import Dom
-
-
 
 
 {-| Users of our app can trigger messages by clicking and typing. These
 messages are fed into the `update` function as they occur, letting us react
 to them.
 -}
-
 type Msg
     = NoOp
     | UpdateField String
@@ -26,6 +21,7 @@ type Msg
     | UpdateProgressPart TaskId Part
     | CheckAll Progress
     | ChangeVisibility String
+
 
 
 -- How we update our Model on a given Msg?
@@ -90,7 +86,7 @@ update msg model =
             let
                 updateTask t =
                     if t.id == id then
-                        { t | completion = (new_completion, units t.completion)  }
+                        { t | completion = ( new_completion, units t.completion ) }
                     else
                         t
             in
@@ -111,9 +107,10 @@ update msg model =
 
 
 
-
 -- HELPERS
 -- Works on an entire task, not a Progress
+
+
 completed : Task -> Bool
 completed task =
-    part (.completion task) == toFloat ( whole (.completion task))
+    part (.completion task) == toFloat (whole (.completion task))
