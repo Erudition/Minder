@@ -40,8 +40,8 @@ Pull requests must compile without warnings and be `elm-format`ted.
         * This causes the ambiguity with the `checked` function, so the compiler will force you to qualify it as
             * `Css.checked` or
             * `Html.Styled.Attributes.checked`.
-        * This is perfectly fine. Just pick the correct prefix and add it.
-        * Most other functions do not conflict.
+        * This is perfectly fine. In these cases, just pick the correct prefix and add it.
+        * Most other functions do not conflict, so it is worth it.
     * Counterexample: `import Json.Decode exposing (..)` and `import Json.Encode exposing (..)`
         * These modules have lots of functions of the same name.
         * Using most functions, such as `string`, would cause ambiguity errors
