@@ -1,8 +1,21 @@
 module Model.Progress exposing (..)
 
+import Json.Decode as Decode exposing (..)
+import Json.Encode as Encode exposing (..)
+
 
 type alias Progress =
     ( Part, Unit )
+
+
+decodeProgress : Decode.Decoder Progress
+decodeProgress =
+    Decode.map progressFromFloat Decode.float
+
+
+encodeProgress : Progress -> Encode.Value
+encodeProgress progress =
+    Encode.float (part progress)
 
 
 type alias Part =

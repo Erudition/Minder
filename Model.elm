@@ -1,23 +1,22 @@
 module Model exposing (..)
 
---import Time.TimeZones as TimeZones
+{--Due to the disappointingly un-automated nature of uncustomized Decoders and Encoders in Elm (and the current auto-generators out there being broken for many types), they must be written out by hand for every data type of our app (since all of our app's data will be ported out, and Elm doesn't support porting out even it's own Union types). To make sure we don't foget to update the coders (hard) whenever we change our model (easy), we shall always put them directly below the corresponding type definition. For example:
 
-import Model.Progress exposing (..)
-import Time.DateTime as Moment exposing (DateTime, dateTime, day, hour, millisecond, minute, month, second, year)
-import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
+type Widget = ...
+encodeWidget = ...
+decodeWidget = ...
 
+Using that nomenclature. Don't change Widget without updating the decoder!
+--}
 
---import String
-
-
-type alias Moment =
-    DateTime
-
-
-type alias LocalMoment =
-    ZonedDateTime
+import Json.Decode as Decode exposing (..)
+import Json.Encode as Encode exposing (..)
+import Model.Task exposing (..)
 
 
+{-| Our whole app's Model.
+NOTE IF YOU MAKE CHANGES, CHANGE THE DECODER/ENCODER BELOW ACCORDINGLY!
+-}
 type alias Model =
     { tasks : List Task
     , field : String
@@ -27,8 +26,39 @@ type alias Model =
     }
 
 
+decodeModel : Decode.Decoder Model
+decodeModel =
+    Decode.map5 Model
+        (field "tasks" (Decode.list decodeTask))
+        (field "field" Decode.string)
+        (field "uid" Decode.int)
+        (field "visibility" Decode.string)
+        (field "errors" (Decode.list Decode.string))
 
-{--keep in sync with --}
+
+encodeModel : Model -> Encode.Value
+encodeModel record =
+    Encode.object
+        [ ( "tasks", Encode.list <| List.map encodeTask <| record.tasks )
+        , ( "field", Encode.string <| record.field )
+        , ( "uid", Encode.int <| record.uid )
+        , ( "visibility", Encode.string <| record.visibility )
+        , ( "errors", Encode.list <| List.map Encode.string <| record.errors )
+        ]
+
+
+type alias ModelAsJson =
+    String
+
+
+modelFromJson : ModelAsJson -> Result String Model
+modelFromJson incomingJson =
+    Decode.decodeString decodeModel incomingJson
+
+
+modelToJson : Model -> ModelAsJson
+modelToJson model =
+    Encode.encode 0 (encodeModel model)
 
 
 emptyModel : Model
@@ -51,112 +81,5 @@ testModel =
     }
 
 
-
-{--Definition of a single task.
-    Working rules:
-    * there should be no fields for storing data that can be fully derived from other fields [consistency]
-    * combine related fields into a single one with a tuple value [minimalism]
---}
-
-
-type alias Task =
-    { title : String
-    , completion : Progress
-    , editing : Bool
-    , id : TaskId
-    , predictedEffort : Duration
-    , history : List HistoryEntry
-    , parent : Maybe TaskId
-    , tags : List String
-    , project : Maybe ProjectId
-    , deadline : Maybe MomentOrDay
-    , plannedStart : Maybe MomentOrDay
-    , plannedFinish : Maybe MomentOrDay
-    , relevanceStarts : Maybe MomentOrDay
-    , relevanceEnds : Maybe MomentOrDay
-    }
-
-
-
-{--Additional meta-fields (realized via functions):
-    + completed : Bool
---}
-
-
-newTask : String -> Int -> Task
-newTask description id =
-    { title = description
-    , editing = False
-    , id = id
-    , completion = ( 0, Percent )
-    , parent = Nothing
-    , predictedEffort = 0
-    , history = []
-    , tags = []
-    , project = Just 0
-    , deadline = Nothing
-    , plannedStart = Nothing
-    , plannedFinish = Nothing
-    , relevanceStarts = Nothing
-    , relevanceEnds = Nothing
-    }
-
-
-type alias HistoryEntry =
-    ( TaskChange, Moment )
-
-
-
--- possible ways to filter the list of tasks (legacy)
-
-
-type TaskListFilter
-    = AllTasks
-    | ActiveTasksOnly
-    | CompletedTasksOnly
-
-
-
-{--possible activities that can be logged about a task.
-    Working rules:
-    * names should just be '(exact name of field being changed)+Change' [consistency]
-    * value always includes the full value it was changed to at the time, never the delta [consistency]
---}
-
-
-type TaskChange
-    = Created Moment
-    | CompletionChange Progress
-    | TitleChange String
-    | PredictedEffortChange Duration
-    | ParentChange TaskId
-    | TagsChange
-
-
-type MomentOrDay
-    = AtExactly Moment
-    | OnDayOf Moment
-
-
-type alias TaskId =
-    Int
-
-
-type alias Duration =
-    Int
-
-
-
---seconds
-
-
-type alias ProjectId =
-    Int
-
-
 type alias User =
     Int
-
-
-
--- to be determined
