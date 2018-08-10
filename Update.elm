@@ -3,7 +3,9 @@ module Update exposing (..)
 import Dom
 import Model exposing (..)
 import Model.Progress exposing (..)
+import Model.Task exposing (..)
 import Task as Job
+import Time
 
 
 {-| Users of our app can trigger messages by clicking and typing. These
@@ -12,6 +14,8 @@ to them.
 -}
 type Msg
     = NoOp
+    | Tick Msg
+    | Tock Msg Time.Time
     | UpdateField String
     | EditingTask TaskId Bool
     | UpdateTask TaskId String
@@ -21,6 +25,8 @@ type Msg
     | UpdateProgressPart TaskId Part
     | CheckAll Progress
     | ChangeVisibility String
+    | FocusSlider TaskId Bool
+    | MinutePassed Time.Time
 
 
 
@@ -31,6 +37,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NoOp ->
+            model ! []
+
+        Tick msg ->
+            model ! []
+
+        Tock msg time ->
             model ! []
 
         Add ->
@@ -103,6 +115,14 @@ update msg model =
 
         ChangeVisibility visibility ->
             { model | visibility = visibility }
+                ! []
+
+        FocusSlider task focused ->
+            model
+                ! []
+
+        MinutePassed time ->
+            { model | updateTime = time }
                 ! []
 
 

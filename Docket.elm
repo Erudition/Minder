@@ -9,7 +9,8 @@ port module Docket exposing (..)
 
 import Html.Styled exposing (..)
 import Model exposing (..)
-import Porting exposing (..)
+import Task as Job
+import Time
 import Update exposing (..)
 import View exposing (..)
 
@@ -25,19 +26,13 @@ main =
         { init = init
         , view = view
         , update = updateWithStorage
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
 
 
-
--- main : Program Model Msg
--- main =
---     Html.program
---         { init = init
---         , view = view
---         , update = update
---         , subscriptions = \_ -> Sub.none
---         }
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Time.every Time.minute MinutePassed
 
 
 port setStorage : ModelAsJson -> Cmd msg
@@ -50,11 +45,35 @@ updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg model =
     let
         ( newModel, cmds ) =
-            update msg model
+            updateWithTime msg model
     in
     ( newModel
     , Cmd.batch [ setStorage (modelToJson newModel), cmds ]
     )
+
+
+{-| Slips in before the real `update` function to pass in the current time.
+
+For bookkeeping purposes, we want the current time for pretty much every update. This function intercepts the `update` process by first updating our model's `time` field before passing our Msg along to the real `update` function, which can then assume `model.time` is an up-to-date value.
+
+Since Elm is pure and Time is side-effect-y, there's no better way to do this.
+<https://stackoverflow.com/a/41025989/8645412>
+
+-}
+updateWithTime : Msg -> Model -> ( Model, Cmd Msg )
+updateWithTime msg model =
+    case msg of
+        NoOp ->
+            model ! []
+
+        Tick msg ->
+            model ! [ Job.perform (Tock msg) Time.now ]
+
+        Tock msg time ->
+            update msg { model | updateTime = time }
+
+        otherMsg ->
+            updateWithTime (Tick msg) model
 
 
 
@@ -80,5 +99,8 @@ init maybeModelAsJson =
                 -- no json stored at all
                 Nothing ->
                     emptyModel
+
+        effects =
+            [ Job.perform MinutePassed Time.now ]
     in
-    finalModel ! []
+    finalModel ! effects

@@ -12,6 +12,7 @@ Using that nomenclature. Don't change Widget without updating the decoder!
 import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Model.Task exposing (..)
+import Time
 
 
 {-| Our whole app's Model.
@@ -23,17 +24,19 @@ type alias Model =
     , uid : Int
     , visibility : String
     , errors : List String
+    , updateTime : Time.Time
     }
 
 
 decodeModel : Decode.Decoder Model
 decodeModel =
-    Decode.map5 Model
+    Decode.map6 Model
         (field "tasks" (Decode.list decodeTask))
         (field "field" Decode.string)
         (field "uid" Decode.int)
         (field "visibility" Decode.string)
         (field "errors" (Decode.list Decode.string))
+        (field "updateTime" Decode.float)
 
 
 encodeModel : Model -> Encode.Value
@@ -44,6 +47,7 @@ encodeModel record =
         , ( "uid", Encode.int <| record.uid )
         , ( "visibility", Encode.string <| record.visibility )
         , ( "errors", Encode.list <| List.map Encode.string <| record.errors )
+        , ( "updateTime", Encode.float record.updateTime )
         ]
 
 
@@ -68,6 +72,7 @@ emptyModel =
     , field = ""
     , uid = 0
     , errors = []
+    , updateTime = 0.0
     }
 
 
@@ -78,6 +83,7 @@ testModel =
     , field = ""
     , uid = 0
     , errors = []
+    , updateTime = 0.0
     }
 
 

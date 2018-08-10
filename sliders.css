@@ -71,6 +71,11 @@ input[type="range"]::-ms-fill-upper {
     height: 100%;
 }
 
+
+.task-progress:focus {
+  z-index: auto;
+}
+
 /* all to customize the sliders */
 
 input[type=range] {

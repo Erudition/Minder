@@ -11,8 +11,10 @@ import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
 import Json.Decode as Decode
 import Model exposing (..)
+import Model.Moment exposing (..)
 import Model.Progress exposing (..)
-import Porting exposing (modelToJson)
+import Model.Task exposing (..)
+import Time
 import Update exposing (..)
 import VirtualDom
 
@@ -29,7 +31,7 @@ view model =
         [ section
             [ class "todoapp" ]
             [ lazy viewInput model.field
-            , lazy2 viewTasks model.visibility model.tasks
+            , Html.Styled.Lazy.lazy3 viewTasks model.updateTime model.visibility model.tasks
             , lazy2 viewControls model.visibility model.tasks
             ]
         , infoFooter
@@ -79,8 +81,8 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : String -> List Task -> VirtualDom.Node Msg
-viewTasks visibility tasks =
+viewTasks : Time.Time -> String -> List Task -> VirtualDom.Node Msg
+viewTasks time visibility tasks =
     let
         isVisible task =
             case visibility of
@@ -110,7 +112,7 @@ viewTasks visibility tasks =
             [ class "toggle-all"
             , type_ "checkbox"
             , name "toggle"
-            , checked allCompleted
+            , Html.Styled.Attributes.checked allCompleted
             , onClick
                 (CheckAll
                     (if not allCompleted then
@@ -125,7 +127,7 @@ viewTasks visibility tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map viewKeyedTask (List.filter isVisible tasks)
+            List.map (viewKeyedTask time) (List.filter isVisible tasks)
         ]
         |> toUnstyled
 
@@ -134,17 +136,17 @@ viewTasks visibility tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Task -> ( String, Html Msg )
-viewKeyedTask task =
-    ( toString task.id, lazy viewTask task )
+viewKeyedTask : Time.Time -> Task -> ( String, Html Msg )
+viewKeyedTask time task =
+    ( toString task.id, lazy2 viewTask time task )
 
 
 
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Task -> VirtualDom.Node Msg
-viewTask task =
+viewTask : Time.Time -> Task -> VirtualDom.Node Msg
+viewTask time task =
     li
         [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
         [ progressSlider task
@@ -165,11 +167,11 @@ viewTask task =
                 ]
                 []
             , label
-                [ onDoubleClick (EditingTask task.id True) ]
+                [ onDoubleClick (EditingTask task.id True), onClick (FocusSlider task.id True) ]
                 [ text task.title ]
             , div
                 [ class "timing-info" ]
-                [ timingInfo task ]
+                [ timingInfo time task ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.id)
@@ -208,6 +210,8 @@ progressSlider task =
             )
         , onInput (extractSliderInput task)
         , onDoubleClick (EditingTask task.id True)
+        , onFocus (FocusSlider task.id True)
+        , onBlur (FocusSlider task.id False)
 
         --    , dynamicSliderThumbCss (normalizedPart task.completion)
         ]
@@ -235,9 +239,14 @@ extractSliderInput task input =
     UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
 
 
-timingInfo : Task -> Html Msg
-timingInfo task =
-    text ""
+timingInfo : Time.Time -> Task -> Html Msg
+timingInfo time task =
+    case task.deadline of
+        Just momentOrDay ->
+            text <| describeMomentOrDay time momentOrDay
+
+        Nothing ->
+            text ""
 
 
 

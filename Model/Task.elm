@@ -2,12 +2,13 @@ module Model.Task exposing (..)
 
 import Json.Decode as Decode exposing (..)
 import Json.Decode.Extra as Decode2 exposing (..)
-import Json.Decode.Pipeline as Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Model.Moment exposing (..)
 import Model.Progress exposing (..)
-import Time.DateTime as Moment exposing (DateTime, dateTime, day, hour, millisecond, minute, month, second, year)
+import Porting exposing (..)
+import Time.DateTime as Moment exposing (DateTime, dateTime, day, hour, millisecond, minute, month, second, year, zero)
 import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
 
@@ -50,20 +51,20 @@ type alias Task =
 decodeTask : Decode.Decoder Task
 decodeTask =
     decode Task
-        |> Pipeline.required "title" Decode.string
-        |> Pipeline.required "completion" decodeProgress
-        |> Pipeline.required "editing" Decode.bool
-        |> Pipeline.required "id" Decode.int
-        |> Pipeline.required "predictedEffort" Decode.int
-        |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
-        |> Pipeline.required "parent" (Decode.maybe Decode.int)
-        |> Pipeline.required "tags" (Decode.list Decode.string)
-        |> Pipeline.required "project" (Decode.maybe Decode.int)
-        |> Pipeline.required "deadline" (Decode.maybe decodeMomentOrDay)
-        |> Pipeline.required "plannedStart" (Decode.maybe decodeMomentOrDay)
-        |> Pipeline.required "plannedFinish" (Decode.maybe decodeMomentOrDay)
-        |> Pipeline.required "relevanceStarts" (Decode.maybe decodeMomentOrDay)
-        |> Pipeline.required "relevanceEnds" (Decode.maybe decodeMomentOrDay)
+        |> required "title" Decode.string
+        |> required "completion" decodeProgress
+        |> required "editing" Decode.bool
+        |> required "id" Decode.int
+        |> required "predictedEffort" Decode.int
+        |> required "history" (Decode.list decodeHistoryEntry)
+        |> required "parent" (Decode.maybe Decode.int)
+        |> required "tags" (Decode.list Decode.string)
+        |> required "project" (Decode.maybe Decode.int)
+        |> required "deadline" (Decode.maybe decodeMomentOrDay)
+        |> required "plannedStart" (Decode.maybe decodeMomentOrDay)
+        |> required "plannedFinish" (Decode.maybe decodeMomentOrDay)
+        |> required "relevanceStarts" (Decode.maybe decodeMomentOrDay)
+        |> required "relevanceEnds" (Decode.maybe decodeMomentOrDay)
 
 
 encodeTask : Task -> Encode.Value
@@ -113,48 +114,7 @@ type alias HistoryEntry =
 
 decodeHistoryEntry : Decode.Decoder HistoryEntry
 decodeHistoryEntry =
-    Decode.map2 (,)
-        (Decode.index 0
-            (Decode.string
-                |> Decode.andThen
-                    (\string ->
-                        case string of
-                            "Created" ->
-                                decodeCreated
-
-                            "CompletionChange" ->
-                                decodeCompletionChange
-
-                            "TitleChange" ->
-                                decodeTitleChange
-
-                            "PredictedEffortChange" ->
-                                decodePredictedEffortChange
-
-                            "ParentChange" ->
-                                decodeParentChange
-
-                            "TagsChange" ->
-                                Decode.succeed TagsChange
-
-                            _ ->
-                                Decode.fail "Invalid TaskChange"
-                    )
-            )
-        )
-        (Decode.index 1
-            (Decode.string
-                |> Decode.andThen
-                    (\string ->
-                        case string of
-                            "DateTime" ->
-                                decodeMoment
-
-                            _ ->
-                                Decode.fail "Invalid Moment"
-                    )
-            )
-        )
+    fail "womp"
 
 
 encodeHistoryEntry : HistoryEntry -> Encode.Value
@@ -191,52 +151,19 @@ type TaskChange
 
 decodeTaskChange : Decode.Decoder TaskChange
 decodeTaskChange =
-    let
-        fallthrough string =
-            Result.Err ("Not valid pattern for decoder to MomentOrDay. Pattern: " ++ toString string)
-
-        tag =
-            field "tag" Decode.string
-    in
-    oneOf
-        [ when tag ((==) "CompletionChange") decodeCompletionChange
-        , when tag ((==) "Created") decodeCreated
-        , when tag ((==) "ParentChange") decodeParentChange
-        , when tag ((==) "PredictedEffortChange") decodePredictedEffortChange
-        , when tag ((==) "TagsChange") (succeed TagsChange)
-        , when tag ((==) "TitleChange") decodeTitleChange
-        , Decode.string |> andThen (fromResult << fallthrough)
+    decodeTU "TaskChange"
+        [ valueC "CompletionChange" (subValue CompletionChange "progress" decodeProgress)
+        , valueC "Created" (subValue Created "moment" decodeMoment)
+        , valueC "ParentChange" (subValue ParentChange "taskId" Decode.int)
+        , valueC "PredictedEffortChange" (subValue PredictedEffortChange "duration" Decode.int)
+        , valueC "TagsChange" (succeed TagsChange)
+        , valueC "TitleChange" (subValue TitleChange "string" Decode.string)
         ]
 
 
 encodeTaskChange : TaskChange -> Encode.Value
 encodeTaskChange =
     toString >> Encode.string
-
-
-decodeCompletionChange : Decoder TaskChange
-decodeCompletionChange =
-    Decode.map CompletionChange (field "progress" decodeProgress)
-
-
-decodeCreated : Decoder TaskChange
-decodeCreated =
-    Decode.map Created (field "moment" decodeMoment)
-
-
-decodeParentChange : Decoder TaskChange
-decodeParentChange =
-    Decode.map ParentChange (field "taskId" Decode.int)
-
-
-decodePredictedEffortChange : Decoder TaskChange
-decodePredictedEffortChange =
-    Decode.map PredictedEffortChange (field "duration" Decode.int)
-
-
-decodeTitleChange : Decoder TaskChange
-decodeTitleChange =
-    Decode.map TitleChange (field "string" Decode.string)
 
 
 type alias TaskId =

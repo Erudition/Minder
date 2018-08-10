@@ -17817,6 +17817,91 @@ var _rtfeldman$elm_css$Html_Styled$summary = _rtfeldman$elm_css$Html_Styled$node
 var _rtfeldman$elm_css$Html_Styled$menuitem = _rtfeldman$elm_css$Html_Styled$node('menuitem');
 var _rtfeldman$elm_css$Html_Styled$menu = _rtfeldman$elm_css$Html_Styled$node('menu');
 
+var _evancz$elm_todomvc$Model_Moment$describeMomentOrDay = function (momentOrDay) {
+	var _p0 = momentOrDay;
+	if (_p0.ctor === 'AtExactly') {
+		return _elm_lang$core$Basics$toString(_p0._0);
+	} else {
+		return _elm_lang$core$Basics$toString(_p0._0);
+	}
+};
+var _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay = function (_p1) {
+	return _elm_lang$core$Json_Encode$string(
+		_elm_lang$core$Basics$toString(_p1));
+};
+var _evancz$elm_todomvc$Model_Moment$encodeMoment = function (moment) {
+	return _elm_lang$core$Json_Encode$string(
+		_elm_community$elm_time$Time_Iso8601$fromDateTime(moment));
+};
+var _evancz$elm_todomvc$Model_Moment$decodeMoment = function () {
+	var convert = function (n) {
+		return _elm_community$json_extra$Json_Decode_Extra$fromResult(
+			A2(
+				_elm_lang$core$Result$mapError,
+				_elm_community$elm_time$Time_Iso8601ErrorMsg$renderText,
+				_elm_community$elm_time$Time_Iso8601$toDateTime(n)));
+	};
+	return A2(_elm_lang$core$Json_Decode$andThen, convert, _elm_lang$core$Json_Decode$string);
+}();
+var _evancz$elm_todomvc$Model_Moment$OnDayOf = function (a) {
+	return {ctor: 'OnDayOf', _0: a};
+};
+var _evancz$elm_todomvc$Model_Moment$decodeOnDayOf = A2(
+	_elm_lang$core$Json_Decode$map,
+	_evancz$elm_todomvc$Model_Moment$OnDayOf,
+	A2(_elm_lang$core$Json_Decode$field, 'moment', _evancz$elm_todomvc$Model_Moment$decodeMoment));
+var _evancz$elm_todomvc$Model_Moment$AtExactly = function (a) {
+	return {ctor: 'AtExactly', _0: a};
+};
+var _evancz$elm_todomvc$Model_Moment$decodeAtExactly = A2(
+	_elm_lang$core$Json_Decode$map,
+	_evancz$elm_todomvc$Model_Moment$AtExactly,
+	A2(_elm_lang$core$Json_Decode$field, 'moment', _evancz$elm_todomvc$Model_Moment$decodeMoment));
+var _evancz$elm_todomvc$Model_Moment$decodeMomentOrDay = function () {
+	var tag = A2(_elm_lang$core$Json_Decode$field, 'tag', _elm_lang$core$Json_Decode$string);
+	var fallthrough = function (string) {
+		return _elm_lang$core$Result$Err(
+			A2(
+				_elm_lang$core$Basics_ops['++'],
+				'Not valid pattern for decoder to MomentOrDay. Pattern: ',
+				_elm_lang$core$Basics$toString(string)));
+	};
+	return _elm_lang$core$Json_Decode$oneOf(
+		{
+			ctor: '::',
+			_0: A3(
+				_elm_community$json_extra$Json_Decode_Extra$when,
+				tag,
+				F2(
+					function (x, y) {
+						return _elm_lang$core$Native_Utils.eq(x, y);
+					})('AtExactly'),
+				_evancz$elm_todomvc$Model_Moment$decodeAtExactly),
+			_1: {
+				ctor: '::',
+				_0: A3(
+					_elm_community$json_extra$Json_Decode_Extra$when,
+					tag,
+					F2(
+						function (x, y) {
+							return _elm_lang$core$Native_Utils.eq(x, y);
+						})('OnDayOf'),
+					_evancz$elm_todomvc$Model_Moment$decodeOnDayOf),
+				_1: {
+					ctor: '::',
+					_0: A2(
+						_elm_lang$core$Json_Decode$andThen,
+						function (_p2) {
+							return _elm_community$json_extra$Json_Decode_Extra$fromResult(
+								fallthrough(_p2));
+						},
+						_elm_lang$core$Json_Decode$string),
+					_1: {ctor: '[]'}
+				}
+			}
+		});
+}();
+
 var _evancz$elm_todomvc$Model_Progress$max = function (unit) {
 	var _p0 = unit;
 	switch (_p0.ctor) {
@@ -17854,6 +17939,10 @@ var _evancz$elm_todomvc$Model_Progress$part = function (_p8) {
 	var _p9 = _p8;
 	return _p9._0;
 };
+var _evancz$elm_todomvc$Model_Progress$encodeProgress = function (progress) {
+	return _elm_lang$core$Json_Encode$float(
+		_evancz$elm_todomvc$Model_Progress$part(progress));
+};
 var _evancz$elm_todomvc$Model_Progress$CustomUnit = F2(
 	function (a, b) {
 		return {ctor: 'CustomUnit', _0: a, _1: b};
@@ -17868,13 +17957,129 @@ var _evancz$elm_todomvc$Model_Progress$Percent = {ctor: 'Percent'};
 var _evancz$elm_todomvc$Model_Progress$progressFromFloat = function ($float) {
 	return {ctor: '_Tuple2', _0: $float, _1: _evancz$elm_todomvc$Model_Progress$Percent};
 };
+var _evancz$elm_todomvc$Model_Progress$decodeProgress = A2(_elm_lang$core$Json_Decode$map, _evancz$elm_todomvc$Model_Progress$progressFromFloat, _elm_lang$core$Json_Decode$float);
 var _evancz$elm_todomvc$Model_Progress$Permille = {ctor: 'Permille'};
 var _evancz$elm_todomvc$Model_Progress$None = {ctor: 'None'};
 
-var _evancz$elm_todomvc$Model$newTask = F2(
-	function (desc, id) {
+var _evancz$elm_todomvc$Porting$subValue = F3(
+	function (tagger, fieldName, subTypeDecoder) {
+		return A2(
+			_elm_lang$core$Json_Decode$map,
+			tagger,
+			A2(_elm_lang$core$Json_Decode$field, fieldName, subTypeDecoder));
+	});
+var _evancz$elm_todomvc$Porting$valueC = F2(
+	function (name, decoder) {
+		return A3(
+			_elm_community$json_extra$Json_Decode_Extra$when,
+			A2(_elm_lang$core$Json_Decode$field, 'tag', _elm_lang$core$Json_Decode$string),
+			F2(
+				function (x, y) {
+					return _elm_lang$core$Native_Utils.eq(x, y);
+				})(name),
+			decoder);
+	});
+var _evancz$elm_todomvc$Porting$decodeTU = F2(
+	function (unionName, vcList) {
+		var fallthrough = function (string) {
+			return _elm_lang$core$Result$Err(
+				A2(
+					_elm_lang$core$Basics_ops['++'],
+					'Not valid pattern for decoder to ',
+					A2(
+						_elm_lang$core$Basics_ops['++'],
+						unionName,
+						A2(
+							_elm_lang$core$Basics_ops['++'],
+							'. Pattern: ',
+							_elm_lang$core$Basics$toString(string)))));
+		};
+		var listPlusFallThrough = A2(
+			_elm_lang$core$Basics_ops['++'],
+			vcList,
+			{
+				ctor: '::',
+				_0: A2(
+					_elm_lang$core$Json_Decode$andThen,
+					function (_p0) {
+						return _elm_community$json_extra$Json_Decode_Extra$fromResult(
+							fallthrough(_p0));
+					},
+					_elm_lang$core$Json_Decode$string),
+				_1: {ctor: '[]'}
+			});
+		return _elm_lang$core$Json_Decode$oneOf(listPlusFallThrough);
+	});
+var _evancz$elm_todomvc$Porting$customDecoder = F2(
+	function (primitiveDecoder, customDecoderFunction) {
+		return A2(
+			_elm_lang$core$Json_Decode$andThen,
+			function (a) {
+				var _p1 = customDecoderFunction(a);
+				if (_p1.ctor === 'Ok') {
+					return _elm_lang$core$Json_Decode$succeed(_p1._0);
+				} else {
+					return _elm_lang$core$Json_Decode$fail(_p1._0);
+				}
+			},
+			primitiveDecoder);
+	});
+var _evancz$elm_todomvc$Porting$arrayAsTuple2 = F2(
+	function (a, b) {
+		return A2(
+			_elm_lang$core$Json_Decode$andThen,
+			function (aVal) {
+				return A2(
+					_elm_lang$core$Json_Decode$andThen,
+					function (bVal) {
+						return _elm_lang$core$Json_Decode$succeed(
+							{ctor: '_Tuple2', _0: aVal, _1: bVal});
+					},
+					A2(_elm_lang$core$Json_Decode$index, 1, b));
+			},
+			A2(_elm_lang$core$Json_Decode$index, 0, a));
+	});
+var _evancz$elm_todomvc$Porting$TwoParam = F6(
+	function (a, b, c, d, e, f) {
+		return {ctor: 'TwoParam', _0: a, _1: b, _2: c, _3: d, _4: e, _5: f};
+	});
+var _evancz$elm_todomvc$Porting$OneParam = F4(
+	function (a, b, c, d) {
+		return {ctor: 'OneParam', _0: a, _1: b, _2: c, _3: d};
+	});
+var _evancz$elm_todomvc$Porting$NoParams = F2(
+	function (a, b) {
+		return {ctor: 'NoParams', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Porting$GoAway = {ctor: 'GoAway'};
+var _evancz$elm_todomvc$Porting$Eat_for_daysGains_Lbs = F3(
+	function (a, b, c) {
+		return {ctor: 'Eat_for_daysGains_Lbs', _0: a, _1: b, _2: c};
+	});
+var _evancz$elm_todomvc$Porting$GoPlaceTime = F2(
+	function (a, b) {
+		return {ctor: 'GoPlaceTime', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Porting$CountUpTo = function (a) {
+	return {ctor: 'CountUpTo', _0: a};
+};
+var _evancz$elm_todomvc$Porting$SaySomething = function (a) {
+	return {ctor: 'SaySomething', _0: a};
+};
+
+var _evancz$elm_todomvc$Model_Task$encodeTaskChange = function (_p0) {
+	return _elm_lang$core$Json_Encode$string(
+		_elm_lang$core$Basics$toString(_p0));
+};
+var _evancz$elm_todomvc$Model_Task$encodeHistoryEntry = function (record) {
+	return _elm_lang$core$Json_Encode$object(
+		{ctor: '[]'});
+};
+var _evancz$elm_todomvc$Model_Task$decodeHistoryEntry = _elm_lang$core$Json_Decode$fail('womp');
+var _evancz$elm_todomvc$Model_Task$newTask = F2(
+	function (description, id) {
 		return {
-			title: desc,
+			title: description,
 			editing: false,
 			id: id,
 			completion: {ctor: '_Tuple2', _0: 0, _1: _evancz$elm_todomvc$Model_Progress$Percent},
@@ -17890,25 +18095,125 @@ var _evancz$elm_todomvc$Model$newTask = F2(
 			relevanceEnds: _elm_lang$core$Maybe$Nothing
 		};
 	});
-var _evancz$elm_todomvc$Model$testModel = {
-	tasks: {ctor: '[]'},
-	visibility: 'All',
-	field: '',
-	uid: 0,
-	errors: {ctor: '[]'}
+var _evancz$elm_todomvc$Model_Task$encodeTask = function (record) {
+	return _elm_lang$core$Json_Encode$object(
+		{
+			ctor: '::',
+			_0: {
+				ctor: '_Tuple2',
+				_0: 'title',
+				_1: _elm_lang$core$Json_Encode$string(record.title)
+			},
+			_1: {
+				ctor: '::',
+				_0: {
+					ctor: '_Tuple2',
+					_0: 'completion',
+					_1: _evancz$elm_todomvc$Model_Progress$encodeProgress(record.completion)
+				},
+				_1: {
+					ctor: '::',
+					_0: {
+						ctor: '_Tuple2',
+						_0: 'editing',
+						_1: _elm_lang$core$Json_Encode$bool(record.editing)
+					},
+					_1: {
+						ctor: '::',
+						_0: {
+							ctor: '_Tuple2',
+							_0: 'id',
+							_1: _elm_lang$core$Json_Encode$int(record.id)
+						},
+						_1: {
+							ctor: '::',
+							_0: {
+								ctor: '_Tuple2',
+								_0: 'predictedEffort',
+								_1: _elm_lang$core$Json_Encode$int(record.predictedEffort)
+							},
+							_1: {
+								ctor: '::',
+								_0: {
+									ctor: '_Tuple2',
+									_0: 'history',
+									_1: _elm_lang$core$Json_Encode$list(
+										A2(_elm_lang$core$List$map, _evancz$elm_todomvc$Model_Task$encodeHistoryEntry, record.history))
+								},
+								_1: {
+									ctor: '::',
+									_0: {
+										ctor: '_Tuple2',
+										_0: 'parent',
+										_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _elm_lang$core$Json_Encode$int, record.parent)
+									},
+									_1: {
+										ctor: '::',
+										_0: {
+											ctor: '_Tuple2',
+											_0: 'tags',
+											_1: _elm_lang$core$Json_Encode$list(
+												A2(_elm_lang$core$List$map, _elm_lang$core$Json_Encode$string, record.tags))
+										},
+										_1: {
+											ctor: '::',
+											_0: {
+												ctor: '_Tuple2',
+												_0: 'project',
+												_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _elm_lang$core$Json_Encode$int, record.project)
+											},
+											_1: {
+												ctor: '::',
+												_0: {
+													ctor: '_Tuple2',
+													_0: 'deadline',
+													_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay, record.deadline)
+												},
+												_1: {
+													ctor: '::',
+													_0: {
+														ctor: '_Tuple2',
+														_0: 'plannedStart',
+														_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay, record.plannedStart)
+													},
+													_1: {
+														ctor: '::',
+														_0: {
+															ctor: '_Tuple2',
+															_0: 'plannedFinish',
+															_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay, record.plannedFinish)
+														},
+														_1: {
+															ctor: '::',
+															_0: {
+																ctor: '_Tuple2',
+																_0: 'relevanceStarts',
+																_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay, record.relevanceStarts)
+															},
+															_1: {
+																ctor: '::',
+																_0: {
+																	ctor: '_Tuple2',
+																	_0: 'relevanceEnds',
+																	_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _evancz$elm_todomvc$Model_Moment$encodeMomentOrDay, record.relevanceEnds)
+																},
+																_1: {ctor: '[]'}
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		});
 };
-var _evancz$elm_todomvc$Model$emptyModel = {
-	tasks: {ctor: '[]'},
-	visibility: 'All',
-	field: '',
-	uid: 0,
-	errors: {ctor: '[]'}
-};
-var _evancz$elm_todomvc$Model$Model = F5(
-	function (a, b, c, d, e) {
-		return {tasks: a, field: b, uid: c, visibility: d, errors: e};
-	});
-var _evancz$elm_todomvc$Model$Task = function (a) {
+var _evancz$elm_todomvc$Model_Task$Task = function (a) {
 	return function (b) {
 		return function (c) {
 			return function (d) {
@@ -17937,30 +18242,226 @@ var _evancz$elm_todomvc$Model$Task = function (a) {
 		};
 	};
 };
-var _evancz$elm_todomvc$Model$CompletedTasksOnly = {ctor: 'CompletedTasksOnly'};
-var _evancz$elm_todomvc$Model$ActiveTasksOnly = {ctor: 'ActiveTasksOnly'};
-var _evancz$elm_todomvc$Model$AllTasks = {ctor: 'AllTasks'};
-var _evancz$elm_todomvc$Model$TagsChange = {ctor: 'TagsChange'};
-var _evancz$elm_todomvc$Model$ParentChange = function (a) {
+var _evancz$elm_todomvc$Model_Task$decodeTask = A3(
+	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+	'relevanceEnds',
+	_elm_lang$core$Json_Decode$maybe(_evancz$elm_todomvc$Model_Moment$decodeMomentOrDay),
+	A3(
+		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+		'relevanceStarts',
+		_elm_lang$core$Json_Decode$maybe(_evancz$elm_todomvc$Model_Moment$decodeMomentOrDay),
+		A3(
+			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+			'plannedFinish',
+			_elm_lang$core$Json_Decode$maybe(_evancz$elm_todomvc$Model_Moment$decodeMomentOrDay),
+			A3(
+				_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+				'plannedStart',
+				_elm_lang$core$Json_Decode$maybe(_evancz$elm_todomvc$Model_Moment$decodeMomentOrDay),
+				A3(
+					_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+					'deadline',
+					_elm_lang$core$Json_Decode$maybe(_evancz$elm_todomvc$Model_Moment$decodeMomentOrDay),
+					A3(
+						_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+						'project',
+						_elm_lang$core$Json_Decode$maybe(_elm_lang$core$Json_Decode$int),
+						A3(
+							_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+							'tags',
+							_elm_lang$core$Json_Decode$list(_elm_lang$core$Json_Decode$string),
+							A3(
+								_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+								'parent',
+								_elm_lang$core$Json_Decode$maybe(_elm_lang$core$Json_Decode$int),
+								A3(
+									_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+									'history',
+									_elm_lang$core$Json_Decode$list(_evancz$elm_todomvc$Model_Task$decodeHistoryEntry),
+									A3(
+										_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+										'predictedEffort',
+										_elm_lang$core$Json_Decode$int,
+										A3(
+											_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+											'id',
+											_elm_lang$core$Json_Decode$int,
+											A3(
+												_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+												'editing',
+												_elm_lang$core$Json_Decode$bool,
+												A3(
+													_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+													'completion',
+													_evancz$elm_todomvc$Model_Progress$decodeProgress,
+													A3(
+														_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
+														'title',
+														_elm_lang$core$Json_Decode$string,
+														_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_evancz$elm_todomvc$Model_Task$Task)))))))))))))));
+var _evancz$elm_todomvc$Model_Task$CompletedTasksOnly = {ctor: 'CompletedTasksOnly'};
+var _evancz$elm_todomvc$Model_Task$ActiveTasksOnly = {ctor: 'ActiveTasksOnly'};
+var _evancz$elm_todomvc$Model_Task$AllTasks = {ctor: 'AllTasks'};
+var _evancz$elm_todomvc$Model_Task$TagsChange = {ctor: 'TagsChange'};
+var _evancz$elm_todomvc$Model_Task$ParentChange = function (a) {
 	return {ctor: 'ParentChange', _0: a};
 };
-var _evancz$elm_todomvc$Model$PredictedEffortChange = function (a) {
+var _evancz$elm_todomvc$Model_Task$PredictedEffortChange = function (a) {
 	return {ctor: 'PredictedEffortChange', _0: a};
 };
-var _evancz$elm_todomvc$Model$TitleChange = function (a) {
+var _evancz$elm_todomvc$Model_Task$TitleChange = function (a) {
 	return {ctor: 'TitleChange', _0: a};
 };
-var _evancz$elm_todomvc$Model$CompletionChange = function (a) {
+var _evancz$elm_todomvc$Model_Task$CompletionChange = function (a) {
 	return {ctor: 'CompletionChange', _0: a};
 };
-var _evancz$elm_todomvc$Model$Created = function (a) {
+var _evancz$elm_todomvc$Model_Task$Created = function (a) {
 	return {ctor: 'Created', _0: a};
 };
-var _evancz$elm_todomvc$Model$OnDayOf = function (a) {
-	return {ctor: 'OnDayOf', _0: a};
+var _evancz$elm_todomvc$Model_Task$decodeTaskChange = A2(
+	_evancz$elm_todomvc$Porting$decodeTU,
+	'TaskChange',
+	{
+		ctor: '::',
+		_0: A2(
+			_evancz$elm_todomvc$Porting$valueC,
+			'CompletionChange',
+			A3(_evancz$elm_todomvc$Porting$subValue, _evancz$elm_todomvc$Model_Task$CompletionChange, 'progress', _evancz$elm_todomvc$Model_Progress$decodeProgress)),
+		_1: {
+			ctor: '::',
+			_0: A2(
+				_evancz$elm_todomvc$Porting$valueC,
+				'Created',
+				A3(_evancz$elm_todomvc$Porting$subValue, _evancz$elm_todomvc$Model_Task$Created, 'moment', _evancz$elm_todomvc$Model_Moment$decodeMoment)),
+			_1: {
+				ctor: '::',
+				_0: A2(
+					_evancz$elm_todomvc$Porting$valueC,
+					'ParentChange',
+					A3(_evancz$elm_todomvc$Porting$subValue, _evancz$elm_todomvc$Model_Task$ParentChange, 'taskId', _elm_lang$core$Json_Decode$int)),
+				_1: {
+					ctor: '::',
+					_0: A2(
+						_evancz$elm_todomvc$Porting$valueC,
+						'PredictedEffortChange',
+						A3(_evancz$elm_todomvc$Porting$subValue, _evancz$elm_todomvc$Model_Task$PredictedEffortChange, 'duration', _elm_lang$core$Json_Decode$int)),
+					_1: {
+						ctor: '::',
+						_0: A2(
+							_evancz$elm_todomvc$Porting$valueC,
+							'TagsChange',
+							_elm_lang$core$Json_Decode$succeed(_evancz$elm_todomvc$Model_Task$TagsChange)),
+						_1: {
+							ctor: '::',
+							_0: A2(
+								_evancz$elm_todomvc$Porting$valueC,
+								'TitleChange',
+								A3(_evancz$elm_todomvc$Porting$subValue, _evancz$elm_todomvc$Model_Task$TitleChange, 'string', _elm_lang$core$Json_Decode$string)),
+							_1: {ctor: '[]'}
+						}
+					}
+				}
+			}
+		}
+	});
+
+var _evancz$elm_todomvc$Model$testModel = {
+	tasks: {ctor: '[]'},
+	visibility: 'All',
+	field: '',
+	uid: 0,
+	errors: {ctor: '[]'},
+	updateTime: 0.0
 };
-var _evancz$elm_todomvc$Model$AtExactly = function (a) {
-	return {ctor: 'AtExactly', _0: a};
+var _evancz$elm_todomvc$Model$emptyModel = {
+	tasks: {ctor: '[]'},
+	visibility: 'All',
+	field: '',
+	uid: 0,
+	errors: {ctor: '[]'},
+	updateTime: 0.0
+};
+var _evancz$elm_todomvc$Model$encodeModel = function (record) {
+	return _elm_lang$core$Json_Encode$object(
+		{
+			ctor: '::',
+			_0: {
+				ctor: '_Tuple2',
+				_0: 'tasks',
+				_1: _elm_lang$core$Json_Encode$list(
+					A2(_elm_lang$core$List$map, _evancz$elm_todomvc$Model_Task$encodeTask, record.tasks))
+			},
+			_1: {
+				ctor: '::',
+				_0: {
+					ctor: '_Tuple2',
+					_0: 'field',
+					_1: _elm_lang$core$Json_Encode$string(record.field)
+				},
+				_1: {
+					ctor: '::',
+					_0: {
+						ctor: '_Tuple2',
+						_0: 'uid',
+						_1: _elm_lang$core$Json_Encode$int(record.uid)
+					},
+					_1: {
+						ctor: '::',
+						_0: {
+							ctor: '_Tuple2',
+							_0: 'visibility',
+							_1: _elm_lang$core$Json_Encode$string(record.visibility)
+						},
+						_1: {
+							ctor: '::',
+							_0: {
+								ctor: '_Tuple2',
+								_0: 'errors',
+								_1: _elm_lang$core$Json_Encode$list(
+									A2(_elm_lang$core$List$map, _elm_lang$core$Json_Encode$string, record.errors))
+							},
+							_1: {
+								ctor: '::',
+								_0: {
+									ctor: '_Tuple2',
+									_0: 'updateTime',
+									_1: _elm_lang$core$Json_Encode$float(record.updateTime)
+								},
+								_1: {ctor: '[]'}
+							}
+						}
+					}
+				}
+			}
+		});
+};
+var _evancz$elm_todomvc$Model$modelToJson = function (model) {
+	return A2(
+		_elm_lang$core$Json_Encode$encode,
+		0,
+		_evancz$elm_todomvc$Model$encodeModel(model));
+};
+var _evancz$elm_todomvc$Model$Model = F6(
+	function (a, b, c, d, e, f) {
+		return {tasks: a, field: b, uid: c, visibility: d, errors: e, updateTime: f};
+	});
+var _evancz$elm_todomvc$Model$decodeModel = A7(
+	_elm_lang$core$Json_Decode$map6,
+	_evancz$elm_todomvc$Model$Model,
+	A2(
+		_elm_lang$core$Json_Decode$field,
+		'tasks',
+		_elm_lang$core$Json_Decode$list(_evancz$elm_todomvc$Model_Task$decodeTask)),
+	A2(_elm_lang$core$Json_Decode$field, 'field', _elm_lang$core$Json_Decode$string),
+	A2(_elm_lang$core$Json_Decode$field, 'uid', _elm_lang$core$Json_Decode$int),
+	A2(_elm_lang$core$Json_Decode$field, 'visibility', _elm_lang$core$Json_Decode$string),
+	A2(
+		_elm_lang$core$Json_Decode$field,
+		'errors',
+		_elm_lang$core$Json_Decode$list(_elm_lang$core$Json_Decode$string)),
+	A2(_elm_lang$core$Json_Decode$field, 'updateTime', _elm_lang$core$Json_Decode$float));
+var _evancz$elm_todomvc$Model$modelFromJson = function (incomingJson) {
+	return A2(_elm_lang$core$Json_Decode$decodeString, _evancz$elm_todomvc$Model$decodeModel, incomingJson);
 };
 
 var _evancz$elm_todomvc$Update$completed = function (task) {
@@ -17975,6 +18476,13 @@ var _evancz$elm_todomvc$Update$completed = function (task) {
 					return _.completion;
 				}(task))));
 };
+var _evancz$elm_todomvc$Update$MinutePassed = function (a) {
+	return {ctor: 'MinutePassed', _0: a};
+};
+var _evancz$elm_todomvc$Update$FocusSlider = F2(
+	function (a, b) {
+		return {ctor: 'FocusSlider', _0: a, _1: b};
+	});
 var _evancz$elm_todomvc$Update$ChangeVisibility = function (a) {
 	return {ctor: 'ChangeVisibility', _0: a};
 };
@@ -18001,12 +18509,29 @@ var _evancz$elm_todomvc$Update$EditingTask = F2(
 var _evancz$elm_todomvc$Update$UpdateField = function (a) {
 	return {ctor: 'UpdateField', _0: a};
 };
+var _evancz$elm_todomvc$Update$Tock = F2(
+	function (a, b) {
+		return {ctor: 'Tock', _0: a, _1: b};
+	});
+var _evancz$elm_todomvc$Update$Tick = function (a) {
+	return {ctor: 'Tick', _0: a};
+};
 var _evancz$elm_todomvc$Update$NoOp = {ctor: 'NoOp'};
 var _evancz$elm_todomvc$Update$update = F2(
 	function (msg, model) {
 		var _p0 = msg;
 		switch (_p0.ctor) {
 			case 'NoOp':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					model,
+					{ctor: '[]'});
+			case 'Tick':
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					model,
+					{ctor: '[]'});
+			case 'Tock':
 				return A2(
 					_elm_lang$core$Platform_Cmd_ops['!'],
 					model,
@@ -18024,7 +18549,7 @@ var _evancz$elm_todomvc$Update$update = F2(
 								model.tasks,
 								{
 									ctor: '::',
-									_0: A2(_evancz$elm_todomvc$Model$newTask, model.field, model.uid),
+									_0: A2(_evancz$elm_todomvc$Model_Task$newTask, model.field, model.uid),
 									_1: {ctor: '[]'}
 								})
 						}),
@@ -18141,573 +18666,25 @@ var _evancz$elm_todomvc$Update$update = F2(
 							tasks: A2(_elm_lang$core$List$map, updateTask, model.tasks)
 						}),
 					{ctor: '[]'});
-			default:
+			case 'ChangeVisibility':
 				return A2(
 					_elm_lang$core$Platform_Cmd_ops['!'],
 					_elm_lang$core$Native_Utils.update(
 						model,
 						{visibility: _p0._0}),
 					{ctor: '[]'});
-		}
-	});
-
-var _evancz$elm_todomvc$Porting$encodeMoment = function (moment) {
-	return _elm_lang$core$Json_Encode$string(
-		_elm_community$elm_time$Time_Iso8601$fromDateTime(moment));
-};
-var _evancz$elm_todomvc$Porting$decodeMoment = function () {
-	var convert = function (n) {
-		return _elm_community$json_extra$Json_Decode_Extra$fromResult(
-			A2(
-				_elm_lang$core$Result$mapError,
-				_elm_community$elm_time$Time_Iso8601ErrorMsg$renderText,
-				_elm_community$elm_time$Time_Iso8601$toDateTime(n)));
-	};
-	return A2(_elm_lang$core$Json_Decode$andThen, convert, _elm_lang$core$Json_Decode$string);
-}();
-var _evancz$elm_todomvc$Porting$customDecoder = F2(
-	function (primitiveDecoder, customDecoderFunction) {
-		return A2(
-			_elm_lang$core$Json_Decode$andThen,
-			function (a) {
-				var _p0 = customDecoderFunction(a);
-				if (_p0.ctor === 'Ok') {
-					return _elm_lang$core$Json_Decode$succeed(_p0._0);
-				} else {
-					return _elm_lang$core$Json_Decode$fail(_p0._0);
-				}
-			},
-			primitiveDecoder);
-	});
-var _evancz$elm_todomvc$Porting$encodeProgress = function (progress) {
-	return _elm_lang$core$Json_Encode$float(
-		_evancz$elm_todomvc$Model_Progress$part(progress));
-};
-var _evancz$elm_todomvc$Porting$decodeProgress = A2(_elm_lang$core$Json_Decode$map, _evancz$elm_todomvc$Model_Progress$progressFromFloat, _elm_lang$core$Json_Decode$float);
-var _evancz$elm_todomvc$Porting$encodeMomentOrDay = function (_p1) {
-	return _elm_lang$core$Json_Encode$string(
-		_elm_lang$core$Basics$toString(_p1));
-};
-var _evancz$elm_todomvc$Porting$decodeOnDayOf = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$OnDayOf,
-	A2(_elm_lang$core$Json_Decode$field, 'moment', _evancz$elm_todomvc$Porting$decodeMoment));
-var _evancz$elm_todomvc$Porting$decodeAtExactly = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$AtExactly,
-	A2(_elm_lang$core$Json_Decode$field, 'moment', _evancz$elm_todomvc$Porting$decodeMoment));
-var _evancz$elm_todomvc$Porting$tag = A2(_elm_lang$core$Json_Decode$field, 'tag', _elm_lang$core$Json_Decode$string);
-var _evancz$elm_todomvc$Porting$decodeMomentOrDay = function () {
-	var fallthrough = function (string) {
-		return _elm_lang$core$Result$Err(
-			A2(
-				_elm_lang$core$Basics_ops['++'],
-				'Not valid pattern for decoder to MomentOrDay. Pattern: ',
-				_elm_lang$core$Basics$toString(string)));
-	};
-	return _elm_lang$core$Json_Decode$oneOf(
-		{
-			ctor: '::',
-			_0: A3(
-				_elm_community$json_extra$Json_Decode_Extra$when,
-				_evancz$elm_todomvc$Porting$tag,
-				F2(
-					function (x, y) {
-						return _elm_lang$core$Native_Utils.eq(x, y);
-					})('AtExactly'),
-				_evancz$elm_todomvc$Porting$decodeAtExactly),
-			_1: {
-				ctor: '::',
-				_0: A3(
-					_elm_community$json_extra$Json_Decode_Extra$when,
-					_evancz$elm_todomvc$Porting$tag,
-					F2(
-						function (x, y) {
-							return _elm_lang$core$Native_Utils.eq(x, y);
-						})('OnDayOf'),
-					_evancz$elm_todomvc$Porting$decodeOnDayOf),
-				_1: {
-					ctor: '::',
-					_0: A2(
-						_elm_lang$core$Json_Decode$andThen,
-						function (_p2) {
-							return _elm_community$json_extra$Json_Decode_Extra$fromResult(
-								fallthrough(_p2));
-						},
-						_elm_lang$core$Json_Decode$string),
-					_1: {ctor: '[]'}
-				}
-			}
-		});
-}();
-var _evancz$elm_todomvc$Porting$encodeTaskChange = function (_p3) {
-	return _elm_lang$core$Json_Encode$string(
-		_elm_lang$core$Basics$toString(_p3));
-};
-var _evancz$elm_todomvc$Porting$decodeTitleChange = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$TitleChange,
-	A2(_elm_lang$core$Json_Decode$field, 'string', _elm_lang$core$Json_Decode$string));
-var _evancz$elm_todomvc$Porting$decodePredictedEffortChange = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$PredictedEffortChange,
-	A2(_elm_lang$core$Json_Decode$field, 'duration', _elm_lang$core$Json_Decode$int));
-var _evancz$elm_todomvc$Porting$decodeParentChange = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$ParentChange,
-	A2(_elm_lang$core$Json_Decode$field, 'taskId', _elm_lang$core$Json_Decode$int));
-var _evancz$elm_todomvc$Porting$decodeCreated = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$Created,
-	A2(_elm_lang$core$Json_Decode$field, 'moment', _evancz$elm_todomvc$Porting$decodeMoment));
-var _evancz$elm_todomvc$Porting$decodeCompletionChange = A2(
-	_elm_lang$core$Json_Decode$map,
-	_evancz$elm_todomvc$Model$CompletionChange,
-	A2(_elm_lang$core$Json_Decode$field, 'progress', _evancz$elm_todomvc$Porting$decodeProgress));
-var _evancz$elm_todomvc$Porting$decodeTaskChange = function () {
-	var fallthrough = function (string) {
-		return _elm_lang$core$Result$Err(
-			A2(
-				_elm_lang$core$Basics_ops['++'],
-				'Not valid pattern for decoder to MomentOrDay. Pattern: ',
-				_elm_lang$core$Basics$toString(string)));
-	};
-	return _elm_lang$core$Json_Decode$oneOf(
-		{
-			ctor: '::',
-			_0: A3(
-				_elm_community$json_extra$Json_Decode_Extra$when,
-				_evancz$elm_todomvc$Porting$tag,
-				F2(
-					function (x, y) {
-						return _elm_lang$core$Native_Utils.eq(x, y);
-					})('CompletionChange'),
-				_evancz$elm_todomvc$Porting$decodeCompletionChange),
-			_1: {
-				ctor: '::',
-				_0: A3(
-					_elm_community$json_extra$Json_Decode_Extra$when,
-					_evancz$elm_todomvc$Porting$tag,
-					F2(
-						function (x, y) {
-							return _elm_lang$core$Native_Utils.eq(x, y);
-						})('Created'),
-					_evancz$elm_todomvc$Porting$decodeCreated),
-				_1: {
-					ctor: '::',
-					_0: A3(
-						_elm_community$json_extra$Json_Decode_Extra$when,
-						_evancz$elm_todomvc$Porting$tag,
-						F2(
-							function (x, y) {
-								return _elm_lang$core$Native_Utils.eq(x, y);
-							})('ParentChange'),
-						_evancz$elm_todomvc$Porting$decodeParentChange),
-					_1: {
-						ctor: '::',
-						_0: A3(
-							_elm_community$json_extra$Json_Decode_Extra$when,
-							_evancz$elm_todomvc$Porting$tag,
-							F2(
-								function (x, y) {
-									return _elm_lang$core$Native_Utils.eq(x, y);
-								})('PredictedEffortChange'),
-							_evancz$elm_todomvc$Porting$decodePredictedEffortChange),
-						_1: {
-							ctor: '::',
-							_0: A3(
-								_elm_community$json_extra$Json_Decode_Extra$when,
-								_evancz$elm_todomvc$Porting$tag,
-								F2(
-									function (x, y) {
-										return _elm_lang$core$Native_Utils.eq(x, y);
-									})('TagsChange'),
-								_elm_lang$core$Json_Decode$succeed(_evancz$elm_todomvc$Model$TagsChange)),
-							_1: {
-								ctor: '::',
-								_0: A3(
-									_elm_community$json_extra$Json_Decode_Extra$when,
-									_evancz$elm_todomvc$Porting$tag,
-									F2(
-										function (x, y) {
-											return _elm_lang$core$Native_Utils.eq(x, y);
-										})('TitleChange'),
-									_evancz$elm_todomvc$Porting$decodeTitleChange),
-								_1: {
-									ctor: '::',
-									_0: A2(
-										_elm_lang$core$Json_Decode$andThen,
-										function (_p4) {
-											return _elm_community$json_extra$Json_Decode_Extra$fromResult(
-												fallthrough(_p4));
-										},
-										_elm_lang$core$Json_Decode$string),
-									_1: {ctor: '[]'}
-								}
-							}
-						}
-					}
-				}
-			}
-		});
-}();
-var _evancz$elm_todomvc$Porting$encodeHistoryEntry = function (record) {
-	return _elm_lang$core$Json_Encode$object(
-		{ctor: '[]'});
-};
-var _evancz$elm_todomvc$Porting$arrayAsTuple2 = F2(
-	function (a, b) {
-		return A2(
-			_elm_lang$core$Json_Decode$andThen,
-			function (aVal) {
+			case 'FocusSlider':
 				return A2(
-					_elm_lang$core$Json_Decode$andThen,
-					function (bVal) {
-						return _elm_lang$core$Json_Decode$succeed(
-							{ctor: '_Tuple2', _0: aVal, _1: bVal});
-					},
-					A2(_elm_lang$core$Json_Decode$index, 1, b));
-			},
-			A2(_elm_lang$core$Json_Decode$index, 0, a));
-	});
-var _evancz$elm_todomvc$Porting$decodeHistoryEntry = A3(
-	_elm_lang$core$Json_Decode$map2,
-	F2(
-		function (v0, v1) {
-			return {ctor: '_Tuple2', _0: v0, _1: v1};
-		}),
-	A2(
-		_elm_lang$core$Json_Decode$index,
-		0,
-		A2(
-			_elm_lang$core$Json_Decode$andThen,
-			function (string) {
-				var _p5 = string;
-				switch (_p5) {
-					case 'Created':
-						return _evancz$elm_todomvc$Porting$decodeCreated;
-					case 'CompletionChange':
-						return _evancz$elm_todomvc$Porting$decodeCompletionChange;
-					case 'TitleChange':
-						return _evancz$elm_todomvc$Porting$decodeTitleChange;
-					case 'PredictedEffortChange':
-						return _evancz$elm_todomvc$Porting$decodePredictedEffortChange;
-					case 'ParentChange':
-						return _evancz$elm_todomvc$Porting$decodeParentChange;
-					case 'TagsChange':
-						return _elm_lang$core$Json_Decode$succeed(_evancz$elm_todomvc$Model$TagsChange);
-					default:
-						return _elm_lang$core$Json_Decode$fail('Invalid TaskChange');
-				}
-			},
-			_elm_lang$core$Json_Decode$string)),
-	A2(
-		_elm_lang$core$Json_Decode$index,
-		1,
-		A2(
-			_elm_lang$core$Json_Decode$andThen,
-			function (string) {
-				var _p6 = string;
-				if (_p6 === 'DateTime') {
-					return _evancz$elm_todomvc$Porting$decodeMoment;
-				} else {
-					return _elm_lang$core$Json_Decode$fail('Invalid Moment');
-				}
-			},
-			_elm_lang$core$Json_Decode$string)));
-var _evancz$elm_todomvc$Porting$encodeMaybe = _elm_community$json_extra$Json_Encode_Extra$maybe;
-var _evancz$elm_todomvc$Porting$encodeTask = function (record) {
-	return _elm_lang$core$Json_Encode$object(
-		{
-			ctor: '::',
-			_0: {
-				ctor: '_Tuple2',
-				_0: 'title',
-				_1: _elm_lang$core$Json_Encode$string(record.title)
-			},
-			_1: {
-				ctor: '::',
-				_0: {
-					ctor: '_Tuple2',
-					_0: 'completion',
-					_1: _evancz$elm_todomvc$Porting$encodeProgress(record.completion)
-				},
-				_1: {
-					ctor: '::',
-					_0: {
-						ctor: '_Tuple2',
-						_0: 'editing',
-						_1: _elm_lang$core$Json_Encode$bool(record.editing)
-					},
-					_1: {
-						ctor: '::',
-						_0: {
-							ctor: '_Tuple2',
-							_0: 'id',
-							_1: _elm_lang$core$Json_Encode$int(record.id)
-						},
-						_1: {
-							ctor: '::',
-							_0: {
-								ctor: '_Tuple2',
-								_0: 'predictedEffort',
-								_1: _elm_lang$core$Json_Encode$int(record.predictedEffort)
-							},
-							_1: {
-								ctor: '::',
-								_0: {
-									ctor: '_Tuple2',
-									_0: 'history',
-									_1: _elm_lang$core$Json_Encode$list(
-										A2(_elm_lang$core$List$map, _evancz$elm_todomvc$Porting$encodeHistoryEntry, record.history))
-								},
-								_1: {
-									ctor: '::',
-									_0: {
-										ctor: '_Tuple2',
-										_0: 'parent',
-										_1: A2(_elm_community$json_extra$Json_Encode_Extra$maybe, _elm_lang$core$Json_Encode$int, record.parent)
-									},
-									_1: {
-										ctor: '::',
-										_0: {
-											ctor: '_Tuple2',
-											_0: 'tags',
-											_1: _elm_lang$core$Json_Encode$list(
-												A2(_elm_lang$core$List$map, _elm_lang$core$Json_Encode$string, record.tags))
-										},
-										_1: {
-											ctor: '::',
-											_0: {
-												ctor: '_Tuple2',
-												_0: 'project',
-												_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _elm_lang$core$Json_Encode$int, record.project)
-											},
-											_1: {
-												ctor: '::',
-												_0: {
-													ctor: '_Tuple2',
-													_0: 'deadline',
-													_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _evancz$elm_todomvc$Porting$encodeMomentOrDay, record.deadline)
-												},
-												_1: {
-													ctor: '::',
-													_0: {
-														ctor: '_Tuple2',
-														_0: 'plannedStart',
-														_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _evancz$elm_todomvc$Porting$encodeMomentOrDay, record.plannedStart)
-													},
-													_1: {
-														ctor: '::',
-														_0: {
-															ctor: '_Tuple2',
-															_0: 'plannedFinish',
-															_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _evancz$elm_todomvc$Porting$encodeMomentOrDay, record.plannedFinish)
-														},
-														_1: {
-															ctor: '::',
-															_0: {
-																ctor: '_Tuple2',
-																_0: 'relevanceStarts',
-																_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _evancz$elm_todomvc$Porting$encodeMomentOrDay, record.relevanceStarts)
-															},
-															_1: {
-																ctor: '::',
-																_0: {
-																	ctor: '_Tuple2',
-																	_0: 'relevanceEnds',
-																	_1: A2(_evancz$elm_todomvc$Porting$encodeMaybe, _evancz$elm_todomvc$Porting$encodeMomentOrDay, record.relevanceEnds)
-																},
-																_1: {ctor: '[]'}
-															}
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		});
-};
-var _evancz$elm_todomvc$Porting$encodeModel = function (record) {
-	return _elm_lang$core$Json_Encode$object(
-		{
-			ctor: '::',
-			_0: {
-				ctor: '_Tuple2',
-				_0: 'tasks',
-				_1: _elm_lang$core$Json_Encode$list(
-					A2(_elm_lang$core$List$map, _evancz$elm_todomvc$Porting$encodeTask, record.tasks))
-			},
-			_1: {
-				ctor: '::',
-				_0: {
-					ctor: '_Tuple2',
-					_0: 'field',
-					_1: _elm_lang$core$Json_Encode$string(record.field)
-				},
-				_1: {
-					ctor: '::',
-					_0: {
-						ctor: '_Tuple2',
-						_0: 'uid',
-						_1: _elm_lang$core$Json_Encode$int(record.uid)
-					},
-					_1: {
-						ctor: '::',
-						_0: {
-							ctor: '_Tuple2',
-							_0: 'visibility',
-							_1: _elm_lang$core$Json_Encode$string(record.visibility)
-						},
-						_1: {
-							ctor: '::',
-							_0: {
-								ctor: '_Tuple2',
-								_0: 'errors',
-								_1: _elm_lang$core$Json_Encode$list(
-									A2(_elm_lang$core$List$map, _elm_lang$core$Json_Encode$string, record.errors))
-							},
-							_1: {ctor: '[]'}
-						}
-					}
-				}
-			}
-		});
-};
-var _evancz$elm_todomvc$Porting$decodeMaybe = _elm_lang$core$Json_Decode$maybe;
-var _evancz$elm_todomvc$Porting$decodeTask = A3(
-	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-	'relevanceEnds',
-	_evancz$elm_todomvc$Porting$decodeMaybe(_evancz$elm_todomvc$Porting$decodeMomentOrDay),
-	A3(
-		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-		'relevanceStarts',
-		_evancz$elm_todomvc$Porting$decodeMaybe(_evancz$elm_todomvc$Porting$decodeMomentOrDay),
-		A3(
-			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-			'plannedFinish',
-			_evancz$elm_todomvc$Porting$decodeMaybe(_evancz$elm_todomvc$Porting$decodeMomentOrDay),
-			A3(
-				_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-				'plannedStart',
-				_evancz$elm_todomvc$Porting$decodeMaybe(_evancz$elm_todomvc$Porting$decodeMomentOrDay),
-				A3(
-					_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-					'deadline',
-					_evancz$elm_todomvc$Porting$decodeMaybe(_evancz$elm_todomvc$Porting$decodeMomentOrDay),
-					A3(
-						_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-						'project',
-						_evancz$elm_todomvc$Porting$decodeMaybe(_elm_lang$core$Json_Decode$int),
-						A3(
-							_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-							'tags',
-							_elm_lang$core$Json_Decode$list(_elm_lang$core$Json_Decode$string),
-							A3(
-								_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-								'parent',
-								_evancz$elm_todomvc$Porting$decodeMaybe(_elm_lang$core$Json_Decode$int),
-								A3(
-									_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-									'history',
-									_elm_lang$core$Json_Decode$list(_evancz$elm_todomvc$Porting$decodeHistoryEntry),
-									A3(
-										_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-										'predictedEffort',
-										_elm_lang$core$Json_Decode$int,
-										A3(
-											_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-											'id',
-											_elm_lang$core$Json_Decode$int,
-											A3(
-												_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-												'editing',
-												_elm_lang$core$Json_Decode$bool,
-												A3(
-													_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-													'completion',
-													_evancz$elm_todomvc$Porting$decodeProgress,
-													A3(
-														_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-														'title',
-														_elm_lang$core$Json_Decode$string,
-														_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_evancz$elm_todomvc$Model$Task)))))))))))))));
-var _evancz$elm_todomvc$Porting$decodeModel = A6(
-	_elm_lang$core$Json_Decode$map5,
-	_evancz$elm_todomvc$Model$Model,
-	A2(
-		_elm_lang$core$Json_Decode$field,
-		'tasks',
-		_elm_lang$core$Json_Decode$list(_evancz$elm_todomvc$Porting$decodeTask)),
-	A2(_elm_lang$core$Json_Decode$field, 'field', _elm_lang$core$Json_Decode$string),
-	A2(_elm_lang$core$Json_Decode$field, 'uid', _elm_lang$core$Json_Decode$int),
-	A2(_elm_lang$core$Json_Decode$field, 'visibility', _elm_lang$core$Json_Decode$string),
-	A2(
-		_elm_lang$core$Json_Decode$field,
-		'errors',
-		_elm_lang$core$Json_Decode$list(_elm_lang$core$Json_Decode$string)));
-var _evancz$elm_todomvc$Porting$modelToJson = function (model) {
-	return A2(
-		_elm_lang$core$Json_Encode$encode,
-		0,
-		_evancz$elm_todomvc$Porting$encodeModel(model));
-};
-var _evancz$elm_todomvc$Porting$modelFromJson = function (incomingJson) {
-	return A2(_elm_lang$core$Json_Decode$decodeString, _evancz$elm_todomvc$Porting$decodeModel, incomingJson);
-};
-var _evancz$elm_todomvc$Porting$Rectangle = F2(
-	function (a, b) {
-		return {width: a, height: b};
-	});
-var _evancz$elm_todomvc$Porting$decodeRectangle = A3(
-	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-	'height',
-	_elm_lang$core$Json_Decode$int,
-	A3(
-		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-		'width',
-		_elm_lang$core$Json_Decode$int,
-		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_evancz$elm_todomvc$Porting$Rectangle)));
-var _evancz$elm_todomvc$Porting$Circle = function (a) {
-	return {radius: a};
-};
-var _evancz$elm_todomvc$Porting$decodeCircle = A3(
-	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
-	'radius',
-	_elm_lang$core$Json_Decode$int,
-	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_evancz$elm_todomvc$Porting$Circle));
-var _evancz$elm_todomvc$Porting$ShapeCircle = function (a) {
-	return {ctor: 'ShapeCircle', _0: a};
-};
-var _evancz$elm_todomvc$Porting$ShapeRectangle = function (a) {
-	return {ctor: 'ShapeRectangle', _0: a};
-};
-var _evancz$elm_todomvc$Porting$decodeShape = _elm_lang$core$Json_Decode$oneOf(
-	{
-		ctor: '::',
-		_0: A2(
-			_elm_lang$core$Json_Decode$andThen,
-			function (x) {
-				return _NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(
-					_evancz$elm_todomvc$Porting$ShapeRectangle(x));
-			},
-			_evancz$elm_todomvc$Porting$decodeRectangle),
-		_1: {
-			ctor: '::',
-			_0: A2(
-				_elm_lang$core$Json_Decode$andThen,
-				function (x) {
-					return _NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(
-						_evancz$elm_todomvc$Porting$ShapeCircle(x));
-				},
-				_evancz$elm_todomvc$Porting$decodeCircle),
-			_1: {ctor: '[]'}
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					model,
+					{ctor: '[]'});
+			default:
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{updateTime: _p0._0}),
+					{ctor: '[]'});
 		}
 	});
 
@@ -19424,7 +19401,13 @@ var _evancz$elm_todomvc$View$viewControls = F2(
 				}));
 	});
 var _evancz$elm_todomvc$View$timingInfo = function (task) {
-	return _rtfeldman$elm_css$Html_Styled$text('');
+	var _p0 = task.deadline;
+	if (_p0.ctor === 'Just') {
+		return _rtfeldman$elm_css$Html_Styled$text(
+			_evancz$elm_todomvc$Model_Moment$describeMomentOrDay(_p0._0));
+	} else {
+		return _rtfeldman$elm_css$Html_Styled$text('');
+	}
 };
 var _evancz$elm_todomvc$View$extractSliderInput = F2(
 	function (task, input) {
@@ -19437,13 +19420,13 @@ var _evancz$elm_todomvc$View$extractSliderInput = F2(
 				_elm_lang$core$String$toFloat(input)));
 	});
 var _evancz$elm_todomvc$View$dynamicSliderThumbCss = function (portion) {
-	var _p0 = {
+	var _p1 = {
 		ctor: '_Tuple2',
 		_0: portion * -90,
 		_1: _elm_lang$core$Basics$abs((portion - 0.5) * 5)
 	};
-	var angle = _p0._0;
-	var offset = _p0._1;
+	var angle = _p1._0;
+	var offset = _p1._1;
 	return _rtfeldman$elm_css$Html_Styled_Attributes$css(
 		{
 			ctor: '::',
@@ -19509,7 +19492,17 @@ var _evancz$elm_todomvc$View$progressSlider = function (task) {
 										ctor: '::',
 										_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
 											A2(_evancz$elm_todomvc$Update$EditingTask, task.id, true)),
-										_1: {ctor: '[]'}
+										_1: {
+											ctor: '::',
+											_0: _rtfeldman$elm_css$Html_Styled_Events$onFocus(
+												A2(_evancz$elm_todomvc$Update$FocusSlider, task.id, true)),
+											_1: {
+												ctor: '::',
+												_0: _rtfeldman$elm_css$Html_Styled_Events$onBlur(
+													A2(_evancz$elm_todomvc$Update$FocusSlider, task.id, false)),
+												_1: {ctor: '[]'}
+											}
+										}
 									}
 								}
 							}
@@ -19535,21 +19528,25 @@ var _evancz$elm_todomvc$View$viewTask = function (task) {
 			_rtfeldman$elm_css$Html_Styled$li,
 			{
 				ctor: '::',
-				_0: _rtfeldman$elm_css$Html_Styled_Attributes$classList(
-					{
-						ctor: '::',
-						_0: {
-							ctor: '_Tuple2',
-							_0: 'completed',
-							_1: _evancz$elm_todomvc$Update$completed(task)
-						},
-						_1: {
+				_0: _rtfeldman$elm_css$Html_Styled_Attributes$class('task-entry'),
+				_1: {
+					ctor: '::',
+					_0: _rtfeldman$elm_css$Html_Styled_Attributes$classList(
+						{
 							ctor: '::',
-							_0: {ctor: '_Tuple2', _0: 'editing', _1: task.editing},
-							_1: {ctor: '[]'}
-						}
-					}),
-				_1: {ctor: '[]'}
+							_0: {
+								ctor: '_Tuple2',
+								_0: 'completed',
+								_1: _evancz$elm_todomvc$Update$completed(task)
+							},
+							_1: {
+								ctor: '::',
+								_0: {ctor: '_Tuple2', _0: 'editing', _1: task.editing},
+								_1: {ctor: '[]'}
+							}
+						}),
+					_1: {ctor: '[]'}
+				}
 			},
 			{
 				ctor: '::',
@@ -19599,7 +19596,12 @@ var _evancz$elm_todomvc$View$viewTask = function (task) {
 										ctor: '::',
 										_0: _rtfeldman$elm_css$Html_Styled_Events$onDoubleClick(
 											A2(_evancz$elm_todomvc$Update$EditingTask, task.id, true)),
-										_1: {ctor: '[]'}
+										_1: {
+											ctor: '::',
+											_0: _rtfeldman$elm_css$Html_Styled_Events$onClick(
+												A2(_evancz$elm_todomvc$Update$FocusSlider, task.id, true)),
+											_1: {ctor: '[]'}
+										}
 									},
 									{
 										ctor: '::',
@@ -19702,8 +19704,8 @@ var _evancz$elm_todomvc$View$viewTasks = F2(
 		var cssVisibility = _elm_lang$core$List$isEmpty(tasks) ? 'hidden' : 'visible';
 		var allCompleted = A2(_elm_lang$core$List$all, _evancz$elm_todomvc$Update$completed, tasks);
 		var isVisible = function (task) {
-			var _p1 = visibility;
-			switch (_p1) {
+			var _p2 = visibility;
+			switch (_p2) {
 				case 'Completed':
 					return _evancz$elm_todomvc$Update$completed(task);
 				case 'Active':
@@ -19906,7 +19908,7 @@ var _evancz$elm_todomvc$View$view = function (model) {
 						{
 							ctor: '::',
 							_0: _rtfeldman$elm_css$Html_Styled$text(
-								_evancz$elm_todomvc$Porting$modelToJson(model)),
+								_evancz$elm_todomvc$Model$modelToJson(model)),
 							_1: {ctor: '[]'}
 						}),
 					_1: {ctor: '[]'}
@@ -19916,10 +19918,15 @@ var _evancz$elm_todomvc$View$view = function (model) {
 };
 
 var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
+	var effects = {
+		ctor: '::',
+		_0: A2(_elm_lang$core$Task$perform, _evancz$elm_todomvc$Update$MinutePassed, _elm_lang$core$Time$now),
+		_1: {ctor: '[]'}
+	};
 	var finalModel = function () {
 		var _p0 = maybeModelAsJson;
 		if (_p0.ctor === 'Just') {
-			var _p1 = _evancz$elm_todomvc$Porting$modelFromJson(_p0._0);
+			var _p1 = _evancz$elm_todomvc$Model$modelFromJson(_p0._0);
 			if (_p1.ctor === 'Ok') {
 				return _p1._0;
 			} else {
@@ -19937,10 +19944,49 @@ var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
 			return _evancz$elm_todomvc$Model$emptyModel;
 		}
 	}();
-	return A2(
-		_elm_lang$core$Platform_Cmd_ops['!'],
-		finalModel,
-		{ctor: '[]'});
+	return A2(_elm_lang$core$Platform_Cmd_ops['!'], finalModel, effects);
+};
+var _evancz$elm_todomvc$Docket$updateWithTime = F2(
+	function (msg, model) {
+		updateWithTime:
+		while (true) {
+			var _p2 = msg;
+			switch (_p2.ctor) {
+				case 'NoOp':
+					return A2(
+						_elm_lang$core$Platform_Cmd_ops['!'],
+						model,
+						{ctor: '[]'});
+				case 'Tick':
+					return A2(
+						_elm_lang$core$Platform_Cmd_ops['!'],
+						model,
+						{
+							ctor: '::',
+							_0: A2(
+								_elm_lang$core$Task$perform,
+								_evancz$elm_todomvc$Update$Tock(_p2._0),
+								_elm_lang$core$Time$now),
+							_1: {ctor: '[]'}
+						});
+				case 'Tock':
+					return A2(
+						_evancz$elm_todomvc$Update$update,
+						_p2._0,
+						_elm_lang$core$Native_Utils.update(
+							model,
+							{updateTime: _p2._1}));
+				default:
+					var _v3 = _evancz$elm_todomvc$Update$Tick(msg),
+						_v4 = model;
+					msg = _v3;
+					model = _v4;
+					continue updateWithTime;
+			}
+		}
+	});
+var _evancz$elm_todomvc$Docket$subscriptions = function (model) {
+	return A2(_elm_lang$core$Time$every, _elm_lang$core$Time$minute, _evancz$elm_todomvc$Update$MinutePassed);
 };
 var _evancz$elm_todomvc$Docket$setStorage = _elm_lang$core$Native_Platform.outgoingPort(
 	'setStorage',
@@ -19949,9 +19995,9 @@ var _evancz$elm_todomvc$Docket$setStorage = _elm_lang$core$Native_Platform.outgo
 	});
 var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 	function (msg, model) {
-		var _p2 = A2(_evancz$elm_todomvc$Update$update, msg, model);
-		var newModel = _p2._0;
-		var cmds = _p2._1;
+		var _p3 = A2(_evancz$elm_todomvc$Docket$updateWithTime, msg, model);
+		var newModel = _p3._0;
+		var cmds = _p3._1;
 		return {
 			ctor: '_Tuple2',
 			_0: newModel,
@@ -19959,7 +20005,7 @@ var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 				{
 					ctor: '::',
 					_0: _evancz$elm_todomvc$Docket$setStorage(
-						_evancz$elm_todomvc$Porting$modelToJson(newModel)),
+						_evancz$elm_todomvc$Model$modelToJson(newModel)),
 					_1: {
 						ctor: '::',
 						_0: cmds,
@@ -19969,14 +20015,7 @@ var _evancz$elm_todomvc$Docket$updateWithStorage = F2(
 		};
 	});
 var _evancz$elm_todomvc$Docket$main = _rtfeldman$elm_css$Html_Styled$programWithFlags(
-	{
-		init: _evancz$elm_todomvc$Docket$init,
-		view: _evancz$elm_todomvc$View$view,
-		update: _evancz$elm_todomvc$Docket$updateWithStorage,
-		subscriptions: function (_p3) {
-			return _elm_lang$core$Platform_Sub$none;
-		}
-	})(
+	{init: _evancz$elm_todomvc$Docket$init, view: _evancz$elm_todomvc$View$view, update: _evancz$elm_todomvc$Docket$updateWithStorage, subscriptions: _evancz$elm_todomvc$Docket$subscriptions})(
 	_elm_lang$core$Json_Decode$oneOf(
 		{
 			ctor: '::',

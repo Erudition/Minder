@@ -3,6 +3,7 @@ module Model.Moment exposing (..)
 import Json.Decode as Decode exposing (..)
 import Json.Decode.Extra as Decode2 exposing (..)
 import Json.Encode as Encode exposing (..)
+import Time
 import Time.DateTime as Moment exposing (DateTime, dateTime, day, hour, millisecond, minute, month, second, year)
 import Time.Iso8601 exposing (toDateTime)
 import Time.Iso8601ErrorMsg exposing (renderText)
@@ -67,6 +68,16 @@ decodeAtExactly =
 decodeOnDayOf : Decoder MomentOrDay
 decodeOnDayOf =
     Decode.map OnDayOf (Decode.field "moment" decodeMoment)
+
+
+describeMomentOrDay : Time.Time -> MomentOrDay -> String
+describeMomentOrDay time momentOrDay =
+    case momentOrDay of
+        AtExactly moment ->
+            toString moment
+
+        OnDayOf moment ->
+            toString moment
 
 
 type alias Duration =
