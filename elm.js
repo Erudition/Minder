@@ -19394,6 +19394,9 @@ var _evancz$elm_todomvc$View$viewControls = F2(
 					}
 				}));
 	});
+var _evancz$elm_todomvc$View$extractDate = function (input) {
+	return _evancz$elm_todomvc$Update$NoOp;
+};
 var _evancz$elm_todomvc$View$timingInfo = F2(
 	function (time, task) {
 		var _p0 = task.deadline;
@@ -19703,10 +19706,62 @@ var _evancz$elm_todomvc$View$viewTask = F2(
 											{
 												ctor: '::',
 												_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
-												_1: {ctor: '[]'}
+												_1: {
+													ctor: '::',
+													_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(_evancz$elm_todomvc$View$extractDate),
+													_1: {
+														ctor: '::',
+														_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+														_1: {ctor: '[]'}
+													}
+												}
 											},
 											{ctor: '[]'}),
-										_1: {ctor: '[]'}
+										_1: {
+											ctor: '::',
+											_0: A2(
+												_rtfeldman$elm_css$Html_Styled$input,
+												{
+													ctor: '::',
+													_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+													_1: {ctor: '[]'}
+												},
+												{ctor: '[]'}),
+											_1: {
+												ctor: '::',
+												_0: A2(
+													_rtfeldman$elm_css$Html_Styled$input,
+													{
+														ctor: '::',
+														_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+														_1: {ctor: '[]'}
+													},
+													{ctor: '[]'}),
+												_1: {
+													ctor: '::',
+													_0: A2(
+														_rtfeldman$elm_css$Html_Styled$input,
+														{
+															ctor: '::',
+															_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+															_1: {ctor: '[]'}
+														},
+														{ctor: '[]'}),
+													_1: {
+														ctor: '::',
+														_0: A2(
+															_rtfeldman$elm_css$Html_Styled$input,
+															{
+																ctor: '::',
+																_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+																_1: {ctor: '[]'}
+															},
+															{ctor: '[]'}),
+														_1: {ctor: '[]'}
+													}
+												}
+											}
+										}
 									}),
 								_1: {ctor: '[]'}
 							}
@@ -19946,7 +20001,7 @@ var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
 		_0: A2(_elm_lang$core$Task$perform, _evancz$elm_todomvc$Update$MinutePassed, _elm_lang$core$Time$now),
 		_1: {ctor: '[]'}
 	};
-	var finalModel = function () {
+	var startingModel = function () {
 		var _p0 = maybeModelAsJson;
 		if (_p0.ctor === 'Just') {
 			var _p1 = _evancz$elm_todomvc$Model$modelFromJson(_p0._0);
@@ -19967,7 +20022,7 @@ var _evancz$elm_todomvc$Docket$init = function (maybeModelAsJson) {
 			return _evancz$elm_todomvc$Model$emptyModel;
 		}
 	}();
-	return A2(_elm_lang$core$Platform_Cmd_ops['!'], finalModel, effects);
+	return A2(_elm_lang$core$Platform_Cmd_ops['!'], startingModel, effects);
 };
 var _evancz$elm_todomvc$Docket$updateWithTime = F2(
 	function (msg, model) {

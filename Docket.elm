@@ -86,7 +86,7 @@ updateWithTime msg model =
 init : Maybe ModelAsJson -> ( Model, Cmd Msg )
 init maybeModelAsJson =
     let
-        finalModel =
+        startingModel =
             case maybeModelAsJson of
                 Just modelAsJson ->
                     case modelFromJson modelAsJson of
@@ -103,4 +103,4 @@ init maybeModelAsJson =
         effects =
             [ Job.perform MinutePassed Time.now ]
     in
-    finalModel ! effects
+    startingModel ! effects

@@ -1,5 +1,6 @@
 module Model.Moment exposing (..)
 
+import Date
 import Json.Decode as Decode exposing (..)
 import Json.Decode.Extra as Decode2 exposing (..)
 import Json.Encode as Encode exposing (..)

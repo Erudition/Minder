@@ -360,6 +360,16 @@ html .clear-completed:active {
     text-decoration: underline;
 }
 
+.task-drawer {
+  display: flex;
+  /* height: 0; */
+  overflow-y: hidden;
+}
+
+.task-progress:focus + .task-drawer {
+  height: auto;
+}
+
 /*
     Hack to remove background from Mobile Safari.
     Can't use it globally since it destroys checkboxes in Firefox

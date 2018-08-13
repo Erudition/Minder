@@ -189,7 +189,7 @@ viewTask time task =
             ]
             []
         , div [ class "task-drawer", Html.Styled.Attributes.hidden False ]
-            [ input [ type_ "date" ] []
+            [ input [ type_ "date", onInput extractDate, pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
             , input [ type_ "date" ] []
             , input [ type_ "date" ] []
             , input [ type_ "date" ] []
@@ -256,7 +256,13 @@ timingInfo time task =
             text ""
 
 
+extractDate : String -> Msg
+extractDate input =
+    NoOp
 
+
+
+--Date.fromString input
 -- VIEW CONTROLS AND FOOTER
 -- viewControls : String -> List Task -> Html Msg
 
