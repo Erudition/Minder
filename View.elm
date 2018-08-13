@@ -188,6 +188,13 @@ viewTask time task =
             , onEnter (EditingTask task.id False)
             ]
             []
+        , div [ class "task-drawer", Html.Styled.Attributes.hidden False ]
+            [ input [ type_ "date" ] []
+            , input [ type_ "date" ] []
+            , input [ type_ "date" ] []
+            , input [ type_ "date" ] []
+            , input [ type_ "date" ] []
+            ]
         ]
         |> toUnstyled
 

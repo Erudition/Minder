@@ -1,7 +1,6 @@
 module Model.Task exposing (..)
 
 import Json.Decode as Decode exposing (..)
-import Json.Decode.Extra as Decode2 exposing (..)
 import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)

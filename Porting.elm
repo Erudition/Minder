@@ -55,15 +55,16 @@ subValue tagger fieldName subTypeDecoder =
     Decode.map tagger (field fieldName subTypeDecoder)
 
 
-type TaggedUnionValue tagType a b c
-    = NoParams String tagType
-    | OneParam String tagType String Decoder
-    | TwoParam String (b -> c -> tagType) String (Decoder b) String (Decoder c)
 
-
-type ExampleAction
-    = SaySomething String
-    | CountUpTo Int
-    | GoPlaceTime String String
-    | Eat_for_daysGains_Lbs String Int Float
-    | GoAway
+-- type TaggedUnionValue tagType a b c
+--     = NoParams String tagType
+--     | OneParam String tagType String Decoder
+--     | TwoParam String (b -> c -> tagType) String (Decoder b) String (Decoder c)
+--
+--
+-- type ExampleAction
+--     = SaySomething String
+--     | CountUpTo Int
+--     | GoPlaceTime String String
+--     | Eat_for_daysGains_Lbs String Int Float
+--     | GoAway

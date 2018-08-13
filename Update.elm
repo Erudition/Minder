@@ -105,10 +105,10 @@ update msg model =
             { model | tasks = List.map updateTask model.tasks }
                 ! []
 
-        CheckAll completion ->
+        CheckAll newCompletion ->
             let
                 updateTask t =
-                    { t | completion = completion }
+                    { t | completion = newCompletion }
             in
             { model | tasks = List.map updateTask model.tasks }
                 ! []
