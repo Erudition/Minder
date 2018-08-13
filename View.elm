@@ -189,11 +189,16 @@ viewTask time task =
             ]
             []
         , div [ class "task-drawer", Html.Styled.Attributes.hidden False ]
-            [ input [ type_ "date", onInput extractDate, pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            , input [ type_ "date" ] []
-            , input [ type_ "date" ] []
-            , input [ type_ "date" ] []
-            , input [ type_ "date" ] []
+            [ label [ for "readyDate" ] [ text "Ready" ]
+            , input [ type_ "date", name "readyDate", onInput (extractDate task.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+            , label [ for "startDate" ] [ text "Start" ]
+            , input [ type_ "date", name "startDate", onInput (extractDate task.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+            , label [ for "finishDate" ] [ text "Finish" ]
+            , input [ type_ "date", name "finishDate", onInput (extractDate task.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+            , label [ for "deadlineDate" ] [ text "Deadline" ]
+            , input [ type_ "date", name "deadlineDate", onInput (extractDate task.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+            , label [ for "expiresDate" ] [ text "Expires" ]
+            , input [ type_ "date", name "expiresDate", onInput (extractDate task.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
             ]
         ]
         |> toUnstyled
@@ -219,8 +224,7 @@ progressSlider task =
         , onDoubleClick (EditingTask task.id True)
         , onFocus (FocusSlider task.id True)
         , onBlur (FocusSlider task.id False)
-
-        --    , dynamicSliderThumbCss (normalizedPart task.completion)
+        , dynamicSliderThumbCss (normalizedPart task.completion)
         ]
         []
 
@@ -256,12 +260,13 @@ timingInfo time task =
             text ""
 
 
-extractDate : String -> Msg
-extractDate input =
+extractDate : TaskId -> String -> String -> Msg
+extractDate task field input =
     NoOp
 
 
 
+--UpdateTaskDate task field input
 --Date.fromString input
 -- VIEW CONTROLS AND FOOTER
 -- viewControls : String -> List Task -> Html Msg

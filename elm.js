@@ -19394,9 +19394,10 @@ var _evancz$elm_todomvc$View$viewControls = F2(
 					}
 				}));
 	});
-var _evancz$elm_todomvc$View$extractDate = function (input) {
-	return _evancz$elm_todomvc$Update$NoOp;
-};
+var _evancz$elm_todomvc$View$extractDate = F3(
+	function (task, field, input) {
+		return _evancz$elm_todomvc$Update$NoOp;
+	});
 var _evancz$elm_todomvc$View$timingInfo = F2(
 	function (time, task) {
 		var _p0 = task.deadline;
@@ -19498,7 +19499,12 @@ var _evancz$elm_todomvc$View$progressSlider = function (task) {
 												ctor: '::',
 												_0: _rtfeldman$elm_css$Html_Styled_Events$onBlur(
 													A2(_evancz$elm_todomvc$Update$FocusSlider, task.id, false)),
-												_1: {ctor: '[]'}
+												_1: {
+													ctor: '::',
+													_0: _evancz$elm_todomvc$View$dynamicSliderThumbCss(
+														_evancz$elm_todomvc$Model_Progress$normalizedPart(task.completion)),
+													_1: {ctor: '[]'}
+												}
 											}
 										}
 									}
@@ -19702,21 +19708,17 @@ var _evancz$elm_todomvc$View$viewTask = F2(
 									{
 										ctor: '::',
 										_0: A2(
-											_rtfeldman$elm_css$Html_Styled$input,
+											_rtfeldman$elm_css$Html_Styled$label,
 											{
 												ctor: '::',
-												_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
-												_1: {
-													ctor: '::',
-													_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(_evancz$elm_todomvc$View$extractDate),
-													_1: {
-														ctor: '::',
-														_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
-														_1: {ctor: '[]'}
-													}
-												}
+												_0: _rtfeldman$elm_css$Html_Styled_Attributes$for('readyDate'),
+												_1: {ctor: '[]'}
 											},
-											{ctor: '[]'}),
+											{
+												ctor: '::',
+												_0: _rtfeldman$elm_css$Html_Styled$text('Ready'),
+												_1: {ctor: '[]'}
+											}),
 										_1: {
 											ctor: '::',
 											_0: A2(
@@ -19724,19 +19726,36 @@ var _evancz$elm_todomvc$View$viewTask = F2(
 												{
 													ctor: '::',
 													_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
-													_1: {ctor: '[]'}
+													_1: {
+														ctor: '::',
+														_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('readyDate'),
+														_1: {
+															ctor: '::',
+															_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+																A2(_evancz$elm_todomvc$View$extractDate, task.id, 'Ready')),
+															_1: {
+																ctor: '::',
+																_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+																_1: {ctor: '[]'}
+															}
+														}
+													}
 												},
 												{ctor: '[]'}),
 											_1: {
 												ctor: '::',
 												_0: A2(
-													_rtfeldman$elm_css$Html_Styled$input,
+													_rtfeldman$elm_css$Html_Styled$label,
 													{
 														ctor: '::',
-														_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+														_0: _rtfeldman$elm_css$Html_Styled_Attributes$for('startDate'),
 														_1: {ctor: '[]'}
 													},
-													{ctor: '[]'}),
+													{
+														ctor: '::',
+														_0: _rtfeldman$elm_css$Html_Styled$text('Start'),
+														_1: {ctor: '[]'}
+													}),
 												_1: {
 													ctor: '::',
 													_0: A2(
@@ -19744,20 +19763,139 @@ var _evancz$elm_todomvc$View$viewTask = F2(
 														{
 															ctor: '::',
 															_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
-															_1: {ctor: '[]'}
+															_1: {
+																ctor: '::',
+																_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('startDate'),
+																_1: {
+																	ctor: '::',
+																	_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+																		A2(_evancz$elm_todomvc$View$extractDate, task.id, 'Start')),
+																	_1: {
+																		ctor: '::',
+																		_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+																		_1: {ctor: '[]'}
+																	}
+																}
+															}
 														},
 														{ctor: '[]'}),
 													_1: {
 														ctor: '::',
 														_0: A2(
-															_rtfeldman$elm_css$Html_Styled$input,
+															_rtfeldman$elm_css$Html_Styled$label,
 															{
 																ctor: '::',
-																_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+																_0: _rtfeldman$elm_css$Html_Styled_Attributes$for('finishDate'),
 																_1: {ctor: '[]'}
 															},
-															{ctor: '[]'}),
-														_1: {ctor: '[]'}
+															{
+																ctor: '::',
+																_0: _rtfeldman$elm_css$Html_Styled$text('Finish'),
+																_1: {ctor: '[]'}
+															}),
+														_1: {
+															ctor: '::',
+															_0: A2(
+																_rtfeldman$elm_css$Html_Styled$input,
+																{
+																	ctor: '::',
+																	_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+																	_1: {
+																		ctor: '::',
+																		_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('finishDate'),
+																		_1: {
+																			ctor: '::',
+																			_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+																				A2(_evancz$elm_todomvc$View$extractDate, task.id, 'Finish')),
+																			_1: {
+																				ctor: '::',
+																				_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+																				_1: {ctor: '[]'}
+																			}
+																		}
+																	}
+																},
+																{ctor: '[]'}),
+															_1: {
+																ctor: '::',
+																_0: A2(
+																	_rtfeldman$elm_css$Html_Styled$label,
+																	{
+																		ctor: '::',
+																		_0: _rtfeldman$elm_css$Html_Styled_Attributes$for('deadlineDate'),
+																		_1: {ctor: '[]'}
+																	},
+																	{
+																		ctor: '::',
+																		_0: _rtfeldman$elm_css$Html_Styled$text('Deadline'),
+																		_1: {ctor: '[]'}
+																	}),
+																_1: {
+																	ctor: '::',
+																	_0: A2(
+																		_rtfeldman$elm_css$Html_Styled$input,
+																		{
+																			ctor: '::',
+																			_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+																			_1: {
+																				ctor: '::',
+																				_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('deadlineDate'),
+																				_1: {
+																					ctor: '::',
+																					_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+																						A2(_evancz$elm_todomvc$View$extractDate, task.id, 'Deadline')),
+																					_1: {
+																						ctor: '::',
+																						_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+																						_1: {ctor: '[]'}
+																					}
+																				}
+																			}
+																		},
+																		{ctor: '[]'}),
+																	_1: {
+																		ctor: '::',
+																		_0: A2(
+																			_rtfeldman$elm_css$Html_Styled$label,
+																			{
+																				ctor: '::',
+																				_0: _rtfeldman$elm_css$Html_Styled_Attributes$for('expiresDate'),
+																				_1: {ctor: '[]'}
+																			},
+																			{
+																				ctor: '::',
+																				_0: _rtfeldman$elm_css$Html_Styled$text('Expires'),
+																				_1: {ctor: '[]'}
+																			}),
+																		_1: {
+																			ctor: '::',
+																			_0: A2(
+																				_rtfeldman$elm_css$Html_Styled$input,
+																				{
+																					ctor: '::',
+																					_0: _rtfeldman$elm_css$Html_Styled_Attributes$type_('date'),
+																					_1: {
+																						ctor: '::',
+																						_0: _rtfeldman$elm_css$Html_Styled_Attributes$name('expiresDate'),
+																						_1: {
+																							ctor: '::',
+																							_0: _rtfeldman$elm_css$Html_Styled_Events$onInput(
+																								A2(_evancz$elm_todomvc$View$extractDate, task.id, 'Expires')),
+																							_1: {
+																								ctor: '::',
+																								_0: _rtfeldman$elm_css$Html_Styled_Attributes$pattern('[0-9]{4}-[0-9]{2}-[0-9]{2}'),
+																								_1: {ctor: '[]'}
+																							}
+																						}
+																					}
+																				},
+																				{ctor: '[]'}),
+																			_1: {ctor: '[]'}
+																		}
+																	}
+																}
+															}
+														}
 													}
 												}
 											}
