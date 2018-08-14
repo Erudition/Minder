@@ -1,7 +1,10 @@
 module Update exposing (..)
 
+import Date
 import Dom
+import Json.Decode.Extra exposing (date)
 import Model exposing (..)
+import Model.Moment exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
 import Task as Job
@@ -27,6 +30,7 @@ type Msg
     | ChangeVisibility String
     | FocusSlider TaskId Bool
     | MinutePassed Time.Time
+    | UpdateTaskDate TaskId String Date.Date
 
 
 
@@ -80,6 +84,17 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | title = task }
+                    else
+                        t
+            in
+            { model | tasks = List.map updateTask model.tasks }
+                ! []
+
+        UpdateTaskDate id field date ->
+            let
+                updateTask t =
+                    if t.id == id then
+                        { t | deadline = Just (OnDayOf (fromDate date)) }
                     else
                         t
             in

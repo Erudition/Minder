@@ -395,7 +395,7 @@ input[type="date"] {
     font-size: small;
     border:1px solid #ecf0f1;
     background:#ecf0f1;
-    padding:5px;
+    padding:0px;
     display: inline-block !important;
     visibility: visible !important;
 }

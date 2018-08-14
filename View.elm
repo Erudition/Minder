@@ -4,6 +4,7 @@ module View exposing (..)
 --import Html.Attributes exposing (..)
 
 import Css exposing (..)
+import Date
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -262,7 +263,12 @@ timingInfo time task =
 
 extractDate : TaskId -> String -> String -> Msg
 extractDate task field input =
-    NoOp
+    case Date.fromString input of
+        Ok date ->
+            UpdateTaskDate task field date
+
+        Err msg ->
+            NoOp
 
 
 
