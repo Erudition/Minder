@@ -2,6 +2,7 @@ module Porting exposing (..)
 
 import Json.Decode as Decode exposing (..)
 import Json.Decode.Extra as Decode2 exposing (..)
+import Json.Encode
 
 
 -- import Json.Decode.Pipeline as Pipeline exposing (decode, hardcoded, optional, required)
@@ -43,6 +44,12 @@ decodeTU unionName vcList =
             vcList ++ [ Decode.string |> andThen (fromResult << fallthrough) ]
     in
     oneOf listPlusFallThrough
+
+
+
+-- encodeTU : List (Decoder a) -> Encode.Value
+-- encodeTU  =
+--     Encode.object []
 
 
 valueC : String -> Decoder b -> Decoder b

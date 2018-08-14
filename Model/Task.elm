@@ -4,22 +4,9 @@ import Json.Decode as Decode exposing (..)
 import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Model.Moment exposing (..)
 import Model.Progress exposing (..)
+import Model.TaskMoment exposing (..)
 import Porting exposing (..)
-import Time.DateTime as Moment exposing (DateTime, dateTime, day, hour, millisecond, minute, month, second, year, zero)
-import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
-
-
---import String
-
-
-type alias Moment =
-    DateTime
-
-
-type alias LocalMoment =
-    ZonedDateTime
 
 
 {-| Definition of a single task.
@@ -39,11 +26,11 @@ type alias Task =
     , parent : Maybe TaskId
     , tags : List String
     , project : Maybe ProjectId
-    , deadline : Maybe MomentOrDay
-    , plannedStart : Maybe MomentOrDay
-    , plannedFinish : Maybe MomentOrDay
-    , relevanceStarts : Maybe MomentOrDay
-    , relevanceEnds : Maybe MomentOrDay
+    , deadline : TaskMoment
+    , plannedStart : TaskMoment
+    , plannedFinish : TaskMoment
+    , relevanceStarts : TaskMoment
+    , relevanceEnds : TaskMoment
     }
 
 
@@ -59,11 +46,11 @@ decodeTask =
         |> required "parent" (Decode.maybe Decode.int)
         |> required "tags" (Decode.list Decode.string)
         |> required "project" (Decode.maybe Decode.int)
-        |> required "deadline" (Decode.maybe decodeMomentOrDay)
-        |> required "plannedStart" (Decode.maybe decodeMomentOrDay)
-        |> required "plannedFinish" (Decode.maybe decodeMomentOrDay)
-        |> required "relevanceStarts" (Decode.maybe decodeMomentOrDay)
-        |> required "relevanceEnds" (Decode.maybe decodeMomentOrDay)
+        |> required "deadline" decodeTaskMoment
+        |> required "plannedStart" decodeTaskMoment
+        |> required "plannedFinish" decodeTaskMoment
+        |> required "relevanceStarts" decodeTaskMoment
+        |> required "relevanceEnds" decodeTaskMoment
 
 
 encodeTask : Task -> Encode.Value
@@ -78,11 +65,11 @@ encodeTask record =
         , ( "parent", Encode2.maybe Encode.int record.parent )
         , ( "tags", Encode.list <| List.map Encode.string <| record.tags )
         , ( "project", Encode2.maybe Encode.int record.project )
-        , ( "deadline", Encode2.maybe encodeMomentOrDay record.deadline )
-        , ( "plannedStart", Encode2.maybe encodeMomentOrDay record.plannedStart )
-        , ( "plannedFinish", Encode2.maybe encodeMomentOrDay record.plannedFinish )
-        , ( "relevanceStarts", Encode2.maybe encodeMomentOrDay record.relevanceStarts )
-        , ( "relevanceEnds", Encode2.maybe encodeMomentOrDay record.relevanceEnds )
+        , ( "deadline", encodeTaskMoment record.deadline )
+        , ( "plannedStart", encodeTaskMoment record.plannedStart )
+        , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
+        , ( "relevanceStarts", encodeTaskMoment record.relevanceStarts )
+        , ( "relevanceEnds", encodeTaskMoment record.relevanceEnds )
         ]
 
 
@@ -97,11 +84,11 @@ newTask description id =
     , history = []
     , tags = []
     , project = Just 0
-    , deadline = Nothing
-    , plannedStart = Nothing
-    , plannedFinish = Nothing
-    , relevanceStarts = Nothing
-    , relevanceEnds = Nothing
+    , deadline = Unset
+    , plannedStart = Unset
+    , plannedFinish = Unset
+    , relevanceStarts = Unset
+    , relevanceEnds = Unset
     }
 
 
@@ -146,6 +133,7 @@ type TaskChange
     | PredictedEffortChange Duration
     | ParentChange TaskId
     | TagsChange
+    | DateChange TaskMoment
 
 
 decodeTaskChange : Decode.Decoder TaskChange

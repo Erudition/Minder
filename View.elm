@@ -12,9 +12,9 @@ import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
 import Json.Decode as Decode
 import Model exposing (..)
-import Model.Moment exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
+import Model.TaskMoment exposing (..)
 import Time
 import Update exposing (..)
 import VirtualDom
@@ -253,19 +253,14 @@ extractSliderInput task input =
 
 timingInfo : Time.Time -> Task -> Html Msg
 timingInfo time task =
-    case task.deadline of
-        Just momentOrDay ->
-            text <| describeMomentOrDay time momentOrDay
-
-        Nothing ->
-            text ""
+    text <| describeTaskMoment time task.deadline
 
 
 extractDate : TaskId -> String -> String -> Msg
 extractDate task field input =
     case Date.fromString input of
         Ok date ->
-            UpdateTaskDate task field date
+            UpdateTaskDate task field (DateOnly date)
 
         Err msg ->
             NoOp
