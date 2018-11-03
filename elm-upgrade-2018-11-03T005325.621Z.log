@@ -1,5 +1,0 @@
-INFO: Found elm at /usr/local/bin/elm
-INFO: Found elm 0.19.0
-INFO: Found elm-format at /usr/local/bin/elm-format
-ERROR: elm-format >= 0.8.0 required, but found 0.7.0-exp
-You can download Elm format here https://github.com/avh4/elm-format#installation-

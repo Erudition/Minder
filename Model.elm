@@ -9,7 +9,7 @@ decodeWidget = ...
 Using that nomenclature. Don't change Widget without updating the decoder!
 --}
 
-import Json.Decode as Decode exposing (..)
+import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Model.Task exposing (..)
 import Time

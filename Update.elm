@@ -1,6 +1,5 @@
 module Update exposing (Msg(..), completed, update)
 
-import Dom
 import Model exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
@@ -60,7 +59,6 @@ update msg model =
                 , tasks =
                     if String.isEmpty model.field then
                         model.tasks
-
                     else
                         model.tasks ++ [ newTask model.field model.uid ]
               }
@@ -77,7 +75,6 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | editing = isEditing }
-
                     else
                         t
 
@@ -93,7 +90,6 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | title = task }
-
                     else
                         t
             in
@@ -106,7 +102,6 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | deadline = date }
-
                     else
                         t
             in
@@ -129,7 +124,6 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | completion = ( new_completion, units t.completion ) }
-
                     else
                         t
             in

@@ -4,7 +4,6 @@ module View exposing (dynamicSliderThumbCss, extractDate, extractSliderInput, in
 --import Html.Attributes exposing (..)
 
 import Css exposing (..)
-import Date
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -18,7 +17,6 @@ import Model.TaskMoment exposing (..)
 import Time
 import Update exposing (..)
 import VirtualDom
-
 
 
 -- import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
@@ -72,7 +70,6 @@ onEnter msg =
         isEnter code =
             if code == 13 then
                 Decode.succeed msg
-
             else
                 Decode.fail "not ENTER"
     in
@@ -104,7 +101,6 @@ viewTasks time visibility tasks =
         cssVisibility =
             if List.isEmpty tasks then
                 "hidden"
-
             else
                 "visible"
     in
@@ -121,7 +117,6 @@ viewTasks time visibility tasks =
                 (CheckAll
                     (if not allCompleted then
                         progressFromFloat 1
-
                      else
                         progressFromFloat 0
                     )
@@ -165,7 +160,6 @@ viewTask time task =
                     (UpdateProgressPart task.id
                         (if not (completed task) then
                             toFloat <| whole task.completion
-
                          else
                             0
                         )
@@ -223,7 +217,6 @@ progressSlider task =
         , step
             (if discrete <| units task.completion then
                 "1"
-
              else
                 "any"
             )
@@ -315,7 +308,6 @@ viewControlsCount tasksLeft =
         item_ =
             if tasksLeft == 1 then
                 " item"
-
             else
                 " items"
     in

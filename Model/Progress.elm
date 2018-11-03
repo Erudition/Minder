@@ -1,4 +1,4 @@
-module Model.Progress exposing (Part, Progress, Unit(..), decodeProgress, discrete, encodeProgress, max, normalizedPart, part, progressFromFloat, units, whole)
+module Model.Progress exposing (Part, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPart, getPart, getUnits, getWhole, isDiscrete, progressFromFloat, unitMax)
 
 import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -15,7 +15,7 @@ decodeProgress =
 
 encodeProgress : Progress -> Encode.Value
 encodeProgress progress =
-    Encode.float (part progress)
+    Encode.float (getPart progress)
 
 
 type alias Part =
@@ -31,33 +31,33 @@ type Unit
     | CustomUnit ( String, String ) Int
 
 
-part : Progress -> Float
-part ( part, _ ) =
+getPart : Progress -> Float
+getPart ( part, _ ) =
     part
 
 
-whole : Progress -> Int
-whole ( _, unit ) =
-    max unit
+getWhole : Progress -> Int
+getWhole ( _, unit ) =
+    unitMax unit
 
 
-units : Progress -> Unit
-units ( _, unit ) =
+getUnits : Progress -> Unit
+getUnits ( _, unit ) =
     unit
 
 
-discrete : Unit -> Bool
-discrete _ =
+isDiscrete : Unit -> Bool
+isDiscrete _ =
     False
 
 
-normalizedPart : Progress -> Float
-normalizedPart ( part, unit ) =
-    part / toFloat (max unit)
+getNormalizedPart : Progress -> Float
+getNormalizedPart ( part, unit ) =
+    part / toFloat (unitMax unit)
 
 
-max : Unit -> Int
-max unit =
+unitMax : Unit -> Int
+unitMax unit =
     case unit of
         None ->
             1

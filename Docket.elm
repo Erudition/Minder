@@ -15,7 +15,6 @@ import Update exposing (..)
 import View exposing (..)
 
 
-
 {--IMPORT HANDLING
     Section where we massage imports to be the way we like
 --}

@@ -1,9 +1,7 @@
-module Porting exposing (arrayAsTuple2, customDecoder, decodeTU, subValue, valueC)
+module Porting exposing (arrayAsTuple2, customDecoder, decodeTU, subValue)
 
-import Json.Decode as Decode exposing (..)
-import Json.Decode.Extra as Decode2 exposing (..)
+import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode
-
 
 
 -- import Json.Decode.Pipeline as Pipeline exposing (decode, hardcoded, optional, required)
@@ -35,27 +33,22 @@ customDecoder primitiveDecoder customDecoderFunction =
         primitiveDecoder
 
 
-decodeTU : String -> List (Decoder a) -> Decoder a
-decodeTU unionName vcList =
+decodeTU : List ( String, Decoder a ) -> Decoder a
+decodeTU tagsWithDecoders =
     let
-        fallthrough string =
-            Result.Err ("Not valid pattern for decoder to " ++ unionName ++ ". Pattern: " ++ toString string)
-
-        listPlusFallThrough =
-            vcList ++ [ Decode.string |> andThen (fromResult << fallthrough) ]
+        tryValues ( tag, decoder ) =
+            check string tag decoder
     in
-    oneOf listPlusFallThrough
+    oneOf (List.map tryValues tagsWithDecoders)
 
 
 
 -- encodeTU : List (Decoder a) -> Encode.Value
 -- encodeTU  =
 --     Encode.object []
-
-
-valueC : String -> Decoder b -> Decoder b
-valueC name decoder =
-    when (field "tag" Decode.string) ((==) name) decoder
+-- valueC : String -> Decoder b -> Decoder b
+-- valueC name decoder =
+--     check (field "tag" Decode.string) ((==) name) decoder
 
 
 subValue : (subtype -> unionType) -> String -> Decoder subtype -> Decoder unionType
