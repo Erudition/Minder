@@ -1,4 +1,4 @@
-module Model.TaskMoment exposing (..)
+module Model.TaskMoment exposing (Duration, Moment, TaskMoment(..), decodeMoment, decodeTaskMoment, describeMoment, describeTaskMoment, encodeMoment, encodeTaskMoment)
 
 import Date as Moment
 import Date.Distance as Distance
@@ -67,6 +67,9 @@ describeTaskMoment now target =
 
 
 {-| Twas hoping to delegate this function to Jacob, because it only requires basic functional programming (which he should know from Haskell) and little Elm knowledge (which I've already taught him for this purpse), yet will end up as a pretty large, powerful function. Unfortunately, I can't be sure as to his commitment level, and he won't confirm it either, so I guess I'll just have to write it myself.
+
+Update: Library function for this!
+
 -}
 describeMoment : Moment -> Moment -> String
 describeMoment current target =
@@ -89,8 +92,10 @@ describeMoment current target =
             -- future target
             if delta > 5 then
                 "in less than five hours"
+
             else if delta < 5 then
                 "its a 7"
+
             else
                 "idk somewhere sometime somehow"
 

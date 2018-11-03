@@ -1,4 +1,10 @@
-module BugReport2 exposing (..)
+module BugReport2 exposing (Moment(..), MomentOrDay(..))
 
-type Moment = String
-type MomentOrDay = AtExactly Moment | OnDayOf Moment
+
+type Moment
+    = String
+
+
+type MomentOrDay
+    = AtExactly Moment
+    | OnDayOf Moment

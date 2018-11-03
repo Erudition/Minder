@@ -1,4 +1,4 @@
-port module Docket exposing (..)
+port module Docket exposing (init, main, setStorage, subscriptions, updateWithStorage, updateWithTime)
 
 -- core libraries
 --community libraries
@@ -13,6 +13,7 @@ import Task as Job
 import Time
 import Update exposing (..)
 import View exposing (..)
+
 
 
 {--IMPORT HANDLING
@@ -64,10 +65,14 @@ updateWithTime : Msg -> Model -> ( Model, Cmd Msg )
 updateWithTime msg model =
     case msg of
         NoOp ->
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
         Tick msg ->
-            model ! [ Job.perform (Tock msg) Time.now ]
+            ( model
+            , Job.perform (Tock msg) Time.now
+            )
 
         Tock msg time ->
             update msg { model | updateTime = time }
@@ -103,4 +108,6 @@ init maybeModelAsJson =
         effects =
             [ Job.perform MinutePassed Time.now ]
     in
-    startingModel ! effects
+    ( startingModel
+    , Cmd.batch effects
+    )

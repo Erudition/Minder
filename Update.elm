@@ -1,4 +1,4 @@
-module Update exposing (..)
+module Update exposing (Msg(..), completed, update)
 
 import Dom
 import Model exposing (..)
@@ -39,104 +39,127 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NoOp ->
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
         Tick msg ->
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
         Tock msg time ->
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
         Add ->
-            { model
+            ( { model
                 | uid = model.uid + 1
                 , field = ""
                 , tasks =
                     if String.isEmpty model.field then
                         model.tasks
+
                     else
                         model.tasks ++ [ newTask model.field model.uid ]
-            }
-                ! []
+              }
+            , Cmd.none
+            )
 
         UpdateField str ->
-            { model | field = str }
-                ! []
+            ( { model | field = str }
+            , Cmd.none
+            )
 
         EditingTask id isEditing ->
             let
                 updateTask t =
                     if t.id == id then
                         { t | editing = isEditing }
+
                     else
                         t
 
                 focus =
                     Dom.focus ("task-" ++ toString id)
             in
-            { model | tasks = List.map updateTask model.tasks }
-                ! [ Job.attempt (\_ -> NoOp) focus ]
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Job.attempt (\_ -> NoOp) focus
+            )
 
         UpdateTask id task ->
             let
                 updateTask t =
                     if t.id == id then
                         { t | title = task }
+
                     else
                         t
             in
-            { model | tasks = List.map updateTask model.tasks }
-                ! []
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
 
         UpdateTaskDate id field date ->
             let
                 updateTask t =
                     if t.id == id then
                         { t | deadline = date }
+
                     else
                         t
             in
-            { model | tasks = List.map updateTask model.tasks }
-                ! []
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
 
         Delete id ->
-            { model | tasks = List.filter (\t -> t.id /= id) model.tasks }
-                ! []
+            ( { model | tasks = List.filter (\t -> t.id /= id) model.tasks }
+            , Cmd.none
+            )
 
         DeleteComplete ->
-            { model | tasks = List.filter (not << completed) model.tasks }
-                ! []
+            ( { model | tasks = List.filter (not << completed) model.tasks }
+            , Cmd.none
+            )
 
         UpdateProgressPart id new_completion ->
             let
                 updateTask t =
                     if t.id == id then
                         { t | completion = ( new_completion, units t.completion ) }
+
                     else
                         t
             in
-            { model | tasks = List.map updateTask model.tasks }
-                ! []
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
 
         CheckAll newCompletion ->
             let
                 updateTask t =
                     { t | completion = newCompletion }
             in
-            { model | tasks = List.map updateTask model.tasks }
-                ! []
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
 
         ChangeVisibility visibility ->
-            { model | visibility = visibility }
-                ! []
+            ( { model | visibility = visibility }
+            , Cmd.none
+            )
 
         FocusSlider task focused ->
-            model
-                ! []
+            ( model
+            , Cmd.none
+            )
 
         MinutePassed time ->
-            { model | updateTime = time }
-                ! []
+            ( { model | updateTime = time }
+            , Cmd.none
+            )
 
 
 

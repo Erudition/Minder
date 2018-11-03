@@ -1,4 +1,4 @@
-module Model exposing (..)
+module Model exposing (Model, ModelAsJson, User, decodeModel, emptyModel, encodeModel, modelFromJson, modelToJson, testModel)
 
 {--Due to the disappointingly un-automated nature of uncustomized Decoders and Encoders in Elm (and the current auto-generators out there being broken for many types), they must be written out by hand for every data type of our app (since all of our app's data will be ported out, and Elm doesn't support porting out even it's own Union types). To make sure we don't foget to update the coders (hard) whenever we change our model (easy), we shall always put them directly below the corresponding type definition. For example:
 

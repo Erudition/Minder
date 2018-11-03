@@ -1,4 +1,4 @@
-module View exposing (..)
+module View exposing (dynamicSliderThumbCss, extractDate, extractSliderInput, infoFooter, onEnter, progressSlider, timingInfo, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 -- import Html exposing (..)
 --import Html.Attributes exposing (..)
@@ -18,6 +18,7 @@ import Model.TaskMoment exposing (..)
 import Time
 import Update exposing (..)
 import VirtualDom
+
 
 
 -- import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
@@ -71,6 +72,7 @@ onEnter msg =
         isEnter code =
             if code == 13 then
                 Decode.succeed msg
+
             else
                 Decode.fail "not ENTER"
     in
@@ -102,6 +104,7 @@ viewTasks time visibility tasks =
         cssVisibility =
             if List.isEmpty tasks then
                 "hidden"
+
             else
                 "visible"
     in
@@ -118,6 +121,7 @@ viewTasks time visibility tasks =
                 (CheckAll
                     (if not allCompleted then
                         progressFromFloat 1
+
                      else
                         progressFromFloat 0
                     )
@@ -161,6 +165,7 @@ viewTask time task =
                     (UpdateProgressPart task.id
                         (if not (completed task) then
                             toFloat <| whole task.completion
+
                          else
                             0
                         )
@@ -218,6 +223,7 @@ progressSlider task =
         , step
             (if discrete <| units task.completion then
                 "1"
+
              else
                 "any"
             )
@@ -251,11 +257,19 @@ extractSliderInput task input =
     UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
 
 
+{-| Human-friendly text in a task summarizing the various TaskMoments (e.g. the due date)
+TODO currently only captures deadline
+TODO doesn't specify "ago", "in", etc.
+-}
 timingInfo : Time.Time -> Task -> Html Msg
 timingInfo time task =
     text <| describeTaskMoment time task.deadline
 
 
+{-| Get the date out of a date input.
+TODO handle LocalMoments and UniversalMoments
+TODO handle times
+-}
 extractDate : TaskId -> String -> String -> Msg
 extractDate task field input =
     case Date.fromString input of
@@ -266,13 +280,9 @@ extractDate task field input =
             NoOp
 
 
-
---UpdateTaskDate task field input
---Date.fromString input
--- VIEW CONTROLS AND FOOTER
+{-| VIEW CONTROLS AND FOOTER
 -- viewControls : String -> List Task -> Html Msg
-
-
+-}
 viewControls : String -> List Task -> VirtualDom.Node Msg
 viewControls visibility tasks =
     let
@@ -305,6 +315,7 @@ viewControlsCount tasksLeft =
         item_ =
             if tasksLeft == 1 then
                 " item"
+
             else
                 " items"
     in

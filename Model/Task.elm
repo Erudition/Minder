@@ -1,4 +1,4 @@
-module Model.Task exposing (..)
+module Model.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask)
 
 import Json.Decode as Decode exposing (..)
 import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)

@@ -1,4 +1,4 @@
-module Model.Progress exposing (..)
+module Model.Progress exposing (Part, Progress, Unit(..), decodeProgress, discrete, encodeProgress, max, normalizedPart, part, progressFromFloat, units, whole)
 
 import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
