@@ -1,4 +1,4 @@
-module Porting exposing (arrayAsTuple2, customDecoder, decodeTU, subValue)
+module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, sub)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode
@@ -33,8 +33,8 @@ customDecoder primitiveDecoder customDecoderFunction =
         primitiveDecoder
 
 
-decodeTU : List ( String, Decoder a ) -> Decoder a
-decodeTU tagsWithDecoders =
+decodeCustom : List ( String, Decoder a ) -> Decoder a
+decodeCustom tagsWithDecoders =
     let
         tryValues ( tag, decoder ) =
             check string tag decoder
@@ -48,24 +48,20 @@ decodeTU tagsWithDecoders =
 --     Encode.object []
 -- valueC : String -> Decoder b -> Decoder b
 -- valueC name decoder =
---     check (field "tag" Decode.string) ((==) name) decoder
+--     when (field "tag" Decode.string) ((==) name) decoder
 
 
-subValue : (subtype -> unionType) -> String -> Decoder subtype -> Decoder unionType
-subValue tagger fieldName subTypeDecoder =
+sub : (subtype -> unionType) -> String -> Decoder subtype -> Decoder unionType
+sub tagger fieldName subTypeDecoder =
     Decode.map tagger (field fieldName subTypeDecoder)
 
-
+sub2 : (subtype1 -> subtype2 -> unionType) -> String -> Decoder subtype1 -> String -> Decoder subtype2 -> Decoder unionType
+sub2 tagger fieldName1 subType1Decoder fieldName2 subType2Decoder =
+    Decode.map2 tagger
+      (field fieldName1 subType1Decoder)
+      (field fieldName2 subType2Decoder)
 
 -- type TaggedUnionValue tagType a b c
 --     = NoParams String tagType
 --     | OneParam String tagType String Decoder
 --     | TwoParam String (b -> c -> tagType) String (Decoder b) String (Decoder c)
---
---
--- type ExampleAction
---     = SaySomething String
---     | CountUpTo Int
---     | GoPlaceTime String String
---     | Eat_for_daysGains_Lbs String Int Float
---     | GoAway

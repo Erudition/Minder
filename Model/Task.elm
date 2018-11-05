@@ -1,7 +1,7 @@
 module Model.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask)
 
-import Json.Decode as Decode exposing (..)
-import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Decode.Exploration as Decode exposing (..)
+import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Model.Progress exposing (..)
@@ -138,19 +138,39 @@ type TaskChange
 
 decodeTaskChange : Decode.Decoder TaskChange
 decodeTaskChange =
-    decodeTU "TaskChange"
-        [ valueC "CompletionChange" (subValue CompletionChange "progress" decodeProgress)
-        , valueC "Created" (subValue Created "moment" decodeMoment)
-        , valueC "ParentChange" (subValue ParentChange "taskId" Decode.int)
-        , valueC "PredictedEffortChange" (subValue PredictedEffortChange "duration" Decode.int)
-        , valueC "TagsChange" (succeed TagsChange)
-        , valueC "TitleChange" (subValue TitleChange "string" Decode.string)
+    decodeCustom
+        [ ("CompletionChange", sub CompletionChange decodeProgress)
+        , ("Created", sub Created "moment" decodeMoment)
+        , ("ParentChange", sub ParentChange "taskId" Decode.int)
+        , ("PredictedEffortChange", sub PredictedEffortChange "duration" Decode.int)
+        , ("TagsChange", succeed TagsChange)
+        , ("TitleChange", sub TitleChange "string" Decode.string)
         ]
 
 
 encodeTaskChange : TaskChange -> Encode.Value
-encodeTaskChange =
-    toString >> Encode.string
+encodeTaskChange theTaskChange =
+    case theTaskChange of
+        Created moment ->
+            object [ ("Created", encodeMoment) ]
+
+        CompletionChange progress ->
+            object [ ("CompletionChange", encodeProgress) ]
+
+        TitleChange string ->
+            object [ ("TitleChange", Encode.string string) ]
+
+        PredictedEffortChange duration ->
+            object [ ("PredictedEffortChange", Encode.int duration) ]
+
+        ParentChange taskId ->
+            object [ ("ParentChange", Encode.int taskId) ]
+
+        TagsChange ->
+            Encode.string "TagsChange"
+
+        DateChange taskMoment ->
+            object [ ("DateChange", encodeTaskMoment TaskMoment) ]
 
 
 type alias TaskId =

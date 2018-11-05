@@ -4,7 +4,7 @@ import Json.Decode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Extra
 import Json.Encode as Encode exposing (..)
-import Porting exposing (decodeTU, subValue)
+import Porting exposing (decodeCustom, sub)
 import Time
 import Time.Distance as Distance
 
@@ -32,11 +32,11 @@ type TaskMoment
 
 decodeTaskMoment : Decoder TaskMoment
 decodeTaskMoment =
-    decodeTU "TaskMoment"
-        [ valueC "Unset" (succeed Unset)
-        , valueC "DateOnly" (subValue DateOnly "moment" decodeMoment)
-        , valueC "LocalMoment" (subValue LocalMoment "moment" decodeMoment)
-        , valueC "UniversalMoment" (subValue UniversalMoment "moment" decodeMoment)
+    decodeCustom
+        [ ( "Unset", succeed Unset )
+        , ( "DateOnly", sub DateOnly "moment" decodeMoment )
+        , ( "LocalMoment", sub LocalMoment "moment" decodeMoment )
+        , ( "UniversalMoment", sub UniversalMoment "moment" decodeMoment )
         ]
 
 
