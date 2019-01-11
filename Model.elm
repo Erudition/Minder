@@ -1,4 +1,4 @@
-module Model exposing (Model, ModelAsJson, User, decodeModel, emptyModel, encodeModel, modelFromJson, modelToJson, testModel)
+module Model exposing (Instance, Model, ModelAsJson, decodeModel, emptyModel, encodeModel, modelFromJson, modelToJson, testModel)
 
 {--Due to the disappointingly un-automated nature of uncustomized Decoders and Encoders in Elm (and the current auto-generators out there being broken for many types), they must be written out by hand for every data type of our app (since all of our app's data will be ported out, and Elm doesn't support porting out even it's own Union types). To make sure we don't forget to update the coders (hard) whenever we change our model (easy), we shall always put them directly below the corresponding type definition. For example:
 
@@ -12,7 +12,8 @@ Using that nomenclature. Don't change Widget without updating the decoder!
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Model.Task exposing (..)
-import Time
+import Model.TaskMoment exposing (decodeMoment, encodeMoment)
+import Time exposing (millisToPosix)
 
 
 {-| Our whole app's Model.
@@ -24,7 +25,7 @@ type alias Model =
     , uid : Int
     , visibility : String
     , errors : List String
-    , updateTime : Time.Time
+    , updateTime : Time.Posix
     }
 
 
@@ -36,18 +37,18 @@ decodeModel =
         (field "uid" Decode.int)
         (field "visibility" Decode.string)
         (field "errors" (Decode.list Decode.string))
-        (field "updateTime" Decode.float)
+        (field "updateTime" decodeMoment)
 
 
 encodeModel : Model -> Encode.Value
 encodeModel record =
     Encode.object
-        [ ( "tasks", Encode.list <| List.map encodeTask <| record.tasks )
-        , ( "field", Encode.string <| record.field )
-        , ( "uid", Encode.int <| record.uid )
-        , ( "visibility", Encode.string <| record.visibility )
-        , ( "errors", Encode.list <| List.map Encode.string <| record.errors )
-        , ( "updateTime", Encode.float record.updateTime )
+        [ ( "tasks", Encode.list encodeTask record.tasks )
+        , ( "field", Encode.string record.field )
+        , ( "uid", Encode.int record.uid )
+        , ( "visibility", Encode.string record.visibility )
+        , ( "errors", Encode.list Encode.string record.errors )
+        , ( "updateTime", encodeMoment record.updateTime )
         ]
 
 
@@ -55,7 +56,7 @@ type alias ModelAsJson =
     String
 
 
-modelFromJson : ModelAsJson -> Result String Model
+modelFromJson : ModelAsJson -> DecodeResult Model
 modelFromJson incomingJson =
     Decode.decodeString decodeModel incomingJson
 
@@ -65,6 +66,8 @@ modelToJson model =
     Encode.encode 0 (encodeModel model)
 
 
+{-| Should we make this accept the current time?
+-}
 emptyModel : Model
 emptyModel =
     { tasks = []
@@ -72,7 +75,7 @@ emptyModel =
     , field = ""
     , uid = 0
     , errors = []
-    , updateTime = 0.0
+    , updateTime = millisToPosix 0
     }
 
 
@@ -83,9 +86,11 @@ testModel =
     , field = ""
     , uid = 0
     , errors = []
-    , updateTime = 0.0
+    , updateTime = millisToPosix 0
     }
 
 
-type alias User =
+{-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who own it when needed.
+-}
+type alias Instance =
     Int

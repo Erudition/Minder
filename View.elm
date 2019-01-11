@@ -19,6 +19,7 @@ import Update exposing (..)
 import VirtualDom
 
 
+
 -- import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 -- --import Time.TimeZones as TimeZones
 -- import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
@@ -70,6 +71,7 @@ onEnter msg =
         isEnter code =
             if code == 13 then
                 Decode.succeed msg
+
             else
                 Decode.fail "not ENTER"
     in
@@ -101,6 +103,7 @@ viewTasks time visibility tasks =
         cssVisibility =
             if List.isEmpty tasks then
                 "hidden"
+
             else
                 "visible"
     in
@@ -117,6 +120,7 @@ viewTasks time visibility tasks =
                 (CheckAll
                     (if not allCompleted then
                         progressFromFloat 1
+
                      else
                         progressFromFloat 0
                     )
@@ -160,6 +164,7 @@ viewTask time task =
                     (UpdateProgressPart task.id
                         (if not (completed task) then
                             toFloat <| whole task.completion
+
                          else
                             0
                         )
@@ -217,6 +222,7 @@ progressSlider task =
         , step
             (if discrete <| units task.completion then
                 "1"
+
              else
                 "any"
             )
@@ -308,6 +314,7 @@ viewControlsCount tasksLeft =
         item_ =
             if tasksLeft == 1 then
                 " item"
+
             else
                 " items"
     in

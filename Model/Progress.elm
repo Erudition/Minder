@@ -1,13 +1,15 @@
-module Model.Progress exposing (Part, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPart, getPart, getUnits, getWhole, isDiscrete, progressFromFloat, unitMax)
+module Model.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPart, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
 
-import Json.Decode as Decode exposing (..)
+import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 
 
 type alias Progress =
-    ( Part, Unit )
+    ( Portion, Unit )
 
 
+{-| TODO Lossy! Encoding Units other than percent not implemented!
+-}
 decodeProgress : Decode.Decoder Progress
 decodeProgress =
     Decode.map progressFromFloat Decode.float
@@ -15,11 +17,11 @@ decodeProgress =
 
 encodeProgress : Progress -> Encode.Value
 encodeProgress progress =
-    Encode.float (getPart progress)
+    Encode.int (getPortion progress)
 
 
-type alias Part =
-    Float
+type alias Portion =
+    Int
 
 
 type Unit
@@ -31,8 +33,8 @@ type Unit
     | CustomUnit ( String, String ) Int
 
 
-getPart : Progress -> Float
-getPart ( part, _ ) =
+getPortion : Progress -> Int
+getPortion ( part, _ ) =
     part
 
 
@@ -53,7 +55,12 @@ isDiscrete _ =
 
 getNormalizedPart : Progress -> Float
 getNormalizedPart ( part, unit ) =
-    part / toFloat (unitMax unit)
+    toFloat part / toFloat (unitMax unit)
+
+
+isMax : Progress -> Bool
+isMax progress =
+    getPortion progress == getWhole progress
 
 
 unitMax : Unit -> Int
@@ -80,7 +87,7 @@ unitMax unit =
 
 progressFromFloat : Float -> Progress
 progressFromFloat float =
-    ( float, Percent )
+    ( round float, Percent )
 
 
 

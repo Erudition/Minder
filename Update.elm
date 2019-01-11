@@ -14,19 +14,19 @@ to them.
 -}
 type Msg
     = NoOp
-    | Tick Msg
-    | Tock Msg Time.Time
+      -- | Tick Msg
+      -- | Tock Msg Moment
     | UpdateField String
     | EditingTask TaskId Bool
     | UpdateTask TaskId String
     | Add
     | Delete TaskId
     | DeleteComplete
-    | UpdateProgressPart TaskId Part
+    | UpdateProgressPortion TaskId Portion
     | CheckAll Progress
     | ChangeVisibility String
     | FocusSlider TaskId Bool
-    | MinutePassed Time.Time
+    | MinutePassed Moment
     | UpdateTaskDate TaskId String TaskMoment
 
 
@@ -42,16 +42,15 @@ update msg model =
             , Cmd.none
             )
 
-        Tick msg ->
-            ( model
-            , Cmd.none
-            )
-
-        Tock msg time ->
-            ( model
-            , Cmd.none
-            )
-
+        -- Tick msg ->
+        --     ( model
+        --     , Cmd.none
+        --     )
+        --
+        -- Tock msg time ->
+        --     ( model
+        --     , Cmd.none
+        --     )
         Add ->
             ( { model
                 | uid = model.uid + 1
@@ -59,6 +58,7 @@ update msg model =
                 , tasks =
                     if String.isEmpty model.field then
                         model.tasks
+
                     else
                         model.tasks ++ [ newTask model.field model.uid ]
               }
@@ -75,11 +75,12 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | editing = isEditing }
+
                     else
                         t
 
                 focus =
-                    Dom.focus ("task-" ++ toString id)
+                    Dom.focus ("task-" ++ String.fromInt id)
             in
             ( { model | tasks = List.map updateTask model.tasks }
             , Job.attempt (\_ -> NoOp) focus
@@ -90,6 +91,7 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | title = task }
+
                     else
                         t
             in
@@ -102,6 +104,7 @@ update msg model =
                 updateTask t =
                     if t.id == id then
                         { t | deadline = date }
+
                     else
                         t
             in
@@ -119,11 +122,12 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateProgressPart id new_completion ->
+        UpdateProgressPortion id new_completion ->
             let
                 updateTask t =
                     if t.id == id then
-                        { t | completion = ( new_completion, units t.completion ) }
+                        { t | completion = ( new_completion, getUnits t.completion ) }
+
                     else
                         t
             in
@@ -163,4 +167,4 @@ update msg model =
 
 completed : Task -> Bool
 completed task =
-    part (.completion task) == toFloat (whole (.completion task))
+    isMax (.completion task)

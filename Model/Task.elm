@@ -61,9 +61,9 @@ encodeTask record =
         , ( "editing", Encode.bool <| record.editing )
         , ( "id", Encode.int <| record.id )
         , ( "predictedEffort", Encode.int <| record.predictedEffort )
-        , ( "history", Encode.list <| List.map encodeHistoryEntry <| record.history )
+        , ( "history", Encode.list encodeHistoryEntry record.history )
         , ( "parent", Encode2.maybe Encode.int record.parent )
-        , ( "tags", Encode.list <| List.map Encode.string <| record.tags )
+        , ( "tags", Encode.list Encode.string record.tags )
         , ( "project", Encode2.maybe Encode.int record.project )
         , ( "deadline", encodeTaskMoment record.deadline )
         , ( "plannedStart", encodeTaskMoment record.plannedStart )
@@ -139,12 +139,12 @@ type TaskChange
 decodeTaskChange : Decode.Decoder TaskChange
 decodeTaskChange =
     decodeCustom
-        [ ("CompletionChange", sub CompletionChange decodeProgress)
-        , ("Created", sub Created "moment" decodeMoment)
-        , ("ParentChange", sub ParentChange "taskId" Decode.int)
-        , ("PredictedEffortChange", sub PredictedEffortChange "duration" Decode.int)
-        , ("TagsChange", succeed TagsChange)
-        , ("TitleChange", sub TitleChange "string" Decode.string)
+        [ ( "CompletionChange", sub CompletionChange "progress" decodeProgress )
+        , ( "Created", sub Created "moment" decodeMoment )
+        , ( "ParentChange", sub ParentChange "taskId" Decode.int )
+        , ( "PredictedEffortChange", sub PredictedEffortChange "duration" Decode.int )
+        , ( "TagsChange", succeed TagsChange )
+        , ( "TitleChange", sub TitleChange "string" Decode.string )
         ]
 
 
@@ -152,25 +152,25 @@ encodeTaskChange : TaskChange -> Encode.Value
 encodeTaskChange theTaskChange =
     case theTaskChange of
         Created moment ->
-            object [ ("Created", encodeMoment) ]
+            object [ ( "Created", encodeMoment moment ) ]
 
         CompletionChange progress ->
-            object [ ("CompletionChange", encodeProgress) ]
+            object [ ( "CompletionChange", encodeProgress progress ) ]
 
         TitleChange string ->
-            object [ ("TitleChange", Encode.string string) ]
+            object [ ( "TitleChange", Encode.string string ) ]
 
         PredictedEffortChange duration ->
-            object [ ("PredictedEffortChange", Encode.int duration) ]
+            object [ ( "PredictedEffortChange", Encode.int duration ) ]
 
         ParentChange taskId ->
-            object [ ("ParentChange", Encode.int taskId) ]
+            object [ ( "ParentChange", Encode.int taskId ) ]
 
         TagsChange ->
             Encode.string "TagsChange"
 
         DateChange taskMoment ->
-            object [ ("DateChange", encodeTaskMoment TaskMoment) ]
+            object [ ( "DateChange", encodeTaskMoment taskMoment ) ]
 
 
 type alias TaskId =

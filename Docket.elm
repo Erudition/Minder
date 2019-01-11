@@ -15,6 +15,7 @@ import Update exposing (..)
 import View exposing (..)
 
 
+
 {--IMPORT HANDLING
     Section where we massage imports to be the way we like
 --}
@@ -56,7 +57,7 @@ updateWithStorage msg model =
 
 For bookkeeping purposes, we want the current time for pretty much every update. This function intercepts the `update` process by first updating our model's `time` field before passing our Msg along to the real `update` function, which can then assume `model.time` is an up-to-date value.
 
-Since Elm is pure and Time is side-effect-y, there's no better way to do this.
+(Since Elm is pure and Time is side-effect-y, there's no better way to do this.)
 <https://stackoverflow.com/a/41025989/8645412>
 
 -}
