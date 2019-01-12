@@ -1,5 +1,6 @@
 module Update exposing (Msg(..), completed, update)
 
+import Browser.Dom as Dom
 import Model exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
