@@ -1,4 +1,4 @@
-module Model.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPart, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
+module Model.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -53,8 +53,8 @@ isDiscrete _ =
     False
 
 
-getNormalizedPart : Progress -> Float
-getNormalizedPart ( part, unit ) =
+getNormalizedPortion : Progress -> Float
+getNormalizedPortion ( part, unit ) =
     toFloat part / toFloat (unitMax unit)
 
 

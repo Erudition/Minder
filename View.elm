@@ -3,7 +3,9 @@ module View exposing (dynamicSliderThumbCss, extractDate, extractSliderInput, in
 -- import Html exposing (..)
 --import Html.Attributes exposing (..)
 
+import Browser
 import Css exposing (..)
+import Date
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -25,8 +27,14 @@ import VirtualDom
 -- import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
+    { title = "Docket"
+    , body = viewBody model
+    }
+
+
+viewBody model =
     div
         [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
         [ section
@@ -83,8 +91,8 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Time.Time -> String -> List Task -> VirtualDom.Node Msg
-viewTasks time visibility tasks =
+viewTasks : Moment -> String -> List Task -> VirtualDom.Node Msg
+viewTasks now visibility tasks =
     let
         isVisible task =
             case visibility of
@@ -131,7 +139,7 @@ viewTasks time visibility tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask time) (List.filter isVisible tasks)
+            List.map (viewKeyedTask now) (List.filter isVisible tasks)
         ]
         |> toUnstyled
 
@@ -140,17 +148,17 @@ viewTasks time visibility tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Time.Time -> Task -> ( String, Html Msg )
-viewKeyedTask time task =
-    ( toString task.id, lazy2 viewTask time task )
+viewKeyedTask : Moment -> Task -> ( String, Html Msg )
+viewKeyedTask now task =
+    ( toString task.id, lazy2 viewTask now task )
 
 
 
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Time.Time -> Task -> VirtualDom.Node Msg
-viewTask time task =
+viewTask : Moment -> Task -> VirtualDom.Node Msg
+viewTask now task =
     li
         [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
         [ progressSlider task
@@ -176,7 +184,7 @@ viewTask time task =
                 [ text task.title ]
             , div
                 [ class "timing-info" ]
-                [ timingInfo time task ]
+                [ timingInfo now task ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.id)
@@ -216,11 +224,11 @@ progressSlider task =
     input
         [ class "task-progress"
         , type_ "range"
-        , value <| toString <| part task.completion
+        , value <| String.fromInt <| getPortion task.completion
         , Html.Styled.Attributes.min "0"
-        , Html.Styled.Attributes.max <| toString <| whole task.completion
+        , Html.Styled.Attributes.max <| String.fromInt <| getWhole task.completion
         , step
-            (if discrete <| units task.completion then
+            (if isDiscrete <| getUnits task.completion then
                 "1"
 
              else
@@ -230,7 +238,7 @@ progressSlider task =
         , onDoubleClick (EditingTask task.id True)
         , onFocus (FocusSlider task.id True)
         , onBlur (FocusSlider task.id False)
-        , dynamicSliderThumbCss (normalizedPart task.completion)
+        , dynamicSliderThumbCss (getNormalizedPortion task.completion)
         ]
         []
 
@@ -271,9 +279,9 @@ TODO handle times
 -}
 extractDate : TaskId -> String -> String -> Msg
 extractDate task field input =
-    case Date.fromString input of
+    case Date.fromIsoString input of
         Ok date ->
-            UpdateTaskDate task field (DateOnly date)
+            UpdateTaskDate task field (LocalDate date)
 
         Err msg ->
             NoOp
@@ -320,7 +328,7 @@ viewControlsCount tasksLeft =
     in
     span
         [ class "task-count" ]
-        [ strong [] [ text (toString tasksLeft) ]
+        [ strong [] [ text (String.fromInt tasksLeft) ]
         , text (item_ ++ " left")
         ]
         |> toUnstyled
@@ -365,7 +373,7 @@ viewControlsClear tasksCompleted =
         , Html.Styled.Attributes.hidden (tasksCompleted == 0)
         , onClick DeleteComplete
         ]
-        [ text ("Clear completed (" ++ toString tasksCompleted ++ ")")
+        [ text ("Clear completed (" ++ String.fromInt tasksCompleted ++ ")")
         ]
         |> toUnstyled
 

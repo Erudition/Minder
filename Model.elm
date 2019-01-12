@@ -9,6 +9,7 @@ decodeWidget = ...
 Using that nomenclature. Don't change Widget without updating the decoder!
 --}
 
+import Browser.Navigation as Nav
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Model.Task exposing (..)
@@ -26,6 +27,7 @@ type alias Model =
     , visibility : String
     , errors : List String
     , updateTime : Time.Posix
+    , navKey : Nav.Key
     }
 
 

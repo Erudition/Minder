@@ -1,33 +1,29 @@
 port module Docket exposing (init, main, setStorage, subscriptions, updateWithStorage, updateWithTime)
 
--- core libraries
---community libraries
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
 --import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
--- ours
 
+import Browser
+import Browser.Navigation as Nav
 import Html.Styled exposing (..)
 import Model exposing (..)
 import Task as Job
 import Time
 import Update exposing (..)
+import Url
 import View exposing (..)
-
-
-
-{--IMPORT HANDLING
-    Section where we massage imports to be the way we like
---}
 
 
 main : Program (Maybe ModelAsJson) Model Msg
 main =
-    Html.Styled.programWithFlags
+    Browser.application
         { init = init
         , view = view
         , update = updateWithStorage
         , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 
@@ -81,22 +77,18 @@ updateWithTime msg model =
             updateWithTime (Tick msg) model
 
 
-
--- MODEL
--- The full application state of our todo app.
--- Entire program
--- initialize model
-
-
-init : Maybe ModelAsJson -> ( Model, Cmd Msg )
-init maybeModelAsJson =
+{-| TODO: The "ModelAsJson" could be a whole slew of flags instead.
+Key and URL also need to be fed into the model.
+-}
+init : Maybe ModelAsJson -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init maybeModelAsJson url key =
     let
         startingModel =
             case maybeModelAsJson of
                 Just modelAsJson ->
                     case modelFromJson modelAsJson of
                         Ok restoredModel ->
-                            restoredModel
+                            { restoredModel | navkey = key }
 
                         Err errormsg ->
                             { emptyModel | errors = [ Debug.log "Errors" errormsg ] }

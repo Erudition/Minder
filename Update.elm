@@ -1,5 +1,6 @@
 module Update exposing (Msg(..), completed, update)
 
+import Browser
 import Browser.Dom as Dom
 import Model exposing (..)
 import Model.Progress exposing (..)
@@ -7,6 +8,7 @@ import Model.Task exposing (..)
 import Model.TaskMoment exposing (..)
 import Task as Job
 import Time
+import Url
 
 
 {-| Users of our app can trigger messages by clicking and typing. These
@@ -29,6 +31,8 @@ type Msg
     | FocusSlider TaskId Bool
     | MinutePassed Moment
     | UpdateTaskDate TaskId String TaskMoment
+    | Link Browser.UrlRequest
+    | NewUrl Url.Url
 
 
 
@@ -157,6 +161,19 @@ update msg model =
 
         MinutePassed time ->
             ( { model | updateTime = time }
+            , Cmd.none
+            )
+
+        Link urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        UrlChanged url ->
+            ( { model | url = url }
             , Cmd.none
             )
 
