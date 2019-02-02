@@ -86,12 +86,12 @@ init maybeModelAsJson url key =
         startingModel =
             case maybeModelAsJson of
                 Just modelAsJson ->
-                    case modelFromJson modelAsJson of
+                    case modelFromJson modelAsJson navkey of
                         Ok restoredModel ->
                             { restoredModel | navkey = key }
 
                         Err errormsg ->
-                            { emptyModel | errors = [ Debug.log "Errors" errormsg ] }
+                            { emptyModel | errors = [ Debug.log "Errors" errormsg ], navkey = key }
 
                 -- no json stored at all
                 Nothing ->

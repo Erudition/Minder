@@ -1,4 +1,4 @@
-module Model exposing (Instance, Model, ModelAsJson, decodeModel, emptyModel, encodeModel, modelFromJson, modelToJson, testModel)
+module Model exposing (Instance, Model, ModelAsJson, decodeModel, emptyModel, encodeModel, modelFromJson, modelToJson)
 
 {--Due to the disappointingly un-automated nature of uncustomized Decoders and Encoders in Elm (and the current auto-generators out there being broken for many types), they must be written out by hand for every data type of our app (since all of our app's data will be ported out, and Elm doesn't support porting out even it's own Union types). To make sure we don't forget to update the coders (hard) whenever we change our model (easy), we shall always put them directly below the corresponding type definition. For example:
 
@@ -27,19 +27,19 @@ type alias Model =
     , visibility : String
     , errors : List String
     , updateTime : Time.Posix
-    , navKey : Nav.Key
+    , navkey : Nav.Key
     }
 
 
-decodeModel : Decode.Decoder Model
-decodeModel =
-    Decode.map6 Model
+decodeModel navkey =
+    Decode.map7 Model
         (field "tasks" (Decode.list decodeTask))
         (field "field" Decode.string)
         (field "uid" Decode.int)
         (field "visibility" Decode.string)
         (field "errors" (Decode.list Decode.string))
         (field "updateTime" decodeMoment)
+        (succeed navkey)
 
 
 encodeModel : Model -> Encode.Value
@@ -58,9 +58,9 @@ type alias ModelAsJson =
     String
 
 
-modelFromJson : ModelAsJson -> DecodeResult Model
-modelFromJson incomingJson =
-    Decode.decodeString decodeModel incomingJson
+modelFromJson : ModelAsJson -> Nav.Key -> DecodeResult Model
+modelFromJson incomingJson navkey =
+    Decode.decodeString (decodeModel navkey) incomingJson
 
 
 modelToJson : Model -> ModelAsJson
@@ -70,27 +70,16 @@ modelToJson model =
 
 {-| Should we make this accept the current time?
 -}
-emptyModel : Model
-emptyModel =
+emptyModel : Nav.Key -> Model
+emptyModel key =
     { tasks = []
     , visibility = "All"
     , field = ""
     , uid = 0
     , errors = []
     , updateTime = millisToPosix 0
+    , navkey = key
     }
-
-
-testModel : Model
-testModel =
-    { tasks = []
-    , visibility = "All"
-    , field = ""
-    , uid = 0
-    , errors = []
-    , updateTime = millisToPosix 0
-    }
-
 
 {-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who own it when needed.
 -}
