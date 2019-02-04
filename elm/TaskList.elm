@@ -1,4 +1,4 @@
-module TaskList exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), completed, decodeHistoryEntry, decodeTask, decodeTaskChange, dynamicSliderThumbCss, encodeHistoryEntry, encodeTask, encodeTaskChange, extractDate, extractSliderInput, newTask, onEnter, progressSlider, timingInfo, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTaskList, viewTasks, visibilitySwap)
+module TaskList exposing (..)
 
 import Browser
 import Css exposing (..)
@@ -13,13 +13,10 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Model exposing (..)
-import Model.Progress exposing (..)
-import Model.Task exposing (..)
-import Model.TaskMoment exposing (..)
 import Porting exposing (..)
+import Task.Progress exposing (..)
+import Task.TaskMoment exposing (..)
 import Time
-import Update exposing (..)
 import VirtualDom
 
 
@@ -218,7 +215,7 @@ completed task =
 --                ###     ########### ##########   ###   ###
 
 
-viewTaskList model =
+view model =
     div
         [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
         [ section
@@ -569,3 +566,123 @@ viewControlsClear tasksCompleted =
 --            | | | ||  __/ | | | ||  _  |  | |  |  __|
 --            | |_| || |    | |/ / | | | |  | |  | |___
 --             \___/ \_|    |___/  \_| |_/  \_/  \____/
+
+type Msg =
+      | UpdateField String
+      | EditingTask TaskId Bool
+      | UpdateTask TaskId String
+      | Add
+      | Delete TaskId
+      | DeleteComplete
+      | UpdateProgressPortion TaskId Portion
+      | CheckAll Progress
+      | ChangeVisibility String
+      | FocusSlider TaskId Bool
+      | UpdateTaskDate TaskId String TaskMoment
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        Add ->
+            ( { model
+                | uid = model.uid + 1
+                , field = ""
+                , tasks =
+                    if String.isEmpty model.field then
+                        model.tasks
+
+                    else
+                        model.tasks ++ [ newTask model.field model.uid ]
+              }
+            , Cmd.none
+            )
+
+        UpdateField str ->
+            ( { model | field = str }
+            , Cmd.none
+            )
+
+        EditingTask id isEditing ->
+            let
+                updateTask t =
+                    if t.id == id then
+                        { t | editing = isEditing }
+
+                    else
+                        t
+
+                focus =
+                    Dom.focus ("task-" ++ String.fromInt id)
+            in
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Job.attempt (\_ -> NoOp) focus
+            )
+
+        UpdateTask id task ->
+            let
+                updateTask t =
+                    if t.id == id then
+                        { t | title = task }
+
+                    else
+                        t
+            in
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
+
+        UpdateTaskDate id field date ->
+            let
+                updateTask t =
+                    if t.id == id then
+                        { t | deadline = date }
+
+                    else
+                        t
+            in
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
+
+        Delete id ->
+            ( { model | tasks = List.filter (\t -> t.id /= id) model.tasks }
+            , Cmd.none
+            )
+
+        DeleteComplete ->
+            ( { model | tasks = List.filter (not << completed) model.tasks }
+            , Cmd.none
+            )
+
+        UpdateProgressPortion id new_completion ->
+            let
+                updateTask t =
+                    if t.id == id then
+                        { t | completion = ( new_completion, getUnits t.completion ) }
+
+                    else
+                        t
+            in
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
+
+        CheckAll newCompletion ->
+            let
+                updateTask t =
+                    { t | completion = newCompletion }
+            in
+            ( { model | tasks = List.map updateTask model.tasks }
+            , Cmd.none
+            )
+
+        ChangeVisibility visibility ->
+            ( { model | visibility = visibility }
+            , Cmd.none
+            )
+
+        FocusSlider task focused ->
+            ( model
+            , Cmd.none
+            )
