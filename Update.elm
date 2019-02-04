@@ -6,6 +6,7 @@ import Model exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
 import Model.TaskMoment exposing (..)
+import Browser.Navigation as Nav exposing (..)
 import Task as Job
 import Time
 import Url
@@ -167,13 +168,13 @@ update msg model =
         Link urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.pushUrl model.key (Url.toString url) )
+                    ( model, Nav.pushUrl model.navkey (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Nav.load href )
-
-        UrlChanged url ->
-            ( { model | url = url }
+        -- TODO Change model state based on url
+        NewUrl url ->
+            ( { model | viewState = TaskList Nothing }
             , Cmd.none
             )
 

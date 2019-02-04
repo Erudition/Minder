@@ -30,11 +30,11 @@ import VirtualDom
 view : Model -> Browser.Document Msg
 view model =
     { title = "Docket"
-    , body = viewBody model
+    , body = viewTaskList model
     }
 
 
-viewBody model =
+viewTaskList model =
     div
         [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
         [ section

@@ -18,40 +18,14 @@ import Time exposing (millisToPosix)
 
 
 {-| Our whole app's Model.
-NOTE IF YOU MAKE CHANGES, CHANGE THE DECODER/ENCODER BELOW ACCORDINGLY!
+We originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is completed", all stored in App "Database").
 -}
 type alias Model =
-    { tasks : List Task
-    , field : String
-    , uid : Int
-    , visibility : String
-    , errors : List String
+    { appData : AppData
+    , viewState : ViewState
     , updateTime : Time.Posix
     , navkey : Nav.Key
     }
-
-
-decodeModel navkey =
-    Decode.map7 Model
-        (field "tasks" (Decode.list decodeTask))
-        (field "field" Decode.string)
-        (field "uid" Decode.int)
-        (field "visibility" Decode.string)
-        (field "errors" (Decode.list Decode.string))
-        (field "updateTime" decodeMoment)
-        (succeed navkey)
-
-
-encodeModel : Model -> Encode.Value
-encodeModel record =
-    Encode.object
-        [ ( "tasks", Encode.list encodeTask record.tasks )
-        , ( "field", Encode.string record.field )
-        , ( "uid", Encode.int record.uid )
-        , ( "visibility", Encode.string record.visibility )
-        , ( "errors", Encode.list Encode.string record.errors )
-        , ( "updateTime", encodeMoment record.updateTime )
-        ]
 
 
 type alias ModelAsJson =
@@ -68,20 +42,74 @@ modelToJson model =
     Encode.encode 0 (encodeModel model)
 
 
-{-| Should we make this accept the current time?
--}
-emptyModel : Nav.Key -> Model
-emptyModel key =
-    { tasks = []
-    , visibility = "All"
-    , field = ""
-    , uid = 0
-    , errors = []
-    , updateTime = millisToPosix 0
-    , navkey = key
-    }
 
-{-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who own it when needed.
+-- buildModel : Nav.Key -> Model
+-- buildModel key =
+--     { tasks = []
+--     , field = ""
+--     , uid = 0
+--     , errors = []
+--     , updateTime = millisToPosix 0
+--     , viewState = emptyViewState
+--     , navkey = key
+--     }
+
+
+{-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
 -}
 type alias Instance =
     Int
+
+
+type alias AppData =
+    { tasks : List Task
+    , uid : Instance
+    , errors : List String
+    }
+
+
+decodeAppData =
+    Decode.map7 AppData
+        (field "tasks" (Decode.list decodeTask))
+        (field "field" Decode.string)
+        (field "uid" Decode.int)
+        (field "errors" (Decode.list Decode.string))
+        (field "updateTime" decodeMoment)
+
+
+encodeAppData : Model -> Encode.Value
+encodeAppData record =
+    Encode.object
+        [ ( "tasks", Encode.list encodeTask record.tasks )
+        , ( "field", Encode.string record.field )
+        , ( "uid", Encode.int record.uid )
+        , ( "errors", Encode.list Encode.string record.errors )
+        , ( "updateTime", encodeMoment record.updateTime )
+        ]
+
+
+emptyAppData : AppData
+emptyAppData =
+    { tasks = [], uid = 0, errors = [] }
+
+
+type alias ViewState =
+    { pane : Pane
+    , uid : Int
+    }
+
+
+emptyViewState =
+    { pane = TaskList "" Nothing AllTasks }
+
+
+type Pane
+    = TaskList TextboxContents (Maybe ExpandedTask) TaskListFilter
+
+
+type alias ExpandedTask =
+    TaskId
+
+
+type alias TextboxContents =
+    String
