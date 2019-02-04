@@ -1,4 +1,4 @@
-module Model.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)

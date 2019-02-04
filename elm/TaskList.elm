@@ -1,7 +1,4 @@
-module View exposing (dynamicSliderThumbCss, extractDate, extractSliderInput, infoFooter, onEnter, progressSlider, timingInfo, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
-
--- import Html exposing (..)
---import Html.Attributes exposing (..)
+module TaskList exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), completed, decodeHistoryEntry, decodeTask, decodeTaskChange, dynamicSliderThumbCss, encodeHistoryEntry, encodeTask, encodeTaskChange, extractDate, extractSliderInput, newTask, onEnter, progressSlider, timingInfo, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTaskList, viewTasks, visibilitySwap)
 
 import Browser
 import Css exposing (..)
@@ -12,26 +9,213 @@ import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
 import Json.Decode as Decode
+import Json.Decode.Exploration as Decode exposing (..)
+import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
+import Json.Encode as Encode exposing (..)
+import Json.Encode.Extra as Encode2 exposing (..)
 import Model exposing (..)
 import Model.Progress exposing (..)
 import Model.Task exposing (..)
 import Model.TaskMoment exposing (..)
+import Porting exposing (..)
 import Time
 import Update exposing (..)
 import VirtualDom
 
 
 
--- import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
--- --import Time.TimeZones as TimeZones
--- import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
+--            MM    MM  OOOOO  DDDDD   EEEEEEE LL
+--            MMM  MMM OO   OO DD  DD  EE      LL
+--            MM MM MM OO   OO DD   DD EEEEE   LL
+--            MM    MM OO   OO DD   DD EE      LL
+--            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
 
 
-view : Model -> Browser.Document Msg
-view model =
-    { title = "Docket"
-    , body = viewTaskList model
+{-| Definition of a single task.
+Working rules:
+
+  - there should be no fields for storing data that can be fully derived from other fields [consistency]
+  - combine related fields into a single one with a tuple value [minimalism]
+
+-}
+type alias Task =
+    { title : String
+    , completion : Progress
+    , editing : Bool
+    , id : TaskId
+    , predictedEffort : Duration
+    , history : List HistoryEntry
+    , parent : Maybe TaskId
+    , tags : List String
+    , project : Maybe ProjectId
+    , deadline : TaskMoment
+    , plannedStart : TaskMoment
+    , plannedFinish : TaskMoment
+    , relevanceStarts : TaskMoment
+    , relevanceEnds : TaskMoment
     }
+
+
+decodeTask : Decode.Decoder Task
+decodeTask =
+    decode Task
+        |> required "title" Decode.string
+        |> required "completion" decodeProgress
+        |> required "editing" Decode.bool
+        |> required "id" Decode.int
+        |> required "predictedEffort" Decode.int
+        |> required "history" (Decode.list decodeHistoryEntry)
+        |> required "parent" (Decode.maybe Decode.int)
+        |> required "tags" (Decode.list Decode.string)
+        |> required "project" (Decode.maybe Decode.int)
+        |> required "deadline" decodeTaskMoment
+        |> required "plannedStart" decodeTaskMoment
+        |> required "plannedFinish" decodeTaskMoment
+        |> required "relevanceStarts" decodeTaskMoment
+        |> required "relevanceEnds" decodeTaskMoment
+
+
+encodeTask : Task -> Encode.Value
+encodeTask record =
+    Encode.object
+        [ ( "title", Encode.string <| record.title )
+        , ( "completion", encodeProgress <| record.completion )
+        , ( "editing", Encode.bool <| record.editing )
+        , ( "id", Encode.int <| record.id )
+        , ( "predictedEffort", Encode.int <| record.predictedEffort )
+        , ( "history", Encode.list encodeHistoryEntry record.history )
+        , ( "parent", Encode2.maybe Encode.int record.parent )
+        , ( "tags", Encode.list Encode.string record.tags )
+        , ( "project", Encode2.maybe Encode.int record.project )
+        , ( "deadline", encodeTaskMoment record.deadline )
+        , ( "plannedStart", encodeTaskMoment record.plannedStart )
+        , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
+        , ( "relevanceStarts", encodeTaskMoment record.relevanceStarts )
+        , ( "relevanceEnds", encodeTaskMoment record.relevanceEnds )
+        ]
+
+
+newTask : String -> Int -> Task
+newTask description id =
+    { title = description
+    , editing = False
+    , id = id
+    , completion = ( 0, Percent )
+    , parent = Nothing
+    , predictedEffort = 0
+    , history = []
+    , tags = []
+    , project = Just 0
+    , deadline = Unset
+    , plannedStart = Unset
+    , plannedFinish = Unset
+    , relevanceStarts = Unset
+    , relevanceEnds = Unset
+    }
+
+
+{-| Defines a point where something changed in a task.
+-}
+type alias HistoryEntry =
+    ( TaskChange, Moment )
+
+
+decodeHistoryEntry : Decode.Decoder HistoryEntry
+decodeHistoryEntry =
+    fail "womp"
+
+
+encodeHistoryEntry : HistoryEntry -> Encode.Value
+encodeHistoryEntry record =
+    Encode.object
+        []
+
+
+
+-- possible ways to filter the list of tasks (legacy)
+
+
+type TaskListFilter
+    = AllTasks
+    | ActiveTasksOnly
+    | CompletedTasksOnly
+
+
+{-| possible activities that can be logged about a task.
+Working rules:
+
+  - names should just be '(exact name of field being changed)+Change' [consistency]
+  - value always includes the full value it was changed to at the time, never the delta [consistency]
+
+-}
+type TaskChange
+    = Created Moment
+    | CompletionChange Progress
+    | TitleChange String
+    | PredictedEffortChange Duration
+    | ParentChange TaskId
+    | TagsChange
+    | DateChange TaskMoment
+
+
+decodeTaskChange : Decode.Decoder TaskChange
+decodeTaskChange =
+    decodeCustom
+        [ ( "CompletionChange", sub CompletionChange "progress" decodeProgress )
+        , ( "Created", sub Created "moment" decodeMoment )
+        , ( "ParentChange", sub ParentChange "taskId" Decode.int )
+        , ( "PredictedEffortChange", sub PredictedEffortChange "duration" Decode.int )
+        , ( "TagsChange", succeed TagsChange )
+        , ( "TitleChange", sub TitleChange "string" Decode.string )
+        ]
+
+
+encodeTaskChange : TaskChange -> Encode.Value
+encodeTaskChange theTaskChange =
+    case theTaskChange of
+        Created moment ->
+            object [ ( "Created", encodeMoment moment ) ]
+
+        CompletionChange progress ->
+            object [ ( "CompletionChange", encodeProgress progress ) ]
+
+        TitleChange string ->
+            object [ ( "TitleChange", Encode.string string ) ]
+
+        PredictedEffortChange duration ->
+            object [ ( "PredictedEffortChange", Encode.int duration ) ]
+
+        ParentChange taskId ->
+            object [ ( "ParentChange", Encode.int taskId ) ]
+
+        TagsChange ->
+            Encode.string "TagsChange"
+
+        DateChange taskMoment ->
+            object [ ( "DateChange", encodeTaskMoment taskMoment ) ]
+
+
+type alias TaskId =
+    Int
+
+
+type alias ProjectId =
+    Int
+
+
+completed : Task -> Bool
+completed task =
+    isMax (.completion task)
+
+
+
+--            :::     ::: ::::::::::: :::::::::: :::       :::
+--            :+:     :+:     :+:     :+:        :+:       :+:
+--            +:+     +:+     +:+     +:+        +:+       +:+
+--            +#+     +:+     +#+     +#++:++#   +#+  +:+  +#+
+--             +#+   +#+      +#+     +#+        +#+ +#+#+ +#+
+--              #+#+#+#       #+#     #+#         #+#+# #+#+#
+--                ###     ########### ##########   ###   ###
 
 
 viewTaskList model =
@@ -379,31 +563,9 @@ viewControlsClear tasksCompleted =
 
 
 
--- myStyle = (style, "color:red")
---
--- div [(att1, "hi"), (att2, "yo"), (myStyle completion)] [nodes]
---
--- <div att1="hi" att2="yo">nodes</div>
-
-
-infoFooter : Html msg
-infoFooter =
-    footer [ class "info" ]
-        [ p [] [ text "Double-click to edit a task" ]
-        , p []
-            [ text "Written by "
-            , a [ href "https://github.com/Erudition" ] [ text "Connor" ]
-            ]
-        , p []
-            [ text "Fork of Evan's elm "
-            , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
-            ]
-        ]
-
-
-
--- type Phrase = Written_by
---             | Double_click_to_edit_a_task
--- say : Phrase -> Language -> String
--- say phrase language =
---     ""
+--             _   _ ______ ______   ___   _____  _____
+--            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
+--            | | | || |_/ /| | | |/ /_\ \  | |  | |__
+--            | | | ||  __/ | | | ||  _  |  | |  |  __|
+--            | |_| || |    | |/ / | | | |  | |  | |___
+--             \___/ \_|    |___/  \_| |_/  \_/  \____/

@@ -1,4 +1,4 @@
-module Model.TaskMoment exposing (Duration, Moment, TaskMoment(..), decodeMoment, decodeTaskMoment, describeTaskMoment, encodeMoment, encodeTaskMoment)
+module Task.TaskMoment exposing (Duration, Moment, TaskMoment(..), decodeMoment, decodeTaskMoment, describeTaskMoment, encodeMoment, encodeTaskMoment)
 
 import Date exposing (Date)
 import Json.Decode
