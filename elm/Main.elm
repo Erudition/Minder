@@ -1,4 +1,4 @@
-port module Docket exposing (init, main, setStorage, subscriptions, updateWithStorage, updateWithTime)
+port module Main exposing (AppData, ExpandedTask, Instance, Model, ModelAsJson, Msg(..), Pane(..), TextboxContents, ViewState, decodeAppData, emptyAppData, emptyViewState, encodeAppData, infoFooter, init, main, modelFromJson, modelToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones

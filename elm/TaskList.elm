@@ -1,4 +1,4 @@
-module TaskList exposing (..)
+module TaskList exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), completed, decodeHistoryEntry, decodeTask, decodeTaskChange, dynamicSliderThumbCss, encodeHistoryEntry, encodeTask, encodeTaskChange, extractDate, extractSliderInput, newTask, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Browser
 import Css exposing (..)
@@ -8,7 +8,6 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
-import Json.Decode as Decode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -26,6 +25,14 @@ import VirtualDom
 --            MM MM MM OO   OO DD   DD EEEEE   LL
 --            MM    MM OO   OO DD   DD EE      LL
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
+
+
+type alias Model =
+    { appData : AppData
+    , viewState : ViewState
+    , updateTime : Time.Posix
+    , navkey : Nav.Key
+    }
 
 
 {-| Definition of a single task.
@@ -567,18 +574,18 @@ viewControlsClear tasksCompleted =
 --            | |_| || |    | |/ / | | | |  | |  | |___
 --             \___/ \_|    |___/  \_| |_/  \_/  \____/
 
-type Msg =
-      | UpdateField String
-      | EditingTask TaskId Bool
-      | UpdateTask TaskId String
-      | Add
-      | Delete TaskId
-      | DeleteComplete
-      | UpdateProgressPortion TaskId Portion
-      | CheckAll Progress
-      | ChangeVisibility String
-      | FocusSlider TaskId Bool
-      | UpdateTaskDate TaskId String TaskMoment
+
+type Msg
+    = EditingTask TaskId Bool
+    | UpdateTask TaskId String
+    | Add
+    | Delete TaskId
+    | DeleteComplete
+    | UpdateProgressPortion TaskId Portion
+    | CheckAll Progress
+    | ChangeVisibility String
+    | FocusSlider TaskId Bool
+    | UpdateTaskDate TaskId String TaskMoment
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
