@@ -1,0 +1,25 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Docket</title>
+  <script type="text/javascript" src="elm.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="sliders.css">
+</head>
+
+<body>
+</body>
+
+<script type="text/javascript">
+var storedState = localStorage.getItem('docket-data');
+//var startingState = storedState ? JSON.parse(storedState) : null;
+var startingState = storedState ? storedState : null;
+var todomvc = Elm.Docket.fullscreen(startingState);
+todomvc.ports.setStorage.subscribe(function(state) {
+    localStorage.setItem('docket-data', state);
+});//was JSON.stringify(state)
+</script>
+
+</html>
