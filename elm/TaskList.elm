@@ -1,18 +1,22 @@
-module TaskList exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, TaskListFilter(..), completed, decodeHistoryEntry, decodeTask, decodeTaskChange, dynamicSliderThumbCss, encodeHistoryEntry, encodeTask, encodeTaskChange, extractDate, extractSliderInput, newTask, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
+module TaskList exposing (ExpandedTask, Msg(..), TaskListFilter(..), TextboxContents, ViewState(..), dynamicSliderThumbCss, extractDate, extractSliderInput, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
+import AppData exposing (..)
 import Browser
+import Browser.Dom
 import Css exposing (..)
 import Date
+import Environment exposing (..)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
-import Json.Decode.Exploration as Decode exposing (..)
+import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import Task as Job
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
 import Task.TaskMoment exposing (..)
@@ -26,7 +30,6 @@ import VirtualDom
 --            MM MM MM OO   OO DD   DD EEEEE   LL
 --            MM    MM OO   OO DD   DD EE      LL
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
--- possible ways to filter the list of tasks
 
 
 type TaskListFilter
@@ -45,6 +48,18 @@ type TaskListFilter
 --                ###     ########### ##########   ###   ###
 
 
+type ViewState
+    = TextboxContents (Maybe ExpandedTask) TaskListFilter
+
+
+type alias ExpandedTask =
+    TaskId
+
+
+type alias TextboxContents =
+    String
+
+
 view model =
     div
         [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
@@ -54,9 +69,8 @@ view model =
             , Html.Styled.Lazy.lazy3 viewTasks model.updateTime model.visibility model.tasks
             , lazy2 viewControls model.visibility model.tasks
             ]
-        , infoFooter
         , section [ css [ opacity (num 0.1) ] ]
-            [ text (modelToJson model)
+            [ text "Everything working well?"
             ]
         ]
 
@@ -76,7 +90,7 @@ viewInput task =
             , autofocus True
             , value task
             , name "newTask"
-            , onInput UpdateField
+            , onInput UpdateNewEntryField
             , onEnter Add
             ]
             []
@@ -161,7 +175,7 @@ viewTasks now visibility tasks =
 
 viewKeyedTask : Moment -> Task -> ( String, Html Msg )
 viewKeyedTask now task =
-    ( toString task.id, lazy2 viewTask now task )
+    ( String.fromInt task.id, lazy2 viewTask now task )
 
 
 
@@ -180,9 +194,9 @@ viewTask now task =
                 , type_ "checkbox"
                 , Html.Styled.Attributes.checked (completed task)
                 , onClick
-                    (UpdateProgressPart task.id
+                    (UpdateProgress task.id
                         (if not (completed task) then
-                            toFloat <| whole task.completion
+                            maximize task.completion
 
                          else
                             0
@@ -206,7 +220,7 @@ viewTask now task =
             [ class "edit"
             , value task.title
             , name "title"
-            , id ("task-" ++ toString task.id)
+            , id ("task-" ++ String.fromInt task.id)
             , onInput (UpdateTask task.id)
             , onBlur (EditingTask task.id False)
             , onEnter (EditingTask task.id False)
@@ -272,14 +286,14 @@ dynamicSliderThumbCss portion =
 
 extractSliderInput : Task -> String -> Msg
 extractSliderInput task input =
-    UpdateProgressPart task.id <| Result.withDefault 0 <| String.toFloat input
+    UpdateProgress task.id <| Result.withDefault 0 <| String.toFloat input
 
 
 {-| Human-friendly text in a task summarizing the various TaskMoments (e.g. the due date)
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Time.Time -> Task -> Html Msg
+timingInfo : Time.Posix -> Task -> Html Msg
 timingInfo time task =
     text <| describeTaskMoment time task.deadline
 
@@ -404,15 +418,17 @@ type Msg
     | Add
     | Delete TaskId
     | DeleteComplete
-    | UpdateProgressPortion TaskId Portion
+    | UpdateProgress TaskId Progress
     | CheckAll Progress
     | ChangeVisibility String
     | FocusSlider TaskId Bool
     | UpdateTaskDate TaskId String TaskMoment
+    | UpdateNewEntryField String
+    | NoOp
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> AppData -> ViewState -> Environment -> ( AppData, Cmd Msg )
+update msg model viewState env =
     case msg of
         Add ->
             ( { model
@@ -428,7 +444,7 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateField str ->
+        UpdateNewEntryField str ->
             ( { model | field = str }
             , Cmd.none
             )
@@ -443,7 +459,7 @@ update msg model =
                         t
 
                 focus =
-                    Dom.focus ("task-" ++ String.fromInt id)
+                    Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
             ( { model | tasks = List.map updateTask model.tasks }
             , Job.attempt (\_ -> NoOp) focus
@@ -485,7 +501,7 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateProgressPortion id new_completion ->
+        UpdateProgress id new_completion ->
             let
                 updateTask t =
                     if t.id == id then
@@ -513,6 +529,11 @@ update msg model =
             )
 
         FocusSlider task focused ->
+            ( model
+            , Cmd.none
+            )
+
+        NoOp ->
             ( model
             , Cmd.none
             )

@@ -1,9 +1,13 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, progressFromFloat, unitMax)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, unitMax)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 
 
+{-| Proper Fractions, but with named units
+Portion = Part = Numerator
+Unit = Whole = Denominator, wrapped with name
+-}
 type alias Progress =
     ( Portion, Unit )
 
@@ -63,7 +67,12 @@ isMax progress =
     getPortion progress == getWhole progress
 
 
-unitMax : Unit -> Int
+maximize : Progress -> Progress
+maximize ( _, unit ) =
+    ( unitMax unit, unit )
+
+
+unitMax : Unit -> Portion
 unitMax unit =
     case unit of
         None ->

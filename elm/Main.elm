@@ -4,9 +4,11 @@ port module Main exposing (AppData, ExpandedTask, Instance, JsonAppDatabase, Mod
 --import Time.TimeZones as TimeZones
 --import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
 
+import AppData exposing (..)
 import Browser
 import Browser.Dom as Dom
 import Browser.Navigation as Nav exposing (..)
+import Environment exposing (..)
 import Html.Styled exposing (..)
 import Task as Job
 import Task.Progress exposing (..)
@@ -89,7 +91,7 @@ init maybeJson url key =
                 Just jsonAppDatabase ->
                     case appDataFromJson jsonAppDatabase of
                         Success savedAppData ->
-                            buildModelFromSaved savedAppData url key
+                            buildModelFromSaved savedAppData environment
 
                         WithWarnings warnings savedAppData ->
                             buildModelFromSaved savedAppData url key
@@ -104,8 +106,13 @@ init maybeJson url key =
                 Nothing ->
                     emptyModel
 
+        environment =
+            Client
+
         effects =
-            [ Job.perform MinutePassed Time.now ]
+            [ Job.perform MinutePassed Time.now
+            , Job.perform SetZone Time.here
+            ]
     in
     ( startingModel
     , Cmd.batch effects
@@ -121,13 +128,12 @@ init maybeJson url key =
 
 
 {-| Our whole app's Model.
-Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is completed", all stored in App "Database").
+Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is due thursday", all stored in App "Database").
 -}
 type alias Model =
     { appData : AppData
     , viewState : ViewState
-    , updateTime : Time.Posix
-    , navkey : Nav.Key
+    , client : Client
     }
 
 
@@ -139,52 +145,6 @@ buildModelFromSaved savedAppData warnings url key =
 buildModelFromScratch : Maybe Decode.Errors -> Url.Url -> Nav.Key -> Model
 buildModelFromScratch errors url key =
     Model { uid = 0, errors = [ errors ], tasks = [] } (viewUrl url) (Time.millisToPosix 0) key
-
-
-{-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
--}
-type alias Instance =
-    Int
-
-
-type alias AppData =
-    { uid : Instance
-    , errors : List String
-    , tasks : List Task
-    }
-
-
-decodeAppData : Decoder AppData
-decodeAppData =
-    Decode.map3 AppData
-        (field "uid" Decode.int)
-        (field "errors" (Decode.list Decode.string))
-        (field "tasks" (Decode.list decodeTask))
-
-
-encodeAppData : AppData -> Encode.Value
-encodeAppData record =
-    Encode.object
-        [ ( "tasks", Encode.list encodeTask record.tasks )
-        , ( "uid", Encode.int record.uid )
-        , ( "errors", Encode.list Encode.string record.errors )
-        ]
-
-
-
-{--Due to the disappointingly un-automated nature of uncustomized Decoders and Encoders in Elm (and the current auto-generators out there being broken for many types), they must be written out by hand for every data type of our app (since all of our app's data will be ported out, and Elm doesn't support porting out even it's own Union types). To make sure we don't forget to update the coders (hard) whenever we change our model (easy), we shall always put them directly below the corresponding type definition. For example:
-
-type Widget = ...
-encodeWidget = ...
-decodeWidget = ...
-
-Using that nomenclature. Don't change Widget without updating the decoder!
---}
-
-
-emptyAppData : AppData
-emptyAppData =
-    { tasks = [], uid = 0, errors = [] }
 
 
 type alias JsonAppDatabase =
@@ -202,25 +162,20 @@ appDataToJson model =
 
 
 type alias ViewState =
-    { pane : Pane
+    { primaryView : Screen
     , uid : Int
     }
 
 
 emptyViewState =
-    { pane = TaskList "" Nothing AllTasks }
+    { primaryView = TaskList "" Nothing AllTasks }
 
 
-type Pane
-    = TaskList TextboxContents (Maybe ExpandedTask) TaskListFilter
-
-
-type alias ExpandedTask =
-    TaskId
-
-
-type alias TextboxContents =
-    String
+type Screen
+    = TaskList TaskList.ViewState
+    | TimeTracker
+    | Calendar
+    | Preferences
 
 
 
@@ -236,8 +191,14 @@ type alias TextboxContents =
 view : Model -> Browser.Document Msg
 view model =
     { title = "Docket"
-    , body = TaskList.view model
+    , body = showPane model
     }
+
+
+showPane model =
+    case model.viewState.pane of
+        TaskList _ _ _ ->
+            TaskList.view model
 
 
 
@@ -284,6 +245,7 @@ to them.
 type Msg
     = NoOp
     | MinutePassed Moment
+    | SetZone Time.Zone
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -295,18 +257,36 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        NoOp ->
+    let
+        client =
+            model.client
+
+        setClient new =
+            { model | client = new }
+
+        setAppData new =
+            { model | appData = new }
+
+        updateScreen model ( appData, commands ) =
+            ( setAppData model appData, commands )
+    in
+    case ( msg, model.viewState.primaryView ) of
+        ( NoOp, _ ) ->
             ( model
             , Cmd.none
             )
 
-        MinutePassed time ->
-            ( { model | updateTime = time }
+        ( MinutePassed time, _ ) ->
+            ( setClient { client | updateTime = time }
             , Cmd.none
             )
 
-        Link urlRequest ->
+        ( SetZone zone, _ ) ->
+            ( setClient { client | timeZone = zone }
+            , Cmd.none
+            )
+
+        ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
                     ( model, Nav.pushUrl model.navkey (Url.toString url) )
@@ -315,7 +295,10 @@ update msg model =
                     ( model, Nav.load href )
 
         -- TODO Change model state based on url
-        NewUrl url ->
+        ( NewUrl url, _ ) ->
             ( { model | viewState = TaskList Nothing }
             , Cmd.none
             )
+
+        ( TaskListMsg tasklistmsg, TaskList viewState ) ->
+            TaskList.update tasklistmsg client model.appData viewState
