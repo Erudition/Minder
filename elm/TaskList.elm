@@ -205,7 +205,7 @@ viewTask now task =
                 ]
                 []
             , label
-                [ onDoubleClick (EditingTask task.id True), onClick (FocusSlider task.id True) ]
+                [ onDoubleClick (EditingTitle task.id True), onClick (FocusSlider task.id True) ]
                 [ text task.title ]
             , div
                 [ class "timing-info" ]
@@ -222,8 +222,8 @@ viewTask now task =
             , name "title"
             , id ("task-" ++ String.fromInt task.id)
             , onInput (UpdateTask task.id)
-            , onBlur (EditingTask task.id False)
-            , onEnter (EditingTask task.id False)
+            , onBlur (EditingTitle task.id False)
+            , onEnter (EditingTitle task.id False)
             ]
             []
         , div [ class "task-drawer", Html.Styled.Attributes.hidden False ]
@@ -260,7 +260,7 @@ progressSlider task =
                 "any"
             )
         , onInput (extractSliderInput task)
-        , onDoubleClick (EditingTask task.id True)
+        , onDoubleClick (EditingTitle task.id True)
         , onFocus (FocusSlider task.id True)
         , onBlur (FocusSlider task.id False)
         , dynamicSliderThumbCss (getNormalizedPortion task.completion)
@@ -413,7 +413,7 @@ viewControlsClear tasksCompleted =
 
 
 type Msg
-    = EditingTask TaskId Bool
+    = EditingTitle TaskId Bool
     | UpdateTask TaskId String
     | Add
     | Delete TaskId
@@ -428,10 +428,10 @@ type Msg
 
 
 update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
-update msg viewState app env =
+update msg state app env =
     case msg of
         Add ->
-            case viewState of
+            case state of
                 Normal "" _ ->
                     ( Normal "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
@@ -449,16 +449,19 @@ update msg viewState app env =
                     , Cmd.none
                     )
 
-        UpdateNewEntryField str ->
-            ( { model | field = str }
+        UpdateNewEntryField typedSoFar ->
+            ( Normal typedSoFar Nothing
+              -- TODO will collapse expanded tasks. Should it?
+            , app
             , Cmd.none
             )
 
-        EditingTask id isEditing ->
+        EditingTitle id isEditing ->
             let
                 updateTask t =
                     if t.id == id then
                         { t | editing = isEditing }
+                        -- TODO editing should be a viewState thing, not a task prop
 
                     else
                         t
@@ -466,7 +469,8 @@ update msg viewState app env =
                 focus =
                     Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
-            ( { appData | tasks = List.map updateTask model.tasks }
+            ( state
+            , { app | tasks = List.map updateTask app.tasks }
             , Job.attempt (\_ -> NoOp) focus
             )
 
@@ -479,7 +483,8 @@ update msg viewState app env =
                     else
                         t
             in
-            ( { appData | tasks = List.map updateTask model.tasks }
+            ( state
+            , { app | tasks = List.map updateTask app.tasks }
             , Cmd.none
             )
 
@@ -492,17 +497,20 @@ update msg viewState app env =
                     else
                         t
             in
-            ( { appData | tasks = List.map updateTask model.tasks }
+            ( state
+            , { app | tasks = List.map updateTask app.tasks }
             , Cmd.none
             )
 
         Delete id ->
-            ( { appData | tasks = List.filter (\t -> t.id /= id) model.tasks }
+            ( state
+            , { app | tasks = List.filter (\t -> t.id /= id) app.tasks }
             , Cmd.none
             )
 
         DeleteComplete ->
-            ( { appData | tasks = List.filter (not << completed) model.tasks }
+            ( state
+            , { app | tasks = List.filter (not << completed) app.tasks }
             , Cmd.none
             )
 
@@ -515,21 +523,19 @@ update msg viewState app env =
                     else
                         t
             in
-            ( { appData | tasks = List.map updateTask model.tasks }
-            , Cmd.none
-            )
-
-        ChangeVisibility visibility ->
-            ( { model | visibility = visibility }
+            ( state
+            , { app | tasks = List.map updateTask app.tasks }
             , Cmd.none
             )
 
         FocusSlider task focused ->
-            ( model
+            ( state
+            , app
             , Cmd.none
             )
 
         NoOp ->
-            ( model
+            ( state
+            , app
             , Cmd.none
             )
