@@ -49,7 +49,7 @@ type TaskListFilter
 
 
 type ViewState
-    = TextboxContents (Maybe ExpandedTask) TaskListFilter
+    = Normal TextboxContents (Maybe ExpandedTask)
 
 
 type alias ExpandedTask =
@@ -427,22 +427,27 @@ type Msg
     | NoOp
 
 
-update : Msg -> AppData -> ViewState -> Environment -> ( AppData, Cmd Msg )
-update msg model viewState env =
+update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
+update msg viewState app env =
     case msg of
         Add ->
-            ( { model
-                | uid = model.uid + 1
-                , field = ""
-                , tasks =
-                    if String.isEmpty model.field then
-                        model.tasks
+            case viewState of
+                Normal "" _ ->
+                    ( Normal "" Nothing
+                      -- resets new-entry-textbox to empty, collapses tasks
+                    , app
+                    , Cmd.none
+                    )
 
-                    else
-                        model.tasks ++ [ newTask model.field model.uid ]
-              }
-            , Cmd.none
-            )
+                Normal newTaskTitle _ ->
+                    ( Normal "" Nothing
+                      -- resets new-entry-textbox to empty, collapses tasks
+                    , { app
+                        | tasks = app.tasks ++ [ newTask newTaskTitle Time.posixToMillis env.time ]
+                      }
+                      -- now using the creation time as the task ID, for sync
+                    , Cmd.none
+                    )
 
         UpdateNewEntryField str ->
             ( { model | field = str }
@@ -461,7 +466,7 @@ update msg model viewState env =
                 focus =
                     Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
-            ( { model | tasks = List.map updateTask model.tasks }
+            ( { appData | tasks = List.map updateTask model.tasks }
             , Job.attempt (\_ -> NoOp) focus
             )
 
@@ -474,7 +479,7 @@ update msg model viewState env =
                     else
                         t
             in
-            ( { model | tasks = List.map updateTask model.tasks }
+            ( { appData | tasks = List.map updateTask model.tasks }
             , Cmd.none
             )
 
@@ -487,17 +492,17 @@ update msg model viewState env =
                     else
                         t
             in
-            ( { model | tasks = List.map updateTask model.tasks }
+            ( { appData | tasks = List.map updateTask model.tasks }
             , Cmd.none
             )
 
         Delete id ->
-            ( { model | tasks = List.filter (\t -> t.id /= id) model.tasks }
+            ( { appData | tasks = List.filter (\t -> t.id /= id) model.tasks }
             , Cmd.none
             )
 
         DeleteComplete ->
-            ( { model | tasks = List.filter (not << completed) model.tasks }
+            ( { appData | tasks = List.filter (not << completed) model.tasks }
             , Cmd.none
             )
 
@@ -505,21 +510,12 @@ update msg model viewState env =
             let
                 updateTask t =
                     if t.id == id then
-                        { t | completion = ( new_completion, getUnits t.completion ) }
+                        { t | completion = new_completion }
 
                     else
                         t
             in
-            ( { model | tasks = List.map updateTask model.tasks }
-            , Cmd.none
-            )
-
-        CheckAll newCompletion ->
-            let
-                updateTask t =
-                    { t | completion = newCompletion }
-            in
-            ( { model | tasks = List.map updateTask model.tasks }
+            ( { appData | tasks = List.map updateTask model.tasks }
             , Cmd.none
             )
 

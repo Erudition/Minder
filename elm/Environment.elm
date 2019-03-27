@@ -17,7 +17,7 @@ TODO FUTURE fields:
 
 -}
 type alias Environment =
-    { updateTime : Time.Posix -- current time (effectively)
+    { time : Time.Posix -- current time (effectively)
     , navkey : Nav.Key -- instance-specific (can't store it)
     , timeZone : Time.Zone -- according to browser
     }
