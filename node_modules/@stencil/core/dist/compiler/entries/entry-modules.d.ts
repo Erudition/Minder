@@ -1,0 +1,12 @@
+import * as d from '../../declarations';
+import { ENCAPSULATION } from '../../util/constants';
+export declare function generateEntryModules(config: d.Config, compilerCtx: d.CompilerCtx, buildCtx: d.BuildCtx): d.EntryModule[];
+export declare function getEntryEncapsulations(moduleFiles: d.ModuleFile[]): ENCAPSULATION[];
+export declare function getEntryModes(moduleFiles: d.ModuleFile[]): string[];
+export declare function getComponentStyleModes(cmpMeta: d.ComponentMeta): string[];
+export declare function regroupEntryModules(allModules: d.ModuleFile[], entryPoints: d.EntryPoint[]): d.ModuleFile[][];
+export declare function createEntryModule(config: d.Config): (moduleFiles: d.ModuleFile[]) => d.EntryModule;
+export declare const ENTRY_KEY_PREFIX = "entry.";
+export declare function getAppEntryTags(allModules: d.ModuleFile[]): string[];
+export declare function getUserConfigEntryTags(buildCtx: d.BuildCtx, configBundles: d.ConfigBundle[], allModules: d.ModuleFile[]): string[][];
+export declare function validateComponentEntries(config: d.Config, compilerCtx: d.CompilerCtx, buildCtx: d.BuildCtx): d.ModuleFile[];

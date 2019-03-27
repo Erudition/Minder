@@ -1,7 +1,8 @@
-module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, sub)
+module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, subtype)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode
+
 
 
 -- import Json.Decode.Pipeline as Pipeline exposing (decode, hardcoded, optional, required)
@@ -51,15 +52,18 @@ decodeCustom tagsWithDecoders =
 --     when (field "tag" Decode.string) ((==) name) decoder
 
 
-sub : (subtype -> unionType) -> String -> Decoder subtype -> Decoder unionType
-sub tagger fieldName subTypeDecoder =
+subtype : (subtype -> unionType) -> String -> Decoder subtype -> Decoder unionType
+subtype tagger fieldName subTypeDecoder =
     Decode.map tagger (field fieldName subTypeDecoder)
 
-sub2 : (subtype1 -> subtype2 -> unionType) -> String -> Decoder subtype1 -> String -> Decoder subtype2 -> Decoder unionType
-sub2 tagger fieldName1 subType1Decoder fieldName2 subType2Decoder =
+
+subtype2 : (subtype1 -> subtype2 -> unionType) -> String -> Decoder subtype1 -> String -> Decoder subtype2 -> Decoder unionType
+subtype2 tagger fieldName1 subType1Decoder fieldName2 subType2Decoder =
     Decode.map2 tagger
-      (field fieldName1 subType1Decoder)
-      (field fieldName2 subType2Decoder)
+        (field fieldName1 subType1Decoder)
+        (field fieldName2 subType2Decoder)
+
+
 
 -- type TaggedUnionValue tagType a b c
 --     = NoParams String tagType

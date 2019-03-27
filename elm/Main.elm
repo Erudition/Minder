@@ -1,4 +1,4 @@
-port module Main exposing (AppData, ExpandedTask, Instance, Model, ModelAsJson, Msg(..), Pane(..), TextboxContents, ViewState, decodeAppData, emptyAppData, emptyViewState, encodeAppData, infoFooter, init, main, modelFromJson, modelToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
+port module Main exposing (AppData, ExpandedTask, Instance, JsonAppDatabase, Model, Msg(..), Pane(..), TextboxContents, ViewState, appDataFromJson, appDataToJson, decodeAppData, emptyAppData, emptyViewState, encodeAppData, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
@@ -16,7 +16,7 @@ import Time
 import Url
 
 
-main : Program (Maybe ModelAsJson) Model Msg
+main : Program (Maybe JsonAppDatabase) Model Msg
 main =
     Browser.application
         { init = init
@@ -33,7 +33,7 @@ subscriptions model =
     Time.every Time.minute MinutePassed
 
 
-port setStorage : ModelAsJson -> Cmd msg
+port setStorage : JsonAppDatabase -> Cmd msg
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -46,7 +46,7 @@ updateWithStorage msg model =
             updateWithTime msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage (modelToJson newModel), cmds ]
+    , Cmd.batch [ setStorage (appDataToJson newModel), cmds ]
     )
 
 
@@ -81,18 +81,24 @@ updateWithTime msg model =
 {-| TODO: The "ModelAsJson" could be a whole slew of flags instead.
 Key and URL also need to be fed into the model.
 -}
-init : Maybe ModelAsJson -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init maybeModelAsJson url key =
+init : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init maybeJson url key =
     let
         startingModel =
-            case maybeModelAsJson of
-                Just modelAsJson ->
-                    case modelFromJson modelAsJson navkey of
-                        Ok restoredModel ->
-                            { restoredModel | navkey = key }
+            case maybeJson of
+                Just jsonAppDatabase ->
+                    case appDataFromJson jsonAppDatabase of
+                        Success savedAppData ->
+                            buildModelFromSaved savedAppData url key
 
-                        Err errormsg ->
-                            { emptyModel | errors = [ Debug.log "Errors" errormsg ], navkey = key }
+                        WithWarnings warnings savedAppData ->
+                            buildModelFromSaved savedAppData url key
+
+                        Errors errors ->
+                            buildModelFromScratch url key
+
+                        BadJson errormsg ->
+                            Model { uid = 0, errors = [ errormsg ], tasks = [] } (viewUrl url) (Time.millisToPosix 0) key
 
                 -- no json stored at all
                 Nothing ->
@@ -125,31 +131,14 @@ type alias Model =
     }
 
 
-type alias ModelAsJson =
-    String
+buildModelFromSaved : AppData -> Maybe Decode.Warnings -> Url.Url -> Nav.Key -> Model
+buildModelFromSaved savedAppData warnings url key =
+    Model { savedAppData | errors = warnings } (viewUrl url) (Time.millisToPosix 0) key
 
 
-modelFromJson : ModelAsJson -> Nav.Key -> DecodeResult Model
-modelFromJson incomingJson navkey =
-    Decode.decodeString (decodeModel navkey) incomingJson
-
-
-modelToJson : Model -> ModelAsJson
-modelToJson model =
-    Encode.encode 0 (encodeModel model)
-
-
-
--- buildModel : Nav.Key -> Model
--- buildModel key =
---     { tasks = []
---     , field = ""
---     , uid = 0
---     , errors = []
---     , updateTime = millisToPosix 0
---     , viewState = emptyViewState
---     , navkey = key
---     }
+buildModelFromScratch : Maybe Decode.Errors -> Url.Url -> Nav.Key -> Model
+buildModelFromScratch errors url key =
+    Model { uid = 0, errors = [ errors ], tasks = [] } (viewUrl url) (Time.millisToPosix 0) key
 
 
 {-| TODO will be UUIDs. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
@@ -159,29 +148,26 @@ type alias Instance =
 
 
 type alias AppData =
-    { tasks : List Task
-    , uid : Instance
+    { uid : Instance
     , errors : List String
+    , tasks : List Task
     }
 
 
+decodeAppData : Decoder AppData
 decodeAppData =
-    Decode.map7 AppData
-        (field "tasks" (Decode.list decodeTask))
-        (field "field" Decode.string)
+    Decode.map3 AppData
         (field "uid" Decode.int)
         (field "errors" (Decode.list Decode.string))
-        (field "updateTime" decodeMoment)
+        (field "tasks" (Decode.list decodeTask))
 
 
-encodeAppData : Model -> Encode.Value
+encodeAppData : AppData -> Encode.Value
 encodeAppData record =
     Encode.object
         [ ( "tasks", Encode.list encodeTask record.tasks )
-        , ( "field", Encode.string record.field )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string record.errors )
-        , ( "updateTime", encodeMoment record.updateTime )
         ]
 
 
@@ -199,6 +185,20 @@ Using that nomenclature. Don't change Widget without updating the decoder!
 emptyAppData : AppData
 emptyAppData =
     { tasks = [], uid = 0, errors = [] }
+
+
+type alias JsonAppDatabase =
+    String
+
+
+appDataFromJson : JsonAppDatabase -> DecodeResult AppData
+appDataFromJson incomingJson =
+    Decode.decodeString decodeAppData incomingJson
+
+
+appDataToJson : Model -> JsonAppDatabase
+appDataToJson model =
+    Encode.encode 0 (encodeModel model)
 
 
 type alias ViewState =

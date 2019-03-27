@@ -1,0 +1,36 @@
+{
+  "name": "docket",
+  "version": "0.1.1",
+  "description": "Docket - personal agenda",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Erudition/Docket.git"
+  },
+  "keywords": [
+    "agenda",
+    "life",
+    "organizer",
+    "personal",
+    "calendar",
+    "todo",
+    "to-do",
+    "list",
+    "task",
+    "list"
+  ],
+  "author": "Erudition",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/Erudition/Docket/issues"
+  },
+  "homepage": "https://github.com/Erudition/Docket#readme",
+  "dependencies": {
+    "@capacitor/android": "^1.0.0-beta.19",
+    "@stencil/core": "^0.18.0",
+    "@stencil/dev-server": "0.0.18"
+  }
+}

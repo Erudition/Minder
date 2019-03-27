@@ -5,7 +5,7 @@ import Json.Decode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Extra
 import Json.Encode as Encode exposing (..)
-import Porting exposing (decodeCustom, sub)
+import Porting exposing (decodeCustom, subtype)
 import Time exposing (posixToMillis, utc)
 import Time.Distance as Distance
 import Time.Extra exposing (Parts, partsToPosix, posixToParts)
@@ -80,9 +80,9 @@ decodeTaskMoment : Decoder TaskMoment
 decodeTaskMoment =
     decodeCustom
         [ ( "Unset", succeed Unset )
-        , ( "LocalDate", sub LocalDate "Date" decodeDate )
-        , ( "Localized", sub Localized "Parts" decodeParts )
-        , ( "Universal", sub Universal "Moment" decodeMoment )
+        , ( "LocalDate", subtype LocalDate "Date" decodeDate )
+        , ( "Localized", subtype Localized "Parts" decodeParts )
+        , ( "Universal", subtype Universal "Moment" decodeMoment )
         ]
 
 

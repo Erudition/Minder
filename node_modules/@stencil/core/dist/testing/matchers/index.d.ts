@@ -1,0 +1,20 @@
+import { toEqualAttribute, toEqualAttributes, toHaveAttribute } from './attributes';
+import { toHaveReceivedEvent, toHaveReceivedEventDetail, toHaveReceivedEventTimes } from './events';
+import { toEqualHtml } from './html';
+import { toEqualText } from './text';
+import { toHaveClass, toHaveClasses, toMatchClasses } from './class-list';
+import { toMatchScreenshot } from './screenshot';
+export declare const expectExtend: {
+    toEqualAttribute: typeof toEqualAttribute;
+    toEqualAttributes: typeof toEqualAttributes;
+    toEqualHtml: typeof toEqualHtml;
+    toEqualText: typeof toEqualText;
+    toHaveAttribute: typeof toHaveAttribute;
+    toHaveClass: typeof toHaveClass;
+    toHaveClasses: typeof toHaveClasses;
+    toMatchClasses: typeof toMatchClasses;
+    toHaveReceivedEvent: typeof toHaveReceivedEvent;
+    toHaveReceivedEventDetail: typeof toHaveReceivedEventDetail;
+    toHaveReceivedEventTimes: typeof toHaveReceivedEventTimes;
+    toMatchScreenshot: typeof toMatchScreenshot;
+};
