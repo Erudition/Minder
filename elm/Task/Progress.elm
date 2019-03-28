@@ -1,4 +1,4 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, unitMax)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -35,6 +35,11 @@ type Unit
     | Word Int
     | Minute Int
     | CustomUnit ( String, String ) Int
+
+
+setPortion : Progress -> Int -> Progress
+setPortion ( part, unit ) newpart =
+    ( newpart, unit )
 
 
 getPortion : Progress -> Int

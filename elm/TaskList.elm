@@ -11,6 +11,7 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
+import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -79,7 +80,7 @@ view model =
 -- viewInput : String -> Html Msg
 
 
-viewInput : String -> VirtualDom.Node Msg
+viewInput : String -> Html Msg
 viewInput task =
     header
         [ class "header" ]
@@ -95,7 +96,6 @@ viewInput task =
             ]
             []
         ]
-        |> toUnstyled
 
 
 onEnter : Msg -> Attribute Msg
@@ -103,12 +103,12 @@ onEnter msg =
     let
         isEnter code =
             if code == 13 then
-                Decode.succeed msg
+                OldDecode.succeed msg
 
             else
-                Decode.fail "not ENTER"
+                OldDecode.fail "not ENTER"
     in
-    on "keydown" (Decode.andThen isEnter keyCode)
+    on "keydown" (OldDecode.andThen isEnter keyCode)
 
 
 
@@ -116,7 +116,7 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Moment -> String -> List Task -> VirtualDom.Node Msg
+viewTasks : Moment -> String -> List Task -> Html Msg
 viewTasks now visibility tasks =
     let
         isVisible task =
@@ -132,32 +132,14 @@ viewTasks now visibility tasks =
 
         allCompleted =
             List.all completed tasks
-
-        cssVisibility =
-            if List.isEmpty tasks then
-                "hidden"
-
-            else
-                "visible"
     in
     section
-        [ class "main"
-        , style [ ( "visibility", cssVisibility ) ]
-        ]
+        [ class "main" ]
         [ input
             [ class "toggle-all"
             , type_ "checkbox"
             , name "toggle"
             , Html.Styled.Attributes.checked allCompleted
-            , onClick
-                (CheckAll
-                    (if not allCompleted then
-                        progressFromFloat 1
-
-                     else
-                        progressFromFloat 0
-                    )
-                )
             ]
             []
         , label
@@ -166,7 +148,6 @@ viewTasks now visibility tasks =
         , Keyed.ul [ class "task-list" ] <|
             List.map (viewKeyedTask now) (List.filter isVisible tasks)
         ]
-        |> toUnstyled
 
 
 
@@ -182,7 +163,7 @@ viewKeyedTask now task =
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Moment -> Task -> VirtualDom.Node Msg
+viewTask : Moment -> Task -> Html Msg
 viewTask now task =
     li
         [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
@@ -199,7 +180,7 @@ viewTask now task =
                             maximize task.completion
 
                          else
-                            0
+                            setPortion task.completion 0
                         )
                     )
                 ]
@@ -239,7 +220,6 @@ viewTask now task =
             , input [ type_ "date", name "expiresDate", onInput (extractDate task.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
             ]
         ]
-        |> toUnstyled
 
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
@@ -286,7 +266,10 @@ dynamicSliderThumbCss portion =
 
 extractSliderInput : Task -> String -> Msg
 extractSliderInput task input =
-    UpdateProgress task.id <| Result.withDefault 0 <| String.toFloat input
+    UpdateProgress task.id <|
+        setPortion task.completion <|
+            Maybe.withDefault 0 <|
+                String.toInt input
 
 
 {-| Human-friendly text in a task summarizing the various TaskMoments (e.g. the due date)
@@ -315,7 +298,7 @@ extractDate task field input =
 {-| VIEW CONTROLS AND FOOTER
 -- viewControls : String -> List Task -> Html Msg
 -}
-viewControls : String -> List Task -> VirtualDom.Node Msg
+viewControls : String -> List Task -> Html Msg
 viewControls visibility tasks =
     let
         tasksCompleted =
@@ -332,16 +315,9 @@ viewControls visibility tasks =
         , Html.Styled.Lazy.lazy viewControlsFilters visibility
         , Html.Styled.Lazy.lazy viewControlsClear tasksCompleted
         ]
-        |> toUnstyled
 
 
-viewControlsCount : number -> VirtualDom.Node msg
-
-
-
--- viewControlsCount : Int -> VirtualDom.Node msg
-
-
+viewControlsCount : Int -> Html msg
 viewControlsCount tasksLeft =
     let
         item_ =
@@ -356,10 +332,9 @@ viewControlsCount tasksLeft =
         [ strong [] [ text (String.fromInt tasksLeft) ]
         , text (item_ ++ " left")
         ]
-        |> toUnstyled
 
 
-viewControlsFilters : String -> VirtualDom.Node Msg
+viewControlsFilters : String -> Html Msg
 
 
 
@@ -375,13 +350,12 @@ viewControlsFilters visibility =
         , text " "
         , visibilitySwap "#/completed" "Completed" visibility
         ]
-        |> toUnstyled
 
 
 visibilitySwap : String -> String -> String -> Html Msg
 visibilitySwap uri visibility actualVisibility =
     li
-        [ onClick (ChangeVisibility visibility) ]
+        []
         [ a [ href uri, classList [ ( "selected", visibility == actualVisibility ) ] ]
             [ text visibility ]
         ]
@@ -391,7 +365,7 @@ visibilitySwap uri visibility actualVisibility =
 -- viewControlsClear : Int -> VirtualDom.Node Msg
 
 
-viewControlsClear : Int -> VirtualDom.Node Msg
+viewControlsClear : Int -> Html Msg
 viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
@@ -400,7 +374,6 @@ viewControlsClear tasksCompleted =
         ]
         [ text ("Clear completed (" ++ String.fromInt tasksCompleted ++ ")")
         ]
-        |> toUnstyled
 
 
 
@@ -419,8 +392,6 @@ type Msg
     | Delete TaskId
     | DeleteComplete
     | UpdateProgress TaskId Progress
-    | CheckAll Progress
-    | ChangeVisibility String
     | FocusSlider TaskId Bool
     | UpdateTaskDate TaskId String TaskMoment
     | UpdateNewEntryField String
