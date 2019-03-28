@@ -62,7 +62,7 @@ type alias TextboxContents =
 
 view model =
     div
-        [ class "todomvc-wrapper", style [ ( "visibility", "hidden" ) ] ]
+        [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
         [ section
             [ class "todoapp" ]
             [ lazy viewInput model.field
@@ -391,7 +391,7 @@ visibilitySwap uri visibility actualVisibility =
 -- viewControlsClear : Int -> VirtualDom.Node Msg
 
 
-viewControlsClear : number -> VirtualDom.Node Msg
+viewControlsClear : Int -> VirtualDom.Node Msg
 viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
@@ -443,7 +443,7 @@ update msg state app env =
                     ( Normal "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | tasks = app.tasks ++ [ newTask newTaskTitle Time.posixToMillis env.time ]
+                        | tasks = app.tasks ++ [ newTask newTaskTitle (Time.posixToMillis env.time) ]
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
