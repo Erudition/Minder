@@ -1,4 +1,4 @@
-port module Main exposing (AppData, ExpandedTask, Instance, JsonAppDatabase, Model, Msg(..), Pane(..), TextboxContents, ViewState, appDataFromJson, appDataToJson, decodeAppData, emptyAppData, emptyViewState, encodeAppData, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), PreUpdate(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModelFromSaved, buildModelFromScratch, emptyViewState, infoFooter, init, main, setStorage, showPane, subscriptions, update, updateWithStorage, updateWithTime, view)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
@@ -51,7 +51,7 @@ updateWithStorage msg model =
             updateWithTime msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage (appDataToJson newModel), cmds ]
+    , Cmd.batch [ setStorage (appDataToJson model.appData), cmds ]
     )
 
 
@@ -79,7 +79,7 @@ updateWithTime msg model =
 
         -- actually do the update
         Tock submsg time ->
-            update submsg { model | updateTime = time }
+            update submsg { model | time = time }
 
         -- intercept normal update
         otherMsg ->
@@ -144,7 +144,7 @@ Intentionally minimal - we originally went with the common elm habit of stuffing
 type alias Model =
     { appData : AppData
     , viewState : ViewState
-    , client : Environment
+    , environment : Environment
     }
 
 
@@ -269,17 +269,17 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
-        client =
-            model.client
+        env =
+            model.env
 
-        setClient new =
-            { model | client = new }
+        setEnv new =
+            { model | environment = new }
 
         setAppData new =
             { model | appData = new }
 
         updateScreen model_here ( appData, commands ) =
-            ( setAppData model appData, commands )
+            ( setAppData appData, commands )
     in
     case ( msg, model.viewState.primaryView ) of
         ( NoOp, _ ) ->
@@ -288,12 +288,12 @@ update msg model =
             )
 
         ( MinutePassed time, _ ) ->
-            ( setClient { client | updateTime = time }
+            ( setEnv { env | time = time }
             , Cmd.none
             )
 
         ( SetZone zone, _ ) ->
-            ( setClient { client | timeZone = zone }
+            ( setEnv { env | timeZone = zone }
             , Cmd.none
             )
 
@@ -307,9 +307,9 @@ update msg model =
 
         -- TODO Change model state based on url
         ( NewUrl url, _ ) ->
-            ( { model | viewState = TaskList Nothing }
+            ( { model | viewState = TaskList (TaskList.Normal "" Nothing) }
             , Cmd.none
             )
 
         ( TaskListMsg tasklistmsg, TaskList viewState ) ->
-            TaskList.update tasklistmsg client model.appData viewState
+            TaskList.update tasklistmsg env model.appData viewState
