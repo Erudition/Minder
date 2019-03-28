@@ -10,6 +10,9 @@ import Browser.Dom as Dom
 import Browser.Navigation as Nav exposing (..)
 import Environment exposing (..)
 import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Json.Decode.Exploration as Decode exposing (..)
+import Json.Encode as Encode
 import Task as Job
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
@@ -25,14 +28,14 @@ main =
         , view = view
         , update = updateWithStorage
         , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
+        , onUrlChange = NewUrl
+        , onUrlRequest = Link
         }
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Time.every Time.minute MinutePassed
+    Time.every (60 * 1000) MinutePassed
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
@@ -68,16 +71,24 @@ updateWithTime msg model =
             , Cmd.none
             )
 
-        Tick msg ->
+        -- first get the current time
+        Tick submsg ->
             ( model
-            , Job.perform (Tock msg) Time.now
+            , Job.perform (Tock submsg) Time.now
             )
 
-        Tock msg time ->
-            update msg { model | updateTime = time }
+        -- actually do the update
+        Tock submsg time ->
+            update submsg { model | updateTime = time }
 
+        -- intercept normal update
         otherMsg ->
             updateWithTime (Tick msg) model
+
+
+type PreUpdate
+    = Tick Msg
+    | Tock Msg Time.Posix
 
 
 {-| TODO: The "ModelAsJson" could be a whole slew of flags instead.
@@ -96,18 +107,18 @@ init maybeJson url key =
                         WithWarnings warnings savedAppData ->
                             buildModelFromSaved savedAppData url key
 
-                        Errors errors ->
-                            buildModelFromScratch url key
+                        Errors errormsgs ->
+                            Model { uid = 0, errors = [ errormsgs ], tasks = [] } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
 
-                        BadJson errormsg ->
-                            Model { uid = 0, errors = [ errormsg ], tasks = [] } (viewUrl url) (Time.millisToPosix 0) key
+                        BadJson ->
+                            buildModelFromScratch url key
 
                 -- no json stored at all
                 Nothing ->
-                    emptyModel
+                    buildModelFromScratch url key
 
         environment =
-            Client
+            Environment
 
         effects =
             [ Job.perform MinutePassed Time.now
@@ -133,18 +144,18 @@ Intentionally minimal - we originally went with the common elm habit of stuffing
 type alias Model =
     { appData : AppData
     , viewState : ViewState
-    , client : Client
+    , client : Environment
     }
 
 
 buildModelFromSaved : AppData -> Maybe Decode.Warnings -> Url.Url -> Nav.Key -> Model
 buildModelFromSaved savedAppData warnings url key =
-    Model { savedAppData | errors = warnings } (viewUrl url) (Time.millisToPosix 0) key
+    Model { savedAppData | errors = warnings } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
 
 
 buildModelFromScratch : Maybe Decode.Errors -> Url.Url -> Nav.Key -> Model
 buildModelFromScratch errors url key =
-    Model { uid = 0, errors = [ errors ], tasks = [] } (viewUrl url) (Time.millisToPosix 0) key
+    Model { uid = 0, errors = [ errors ], tasks = [] } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
 
 
 type alias JsonAppDatabase =
@@ -156,9 +167,9 @@ appDataFromJson incomingJson =
     Decode.decodeString decodeAppData incomingJson
 
 
-appDataToJson : Model -> JsonAppDatabase
-appDataToJson model =
-    Encode.encode 0 (encodeModel model)
+appDataToJson : AppData -> JsonAppDatabase
+appDataToJson appData =
+    Encode.encode 0 (encodeAppData appData)
 
 
 type alias ViewState =
@@ -168,7 +179,7 @@ type alias ViewState =
 
 
 emptyViewState =
-    { primaryView = TaskList "" Nothing AllTasks }
+    { primaryView = TaskList "" Nothing }
 
 
 type Screen
@@ -197,7 +208,7 @@ view model =
 
 showPane model =
     case model.viewState.pane of
-        TaskList _ _ _ ->
+        TaskList _ ->
             TaskList.view model
 
 
@@ -218,7 +229,7 @@ infoFooter =
             , a [ href "https://github.com/Erudition" ] [ text "Connor" ]
             ]
         , p []
-            [ text "Fork of Evan's elm "
+            [ text "(Increasingly more distant) fork of Evan's elm "
             , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
             ]
         ]
@@ -267,7 +278,7 @@ update msg model =
         setAppData new =
             { model | appData = new }
 
-        updateScreen model ( appData, commands ) =
+        updateScreen model_here ( appData, commands ) =
             ( setAppData model appData, commands )
     in
     case ( msg, model.viewState.primaryView ) of
