@@ -9,7 +9,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Navigation as Nav exposing (..)
 import Environment exposing (..)
-import Html.Styled exposing (..)
+import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
@@ -207,9 +207,9 @@ defaultView =
 view : Model -> Browser.Document Msg
 view { viewState, appData, environment } =
     case viewState.primaryView of
-        TaskList taskListViewState ->
+        TaskList subState ->
             { title = "Docket - All Tasks"
-            , body = [ Html.Styled.map TaskListMsg (TaskList.view taskListViewState appData environment) ]
+            , body = [ H.map TaskListMsg (TaskList.view subState appData environment) ]
             }
 
 
@@ -268,49 +268,39 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update msg ({ viewState, appData, environment } as model) =
     let
-        env =
-            model.environment
+        justRunCommand command =
+            ( model, command )
 
-        setEnv new =
-            { model | environment = new }
-
-        setAppData new =
-            { model | appData = new }
-
-        updateScreen model_here ( appData, commands ) =
-            ( setAppData appData, commands )
+        justSetEnv newEnv =
+            ( Model viewState appData newEnv, Cmd.none )
     in
-    case ( msg, model.viewState.primaryView ) of
+    case ( msg, viewState.primaryView ) of
         ( NoOp, _ ) ->
-            ( model
-            , Cmd.none
-            )
+            ( model, Cmd.none )
 
         ( MinutePassed time, _ ) ->
-            ( setEnv { env | time = time }
-            , Cmd.none
-            )
+            justSetEnv { environment | time = time }
 
         ( SetZone zone, _ ) ->
-            ( setEnv { env | timeZone = zone }
-            , Cmd.none
-            )
+            justSetEnv { environment | timeZone = zone }
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.pushUrl env.navkey (Url.toString url) )
+                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString url)
 
                 Browser.External href ->
-                    ( model, Nav.load href )
+                    justRunCommand <| Nav.load href
 
         -- TODO Change model state based on url
         ( NewUrl url, _ ) ->
-            ( { model | viewState = defaultView }
-            , Cmd.none
-            )
+            Debug.todo "Routing"
 
-        ( TaskListMsg tasklistmsg, TaskList viewState ) ->
-            TaskList.update tasklistmsg env model.appData viewState
+        ( TaskListMsg subMsg, TaskList subViewState ) ->
+            let
+                ( newState, newApp, newCommand ) =
+                    TaskList.update subMsg subViewState appData environment
+            in
+            ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
