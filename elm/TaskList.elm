@@ -1,4 +1,4 @@
-module TaskList exposing (ExpandedTask, Msg(..), TaskListFilter(..), TextboxContents, ViewState(..), dynamicSliderThumbCss, extractDate, extractSliderInput, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
+module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import AppData exposing (..)
 import Browser
@@ -33,10 +33,10 @@ import VirtualDom
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
 
 
-type TaskListFilter
+type Filter
     = AllTasks
-    | ActiveTasksOnly
-    | CompletedTasksOnly
+    | IncompleteTasksOnly
+    | CompleteTasksOnly
 
 
 
@@ -50,30 +50,38 @@ type TaskListFilter
 
 
 type ViewState
-    = Normal TextboxContents (Maybe ExpandedTask)
+    = Normal (List Filter) (Maybe ExpandedTask) NewTaskField
+
+
+defaultView : ViewState
+defaultView =
+    Normal [ AllTasks ] Nothing ""
 
 
 type alias ExpandedTask =
     TaskId
 
 
-type alias TextboxContents =
+type alias NewTaskField =
     String
 
 
-view model =
-    div
-        [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
-        [ section
-            [ class "todoapp" ]
-            [ lazy viewInput model.field
-            , Html.Styled.Lazy.lazy3 viewTasks model.updateTime model.visibility model.tasks
-            , lazy2 viewControls model.visibility model.tasks
-            ]
-        , section [ css [ opacity (num 0.1) ] ]
-            [ text "Everything working well?"
-            ]
-        ]
+view : ViewState -> AppData -> Environment -> Html Msg
+view state app env =
+    case state of
+        Normal filters expanded field ->
+            div
+                [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
+                [ section
+                    [ class "todoapp" ]
+                    [ lazy viewInput field
+                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) app.tasks
+                    , lazy2 viewControls filters app.tasks
+                    ]
+                , section [ css [ opacity (num 0.1) ] ]
+                    [ text "Everything working well?"
+                    ]
+                ]
 
 
 
@@ -116,15 +124,15 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Moment -> String -> List Task -> Html Msg
-viewTasks now visibility tasks =
+viewTasks : Moment -> Filter -> List Task -> Html Msg
+viewTasks now filter tasks =
     let
         isVisible task =
-            case visibility of
-                "Completed" ->
+            case filter of
+                CompleteTasksOnly ->
                     completed task
 
-                "Active" ->
+                IncompleteTasksOnly ->
                     not (completed task)
 
                 _ ->
@@ -295,11 +303,8 @@ extractDate task field input =
             NoOp
 
 
-{-| VIEW CONTROLS AND FOOTER
--- viewControls : String -> List Task -> Html Msg
--}
-viewControls : String -> List Task -> Html Msg
-viewControls visibility tasks =
+viewControls : List Filter -> List Task -> Html Msg
+viewControls visibilityFilters tasks =
     let
         tasksCompleted =
             List.length (List.filter completed tasks)
@@ -312,7 +317,7 @@ viewControls visibility tasks =
         , Html.Styled.Attributes.hidden (List.isEmpty tasks)
         ]
         [ Html.Styled.Lazy.lazy viewControlsCount tasksLeft
-        , Html.Styled.Lazy.lazy viewControlsFilters visibility
+        , Html.Styled.Lazy.lazy viewControlsFilters visibilityFilters
         , Html.Styled.Lazy.lazy viewControlsClear tasksCompleted
         ]
 
@@ -334,31 +339,38 @@ viewControlsCount tasksLeft =
         ]
 
 
-viewControlsFilters : String -> Html Msg
-
-
-
--- viewControlsFilters : String -> VirtualDom.Node Msg
-
-
-viewControlsFilters visibility =
+viewControlsFilters : List Filter -> Html Msg
+viewControlsFilters visibilityFilters =
     ul
         [ class "filters" ]
-        [ visibilitySwap "#/" "All" visibility
+        [ visibilitySwap "#/" AllTasks visibilityFilters
         , text " "
-        , visibilitySwap "#/active" "Active" visibility
+        , visibilitySwap "#/active" IncompleteTasksOnly visibilityFilters
         , text " "
-        , visibilitySwap "#/completed" "Completed" visibility
+        , visibilitySwap "#/completed" CompleteTasksOnly visibilityFilters
         ]
 
 
-visibilitySwap : String -> String -> String -> Html Msg
-visibilitySwap uri visibility actualVisibility =
+visibilitySwap : String -> Filter -> List Filter -> Html Msg
+visibilitySwap uri visibilityToDisplay actualVisibility =
     li
         []
-        [ a [ href uri, classList [ ( "selected", visibility == actualVisibility ) ] ]
-            [ text visibility ]
+        [ a [ href uri, classList [ ( "selected", List.member visibilityToDisplay actualVisibility ) ] ]
+            [ text (filterName visibilityToDisplay) ]
         ]
+
+
+filterName : Filter -> String
+filterName filter =
+    case filter of
+        AllTasks ->
+            "All"
+
+        CompleteTasksOnly ->
+            "Complete"
+
+        IncompleteTasksOnly ->
+            "Remaining"
 
 
 
@@ -403,15 +415,15 @@ update msg state app env =
     case msg of
         Add ->
             case state of
-                Normal "" _ ->
-                    ( Normal "" Nothing
+                Normal filters _ "" ->
+                    ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , app
                     , Cmd.none
                     )
 
-                Normal newTaskTitle _ ->
-                    ( Normal "" Nothing
+                Normal filters _ newTaskTitle ->
+                    ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
                         | tasks = app.tasks ++ [ newTask newTaskTitle (Time.posixToMillis env.time) ]
@@ -421,7 +433,11 @@ update msg state app env =
                     )
 
         UpdateNewEntryField typedSoFar ->
-            ( Normal typedSoFar Nothing
+            ( let
+                (Normal filters expanded _) =
+                    state
+              in
+              Normal filters expanded typedSoFar
               -- TODO will collapse expanded tasks. Should it?
             , app
             , Cmd.none

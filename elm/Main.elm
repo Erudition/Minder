@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), PreUpdate(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModelFromSaved, buildModelFromScratch, emptyViewState, infoFooter, init, main, setStorage, showPane, subscriptions, update, updateWithStorage, updateWithTime, view)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), PreUpdate(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModelFromSaved, buildModelFromScratch, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
@@ -142,8 +142,8 @@ init maybeJson url key =
 Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is due thursday", all stored in App "Database").
 -}
 type alias Model =
-    { appData : AppData
-    , viewState : ViewState
+    { viewState : ViewState
+    , appData : AppData
     , environment : Environment
     }
 
@@ -199,17 +199,18 @@ type Screen
 --                ###     ########### ##########   ###   ###
 
 
+defaultView : ViewState
+defaultView =
+    ViewState (TaskList TaskList.defaultView) 0
+
+
 view : Model -> Browser.Document Msg
-view model =
-    { title = "Docket"
-    , body = showPane model
-    }
-
-
-showPane model =
-    case model.viewState.pane of
-        TaskList _ ->
-            TaskList.view model
+view { viewState, appData, environment } =
+    case viewState.primaryView of
+        TaskList taskListViewState ->
+            { title = "Docket - All Tasks"
+            , body = [ Html.Styled.map TaskListMsg (TaskList.view taskListViewState appData environment) ]
+            }
 
 
 
@@ -270,7 +271,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         env =
-            model.env
+            model.environment
 
         setEnv new =
             { model | environment = new }
@@ -300,14 +301,14 @@ update msg model =
         ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.pushUrl model.navkey (Url.toString url) )
+                    ( model, Nav.pushUrl env.navkey (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Nav.load href )
 
         -- TODO Change model state based on url
         ( NewUrl url, _ ) ->
-            ( { model | viewState = TaskList (TaskList.Normal "" Nothing) }
+            ( { model | viewState = defaultView }
             , Cmd.none
             )
 
