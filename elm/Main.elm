@@ -180,8 +180,11 @@ type alias ViewState =
     }
 
 
+emptyViewState : ViewState
 emptyViewState =
-    { primaryView = TaskList TaskList.defaultView }
+    { primaryView = TaskList TaskList.defaultView
+    , uid = 0
+    }
 
 
 type Screen
@@ -212,8 +215,20 @@ view { viewState, appData, environment } =
     case viewState.primaryView of
         TaskList subState ->
             { title = "Docket - All Tasks"
-            , body = [ H.map TaskListMsg (TaskList.view subState appData environment) ]
+            , body = [ H.map TaskListMsg (TaskList.view subState appData environment) |> toUnstyled ]
             }
+
+        TimeTracker ->
+            Debug.todo "handle TimeTracker"
+
+        Calendar ->
+            Debug.todo "handle Calendar"
+
+        Features ->
+            Debug.todo "handle Features"
+
+        Preferences ->
+            Debug.todo "handle Preferences"
 
 
 
@@ -309,3 +324,6 @@ update msg ({ viewState, appData, environment } as model) =
                     TaskList.update subMsg subViewState appData environment
             in
             ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
+
+        ( _, _ ) ->
+            ( model, Cmd.none )
