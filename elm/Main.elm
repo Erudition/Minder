@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), PreUpdate(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModelFromSaved, buildModelFromScratch, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
@@ -64,7 +64,7 @@ For bookkeeping purposes, we want the current time for pretty much every update.
 
 -}
 updateWithTime : Msg -> Model -> ( Model, Cmd Msg )
-updateWithTime msg model =
+updateWithTime msg ({ environment } as model) =
     case msg of
         NoOp ->
             ( model
@@ -79,16 +79,15 @@ updateWithTime msg model =
 
         -- actually do the update
         Tock submsg time ->
-            update submsg { model | time = time }
+            let
+                newEnv =
+                    { environment | time = time }
+            in
+            update submsg { model | environment = newEnv }
 
         -- intercept normal update
         otherMsg ->
             updateWithTime (Tick msg) model
-
-
-type PreUpdate
-    = Tick Msg
-    | Tock Msg Time.Posix
 
 
 {-| TODO: The "ModelAsJson" could be a whole slew of flags instead.
@@ -102,20 +101,20 @@ init maybeJson url key =
                 Just jsonAppDatabase ->
                     case appDataFromJson jsonAppDatabase of
                         Success savedAppData ->
-                            buildModelFromSaved savedAppData environment
+                            buildModel savedAppData url key
 
                         WithWarnings warnings savedAppData ->
-                            buildModelFromSaved savedAppData url key
+                            buildModel (AppData.saveWarnings savedAppData warnings) url key
 
-                        Errors errormsgs ->
-                            Model { uid = 0, errors = [ errormsgs ], tasks = [] } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
+                        Errors errors ->
+                            buildModel (AppData.saveErrors AppData.fromScratch errors) url key
 
                         BadJson ->
-                            buildModelFromScratch url key
+                            buildModel AppData.fromScratch url key
 
                 -- no json stored at all
                 Nothing ->
-                    buildModelFromScratch url key
+                    buildModel AppData.fromScratch url key
 
         environment =
             Environment
@@ -148,16 +147,17 @@ type alias Model =
     }
 
 
-buildModelFromSaved : AppData -> Maybe Decode.Warnings -> Url.Url -> Nav.Key -> Model
-buildModelFromSaved savedAppData warnings url key =
-    Model (Environment.default key) AppData.default (Debug.todo "viewUrl" url)
+buildModel : AppData -> Url.Url -> Nav.Key -> Model
+buildModel appData url key =
+    { viewState = viewUrl url
+    , appData = appData
+    , environment = Environment.preInit key
+    }
 
 
-buildModelFromScratch : Maybe Decode.Errors -> Url.Url -> Nav.Key -> Model
-buildModelFromScratch errors url key =
-    Model (Environment.default key)
-        (AppData.default (Maybe.withDefault [] errors))
-        (Debug.todo "viewUrl" url)
+viewUrl : Url.Url -> ViewState
+viewUrl url =
+    Debug.todo "Routing"
 
 
 type alias JsonAppDatabase =
@@ -259,6 +259,8 @@ to them.
 -}
 type Msg
     = NoOp
+    | Tick Msg
+    | Tock Msg Time.Posix
     | MinutePassed Moment
     | SetZone Time.Zone
     | Link Browser.UrlRequest

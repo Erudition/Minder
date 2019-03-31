@@ -1,4 +1,4 @@
-module AppData exposing (AppData, decodeAppData, default, encodeAppData)
+module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveErrors, saveWarnings)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -20,10 +20,10 @@ type alias AppData =
     }
 
 
-default : List String -> AppData
-default errors =
+fromScratch : AppData
+fromScratch =
     { uid = 0
-    , errors = errors
+    , errors = []
     , tasks = []
     }
 
@@ -43,3 +43,17 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string record.errors )
         ]
+
+
+
+-- TODO save time with errors?
+
+
+saveWarnings : AppData -> Decode.Warnings -> AppData
+saveWarnings appData warnings =
+    { appData | errors = appData.errors ++ [ Decode.warningsToString warnings ] }
+
+
+saveErrors : AppData -> Decode.Errors -> AppData
+saveErrors appData errors =
+    { appData | errors = appData.errors ++ [ Decode.errorsToString errors ] }

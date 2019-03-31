@@ -1,4 +1,4 @@
-module Environment exposing (Environment)
+module Environment exposing (Environment, preInit)
 
 -- "Environment"
 
@@ -23,8 +23,11 @@ type alias Environment =
     }
 
 
-default key =
-    { time = millisToPosix 0 -- temporary placeholder
+{-| Empty Environment before the init function fills in all the details.
+-}
+preInit : Nav.Key -> Environment
+preInit key =
+    { time = Time.millisToPosix 0 -- temporary placeholder
     , navkey = key -- passed from init
     , timeZone = Time.utc -- temporary placeholder
     }
