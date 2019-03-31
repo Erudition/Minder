@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Docket</title>
-  <!-- <script type="text/javascript" src="elm.js"></script> -->
-  <script src="http://localhost:45389/build?path=/home/connor/Projects/Elm/Docket/www/elm.js"></script>
+  <script type="text/javascript" src="elm.js"></script>
+  <!-- <script src="http://localhost:8088/build?path=~/Projects/Elm/Docket/www/elm.js"></script> -->
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="sliders.css">
 </head>
@@ -14,12 +14,12 @@
 </body>
 
 <script type="text/javascript">
-var storedState = localStorage.getItem('docket-data');
+var storedState = localStorage.getItem('docket-app-data');
 //var startingState = storedState ? JSON.parse(storedState) : null;
 var startingState = storedState ? storedState : null;
-var todomvc = Elm.Docket.fullscreen(startingState);
-todomvc.ports.setStorage.subscribe(function(state) {
-    localStorage.setItem('docket-data', state);
+var app = Elm.Main.init({ flags: startingState });
+app.ports.setStorage.subscribe(function(state) {
+    localStorage.setItem('docket-app-data', state);
 });//was JSON.stringify(state)
 </script>
 
