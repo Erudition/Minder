@@ -1,5 +1,5 @@
 # Contributing Rules & Style Guide
-Rough draft.
+Rough draft. Borrows from other style guides such as Github and Elm.
 
 ## Pull Requests Style
 Pull requests must compile without warnings and be `elm-format`ted.
@@ -7,7 +7,7 @@ Pull requests must compile without warnings and be `elm-format`ted.
 * Do not include issue numbers in the PR title
 * Include screenshots and animated GIFs in your pull request whenever possible.
 * Run `elm-format` on your code before submitting, ideally have it run every save.
-* Include a `{- Comment block detailing the function -}` above every new function.
+* Include a `{-| Comment block detailing the function -}` above every new top function.
 * If it compiles but with warnings, get rid of them first, please.
 * If it doesn't compile, we don't want it.
 
