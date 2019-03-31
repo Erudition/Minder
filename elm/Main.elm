@@ -219,17 +219,10 @@ view { viewState, appData, environment } =
             , body = [ H.map TaskListMsg (TaskList.view subState appData environment) |> toUnstyled ]
             }
 
-        TimeTracker ->
-            Debug.todo "handle TimeTracker"
-
-        Calendar ->
-            Debug.todo "handle Calendar"
-
-        Features ->
-            Debug.todo "handle Features"
-
-        Preferences ->
-            Debug.todo "handle Preferences"
+        _ ->
+            { title = "TODO Some other page"
+            , body = [ H.map TaskListMsg (TaskList.view TaskList.defaultView appData environment) |> toUnstyled ]
+            }
 
 
 
@@ -315,9 +308,9 @@ update msg ({ viewState, appData, environment } as model) =
                 Browser.External href ->
                     justRunCommand <| Nav.load href
 
-        -- TODO Change model state based on url
+        -- TODO should we also insert Nav command to hide extra stuff from address bar after nav, while still updating the viewState?
         ( NewUrl url, _ ) ->
-            Debug.todo "Routing"
+            ( { model | viewState = viewUrl url }, Cmd.none )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
