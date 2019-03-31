@@ -19,6 +19,7 @@ import Task.TaskMoment exposing (..)
 import TaskList
 import Time
 import Url
+import Url.Parser as P exposing ((</>), Parser, int, map, oneOf, s, string)
 
 
 main : Program (Maybe JsonAppDatabase) Model Msg
@@ -155,11 +156,6 @@ buildModel appData url key =
     }
 
 
-viewUrl : Url.Url -> ViewState
-viewUrl url =
-    Debug.todo "Routing"
-
-
 type alias JsonAppDatabase =
     String
 
@@ -193,6 +189,11 @@ type Screen
     | Calendar
     | Features
     | Preferences
+
+
+screenToViewState : Screen -> ViewState
+screenToViewState screen =
+    { primaryView = screen, uid = 0 }
 
 
 
@@ -327,3 +328,23 @@ update msg ({ viewState, appData, environment } as model) =
 
         ( _, _ ) ->
             ( model, Cmd.none )
+
+
+
+-- PARSER
+
+
+viewUrl : Url.Url -> ViewState
+viewUrl url =
+    Maybe.withDefault defaultView (P.parse routeParser url)
+
+
+routeParser : Parser (ViewState -> a) a
+routeParser =
+    let
+        wrapScreen parser =
+            P.map screenToViewState parser
+    in
+    oneOf
+        [ wrapScreen (P.map TaskList TaskList.routeView)
+        ]

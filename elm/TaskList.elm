@@ -1,4 +1,4 @@
-module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
+module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import AppData exposing (..)
 import Browser
@@ -22,6 +22,7 @@ import Task.Progress exposing (..)
 import Task.Task exposing (..)
 import Task.TaskMoment exposing (..)
 import Time
+import Url.Parser exposing ((</>), Parser, int, map, oneOf, s, string)
 import VirtualDom
 
 
@@ -51,6 +52,11 @@ type Filter
 
 type ViewState
     = Normal (List Filter) (Maybe ExpandedTask) NewTaskField
+
+
+routeView : Parser (ViewState -> a) a
+routeView =
+    map (Normal [] Nothing "") (s "tasks")
 
 
 defaultView : ViewState
