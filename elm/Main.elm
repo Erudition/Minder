@@ -150,12 +150,14 @@ type alias Model =
 
 buildModelFromSaved : AppData -> Maybe Decode.Warnings -> Url.Url -> Nav.Key -> Model
 buildModelFromSaved savedAppData warnings url key =
-    Model { savedAppData | errors = warnings } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
+    Model (Environment.default key) AppData.default (Debug.todo "viewUrl" url)
 
 
 buildModelFromScratch : Maybe Decode.Errors -> Url.Url -> Nav.Key -> Model
 buildModelFromScratch errors url key =
-    Model { uid = 0, errors = [ errors ], tasks = [] } (Debug.todo "viewUrl" url) (Time.millisToPosix 0) key
+    Model (Environment.default key)
+        (AppData.default (Maybe.withDefault [] errors))
+        (Debug.todo "viewUrl" url)
 
 
 type alias JsonAppDatabase =
@@ -179,13 +181,14 @@ type alias ViewState =
 
 
 emptyViewState =
-    { primaryView = TaskList "" Nothing }
+    { primaryView = TaskList TaskList.defaultView }
 
 
 type Screen
     = TaskList TaskList.ViewState
     | TimeTracker
     | Calendar
+    | Features
     | Preferences
 
 

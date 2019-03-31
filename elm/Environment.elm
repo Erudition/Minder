@@ -21,3 +21,10 @@ type alias Environment =
     , navkey : Nav.Key -- instance-specific (can't store it)
     , timeZone : Time.Zone -- according to browser
     }
+
+
+default key =
+    { time = millisToPosix 0 -- temporary placeholder
+    , navkey = key -- passed from init
+    , timeZone = Time.utc -- temporary placeholder
+    }

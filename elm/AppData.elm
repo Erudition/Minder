@@ -1,4 +1,4 @@
-module AppData exposing (AppData, decodeAppData, emptyAppData, encodeAppData)
+module AppData exposing (AppData, decodeAppData, default, encodeAppData)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -20,6 +20,14 @@ type alias AppData =
     }
 
 
+default : List String -> AppData
+default errors =
+    { uid = 0
+    , errors = errors
+    , tasks = []
+    }
+
+
 decodeAppData : Decoder AppData
 decodeAppData =
     Decode.map3 AppData
@@ -35,8 +43,3 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string record.errors )
         ]
-
-
-emptyAppData : AppData
-emptyAppData =
-    { tasks = [], uid = 0, errors = [] }
