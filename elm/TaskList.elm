@@ -22,7 +22,7 @@ import Task.Progress exposing (..)
 import Task.Task exposing (..)
 import Task.TaskMoment exposing (..)
 import Time
-import Url.Parser exposing ((</>), Parser, int, map, oneOf, s, string)
+import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
 
@@ -56,7 +56,7 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    map (Normal [] Nothing "") (s "tasks")
+    P.map (Normal [] Nothing "Yes") (s "tasks")
 
 
 defaultView : ViewState

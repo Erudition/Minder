@@ -333,7 +333,20 @@ update msg ({ viewState, appData, environment } as model) =
 
 viewUrl : Url.Url -> ViewState
 viewUrl url =
-    Maybe.withDefault defaultView (P.parse routeParser url)
+    let
+        parseIt finalUrl =
+            Maybe.withDefault defaultView (P.parse routeParser finalUrl)
+    in
+    case ( url.path, url.fragment ) of
+        ( "/", Just containspath ) ->
+            let
+                simulatedUrl =
+                    { url | path = containspath }
+            in
+            parseIt simulatedUrl
+
+        ( _, _ ) ->
+            parseIt url
 
 
 routeParser : Parser (ViewState -> a) a
