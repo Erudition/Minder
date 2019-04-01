@@ -216,12 +216,16 @@ view { viewState, appData, environment } =
     case viewState.primaryView of
         TaskList subState ->
             { title = "Docket - All Tasks"
-            , body = [ H.map TaskListMsg (TaskList.view subState appData environment) |> toUnstyled ]
+            , body =
+                List.map toUnstyled
+                    [ H.map TaskListMsg (TaskList.view subState appData environment)
+                    , infoFooter
+                    ]
             }
 
         _ ->
             { title = "TODO Some other page"
-            , body = [ H.map TaskListMsg (TaskList.view TaskList.defaultView appData environment) |> toUnstyled ]
+            , body = List.map toUnstyled [ infoFooter ]
             }
 
 
@@ -239,7 +243,7 @@ infoFooter =
         [ p [] [ text "Double-click to edit a task" ]
         , p []
             [ text "Written by "
-            , a [ href "https://github.com/Erudition" ] [ text "Connor" ]
+            , a [ href "https://github.com/Erudition" ] [ text "Erudition" ]
             ]
         , p []
             [ text "(Increasingly more distant) fork of Evan's elm "

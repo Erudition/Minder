@@ -85,7 +85,7 @@ view state app env =
                     , lazy2 viewControls filters app.tasks
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
-                    [ text "Everything working well?"
+                    [ text "Everything working well? Good."
                     ]
                 ]
 
