@@ -346,10 +346,10 @@ viewUrl url =
                 simulatedUrl =
                     { url | path = containspath }
             in
-            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "It had a fragment!") }
+            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing (Maybe.withDefault "failed" url.fragment)) }
 
         ( _, _ ) ->
-            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "It had a fragment!?") }
+            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "Didn't have a fragment") }
 
 
 routeParser : Parser (ViewState -> a) a

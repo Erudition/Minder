@@ -7921,7 +7921,7 @@ var author$project$Main$viewUrl = function (url) {
 						_List_fromArray(
 							[author$project$TaskList$IncompleteTasksOnly]),
 						elm$core$Maybe$Nothing,
-						'It had a fragment!'))
+						A2(elm$core$Maybe$withDefault, 'failed', url.fragment)))
 			});
 	} else {
 		return _Utils_update(
@@ -7933,7 +7933,7 @@ var author$project$Main$viewUrl = function (url) {
 						_List_fromArray(
 							[author$project$TaskList$IncompleteTasksOnly]),
 						elm$core$Maybe$Nothing,
-						'It had a fragment!?'))
+						'Didn\'t have a fragment'))
 			});
 	}
 };
