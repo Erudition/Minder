@@ -349,7 +349,7 @@ viewUrl url =
             { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "It had a fragment!") }
 
         ( _, _ ) ->
-            parseIt url
+            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "It had a fragment!") }
 
 
 routeParser : Parser (ViewState -> a) a
