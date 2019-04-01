@@ -215,7 +215,7 @@ view : Model -> Browser.Document Msg
 view { viewState, appData, environment } =
     case viewState.primaryView of
         TaskList subState ->
-            { title = "Docket - All Tasks"
+            { title = "Docket - which page"
             , body =
                 List.map toUnstyled
                     [ H.map TaskListMsg (TaskList.view subState appData environment)

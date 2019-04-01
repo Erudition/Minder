@@ -16671,7 +16671,7 @@ var author$project$Main$view = function (_n0) {
 						A3(author$project$TaskList$view, subState, appData, environment)),
 						author$project$Main$infoFooter
 					])),
-			title: 'Docket - All Tasks'
+			title: 'Docket - which page'
 		};
 	} else {
 		return {
