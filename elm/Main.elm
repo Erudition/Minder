@@ -343,10 +343,10 @@ viewUrl url =
                 simulatedUrl =
                     { url | path = containspath }
             in
-            parseIt simulatedUrl
+            { defaultView | primaryView = TaskList (TaskList.Normal [] Nothing "It had a fragment!") }
 
         ( _, _ ) ->
-            parseIt url
+            parseIt (Debug.log (Url.toString url) url)
 
 
 routeParser : Parser (ViewState -> a) a
