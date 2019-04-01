@@ -56,7 +56,7 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map (Normal [] Nothing "Yes") (s "tasks")
+    P.map (Normal [ IncompleteTasksOnly ] Nothing "Test") (s "tasks")
 
 
 defaultView : ViewState
