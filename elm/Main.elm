@@ -335,7 +335,10 @@ viewUrl : Url.Url -> ViewState
 viewUrl url =
     let
         parseIt finalUrl =
-            Maybe.withDefault defaultView (P.parse routeParser finalUrl)
+            Maybe.withDefault defaultView (P.parse routeParser (logIt finalUrl))
+
+        logIt theUrl =
+            Debug.log (Url.toString theUrl) theUrl
     in
     case ( url.path, url.fragment ) of
         ( "/", Just containspath ) ->
@@ -343,10 +346,10 @@ viewUrl url =
                 simulatedUrl =
                     { url | path = containspath }
             in
-            { defaultView | primaryView = TaskList (TaskList.Normal [] Nothing "It had a fragment!") }
+            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "It had a fragment!") }
 
         ( _, _ ) ->
-            parseIt (Debug.log (Url.toString url) url)
+            parseIt url
 
 
 routeParser : Parser (ViewState -> a) a
