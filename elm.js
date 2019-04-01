@@ -7108,6 +7108,7 @@ var author$project$Main$defaultView = A2(
 var author$project$Main$screenToViewState = function (screen) {
 	return {primaryView: screen, uid: 0};
 };
+var author$project$TaskList$IncompleteTasksOnly = {$: 'IncompleteTasksOnly'};
 var elm$url$Url$Parser$Parser = function (a) {
 	return {$: 'Parser', a: a};
 };
@@ -7175,7 +7176,12 @@ var elm$url$Url$Parser$s = function (str) {
 };
 var author$project$TaskList$routeView = A2(
 	elm$url$Url$Parser$map,
-	A3(author$project$TaskList$Normal, _List_Nil, elm$core$Maybe$Nothing, ''),
+	A3(
+		author$project$TaskList$Normal,
+		_List_fromArray(
+			[author$project$TaskList$IncompleteTasksOnly]),
+		elm$core$Maybe$Nothing,
+		'Test'),
 	elm$url$Url$Parser$s('tasks'));
 var elm$url$Url$Parser$oneOf = function (parsers) {
 	return elm$url$Url$Parser$Parser(
@@ -7200,6 +7206,7 @@ var author$project$Main$routeParser = function () {
 				A2(elm$url$Url$Parser$map, author$project$Main$TaskList, author$project$TaskList$routeView))
 			]));
 }();
+var elm$core$Debug$log = _Debug_log;
 var elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -7209,6 +7216,50 @@ var elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
+var elm$url$Url$addPort = F2(
+	function (maybePort, starter) {
+		if (maybePort.$ === 'Nothing') {
+			return starter;
+		} else {
+			var port_ = maybePort.a;
+			return starter + (':' + elm$core$String$fromInt(port_));
+		}
+	});
+var elm$url$Url$addPrefixed = F3(
+	function (prefix, maybeSegment, starter) {
+		if (maybeSegment.$ === 'Nothing') {
+			return starter;
+		} else {
+			var segment = maybeSegment.a;
+			return _Utils_ap(
+				starter,
+				_Utils_ap(prefix, segment));
+		}
+	});
+var elm$url$Url$toString = function (url) {
+	var http = function () {
+		var _n0 = url.protocol;
+		if (_n0.$ === 'Http') {
+			return 'http://';
+		} else {
+			return 'https://';
+		}
+	}();
+	return A3(
+		elm$url$Url$addPrefixed,
+		'#',
+		url.fragment,
+		A3(
+			elm$url$Url$addPrefixed,
+			'?',
+			url.query,
+			_Utils_ap(
+				A2(
+					elm$url$Url$addPort,
+					url.port_,
+					_Utils_ap(http, url.host)),
+				url.path)));
+};
 var elm$url$Url$Parser$getFirstMatch = function (states) {
 	getFirstMatch:
 	while (true) {
@@ -7840,10 +7891,51 @@ var elm$url$Url$Parser$parse = F2(
 					elm$core$Basics$identity)));
 	});
 var author$project$Main$viewUrl = function (url) {
-	return A2(
-		elm$core$Maybe$withDefault,
-		author$project$Main$defaultView,
-		A2(elm$url$Url$Parser$parse, author$project$Main$routeParser, url));
+	var logIt = function (theUrl) {
+		return A2(
+			elm$core$Debug$log,
+			elm$url$Url$toString(theUrl),
+			theUrl);
+	};
+	var parseIt = function (finalUrl) {
+		return A2(
+			elm$core$Maybe$withDefault,
+			author$project$Main$defaultView,
+			A2(
+				elm$url$Url$Parser$parse,
+				author$project$Main$routeParser,
+				logIt(finalUrl)));
+	};
+	var _n0 = _Utils_Tuple2(url.path, url.fragment);
+	if ((_n0.a === '/') && (_n0.b.$ === 'Just')) {
+		var containspath = _n0.b.a;
+		var simulatedUrl = _Utils_update(
+			url,
+			{path: containspath});
+		return _Utils_update(
+			author$project$Main$defaultView,
+			{
+				primaryView: author$project$Main$TaskList(
+					A3(
+						author$project$TaskList$Normal,
+						_List_fromArray(
+							[author$project$TaskList$IncompleteTasksOnly]),
+						elm$core$Maybe$Nothing,
+						'It had a fragment!'))
+			});
+	} else {
+		return _Utils_update(
+			author$project$Main$defaultView,
+			{
+				primaryView: author$project$Main$TaskList(
+					A3(
+						author$project$TaskList$Normal,
+						_List_fromArray(
+							[author$project$TaskList$IncompleteTasksOnly]),
+						elm$core$Maybe$Nothing,
+						'It had a fragment!?'))
+			});
+	}
 };
 var author$project$Main$buildModel = F3(
 	function (appData, url, key) {
@@ -12033,50 +12125,6 @@ var author$project$TaskList$update = F4(
 	});
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
-var elm$url$Url$addPort = F2(
-	function (maybePort, starter) {
-		if (maybePort.$ === 'Nothing') {
-			return starter;
-		} else {
-			var port_ = maybePort.a;
-			return starter + (':' + elm$core$String$fromInt(port_));
-		}
-	});
-var elm$url$Url$addPrefixed = F3(
-	function (prefix, maybeSegment, starter) {
-		if (maybeSegment.$ === 'Nothing') {
-			return starter;
-		} else {
-			var segment = maybeSegment.a;
-			return _Utils_ap(
-				starter,
-				_Utils_ap(prefix, segment));
-		}
-	});
-var elm$url$Url$toString = function (url) {
-	var http = function () {
-		var _n0 = url.protocol;
-		if (_n0.$ === 'Http') {
-			return 'http://';
-		} else {
-			return 'https://';
-		}
-	}();
-	return A3(
-		elm$url$Url$addPrefixed,
-		'#',
-		url.fragment,
-		A3(
-			elm$url$Url$addPrefixed,
-			'?',
-			url.query,
-			_Utils_ap(
-				A2(
-					elm$url$Url$addPort,
-					url.port_,
-					_Utils_ap(http, url.host)),
-				url.path)));
-};
 var author$project$Main$update = F2(
 	function (msg, model) {
 		var viewState = model.viewState;
@@ -12288,7 +12336,7 @@ var author$project$Main$infoFooter = A2(
 						]),
 					_List_fromArray(
 						[
-							rtfeldman$elm_css$Html$Styled$text('Connor')
+							rtfeldman$elm_css$Html$Styled$text('Erudition')
 						]))
 				])),
 			A2(
@@ -12379,7 +12427,6 @@ var author$project$TaskList$viewControlsCount = function (tasksLeft) {
 			]));
 };
 var author$project$TaskList$CompleteTasksOnly = {$: 'CompleteTasksOnly'};
-var author$project$TaskList$IncompleteTasksOnly = {$: 'IncompleteTasksOnly'};
 var author$project$TaskList$filterName = function (filter) {
 	switch (filter.$) {
 		case 'AllTasks':
