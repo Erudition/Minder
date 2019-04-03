@@ -223,6 +223,14 @@ view { viewState, appData, environment } =
                     ]
             }
 
+        TimeTracker ->
+            { title = "Docket Time Tracker"
+            , body =
+                List.map toUnstyled
+                    [ infoFooter
+                    ]
+            }
+
         _ ->
             { title = "TODO Some other page"
             , body = List.map toUnstyled [ infoFooter ]
@@ -335,21 +343,18 @@ viewUrl : Url.Url -> ViewState
 viewUrl url =
     let
         parseIt finalUrl =
-            Maybe.withDefault defaultView (P.parse routeParser (logIt finalUrl))
-
-        logIt theUrl =
-            Debug.log (Url.toString theUrl) theUrl
+            Maybe.withDefault defaultView (P.parse routeParser finalUrl)
     in
     case ( url.path, url.fragment ) of
-        ( "/", Just containspath ) ->
+        ( "/index.html", Just containspath ) ->
             let
                 simulatedUrl =
                     { url | path = containspath }
             in
-            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing (Maybe.withDefault "failed" url.fragment)) }
+            parseIt simulatedUrl
 
         ( _, _ ) ->
-            { defaultView | primaryView = TaskList (TaskList.Normal [ TaskList.IncompleteTasksOnly ] Nothing "Didn't have a fragment") }
+            parseIt url
 
 
 routeParser : Parser (ViewState -> a) a
@@ -360,4 +365,5 @@ routeParser =
     in
     oneOf
         [ wrapScreen (P.map TaskList TaskList.routeView)
+        , wrapScreen (P.map TimeTracker (s "timetracker"))
         ]
