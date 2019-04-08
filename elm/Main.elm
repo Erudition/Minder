@@ -18,6 +18,7 @@ import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
 import TaskList
 import Time
+import TimeTracker exposing (..)
 import Url
 import Url.Parser as P exposing ((</>), Parser, int, map, oneOf, s, string)
 
@@ -185,7 +186,7 @@ emptyViewState =
 
 type Screen
     = TaskList TaskList.ViewState
-    | TimeTracker
+    | TimeTracker TimeTracker.ViewState
     | Calendar
     | Features
     | Preferences
@@ -223,11 +224,12 @@ view { viewState, appData, environment } =
                     ]
             }
 
-        TimeTracker ->
+        TimeTracker subState ->
             { title = "Docket Time Tracker"
             , body =
                 List.map toUnstyled
-                    [ infoFooter
+                    [ H.map TimeTrackerMsg (TimeTracker.view subState appData environment)
+                    , infoFooter
                     ]
             }
 
@@ -287,6 +289,7 @@ type Msg
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
+    | TimeTrackerMsg TimeTracker.Msg
 
 
 
@@ -365,5 +368,5 @@ routeParser =
     in
     oneOf
         [ wrapScreen (P.map TaskList TaskList.routeView)
-        , wrapScreen (P.map TimeTracker (s "timetracker"))
+        , wrapScreen (P.map TimeTracker TimeTracker.routeView)
         ]
