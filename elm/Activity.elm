@@ -41,7 +41,12 @@ type alias ActivitySkeleton =
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
     , template : ActivityTemplate
-}
+    }
+
+
+justTemplate : ActivityTemplate -> ActivitySkeleton
+justTemplate activityTemplate =
+    ActivitySkeleton Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
 
 
 decodeActivity : Decoder Activity
@@ -141,6 +146,7 @@ type Category
     | Entertainment
     | Hygiene
     | Slacking
+    | Communication
 
 
 type ActivityTemplate
@@ -202,28 +208,32 @@ type ActivityTemplate
 
 init : List ActivitySkeleton
 init =
-    List.map ActivitySkeleton [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
+    List.map justTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
 
-{-|  Get a full activity from the saved version (which only contains the user's modifications to the default template).
+
+{-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
 It would be so much easier if i could just do { base | skel } like I originally wanted, when ActivitySkeleton was just { template } with whatever extra fields the user overrode. Had to make it a maybe-ified carbon copy because updating a record with another (sub)record like { base | skel } isn't allowed...
-
 -}
 withTemplate : ActivitySkeleton -> Activity
-withTemplate ({template} as skel) =
+withTemplate ({ template } as skel) =
     let
-        base = (fromTemplate template)
-        over b s = Maybe.withDefault b s
+        base =
+            fromTemplate template
+
+        over b s =
+            Maybe.withDefault b s
     in
-    { base | names = over base.names skel.names
+    { names = over base.names skel.names
     , icon = over base.icon skel.icon
     , excusable = over base.excusable skel.excusable
     , taskOptional = over base.taskOptional skel.taskOptional
     , evidence = over base.evidence skel.evidence
     , category = over base.category skel.category
-    , backgroundable over base.backgroundable skel.backgroundable
+    , backgroundable = over base.backgroundable skel.backgroundable
     , maxTime = over base.maxTime skel.maxTime
     , hidden = over base.hidden skel.hidden
-    , template = template }
+    , template = template
+    }
 
 
 fromTemplate : ActivityTemplate -> Activity
@@ -555,7 +565,7 @@ fromTemplate startingtemplate =
             }
 
         Pacing ->
-            { names = [ "Pacing", "Pace"]
+            { names = [ "Pacing", "Pace" ]
             , icon = File "unknown.svg"
             , excusable = NeverExcused
             , taskOptional = True
@@ -646,7 +656,7 @@ fromTemplate startingtemplate =
             }
 
         Learning ->
-            { names = [ "Learn", "Learning"]
+            { names = [ "Learn", "Learning" ]
             , icon = File "unknown.svg"
             , excusable = NeverExcused
             , taskOptional = True
