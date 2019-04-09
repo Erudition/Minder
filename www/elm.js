@@ -5899,17 +5899,20 @@ var author$project$Main$SetZone = function (a) {
 	return {$: 'SetZone', a: a};
 };
 var author$project$Activity$DillyDally = {$: 'DillyDally'};
+var author$project$Activity$Communication = {$: 'Communication'};
 var author$project$Activity$File = function (a) {
 	return {$: 'File', a: a};
 };
+var author$project$Activity$Hygiene = {$: 'Hygiene'};
 var author$project$Activity$NeverExcused = {$: 'NeverExcused'};
 var author$project$Activity$Slacking = {$: 'Slacking'};
 var author$project$Activity$TemporarilyExcused = function (a) {
 	return {$: 'TemporarilyExcused', a: a};
 };
+var author$project$Activity$Transit = {$: 'Transit'};
 var justinmimbs$time_extra$Time$Extra$Hour = {$: 'Hour'};
 var justinmimbs$time_extra$Time$Extra$Minute = {$: 'Minute'};
-var author$project$Activity$specs = function (startingtemplate) {
+var author$project$Activity$fromTemplate = function (startingtemplate) {
 	switch (startingtemplate.$) {
 		case 'DillyDally':
 			return {
@@ -5930,10 +5933,12 @@ var author$project$Activity$specs = function (startingtemplate) {
 		case 'Apparel':
 			return {
 				backgroundable: false,
-				category: author$project$Activity$Slacking,
+				category: author$project$Activity$Hygiene,
 				evidence: _List_Nil,
 				excusable: author$project$Activity$TemporarilyExcused(
-					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Minute)),
+					_Utils_Tuple2(
+						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
 				hidden: false,
 				icon: author$project$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -5947,16 +5952,19 @@ var author$project$Activity$specs = function (startingtemplate) {
 		case 'Messaging':
 			return {
 				backgroundable: false,
-				category: author$project$Activity$Slacking,
+				category: author$project$Activity$Communication,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$NeverExcused,
+				excusable: author$project$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour))),
 				hidden: false,
 				icon: author$project$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
+					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Messaging', 'Texting', 'Chatting']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -5965,14 +5973,17 @@ var author$project$Activity$specs = function (startingtemplate) {
 				backgroundable: false,
 				category: author$project$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$NeverExcused,
+				excusable: author$project$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						_Utils_Tuple2(20, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
 				hidden: false,
 				icon: author$project$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Restroom', 'Toilet', 'WC']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -5988,7 +5999,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Grooming', 'Tending', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6004,7 +6015,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Meal', 'Eating', 'Food']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6020,7 +6031,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Supplements', 'Pills', 'Medication']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6036,7 +6047,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Workout', 'Working Out', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6052,7 +6063,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Shower', 'Bathing', 'Showering']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6068,7 +6079,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Toothbrush', 'Teeth', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6084,7 +6095,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Floss', 'Flossing', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6100,7 +6111,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Wakeup', 'Waking Up', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6116,7 +6127,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Sleep', 'Sleeping', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6132,7 +6143,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Plan', 'Planning', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6148,7 +6159,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Configure', 'Configuring', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6164,7 +6175,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Email', 'E-Mail', 'E-mail', 'Emailing']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6180,7 +6191,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Work', 'Working', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6196,7 +6207,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Call', 'Calling', 'Phone Call', 'Phone']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6212,7 +6223,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Chore', 'Chores', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6228,7 +6239,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Parents', 'Parent Time', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6244,7 +6255,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Prepare', 'Preparing', 'Preparation']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6260,14 +6271,14 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Lover', 'S.O.', 'Partner Time']),
 				taskOptional: true,
 				template: startingtemplate
 			};
 		case 'Driving':
 			return {
 				backgroundable: false,
-				category: author$project$Activity$Slacking,
+				category: author$project$Activity$Transit,
 				evidence: _List_Nil,
 				excusable: author$project$Activity$NeverExcused,
 				hidden: false,
@@ -6276,7 +6287,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Driving', 'Drive', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6292,7 +6303,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Riding', 'Ride', 'Passenger']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6308,7 +6319,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Social Media']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6324,7 +6335,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Pacing', 'Pace']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6340,7 +6351,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Sport', 'Sports', 'Playing Sports']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6356,7 +6367,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Finance', 'Financial', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6372,7 +6383,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Laundry']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6388,7 +6399,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Bedward', 'Bedward-bound', 'Going to Bed']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6404,7 +6415,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Browse', 'Browsing']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6420,7 +6431,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Fiction', 'Reading Fiction']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6436,7 +6447,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Learn', 'Learning']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6452,7 +6463,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Brain Training', 'Braining', 'Brain Train']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6468,7 +6479,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Music', 'Music Listening']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6484,7 +6495,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Create', 'Creating', 'Creation', 'Making']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6500,7 +6511,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Children', 'Kids', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6516,7 +6527,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Meeting', 'Meet', 'Meetings']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6532,7 +6543,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Cinema', 'Movies', 'Movie Theatre', 'Movie Theater']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6548,7 +6559,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Films', 'Film Watching', 'Watching Movies']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6564,7 +6575,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Series', 'TV Shows', 'TV Series']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6580,7 +6591,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Broadcast', '', '']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6596,7 +6607,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Theatre', 'Play', 'Play/Musical', 'Drama']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6612,7 +6623,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Shopping', 'Shop']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6628,7 +6639,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Video', 'Video Gaming', 'Gaming']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6644,7 +6655,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Housekeeping']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6660,7 +6671,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Meal Prep', 'Cooking', 'Food making']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6676,7 +6687,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Networking']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6692,7 +6703,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Meditate', 'Meditation', 'Meditating']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6708,7 +6719,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Homework', 'Schoolwork']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6724,7 +6735,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Flight', 'Aviation', 'Flying', 'Airport']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6740,7 +6751,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Course', 'Courses', 'Classes', 'Class']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6756,7 +6767,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Pet', 'Pets', 'Pet Care']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6772,7 +6783,7 @@ var author$project$Activity$specs = function (startingtemplate) {
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
 				names: _List_fromArray(
-					['', '', '']),
+					['Presentation', 'Presenting', 'Present']),
 				taskOptional: true,
 				template: startingtemplate
 			};
@@ -6796,7 +6807,7 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$succeed = function (
 		});
 };
 var author$project$Activity$decodeActivity = zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
-	author$project$Activity$specs(author$project$Activity$DillyDally));
+	author$project$Activity$fromTemplate(author$project$Activity$DillyDally));
 var author$project$AppData$AppData = F4(
 	function (uid, errors, tasks, activities) {
 		return {activities: activities, errors: errors, tasks: tasks, uid: uid};

@@ -18,7 +18,7 @@ type alias AppData =
     { uid : Instance
     , errors : List String
     , tasks : List Task
-    , activities : List Activity
+    , activities : List ActivitySkeleton
     }
 
 
@@ -27,7 +27,7 @@ fromScratch =
     { uid = 0
     , errors = []
     , tasks = []
-    , activities = []
+    , activities = Activity.init
     }
 
 

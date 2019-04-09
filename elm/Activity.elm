@@ -1,4 +1,4 @@
-module Activity exposing (Activity, ActivityId, ActivityTemplate(..), Category(..), Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), SvgPath, decodeActivity, encodeActivity, fromTemplate, getName, showing)
+module Activity exposing (Activity, ActivityId, ActivityTemplate(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), SvgPath, decodeActivity, encodeActivity, fromTemplate, getName, init, justTemplate, showing, withTemplate)
 
 import Date
 import Dict exposing (..)
@@ -30,7 +30,7 @@ type alias Activity =
     }
 
 
-type alias ActivitySkeleton =
+type alias Customizations =
     { names : Maybe (List String)
     , icon : Maybe Icon
     , excusable : Maybe Excusable
@@ -44,31 +44,27 @@ type alias ActivitySkeleton =
     }
 
 
-justTemplate : ActivityTemplate -> ActivitySkeleton
+justTemplate : ActivityTemplate -> Customizations
 justTemplate activityTemplate =
-    ActivitySkeleton Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
+    Customizations Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
 
 
-decodeActivity : Decoder Activity
-decodeActivity =
-    Decode.succeed (fromTemplate DillyDally)
-
-
-
--- decodeActivity : Decode.Decoder Activity
--- decodeActivity =
---     decode Activity
---         |> Pipeline.required "names" Decode.list Decode.string
---         |> Pipeline.required "icon" decodeIcon
---         |> Pipeline.required "taskOptional" Decode.bool
---         |> Pipeline.required "evidence" (Decode.list decodeEvidence)
---         |> Pipeline.required "category" decodeCategory
---         |> Pipeline.required "backgroundable" Decode.bool
---         |> Pipeline.required "maxTime" decodeDurationPerPeriod
---         |> Pipeline.required "hidden" Decode.bool
---         |> Pipeline.required "template" decodeTemplate
---
---
+decodeCustomizations : Decode.Decoder Customizations
+decodeCustomizations =
+    let
+        assumeNothing fieldName decoder =
+            Pipeline.optional fieldName (Decode.maybe decoder) Nothing
+    in
+    decode Activity
+        |> assumeNothing "names" Decode.list Decode.string
+        |> assumeNothing "icon" decodeIcon
+        |> assumeNothing "taskOptional" Decode.bool
+        |> assumeNothing "evidence" (Decode.list decodeEvidence)
+        |> assumeNothing "category" decodeCategory
+        |> assumeNothing "backgroundable" Decode.bool
+        |> assumeNothing "maxTime" decodeDurationPerPeriod
+        |> assumeNothing "hidden" Decode.bool
+        |> Pipeline.required "template" decodeTemplate
 
 
 encodeActivity : a -> Encode.Value
@@ -133,6 +129,39 @@ type Icon
     = File SvgPath
     | Ion
     | Other
+
+
+decodeIcon : Decoder Icon
+decodeIcon =
+    Decoder.string
+        |> Decoder.andThen
+            (\string ->
+                case string of
+                    "File" ->
+                        Decoder.succeed File
+
+                    "Ion" ->
+                        Decoder.succeed Ion
+
+                    "Other" ->
+                        Decoder.succeed Other
+
+                    _ ->
+                        Decoder.fail "Invalid Icon"
+            )
+
+
+encodeIcon : Icon -> Encode.Value
+encodeIcon v =
+    case v of
+        File ->
+            Encode.string "File"
+
+        Ion ->
+            Encode.string "Ion"
+
+        Other ->
+            Encode.string "Other"
 
 
 {-| Icon files (scalable vector graphics, please!) location
@@ -206,15 +235,15 @@ type ActivityTemplate
     | Presentation
 
 
-init : List ActivitySkeleton
+init : List Customizations
 init =
     List.map justTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
 
 
 {-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
-It would be so much easier if i could just do { base | skel } like I originally wanted, when ActivitySkeleton was just { template } with whatever extra fields the user overrode. Had to make it a maybe-ified carbon copy because updating a record with another (sub)record like { base | skel } isn't allowed...
+It would be so much easier if i could just do { base | skel } like I originally wanted, when Customizations was just { template } with whatever extra fields the user overrode. Had to make it a maybe-ified carbon copy because updating a record with another (sub)record like { base | skel } isn't allowed...
 -}
-withTemplate : ActivitySkeleton -> Activity
+withTemplate : Customizations -> Activity
 withTemplate ({ template } as skel) =
     let
         base =
