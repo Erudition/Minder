@@ -1,4 +1,4 @@
-module Activity exposing (Activity, ActivityId, ActivityTemplate(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), SvgPath, decodeActivity, encodeActivity, fromTemplate, getName, init, justTemplate, showing, withTemplate)
+module Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), SvgPath, Template(..), decodeCustomizations, decodeEvidence, decodeIcon, encodeActivity, encodeIcon, fromTemplate, getName, init, justTemplate, showing, withTemplate)
 
 import Date
 import Dict exposing (..)
@@ -26,10 +26,22 @@ type alias Activity =
     , backgroundable : Bool
     , maxTime : DurationPerPeriod
     , hidden : Bool -- The user can hide any of the "stock" activities they don't use
-    , template : ActivityTemplate -- template this activity was derived from, in case we want to propogate changes to defaults
+    , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
     }
 
 
+{-| What's going on here?
+Well, at first you might think this file should be like any other type, like Task for example. You define the type, its decoders, and helper functions, and that's it. This file started out that way too, and it's all here.
+
+The problem with making a Time Tracker is that it's most useful with a huge amount of "default data", that is, activities that are ready to use out of the box. But... we don't want to store all of this default data! If the user makes no changes to the stock activities, his stored activity database should be empty. We don't want a fresh AppData full of boilerplate. If his list is missing an activity, how would we know if he deleted it, or simply came from a version where it didn't yet exist? We also want to improve the defaults over time, replacing them (on upgrade) with better defaults for each setting the user has not specifically customized. That means we need to keep track of not just the settings, but whether they were modified!
+
+One strategy is omitting the uncustomized data at the Encoder level, and substituting defaults when the Decoder finds nothing there. Our data model would be decluttered, in its JSON form at least. But then our decoded model would be mostly artificial, it'd be hard to distinguish unmodified defaults from deliberately user-preferred values which happen to match the current default (meaning an upgrade or two could silently un-customize his settings), and we wouldn't know if the JSON value being missing was truly "nothing" or an error. This also allows the invalid state of a blank activity list in our model - did it fail to load? Did the user delete all of the activites? It's better that we let [] be the default state and let the user "hide" activities he doesn't want.
+
+Originally this was going to be done with duck typing - the stored record has only the keys that are updated, and is used to "update" the record that holds the defaults, when we want to fetch the full Activity record. But this turns out to be impossible in Elm, as functions can't access record fields they don't specifically ask for in their type signature.
+
+It seems the next best thing is to have an exact replica of the Activity record, where every value is wrapped in a maybe. Then at least blank activities can be represented by a type holding a bunch of nothings. Not as lightweight as I'd prefer, but it seems that other options (like using Dicts) sacrifice more. Also, we can make the default way of getting activities (allActivities) mix the defaults with the customizations and then the rest of the app doesn't have to worry about where it came from.
+
+-}
 type alias Customizations =
     { names : Maybe (List String)
     , icon : Maybe Icon
@@ -40,11 +52,11 @@ type alias Customizations =
     , backgroundable : Maybe Bool
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
-    , template : ActivityTemplate
+    , template : Template
     }
 
 
-justTemplate : ActivityTemplate -> Customizations
+justTemplate : Template -> Customizations
 justTemplate activityTemplate =
     Customizations Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
 
@@ -96,6 +108,11 @@ type Evidence
     = Evidence
 
 
+decodeEvidence : Decoder Evidence
+decodeEvidence =
+    decodeCustom [ ( "Evidence", succeed Evidence ) ]
+
+
 type Excusable
     = NeverExcused
     | TemporarilyExcused DurationPerPeriod
@@ -133,28 +150,17 @@ type Icon
 
 decodeIcon : Decoder Icon
 decodeIcon =
-    Decoder.string
-        |> Decoder.andThen
-            (\string ->
-                case string of
-                    "File" ->
-                        Decoder.succeed File
-
-                    "Ion" ->
-                        Decoder.succeed Ion
-
-                    "Other" ->
-                        Decoder.succeed Other
-
-                    _ ->
-                        Decoder.fail "Invalid Icon"
-            )
+    decodeCustom
+        [ ( "File", Decode.string )
+        , ( "Ion", succeed Ion )
+        , ( "Other", succeed Other )
+        ]
 
 
 encodeIcon : Icon -> Encode.Value
 encodeIcon v =
     case v of
-        File ->
+        File path ->
             Encode.string "File"
 
         Ion ->
@@ -178,7 +184,7 @@ type Category
     | Communication
 
 
-type ActivityTemplate
+type Template
     = DillyDally
     | Apparel
     | Messaging
@@ -235,9 +241,20 @@ type ActivityTemplate
     | Presentation
 
 
-init : List Customizations
-init =
-    List.map justTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
+type alias UserActivities =
+    List Customizations
+
+
+allActivities : UserActivities -> List Activity
+allActivities stored =
+    let
+        stockActivities =
+            List.map justTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
+
+        userActivities =
+            List.map withTemplate stored
+    in
+    stockActivities ++ userActivities
 
 
 {-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
@@ -265,7 +282,7 @@ withTemplate ({ template } as skel) =
     }
 
 
-fromTemplate : ActivityTemplate -> Activity
+fromTemplate : Template -> Activity
 fromTemplate startingtemplate =
     case startingtemplate of
         DillyDally ->

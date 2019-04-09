@@ -18,7 +18,7 @@ type alias AppData =
     { uid : Instance
     , errors : List String
     , tasks : List Task
-    , activities : List ActivitySkeleton
+    , activities : UserActivities
     }
 
 
@@ -27,7 +27,7 @@ fromScratch =
     { uid = 0
     , errors = []
     , tasks = []
-    , activities = Activity.init
+    , activities = []
     }
 
 
@@ -37,7 +37,7 @@ decodeAppData =
         (field "uid" Decode.int)
         (field "errors" (Decode.list Decode.string))
         (field "tasks" (Decode.list decodeTask))
-        (field "activities" (Decode.list decodeActivity))
+        (field "activities" (Decode.list Activity.decodeCustomizations))
 
 
 encodeAppData : AppData -> Encode.Value
