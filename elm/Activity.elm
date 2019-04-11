@@ -52,13 +52,17 @@ type alias Customizations =
     , backgroundable : Maybe Bool
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
-    , template : Template
     }
+
+
+type StoredActivity
+    = Stock Template Customizations
+    | Custom Template Customizations
 
 
 justTemplate : Template -> Customizations
 justTemplate activityTemplate =
-    Customizations Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
+    Customizations Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing activityTemplate
 
 
 decodeCustomizations : Decode.Decoder Customizations
@@ -248,23 +252,29 @@ type alias UserActivities =
 allActivities : UserActivities -> List Activity
 allActivities stored =
     let
-        stockActivities =
-            List.map justTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
-
         userActivities =
             List.map withTemplate stored
     in
     stockActivities ++ userActivities
 
 
+stockActivities : List StoredActivity
+stockActivities =
+    let
+        stockFromTemplate template =
+            Stock template (defaults template)
+    in
+    List.map stockFromTemplate [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
+
+
 {-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
 It would be so much easier if i could just do { base | skel } like I originally wanted, when Customizations was just { template } with whatever extra fields the user overrode. Had to make it a maybe-ified carbon copy because updating a record with another (sub)record like { base | skel } isn't allowed...
 -}
-withTemplate : Customizations -> Activity
-withTemplate ({ template } as skel) =
+withTemplate : Template -> Customizations -> Activity
+withTemplate template skel =
     let
         base =
-            fromTemplate template
+            defaults template
 
         over b s =
             Maybe.withDefault b s
@@ -278,12 +288,11 @@ withTemplate ({ template } as skel) =
     , backgroundable = over base.backgroundable skel.backgroundable
     , maxTime = over base.maxTime skel.maxTime
     , hidden = over base.hidden skel.hidden
-    , template = template
     }
 
 
-fromTemplate : Template -> Activity
-fromTemplate startingtemplate =
+defaults : Template -> Activity
+defaults startingtemplate =
     case startingtemplate of
         DillyDally ->
             { names = [ "Nothing", "Dilly-dally", "Distracted" ]
@@ -295,7 +304,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Apparel ->
@@ -308,7 +316,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Messaging ->
@@ -321,7 +328,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 2, Hour ), ( 5, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Restroom ->
@@ -334,7 +340,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Grooming ->
@@ -347,7 +352,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Meal ->
@@ -360,7 +364,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Supplements ->
@@ -373,7 +376,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Workout ->
@@ -386,7 +388,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Shower ->
@@ -399,7 +400,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Toothbrush ->
@@ -412,7 +412,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Floss ->
@@ -425,7 +424,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Wakeup ->
@@ -438,7 +436,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Sleep ->
@@ -451,7 +448,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Plan ->
@@ -464,7 +460,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Configure ->
@@ -477,7 +472,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Email ->
@@ -490,7 +484,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Work ->
@@ -503,7 +496,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Call ->
@@ -516,7 +508,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Chores ->
@@ -529,7 +520,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Parents ->
@@ -542,7 +532,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Prepare ->
@@ -555,7 +544,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Lover ->
@@ -568,7 +556,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Driving ->
@@ -581,7 +568,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Riding ->
@@ -594,7 +580,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         SocialMedia ->
@@ -607,7 +592,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Pacing ->
@@ -620,7 +604,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Sport ->
@@ -633,7 +616,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Finance ->
@@ -646,7 +628,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Laundry ->
@@ -659,7 +640,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Bedward ->
@@ -672,7 +652,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Browse ->
@@ -685,7 +664,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Fiction ->
@@ -698,7 +676,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Learning ->
@@ -711,7 +688,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         BrainTrain ->
@@ -724,7 +700,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Music ->
@@ -737,7 +712,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Create ->
@@ -750,7 +724,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Children ->
@@ -763,7 +736,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Meeting ->
@@ -776,7 +748,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Cinema ->
@@ -789,7 +760,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         FilmWatching ->
@@ -802,7 +772,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Series ->
@@ -815,7 +784,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Broadcast ->
@@ -828,7 +796,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Theatre ->
@@ -841,7 +808,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Shopping ->
@@ -854,7 +820,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         VideoGaming ->
@@ -867,7 +832,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Housekeeping ->
@@ -880,7 +844,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         MealPrep ->
@@ -893,7 +856,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Networking ->
@@ -906,7 +868,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Meditate ->
@@ -919,7 +880,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Homework ->
@@ -932,7 +892,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Flight ->
@@ -945,7 +904,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Course ->
@@ -958,7 +916,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Pet ->
@@ -971,7 +928,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
         Presentation ->
@@ -984,7 +940,6 @@ fromTemplate startingtemplate =
             , backgroundable = False
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
-            , template = startingtemplate
             }
 
 
