@@ -1,7 +1,8 @@
-module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, subtype)
+module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, decodeInterval, encodeInterval, subtype, subtype2)
 
 import Json.Decode.Exploration as Decode exposing (..)
-import Json.Encode
+import Json.Encode as Encode
+import Time.Extra exposing (Interval(..))
 
 
 
@@ -69,3 +70,114 @@ subtype2 tagger fieldName1 subType1Decoder fieldName2 subType2Decoder =
 --     = NoParams String tagType
 --     | OneParam String tagType String Decoder
 --     | TwoParam String (b -> c -> tagType) String (Decoder b) String (Decoder c)
+
+
+encodeInterval : Time.Extra.Interval -> Value
+encodeInterval v =
+    case v of
+        Year ->
+            Encode.string "Year"
+
+        Quarter ->
+            Encode.string "Quarter"
+
+        Month ->
+            Encode.string "Month"
+
+        Week ->
+            Encode.string "Week"
+
+        Monday ->
+            Encode.string "Monday"
+
+        Tuesday ->
+            Encode.string "Tuesday"
+
+        Wednesday ->
+            Encode.string "Wednesday"
+
+        Thursday ->
+            Encode.string "Thursday"
+
+        Friday ->
+            Encode.string "Friday"
+
+        Saturday ->
+            Encode.string "Saturday"
+
+        Sunday ->
+            Encode.string "Sunday"
+
+        Day ->
+            Encode.string "Day"
+
+        Hour ->
+            Encode.string "Hour"
+
+        Minute ->
+            Encode.string "Minute"
+
+        Second ->
+            Encode.string "Second"
+
+        Millisecond ->
+            Encode.string "Millisecond"
+
+
+decodeInterval : Decoder Time.Extra.Interval
+decodeInterval =
+    Decode.string
+        |> Decode.andThen
+            (\string ->
+                case string of
+                    "Year" ->
+                        Decode.succeed Year
+
+                    "Quarter" ->
+                        Decode.succeed Quarter
+
+                    "Month" ->
+                        Decode.succeed Month
+
+                    "Week" ->
+                        Decode.succeed Week
+
+                    "Monday" ->
+                        Decode.succeed Monday
+
+                    "Tuesday" ->
+                        Decode.succeed Tuesday
+
+                    "Wednesday" ->
+                        Decode.succeed Wednesday
+
+                    "Thursday" ->
+                        Decode.succeed Thursday
+
+                    "Friday" ->
+                        Decode.succeed Friday
+
+                    "Saturday" ->
+                        Decode.succeed Saturday
+
+                    "Sunday" ->
+                        Decode.succeed Sunday
+
+                    "Day" ->
+                        Decode.succeed Day
+
+                    "Hour" ->
+                        Decode.succeed Hour
+
+                    "Minute" ->
+                        Decode.succeed Minute
+
+                    "Second" ->
+                        Decode.succeed Second
+
+                    "Millisecond" ->
+                        Decode.succeed Millisecond
+
+                    _ ->
+                        Decode.fail "Invalid Interval"
+            )

@@ -18,7 +18,7 @@ type alias AppData =
     { uid : Instance
     , errors : List String
     , tasks : List Task
-    , activities : UserActivities
+    , activities : StoredActivities
     }
 
 
