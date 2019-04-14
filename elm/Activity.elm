@@ -1,4 +1,4 @@
-module Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Template(..), allActivities, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeIcon, decodeTemplate, defaults, encodeActivity, encodeCategory, encodeDuration, encodeDurationPerPeriod, encodeIcon, getName, showing, stockActivities, withTemplate)
+module Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Template(..), allActivities, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeTemplate, defaults, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeTemplate, getName, showing, stockActivities, withTemplate)
 
 import Date
 import Dict exposing (..)
@@ -20,8 +20,7 @@ type alias Activity =
     { names : List String -- TODO should be Translations
     , icon : Icon -- TODO figure out best way to do this. svg file path?
     , excusable : Excusable
-    , taskOptional : Bool -- technically they can all be "unplanned"
-    , evidence : List Evidence
+    , taskOptional : Bool -- technically they can all be "unplanned" , evidence : List Evidence
     , category : Category
     , backgroundable : Bool
     , maxTime : DurationPerPeriod
@@ -34,7 +33,7 @@ type alias Activity =
 {-| What's going on here?
 Well, at first you might think this file should be like any other type, like Task for example. You define the type, its decoders, and helper functions, and that's it. This file started out that way too, and it's all here.
 
-The problem with making a Time Tracker is that it's most useful with a huge amount of "default data", that is, activities that are ready to use out of the box. But... we don't want to store all of this default data! If the user makes no changes to the stock activities, his stored activity database should be empty. We don't want a fresh AppData full of boilerplate. If his list is missing an activity, how would we know if he deleted it, or simply came from a version where it didn't yet exist? We also want to improve the defaults over time, replacing them (on upgrade) with better defaults for each setting the user has not specifically customized. That means we need to keep track of not just the settings, but whether they were modified!
+The problem with making a Time Tracker is that it's most useful with a huge amount of "default data" , that is, activities that are ready to use out of the box. But... we don't want to store all of this default data! If the user makes no changes to the stock activities, his stored activity database should be empty. We don't want a fresh AppData full of boilerplate. If his list is missing an activity, how would we know if he deleted it, or simply came from a version where it didn't yet exist? We also want to improve the defaults over time, replacing them (on upgrade) with better defaults for each setting the user has not specifically customized. That means we need to keep track of not just the settings, but whether they were modified!
 
 One strategy is omitting the uncustomized data at the Encoder level, and substituting defaults when the Decoder finds nothing there. Our data model would be decluttered, in its JSON form at least. But then our decoded model would be mostly artificial, it'd be hard to distinguish unmodified defaults from deliberately user-preferred values which happen to match the current default (meaning an upgrade or two could silently un-customize his settings), and we wouldn't know if the JSON value being missing was truly "nothing" or an error. This also allows the invalid state of a blank activity list in our model - did it fail to load? Did the user delete all of the activites? It's better that we let [] be the default state and let the user "hide" activities he doesn't want.
 
@@ -78,24 +77,36 @@ decodeCustomizations =
         |> Pipeline.required "stock" Decode.bool
 
 
-encodeActivity : a -> Encode.Value
-encodeActivity a =
-    Encode.object []
+encodeCustomizations : Customizations -> Encode.Value
+encodeCustomizations v =
+    Encode.object
+        [ ( "names", Encode.list Encode.string )
+        , ( "icon", encodeIcon )
+        , ( "excusable", encodeExcusable )
+        , ( "taskOptional", Encode.bool )
+        , ( "evidence", Encode.list encodeEvidence )
+        , ( "category", encodeCategory )
+        , ( "backgroundable", Encode.bool )
+        , ( "maxTime", encodeDurationPerPeriod )
+        , ( "hidden", Encode.bool )
+        , ( "template", encodeTemplate )
+        , ( "stock", Encode.bool )
+        ]
 
 
 
 -- encodeTask : Activity -> Encode.Value
 -- encodeTask record =
 --     Encode.object
---         [ ( "names", Encode.list Encode.string record.names )
---         , ( "icon", encodeIcon <| record.icon )
---         , ( "taskOptional", Encode.bool <| record.taskOptional )
---         , ( "evidence", Encode.list encodeEvidence record.evidence )
---         , ( "category", encodeCategory <| record.category )
---         , ( "backgroundable", Encode.bool record.history )
---         , ( "maxTime", encodeDurationPerParent <| record.maxTime )
---         , ( "hidden", Encode.bool <| record.hidden )
---         , ( "template", encodeTemplate <| record.template )
+--         [ ( "names" , Encode.list Encode.string record.names )
+--         , ( "icon" , encodeIcon <| record.icon )
+--         , ( "taskOptional" , Encode.bool <| record.taskOptional )
+--         , ( "evidence" , Encode.list encodeEvidence record.evidence )
+--         , ( "category" , encodeCategory <| record.category )
+--         , ( "backgroundable" , Encode.bool record.history )
+--         , ( "maxTime" , encodeDurationPerParent <| record.maxTime )
+--         , ( "hidden" , Encode.bool <| record.hidden )
+--         , ( "template" , encodeTemplate <| record.template )
 --         ]
 
 
@@ -112,6 +123,13 @@ decodeEvidence =
     decodeCustom [ ( "Evidence", succeed Evidence ) ]
 
 
+encodeEvidence : Evidence -> Encode.Value
+encodeEvidence v =
+    case v of
+        Evidence ->
+            Encode.string "Evidence"
+
+
 type Excusable
     = NeverExcused
     | TemporarilyExcused DurationPerPeriod
@@ -120,25 +138,27 @@ type Excusable
 
 decodeExcusable : Decoder Excusable
 decodeExcusable =
-    Decode.string
-        |> Decode.andThen
-            (\string ->
-                case string of
-                    "NeverExcused" ->
-                        Decode.succeed NeverExcused
-
-                    "TemporarilyExcused" ->
-                        Decode.map TemporarilyExcused decodeDurationPerPeriod
-
-                    "IndefinitelyExcused" ->
-                        Decode.succeed IndefinitelyExcused
-
-                    _ ->
-                        Decode.fail "Invalid Excusable"
-            )
+    decodeCustom
+        [ ( "NeverExcused", succeed NeverExcused )
+        , ( "TemporarilyExcused", Decode.map TemporarilyExcused decodeDurationPerPeriod )
+        , ( "IndefinitelyExcused", succeed IndefinitelyExcused )
+        ]
 
 
-{-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes", without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
+encodeExcusable : Excusable -> Encode.Value
+encodeExcusable v =
+    case v of
+        NeverExcused ->
+            Encode.string "NeverExcused"
+
+        TemporarilyExcused dpp ->
+            Encode.string "TemporarilyExcused"
+
+        IndefinitelyExcused ->
+            Encode.string "IndefinitelyExcused"
+
+
+{-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes" , without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
 
 Making Invalid States Unrepresentable: is there anyway to guarantee (via the type system) that the second duration is at least as large as the first?
 
@@ -329,8 +349,230 @@ type Template
     | Presentation
 
 
+decodeTemplate : Decoder Template
 decodeTemplate =
-    Debug.todo "Decode Template"
+    decodeCustomFlat
+        [ ( "DillyDally", DillyDally )
+        , ( "Apparel", Apparel )
+        , ( "Messaging", Messaging )
+        , ( "Restroom", Restroom )
+        , ( "Grooming", Grooming )
+        , ( "Meal", Meal )
+        , ( "Supplements", Supplements )
+        , ( "Workout", Workout )
+        , ( "Shower", Shower )
+        , ( "Toothbrush", Toothbrush )
+        , ( "Floss", Floss )
+        , ( "Wakeup", Wakeup )
+        , ( "Sleep", Sleep )
+        , ( "Plan", Plan )
+        , ( "Configure", Configure )
+        , ( "Email", Email )
+        , ( "Work", Work )
+        , ( "Call", Call )
+        , ( "Chores", Chores )
+        , ( "Parents", Parents )
+        , ( "Prepare", Prepare )
+        , ( "Lover", Lover )
+        , ( "Driving", Driving )
+        , ( "Riding", Riding )
+        , ( "SocialMedia", SocialMedia )
+        , ( "Pacing", Pacing )
+        , ( "Sport", Sport )
+        , ( "Finance", Finance )
+        , ( "Laundry", Laundry )
+        , ( "Bedward", Bedward )
+        , ( "Browse", Browse )
+        , ( "Fiction", Fiction )
+        , ( "Learning", Learning )
+        , ( "BrainTrain", BrainTrain )
+        , ( "Music", Music )
+        , ( "Create", Create )
+        , ( "Children", Children )
+        , ( "Meeting", Meeting )
+        , ( "Cinema", Cinema )
+        , ( "FilmWatching", FilmWatching )
+        , ( "Series", Series )
+        , ( "Broadcast", Broadcast )
+        , ( "Theatre", Theatre )
+        , ( "Shopping", Shopping )
+        , ( "VideoGaming", VideoGaming )
+        , ( "Housekeeping", Housekeeping )
+        , ( "MealPrep", MealPrep )
+        , ( "Networking", Networking )
+        , ( "Meditate", Meditate )
+        , ( "Homework", Homework )
+        , ( "Flight", Flight )
+        , ( "Course", Course )
+        , ( "Pet", Pet )
+        , ( "Presentation", Presentation )
+        ]
+
+
+encodeTemplate : Template -> Encode.Value
+encodeTemplate v =
+    case v of
+        DillyDally ->
+            Encode.string "DillyDally"
+
+        Apparel ->
+            Encode.string "Apparel"
+
+        Messaging ->
+            Encode.string "Messaging"
+
+        Restroom ->
+            Encode.string "Restroom"
+
+        Grooming ->
+            Encode.string "Grooming"
+
+        Meal ->
+            Encode.string "Meal"
+
+        Supplements ->
+            Encode.string "Supplements"
+
+        Workout ->
+            Encode.string "Workout"
+
+        Shower ->
+            Encode.string "Shower"
+
+        Toothbrush ->
+            Encode.string "Toothbrush"
+
+        Floss ->
+            Encode.string "Floss"
+
+        Wakeup ->
+            Encode.string "Wakeup"
+
+        Sleep ->
+            Encode.string "Sleep"
+
+        Plan ->
+            Encode.string "Plan"
+
+        Configure ->
+            Encode.string "Configure"
+
+        Email ->
+            Encode.string "Email"
+
+        Work ->
+            Encode.string "Work"
+
+        Call ->
+            Encode.string "Call"
+
+        Chores ->
+            Encode.string "Chores"
+
+        Parents ->
+            Encode.string "Parents"
+
+        Prepare ->
+            Encode.string "Prepare"
+
+        Lover ->
+            Encode.string "Lover"
+
+        Driving ->
+            Encode.string "Driving"
+
+        Riding ->
+            Encode.string "Riding"
+
+        SocialMedia ->
+            Encode.string "SocialMedia"
+
+        Pacing ->
+            Encode.string "Pacing"
+
+        Sport ->
+            Encode.string "Sport"
+
+        Finance ->
+            Encode.string "Finance"
+
+        Laundry ->
+            Encode.string "Laundry"
+
+        Bedward ->
+            Encode.string "Bedward"
+
+        Browse ->
+            Encode.string "Browse"
+
+        Fiction ->
+            Encode.string "Fiction"
+
+        Learning ->
+            Encode.string "Learning"
+
+        BrainTrain ->
+            Encode.string "BrainTrain"
+
+        Music ->
+            Encode.string "Music"
+
+        Create ->
+            Encode.string "Create"
+
+        Children ->
+            Encode.string "Children"
+
+        Meeting ->
+            Encode.string "Meeting"
+
+        Cinema ->
+            Encode.string "Cinema"
+
+        FilmWatching ->
+            Encode.string "FilmWatching"
+
+        Series ->
+            Encode.string "Series"
+
+        Broadcast ->
+            Encode.string "Broadcast"
+
+        Theatre ->
+            Encode.string "Theatre"
+
+        Shopping ->
+            Encode.string "Shopping"
+
+        VideoGaming ->
+            Encode.string "VideoGaming"
+
+        Housekeeping ->
+            Encode.string "Housekeeping"
+
+        MealPrep ->
+            Encode.string "MealPrep"
+
+        Networking ->
+            Encode.string "Networking"
+
+        Meditate ->
+            Encode.string "Meditate"
+
+        Homework ->
+            Encode.string "Homework"
+
+        Flight ->
+            Encode.string "Flight"
+
+        Course ->
+            Encode.string "Course"
+
+        Pet ->
+            Encode.string "Pet"
+
+        Presentation ->
+            Encode.string "Presentation"
 
 
 type alias StoredActivities =

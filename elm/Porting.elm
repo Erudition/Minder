@@ -1,4 +1,4 @@
-module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, decodeInterval, encodeInterval, subtype, subtype2)
+module Porting exposing (arrayAsTuple2, customDecoder, decodeCustom, decodeCustomFlat, decodeInterval, encodeInterval, subtype, subtype2)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
@@ -42,6 +42,15 @@ decodeCustom tagsWithDecoders =
             check string tag decoder
     in
     oneOf (List.map tryValues tagsWithDecoders)
+
+
+decodeCustomFlat : List ( String, a ) -> Decoder a
+decodeCustomFlat tags =
+    let
+        justTag =
+            Tuple.mapSecond Decode.succeed
+    in
+    decodeCustom (List.map justTag tags)
 
 
 
