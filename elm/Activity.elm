@@ -54,7 +54,7 @@ type alias Customizations =
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
     , template : Template
-    , stock : Maybe Bool
+    , stock : Bool
     }
 
 
@@ -64,9 +64,10 @@ decodeCustomizations =
         assumeNothing fieldName decoder =
             Pipeline.optional fieldName (Decode.maybe decoder) Nothing
     in
-    decode Activity
-        |> assumeNothing "names" Decode.list Decode.string
+    decode Customizations
+        |> assumeNothing "names" (Decode.list Decode.string)
         |> assumeNothing "icon" decodeIcon
+        |> assumeNothing "excusable" decodeExcusable
         |> assumeNothing "taskOptional" Decode.bool
         |> assumeNothing "evidence" (Decode.list decodeEvidence)
         |> assumeNothing "category" decodeCategory
@@ -74,6 +75,7 @@ decodeCustomizations =
         |> assumeNothing "maxTime" decodeDurationPerPeriod
         |> assumeNothing "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
+        |> Pipeline.required "stock" Decode.bool
 
 
 encodeActivity : a -> Encode.Value
@@ -114,6 +116,26 @@ type Excusable
     = NeverExcused
     | TemporarilyExcused DurationPerPeriod
     | IndefinitelyExcused
+
+
+decodeExcusable : Decoder Excusable
+decodeExcusable =
+    Decode.string
+        |> Decode.andThen
+            (\string ->
+                case string of
+                    "NeverExcused" ->
+                        Decode.succeed NeverExcused
+
+                    "TemporarilyExcused" ->
+                        Decode.map TemporarilyExcused decodeDurationPerPeriod
+
+                    "IndefinitelyExcused" ->
+                        Decode.succeed IndefinitelyExcused
+
+                    _ ->
+                        Decode.fail "Invalid Excusable"
+            )
 
 
 {-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes", without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
@@ -168,10 +190,14 @@ type Icon
 decodeIcon : Decoder Icon
 decodeIcon =
     decodeCustom
-        [ ( "File", Decode.string )
+        [ ( "File", decodeFile )
         , ( "Ion", succeed Ion )
         , ( "Other", succeed Other )
         ]
+
+
+decodeFile =
+    Decode.map File Decode.string
 
 
 encodeIcon : Icon -> Encode.Value
@@ -318,13 +344,16 @@ allActivities stored =
             List.map withTemplate stored
 
         remainingActivities =
-            List.filter templateMissing stockActivities
+            List.map defaults (List.filter templateMissing stockActivities)
+
+        customizedStockActivities =
+            List.filter .stock customizedActivities
 
         templatesCovered =
-            List.map .template customizedActivities
+            List.map .template customizedStockActivities
 
-        templateMissing activity =
-            not List.member templatesCovered activity.template && activity.stock
+        templateMissing template =
+            not (List.member template templatesCovered)
     in
     customizedActivities ++ remainingActivities
 
@@ -356,7 +385,7 @@ withTemplate delta =
     , maxTime = over base.maxTime delta.maxTime
     , hidden = over base.hidden delta.hidden
     , template = delta.template
-    , stock = over base.stock delta.stock
+    , stock = delta.stock
     }
 
 
