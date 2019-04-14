@@ -1,5 +1,6 @@
-module Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Template(..), allActivities, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeTemplate, defaults, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeTemplate, getName, showing, stockActivities, withTemplate)
+module Activity.Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, allActivities, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, defaults, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, getName, showing, withTemplate)
 
+import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
 import Ionicon
@@ -20,7 +21,8 @@ type alias Activity =
     { names : List String -- TODO should be Translations
     , icon : Icon -- TODO figure out best way to do this. svg file path?
     , excusable : Excusable
-    , taskOptional : Bool -- technically they can all be "unplanned" , evidence : List Evidence
+    , taskOptional : Bool -- technically they can all be "unplanned"
+    , evidence : List Evidence
     , category : Category
     , backgroundable : Bool
     , maxTime : DurationPerPeriod
@@ -78,20 +80,44 @@ decodeCustomizations =
 
 
 encodeCustomizations : Customizations -> Encode.Value
-encodeCustomizations v =
-    Encode.object
-        [ ( "names", Encode.list Encode.string )
-        , ( "icon", encodeIcon )
-        , ( "excusable", encodeExcusable )
-        , ( "taskOptional", Encode.bool )
-        , ( "evidence", Encode.list encodeEvidence )
-        , ( "category", encodeCategory )
-        , ( "backgroundable", Encode.bool )
-        , ( "maxTime", encodeDurationPerPeriod )
-        , ( "hidden", Encode.bool )
-        , ( "template", encodeTemplate )
-        , ( "stock", Encode.bool )
-        ]
+encodeCustomizations record =
+    let
+        optionalsNestedLists =
+            List.map omittable (optionalsTriples record)
+
+        optionals =
+            List.foldl (++) [] optionalsNestedLists
+
+        requireds =
+            [ ( "template", encodeTemplate record.template )
+            , ( "stock", Encode.bool record.stock )
+            ]
+    in
+    Encode.object (optionals ++ requireds)
+
+
+optionalsTriples : Customizations -> List ( String, a -> Encode.Value, Maybe a )
+optionalsTriples record =
+    [ ( "names", Encode.list Encode.string, record.names )
+    , ( "icon", encodeIcon, record.icon )
+    , ( "excusable", encodeExcusable, record.excusable )
+    , ( "taskOptional", Encode.bool, record.taskOptional )
+    , ( "evidence", Encode.list encodeEvidence, record.evidence )
+    , ( "category", encodeCategory, record.category )
+    , ( "backgroundable", Encode.bool, record.backgroundable )
+    , ( "maxTime", encodeDurationPerPeriod, record.maxTime )
+    , ( "hidden", Encode.bool, record.hidden )
+    ]
+
+
+omittable : ( String, a -> Encode.Value, Maybe a ) -> List ( String, Encode.Value )
+omittable ( tag, encoder, maybeValue ) =
+    case maybeValue of
+        Just foundValue ->
+            [ ( tag, encoder foundValue ) ]
+
+        Nothing ->
+            []
 
 
 
@@ -292,289 +318,6 @@ decodeCategory =
             )
 
 
-type Template
-    = DillyDally
-    | Apparel
-    | Messaging
-    | Restroom
-    | Grooming
-    | Meal
-    | Supplements
-    | Workout
-    | Shower
-    | Toothbrush
-    | Floss
-    | Wakeup
-    | Sleep
-    | Plan
-    | Configure
-    | Email
-    | Work
-    | Call
-    | Chores
-    | Parents
-    | Prepare
-    | Lover
-    | Driving
-    | Riding
-    | SocialMedia
-    | Pacing
-    | Sport
-    | Finance
-    | Laundry
-    | Bedward
-    | Browse
-    | Fiction
-    | Learning
-    | BrainTrain
-    | Music
-    | Create
-    | Children
-    | Meeting
-    | Cinema
-    | FilmWatching
-    | Series
-    | Broadcast
-    | Theatre
-    | Shopping
-    | VideoGaming
-    | Housekeeping
-    | MealPrep
-    | Networking
-    | Meditate
-    | Homework
-    | Flight
-    | Course
-    | Pet
-    | Presentation
-
-
-decodeTemplate : Decoder Template
-decodeTemplate =
-    decodeCustomFlat
-        [ ( "DillyDally", DillyDally )
-        , ( "Apparel", Apparel )
-        , ( "Messaging", Messaging )
-        , ( "Restroom", Restroom )
-        , ( "Grooming", Grooming )
-        , ( "Meal", Meal )
-        , ( "Supplements", Supplements )
-        , ( "Workout", Workout )
-        , ( "Shower", Shower )
-        , ( "Toothbrush", Toothbrush )
-        , ( "Floss", Floss )
-        , ( "Wakeup", Wakeup )
-        , ( "Sleep", Sleep )
-        , ( "Plan", Plan )
-        , ( "Configure", Configure )
-        , ( "Email", Email )
-        , ( "Work", Work )
-        , ( "Call", Call )
-        , ( "Chores", Chores )
-        , ( "Parents", Parents )
-        , ( "Prepare", Prepare )
-        , ( "Lover", Lover )
-        , ( "Driving", Driving )
-        , ( "Riding", Riding )
-        , ( "SocialMedia", SocialMedia )
-        , ( "Pacing", Pacing )
-        , ( "Sport", Sport )
-        , ( "Finance", Finance )
-        , ( "Laundry", Laundry )
-        , ( "Bedward", Bedward )
-        , ( "Browse", Browse )
-        , ( "Fiction", Fiction )
-        , ( "Learning", Learning )
-        , ( "BrainTrain", BrainTrain )
-        , ( "Music", Music )
-        , ( "Create", Create )
-        , ( "Children", Children )
-        , ( "Meeting", Meeting )
-        , ( "Cinema", Cinema )
-        , ( "FilmWatching", FilmWatching )
-        , ( "Series", Series )
-        , ( "Broadcast", Broadcast )
-        , ( "Theatre", Theatre )
-        , ( "Shopping", Shopping )
-        , ( "VideoGaming", VideoGaming )
-        , ( "Housekeeping", Housekeeping )
-        , ( "MealPrep", MealPrep )
-        , ( "Networking", Networking )
-        , ( "Meditate", Meditate )
-        , ( "Homework", Homework )
-        , ( "Flight", Flight )
-        , ( "Course", Course )
-        , ( "Pet", Pet )
-        , ( "Presentation", Presentation )
-        ]
-
-
-encodeTemplate : Template -> Encode.Value
-encodeTemplate v =
-    case v of
-        DillyDally ->
-            Encode.string "DillyDally"
-
-        Apparel ->
-            Encode.string "Apparel"
-
-        Messaging ->
-            Encode.string "Messaging"
-
-        Restroom ->
-            Encode.string "Restroom"
-
-        Grooming ->
-            Encode.string "Grooming"
-
-        Meal ->
-            Encode.string "Meal"
-
-        Supplements ->
-            Encode.string "Supplements"
-
-        Workout ->
-            Encode.string "Workout"
-
-        Shower ->
-            Encode.string "Shower"
-
-        Toothbrush ->
-            Encode.string "Toothbrush"
-
-        Floss ->
-            Encode.string "Floss"
-
-        Wakeup ->
-            Encode.string "Wakeup"
-
-        Sleep ->
-            Encode.string "Sleep"
-
-        Plan ->
-            Encode.string "Plan"
-
-        Configure ->
-            Encode.string "Configure"
-
-        Email ->
-            Encode.string "Email"
-
-        Work ->
-            Encode.string "Work"
-
-        Call ->
-            Encode.string "Call"
-
-        Chores ->
-            Encode.string "Chores"
-
-        Parents ->
-            Encode.string "Parents"
-
-        Prepare ->
-            Encode.string "Prepare"
-
-        Lover ->
-            Encode.string "Lover"
-
-        Driving ->
-            Encode.string "Driving"
-
-        Riding ->
-            Encode.string "Riding"
-
-        SocialMedia ->
-            Encode.string "SocialMedia"
-
-        Pacing ->
-            Encode.string "Pacing"
-
-        Sport ->
-            Encode.string "Sport"
-
-        Finance ->
-            Encode.string "Finance"
-
-        Laundry ->
-            Encode.string "Laundry"
-
-        Bedward ->
-            Encode.string "Bedward"
-
-        Browse ->
-            Encode.string "Browse"
-
-        Fiction ->
-            Encode.string "Fiction"
-
-        Learning ->
-            Encode.string "Learning"
-
-        BrainTrain ->
-            Encode.string "BrainTrain"
-
-        Music ->
-            Encode.string "Music"
-
-        Create ->
-            Encode.string "Create"
-
-        Children ->
-            Encode.string "Children"
-
-        Meeting ->
-            Encode.string "Meeting"
-
-        Cinema ->
-            Encode.string "Cinema"
-
-        FilmWatching ->
-            Encode.string "FilmWatching"
-
-        Series ->
-            Encode.string "Series"
-
-        Broadcast ->
-            Encode.string "Broadcast"
-
-        Theatre ->
-            Encode.string "Theatre"
-
-        Shopping ->
-            Encode.string "Shopping"
-
-        VideoGaming ->
-            Encode.string "VideoGaming"
-
-        Housekeeping ->
-            Encode.string "Housekeeping"
-
-        MealPrep ->
-            Encode.string "MealPrep"
-
-        Networking ->
-            Encode.string "Networking"
-
-        Meditate ->
-            Encode.string "Meditate"
-
-        Homework ->
-            Encode.string "Homework"
-
-        Flight ->
-            Encode.string "Flight"
-
-        Course ->
-            Encode.string "Course"
-
-        Pet ->
-            Encode.string "Pet"
-
-        Presentation ->
-            Encode.string "Presentation"
-
-
 type alias StoredActivities =
     List Customizations
 
@@ -598,11 +341,6 @@ allActivities stored =
             not (List.member template templatesCovered)
     in
     customizedActivities ++ remainingActivities
-
-
-stockActivities : List Template
-stockActivities =
-    [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
 
 
 {-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
