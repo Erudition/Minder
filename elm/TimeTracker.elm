@@ -76,8 +76,8 @@ viewActivities : Environment -> AppData -> Html Msg
 viewActivities env app =
     section
         [ class "main" ]
-        [ Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedActivity env) (List.filter Activity.showing app.activities)
+        [ Keyed.ul [ class "activity-list" ] <|
+            List.map (viewKeyedActivity env) (List.filter Activity.showing (allActivities app.activities))
         ]
 
 
