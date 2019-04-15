@@ -93,20 +93,29 @@ viewKeyedActivity env activity =
 viewActivity : Environment -> Activity -> Html Msg
 viewActivity env activity =
     li
-        [ class "task-entry" ]
-        [ div
-            [ class "view" ]
-            [ button
-                [ class "toggle" ]
+        [ class "activity" ]
+        [ button
+            [ class "activity-button" ]
+            [ label
                 []
-            , label
-                []
-                [ text (Activity.getName activity) ]
-            , div
-                [ class "timing-info" ]
-                [ text "5 hours straight" ]
+                [ viewIcon activity.icon
+                , text (Activity.getName activity)
+                ]
             ]
         ]
+
+
+viewIcon : Activity.Icon -> Html Msg
+viewIcon icon =
+    case icon of
+        File svgPath ->
+            img [ class "activity-icon", src ("/media/icons/" ++ svgPath) ] []
+
+        Ion ->
+            text ""
+
+        Other ->
+            text ""
 
 
 

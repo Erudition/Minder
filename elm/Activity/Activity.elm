@@ -358,7 +358,7 @@ defaults startWith =
     case startWith of
         DillyDally ->
             { names = [ "Nothing", "Dilly-dally", "Distracted" ]
-            , icon = File "dillydally.svg"
+            , icon = File "shrugging-attempt.svg"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -372,7 +372,7 @@ defaults startWith =
 
         Apparel ->
             { names = [ "Appareling", "Dressing", "Getting Dressed" ]
-            , icon = File "unknown.svg"
+            , icon = File "shirt.svg"
             , excusable = TemporarilyExcused ( ( 15, Minute ), ( 3, Hour ) )
             , taskOptional = True
             , evidence = []
@@ -386,7 +386,7 @@ defaults startWith =
 
         Messaging ->
             { names = [ "Messaging", "Texting", "Chatting" ]
-            , icon = File "unknown.svg"
+            , icon = File "messaging.svg"
             , excusable = TemporarilyExcused ( ( 10, Minute ), ( 1, Hour ) )
             , taskOptional = True
             , evidence = []

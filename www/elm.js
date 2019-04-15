@@ -17242,7 +17242,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$NeverExcused,
 				hidden: false,
-				icon: author$project$Activity$Activity$File('dillydally.svg'),
+				icon: author$project$Activity$Activity$File('shrugging-attempt.svg'),
 				maxTime: _Utils_Tuple2(
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
@@ -17262,7 +17262,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
 						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
 				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
+				icon: author$project$Activity$Activity$File('shirt.svg'),
 				maxTime: _Utils_Tuple2(
 					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
 					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
@@ -17282,7 +17282,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
 						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour))),
 				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
+				icon: author$project$Activity$Activity$File('messaging.svg'),
 				maxTime: _Utils_Tuple2(
 					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
 					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
@@ -18218,48 +18218,54 @@ var author$project$Activity$Activity$getName = function (activity) {
 		'?',
 		elm$core$List$head(activity.names));
 };
+var rtfeldman$elm_css$Html$Styled$img = rtfeldman$elm_css$Html$Styled$node('img');
+var rtfeldman$elm_css$Html$Styled$Attributes$src = function (url) {
+	return A2(rtfeldman$elm_css$Html$Styled$Attributes$stringProperty, 'src', url);
+};
+var author$project$TimeTracker$viewIcon = function (icon) {
+	switch (icon.$) {
+		case 'File':
+			var svgPath = icon.a;
+			return A2(
+				rtfeldman$elm_css$Html$Styled$img,
+				_List_fromArray(
+					[
+						rtfeldman$elm_css$Html$Styled$Attributes$class('activity-icon'),
+						rtfeldman$elm_css$Html$Styled$Attributes$src('/media/icons/' + svgPath)
+					]),
+				_List_Nil);
+		case 'Ion':
+			return rtfeldman$elm_css$Html$Styled$text('');
+		default:
+			return rtfeldman$elm_css$Html$Styled$text('');
+	}
+};
 var author$project$TimeTracker$viewActivity = F2(
 	function (env, activity) {
 		return A2(
 			rtfeldman$elm_css$Html$Styled$li,
 			_List_fromArray(
 				[
-					rtfeldman$elm_css$Html$Styled$Attributes$class('task-entry')
+					rtfeldman$elm_css$Html$Styled$Attributes$class('activity')
 				]),
 			_List_fromArray(
 				[
 					A2(
-					rtfeldman$elm_css$Html$Styled$div,
+					rtfeldman$elm_css$Html$Styled$button,
 					_List_fromArray(
 						[
-							rtfeldman$elm_css$Html$Styled$Attributes$class('view')
+							rtfeldman$elm_css$Html$Styled$Attributes$class('activity-button')
 						]),
 					_List_fromArray(
 						[
-							A2(
-							rtfeldman$elm_css$Html$Styled$button,
-							_List_fromArray(
-								[
-									rtfeldman$elm_css$Html$Styled$Attributes$class('toggle')
-								]),
-							_List_Nil),
 							A2(
 							rtfeldman$elm_css$Html$Styled$label,
 							_List_Nil,
 							_List_fromArray(
 								[
+									author$project$TimeTracker$viewIcon(activity.icon),
 									rtfeldman$elm_css$Html$Styled$text(
 									author$project$Activity$Activity$getName(activity))
-								])),
-							A2(
-							rtfeldman$elm_css$Html$Styled$div,
-							_List_fromArray(
-								[
-									rtfeldman$elm_css$Html$Styled$Attributes$class('timing-info')
-								]),
-							_List_fromArray(
-								[
-									rtfeldman$elm_css$Html$Styled$text('5 hours straight')
 								]))
 						]))
 				]));
@@ -18284,7 +18290,7 @@ var author$project$TimeTracker$viewActivities = F2(
 					rtfeldman$elm_css$Html$Styled$Keyed$ul,
 					_List_fromArray(
 						[
-							rtfeldman$elm_css$Html$Styled$Attributes$class('task-list')
+							rtfeldman$elm_css$Html$Styled$Attributes$class('activity-list')
 						]),
 					A2(
 						elm$core$List$map,
