@@ -1,4 +1,4 @@
-module Trackable exposing (Trackable)
+module Trackable.Property exposing (Trackable)
 
 import List.Nonempty exposing (..)
 
