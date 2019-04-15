@@ -1,6 +1,6 @@
 module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveErrors, saveWarnings)
 
-import Activity exposing (..)
+import Activity.Activity as Activity exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Task.Progress exposing (..)
@@ -37,14 +37,14 @@ decodeAppData =
         (field "uid" Decode.int)
         (field "errors" (Decode.list Decode.string))
         (field "tasks" (Decode.list decodeTask))
-        (field "activities" (Decode.list Activity.decodeCustomizations))
+        (field "activities" Activity.decodeStoredActivities)
 
 
 encodeAppData : AppData -> Encode.Value
 encodeAppData record =
     Encode.object
         [ ( "tasks", Encode.list encodeTask record.tasks )
-        , ( "activites", Encode.list encodeActivity record.activities )
+        , ( "activites", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string record.errors )
         ]

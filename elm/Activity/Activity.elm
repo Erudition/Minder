@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId, Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, allActivities, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, defaults, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, getName, showing, withTemplate)
+module Activity.Activity exposing (Activity, Category(..), Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, allActivities, decodeStoredActivities, encodeStoredActivities, getName, showing)
 
 import Activity.Template exposing (..)
 import Date
@@ -294,6 +294,16 @@ decodeCategory =
 
 type alias StoredActivities =
     List Customizations
+
+
+decodeStoredActivities : Decoder StoredActivities
+decodeStoredActivities =
+    Decode.list decodeCustomizations
+
+
+encodeStoredActivities : StoredActivities -> Encode.Value
+encodeStoredActivities =
+    Encode.list encodeCustomizations
 
 
 allActivities : StoredActivities -> List Activity

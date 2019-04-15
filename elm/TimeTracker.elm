@@ -1,6 +1,6 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, view, viewActivities, viewActivity, viewKeyedActivity)
 
-import Activity exposing (..)
+import Activity.Activity as Activity exposing (..)
 import AppData exposing (..)
 import Browser
 import Browser.Dom
