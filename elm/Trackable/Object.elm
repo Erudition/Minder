@@ -1,5 +1,4 @@
-module Trackable.Object exposing (Trackable)
-
+module Trackable.Object exposing (Address, Birthday, ContactProperty(..), ContactPropertyName, PhoneNumber, attempt)
 
 -- type alias Trackable nameTags props =
 --     List ( nameTags, props )
@@ -13,25 +12,31 @@ module Trackable.Object exposing (Trackable)
 -- tagMatches : nameTag -> ( nameTag, prop ) -> Bool
 -- tagMatches targetName ( inputName, _ ) =
 --     targetName == inputName
-
 -- type alias Trackable props =
 --     List props
-
 -- get : List ContactProperty -> ContactPropertyName v -> v
 -- get = List.head (List.filter (tagMatches propNameTag) object)
 
-attempt : ContactProperty -> ContactPropertyName a -> Bool
-attempt prop (propName a) =
-    case prop of
-        propName a ->
+
+attempt : ContactProperty -> (a -> ContactProperty) -> Bool
+attempt prop propName =
+    case propName of
+        ContactName ->
             True
-        _ ->
+
+        ContactPhone a ->
             False
+
+        ContactBirthday a ->
+            True
+
+        ContactAddress a ->
+            False
+
+
 
 -- EXAMPLE USAGE -------------------------------------------
 -- The fake record:
-
-
 -- type alias Contact =
 --     Trackable ContactProperty
 
