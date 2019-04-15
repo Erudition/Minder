@@ -82,42 +82,32 @@ decodeCustomizations =
 encodeCustomizations : Customizations -> Encode.Value
 encodeCustomizations record =
     let
-        optionalsNestedLists =
-            List.map omittable (optionalsTriples record)
-
-        optionals =
-            List.foldl (++) [] optionalsNestedLists
-
         requireds =
             [ ( "template", encodeTemplate record.template )
             , ( "stock", Encode.bool record.stock )
             ]
     in
-    Encode.object (optionals ++ requireds)
+    Encode.object (optionals record ++ requireds)
 
 
-optionalsTriples : Customizations -> List ( String, a -> Encode.Value, Maybe a )
-optionalsTriples record =
-    [ ( "names", Encode.list Encode.string, record.names )
-    , ( "icon", encodeIcon, record.icon )
-    , ( "excusable", encodeExcusable, record.excusable )
-    , ( "taskOptional", Encode.bool, record.taskOptional )
-    , ( "evidence", Encode.list encodeEvidence, record.evidence )
-    , ( "category", encodeCategory, record.category )
-    , ( "backgroundable", Encode.bool, record.backgroundable )
-    , ( "maxTime", encodeDurationPerPeriod, record.maxTime )
-    , ( "hidden", Encode.bool, record.hidden )
-    ]
+optionals : Customizations -> List ( String, Encode.Value )
+optionals record =
+    List.filterMap identity
+        [ omittable ( "names", Encode.list Encode.string, record.names )
+        , omittable ( "icon", encodeIcon, record.icon )
+        , omittable ( "excusable", encodeExcusable, record.excusable )
+        , omittable ( "taskOptional", Encode.bool, record.taskOptional )
+        , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
+        , omittable ( "category", encodeCategory, record.category )
+        , omittable ( "backgroundable", Encode.bool, record.backgroundable )
+        , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
+        , omittable ( "hidden", Encode.bool, record.hidden )
+        ]
 
 
-omittable : ( String, a -> Encode.Value, Maybe a ) -> List ( String, Encode.Value )
-omittable ( tag, encoder, maybeValue ) =
-    case maybeValue of
-        Just foundValue ->
-            [ ( tag, encoder foundValue ) ]
-
-        Nothing ->
-            []
+omittable : ( String, a -> Encode.Value, Maybe a ) -> Maybe ( String, Encode.Value )
+omittable ( name, encoder, fieldToCheck ) =
+    Maybe.map (\field -> ( name, encoder field )) fieldToCheck
 
 
 
