@@ -61,53 +61,36 @@ type alias Customizations =
 
 decodeCustomizations : Decode.Decoder Customizations
 decodeCustomizations =
-    let
-        assumeNothing fieldName decoder =
-            Pipeline.optional fieldName (Decode.maybe decoder) Nothing
-    in
     decode Customizations
-        |> assumeNothing "names" (Decode.list Decode.string)
-        |> assumeNothing "icon" decodeIcon
-        |> assumeNothing "excusable" decodeExcusable
-        |> assumeNothing "taskOptional" Decode.bool
-        |> assumeNothing "evidence" (Decode.list decodeEvidence)
-        |> assumeNothing "category" decodeCategory
-        |> assumeNothing "backgroundable" Decode.bool
-        |> assumeNothing "maxTime" decodeDurationPerPeriod
-        |> assumeNothing "hidden" Decode.bool
+        |> ifPresent "names" (Decode.list Decode.string)
+        |> ifPresent "icon" decodeIcon
+        |> ifPresent "excusable" decodeExcusable
+        |> ifPresent "taskOptional" Decode.bool
+        |> ifPresent "evidence" (Decode.list decodeEvidence)
+        |> ifPresent "category" decodeCategory
+        |> ifPresent "backgroundable" Decode.bool
+        |> ifPresent "maxTime" decodeDurationPerPeriod
+        |> ifPresent "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
         |> Pipeline.required "stock" Decode.bool
 
 
 encodeCustomizations : Customizations -> Encode.Value
 encodeCustomizations record =
-    let
-        requireds =
-            [ ( "template", encodeTemplate record.template )
-            , ( "stock", Encode.bool record.stock )
+    Encode.object <|
+        omitNothings
+            [ normal ( "template", encodeTemplate record.template )
+            , normal ( "stock", Encode.bool record.stock )
+            , omittable ( "names", Encode.list Encode.string, record.names )
+            , omittable ( "icon", encodeIcon, record.icon )
+            , omittable ( "excusable", encodeExcusable, record.excusable )
+            , omittable ( "taskOptional", Encode.bool, record.taskOptional )
+            , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
+            , omittable ( "category", encodeCategory, record.category )
+            , omittable ( "backgroundable", Encode.bool, record.backgroundable )
+            , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
+            , omittable ( "hidden", Encode.bool, record.hidden )
             ]
-    in
-    Encode.object (optionals record ++ requireds)
-
-
-optionals : Customizations -> List ( String, Encode.Value )
-optionals record =
-    List.filterMap identity
-        [ omittable ( "names", Encode.list Encode.string, record.names )
-        , omittable ( "icon", encodeIcon, record.icon )
-        , omittable ( "excusable", encodeExcusable, record.excusable )
-        , omittable ( "taskOptional", Encode.bool, record.taskOptional )
-        , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
-        , omittable ( "category", encodeCategory, record.category )
-        , omittable ( "backgroundable", Encode.bool, record.backgroundable )
-        , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
-        , omittable ( "hidden", Encode.bool, record.hidden )
-        ]
-
-
-omittable : ( String, a -> Encode.Value, Maybe a ) -> Maybe ( String, Encode.Value )
-omittable ( name, encoder, fieldToCheck ) =
-    Maybe.map (\field -> ( name, encoder field )) fieldToCheck
 
 
 
@@ -232,6 +215,7 @@ decodeIcon =
         ]
 
 
+decodeFile : Decoder Icon
 decodeFile =
     Decode.map File Decode.string
 
