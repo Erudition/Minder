@@ -2,6 +2,7 @@ module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromSc
 
 import Activity.Activity as Activity exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
+import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
@@ -35,12 +36,12 @@ fromScratch =
 
 decodeAppData : Decoder AppData
 decodeAppData =
-    Decode.map5 AppData
-        (field "uid" Decode.int)
-        (field "errors" (Decode.list Decode.string))
-        (field "tasks" (Decode.list decodeTask))
-        (field "activities" Activity.decodeStoredActivities)
-        (field "timeline" (Decode.list decodeSwitch))
+    Pipeline.decode AppData
+        |> required "uid" Decode.int
+        |> optional "errors" (Decode.list Decode.string) []
+        |> optional "tasks" (Decode.list decodeTask) []
+        |> optional "activities" Activity.decodeStoredActivities []
+        |> optional "timeline" (Decode.list decodeSwitch) []
 
 
 encodeAppData : AppData -> Encode.Value
@@ -59,9 +60,9 @@ encodeAppData record =
 
 saveWarnings : AppData -> Decode.Warnings -> AppData
 saveWarnings appData warnings =
-    { appData | errors = appData.errors ++ [ Decode.warningsToString warnings ] }
+    { appData | errors = [ Decode.warningsToString warnings ] ++ appData.errors }
 
 
 saveErrors : AppData -> Decode.Errors -> AppData
 saveErrors appData errors =
-    { appData | errors = appData.errors ++ [ Decode.errorsToString errors ] }
+    { appData | errors = [ Decode.errorsToString errors ] ++ appData.errors }

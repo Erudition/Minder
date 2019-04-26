@@ -5831,11 +5831,11 @@ var author$project$AppData$saveErrors = F2(
 			appData,
 			{
 				errors: _Utils_ap(
-					appData.errors,
 					_List_fromArray(
 						[
 							zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors)
-						]))
+						]),
+					appData.errors)
 			});
 	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$warningToString = function (warning) {
@@ -5881,11 +5881,11 @@ var author$project$AppData$saveWarnings = F2(
 			appData,
 			{
 				errors: _Utils_ap(
-					appData.errors,
 					_List_fromArray(
 						[
 							zwilias$json_decode_exploration$Json$Decode$Exploration$warningsToString(warnings)
-						]))
+						]),
+					appData.errors)
 			});
 	});
 var author$project$Environment$Environment = F3(
@@ -7330,39 +7330,31 @@ var author$project$Task$Task$decodeTask = A3(
 														'title',
 														zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$Task$Task$Task)))))))))))))));
-var zwilias$json_decode_exploration$Json$Decode$Exploration$map5 = F6(
-	function (f, decoderA, decoderB, decoderC, decoderD, decoderE) {
-		return A2(
-			zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
-			decoderE,
-			A2(
-				zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
-				decoderD,
-				A2(
-					zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
-					decoderC,
-					A2(
-						zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
-						decoderB,
-						A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, f, decoderA)))));
-	});
-var author$project$AppData$decodeAppData = A6(
-	zwilias$json_decode_exploration$Json$Decode$Exploration$map5,
-	author$project$AppData$AppData,
-	A2(zwilias$json_decode_exploration$Json$Decode$Exploration$field, 'uid', zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-	A2(
-		zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-		'errors',
-		zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$string)),
-	A2(
-		zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-		'tasks',
-		zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeTask)),
-	A2(zwilias$json_decode_exploration$Json$Decode$Exploration$field, 'activities', author$project$Activity$Activity$decodeStoredActivities),
-	A2(
-		zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-		'timeline',
-		zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Activity$Activity$decodeSwitch)));
+var author$project$AppData$decodeAppData = A4(
+	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+	'timeline',
+	zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Activity$Activity$decodeSwitch),
+	_List_Nil,
+	A4(
+		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+		'activities',
+		author$project$Activity$Activity$decodeStoredActivities,
+		_List_Nil,
+		A4(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+			'tasks',
+			zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeTask),
+			_List_Nil,
+			A4(
+				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+				'errors',
+				zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				_List_Nil,
+				A3(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+					'uid',
+					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$AppData$AppData))))));
 var elm$json$Json$Decode$decodeString = _Json_runOnString;
 var elm$json$Json$Decode$value = _Json_decodeValue;
 var zwilias$json_decode_exploration$Json$Decode$Exploration$BadJson = {$: 'BadJson'};
