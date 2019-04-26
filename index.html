@@ -16,12 +16,12 @@
 
 <script type="text/javascript">
 
-var storedState = localStorage.getItem('docket-app-data');
+var storedState = localStorage.getItem('docket-v0.1-data');
 //var startingState = storedState ? JSON.parse(storedState) : null;
 var startingState = storedState ? storedState : null;
 var app = Elm.Main.init({ flags: startingState });
 app.ports.setStorage.subscribe(function(state) {
-    localStorage.setItem('docket-app-data', state);
+    localStorage.setItem('docket-v0.1-data', state);
 });//was JSON.stringify(state)
 
 app.ports.flash.subscribe(function(data) {
@@ -29,6 +29,6 @@ app.ports.flash.subscribe(function(data) {
   console.log(data);
 });
 </script>
-<!-- <script type="text/javascript" src="tasker.js"></script> -->
+<script type="text/javascript" src="tasker.js"></script>
 
 </html>

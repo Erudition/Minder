@@ -7598,35 +7598,30 @@ var author$project$Environment$preInit = function (key) {
 		timeZone: elm$time$Time$utc
 	};
 };
-var author$project$Main$TaskList = function (a) {
-	return {$: 'TaskList', a: a};
+var author$project$Main$TimeTracker = function (a) {
+	return {$: 'TimeTracker', a: a};
 };
 var author$project$Main$ViewState = F2(
 	function (primaryView, uid) {
 		return {primaryView: primaryView, uid: uid};
 	});
-var author$project$TaskList$AllTasks = {$: 'AllTasks'};
-var author$project$TaskList$Normal = F3(
-	function (a, b, c) {
-		return {$: 'Normal', a: a, b: b, c: c};
-	});
-var author$project$TaskList$defaultView = A3(
-	author$project$TaskList$Normal,
-	_List_fromArray(
-		[author$project$TaskList$AllTasks]),
-	elm$core$Maybe$Nothing,
-	'');
+var author$project$TimeTracker$Normal = {$: 'Normal'};
+var author$project$TimeTracker$defaultView = author$project$TimeTracker$Normal;
 var author$project$Main$defaultView = A2(
 	author$project$Main$ViewState,
-	author$project$Main$TaskList(author$project$TaskList$defaultView),
+	author$project$Main$TimeTracker(author$project$TimeTracker$defaultView),
 	0);
-var author$project$Main$TimeTracker = function (a) {
-	return {$: 'TimeTracker', a: a};
+var author$project$Main$TaskList = function (a) {
+	return {$: 'TaskList', a: a};
 };
 var author$project$Main$screenToViewState = function (screen) {
 	return {primaryView: screen, uid: 0};
 };
 var author$project$TaskList$IncompleteTasksOnly = {$: 'IncompleteTasksOnly'};
+var author$project$TaskList$Normal = F3(
+	function (a, b, c) {
+		return {$: 'Normal', a: a, b: b, c: c};
+	});
 var elm$url$Url$Parser$Parser = function (a) {
 	return {$: 'Parser', a: a};
 };
@@ -7701,7 +7696,6 @@ var author$project$TaskList$routeView = A2(
 		elm$core$Maybe$Nothing,
 		'Test'),
 	elm$url$Url$Parser$s('tasks'));
-var author$project$TimeTracker$Normal = {$: 'Normal'};
 var author$project$TimeTracker$routeView = A2(
 	elm$url$Url$Parser$map,
 	author$project$TimeTracker$Normal,
@@ -12997,7 +12991,8 @@ var author$project$Main$update = F2(
 		var justSetEnv = function (newEnv) {
 			return _Utils_Tuple2(
 				A3(author$project$Main$Model, viewState, appData, newEnv),
-				elm$core$Platform$Cmd$none);
+				author$project$TaskerShim$flash(
+					elm$json$Json$Encode$string('Hello World!')));
 		};
 		var justRunCommand = function (command) {
 			return _Utils_Tuple2(model, command);
@@ -13043,8 +13038,7 @@ var author$project$Main$update = F2(
 							{
 								viewState: author$project$Main$viewUrl(url)
 							}),
-						author$project$TaskerShim$flash(
-							elm$json$Json$Encode$string('Hello World!')));
+						elm$core$Platform$Cmd$none);
 				case 'TaskListMsg':
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
@@ -13242,6 +13236,7 @@ var author$project$Main$infoFooter = A2(
 						]))
 				]))
 		]));
+var author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var author$project$TaskList$DeleteComplete = {$: 'DeleteComplete'};
 var rtfeldman$elm_css$Html$Styled$button = rtfeldman$elm_css$Html$Styled$node('button');
 var rtfeldman$elm_css$Html$Styled$Attributes$boolProperty = F2(
