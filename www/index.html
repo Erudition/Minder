@@ -24,7 +24,8 @@ app.ports.setStorage.subscribe(function(state) {
 });//was JSON.stringify(state)
 
 app.ports.flash.subscribe(function(data) {
-  tk.flash(data)
+  tk.flash(data);
+  console.log(data);
 });
 </script>
 <script type="text/javascript" src="tasker.js"></script>

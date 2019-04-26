@@ -326,7 +326,7 @@ update msg ({ viewState, appData, environment } as model) =
 
         -- TODO should we also insert Nav command to hide extra stuff from address bar after nav, while still updating the viewState?
         ( NewUrl url, _ ) ->
-            ( { model | viewState = viewUrl url }, Cmd.none )
+            ( { model | viewState = viewUrl url }, TaskerShim.flash (Encode.string "Hello World!") )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
