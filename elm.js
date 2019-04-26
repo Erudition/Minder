@@ -8934,8 +8934,8 @@ var author$project$Activity$Activity$encodeDurationPerPeriod = function (v) {
 	return _Debug_todo(
 		'Activity.Activity',
 		{
-			start: {line: 221, column: 5},
-			end: {line: 221, column: 15}
+			start: {line: 222, column: 5},
+			end: {line: 222, column: 15}
 		})('encode duration');
 };
 var author$project$Activity$Activity$encodeEvidence = function (v) {
@@ -12939,7 +12939,1086 @@ var author$project$TaskList$update = F4(
 				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$TaskerShim$flash = _Platform_outgoingPort('flash', elm$core$Basics$identity);
+var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$core$Basics$identity);
+var author$project$External$Commands$toast = function (message) {
+	return author$project$External$Tasker$flash(message);
+};
+var author$project$Activity$Activity$defaults = function (startWith) {
+	switch (startWith.$) {
+		case 'DillyDally':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('shrugging-attempt.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Nothing', 'Dilly-dally', 'Distracted']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Apparel':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Hygiene,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
+				hidden: false,
+				icon: author$project$Activity$Activity$File('shirt.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Appareling', 'Dressing', 'Getting Dressed']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Messaging':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Communication,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour))),
+				hidden: false,
+				icon: author$project$Activity$Activity$File('messaging.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
+					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Messaging', 'Texting', 'Chatting']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Restroom':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						_Utils_Tuple2(20, justinmimbs$time_extra$Time$Extra$Minute),
+						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Restroom', 'Toilet', 'WC']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Grooming':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Grooming', 'Tending', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Meal':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Meal', 'Eating', 'Food']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Supplements':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Supplements', 'Pills', 'Medication']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Workout':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Workout', 'Working Out', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Shower':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Shower', 'Bathing', 'Showering']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Toothbrush':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Toothbrush', 'Teeth', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Floss':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Floss', 'Flossing', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Wakeup':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Wakeup', 'Waking Up', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Sleep':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Sleep', 'Sleeping', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Plan':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Plan', 'Planning', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Configure':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Configure', 'Configuring', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Email':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Email', 'E-Mail', 'E-mail', 'Emailing']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Work':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Work', 'Working', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Call':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Call', 'Calling', 'Phone Call', 'Phone']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Chores':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Chore', 'Chores', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Parents':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Parents', 'Parent Time', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Prepare':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Prepare', 'Preparing', 'Preparation']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Lover':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Lover', 'S.O.', 'Partner Time']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Driving':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Transit,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Driving', 'Drive', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Riding':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Riding', 'Ride', 'Passenger']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'SocialMedia':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Social Media']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Pacing':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Pacing', 'Pace']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Sport':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Sport', 'Sports', 'Playing Sports']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Finance':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Finance', 'Financial', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Laundry':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Laundry']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Bedward':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Bedward', 'Bedward-bound', 'Going to Bed']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Browse':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Browse', 'Browsing']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Fiction':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Fiction', 'Reading Fiction']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Learning':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Learn', 'Learning']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'BrainTrain':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Brain Training', 'Braining', 'Brain Train']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Music':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Music', 'Music Listening']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Create':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Create', 'Creating', 'Creation', 'Making']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Children':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Children', 'Kids', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Meeting':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Meeting', 'Meet', 'Meetings']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Cinema':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Cinema', 'Movies', 'Movie Theatre', 'Movie Theater']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'FilmWatching':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Films', 'Film Watching', 'Watching Movies']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Series':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Series', 'TV Shows', 'TV Series']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Broadcast':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Broadcast', '', '']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Theatre':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Theatre', 'Play', 'Play/Musical', 'Drama']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Shopping':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Shopping', 'Shop']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'VideoGaming':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Video', 'Video Gaming', 'Gaming']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Housekeeping':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Housekeeping']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'MealPrep':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Meal Prep', 'Cooking', 'Food making']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Networking':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Networking']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Meditate':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Meditate', 'Meditation', 'Meditating']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Homework':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Homework', 'Schoolwork']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Flight':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Flight', 'Aviation', 'Flying', 'Airport']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Course':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Course', 'Courses', 'Classes', 'Class']),
+				taskOptional: true,
+				template: startWith
+			};
+		case 'Pet':
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Pet', 'Pets', 'Pet Care']),
+				taskOptional: true,
+				template: startWith
+			};
+		default:
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$NeverExcused,
+				hidden: false,
+				icon: author$project$Activity$Activity$File('presentation.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
+					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+				names: _List_fromArray(
+					['Presentation', 'Presenting', 'Present']),
+				taskOptional: true,
+				template: startWith
+			};
+	}
+};
+var author$project$Activity$Activity$isStock = function (activity) {
+	var _n0 = activity.id;
+	if (_n0.$ === 'Stock') {
+		var template = _n0.a;
+		return true;
+	} else {
+		var _int = _n0.a;
+		return false;
+	}
+};
+var author$project$Activity$Activity$withTemplate = function (delta) {
+	var over = F2(
+		function (b, s) {
+			return A2(elm$core$Maybe$withDefault, b, s);
+		});
+	var base = author$project$Activity$Activity$defaults(delta.template);
+	return {
+		backgroundable: A2(over, base.backgroundable, delta.backgroundable),
+		category: A2(over, base.category, delta.category),
+		evidence: A2(over, base.evidence, delta.evidence),
+		excusable: A2(over, base.excusable, delta.excusable),
+		hidden: A2(over, base.hidden, delta.hidden),
+		icon: A2(over, base.icon, delta.icon),
+		id: delta.id,
+		maxTime: A2(over, base.maxTime, delta.maxTime),
+		names: A2(over, base.names, delta.names),
+		taskOptional: A2(over, base.taskOptional, delta.taskOptional),
+		template: delta.template
+	};
+};
+var author$project$Activity$Template$stockActivities = _List_fromArray(
+	[author$project$Activity$Template$DillyDally, author$project$Activity$Template$Apparel, author$project$Activity$Template$Messaging, author$project$Activity$Template$Restroom, author$project$Activity$Template$Grooming, author$project$Activity$Template$Meal, author$project$Activity$Template$Supplements, author$project$Activity$Template$Workout, author$project$Activity$Template$Shower, author$project$Activity$Template$Toothbrush, author$project$Activity$Template$Floss, author$project$Activity$Template$Wakeup, author$project$Activity$Template$Sleep, author$project$Activity$Template$Plan, author$project$Activity$Template$Configure, author$project$Activity$Template$Email, author$project$Activity$Template$Work, author$project$Activity$Template$Call, author$project$Activity$Template$Chores, author$project$Activity$Template$Parents, author$project$Activity$Template$Prepare, author$project$Activity$Template$Lover, author$project$Activity$Template$Driving, author$project$Activity$Template$Riding, author$project$Activity$Template$SocialMedia, author$project$Activity$Template$Pacing, author$project$Activity$Template$Sport, author$project$Activity$Template$Finance, author$project$Activity$Template$Laundry, author$project$Activity$Template$Bedward, author$project$Activity$Template$Browse, author$project$Activity$Template$Fiction, author$project$Activity$Template$Learning, author$project$Activity$Template$BrainTrain, author$project$Activity$Template$Music, author$project$Activity$Template$Create, author$project$Activity$Template$Children, author$project$Activity$Template$Meeting, author$project$Activity$Template$Cinema, author$project$Activity$Template$FilmWatching, author$project$Activity$Template$Series, author$project$Activity$Template$Broadcast, author$project$Activity$Template$Theatre, author$project$Activity$Template$Shopping, author$project$Activity$Template$VideoGaming, author$project$Activity$Template$Housekeeping, author$project$Activity$Template$MealPrep, author$project$Activity$Template$Networking, author$project$Activity$Template$Meditate, author$project$Activity$Template$Homework, author$project$Activity$Template$Flight, author$project$Activity$Template$Course, author$project$Activity$Template$Pet, author$project$Activity$Template$Presentation]);
+var elm$core$List$any = F2(
+	function (isOkay, list) {
+		any:
+		while (true) {
+			if (!list.b) {
+				return false;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				if (isOkay(x)) {
+					return true;
+				} else {
+					var $temp$isOkay = isOkay,
+						$temp$list = xs;
+					isOkay = $temp$isOkay;
+					list = $temp$list;
+					continue any;
+				}
+			}
+		}
+	});
+var elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
+var author$project$Activity$Activity$allActivities = function (stored) {
+	var customizedActivities = A2(elm$core$List$map, author$project$Activity$Activity$withTemplate, stored);
+	var customizedStockActivities = A2(elm$core$List$filter, author$project$Activity$Activity$isStock, customizedActivities);
+	var templatesCovered = A2(
+		elm$core$List$map,
+		function ($) {
+			return $.template;
+		},
+		customizedStockActivities);
+	var templateMissing = function (template) {
+		return !A2(elm$core$List$member, template, templatesCovered);
+	};
+	var remainingActivities = A2(
+		elm$core$List$map,
+		author$project$Activity$Activity$defaults,
+		A2(elm$core$List$filter, templateMissing, author$project$Activity$Template$stockActivities));
+	return _Utils_ap(customizedActivities, remainingActivities);
+};
+var elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return elm$core$Maybe$Just(x);
+	} else {
+		return elm$core$Maybe$Nothing;
+	}
+};
+var author$project$Activity$Activity$getActivity = F2(
+	function (activities, activityId) {
+		var matches = function (act) {
+			return _Utils_eq(act.id, activityId);
+		};
+		return A2(
+			elm$core$Maybe$withDefault,
+			author$project$Activity$Activity$defaults(author$project$Activity$Template$DillyDally),
+			elm$core$List$head(
+				A2(elm$core$List$filter, matches, activities)));
+	});
+var author$project$Activity$Activity$getName = function (activity) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		'?',
+		elm$core$List$head(activity.names));
+};
+var author$project$Activity$Activity$latestSwitch = function (timeline) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		A2(
+			author$project$Activity$Activity$Switch,
+			elm$time$Time$millisToPosix(0),
+			author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally)),
+		elm$core$List$head(timeline));
+};
+var author$project$Activity$Activity$currentActivityId = function (switchList) {
+	var getId = function (_n0) {
+		var activityId = _n0.b;
+		return activityId;
+	};
+	return getId(
+		author$project$Activity$Activity$latestSwitch(switchList));
+};
+var author$project$Activity$Activity$currentActivity = F2(
+	function (activities, switchList) {
+		return A2(
+			author$project$Activity$Activity$getActivity,
+			activities,
+			author$project$Activity$Activity$currentActivityId(switchList));
+	});
+var author$project$TimeTracker$currentActivity = function (app) {
+	return A2(
+		author$project$Activity$Activity$currentActivity,
+		author$project$Activity$Activity$allActivities(app.activities),
+		app.timeline);
+};
+var author$project$TimeTracker$beforeAndAfter = F2(
+	function (app, newId) {
+		return author$project$Activity$Activity$getName(
+			author$project$TimeTracker$currentActivity(app)) + (' -> ' + author$project$Activity$Activity$getName(
+			A2(
+				author$project$Activity$Activity$getActivity,
+				author$project$Activity$Activity$allActivities(app.activities),
+				newId)));
+	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
 		if (msg.$ === 'NoOp') {
@@ -12956,7 +14035,9 @@ var author$project$TimeTracker$update = F4(
 							A2(author$project$Activity$Activity$Switch, env.time, activityId),
 							app.timeline)
 					}),
-				elm$core$Platform$Cmd$none);
+				author$project$External$Commands$toast(
+					elm$json$Json$Encode$string(
+						A2(author$project$TimeTracker$beforeAndAfter, app, activityId))));
 		}
 	});
 var elm$browser$Browser$Navigation$load = _Browser_load;
@@ -13013,8 +14094,7 @@ var author$project$Main$update = F2(
 		var justSetEnv = function (newEnv) {
 			return _Utils_Tuple2(
 				A3(author$project$Main$Model, viewState, appData, newEnv),
-				author$project$TaskerShim$flash(
-					elm$json$Json$Encode$string('Hello World!')));
+				elm$core$Platform$Cmd$none);
 		};
 		var justRunCommand = function (command) {
 			return _Utils_Tuple2(model, command);
@@ -13357,36 +14437,6 @@ var author$project$TaskList$filterName = function (filter) {
 			return 'Remaining';
 	}
 };
-var elm$core$List$any = F2(
-	function (isOkay, list) {
-		any:
-		while (true) {
-			if (!list.b) {
-				return false;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				if (isOkay(x)) {
-					return true;
-				} else {
-					var $temp$isOkay = isOkay,
-						$temp$list = xs;
-					isOkay = $temp$isOkay;
-					list = $temp$list;
-					continue any;
-				}
-			}
-		}
-	});
-var elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
 var rtfeldman$elm_css$Html$Styled$Attributes$classList = function (classes) {
 	return rtfeldman$elm_css$Html$Styled$Attributes$class(
 		A2(
@@ -13728,15 +14778,6 @@ var rtfeldman$elm_css$Css$Preprocess$stylesheet = function (snippets) {
 var rtfeldman$elm_css$Css$Preprocess$unwrapSnippet = function (_n0) {
 	var declarations = _n0.a;
 	return declarations;
-};
-var elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return elm$core$Maybe$Just(x);
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
 };
 var elm$core$List$tail = function (list) {
 	if (list.b) {
@@ -17338,1008 +18379,8 @@ var author$project$TaskList$view = F3(
 						]))
 				]));
 	});
-var author$project$Activity$Activity$defaults = function (startWith) {
-	switch (startWith.$) {
-		case 'DillyDally':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('shrugging-attempt.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Nothing', 'Dilly-dally', 'Distracted']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Apparel':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Hygiene,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$TemporarilyExcused(
-					_Utils_Tuple2(
-						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
-				hidden: false,
-				icon: author$project$Activity$Activity$File('shirt.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Appareling', 'Dressing', 'Getting Dressed']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Messaging':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Communication,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$TemporarilyExcused(
-					_Utils_Tuple2(
-						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour))),
-				hidden: false,
-				icon: author$project$Activity$Activity$File('messaging.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Messaging', 'Texting', 'Chatting']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Restroom':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$TemporarilyExcused(
-					_Utils_Tuple2(
-						_Utils_Tuple2(20, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Restroom', 'Toilet', 'WC']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Grooming':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Grooming', 'Tending', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Meal':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Meal', 'Eating', 'Food']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Supplements':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Supplements', 'Pills', 'Medication']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Workout':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Workout', 'Working Out', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Shower':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Shower', 'Bathing', 'Showering']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Toothbrush':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Toothbrush', 'Teeth', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Floss':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Floss', 'Flossing', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Wakeup':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Wakeup', 'Waking Up', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Sleep':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Sleep', 'Sleeping', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Plan':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Plan', 'Planning', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Configure':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Configure', 'Configuring', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Email':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Email', 'E-Mail', 'E-mail', 'Emailing']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Work':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Work', 'Working', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Call':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Call', 'Calling', 'Phone Call', 'Phone']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Chores':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Chore', 'Chores', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Parents':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Parents', 'Parent Time', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Prepare':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Prepare', 'Preparing', 'Preparation']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Lover':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Lover', 'S.O.', 'Partner Time']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Driving':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Transit,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Driving', 'Drive', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Riding':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Riding', 'Ride', 'Passenger']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'SocialMedia':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Social Media']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Pacing':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Pacing', 'Pace']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Sport':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Sport', 'Sports', 'Playing Sports']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Finance':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Finance', 'Financial', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Laundry':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Laundry']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Bedward':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Bedward', 'Bedward-bound', 'Going to Bed']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Browse':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Browse', 'Browsing']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Fiction':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Fiction', 'Reading Fiction']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Learning':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Learn', 'Learning']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'BrainTrain':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Brain Training', 'Braining', 'Brain Train']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Music':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Music', 'Music Listening']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Create':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Create', 'Creating', 'Creation', 'Making']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Children':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Children', 'Kids', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Meeting':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Meeting', 'Meet', 'Meetings']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Cinema':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Cinema', 'Movies', 'Movie Theatre', 'Movie Theater']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'FilmWatching':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Films', 'Film Watching', 'Watching Movies']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Series':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Series', 'TV Shows', 'TV Series']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Broadcast':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Broadcast', '', '']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Theatre':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Theatre', 'Play', 'Play/Musical', 'Drama']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Shopping':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Shopping', 'Shop']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'VideoGaming':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Video', 'Video Gaming', 'Gaming']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Housekeeping':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Housekeeping']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'MealPrep':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Meal Prep', 'Cooking', 'Food making']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Networking':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Networking']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Meditate':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Meditate', 'Meditation', 'Meditating']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Homework':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Homework', 'Schoolwork']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Flight':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Flight', 'Aviation', 'Flying', 'Airport']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Course':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Course', 'Courses', 'Classes', 'Class']),
-				taskOptional: true,
-				template: startWith
-			};
-		case 'Pet':
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('unknown.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Pet', 'Pets', 'Pet Care']),
-				taskOptional: true,
-				template: startWith
-			};
-		default:
-			return {
-				backgroundable: false,
-				category: author$project$Activity$Activity$Slacking,
-				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
-				icon: author$project$Activity$Activity$File('presentation.svg'),
-				id: author$project$Activity$Activity$Stock(startWith),
-				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
-				names: _List_fromArray(
-					['Presentation', 'Presenting', 'Present']),
-				taskOptional: true,
-				template: startWith
-			};
-	}
-};
-var author$project$Activity$Activity$isStock = function (activity) {
-	var _n0 = activity.id;
-	if (_n0.$ === 'Stock') {
-		var template = _n0.a;
-		return true;
-	} else {
-		var _int = _n0.a;
-		return false;
-	}
-};
-var author$project$Activity$Activity$withTemplate = function (delta) {
-	var over = F2(
-		function (b, s) {
-			return A2(elm$core$Maybe$withDefault, b, s);
-		});
-	var base = author$project$Activity$Activity$defaults(delta.template);
-	return {
-		backgroundable: A2(over, base.backgroundable, delta.backgroundable),
-		category: A2(over, base.category, delta.category),
-		evidence: A2(over, base.evidence, delta.evidence),
-		excusable: A2(over, base.excusable, delta.excusable),
-		hidden: A2(over, base.hidden, delta.hidden),
-		icon: A2(over, base.icon, delta.icon),
-		id: delta.id,
-		maxTime: A2(over, base.maxTime, delta.maxTime),
-		names: A2(over, base.names, delta.names),
-		taskOptional: A2(over, base.taskOptional, delta.taskOptional),
-		template: delta.template
-	};
-};
-var author$project$Activity$Template$stockActivities = _List_fromArray(
-	[author$project$Activity$Template$DillyDally, author$project$Activity$Template$Apparel, author$project$Activity$Template$Messaging, author$project$Activity$Template$Restroom, author$project$Activity$Template$Grooming, author$project$Activity$Template$Meal, author$project$Activity$Template$Supplements, author$project$Activity$Template$Workout, author$project$Activity$Template$Shower, author$project$Activity$Template$Toothbrush, author$project$Activity$Template$Floss, author$project$Activity$Template$Wakeup, author$project$Activity$Template$Sleep, author$project$Activity$Template$Plan, author$project$Activity$Template$Configure, author$project$Activity$Template$Email, author$project$Activity$Template$Work, author$project$Activity$Template$Call, author$project$Activity$Template$Chores, author$project$Activity$Template$Parents, author$project$Activity$Template$Prepare, author$project$Activity$Template$Lover, author$project$Activity$Template$Driving, author$project$Activity$Template$Riding, author$project$Activity$Template$SocialMedia, author$project$Activity$Template$Pacing, author$project$Activity$Template$Sport, author$project$Activity$Template$Finance, author$project$Activity$Template$Laundry, author$project$Activity$Template$Bedward, author$project$Activity$Template$Browse, author$project$Activity$Template$Fiction, author$project$Activity$Template$Learning, author$project$Activity$Template$BrainTrain, author$project$Activity$Template$Music, author$project$Activity$Template$Create, author$project$Activity$Template$Children, author$project$Activity$Template$Meeting, author$project$Activity$Template$Cinema, author$project$Activity$Template$FilmWatching, author$project$Activity$Template$Series, author$project$Activity$Template$Broadcast, author$project$Activity$Template$Theatre, author$project$Activity$Template$Shopping, author$project$Activity$Template$VideoGaming, author$project$Activity$Template$Housekeeping, author$project$Activity$Template$MealPrep, author$project$Activity$Template$Networking, author$project$Activity$Template$Meditate, author$project$Activity$Template$Homework, author$project$Activity$Template$Flight, author$project$Activity$Template$Course, author$project$Activity$Template$Pet, author$project$Activity$Template$Presentation]);
-var author$project$Activity$Activity$allActivities = function (stored) {
-	var customizedActivities = A2(elm$core$List$map, author$project$Activity$Activity$withTemplate, stored);
-	var customizedStockActivities = A2(elm$core$List$filter, author$project$Activity$Activity$isStock, customizedActivities);
-	var templatesCovered = A2(
-		elm$core$List$map,
-		function ($) {
-			return $.template;
-		},
-		customizedStockActivities);
-	var templateMissing = function (template) {
-		return !A2(elm$core$List$member, template, templatesCovered);
-	};
-	var remainingActivities = A2(
-		elm$core$List$map,
-		author$project$Activity$Activity$defaults,
-		A2(elm$core$List$filter, templateMissing, author$project$Activity$Template$stockActivities));
-	return _Utils_ap(customizedActivities, remainingActivities);
-};
 var author$project$Activity$Activity$showing = function (activity) {
 	return !activity.hidden;
-};
-var author$project$Activity$Activity$getName = function (activity) {
-	return A2(
-		elm$core$Maybe$withDefault,
-		'?',
-		elm$core$List$head(activity.names));
-};
-var author$project$Activity$Activity$currentActivity = function (switchList) {
-	var getId = function (_n0) {
-		var activityId = _n0.b;
-		return activityId;
-	};
-	return A2(
-		elm$core$Maybe$withDefault,
-		author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally),
-		A2(
-			elm$core$Maybe$map,
-			getId,
-			elm$core$List$head(switchList)));
 };
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
@@ -18387,7 +18428,7 @@ var author$project$TimeTracker$viewActivity = F2(
 									_Utils_Tuple2(
 									'current',
 									_Utils_eq(
-										author$project$Activity$Activity$currentActivity(app.timeline),
+										author$project$TimeTracker$currentActivity(app).id,
 										activity.id))
 								])),
 							rtfeldman$elm_css$Html$Styled$Events$onClick(
