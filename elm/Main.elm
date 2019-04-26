@@ -180,7 +180,7 @@ type alias ViewState =
 
 emptyViewState : ViewState
 emptyViewState =
-    { primaryView = TaskList TaskList.defaultView
+    { primaryView = TimeTracker TimeTracker.defaultView
     , uid = 0
     }
 
@@ -345,6 +345,13 @@ update msg ({ viewState, appData, environment } as model) =
                     TaskList.update subMsg subViewState appData environment
             in
             ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
+
+        ( TimeTrackerMsg subMsg, TimeTracker subViewState ) ->
+            let
+                ( newState, newApp, newCommand ) =
+                    TimeTracker.update subMsg subViewState appData environment
+            in
+            ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
 
         ( _, _ ) ->
             ( model, Cmd.none )

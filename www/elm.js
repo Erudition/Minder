@@ -9282,6 +9282,9 @@ var author$project$Main$Model = F3(
 var author$project$Main$TaskListMsg = function (a) {
 	return {$: 'TaskListMsg', a: a};
 };
+var author$project$Main$TimeTrackerMsg = function (a) {
+	return {$: 'TimeTrackerMsg', a: a};
+};
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
 		case 'None':
@@ -12937,6 +12940,25 @@ var author$project$TaskList$update = F4(
 		}
 	});
 var author$project$TaskerShim$flash = _Platform_outgoingPort('flash', elm$core$Basics$identity);
+var author$project$TimeTracker$update = F4(
+	function (msg, state, app, env) {
+		if (msg.$ === 'NoOp') {
+			return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+		} else {
+			var activityId = msg.a;
+			return _Utils_Tuple3(
+				state,
+				_Utils_update(
+					app,
+					{
+						timeline: A2(
+							elm$core$List$cons,
+							A2(author$project$Activity$Activity$Switch, env.time, activityId),
+							app.timeline)
+					}),
+				elm$core$Platform$Cmd$none);
+		}
+	});
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var elm$url$Url$addPort = F2(
@@ -12998,7 +13020,7 @@ var author$project$Main$update = F2(
 			return _Utils_Tuple2(model, command);
 		};
 		var _n0 = _Utils_Tuple2(msg, viewState.primaryView);
-		_n0$6:
+		_n0$7:
 		while (true) {
 			switch (_n0.a.$) {
 				case 'NoOp':
@@ -13058,10 +13080,31 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
 					} else {
-						break _n0$6;
+						break _n0$7;
+					}
+				case 'TimeTrackerMsg':
+					if (_n0.b.$ === 'TimeTracker') {
+						var subMsg = _n0.a.a;
+						var subViewState = _n0.b.a;
+						var _n4 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n4.a;
+						var newApp = _n4.b;
+						var newCommand = _n4.c;
+						return _Utils_Tuple2(
+							A3(
+								author$project$Main$Model,
+								A2(
+									author$project$Main$ViewState,
+									author$project$Main$TimeTracker(newState),
+									0),
+								newApp,
+								environment),
+							A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
+					} else {
+						break _n0$7;
 					}
 				default:
-					break _n0$6;
+					break _n0$7;
 			}
 		}
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -13119,9 +13162,6 @@ var author$project$Main$updateWithStorage = F2(
 						cmds
 					])));
 	});
-var author$project$Main$TimeTrackerMsg = function (a) {
-	return {$: 'TimeTrackerMsg', a: a};
-};
 var rtfeldman$elm_css$VirtualDom$Styled$Node = F3(
 	function (a, b, c) {
 		return {$: 'Node', a: a, b: b, c: c};
