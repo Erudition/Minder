@@ -154,7 +154,7 @@ update msg state app env =
 
 beforeAndAfter : AppData -> ActivityId -> String
 beforeAndAfter app newId =
-    getName (currentActivity app) ++ " -> " ++ getName (getActivity (allActivities app.activities) newId)
+    getName (currentActivity app) ++ " ➤ " ++ getName (getActivity (allActivities app.activities) newId)
 
 
 currentActivity : AppData -> Activity
