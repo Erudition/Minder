@@ -77,7 +77,7 @@ viewActivities env app =
     section
         [ class "main" ]
         [ Keyed.ul [ class "activity-list" ] <|
-            List.map (viewKeyedActivity env) (List.filter Activity.showing (allActivities app.activities))
+            List.map (viewKeyedActivity app env) (List.filter Activity.showing (allActivities app.activities))
         ]
 
 
@@ -85,17 +85,20 @@ viewActivities env app =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedActivity : Environment -> Activity -> ( String, Html Msg )
-viewKeyedActivity env activity =
-    ( Activity.getName activity, lazy2 viewActivity env activity )
+viewKeyedActivity : AppData -> Environment -> Activity -> ( String, Html Msg )
+viewKeyedActivity app env activity =
+    ( Activity.getName activity, lazy2 viewActivity app activity )
 
 
-viewActivity : Environment -> Activity -> Html Msg
-viewActivity env activity =
+viewActivity : AppData -> Activity -> Html Msg
+viewActivity app activity =
     li
         [ class "activity" ]
         [ button
-            [ class "activity-button" ]
+            [ class "activity-button"
+            , classList [ ( "current", currentActivity app.timeline == activity.id ) ]
+            , onClick (StartTracking activity.id)
+            ]
             [ label
                 []
                 [ viewIcon activity.icon
@@ -129,6 +132,7 @@ viewIcon icon =
 
 type Msg
     = NoOp
+    | StartTracking ActivityId
 
 
 update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
@@ -137,5 +141,11 @@ update msg state app env =
         NoOp ->
             ( state
             , app
+            , Cmd.none
+            )
+
+        StartTracking activityId ->
+            ( state
+            , { app | timeline = Switch env.time activityId :: app.timeline }
             , Cmd.none
             )

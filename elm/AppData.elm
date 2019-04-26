@@ -19,6 +19,7 @@ type alias AppData =
     , errors : List String
     , tasks : List Task
     , activities : StoredActivities
+    , timeline : List Switch
     }
 
 
@@ -28,16 +29,18 @@ fromScratch =
     , errors = []
     , tasks = []
     , activities = []
+    , timeline = []
     }
 
 
 decodeAppData : Decoder AppData
 decodeAppData =
-    Decode.map4 AppData
+    Decode.map5 AppData
         (field "uid" Decode.int)
         (field "errors" (Decode.list Decode.string))
         (field "tasks" (Decode.list decodeTask))
         (field "activities" Activity.decodeStoredActivities)
+        (field "timeline" (Decode.list decodeSwitch))
 
 
 encodeAppData : AppData -> Encode.Value

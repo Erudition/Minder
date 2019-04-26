@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, Category(..), Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, allActivities, decodeStoredActivities, encodeStoredActivities, getName, showing)
+module Activity.Activity exposing (Activity, ActivityId, Category(..), Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, Switch(..), allActivities, currentActivity, decodeStoredActivities, decodeSwitch, encodeStoredActivities, getName, showing)
 
 import Activity.Template exposing (..)
 import Date
@@ -11,8 +11,13 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import Svg.Styled exposing (..)
+import Task.TaskMoment exposing (decodeMoment, encodeMoment)
 import Time
 import Time.Extra exposing (..)
+
+
+type alias Moment =
+    Time.Posix
 
 
 {-| Definition of an activity.
@@ -28,7 +33,7 @@ type alias Activity =
     , maxTime : DurationPerPeriod
     , hidden : Bool -- The user can hide any of the "stock" activities they don't use
     , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
-    , stock : Bool
+    , id : ActivityId
     }
 
 
@@ -55,7 +60,7 @@ type alias Customizations =
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
     , template : Template
-    , stock : Bool
+    , id : ActivityId
     }
 
 
@@ -72,7 +77,7 @@ decodeCustomizations =
         |> ifPresent "maxTime" decodeDurationPerPeriod
         |> ifPresent "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
-        |> Pipeline.required "stock" Decode.bool
+        |> Pipeline.required "id" decodeActivityId
 
 
 encodeCustomizations : Customizations -> Encode.Value
@@ -80,7 +85,7 @@ encodeCustomizations record =
     Encode.object <|
         omitNothings
             [ normal ( "template", encodeTemplate record.template )
-            , normal ( "stock", Encode.bool record.stock )
+            , normal ( "stock", encodeActivityId record.id )
             , omittable ( "names", Encode.list Encode.string, record.names )
             , omittable ( "icon", encodeIcon, record.icon )
             , omittable ( "excusable", encodeExcusable, record.excusable )
@@ -109,8 +114,51 @@ encodeCustomizations record =
 --         ]
 
 
-type alias ActivityId =
-    Int
+type ActivityId
+    = Stock Template
+    | Custom Int
+
+
+encodeActivityId : ActivityId -> Encode.Value
+encodeActivityId v =
+    case v of
+        Stock template ->
+            Encode.object [ ( "Stock", encodeTemplate template ) ]
+
+        Custom num ->
+            Encode.object [ ( "Custom", Encode.int num ) ]
+
+
+decodeActivityId : Decoder ActivityId
+decodeActivityId =
+    decodeCustom
+        [ ( "Stock", Decode.map Stock decodeTemplate )
+        , ( "Custom", Decode.map Custom Decode.int )
+        ]
+
+
+isStock : Activity -> Bool
+isStock activity =
+    case activity.id of
+        Stock template ->
+            True
+
+        Custom int ->
+            False
+
+
+type Switch
+    = Switch Moment ActivityId
+
+
+decodeSwitch : Decoder Switch
+decodeSwitch =
+    subtype2 Switch "Switch Time" decodeMoment "Switch Activity" decodeActivityId
+
+
+encodeSwitch : Switch -> Encode.Value
+encodeSwitch (Switch time activityId) =
+    Encode.object [ ( "Switch Time", encodeMoment time ), ( "Switch Activity", encodeActivityId activityId ) ]
 
 
 type Evidence
@@ -316,7 +364,7 @@ allActivities stored =
             List.map defaults (List.filter templateMissing stockActivities)
 
         customizedStockActivities =
-            List.filter .stock customizedActivities
+            List.filter isStock customizedActivities
 
         templatesCovered =
             List.map .template customizedStockActivities
@@ -349,7 +397,7 @@ withTemplate delta =
     , maxTime = over base.maxTime delta.maxTime
     , hidden = over base.hidden delta.hidden
     , template = delta.template
-    , stock = delta.stock
+    , id = delta.id
     }
 
 
@@ -367,7 +415,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Apparel ->
@@ -381,7 +429,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Messaging ->
@@ -395,7 +443,7 @@ defaults startWith =
             , maxTime = ( ( 2, Hour ), ( 5, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Restroom ->
@@ -409,7 +457,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Grooming ->
@@ -423,7 +471,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Meal ->
@@ -437,7 +485,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Supplements ->
@@ -451,7 +499,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Workout ->
@@ -465,7 +513,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Shower ->
@@ -479,7 +527,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Toothbrush ->
@@ -493,7 +541,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Floss ->
@@ -507,7 +555,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Wakeup ->
@@ -521,7 +569,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Sleep ->
@@ -535,7 +583,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Plan ->
@@ -549,7 +597,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Configure ->
@@ -563,7 +611,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Email ->
@@ -577,7 +625,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Work ->
@@ -591,7 +639,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Call ->
@@ -605,7 +653,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Chores ->
@@ -619,7 +667,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Parents ->
@@ -633,7 +681,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Prepare ->
@@ -647,7 +695,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Lover ->
@@ -661,7 +709,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Driving ->
@@ -675,7 +723,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Riding ->
@@ -689,7 +737,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         SocialMedia ->
@@ -703,7 +751,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Pacing ->
@@ -717,7 +765,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Sport ->
@@ -731,7 +779,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Finance ->
@@ -745,7 +793,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Laundry ->
@@ -759,7 +807,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Bedward ->
@@ -773,7 +821,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Browse ->
@@ -787,7 +835,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Fiction ->
@@ -801,7 +849,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Learning ->
@@ -815,7 +863,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         BrainTrain ->
@@ -829,7 +877,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Music ->
@@ -843,7 +891,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Create ->
@@ -857,7 +905,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Children ->
@@ -871,7 +919,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Meeting ->
@@ -885,7 +933,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Cinema ->
@@ -899,7 +947,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         FilmWatching ->
@@ -913,7 +961,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Series ->
@@ -927,7 +975,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Broadcast ->
@@ -941,7 +989,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Theatre ->
@@ -955,7 +1003,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Shopping ->
@@ -969,7 +1017,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         VideoGaming ->
@@ -983,7 +1031,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Housekeeping ->
@@ -997,7 +1045,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         MealPrep ->
@@ -1011,7 +1059,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Networking ->
@@ -1025,7 +1073,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Meditate ->
@@ -1039,7 +1087,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Homework ->
@@ -1053,7 +1101,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Flight ->
@@ -1067,7 +1115,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Course ->
@@ -1081,7 +1129,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Pet ->
@@ -1095,7 +1143,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
         Presentation ->
@@ -1109,7 +1157,7 @@ defaults startWith =
             , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
             , hidden = False
             , template = startWith
-            , stock = True
+            , id = Stock startWith
             }
 
 
@@ -1121,3 +1169,12 @@ showing activity =
 getName : Activity -> String
 getName activity =
     Maybe.withDefault "?" (List.head activity.names)
+
+
+currentActivity : List Switch -> ActivityId
+currentActivity switchList =
+    let
+        getId (Switch _ activityId) =
+            activityId
+    in
+    Maybe.withDefault (Stock DillyDally) (Maybe.map getId (List.head switchList))
