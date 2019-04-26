@@ -210,7 +210,7 @@ screenToViewState screen =
 
 defaultView : ViewState
 defaultView =
-    ViewState (TaskList TaskList.defaultView) 0
+    ViewState (TimeTracker TimeTracker.defaultView) 0
 
 
 view : Model -> Browser.Document Msg
@@ -315,7 +315,7 @@ update msg ({ viewState, appData, environment } as model) =
             ( model, command )
 
         justSetEnv newEnv =
-            ( Model viewState appData newEnv, Cmd.none )
+            ( Model viewState appData newEnv, TaskerShim.flash (Encode.string "Hello World!") )
     in
     case ( msg, viewState.primaryView ) of
         ( NoOp, _ ) ->
@@ -337,7 +337,7 @@ update msg ({ viewState, appData, environment } as model) =
 
         -- TODO should we also insert Nav command to hide extra stuff from address bar after nav, while still updating the viewState?
         ( NewUrl url, _ ) ->
-            ( { model | viewState = viewUrl url }, TaskerShim.flash (Encode.string "Hello World!") )
+            ( { model | viewState = viewUrl url }, Cmd.none )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
