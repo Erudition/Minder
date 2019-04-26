@@ -17,6 +17,7 @@ import Task as Job
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
 import TaskList
+import TaskerShim exposing (..)
 import Time
 import TimeTracker exposing (..)
 import Url
