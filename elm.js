@@ -10230,7 +10230,7 @@ var author$project$TimeTracker$currentActivity = function (app) {
 var author$project$TimeTracker$beforeAndAfter = F2(
 	function (app, newId) {
 		return author$project$Activity$Activity$getName(
-			author$project$TimeTracker$currentActivity(app)) + (' -> ' + author$project$Activity$Activity$getName(
+			author$project$TimeTracker$currentActivity(app)) + (' ➤ ' + author$project$Activity$Activity$getName(
 			A2(
 				author$project$Activity$Activity$getActivity,
 				author$project$Activity$Activity$allActivities(app.activities),
