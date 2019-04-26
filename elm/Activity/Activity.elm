@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId, Category(..), Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, Switch(..), allActivities, currentActivity, decodeStoredActivities, decodeSwitch, encodeStoredActivities, getName, showing)
+module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -9,6 +9,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import List.Nonempty exposing (..)
 import Porting exposing (..)
 import Svg.Styled exposing (..)
 import Task.TaskMoment exposing (decodeMoment, encodeMoment)
@@ -1171,10 +1172,33 @@ getName activity =
     Maybe.withDefault "?" (List.head activity.names)
 
 
-currentActivity : List Switch -> ActivityId
-currentActivity switchList =
+type alias Timeline =
+    List Switch
+
+
+latestSwitch : Timeline -> Switch
+latestSwitch timeline =
+    Maybe.withDefault (Switch (Time.millisToPosix 0) (Stock DillyDally)) (List.head timeline)
+
+
+currentActivityId : Timeline -> ActivityId
+currentActivityId switchList =
     let
         getId (Switch _ activityId) =
             activityId
     in
-    Maybe.withDefault (Stock DillyDally) (Maybe.map getId (List.head switchList))
+    getId (latestSwitch switchList)
+
+
+currentActivity : List Activity -> Timeline -> Activity
+currentActivity activities switchList =
+    getActivity activities (currentActivityId switchList)
+
+
+getActivity : List Activity -> ActivityId -> Activity
+getActivity activities activityId =
+    let
+        matches act =
+            act.id == activityId
+    in
+    Maybe.withDefault (defaults DillyDally) (List.head (List.filter matches activities))

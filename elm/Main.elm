@@ -9,6 +9,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Navigation as Nav exposing (..)
 import Environment exposing (..)
+import External.Commands exposing (..)
 import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -17,7 +18,6 @@ import Task as Job
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
 import TaskList
-import TaskerShim exposing (..)
 import Time
 import TimeTracker exposing (..)
 import Url
@@ -315,7 +315,7 @@ update msg ({ viewState, appData, environment } as model) =
             ( model, command )
 
         justSetEnv newEnv =
-            ( Model viewState appData newEnv, TaskerShim.flash (Encode.string "Hello World!") )
+            ( Model viewState appData newEnv, Cmd.none )
     in
     case ( msg, viewState.primaryView ) of
         ( NoOp, _ ) ->

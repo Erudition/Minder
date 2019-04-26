@@ -4,6 +4,7 @@ import Activity.Activity as Activity exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
+import List.Nonempty exposing (..)
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
 import Task.TaskMoment exposing (..)
@@ -20,7 +21,7 @@ type alias AppData =
     , errors : List String
     , tasks : List Task
     , activities : StoredActivities
-    , timeline : List Switch
+    , timeline : Timeline
     }
 
 

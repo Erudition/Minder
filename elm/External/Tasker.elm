@@ -1,4 +1,4 @@
-port module TaskerShim exposing (flash)
+port module External.Tasker exposing (flash)
 
 import Json.Encode exposing (Value)
 

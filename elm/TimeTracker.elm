@@ -7,6 +7,7 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Environment exposing (..)
+import External.Commands as Commands
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -96,7 +97,7 @@ viewActivity app activity =
         [ class "activity" ]
         [ button
             [ class "activity-button"
-            , classList [ ( "current", currentActivity app.timeline == activity.id ) ]
+            , classList [ ( "current", (currentActivity app).id == activity.id ) ]
             , onClick (StartTracking activity.id)
             ]
             [ label
@@ -147,5 +148,15 @@ update msg state app env =
         StartTracking activityId ->
             ( state
             , { app | timeline = Switch env.time activityId :: app.timeline }
-            , Cmd.none
+            , Commands.toast (Encode.string (beforeAndAfter app activityId))
             )
+
+
+beforeAndAfter : AppData -> ActivityId -> String
+beforeAndAfter app newId =
+    getName (currentActivity app) ++ " -> " ++ getName (getActivity (allActivities app.activities) newId)
+
+
+currentActivity : AppData -> Activity
+currentActivity app =
+    Activity.currentActivity (allActivities app.activities) app.timeline
