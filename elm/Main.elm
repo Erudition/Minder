@@ -222,6 +222,7 @@ view { viewState, appData, environment } =
                 List.map toUnstyled
                     [ H.map TaskListMsg (TaskList.view subState appData environment)
                     , infoFooter
+                    , errorList appData.errors
                     ]
             }
 
@@ -231,6 +232,7 @@ view { viewState, appData, environment } =
                 List.map toUnstyled
                     [ H.map TimeTrackerMsg (TimeTracker.view subState appData environment)
                     , infoFooter
+                    , errorList appData.errors
                     ]
             }
 
@@ -261,6 +263,15 @@ infoFooter =
             , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
             ]
         ]
+
+
+errorList : List String -> Html msg
+errorList stringList =
+    let
+        asLi desc =
+            li [] [ text desc ]
+    in
+    ol [] (List.map asLi stringList)
 
 
 

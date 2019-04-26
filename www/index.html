@@ -15,11 +15,13 @@
 </body>
 
 <script type="text/javascript">
+localStorage.clear();
 var storedState = localStorage.getItem('docket-app-data');
 //var startingState = storedState ? JSON.parse(storedState) : null;
 var startingState = storedState ? storedState : null;
 var app = Elm.Main.init({ flags: startingState });
 app.ports.setStorage.subscribe(function(state) {
+
     localStorage.setItem('docket-app-data', state);
 });//was JSON.stringify(state)
 
