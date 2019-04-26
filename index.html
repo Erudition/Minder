@@ -22,6 +22,10 @@ var app = Elm.Main.init({ flags: startingState });
 app.ports.setStorage.subscribe(function(state) {
     localStorage.setItem('docket-app-data', state);
 });//was JSON.stringify(state)
+
+app.ports.flash.subscribe(function(data) {
+  tk.flash(data)
+});
 </script>
 <script type="text/javascript" src="tasker.js"></script>
 
