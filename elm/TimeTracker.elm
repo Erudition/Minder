@@ -103,13 +103,17 @@ viewActivities env app =
 
 viewActivity : AppData -> Environment -> Activity -> Html Msg
 viewActivity app env activity =
+    let
+        describeSession sesh =
+            Measure.inFuzzyWords sesh ++ " at " ++ writeTime env ++ "\n"
+    in
     li
         [ class "activity" ]
         [ button
             [ class "activity-button"
             , classList [ ( "current", (currentActivity app).id == activity.id ) ]
             , onClick (StartTracking activity.id)
-            , title <| Measure.inFuzzyWords (Measure.total app.timeline activity.id)
+            , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activity.id))
             ]
             [ viewIcon activity.icon
             , label
@@ -122,6 +126,11 @@ viewActivity app env activity =
                 ]
             ]
         ]
+
+
+writeTime : Environment -> String
+writeTime env =
+    String.fromInt (Time.toHour env.timeZone env.time) ++ ":" ++ String.fromInt (Time.toMinute env.timeZone env.time)
 
 
 viewIcon : Activity.Icon -> Html Msg

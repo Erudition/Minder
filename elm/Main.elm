@@ -30,7 +30,7 @@ main =
     Browser.application
         { init = init
         , view = view
-        , update = updateWithStorage
+        , update = updateWithTime
         , subscriptions = subscriptions
         , onUrlChange = NewUrl
         , onUrlRequest = Link
@@ -52,10 +52,10 @@ updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg model =
     let
         ( newModel, cmds ) =
-            updateWithTime msg model
+            update msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage (appDataToJson model.appData), cmds ]
+    , Cmd.batch [ setStorage (Debug.log "saving:" (appDataToJson newModel.appData)), cmds ]
     )
 
 
@@ -87,7 +87,7 @@ updateWithTime msg ({ environment } as model) =
                 newEnv =
                     { environment | time = time }
             in
-            update submsg { model | environment = newEnv }
+            updateWithStorage submsg { model | environment = newEnv }
 
         -- intercept normal update
         otherMsg ->
@@ -101,7 +101,7 @@ init : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init maybeJson url key =
     let
         startingModel =
-            case maybeJson of
+            case Debug.log "json:" maybeJson of
                 Just jsonAppDatabase ->
                     case appDataFromJson jsonAppDatabase of
                         Success savedAppData ->

@@ -34,7 +34,7 @@ sessions switchList activityId =
         all =
             allSessions switchList
     in
-    Debug.log "sessions:" (List.filterMap (getMatchingDurations activityId) all)
+    List.filterMap (getMatchingDurations activityId) all
 
 
 getMatchingDurations : ActivityId -> ( ActivityId, Int ) -> Maybe Int
