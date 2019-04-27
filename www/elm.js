@@ -5798,6 +5798,109 @@ var author$project$Activity$Template$decodeTemplate = author$project$Porting$dec
 			_Utils_Tuple2('Pet', author$project$Activity$Template$Pet),
 			_Utils_Tuple2('Presentation', author$project$Activity$Template$Presentation)
 		]));
+var zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObject'};
+var zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
+	return {$: 'TObjectField', a: a};
+};
+var zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField = F2(
+	function (a, b) {
+		return {$: 'InField', a: a, b: b};
+	});
+var zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
+	function (fieldName, _n0) {
+		var decoderFn = _n0.a;
+		var finalize = F2(
+			function (json, _n6) {
+				var values = _n6.a;
+				var warnings = _n6.b;
+				var res = _n6.c;
+				if (res.$ === 'Nothing') {
+					return A2(
+						zwilias$json_decode_exploration$Json$Decode$Exploration$expected,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField(fieldName),
+						json);
+				} else {
+					if (res.a.$ === 'Err') {
+						var e = res.a.a;
+						return elm$core$Result$Err(e);
+					} else {
+						var v = res.a.a;
+						return elm$core$Result$Ok(
+							{
+								json: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, values),
+								value: v,
+								warnings: warnings
+							});
+					}
+				}
+			});
+		var accumulate = F2(
+			function (_n3, _n4) {
+				var key = _n3.a;
+				var val = _n3.b;
+				var acc = _n4.a;
+				var warnings = _n4.b;
+				var result = _n4.c;
+				if (_Utils_eq(key, fieldName)) {
+					var _n2 = decoderFn(val);
+					if (_n2.$ === 'Err') {
+						var e = _n2.a;
+						return _Utils_Tuple3(
+							A2(
+								elm$core$List$cons,
+								_Utils_Tuple2(key, val),
+								acc),
+							warnings,
+							elm$core$Maybe$Just(
+								elm$core$Result$Err(
+									mgold$elm_nonempty_list$List$Nonempty$fromElement(
+										A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)))));
+					} else {
+						var res = _n2.a;
+						return _Utils_Tuple3(
+							A2(
+								elm$core$List$cons,
+								_Utils_Tuple2(key, res.json),
+								acc),
+							_Utils_ap(
+								A2(
+									elm$core$List$map,
+									A2(
+										elm$core$Basics$composeR,
+										mgold$elm_nonempty_list$List$Nonempty$fromElement,
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
+									res.warnings),
+								warnings),
+							elm$core$Maybe$Just(
+								elm$core$Result$Ok(res.value)));
+					}
+				} else {
+					return _Utils_Tuple3(
+						A2(
+							elm$core$List$cons,
+							_Utils_Tuple2(key, val),
+							acc),
+						warnings,
+						result);
+				}
+			});
+		return zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
+			function (json) {
+				if (json.$ === 'Object') {
+					var kvPairs = json.b;
+					return A2(
+						finalize,
+						json,
+						A3(
+							elm$core$List$foldr,
+							accumulate,
+							_Utils_Tuple3(_List_Nil, _List_Nil, elm$core$Maybe$Nothing),
+							kvPairs));
+				} else {
+					return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$expected, zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
+				}
+			});
+	});
 var elm$core$Basics$round = _Basics_round;
 var zwilias$json_decode_exploration$Json$Decode$Exploration$TInt = {$: 'TInt'};
 var zwilias$json_decode_exploration$Json$Decode$Exploration$int = zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
@@ -5833,13 +5936,15 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$map = F2(
 					decoderFn(json));
 			});
 	});
-var author$project$Activity$Activity$decodeActivityId = author$project$Porting$decodeCustom(
+var author$project$Activity$Activity$decodeActivityId = zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
 	_List_fromArray(
 		[
-			_Utils_Tuple2(
+			A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$field,
 			'Stock',
 			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Activity$Activity$Stock, author$project$Activity$Template$decodeTemplate)),
-			_Utils_Tuple2(
+			A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$field,
 			'Custom',
 			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Activity$Activity$Custom, zwilias$json_decode_exploration$Json$Decode$Exploration$int))
 		]));
@@ -6131,109 +6236,6 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$map2 = F3(
 			});
 	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$andMap = zwilias$json_decode_exploration$Json$Decode$Exploration$map2(elm$core$Basics$apR);
-var zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObject'};
-var zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
-	return {$: 'TObjectField', a: a};
-};
-var zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField = F2(
-	function (a, b) {
-		return {$: 'InField', a: a, b: b};
-	});
-var zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
-	function (fieldName, _n0) {
-		var decoderFn = _n0.a;
-		var finalize = F2(
-			function (json, _n6) {
-				var values = _n6.a;
-				var warnings = _n6.b;
-				var res = _n6.c;
-				if (res.$ === 'Nothing') {
-					return A2(
-						zwilias$json_decode_exploration$Json$Decode$Exploration$expected,
-						zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField(fieldName),
-						json);
-				} else {
-					if (res.a.$ === 'Err') {
-						var e = res.a.a;
-						return elm$core$Result$Err(e);
-					} else {
-						var v = res.a.a;
-						return elm$core$Result$Ok(
-							{
-								json: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, values),
-								value: v,
-								warnings: warnings
-							});
-					}
-				}
-			});
-		var accumulate = F2(
-			function (_n3, _n4) {
-				var key = _n3.a;
-				var val = _n3.b;
-				var acc = _n4.a;
-				var warnings = _n4.b;
-				var result = _n4.c;
-				if (_Utils_eq(key, fieldName)) {
-					var _n2 = decoderFn(val);
-					if (_n2.$ === 'Err') {
-						var e = _n2.a;
-						return _Utils_Tuple3(
-							A2(
-								elm$core$List$cons,
-								_Utils_Tuple2(key, val),
-								acc),
-							warnings,
-							elm$core$Maybe$Just(
-								elm$core$Result$Err(
-									mgold$elm_nonempty_list$List$Nonempty$fromElement(
-										A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)))));
-					} else {
-						var res = _n2.a;
-						return _Utils_Tuple3(
-							A2(
-								elm$core$List$cons,
-								_Utils_Tuple2(key, res.json),
-								acc),
-							_Utils_ap(
-								A2(
-									elm$core$List$map,
-									A2(
-										elm$core$Basics$composeR,
-										mgold$elm_nonempty_list$List$Nonempty$fromElement,
-										zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
-									res.warnings),
-								warnings),
-							elm$core$Maybe$Just(
-								elm$core$Result$Ok(res.value)));
-					}
-				} else {
-					return _Utils_Tuple3(
-						A2(
-							elm$core$List$cons,
-							_Utils_Tuple2(key, val),
-							acc),
-						warnings,
-						result);
-				}
-			});
-		return zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
-			function (json) {
-				if (json.$ === 'Object') {
-					var kvPairs = json.b;
-					return A2(
-						finalize,
-						json,
-						A3(
-							elm$core$List$foldr,
-							accumulate,
-							_Utils_Tuple3(_List_Nil, _List_Nil, elm$core$Maybe$Nothing),
-							kvPairs));
-				} else {
-					return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$expected, zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
-				}
-			});
-	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$isObject = zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
 	function (json) {
 		if (json.$ === 'Object') {
@@ -6474,7 +6476,7 @@ var elm$time$Time$Posix = function (a) {
 };
 var elm$time$Time$millisToPosix = elm$time$Time$Posix;
 var author$project$Task$TaskMoment$decodeMoment = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, elm$time$Time$millisToPosix, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
-var author$project$Activity$Activity$decodeSwitch = A5(author$project$Porting$subtype2, author$project$Activity$Activity$Switch, 'Switch Time', author$project$Task$TaskMoment$decodeMoment, 'Switch Activity', author$project$Activity$Activity$decodeActivityId);
+var author$project$Activity$Activity$decodeSwitch = A5(author$project$Porting$subtype2, author$project$Activity$Activity$Switch, 'Time', author$project$Task$TaskMoment$decodeMoment, 'Activity', author$project$Activity$Activity$decodeActivityId);
 var author$project$AppData$AppData = F5(
 	function (uid, errors, tasks, activities, timeline) {
 		return {activities: activities, errors: errors, tasks: tasks, timeline: timeline, uid: uid};
@@ -8534,10 +8536,10 @@ var author$project$Activity$Activity$encodeSwitch = function (_n0) {
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'Switch Time',
+				'Time',
 				author$project$Task$TaskMoment$encodeMoment(time)),
 				_Utils_Tuple2(
-				'Switch Activity',
+				'Activity',
 				author$project$Activity$Activity$encodeActivityId(activityId))
 			]));
 };

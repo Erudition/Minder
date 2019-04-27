@@ -132,9 +132,9 @@ encodeActivityId v =
 
 decodeActivityId : Decoder ActivityId
 decodeActivityId =
-    decodeCustom
-        [ ( "Stock", Decode.map Stock decodeTemplate )
-        , ( "Custom", Decode.map Custom Decode.int )
+    oneOf
+        [ field "Stock" (Decode.map Stock decodeTemplate)
+        , field "Custom" (Decode.map Custom Decode.int)
         ]
 
 
@@ -154,12 +154,12 @@ type Switch
 
 decodeSwitch : Decoder Switch
 decodeSwitch =
-    subtype2 Switch "Switch Time" decodeMoment "Switch Activity" decodeActivityId
+    subtype2 Switch "Time" decodeMoment "Activity" decodeActivityId
 
 
 encodeSwitch : Switch -> Encode.Value
 encodeSwitch (Switch time activityId) =
-    Encode.object [ ( "Switch Time", encodeMoment time ), ( "Switch Activity", encodeActivityId activityId ) ]
+    Encode.object [ ( "Time", encodeMoment time ), ( "Activity", encodeActivityId activityId ) ]
 
 
 type Evidence

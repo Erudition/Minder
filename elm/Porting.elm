@@ -36,6 +36,10 @@ customDecoder primitiveDecoder customDecoderFunction =
         primitiveDecoder
 
 
+
+-- broken! check wants succeed decoders only
+
+
 decodeCustom : List ( String, Decoder a ) -> Decoder a
 decodeCustom tagsWithDecoders =
     let
@@ -43,6 +47,10 @@ decodeCustom tagsWithDecoders =
             check string tag decoder
     in
     oneOf (List.map tryValues tagsWithDecoders)
+
+
+
+-- Decode.check should be used here
 
 
 decodeCustomFlat : List ( String, a ) -> Decoder a
