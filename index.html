@@ -22,6 +22,7 @@ var startingState = storedState ? storedState : null;
 var app = Elm.Main.init({ flags: startingState });
 app.ports.setStorage.subscribe(function(state) {
     localStorage.setItem('docket-v0.1-data', state);
+    console.log(state);
 });//was JSON.stringify(state)
 
 app.ports.flash.subscribe(function(data) {
@@ -29,7 +30,7 @@ app.ports.flash.subscribe(function(data) {
       tk.flash(data)
   } catch (e) {
       console.log("Got: " +data+ ", but couldn't run tasker command");
-  } 
+  }
 
 });
 </script>
