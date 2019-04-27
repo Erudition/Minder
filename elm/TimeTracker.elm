@@ -1,6 +1,7 @@
-module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, view, viewActivities, viewActivity, viewKeyedActivity)
+module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, view)
 
 import Activity.Activity as Activity exposing (..)
+import Activity.Measure as Measure exposing (..)
 import AppData exposing (..)
 import Browser
 import Browser.Dom
@@ -12,7 +13,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy, lazy2)
+import Html.Styled.Lazy exposing (..)
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -77,33 +78,47 @@ viewActivities : Environment -> AppData -> Html Msg
 viewActivities env app =
     section
         [ class "main" ]
-        [ Keyed.ul [ class "activity-list" ] <|
-            List.map (viewKeyedActivity app env) (List.filter Activity.showing (allActivities app.activities))
+        [ ul [ class "activity-list" ] <|
+            List.map (viewActivity app env) (List.filter Activity.showing (allActivities app.activities))
         ]
 
 
 
 -- VIEW INDIVIDUAL ENTRIES
+-- viewKeyedActivity : AppData -> Environment -> Activity -> ( String, Html Msg )
+-- viewKeyedActivity app env activity =
+--     let
+--         key =
+--             Activity.getName activity ++ active
+--
+--         active =
+--             if currentActivityId app.timeline == activity.id then
+--                 String.fromInt <| totalLive env.time app.timeline activity.id
+--
+--             else
+--                 ""
+--     in
+--     ( key, viewActivity app env activity )
 
 
-viewKeyedActivity : AppData -> Environment -> Activity -> ( String, Html Msg )
-viewKeyedActivity app env activity =
-    ( Activity.getName activity, lazy2 viewActivity app activity )
-
-
-viewActivity : AppData -> Activity -> Html Msg
-viewActivity app activity =
+viewActivity : AppData -> Environment -> Activity -> Html Msg
+viewActivity app env activity =
     li
         [ class "activity" ]
         [ button
             [ class "activity-button"
             , classList [ ( "current", (currentActivity app).id == activity.id ) ]
             , onClick (StartTracking activity.id)
+            , title <| Measure.inFuzzyWords (Measure.total app.timeline activity.id)
             ]
-            [ label
+            [ viewIcon activity.icon
+            , label
                 []
-                [ viewIcon activity.icon
-                , text (Activity.getName activity)
+                [ text (Activity.getName activity)
+                ]
+            , div
+                []
+                [ text <| (String.fromInt <| Measure.totalLive env.time app.timeline activity.id // 60000) ++ "m"
                 ]
             ]
         ]
@@ -146,15 +161,43 @@ update msg state app env =
             )
 
         StartTracking activityId ->
+            let
+                updatedApp =
+                    { app | timeline = Switch env.time activityId :: app.timeline }
+
+                newActivity =
+                    getActivity (allActivities app.activities) activityId
+
+                oldActivity =
+                    currentActivity app
+            in
             ( state
-            , { app | timeline = Switch env.time activityId :: app.timeline }
-            , Commands.toast (Encode.string (beforeAndAfter app activityId))
+            , updatedApp
+            , Commands.toast (Encode.string (switchPopup updatedApp.timeline newActivity oldActivity))
             )
 
 
-beforeAndAfter : AppData -> ActivityId -> String
-beforeAndAfter app newId =
-    getName (currentActivity app) ++ " ➤ " ++ getName (getActivity (allActivities app.activities) newId)
+switchPopup : Timeline -> Activity -> Activity -> String
+switchPopup timeline new old =
+    let
+        timeSpentString num =
+            String.fromInt num
+                ++ " s spent, "
+
+        timeSpent =
+            Maybe.map (\n -> n // 1000) (List.head (Measure.sessions timeline old.id))
+
+        total =
+            Measure.total timeline old.id // 1000
+    in
+    getName old
+        ++ " ➤ "
+        ++ getName new
+        ++ "\n"
+        ++ Maybe.withDefault "" (Maybe.map timeSpentString timeSpent)
+        ++ "new total "
+        ++ String.fromInt total
+        ++ " s"
 
 
 currentActivity : AppData -> Activity
