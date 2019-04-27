@@ -18457,6 +18457,12 @@ var author$project$TaskList$view = F3(
 var author$project$Activity$Activity$showing = function (activity) {
 	return !activity.hidden;
 };
+var author$project$Activity$Measure$inFuzzyWords = function (ms) {
+	return A2(
+		sporto$time_distance$Time$Distance$inWords,
+		elm$time$Time$millisToPosix(0),
+		elm$time$Time$millisToPosix(ms));
+};
 var author$project$Activity$Measure$totalLive = F3(
 	function (now, switchList, activityId) {
 		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
@@ -18466,12 +18472,6 @@ var author$project$Activity$Measure$totalLive = F3(
 				A2(elm$core$List$cons, fakeSwitch, switchList),
 				activityId));
 	});
-var author$project$Activity$Measure$inFuzzyWords = function (ms) {
-	return A2(
-		sporto$time_distance$Time$Distance$inWords,
-		elm$time$Time$millisToPosix(0),
-		elm$time$Time$millisToPosix(ms));
-};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
 };
@@ -18498,10 +18498,8 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 	}
 };
 var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
-var author$project$TimeTracker$viewActivity = F2(
-	function (_n0, activity) {
-		var app = _n0.a;
-		var env = _n0.b;
+var author$project$TimeTracker$viewActivity = F3(
+	function (app, env, activity) {
 		return A2(
 			rtfeldman$elm_css$Html$Styled$li,
 			_List_fromArray(
@@ -18553,23 +18551,6 @@ var author$project$TimeTracker$viewActivity = F2(
 						]))
 				]));
 	});
-var author$project$TimeTracker$viewKeyedActivity = F3(
-	function (app, env, activity) {
-		var active = _Utils_eq(
-			author$project$Activity$Activity$currentActivityId(app.timeline),
-			activity.id) ? elm$core$String$fromInt(
-			A3(author$project$Activity$Measure$totalLive, env.time, app.timeline, activity.id)) : '';
-		var key = _Utils_ap(
-			author$project$Activity$Activity$getName(activity),
-			active);
-		return _Utils_Tuple2(
-			key,
-			A3(
-				rtfeldman$elm_css$Html$Styled$Lazy$lazy2,
-				author$project$TimeTracker$viewActivity,
-				_Utils_Tuple2(app, env),
-				activity));
-	});
 var author$project$TimeTracker$viewActivities = F2(
 	function (env, app) {
 		return A2(
@@ -18581,14 +18562,14 @@ var author$project$TimeTracker$viewActivities = F2(
 			_List_fromArray(
 				[
 					A2(
-					rtfeldman$elm_css$Html$Styled$Keyed$ul,
+					rtfeldman$elm_css$Html$Styled$ul,
 					_List_fromArray(
 						[
 							rtfeldman$elm_css$Html$Styled$Attributes$class('activity-list')
 						]),
 					A2(
 						elm$core$List$map,
-						A2(author$project$TimeTracker$viewKeyedActivity, app, env),
+						A2(author$project$TimeTracker$viewActivity, app, env),
 						A2(
 							elm$core$List$filter,
 							author$project$Activity$Activity$showing,
