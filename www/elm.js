@@ -14824,22 +14824,14 @@ var author$project$TimeTracker$view = F3(
 	function (state, app, env) {
 		return A2(
 			rtfeldman$elm_css$Html$Styled$div,
-			_List_fromArray(
-				[
-					rtfeldman$elm_css$Html$Styled$Attributes$class('todomvc-wrapper'),
-					rtfeldman$elm_css$Html$Styled$Attributes$css(
-					_List_fromArray(
-						[
-							rtfeldman$elm_css$Css$visibility(rtfeldman$elm_css$Css$hidden)
-						]))
-				]),
+			_List_Nil,
 			_List_fromArray(
 				[
 					A2(
 					rtfeldman$elm_css$Html$Styled$section,
 					_List_fromArray(
 						[
-							rtfeldman$elm_css$Html$Styled$Attributes$class('todoapp')
+							rtfeldman$elm_css$Html$Styled$Attributes$class('activity-screen')
 						]),
 					_List_fromArray(
 						[

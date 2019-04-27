@@ -63,9 +63,9 @@ view state app env =
     case state of
         Normal ->
             div
-                [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
+                []
                 [ section
-                    [ class "todoapp" ]
+                    [ class "activity-screen" ]
                     [ lazy2 viewActivities env app
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
