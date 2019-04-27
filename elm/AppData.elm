@@ -49,9 +49,10 @@ encodeAppData : AppData -> Encode.Value
 encodeAppData record =
     Encode.object
         [ ( "tasks", Encode.list encodeTask record.tasks )
-        , ( "activites", encodeStoredActivities record.activities )
+        , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
+        , ( "timeline", Encode.list encodeSwitch record.timeline )
         ]
 
 

@@ -12,6 +12,7 @@ import Environment exposing (..)
 import External.Commands exposing (..)
 import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import Task as Job
@@ -250,7 +251,7 @@ view { viewState, appData, environment } =
 -- <div att1="hi" att2="yo">nodes</div>
 
 
-infoFooter : Html msg
+infoFooter : Html Msg
 infoFooter =
     footer [ class "info" ]
         [ p [] [ text "Double-click to edit a task" ]
@@ -265,11 +266,11 @@ infoFooter =
         ]
 
 
-errorList : List String -> Html msg
+errorList : List String -> Html Msg
 errorList stringList =
     let
         asLi desc =
-            li [] [ text desc ]
+            li [ onClick ClearErrors ] [ text desc ]
     in
     ol [] (List.map asLi stringList)
 
@@ -298,6 +299,7 @@ type Msg
     | Tock Msg Time.Posix
     | MinutePassed Moment
     | SetZone Time.Zone
+    | ClearErrors
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -326,6 +328,9 @@ update msg ({ viewState, appData, environment } as model) =
 
         ( SetZone zone, _ ) ->
             justSetEnv { environment | timeZone = zone }
+
+        ( ClearErrors, _ ) ->
+            ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
         ( Link urlRequest, _ ) ->
             case urlRequest of

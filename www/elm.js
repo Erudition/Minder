@@ -8523,6 +8523,24 @@ var author$project$Activity$Activity$encodeCustomizations = function (record) {
 				])));
 };
 var author$project$Activity$Activity$encodeStoredActivities = elm$json$Json$Encode$list(author$project$Activity$Activity$encodeCustomizations);
+var author$project$Task$TaskMoment$encodeMoment = function (moment) {
+	return elm$json$Json$Encode$int(
+		elm$time$Time$posixToMillis(moment));
+};
+var author$project$Activity$Activity$encodeSwitch = function (_n0) {
+	var time = _n0.a;
+	var activityId = _n0.b;
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'Switch Time',
+				author$project$Task$TaskMoment$encodeMoment(time)),
+				_Utils_Tuple2(
+				'Switch Activity',
+				author$project$Activity$Activity$encodeActivityId(activityId))
+			]));
+};
 var author$project$Task$Progress$getPortion = function (_n0) {
 	var part = _n0.a;
 	return part;
@@ -8725,7 +8743,7 @@ var author$project$AppData$encodeAppData = function (record) {
 				'tasks',
 				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeTask, record.tasks)),
 				_Utils_Tuple2(
-				'activites',
+				'activities',
 				author$project$Activity$Activity$encodeStoredActivities(record.activities)),
 				_Utils_Tuple2(
 				'uid',
@@ -8735,7 +8753,10 @@ var author$project$AppData$encodeAppData = function (record) {
 				A2(
 					elm$json$Json$Encode$list,
 					elm$json$Json$Encode$string,
-					A2(elm$core$List$take, 100, record.errors)))
+					A2(elm$core$List$take, 100, record.errors))),
+				_Utils_Tuple2(
+				'timeline',
+				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.timeline))
 			]));
 };
 var author$project$Main$appDataToJson = function (appData) {
@@ -10393,7 +10414,7 @@ var author$project$Main$update = F2(
 			return _Utils_Tuple2(model, command);
 		};
 		var _n0 = _Utils_Tuple2(msg, viewState.primaryView);
-		_n0$7:
+		_n0$8:
 		while (true) {
 			switch (_n0.a.$) {
 				case 'NoOp':
@@ -10411,6 +10432,17 @@ var author$project$Main$update = F2(
 						_Utils_update(
 							environment,
 							{timeZone: zone}));
+				case 'ClearErrors':
+					var _n2 = _n0.a;
+					return _Utils_Tuple2(
+						A3(
+							author$project$Main$Model,
+							viewState,
+							_Utils_update(
+								appData,
+								{errors: _List_Nil}),
+							environment),
+						elm$core$Platform$Cmd$none);
 				case 'Link':
 					var urlRequest = _n0.a.a;
 					if (urlRequest.$ === 'Internal') {
@@ -10438,10 +10470,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n3 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n3.a;
-						var newApp = _n3.b;
-						var newCommand = _n3.c;
+						var _n4 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n4.a;
+						var newApp = _n4.b;
+						var newCommand = _n4.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -10453,16 +10485,16 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
 					} else {
-						break _n0$7;
+						break _n0$8;
 					}
 				case 'TimeTrackerMsg':
 					if (_n0.b.$ === 'TimeTracker') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n4 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n4.a;
-						var newApp = _n4.b;
-						var newCommand = _n4.c;
+						var _n5 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n5.a;
+						var newApp = _n5.b;
+						var newCommand = _n5.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -10474,10 +10506,10 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
 					} else {
-						break _n0$7;
+						break _n0$8;
 					}
 				default:
-					break _n0$7;
+					break _n0$8;
 			}
 		}
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -10535,6 +10567,7 @@ var author$project$Main$updateWithStorage = F2(
 						cmds
 					])));
 	});
+var author$project$Main$ClearErrors = {$: 'ClearErrors'};
 var rtfeldman$elm_css$VirtualDom$Styled$Node = F3(
 	function (a, b, c) {
 		return {$: 'Node', a: a, b: b, c: c};
@@ -10552,11 +10585,43 @@ var rtfeldman$elm_css$VirtualDom$Styled$text = function (str) {
 		elm$virtual_dom$VirtualDom$text(str));
 };
 var rtfeldman$elm_css$Html$Styled$text = rtfeldman$elm_css$VirtualDom$Styled$text;
+var elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var rtfeldman$elm_css$VirtualDom$Styled$Attribute = F3(
+	function (a, b, c) {
+		return {$: 'Attribute', a: a, b: b, c: c};
+	});
+var rtfeldman$elm_css$VirtualDom$Styled$on = F2(
+	function (eventName, handler) {
+		return A3(
+			rtfeldman$elm_css$VirtualDom$Styled$Attribute,
+			A2(elm$virtual_dom$VirtualDom$on, eventName, handler),
+			_List_Nil,
+			'');
+	});
+var rtfeldman$elm_css$Html$Styled$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			rtfeldman$elm_css$VirtualDom$Styled$on,
+			event,
+			elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var rtfeldman$elm_css$Html$Styled$Events$onClick = function (msg) {
+	return A2(
+		rtfeldman$elm_css$Html$Styled$Events$on,
+		'click',
+		elm$json$Json$Decode$succeed(msg));
+};
 var author$project$Main$errorList = function (stringList) {
 	var asLi = function (desc) {
 		return A2(
 			rtfeldman$elm_css$Html$Styled$li,
-			_List_Nil,
+			_List_fromArray(
+				[
+					rtfeldman$elm_css$Html$Styled$Events$onClick(author$project$Main$ClearErrors)
+				]),
 			_List_fromArray(
 				[
 					rtfeldman$elm_css$Html$Styled$text(desc)
@@ -10576,10 +10641,6 @@ var elm$virtual_dom$VirtualDom$property = F2(
 			_VirtualDom_property,
 			_VirtualDom_noInnerHtmlOrFormAction(key),
 			_VirtualDom_noJavaScriptOrHtmlUri(value));
-	});
-var rtfeldman$elm_css$VirtualDom$Styled$Attribute = F3(
-	function (a, b, c) {
-		return {$: 'Attribute', a: a, b: b, c: c};
 	});
 var rtfeldman$elm_css$VirtualDom$Styled$property = F2(
 	function (key, value) {
@@ -10661,31 +10722,6 @@ var rtfeldman$elm_css$Html$Styled$Attributes$boolProperty = F2(
 			elm$json$Json$Encode$bool(bool));
 	});
 var rtfeldman$elm_css$Html$Styled$Attributes$hidden = rtfeldman$elm_css$Html$Styled$Attributes$boolProperty('hidden');
-var elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var rtfeldman$elm_css$VirtualDom$Styled$on = F2(
-	function (eventName, handler) {
-		return A3(
-			rtfeldman$elm_css$VirtualDom$Styled$Attribute,
-			A2(elm$virtual_dom$VirtualDom$on, eventName, handler),
-			_List_Nil,
-			'');
-	});
-var rtfeldman$elm_css$Html$Styled$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			rtfeldman$elm_css$VirtualDom$Styled$on,
-			event,
-			elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var rtfeldman$elm_css$Html$Styled$Events$onClick = function (msg) {
-	return A2(
-		rtfeldman$elm_css$Html$Styled$Events$on,
-		'click',
-		elm$json$Json$Decode$succeed(msg));
-};
 var author$project$TaskList$viewControlsClear = function (tasksCompleted) {
 	return A2(
 		rtfeldman$elm_css$Html$Styled$button,
