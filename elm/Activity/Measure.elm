@@ -60,23 +60,17 @@ totalLive now switchList activityId =
     List.sum (sessions (fakeSwitch :: switchList) activityId)
 
 
-timelineLimit : Timeline -> Moment -> Int -> Timeline
-timelineLimit timeline now limit =
+{-| Narrow a timeline down to a given time frame.
+This function takes two Moments (now and the point in history up to which we want to keep). It will cap off the list with a fake switch at the end, set for the pastLimit, so that sessions that span the threshold still have their relevant portion counted.
+-}
+timelineLimit : Timeline -> Moment -> Moment -> Timeline
+timelineLimit timeline now pastLimit =
     let
-        present =
-            Time.posixToMillis now
-
-        pastLimit =
-            present - limit
-
-        switchTime (Switch moment _) =
-            Time.posixToMillis moment
-
         switchActivityId (Switch _ id) =
             id
 
-        recentEnough switch =
-            switchTime switch > pastLimit
+        recentEnough (Switch moment _) =
+            Time.posixToMillis moment > Time.posixToMillis pastLimit
 
         ( pass, fail ) =
             List.partition recentEnough timeline
@@ -85,7 +79,7 @@ timelineLimit timeline now limit =
             Maybe.withDefault Activity.dummy <| Maybe.map switchActivityId (List.head fail)
 
         fakeEndSwitch =
-            Switch (Time.millisToPosix pastLimit) justMissedId
+            Switch pastLimit justMissedId
     in
     pass ++ [ fakeEndSwitch ]
 
