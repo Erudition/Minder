@@ -251,6 +251,10 @@ decodeDuration =
     arrayAsTuple2 Decode.int decodeInterval
 
 
+
+-- interpretDuration : Duration ->
+
+
 {-| Icons. For activities, at least.
 Is there a standard way to represent Icons of various types like this? If so, need to find an use that.
 -}
@@ -460,7 +464,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
+            , maxTime = ( ( 20, Minute ), ( 2, Hour ) )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -698,7 +702,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
+            , maxTime = ( ( 30, Minute ), ( 24, Hour ) )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -740,7 +744,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
+            , maxTime = ( ( 30, Minute ), ( 5, Hour ) )
             , hidden = False
             , template = startWith
             , id = Stock startWith

@@ -1,8 +1,9 @@
-module Activity.Measure exposing (inFuzzyWords, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (inFuzzyWords, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
-import Time
+import Time exposing (..)
 import Time.Distance exposing (..)
+import Time.Extra exposing (..)
 
 
 {-| Mind if I doodle here?
@@ -82,6 +83,79 @@ timelineLimit timeline now pastLimit =
             Switch pastLimit justMissedId
     in
     pass ++ [ fakeEndSwitch ]
+
+
+{-| Given a Duration, how far back in time would it reach?
+This returns that Moment in history.
+
+For fixed distances, that's easy, but variable intervals could be far back or just a millisecond ago.
+
+-}
+lookBack : ( Moment, Time.Zone ) -> Duration -> Moment
+lookBack ( present, zone ) ( count, interval ) =
+    let
+        fixedDistance =
+            add interval -count zone present
+
+        variableDistance =
+            Time.Extra.floor interval zone ifMoreThanOne
+
+        ifMoreThanOne =
+            add interval (1 - count) zone present
+    in
+    case interval of
+        Year ->
+            variableDistance
+
+        Quarter ->
+            variableDistance
+
+        Month ->
+            variableDistance
+
+        Week ->
+            variableDistance
+
+        Monday ->
+            variableDistance
+
+        Tuesday ->
+            variableDistance
+
+        Wednesday ->
+            variableDistance
+
+        Thursday ->
+            variableDistance
+
+        Friday ->
+            variableDistance
+
+        Saturday ->
+            variableDistance
+
+        Sunday ->
+            variableDistance
+
+        Day ->
+            variableDistance
+
+        Hour ->
+            fixedDistance
+
+        Minute ->
+            fixedDistance
+
+        Second ->
+            fixedDistance
+
+        Millisecond ->
+            fixedDistance
+
+
+relevantTimeline : Timeline -> ( Moment, Zone ) -> Duration -> Timeline
+relevantTimeline timeline ( now, zone ) duration =
+    timelineLimit timeline now (lookBack ( now, zone ) duration)
 
 
 inFuzzyWords : Int -> String

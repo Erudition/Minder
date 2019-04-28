@@ -107,8 +107,8 @@ viewActivity app env activity =
         describeSession sesh =
             Measure.inFuzzyWords sesh ++ "\n"
 
-        last24Hours =
-            Debug.log "truncated timeline" (timelineLimit app.timeline env.time (1 * 30 * 60 * 1000))
+        lastPeriod =
+            Debug.log "truncated timeline" relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
     in
     li
         [ class "activity" ]
@@ -125,7 +125,7 @@ viewActivity app env activity =
                 ]
             , div
                 []
-                [ text <| (String.fromInt <| Measure.totalLive env.time last24Hours activity.id // 60000) ++ "m"
+                [ text <| (String.fromInt <| Measure.totalLive env.time lastPeriod activity.id // 60000) ++ "m"
                 ]
             ]
         ]
