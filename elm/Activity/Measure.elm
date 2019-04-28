@@ -1,4 +1,4 @@
-module Activity.Measure exposing (inFuzzyWords, sessions, total, totalLive)
+module Activity.Measure exposing (inFuzzyWords, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import Time
@@ -75,11 +75,11 @@ timelineLimit timeline now limit =
         switchActivityId (Switch _ id) =
             id
 
-        tooOld switch =
-            switchTime switch < pastLimit
+        recentEnough switch =
+            switchTime switch > pastLimit
 
         ( pass, fail ) =
-            List.partition tooOld timeline
+            List.partition recentEnough timeline
 
         justMissedId =
             Maybe.withDefault Activity.dummy <| Maybe.map switchActivityId (List.head fail)

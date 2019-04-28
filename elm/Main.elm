@@ -55,7 +55,7 @@ updateWithStorage msg model =
             update msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage (Debug.log "saving:" (appDataToJson newModel.appData)), cmds ]
+    , Cmd.batch [ setStorage (appDataToJson newModel.appData), cmds ]
     )
 
 
@@ -101,7 +101,7 @@ init : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init maybeJson url key =
     let
         startingModel =
-            case Debug.log "json:" maybeJson of
+            case maybeJson of
                 Just jsonAppDatabase ->
                     case appDataFromJson jsonAppDatabase of
                         Success savedAppData ->

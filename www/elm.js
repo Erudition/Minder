@@ -8392,7 +8392,6 @@ var author$project$Main$buildModel = F3(
 			viewState: author$project$Main$viewUrl(url)
 		};
 	});
-var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Task$Perform = function (a) {
 	return {$: 'Perform', a: a};
@@ -8485,9 +8484,8 @@ var elm$time$Time$now = _Time_now(elm$time$Time$millisToPosix);
 var author$project$Main$init = F3(
 	function (maybeJson, url, key) {
 		var startingModel = function () {
-			var _n0 = A2(elm$core$Debug$log, 'json:', maybeJson);
-			if (_n0.$ === 'Just') {
-				var jsonAppDatabase = _n0.a;
+			if (maybeJson.$ === 'Just') {
+				var jsonAppDatabase = maybeJson.a;
 				var _n1 = author$project$Main$appDataFromJson(jsonAppDatabase);
 				switch (_n1.$) {
 					case 'Success':
@@ -8945,8 +8943,8 @@ var author$project$Activity$Activity$encodeDurationPerPeriod = function (v) {
 	return _Debug_todo(
 		'Activity.Activity',
 		{
-			start: {line: 222, column: 5},
-			end: {line: 222, column: 15}
+			start: {line: 227, column: 5},
+			end: {line: 227, column: 15}
 		})('encode duration');
 };
 var author$project$Activity$Activity$encodeEvidence = function (v) {
@@ -13999,6 +13997,7 @@ var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$c
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
 };
+var elm$core$Debug$log = _Debug_log;
 var author$project$Activity$Activity$latestSwitch = function (timeline) {
 	return A2(
 		elm$core$Maybe$withDefault,
@@ -14310,10 +14309,7 @@ var author$project$Main$updateWithStorage = F2(
 				_List_fromArray(
 					[
 						author$project$Main$setStorage(
-						A2(
-							elm$core$Debug$log,
-							'saving:',
-							author$project$Main$appDataToJson(newModel.appData))),
+						author$project$Main$appDataToJson(newModel.appData)),
 						cmds
 					])));
 	});
@@ -18505,6 +18501,61 @@ var author$project$Activity$Measure$inFuzzyWords = function (ms) {
 		elm$time$Time$millisToPosix(0),
 		elm$time$Time$millisToPosix(ms));
 };
+var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
+var elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _n0) {
+				var trues = _n0.a;
+				var falses = _n0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2(elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2(elm$core$List$cons, x, falses));
+			});
+		return A3(
+			elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var author$project$Activity$Measure$timelineLimit = F3(
+	function (timeline, now, limit) {
+		var switchTime = function (_n2) {
+			var moment = _n2.a;
+			return elm$time$Time$posixToMillis(moment);
+		};
+		var switchActivityId = function (_n1) {
+			var id = _n1.b;
+			return id;
+		};
+		var present = elm$time$Time$posixToMillis(now);
+		var pastLimit = present - limit;
+		var recentEnough = function (_switch) {
+			return _Utils_cmp(
+				switchTime(_switch),
+				pastLimit) > 0;
+		};
+		var _n0 = A2(elm$core$List$partition, recentEnough, timeline);
+		var pass = _n0.a;
+		var fail = _n0.b;
+		var justMissedId = A2(
+			elm$core$Maybe$withDefault,
+			author$project$Activity$Activity$dummy,
+			A2(
+				elm$core$Maybe$map,
+				switchActivityId,
+				elm$core$List$head(fail)));
+		var fakeEndSwitch = A2(
+			author$project$Activity$Activity$Switch,
+			elm$time$Time$millisToPosix(pastLimit),
+			justMissedId);
+		return _Utils_ap(
+			pass,
+			_List_fromArray(
+				[fakeEndSwitch]));
+	});
 var author$project$Activity$Measure$totalLive = F3(
 	function (now, switchList, activityId) {
 		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
@@ -18539,16 +18590,15 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 			return rtfeldman$elm_css$Html$Styled$text('');
 	}
 };
-var author$project$TimeTracker$writeTime = function (env) {
-	return elm$core$String$fromInt(
-		A2(elm$time$Time$toHour, env.timeZone, env.time)) + (':' + elm$core$String$fromInt(
-		A2(elm$time$Time$toMinute, env.timeZone, env.time)));
-};
 var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
 var author$project$TimeTracker$viewActivity = F3(
 	function (app, env, activity) {
+		var last24Hours = A2(
+			elm$core$Debug$log,
+			'truncated timeline',
+			A3(author$project$Activity$Measure$timelineLimit, app.timeline, env.time, ((1 * 30) * 60) * 1000));
 		var describeSession = function (sesh) {
-			return author$project$Activity$Measure$inFuzzyWords(sesh) + (' at ' + (author$project$TimeTracker$writeTime(env) + '\n'));
+			return author$project$Activity$Measure$inFuzzyWords(sesh) + '\n';
 		};
 		return A2(
 			rtfeldman$elm_css$Html$Styled$li,
@@ -18602,7 +18652,7 @@ var author$project$TimeTracker$viewActivity = F3(
 								[
 									rtfeldman$elm_css$Html$Styled$text(
 									elm$core$String$fromInt(
-										(A3(author$project$Activity$Measure$totalLive, env.time, app.timeline, activity.id) / 60000) | 0) + 'm')
+										(A3(author$project$Activity$Measure$totalLive, env.time, last24Hours, activity.id) / 60000) | 0) + 'm')
 								]))
 						]))
 				]));

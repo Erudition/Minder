@@ -105,7 +105,10 @@ viewActivity : AppData -> Environment -> Activity -> Html Msg
 viewActivity app env activity =
     let
         describeSession sesh =
-            Measure.inFuzzyWords sesh ++ " at " ++ writeTime env ++ "\n"
+            Measure.inFuzzyWords sesh ++ "\n"
+
+        last24Hours =
+            Debug.log "truncated timeline" (timelineLimit app.timeline env.time (1 * 30 * 60 * 1000))
     in
     li
         [ class "activity" ]
@@ -122,7 +125,7 @@ viewActivity app env activity =
                 ]
             , div
                 []
-                [ text <| (String.fromInt <| Measure.totalLive env.time app.timeline activity.id // 60000) ++ "m"
+                [ text <| (String.fromInt <| Measure.totalLive env.time last24Hours activity.id // 60000) ++ "m"
                 ]
             ]
         ]
