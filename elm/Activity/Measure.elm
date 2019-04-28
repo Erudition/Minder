@@ -1,6 +1,6 @@
 module Activity.Measure exposing (inFuzzyWords, sessions, total, totalLive)
 
-import Activity.Activity exposing (..)
+import Activity.Activity as Activity exposing (..)
 import Time
 import Time.Distance exposing (..)
 
@@ -58,6 +58,36 @@ totalLive now switchList activityId =
             Switch now activityId
     in
     List.sum (sessions (fakeSwitch :: switchList) activityId)
+
+
+timelineLimit : Timeline -> Moment -> Int -> Timeline
+timelineLimit timeline now limit =
+    let
+        present =
+            Time.posixToMillis now
+
+        pastLimit =
+            present - limit
+
+        switchTime (Switch moment _) =
+            Time.posixToMillis moment
+
+        switchActivityId (Switch _ id) =
+            id
+
+        tooOld switch =
+            switchTime switch < pastLimit
+
+        ( pass, fail ) =
+            List.partition tooOld timeline
+
+        justMissedId =
+            Maybe.withDefault Activity.dummy <| Maybe.map switchActivityId (List.head fail)
+
+        fakeEndSwitch =
+            Switch (Time.millisToPosix pastLimit) justMissedId
+    in
+    pass ++ [ fakeEndSwitch ]
 
 
 inFuzzyWords : Int -> String

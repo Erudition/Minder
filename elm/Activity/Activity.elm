@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -146,6 +146,11 @@ isStock activity =
 
         Custom int ->
             False
+
+
+dummy : ActivityId
+dummy =
+    Stock DillyDally
 
 
 type Switch
