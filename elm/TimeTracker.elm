@@ -8,7 +8,7 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Environment exposing (..)
-import External.Commands as Commands
+import External.Commands as Commands exposing (..)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -185,7 +185,10 @@ update msg state app env =
             in
             ( state
             , updatedApp
-            , Commands.toast (Encode.string (switchPopup updatedApp.timeline newActivity oldActivity))
+            , Cmd.batch
+                [ Commands.toast (Encode.string (switchPopup updatedApp.timeline newActivity oldActivity))
+                , Commands.changeActivity (getName newActivity)
+                ]
             )
 
 

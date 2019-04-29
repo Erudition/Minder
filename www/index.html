@@ -25,13 +25,20 @@ app.ports.setStorage.subscribe(function(state) {
     console.log(state);
 });//was JSON.stringify(state)
 
-app.ports.flash.subscribe(function(data) {
+app.ports.flash.subscribe(function(name, data) {
   try {
       tk.flash(data)
   } catch (e) {
       console.log("Got: " +data+ ", but couldn't run tasker command");
   }
+});
 
+app.ports.variableOut.subscribe(function(data) {
+  try {
+      tk.setGlobal(name, data)
+  } catch (e) {
+      console.log("Setting " +name+ " to " +data+ " if tasker was here");
+  }
 });
 </script>
 <!-- <script type="text/javascript" src="tasker.js"></script> -->
