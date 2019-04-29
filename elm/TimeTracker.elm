@@ -106,9 +106,6 @@ viewActivity app env activity =
     let
         describeSession sesh =
             Measure.inFuzzyWords sesh ++ "\n"
-
-        lastPeriod =
-            Debug.log "truncated timeline" relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
     in
     li
         [ class "activity" ]
@@ -125,7 +122,7 @@ viewActivity app env activity =
                 ]
             , div
                 []
-                [ text <| (String.fromInt <| Measure.totalLive env.time lastPeriod activity.id // 60000) ++ "m"
+                [ text <| (writeActivityUsage app env activity ++ "m")
                 ]
             ]
         ]
@@ -147,6 +144,15 @@ viewIcon icon =
 
         Other ->
             text ""
+
+
+writeActivityUsage : AppData -> Environment -> Activity -> String
+writeActivityUsage app env activity =
+    let
+        lastPeriod =
+            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
+    in
+    String.fromInt <| Measure.totalLive env.time lastPeriod activity.id // 60000
 
 
 
@@ -188,6 +194,8 @@ update msg state app env =
             , Cmd.batch
                 [ Commands.toast (Encode.string (switchPopup updatedApp.timeline newActivity oldActivity))
                 , Commands.changeActivity (getName newActivity)
+                    (writeActivityUsage app env newActivity)
+                , Commands.hideWindow
                 ]
             )
 

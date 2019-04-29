@@ -1187,7 +1187,7 @@ type alias Timeline =
 
 latestSwitch : Timeline -> Switch
 latestSwitch timeline =
-    Maybe.withDefault (Switch (Time.millisToPosix 0) (Stock DillyDally)) (Debug.log "Timeline head: " (List.head timeline))
+    Maybe.withDefault (Switch (Time.millisToPosix 0) (Stock DillyDally)) (List.head timeline)
 
 
 currentActivityId : Timeline -> ActivityId

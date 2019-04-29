@@ -9,4 +9,4 @@ port flash : Value -> Cmd msg
 port exit : () -> Cmd msg
 
 
-port variableOut : ( String, Value ) -> Cmd msg
+port variableOut : ( String, String ) -> Cmd msg
