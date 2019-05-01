@@ -41,8 +41,8 @@ main =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Time.every (60 * 1000) MinutePassed
-        , Browser.Events.onVisibilityChange (\_ -> NoOp)
+        [ Time.every (60 * 1000) (Tock NoOp)
+        , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         ]
 
 
@@ -128,7 +128,7 @@ init maybeJson url key =
             Environment
 
         effects =
-            [ Job.perform MinutePassed Time.now
+            [ Job.perform (Tock NoOp) Time.now
             , Job.perform SetZone Time.here
             ]
     in
@@ -301,7 +301,6 @@ type Msg
     = NoOp
     | Tick Msg
     | Tock Msg Time.Posix
-    | MinutePassed Moment
     | SetZone Time.Zone
     | ClearErrors
     | Link Browser.UrlRequest
@@ -326,9 +325,6 @@ update msg ({ viewState, appData, environment } as model) =
     case ( msg, viewState.primaryView ) of
         ( NoOp, _ ) ->
             ( model, Cmd.none )
-
-        ( MinutePassed time, _ ) ->
-            justSetEnv { environment | time = time }
 
         ( SetZone zone, _ ) ->
             justSetEnv { environment | timeZone = zone }
