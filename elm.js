@@ -19512,51 +19512,69 @@ var author$project$Main$view = function (_n0) {
 	var viewState = _n0.viewState;
 	var appData = _n0.appData;
 	var environment = _n0.environment;
-	var _n1 = viewState.primaryView;
-	switch (_n1.$) {
-		case 'TaskList':
-			var subState = _n1.a;
-			return {
-				body: A2(
-					elm$core$List$map,
-					rtfeldman$elm_css$Html$Styled$toUnstyled,
-					_List_fromArray(
-						[
-							A2(
-							rtfeldman$elm_css$Html$Styled$map,
-							author$project$Main$TaskListMsg,
-							A3(author$project$TaskList$view, subState, appData, environment)),
-							author$project$Main$infoFooter,
-							author$project$Main$errorList(appData.errors)
-						])),
-				title: 'Docket - Task List'
-			};
-		case 'TimeTracker':
-			var subState = _n1.a;
-			return {
-				body: A2(
-					elm$core$List$map,
-					rtfeldman$elm_css$Html$Styled$toUnstyled,
-					_List_fromArray(
-						[
-							A2(
-							rtfeldman$elm_css$Html$Styled$map,
-							author$project$Main$TimeTrackerMsg,
-							A3(author$project$TimeTracker$view, subState, appData, environment)),
-							author$project$Main$infoFooter,
-							author$project$Main$errorList(appData.errors)
-						])),
-				title: 'Docket Time Tracker'
-			};
-		default:
-			return {
-				body: A2(
-					elm$core$List$map,
-					rtfeldman$elm_css$Html$Styled$toUnstyled,
-					_List_fromArray(
-						[author$project$Main$infoFooter])),
-				title: 'TODO Some other page'
-			};
+	if (_Utils_eq(
+		environment.time,
+		elm$time$Time$millisToPosix(0))) {
+		return {
+			body: _List_fromArray(
+				[
+					rtfeldman$elm_css$Html$Styled$toUnstyled(
+					A2(
+						rtfeldman$elm_css$Html$Styled$map,
+						function (_n1) {
+							return author$project$Main$NoOp;
+						},
+						rtfeldman$elm_css$Html$Styled$text('Loading')))
+				]),
+			title: 'Loading...'
+		};
+	} else {
+		var _n2 = viewState.primaryView;
+		switch (_n2.$) {
+			case 'TaskList':
+				var subState = _n2.a;
+				return {
+					body: A2(
+						elm$core$List$map,
+						rtfeldman$elm_css$Html$Styled$toUnstyled,
+						_List_fromArray(
+							[
+								A2(
+								rtfeldman$elm_css$Html$Styled$map,
+								author$project$Main$TaskListMsg,
+								A3(author$project$TaskList$view, subState, appData, environment)),
+								author$project$Main$infoFooter,
+								author$project$Main$errorList(appData.errors)
+							])),
+					title: 'Docket - Task List'
+				};
+			case 'TimeTracker':
+				var subState = _n2.a;
+				return {
+					body: A2(
+						elm$core$List$map,
+						rtfeldman$elm_css$Html$Styled$toUnstyled,
+						_List_fromArray(
+							[
+								A2(
+								rtfeldman$elm_css$Html$Styled$map,
+								author$project$Main$TimeTrackerMsg,
+								A3(author$project$TimeTracker$view, subState, appData, environment)),
+								author$project$Main$infoFooter,
+								author$project$Main$errorList(appData.errors)
+							])),
+					title: 'Docket Time Tracker'
+				};
+			default:
+				return {
+					body: A2(
+						elm$core$List$map,
+						rtfeldman$elm_css$Html$Styled$toUnstyled,
+						_List_fromArray(
+							[author$project$Main$infoFooter])),
+					title: 'TODO Some other page'
+				};
+		}
 	}
 };
 var elm$browser$Browser$application = _Browser_application;
