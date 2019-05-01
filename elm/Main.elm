@@ -218,7 +218,7 @@ view : Model -> Browser.Document Msg
 view { viewState, appData, environment } =
     case viewState.primaryView of
         TaskList subState ->
-            { title = "Docket - which page"
+            { title = "Docket - Task List"
             , body =
                 List.map toUnstyled
                     [ H.map TaskListMsg (TaskList.view subState appData environment)
@@ -254,7 +254,7 @@ view { viewState, appData, environment } =
 infoFooter : Html Msg
 infoFooter =
     footer [ class "info" ]
-        [ p [] [ text "Double-click to edit a task" ]
+        [ p [] [ text "Here we go!" ]
         , p []
             [ text "Written by "
             , a [ href "https://github.com/Erudition" ] [ text "Erudition" ]
