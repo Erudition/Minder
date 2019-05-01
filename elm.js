@@ -15196,7 +15196,7 @@ var author$project$Main$infoFooter = A2(
 			_List_Nil,
 			_List_fromArray(
 				[
-					rtfeldman$elm_css$Html$Styled$text('Double-click to edit a task')
+					rtfeldman$elm_css$Html$Styled$text('Here we go!')
 				])),
 			A2(
 			rtfeldman$elm_css$Html$Styled$p,
@@ -19330,7 +19330,7 @@ var author$project$Main$view = function (_n0) {
 							author$project$Main$infoFooter,
 							author$project$Main$errorList(appData.errors)
 						])),
-				title: 'Docket - which page'
+				title: 'Docket - Task List'
 			};
 		case 'TimeTracker':
 			var subState = _n1.a;
