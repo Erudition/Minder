@@ -137,7 +137,12 @@ viewIcon : Activity.Icon -> Html Msg
 viewIcon icon =
     case icon of
         File svgPath ->
-            img [ class "activity-icon", src ("media/icons/" ++ svgPath) ] []
+            img
+                [ class "activity-icon"
+                , src ("media/icons/" ++ svgPath)
+                , css [ Css.float left ]
+                ]
+                []
 
         Ion ->
             text ""
