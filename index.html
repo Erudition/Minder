@@ -29,7 +29,7 @@ app.ports.flash.subscribe(function(data) {
   try {
       tk.flash(data)
   } catch (e) {
-      console.log("With Tasker, would have flashed: " +data);
+      console.log("With Tasker, would have flashed: \n" +data);
   }
 });
 
