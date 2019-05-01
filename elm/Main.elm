@@ -39,9 +39,11 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions { environment } =
     Sub.batch
-        [ Time.every (60 * 1000) (Tock NoOp)
+        [ -- TODO unsubscribe when not visible
+          -- TODO sync subscription with current activity
+          Time.every (60 * 1000) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         ]
 
