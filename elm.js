@@ -12419,7 +12419,8 @@ var elm$time$Time$every = F2(
 		return elm$time$Time$subscription(
 			A2(elm$time$Time$Every, interval, tagger));
 	});
-var author$project$Main$subscriptions = function (model) {
+var author$project$Main$subscriptions = function (_n0) {
+	var environment = _n0.environment;
 	return elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
@@ -12428,7 +12429,7 @@ var author$project$Main$subscriptions = function (model) {
 				60 * 1000,
 				author$project$Main$Tock(author$project$Main$NoOp)),
 				elm$browser$Browser$Events$onVisibilityChange(
-				function (_n0) {
+				function (_n1) {
 					return author$project$Main$Tick(author$project$Main$NoOp);
 				})
 			]));
