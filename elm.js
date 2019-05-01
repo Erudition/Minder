@@ -18981,6 +18981,79 @@ var author$project$Activity$Measure$inFuzzyWords = function (ms) {
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
 };
+var rtfeldman$elm_css$Css$Internal$property = F2(
+	function (key, value) {
+		return rtfeldman$elm_css$Css$Preprocess$AppendProperty(key + (':' + value));
+	});
+var rtfeldman$elm_css$Css$Preprocess$ApplyStyles = function (a) {
+	return {$: 'ApplyStyles', a: a};
+};
+var rtfeldman$elm_css$Css$Internal$getOverloadedProperty = F3(
+	function (functionName, desiredKey, style) {
+		getOverloadedProperty:
+		while (true) {
+			switch (style.$) {
+				case 'AppendProperty':
+					var str = style.a;
+					var key = A2(
+						elm$core$Maybe$withDefault,
+						'',
+						elm$core$List$head(
+							A2(elm$core$String$split, ':', str)));
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, key);
+				case 'ExtendSelector':
+					var selector = style.a;
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-inapplicable-Style-for-selector'));
+				case 'NestSnippet':
+					var combinator = style.a;
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-inapplicable-Style-for-combinator'));
+				case 'WithPseudoElement':
+					var pseudoElement = style.a;
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-inapplicable-Style-for-pseudo-element setter'));
+				case 'WithMedia':
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-inapplicable-Style-for-media-query'));
+				case 'WithKeyframes':
+					return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-inapplicable-Style-for-keyframes'));
+				default:
+					if (!style.a.b) {
+						return A2(rtfeldman$elm_css$Css$Internal$property, desiredKey, 'elm-css-error-cannot-apply-' + (functionName + '-with-empty-Style'));
+					} else {
+						if (!style.a.b.b) {
+							var _n1 = style.a;
+							var only = _n1.a;
+							var $temp$functionName = functionName,
+								$temp$desiredKey = desiredKey,
+								$temp$style = only;
+							functionName = $temp$functionName;
+							desiredKey = $temp$desiredKey;
+							style = $temp$style;
+							continue getOverloadedProperty;
+						} else {
+							var _n2 = style.a;
+							var first = _n2.a;
+							var rest = _n2.b;
+							var $temp$functionName = functionName,
+								$temp$desiredKey = desiredKey,
+								$temp$style = rtfeldman$elm_css$Css$Preprocess$ApplyStyles(rest);
+							functionName = $temp$functionName;
+							desiredKey = $temp$desiredKey;
+							style = $temp$style;
+							continue getOverloadedProperty;
+						}
+					}
+			}
+		}
+	});
+var rtfeldman$elm_css$Css$Internal$IncompatibleUnits = {$: 'IncompatibleUnits'};
+var rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty = A3(rtfeldman$elm_css$Css$Internal$lengthConverter, rtfeldman$elm_css$Css$Internal$IncompatibleUnits, '', 0);
+var rtfeldman$elm_css$Css$float = function (fn) {
+	return A3(
+		rtfeldman$elm_css$Css$Internal$getOverloadedProperty,
+		'float',
+		'float',
+		fn(rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty));
+};
+var rtfeldman$elm_css$Css$left = rtfeldman$elm_css$Css$prop1('left');
 var rtfeldman$elm_css$Html$Styled$img = rtfeldman$elm_css$Html$Styled$node('img');
 var rtfeldman$elm_css$Html$Styled$Attributes$src = function (url) {
 	return A2(rtfeldman$elm_css$Html$Styled$Attributes$stringProperty, 'src', url);
@@ -18994,7 +19067,12 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 				_List_fromArray(
 					[
 						rtfeldman$elm_css$Html$Styled$Attributes$class('activity-icon'),
-						rtfeldman$elm_css$Html$Styled$Attributes$src('media/icons/' + svgPath)
+						rtfeldman$elm_css$Html$Styled$Attributes$src('media/icons/' + svgPath),
+						rtfeldman$elm_css$Html$Styled$Attributes$css(
+						_List_fromArray(
+							[
+								rtfeldman$elm_css$Css$float(rtfeldman$elm_css$Css$left)
+							]))
 					]),
 				_List_Nil);
 		case 'Ion':
@@ -19047,20 +19125,20 @@ var author$project$TimeTracker$viewActivity = F3(
 						[
 							author$project$TimeTracker$viewIcon(activity.icon),
 							A2(
-							rtfeldman$elm_css$Html$Styled$label,
-							_List_Nil,
-							_List_fromArray(
-								[
-									rtfeldman$elm_css$Html$Styled$text(
-									author$project$Activity$Activity$getName(activity))
-								])),
-							A2(
 							rtfeldman$elm_css$Html$Styled$div,
 							_List_Nil,
 							_List_fromArray(
 								[
 									rtfeldman$elm_css$Html$Styled$text(
 									A3(author$project$TimeTracker$writeActivityUsage, app, env, activity) + 'm')
+								])),
+							A2(
+							rtfeldman$elm_css$Html$Styled$label,
+							_List_Nil,
+							_List_fromArray(
+								[
+									rtfeldman$elm_css$Html$Styled$text(
+									author$project$Activity$Activity$getName(activity))
 								]))
 						]))
 				]));
