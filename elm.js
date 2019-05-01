@@ -15196,7 +15196,7 @@ var author$project$Main$infoFooter = A2(
 			_List_Nil,
 			_List_fromArray(
 				[
-					rtfeldman$elm_css$Html$Styled$text('Here we go!')
+					rtfeldman$elm_css$Html$Styled$text('Here we go! Deployment is instant now!')
 				])),
 			A2(
 			rtfeldman$elm_css$Html$Styled$p,
