@@ -7,6 +7,7 @@ port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewStat
 import AppData exposing (..)
 import Browser
 import Browser.Dom as Dom
+import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Environment exposing (..)
 import External.Commands exposing (..)
@@ -39,7 +40,10 @@ main =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Time.every (60 * 1000) MinutePassed
+    Sub.batch
+        [ Time.every (60 * 1000) MinutePassed
+        , Browser.Events.onVisibilityChange (\_ -> NoOp)
+        ]
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
