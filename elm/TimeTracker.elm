@@ -116,13 +116,13 @@ viewActivity app env activity =
             , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activity.id))
             ]
             [ viewIcon activity.icon
-            , label
-                []
-                [ text (Activity.getName activity)
-                ]
             , div
                 []
                 [ text <| (writeActivityUsage app env activity ++ "m")
+                ]
+            , label
+                []
+                [ text (Activity.getName activity)
                 ]
             ]
         ]
