@@ -5892,12 +5892,14 @@ var author$project$Environment$Environment = F3(
 	function (time, navkey, timeZone) {
 		return {navkey: navkey, time: time, timeZone: timeZone};
 	});
-var author$project$Main$MinutePassed = function (a) {
-	return {$: 'MinutePassed', a: a};
-};
+var author$project$Main$NoOp = {$: 'NoOp'};
 var author$project$Main$SetZone = function (a) {
 	return {$: 'SetZone', a: a};
 };
+var author$project$Main$Tock = F2(
+	function (a, b) {
+		return {$: 'Tock', a: a, b: b};
+	});
 var author$project$Activity$Activity$Customizations = function (names) {
 	return function (icon) {
 		return function (excusable) {
@@ -8516,14 +8518,19 @@ var author$project$Main$init = F3(
 		var environment = author$project$Environment$Environment;
 		var effects = _List_fromArray(
 			[
-				A2(elm$core$Task$perform, author$project$Main$MinutePassed, elm$time$Time$now),
+				A2(
+				elm$core$Task$perform,
+				author$project$Main$Tock(author$project$Main$NoOp),
+				elm$time$Time$now),
 				A2(elm$core$Task$perform, author$project$Main$SetZone, elm$time$Time$here)
 			]);
 		return _Utils_Tuple2(
 			startingModel,
 			elm$core$Platform$Cmd$batch(effects));
 	});
-var author$project$Main$NoOp = {$: 'NoOp'};
+var author$project$Main$Tick = function (a) {
+	return {$: 'Tick', a: a};
+};
 var elm$browser$Browser$Events$Document = {$: 'Document'};
 var elm$browser$Browser$Events$MySub = F3(
 	function (a, b, c) {
@@ -12416,20 +12423,16 @@ var author$project$Main$subscriptions = function (model) {
 	return elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
-				A2(elm$time$Time$every, 60 * 1000, author$project$Main$MinutePassed),
+				A2(
+				elm$time$Time$every,
+				60 * 1000,
+				author$project$Main$Tock(author$project$Main$NoOp)),
 				elm$browser$Browser$Events$onVisibilityChange(
 				function (_n0) {
-					return author$project$Main$NoOp;
+					return author$project$Main$Tick(author$project$Main$NoOp);
 				})
 			]));
 };
-var author$project$Main$Tick = function (a) {
-	return {$: 'Tick', a: a};
-};
-var author$project$Main$Tock = F2(
-	function (a, b) {
-		return {$: 'Tock', a: a, b: b};
-	});
 var author$project$Activity$Template$encodeTemplate = function (v) {
 	switch (v.$) {
 		case 'DillyDally':
@@ -15143,18 +15146,12 @@ var author$project$Main$update = F2(
 			return _Utils_Tuple2(model, command);
 		};
 		var _n0 = _Utils_Tuple2(msg, viewState.primaryView);
-		_n0$8:
+		_n0$7:
 		while (true) {
 			switch (_n0.a.$) {
 				case 'NoOp':
 					var _n1 = _n0.a;
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-				case 'MinutePassed':
-					var time = _n0.a.a;
-					return justSetEnv(
-						_Utils_update(
-							environment,
-							{time: time}));
 				case 'SetZone':
 					var zone = _n0.a.a;
 					return justSetEnv(
@@ -15214,7 +15211,7 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
 					} else {
-						break _n0$8;
+						break _n0$7;
 					}
 				case 'TimeTrackerMsg':
 					if (_n0.b.$ === 'TimeTracker') {
@@ -15235,10 +15232,10 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
 					} else {
-						break _n0$8;
+						break _n0$7;
 					}
 				default:
-					break _n0$8;
+					break _n0$7;
 			}
 		}
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -19571,4 +19568,4 @@ _Platform_export({'Main':{'init':author$project$Main$main(
 			[
 				elm$json$Json$Decode$null(elm$core$Maybe$Nothing),
 				A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, elm$json$Json$Decode$string)
-			])))({"versions":{"elm":"0.19.0"},"types":{"message":"Main.Msg","aliases":{"Task.TaskMoment.Moment":{"args":[],"type":"Time.Posix"},"Url.Url":{"args":[],"type":"{ protocol : Url.Protocol, host : String.String, port_ : Maybe.Maybe Basics.Int, path : String.String, query : Maybe.Maybe String.String, fragment : Maybe.Maybe String.String }"},"Task.Progress.Portion":{"args":[],"type":"Basics.Int"},"Task.Progress.Progress":{"args":[],"type":"( Task.Progress.Portion, Task.Progress.Unit )"},"Task.Task.TaskId":{"args":[],"type":"Basics.Int"},"Time.Era":{"args":[],"type":"{ start : Basics.Int, offset : Basics.Int }"},"Time.Extra.Parts":{"args":[],"type":"{ year : Basics.Int, month : Time.Month, day : Basics.Int, hour : Basics.Int, minute : Basics.Int, second : Basics.Int, millisecond : Basics.Int }"},"Date.RataDie":{"args":[],"type":"Basics.Int"}},"unions":{"Main.Msg":{"args":[],"tags":{"NoOp":[],"Tick":["Main.Msg"],"Tock":["Main.Msg","Time.Posix"],"MinutePassed":["Task.TaskMoment.Moment"],"SetZone":["Time.Zone"],"ClearErrors":[],"Link":["Browser.UrlRequest"],"NewUrl":["Url.Url"],"TaskListMsg":["TaskList.Msg"],"TimeTrackerMsg":["TimeTracker.Msg"]}},"TaskList.Msg":{"args":[],"tags":{"EditingTitle":["Task.Task.TaskId","Basics.Bool"],"UpdateTask":["Task.Task.TaskId","String.String"],"Add":[],"Delete":["Task.Task.TaskId"],"DeleteComplete":[],"UpdateProgress":["Task.Task.TaskId","Task.Progress.Progress"],"FocusSlider":["Task.Task.TaskId","Basics.Bool"],"UpdateTaskDate":["Task.Task.TaskId","String.String","Task.TaskMoment.TaskMoment"],"UpdateNewEntryField":["String.String"],"NoOp":[]}},"TimeTracker.Msg":{"args":[],"tags":{"NoOp":[],"StartTracking":["Activity.Activity.ActivityId"]}},"Browser.UrlRequest":{"args":[],"tags":{"Internal":["Url.Url"],"External":["String.String"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"String.String":{"args":[],"tags":{"String":[]}},"Time.Posix":{"args":[],"tags":{"Posix":["Basics.Int"]}},"Time.Zone":{"args":[],"tags":{"Zone":["Basics.Int","List.List Time.Era"]}},"Url.Protocol":{"args":[],"tags":{"Http":[],"Https":[]}},"Activity.Activity.ActivityId":{"args":[],"tags":{"Stock":["Activity.Template.Template"],"Custom":["Basics.Int"]}},"Task.Progress.Unit":{"args":[],"tags":{"None":[],"Permille":[],"Percent":[],"Word":["Basics.Int"],"Minute":["Basics.Int"],"CustomUnit":["( String.String, String.String )","Basics.Int"]}},"Task.TaskMoment.TaskMoment":{"args":[],"tags":{"Unset":[],"LocalDate":["Date.Date"],"Localized":["Time.Extra.Parts"],"Universal":["Task.TaskMoment.Moment"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"List.List":{"args":["a"],"tags":{}},"Activity.Template.Template":{"args":[],"tags":{"DillyDally":[],"Apparel":[],"Messaging":[],"Restroom":[],"Grooming":[],"Meal":[],"Supplements":[],"Workout":[],"Shower":[],"Toothbrush":[],"Floss":[],"Wakeup":[],"Sleep":[],"Plan":[],"Configure":[],"Email":[],"Work":[],"Call":[],"Chores":[],"Parents":[],"Prepare":[],"Lover":[],"Driving":[],"Riding":[],"SocialMedia":[],"Pacing":[],"Sport":[],"Finance":[],"Laundry":[],"Bedward":[],"Browse":[],"Fiction":[],"Learning":[],"BrainTrain":[],"Music":[],"Create":[],"Children":[],"Meeting":[],"Cinema":[],"FilmWatching":[],"Series":[],"Broadcast":[],"Theatre":[],"Shopping":[],"VideoGaming":[],"Housekeeping":[],"MealPrep":[],"Networking":[],"Meditate":[],"Homework":[],"Flight":[],"Course":[],"Pet":[],"Presentation":[]}},"Time.Month":{"args":[],"tags":{"Jan":[],"Feb":[],"Mar":[],"Apr":[],"May":[],"Jun":[],"Jul":[],"Aug":[],"Sep":[],"Oct":[],"Nov":[],"Dec":[]}},"Date.Date":{"args":[],"tags":{"RD":["Date.RataDie"]}}}}})}});}(this));
+			])))({"versions":{"elm":"0.19.0"},"types":{"message":"Main.Msg","aliases":{"Url.Url":{"args":[],"type":"{ protocol : Url.Protocol, host : String.String, port_ : Maybe.Maybe Basics.Int, path : String.String, query : Maybe.Maybe String.String, fragment : Maybe.Maybe String.String }"},"Task.Progress.Portion":{"args":[],"type":"Basics.Int"},"Task.Progress.Progress":{"args":[],"type":"( Task.Progress.Portion, Task.Progress.Unit )"},"Task.Task.TaskId":{"args":[],"type":"Basics.Int"},"Time.Era":{"args":[],"type":"{ start : Basics.Int, offset : Basics.Int }"},"Task.TaskMoment.Moment":{"args":[],"type":"Time.Posix"},"Time.Extra.Parts":{"args":[],"type":"{ year : Basics.Int, month : Time.Month, day : Basics.Int, hour : Basics.Int, minute : Basics.Int, second : Basics.Int, millisecond : Basics.Int }"},"Date.RataDie":{"args":[],"type":"Basics.Int"}},"unions":{"Main.Msg":{"args":[],"tags":{"NoOp":[],"Tick":["Main.Msg"],"Tock":["Main.Msg","Time.Posix"],"SetZone":["Time.Zone"],"ClearErrors":[],"Link":["Browser.UrlRequest"],"NewUrl":["Url.Url"],"TaskListMsg":["TaskList.Msg"],"TimeTrackerMsg":["TimeTracker.Msg"]}},"TaskList.Msg":{"args":[],"tags":{"EditingTitle":["Task.Task.TaskId","Basics.Bool"],"UpdateTask":["Task.Task.TaskId","String.String"],"Add":[],"Delete":["Task.Task.TaskId"],"DeleteComplete":[],"UpdateProgress":["Task.Task.TaskId","Task.Progress.Progress"],"FocusSlider":["Task.Task.TaskId","Basics.Bool"],"UpdateTaskDate":["Task.Task.TaskId","String.String","Task.TaskMoment.TaskMoment"],"UpdateNewEntryField":["String.String"],"NoOp":[]}},"TimeTracker.Msg":{"args":[],"tags":{"NoOp":[],"StartTracking":["Activity.Activity.ActivityId"]}},"Browser.UrlRequest":{"args":[],"tags":{"Internal":["Url.Url"],"External":["String.String"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"String.String":{"args":[],"tags":{"String":[]}},"Time.Posix":{"args":[],"tags":{"Posix":["Basics.Int"]}},"Time.Zone":{"args":[],"tags":{"Zone":["Basics.Int","List.List Time.Era"]}},"Url.Protocol":{"args":[],"tags":{"Http":[],"Https":[]}},"Activity.Activity.ActivityId":{"args":[],"tags":{"Stock":["Activity.Template.Template"],"Custom":["Basics.Int"]}},"Task.Progress.Unit":{"args":[],"tags":{"None":[],"Permille":[],"Percent":[],"Word":["Basics.Int"],"Minute":["Basics.Int"],"CustomUnit":["( String.String, String.String )","Basics.Int"]}},"Task.TaskMoment.TaskMoment":{"args":[],"tags":{"Unset":[],"LocalDate":["Date.Date"],"Localized":["Time.Extra.Parts"],"Universal":["Task.TaskMoment.Moment"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"List.List":{"args":["a"],"tags":{}},"Activity.Template.Template":{"args":[],"tags":{"DillyDally":[],"Apparel":[],"Messaging":[],"Restroom":[],"Grooming":[],"Meal":[],"Supplements":[],"Workout":[],"Shower":[],"Toothbrush":[],"Floss":[],"Wakeup":[],"Sleep":[],"Plan":[],"Configure":[],"Email":[],"Work":[],"Call":[],"Chores":[],"Parents":[],"Prepare":[],"Lover":[],"Driving":[],"Riding":[],"SocialMedia":[],"Pacing":[],"Sport":[],"Finance":[],"Laundry":[],"Bedward":[],"Browse":[],"Fiction":[],"Learning":[],"BrainTrain":[],"Music":[],"Create":[],"Children":[],"Meeting":[],"Cinema":[],"FilmWatching":[],"Series":[],"Broadcast":[],"Theatre":[],"Shopping":[],"VideoGaming":[],"Housekeeping":[],"MealPrep":[],"Networking":[],"Meditate":[],"Homework":[],"Flight":[],"Course":[],"Pet":[],"Presentation":[]}},"Time.Month":{"args":[],"tags":{"Jan":[],"Feb":[],"Mar":[],"Apr":[],"May":[],"Jun":[],"Jul":[],"Aug":[],"Sep":[],"Oct":[],"Nov":[],"Dec":[]}},"Date.Date":{"args":[],"tags":{"RD":["Date.RataDie"]}}}}})}});}(this));
