@@ -220,31 +220,37 @@ defaultView =
 
 view : Model -> Browser.Document Msg
 view { viewState, appData, environment } =
-    case viewState.primaryView of
-        TaskList subState ->
-            { title = "Docket - Task List"
-            , body =
-                List.map toUnstyled
-                    [ H.map TaskListMsg (TaskList.view subState appData environment)
-                    , infoFooter
-                    , errorList appData.errors
-                    ]
-            }
+    if environment.time == Time.millisToPosix 0 then
+        { title = "Loading..."
+        , body = [ toUnstyled (H.map (\_ -> NoOp) (text "Loading")) ]
+        }
 
-        TimeTracker subState ->
-            { title = "Docket Time Tracker"
-            , body =
-                List.map toUnstyled
-                    [ H.map TimeTrackerMsg (TimeTracker.view subState appData environment)
-                    , infoFooter
-                    , errorList appData.errors
-                    ]
-            }
+    else
+        case viewState.primaryView of
+            TaskList subState ->
+                { title = "Docket - Task List"
+                , body =
+                    List.map toUnstyled
+                        [ H.map TaskListMsg (TaskList.view subState appData environment)
+                        , infoFooter
+                        , errorList appData.errors
+                        ]
+                }
 
-        _ ->
-            { title = "TODO Some other page"
-            , body = List.map toUnstyled [ infoFooter ]
-            }
+            TimeTracker subState ->
+                { title = "Docket Time Tracker"
+                , body =
+                    List.map toUnstyled
+                        [ H.map TimeTrackerMsg (TimeTracker.view subState appData environment)
+                        , infoFooter
+                        , errorList appData.errors
+                        ]
+                }
+
+            _ ->
+                { title = "TODO Some other page"
+                , body = List.map toUnstyled [ infoFooter ]
+                }
 
 
 
