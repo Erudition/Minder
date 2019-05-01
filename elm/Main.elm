@@ -254,7 +254,7 @@ view { viewState, appData, environment } =
 infoFooter : Html Msg
 infoFooter =
     footer [ class "info" ]
-        [ p [] [ text "Here we go!" ]
+        [ p [] [ text "Here we go! Deployment is instant now!" ]
         , p []
             [ text "Written by "
             , a [ href "https://github.com/Erudition" ] [ text "Erudition" ]
