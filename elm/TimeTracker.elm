@@ -7,6 +7,7 @@ import Browser
 import Browser.Dom
 import Css exposing (..)
 import Date
+import Dict
 import Environment exposing (..)
 import External.Commands as Commands exposing (..)
 import Html.Styled exposing (..)
@@ -22,7 +23,8 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import Task as Job
 import Time
-import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
+import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
+import Url.Parser.Query as PQ
 import VirtualDom
 
 
@@ -35,7 +37,12 @@ import VirtualDom
 
 
 type ViewState
-    = Normal
+    = Normal Params
+
+
+type alias Params =
+    { startActivity : Maybe String
+    }
 
 
 
@@ -50,18 +57,24 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map Normal (s "timetracker")
+    P.map Normal (s "timetracker" <?> queryCommands)
+
+
+queryCommands : PQ.Parser Params
+queryCommands =
+    PQ.map Params <|
+        PQ.string "start"
 
 
 defaultView : ViewState
 defaultView =
-    Normal
+    Normal { startActivity = Nothing }
 
 
 view : ViewState -> AppData -> Environment -> Html Msg
 view state app env =
     case state of
-        Normal ->
+        Normal _ ->
             div
                 []
                 [ section
