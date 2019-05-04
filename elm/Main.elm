@@ -383,30 +383,36 @@ update msg ({ viewState, appData, environment } as model) =
 -- PARSER
 
 
+{-| This dense function lets us pretend we have a server redirecting sub-urls (like app/task/57) to our app, even when we don't (like when running as a simple local file). Simply insert a "#" in the address bar, right before the path that gets passed into our app (inc. query&fragment) and this function will make it disappear before our app parses its url.
+
+Example: `http://localhost:8000/www/index.html#/sub/path?hey=there#yo`
+
+is normally parsed as
+`url: { fragment = Just "/sub/path?hey=there#yo", host = "localhost", path = "/www/index.html", port_ = Just 8000, protocol = Http, query = Nothing }`
+
+but with this function we can pretend it was:
+`url: { fragment = Just "yo", host = "localhost", path = "/www/index.html/sub/path", port_ = Just 8000, protocol = Http, query = Just "hey=there" }`
+
+even though that path may have resulted in a 404 on any host without fancy redirection set up (such as the development environment). Sweet!
+
+-}
 bypassFakeFragment : Url.Url -> Url.Url
 bypassFakeFragment url =
-    case url.fragment of
-        Just fragment ->
-            let
-                noUrlMagic =
-                    String.endsWith ".html" url.path
+    case Maybe.map String.uncons url.fragment of
+        -- only if "#" is immediately followed by a "/" (path)
+        Just (Just ( '/', fakeFragment )) ->
+            -- take the url and drop the first "#", then re-parse it
+            case String.split "#" (Url.toString url) of
+                front :: _ ->
+                    -- Url.fromString can fail, but it shouldn't here
+                    Maybe.withDefault url <|
+                        -- include all the rest (even later "#"s)
+                        Url.fromString (front ++ "/" ++ fakeFragment)
 
-                fakePathPresent =
-                    String.startsWith "/" fragment
+                _ ->
+                    url
 
-                fakePath =
-                    allBefore "?" <| allBefore "#" fragment
-
-                allBefore stringList cutoff =
-                    Maybe.withDefault "" (List.head (String.split cutoff stringList))
-            in
-            if noUrlMagic && fakePathPresent then
-                { url | path = url.path ++ fakePath }
-
-            else
-                url
-
-        Nothing ->
+        _ ->
             url
 
 
