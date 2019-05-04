@@ -24,6 +24,7 @@ import Time
 import TimeTracker exposing (..)
 import Url
 import Url.Parser as P exposing ((</>), Parser, int, map, oneOf, s, string)
+import Url.Parser.Query as PQ
 
 
 main : Program (Maybe JsonAppDatabase) Model Msg
@@ -354,7 +355,11 @@ update msg ({ viewState, appData, environment } as model) =
 
         -- TODO should we also insert Nav command to hide extra stuff from address bar after nav, while still updating the viewState?
         ( NewUrl url, _ ) ->
-            ( { model | viewState = viewUrl url }, toast (Url.toString url) )
+            let
+                ( modelAfter, effectsAfter ) =
+                    handleUrlTriggers url model
+            in
+            ( { modelAfter | viewState = viewUrl url }, effectsAfter )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
@@ -378,22 +383,40 @@ update msg ({ viewState, appData, environment } as model) =
 -- PARSER
 
 
+bypassFakeFragment : Url.Url -> Url.Url
+bypassFakeFragment url =
+    case url.fragment of
+        Just fragment ->
+            let
+                noUrlMagic =
+                    String.endsWith ".html" url.path
+
+                fakePathPresent =
+                    String.startsWith "/" fragment
+
+                fakePath =
+                    allBefore "?" <| allBefore "#" fragment
+
+                allBefore stringList cutoff =
+                    Maybe.withDefault "" (List.head (String.split cutoff stringList))
+            in
+            if noUrlMagic && fakePathPresent then
+                { url | path = url.path ++ fakePath }
+
+            else
+                url
+
+        Nothing ->
+            url
+
+
 viewUrl : Url.Url -> ViewState
 viewUrl url =
     let
-        parseIt finalUrl =
-            Maybe.withDefault defaultView (P.parse routeParser finalUrl)
+        finalUrl =
+            bypassFakeFragment url
     in
-    case ( url.path, url.fragment ) of
-        ( "/index.html", Just containspath ) ->
-            let
-                simulatedUrl =
-                    { url | path = containspath }
-            in
-            parseIt simulatedUrl
-
-        ( _, _ ) ->
-            parseIt url
+    Maybe.withDefault defaultView (P.parse routeParser finalUrl)
 
 
 routeParser : Parser (ViewState -> a) a
@@ -406,3 +429,28 @@ routeParser =
         [ wrapScreen (P.map TaskList TaskList.routeView)
         , wrapScreen (P.map TimeTracker TimeTracker.routeView)
         ]
+
+
+{-| Like an `update` function, but instead of accepting `Msg`s it works on the URL to allow us to send `Msg`s from the address bar! (to the real update function).
+-}
+handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
+handleUrlTriggers url model =
+    let
+        parsed =
+            P.parse (P.oneOf parseList) (Debug.log "url" <| bypassFakeFragment url)
+
+        parseList =
+            List.map P.query (timeTrackerTriggers ++ taskTriggers)
+
+        timeTrackerTriggers =
+            List.map (PQ.map (Maybe.map TimeTrackerMsg)) TimeTracker.urlTriggers
+
+        taskTriggers =
+            []
+    in
+    case parsed of
+        Just (Just commandMsg) ->
+            update commandMsg model
+
+        _ ->
+            ( model, Cmd.none )

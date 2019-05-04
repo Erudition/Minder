@@ -1,4 +1,4 @@
-module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, view)
+module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure exposing (..)
@@ -37,12 +37,7 @@ import VirtualDom
 
 
 type ViewState
-    = Normal Params
-
-
-type alias Params =
-    { startActivity : Maybe String
-    }
+    = Normal
 
 
 
@@ -57,24 +52,18 @@ type alias Params =
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map Normal (s "timetracker" <?> queryCommands)
-
-
-queryCommands : PQ.Parser Params
-queryCommands =
-    PQ.map Params <|
-        PQ.string "start"
+    P.map Normal (s "timetracker")
 
 
 defaultView : ViewState
 defaultView =
-    Normal { startActivity = Nothing }
+    Normal
 
 
 view : ViewState -> AppData -> Environment -> Html Msg
 view state app env =
     case state of
-        Normal _ ->
+        Normal ->
             div
                 []
                 [ section
@@ -210,12 +199,19 @@ update msg state app env =
             ( state
             , updatedApp
             , Cmd.batch
-                [ Commands.toast (Encode.string (switchPopup updatedApp.timeline newActivity oldActivity))
+                [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
                 , Commands.changeActivity (getName newActivity)
                     (writeActivityUsage app env newActivity)
                 , Commands.hideWindow
                 ]
             )
+
+
+urlTriggers : List (PQ.Parser (Maybe Msg))
+urlTriggers =
+    [ PQ.enum "start" <| Dict.fromList [ ( "Nothing", StartTracking dummy ) ]
+    , PQ.enum "stop" <| Dict.fromList [ ( "Nothing", NoOp ) ]
+    ]
 
 
 switchPopup : Timeline -> Activity -> Activity -> String
