@@ -13852,9 +13852,7 @@ var author$project$External$Commands$changeActivity = F2(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('Timetrack', newName)),
-					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ActivityTotal', newTotal))
+					_Utils_Tuple2('selected', newName))
 				]));
 	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
