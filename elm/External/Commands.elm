@@ -10,8 +10,7 @@ toast message =
 
 changeActivity newName newTotal =
     Cmd.batch
-        [ variableOut ( "Timetrack", newName )
-        , variableOut ( "ActivityTotal", newTotal )
+        [ variableOut ( "selected", newName )
         ]
 
 
