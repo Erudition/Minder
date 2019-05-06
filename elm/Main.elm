@@ -437,13 +437,20 @@ routeParser =
         ]
 
 
-{-| Like an `update` function, but instead of accepting `Msg`s it works on the URL to allow us to send `Msg`s from the address bar! (to the real update function).
+{-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
 -}
 handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
-handleUrlTriggers url model =
+handleUrlTriggers rawUrl model =
     let
+        url =
+            bypassFakeFragment rawUrl
+
+        -- so that parsers run regardless of path:
+        normalizedUrl =
+            { url | path = "" }
+
         parsed =
-            P.parse (P.oneOf parseList) (Debug.log "url" <| bypassFakeFragment url)
+            P.parse (P.oneOf parseList) (Debug.log "url" <| normalizedUrl)
 
         parseList =
             List.map P.query (timeTrackerTriggers ++ taskTriggers)
@@ -454,9 +461,14 @@ handleUrlTriggers url model =
         taskTriggers =
             []
     in
-    case parsed of
-        Just (Just commandMsg) ->
-            update commandMsg model
+    case Debug.log "parsed" <| parsed of
+        Just (Just triggerMsg) ->
+            update triggerMsg model
 
         _ ->
             ( model, Cmd.none )
+
+
+nerfUrl : Url.Url -> Url.Url
+nerfUrl original =
+    { original | path = "" }

@@ -209,8 +209,8 @@ update msg state app env =
 
 urlTriggers : List (PQ.Parser (Maybe Msg))
 urlTriggers =
-    [ PQ.enum "start" <| Dict.fromList [ ( "Nothing", StartTracking dummy ) ]
-    , PQ.enum "stop" <| Dict.fromList [ ( "Nothing", NoOp ) ]
+    [ PQ.enum "start" <| Dict.fromList [ ( "unknown", StartTracking dummy ) ]
+    , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
     ]
 
 
