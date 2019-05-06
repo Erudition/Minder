@@ -7602,6 +7602,217 @@ var author$project$Environment$preInit = function (key) {
 		timeZone: elm$time$Time$utc
 	};
 };
+var elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	});
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var elm$core$String$length = _String_length;
+var elm$core$String$slice = _String_slice;
+var elm$core$String$dropLeft = F2(
+	function (n, string) {
+		return (n < 1) ? string : A3(
+			elm$core$String$slice,
+			n,
+			elm$core$String$length(string),
+			string);
+	});
+var elm$core$String$startsWith = _String_startsWith;
+var elm$url$Url$Http = {$: 'Http'};
+var elm$url$Url$Https = {$: 'Https'};
+var elm$core$String$indexes = _String_indexes;
+var elm$core$String$left = F2(
+	function (n, string) {
+		return (n < 1) ? '' : A3(elm$core$String$slice, 0, n, string);
+	});
+var elm$core$String$contains = _String_contains;
+var elm$core$String$toInt = _String_toInt;
+var elm$url$Url$Url = F6(
+	function (protocol, host, port_, path, query, fragment) {
+		return {fragment: fragment, host: host, path: path, port_: port_, protocol: protocol, query: query};
+	});
+var elm$url$Url$chompBeforePath = F5(
+	function (protocol, path, params, frag, str) {
+		if (elm$core$String$isEmpty(str) || A2(elm$core$String$contains, '@', str)) {
+			return elm$core$Maybe$Nothing;
+		} else {
+			var _n0 = A2(elm$core$String$indexes, ':', str);
+			if (!_n0.b) {
+				return elm$core$Maybe$Just(
+					A6(elm$url$Url$Url, protocol, str, elm$core$Maybe$Nothing, path, params, frag));
+			} else {
+				if (!_n0.b.b) {
+					var i = _n0.a;
+					var _n1 = elm$core$String$toInt(
+						A2(elm$core$String$dropLeft, i + 1, str));
+					if (_n1.$ === 'Nothing') {
+						return elm$core$Maybe$Nothing;
+					} else {
+						var port_ = _n1;
+						return elm$core$Maybe$Just(
+							A6(
+								elm$url$Url$Url,
+								protocol,
+								A2(elm$core$String$left, i, str),
+								port_,
+								path,
+								params,
+								frag));
+					}
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			}
+		}
+	});
+var elm$url$Url$chompBeforeQuery = F4(
+	function (protocol, params, frag, str) {
+		if (elm$core$String$isEmpty(str)) {
+			return elm$core$Maybe$Nothing;
+		} else {
+			var _n0 = A2(elm$core$String$indexes, '/', str);
+			if (!_n0.b) {
+				return A5(elm$url$Url$chompBeforePath, protocol, '/', params, frag, str);
+			} else {
+				var i = _n0.a;
+				return A5(
+					elm$url$Url$chompBeforePath,
+					protocol,
+					A2(elm$core$String$dropLeft, i, str),
+					params,
+					frag,
+					A2(elm$core$String$left, i, str));
+			}
+		}
+	});
+var elm$url$Url$chompBeforeFragment = F3(
+	function (protocol, frag, str) {
+		if (elm$core$String$isEmpty(str)) {
+			return elm$core$Maybe$Nothing;
+		} else {
+			var _n0 = A2(elm$core$String$indexes, '?', str);
+			if (!_n0.b) {
+				return A4(elm$url$Url$chompBeforeQuery, protocol, elm$core$Maybe$Nothing, frag, str);
+			} else {
+				var i = _n0.a;
+				return A4(
+					elm$url$Url$chompBeforeQuery,
+					protocol,
+					elm$core$Maybe$Just(
+						A2(elm$core$String$dropLeft, i + 1, str)),
+					frag,
+					A2(elm$core$String$left, i, str));
+			}
+		}
+	});
+var elm$url$Url$chompAfterProtocol = F2(
+	function (protocol, str) {
+		if (elm$core$String$isEmpty(str)) {
+			return elm$core$Maybe$Nothing;
+		} else {
+			var _n0 = A2(elm$core$String$indexes, '#', str);
+			if (!_n0.b) {
+				return A3(elm$url$Url$chompBeforeFragment, protocol, elm$core$Maybe$Nothing, str);
+			} else {
+				var i = _n0.a;
+				return A3(
+					elm$url$Url$chompBeforeFragment,
+					protocol,
+					elm$core$Maybe$Just(
+						A2(elm$core$String$dropLeft, i + 1, str)),
+					A2(elm$core$String$left, i, str));
+			}
+		}
+	});
+var elm$url$Url$fromString = function (str) {
+	return A2(elm$core$String$startsWith, 'http://', str) ? A2(
+		elm$url$Url$chompAfterProtocol,
+		elm$url$Url$Http,
+		A2(elm$core$String$dropLeft, 7, str)) : (A2(elm$core$String$startsWith, 'https://', str) ? A2(
+		elm$url$Url$chompAfterProtocol,
+		elm$url$Url$Https,
+		A2(elm$core$String$dropLeft, 8, str)) : elm$core$Maybe$Nothing);
+};
+var elm$url$Url$addPort = F2(
+	function (maybePort, starter) {
+		if (maybePort.$ === 'Nothing') {
+			return starter;
+		} else {
+			var port_ = maybePort.a;
+			return starter + (':' + elm$core$String$fromInt(port_));
+		}
+	});
+var elm$url$Url$addPrefixed = F3(
+	function (prefix, maybeSegment, starter) {
+		if (maybeSegment.$ === 'Nothing') {
+			return starter;
+		} else {
+			var segment = maybeSegment.a;
+			return _Utils_ap(
+				starter,
+				_Utils_ap(prefix, segment));
+		}
+	});
+var elm$url$Url$toString = function (url) {
+	var http = function () {
+		var _n0 = url.protocol;
+		if (_n0.$ === 'Http') {
+			return 'http://';
+		} else {
+			return 'https://';
+		}
+	}();
+	return A3(
+		elm$url$Url$addPrefixed,
+		'#',
+		url.fragment,
+		A3(
+			elm$url$Url$addPrefixed,
+			'?',
+			url.query,
+			_Utils_ap(
+				A2(
+					elm$url$Url$addPort,
+					url.port_,
+					_Utils_ap(http, url.host)),
+				url.path)));
+};
+var author$project$Main$bypassFakeFragment = function (url) {
+	var _n0 = A2(elm$core$Maybe$map, elm$core$String$uncons, url.fragment);
+	if (((_n0.$ === 'Just') && (_n0.a.$ === 'Just')) && ('/' === _n0.a.a.a.valueOf())) {
+		var _n1 = _n0.a.a;
+		var fakeFragment = _n1.b;
+		var _n2 = A2(
+			elm$core$String$split,
+			'#',
+			elm$url$Url$toString(url));
+		if (_n2.b) {
+			var front = _n2.a;
+			return A2(
+				elm$core$Maybe$withDefault,
+				url,
+				elm$url$Url$fromString(front + ('/' + fakeFragment)));
+		} else {
+			return url;
+		}
+	} else {
+		return url;
+	}
+};
 var author$project$Main$TimeTracker = function (a) {
 	return {$: 'TimeTracker', a: a};
 };
@@ -7609,11 +7820,8 @@ var author$project$Main$ViewState = F2(
 	function (primaryView, uid) {
 		return {primaryView: primaryView, uid: uid};
 	});
-var author$project$TimeTracker$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var author$project$TimeTracker$defaultView = author$project$TimeTracker$Normal(
-	{startActivity: elm$core$Maybe$Nothing});
+var author$project$TimeTracker$Normal = {$: 'Normal'};
+var author$project$TimeTracker$defaultView = author$project$TimeTracker$Normal;
 var author$project$Main$defaultView = A2(
 	author$project$Main$ViewState,
 	author$project$Main$TimeTracker(author$project$TimeTracker$defaultView),
@@ -7703,138 +7911,10 @@ var author$project$TaskList$routeView = A2(
 		elm$core$Maybe$Nothing,
 		'Test'),
 	elm$url$Url$Parser$s('tasks'));
-var author$project$TimeTracker$Params = function (startActivity) {
-	return {startActivity: startActivity};
-};
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var elm$url$Url$Parser$Query$map = F2(
-	function (func, _n0) {
-		var a = _n0.a;
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					a(dict));
-			});
-	});
-var elm$core$Basics$compare = _Utils_compare;
-var elm$core$Dict$get = F2(
-	function (targetKey, dict) {
-		get:
-		while (true) {
-			if (dict.$ === 'RBEmpty_elm_builtin') {
-				return elm$core$Maybe$Nothing;
-			} else {
-				var key = dict.b;
-				var value = dict.c;
-				var left = dict.d;
-				var right = dict.e;
-				var _n1 = A2(elm$core$Basics$compare, targetKey, key);
-				switch (_n1.$) {
-					case 'LT':
-						var $temp$targetKey = targetKey,
-							$temp$dict = left;
-						targetKey = $temp$targetKey;
-						dict = $temp$dict;
-						continue get;
-					case 'EQ':
-						return elm$core$Maybe$Just(value);
-					default:
-						var $temp$targetKey = targetKey,
-							$temp$dict = right;
-						targetKey = $temp$targetKey;
-						dict = $temp$dict;
-						continue get;
-				}
-			}
-		}
-	});
-var elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
-		} else {
-			return _default;
-		}
-	});
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					A2(
-						elm$core$Maybe$withDefault,
-						_List_Nil,
-						A2(elm$core$Dict$get, key, dict)));
-			});
-	});
-var elm$url$Url$Parser$Query$string = function (key) {
-	return A2(
-		elm$url$Url$Parser$Query$custom,
-		key,
-		function (stringList) {
-			if (stringList.b && (!stringList.b.b)) {
-				var str = stringList.a;
-				return elm$core$Maybe$Just(str);
-			} else {
-				return elm$core$Maybe$Nothing;
-			}
-		});
-};
-var author$project$TimeTracker$queryCommands = A2(
-	elm$url$Url$Parser$Query$map,
-	author$project$TimeTracker$Params,
-	elm$url$Url$Parser$Query$string('start'));
-var elm$url$Url$Parser$query = function (_n0) {
-	var queryParser = _n0.a;
-	return elm$url$Url$Parser$Parser(
-		function (_n1) {
-			var visited = _n1.visited;
-			var unvisited = _n1.unvisited;
-			var params = _n1.params;
-			var frag = _n1.frag;
-			var value = _n1.value;
-			return _List_fromArray(
-				[
-					A5(
-					elm$url$Url$Parser$State,
-					visited,
-					unvisited,
-					params,
-					frag,
-					value(
-						queryParser(params)))
-				]);
-		});
-};
-var elm$url$Url$Parser$slash = F2(
-	function (_n0, _n1) {
-		var parseBefore = _n0.a;
-		var parseAfter = _n1.a;
-		return elm$url$Url$Parser$Parser(
-			function (state) {
-				return A2(
-					elm$core$List$concatMap,
-					parseAfter,
-					parseBefore(state));
-			});
-	});
-var elm$url$Url$Parser$questionMark = F2(
-	function (parser, queryParser) {
-		return A2(
-			elm$url$Url$Parser$slash,
-			parser,
-			elm$url$Url$Parser$query(queryParser));
-	});
 var author$project$TimeTracker$routeView = A2(
 	elm$url$Url$Parser$map,
 	author$project$TimeTracker$Normal,
-	A2(
-		elm$url$Url$Parser$questionMark,
-		elm$url$Url$Parser$s('timetracker'),
-		author$project$TimeTracker$queryCommands));
+	elm$url$Url$Parser$s('timetracker'));
 var elm$url$Url$Parser$oneOf = function (parsers) {
 	return elm$url$Url$Parser$Parser(
 		function (state) {
@@ -7911,6 +7991,38 @@ var elm$url$Url$Parser$preparePath = function (path) {
 };
 var elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var elm$core$Dict$empty = elm$core$Dict$RBEmpty_elm_builtin;
+var elm$core$Basics$compare = _Utils_compare;
+var elm$core$Dict$get = F2(
+	function (targetKey, dict) {
+		get:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return elm$core$Maybe$Nothing;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var _n1 = A2(elm$core$Basics$compare, targetKey, key);
+				switch (_n1.$) {
+					case 'LT':
+						var $temp$targetKey = targetKey,
+							$temp$dict = left;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+					case 'EQ':
+						return elm$core$Maybe$Just(value);
+					default:
+						var $temp$targetKey = targetKey,
+							$temp$dict = right;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+				}
+			}
+		}
+	});
 var elm$core$Dict$Black = {$: 'Black'};
 var elm$core$Dict$RBNode_elm_builtin = F5(
 	function (a, b, c, d, e) {
@@ -8459,22 +8571,11 @@ var elm$url$Url$Parser$parse = F2(
 					elm$core$Basics$identity)));
 	});
 var author$project$Main$viewUrl = function (url) {
-	var parseIt = function (finalUrl) {
-		return A2(
-			elm$core$Maybe$withDefault,
-			author$project$Main$defaultView,
-			A2(elm$url$Url$Parser$parse, author$project$Main$routeParser, finalUrl));
-	};
-	var _n0 = _Utils_Tuple2(url.path, url.fragment);
-	if ((_n0.a === '/index.html') && (_n0.b.$ === 'Just')) {
-		var containspath = _n0.b.a;
-		var simulatedUrl = _Utils_update(
-			url,
-			{path: containspath});
-		return parseIt(simulatedUrl);
-	} else {
-		return parseIt(url);
-	}
+	var finalUrl = author$project$Main$bypassFakeFragment(url);
+	return A2(
+		elm$core$Maybe$withDefault,
+		author$project$Main$defaultView,
+		A2(elm$url$Url$Parser$parse, author$project$Main$routeParser, finalUrl));
 };
 var author$project$Main$buildModel = F3(
 	function (appData, url, key) {
@@ -8689,16 +8790,6 @@ var elm$core$List$filterMap = F2(
 			xs);
 	});
 var author$project$Porting$omitNothings = elm$core$List$filterMap(elm$core$Basics$identity);
-var elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return elm$core$Maybe$Nothing;
-		}
-	});
 var author$project$Porting$omittable = function (_n0) {
 	var name = _n0.a;
 	var encoder = _n0.b;
@@ -9914,12 +10005,6 @@ var elm$browser$Debugger$Expando$seqTypeToString = F2(
 				return 'Array(' + (elm$core$String$fromInt(n) + ')');
 		}
 	});
-var elm$core$String$slice = _String_slice;
-var elm$core$String$left = F2(
-	function (n, string) {
-		return (n < 1) ? '' : A3(elm$core$String$slice, 0, n, string);
-	});
-var elm$core$String$length = _String_length;
 var elm$core$String$right = F2(
 	function (n, string) {
 		return (n < 1) ? '' : A3(
@@ -11095,7 +11180,6 @@ var elm$browser$Debugger$Metadata$ProblemType = F2(
 	function (name, problems) {
 		return {name: name, problems: problems};
 	});
-var elm$core$String$contains = _String_contains;
 var elm$browser$Debugger$Metadata$hasProblem = F2(
 	function (tipe, _n0) {
 		var problem = _n0.a;
@@ -12532,125 +12616,6 @@ var elm$core$Set$foldr = F3(
 			initialState,
 			dict);
 	});
-var elm$core$String$dropLeft = F2(
-	function (n, string) {
-		return (n < 1) ? string : A3(
-			elm$core$String$slice,
-			n,
-			elm$core$String$length(string),
-			string);
-	});
-var elm$core$String$startsWith = _String_startsWith;
-var elm$url$Url$Http = {$: 'Http'};
-var elm$url$Url$Https = {$: 'Https'};
-var elm$core$String$indexes = _String_indexes;
-var elm$core$String$toInt = _String_toInt;
-var elm$url$Url$Url = F6(
-	function (protocol, host, port_, path, query, fragment) {
-		return {fragment: fragment, host: host, path: path, port_: port_, protocol: protocol, query: query};
-	});
-var elm$url$Url$chompBeforePath = F5(
-	function (protocol, path, params, frag, str) {
-		if (elm$core$String$isEmpty(str) || A2(elm$core$String$contains, '@', str)) {
-			return elm$core$Maybe$Nothing;
-		} else {
-			var _n0 = A2(elm$core$String$indexes, ':', str);
-			if (!_n0.b) {
-				return elm$core$Maybe$Just(
-					A6(elm$url$Url$Url, protocol, str, elm$core$Maybe$Nothing, path, params, frag));
-			} else {
-				if (!_n0.b.b) {
-					var i = _n0.a;
-					var _n1 = elm$core$String$toInt(
-						A2(elm$core$String$dropLeft, i + 1, str));
-					if (_n1.$ === 'Nothing') {
-						return elm$core$Maybe$Nothing;
-					} else {
-						var port_ = _n1;
-						return elm$core$Maybe$Just(
-							A6(
-								elm$url$Url$Url,
-								protocol,
-								A2(elm$core$String$left, i, str),
-								port_,
-								path,
-								params,
-								frag));
-					}
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			}
-		}
-	});
-var elm$url$Url$chompBeforeQuery = F4(
-	function (protocol, params, frag, str) {
-		if (elm$core$String$isEmpty(str)) {
-			return elm$core$Maybe$Nothing;
-		} else {
-			var _n0 = A2(elm$core$String$indexes, '/', str);
-			if (!_n0.b) {
-				return A5(elm$url$Url$chompBeforePath, protocol, '/', params, frag, str);
-			} else {
-				var i = _n0.a;
-				return A5(
-					elm$url$Url$chompBeforePath,
-					protocol,
-					A2(elm$core$String$dropLeft, i, str),
-					params,
-					frag,
-					A2(elm$core$String$left, i, str));
-			}
-		}
-	});
-var elm$url$Url$chompBeforeFragment = F3(
-	function (protocol, frag, str) {
-		if (elm$core$String$isEmpty(str)) {
-			return elm$core$Maybe$Nothing;
-		} else {
-			var _n0 = A2(elm$core$String$indexes, '?', str);
-			if (!_n0.b) {
-				return A4(elm$url$Url$chompBeforeQuery, protocol, elm$core$Maybe$Nothing, frag, str);
-			} else {
-				var i = _n0.a;
-				return A4(
-					elm$url$Url$chompBeforeQuery,
-					protocol,
-					elm$core$Maybe$Just(
-						A2(elm$core$String$dropLeft, i + 1, str)),
-					frag,
-					A2(elm$core$String$left, i, str));
-			}
-		}
-	});
-var elm$url$Url$chompAfterProtocol = F2(
-	function (protocol, str) {
-		if (elm$core$String$isEmpty(str)) {
-			return elm$core$Maybe$Nothing;
-		} else {
-			var _n0 = A2(elm$core$String$indexes, '#', str);
-			if (!_n0.b) {
-				return A3(elm$url$Url$chompBeforeFragment, protocol, elm$core$Maybe$Nothing, str);
-			} else {
-				var i = _n0.a;
-				return A3(
-					elm$url$Url$chompBeforeFragment,
-					protocol,
-					elm$core$Maybe$Just(
-						A2(elm$core$String$dropLeft, i + 1, str)),
-					A2(elm$core$String$left, i, str));
-			}
-		}
-	});
-var elm$url$Url$fromString = function (str) {
-	return A2(elm$core$String$startsWith, 'http://', str) ? A2(
-		elm$url$Url$chompAfterProtocol,
-		elm$url$Url$Http,
-		A2(elm$core$String$dropLeft, 7, str)) : (A2(elm$core$String$startsWith, 'https://', str) ? A2(
-		elm$url$Url$chompAfterProtocol,
-		elm$url$Url$Https,
-		A2(elm$core$String$dropLeft, 8, str)) : elm$core$Maybe$Nothing);
-};
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$List$filter = F2(
 	function (isGood, list) {
@@ -13898,7 +13863,7 @@ var author$project$External$Tasker$exit = _Platform_outgoingPort(
 		return elm$json$Json$Encode$null;
 	});
 var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
-var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$core$Basics$identity);
+var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
 };
@@ -14739,8 +14704,7 @@ var author$project$TimeTracker$update = F4(
 					_List_fromArray(
 						[
 							author$project$External$Commands$toast(
-							elm$json$Json$Encode$string(
-								A3(author$project$TimeTracker$switchPopup, updatedApp.timeline, newActivity, oldActivity))),
+							A3(author$project$TimeTracker$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
 							A2(
 							author$project$External$Commands$changeActivity,
 							author$project$Activity$Activity$getName(newActivity),
@@ -14749,52 +14713,144 @@ var author$project$TimeTracker$update = F4(
 						])));
 		}
 	});
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
+};
+var elm$core$String$toLower = _String_toLower;
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2(elm$core$Dict$get, key, dict)));
+			});
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
+var author$project$TimeTracker$urlTriggers = function (app) {
+	var entriesPerActivity = function (activity) {
+		return _Utils_ap(
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						n,
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names),
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						elm$core$String$toLower(n),
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names));
+	};
+	var activitiesWithNames = elm$core$List$concat(
+		A2(
+			elm$core$List$map,
+			entriesPerActivity,
+			author$project$Activity$Activity$allActivities(app.activities)));
+	return _List_fromArray(
+		[
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'start',
+			elm$core$Dict$fromList(activitiesWithNames)),
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'stop',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'stop',
+						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
+					])))
+		]);
+};
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
-var elm$url$Url$addPort = F2(
-	function (maybePort, starter) {
-		if (maybePort.$ === 'Nothing') {
-			return starter;
-		} else {
-			var port_ = maybePort.a;
-			return starter + (':' + elm$core$String$fromInt(port_));
-		}
-	});
-var elm$url$Url$addPrefixed = F3(
-	function (prefix, maybeSegment, starter) {
-		if (maybeSegment.$ === 'Nothing') {
-			return starter;
-		} else {
-			var segment = maybeSegment.a;
-			return _Utils_ap(
-				starter,
-				_Utils_ap(prefix, segment));
-		}
-	});
-var elm$url$Url$toString = function (url) {
-	var http = function () {
-		var _n0 = url.protocol;
-		if (_n0.$ === 'Http') {
-			return 'http://';
-		} else {
-			return 'https://';
-		}
-	}();
-	return A3(
-		elm$url$Url$addPrefixed,
-		'#',
-		url.fragment,
-		A3(
-			elm$url$Url$addPrefixed,
-			'?',
-			url.query,
-			_Utils_ap(
-				A2(
-					elm$url$Url$addPort,
-					url.port_,
-					_Utils_ap(http, url.host)),
-				url.path)));
+var elm$core$Debug$log = _Debug_log;
+var elm$url$Url$Parser$query = function (_n0) {
+	var queryParser = _n0.a;
+	return elm$url$Url$Parser$Parser(
+		function (_n1) {
+			var visited = _n1.visited;
+			var unvisited = _n1.unvisited;
+			var params = _n1.params;
+			var frag = _n1.frag;
+			var value = _n1.value;
+			return _List_fromArray(
+				[
+					A5(
+					elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
 };
+var elm$url$Url$Parser$Query$map = F2(
+	function (func, _n0) {
+		var a = _n0.a;
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					a(dict));
+			});
+	});
+var author$project$Main$handleUrlTriggers = F2(
+	function (rawUrl, model) {
+		var appData = model.appData;
+		var url = author$project$Main$bypassFakeFragment(rawUrl);
+		var timeTrackerTriggers = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$Query$map(
+				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+			author$project$TimeTracker$urlTriggers(appData));
+		var taskTriggers = _List_Nil;
+		var parseList = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$query,
+			_Utils_ap(timeTrackerTriggers, taskTriggers));
+		var normalizedUrl = _Utils_update(
+			url,
+			{path: ''});
+		var parsed = A2(
+			elm$url$Url$Parser$parse,
+			elm$url$Url$Parser$oneOf(parseList),
+			A2(elm$core$Debug$log, 'url', normalizedUrl));
+		var _n7 = A2(elm$core$Debug$log, 'parsed', parsed);
+		if ((_n7.$ === 'Just') && (_n7.a.$ === 'Just')) {
+			var triggerMsg = _n7.a.a;
+			return A2(author$project$Main$update, triggerMsg, model);
+		} else {
+			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+		}
+	});
 var author$project$Main$update = F2(
 	function (msg, model) {
 		var viewState = model.viewState;
@@ -14848,21 +14904,24 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
+					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
+					var modelAfter = _n4.a;
+					var effectsAfter = _n4.b;
 					return _Utils_Tuple2(
 						_Utils_update(
-							model,
+							modelAfter,
 							{
 								viewState: author$project$Main$viewUrl(url)
 							}),
-						elm$core$Platform$Cmd$none);
+						effectsAfter);
 				case 'TaskListMsg':
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n4 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n4.a;
-						var newApp = _n4.b;
-						var newCommand = _n4.c;
+						var _n5 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n5.a;
+						var newApp = _n5.b;
+						var newCommand = _n5.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -14880,10 +14939,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TimeTracker') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n5 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n5.a;
-						var newApp = _n5.b;
-						var newCommand = _n5.c;
+						var _n6 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n6.a;
+						var newApp = _n6.b;
+						var newCommand = _n6.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -19274,9 +19333,6 @@ var author$project$Activity$Measure$inFuzzyWords = function (ms) {
 		sporto$time_distance$Time$Distance$inWords,
 		elm$time$Time$millisToPosix(0),
 		elm$time$Time$millisToPosix(ms));
-};
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
 };
 var rtfeldman$elm_css$Css$Internal$property = F2(
 	function (key, value) {
