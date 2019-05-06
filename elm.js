@@ -9983,7 +9983,9 @@ var author$project$External$Commands$changeActivity = F2(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('selected', newName))
+					_Utils_Tuple2('ElmSelected', newName)),
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('ElmSelectedTotal', newTotal))
 				]));
 	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
