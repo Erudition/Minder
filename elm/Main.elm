@@ -440,7 +440,7 @@ routeParser =
 {-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
 -}
 handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
-handleUrlTriggers rawUrl model =
+handleUrlTriggers rawUrl ({ appData } as model) =
     let
         url =
             bypassFakeFragment rawUrl
@@ -456,7 +456,7 @@ handleUrlTriggers rawUrl model =
             List.map P.query (timeTrackerTriggers ++ taskTriggers)
 
         timeTrackerTriggers =
-            List.map (PQ.map (Maybe.map TimeTrackerMsg)) TimeTracker.urlTriggers
+            List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
 
         taskTriggers =
             []

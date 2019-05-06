@@ -35,7 +35,10 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.variableOut.subscribe(function(data) {
   try {
-      tk.setGlobal(data[0], data[1])
+      if (data[0].toLower == data[0])
+        tk.setLocal(data[0], data[1]);
+      else
+        tk.setGlobal(data[0], data[1]);
   } catch (e) {
       console.log("Setting " +data[0]+ " to " +data[1]+ " if tasker was here");
   }
