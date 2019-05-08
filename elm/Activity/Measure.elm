@@ -1,4 +1,4 @@
-module Activity.Measure exposing (inFuzzyWords, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (inFuzzyWords, justToday, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import Time exposing (..)
@@ -156,6 +156,11 @@ lookBack ( present, zone ) ( count, interval ) =
 relevantTimeline : Timeline -> ( Moment, Zone ) -> Duration -> Timeline
 relevantTimeline timeline ( now, zone ) duration =
     timelineLimit timeline now (lookBack ( now, zone ) duration)
+
+
+justToday : Timeline -> ( Moment, Zone ) -> Timeline
+justToday timeline ( now, zone ) =
+    timelineLimit timeline now (lookBack ( now, zone ) ( 1, Day ))
 
 
 inFuzzyWords : Int -> String

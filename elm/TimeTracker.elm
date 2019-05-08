@@ -118,9 +118,11 @@ viewActivity app env activity =
             , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activity.id))
             ]
             [ viewIcon activity.icon
-            , div
-                []
-                [ text <| (writeActivityUsage app env activity ++ "m")
+            , div []
+                [ text (writeActivityUsage app env activity)
+                ]
+            , div []
+                [ text (writeActivityTotal app env activity)
                 ]
             , label
                 []
@@ -158,8 +160,37 @@ writeActivityUsage app env activity =
     let
         lastPeriod =
             relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
+
+        total =
+            Measure.totalLive env.time lastPeriod activity.id
+
+        totalMinutes =
+            total // 60000
     in
-    String.fromInt <| Measure.totalLive env.time lastPeriod activity.id // 60000
+    if total > 0 then
+        String.fromInt totalMinutes ++ "m"
+
+    else
+        ""
+
+
+writeActivityTotal : AppData -> Environment -> Activity -> String
+writeActivityTotal app env activity =
+    let
+        lastPeriod =
+            justToday app.timeline ( env.time, env.timeZone )
+
+        total =
+            Measure.totalLive env.time lastPeriod activity.id
+
+        totalMinutes =
+            total // 60000
+    in
+    if total > 0 then
+        String.fromInt totalMinutes ++ "m"
+
+    else
+        ""
 
 
 
