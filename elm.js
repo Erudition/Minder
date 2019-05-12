@@ -10786,6 +10786,7 @@ var elm$url$Url$Parser$Query$map = F2(
 var author$project$Main$handleUrlTriggers = F2(
 	function (rawUrl, model) {
 		var appData = model.appData;
+		var environment = model.environment;
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
 		var timeTrackerTriggers = A2(
 			elm$core$List$map,
@@ -10793,6 +10794,13 @@ var author$project$Main$handleUrlTriggers = F2(
 				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
 			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
+		var removeTriggersFromUrl = A2(
+			elm$browser$Browser$Navigation$replaceUrl,
+			environment.navkey,
+			elm$url$Url$toString(
+				_Utils_update(
+					url,
+					{query: elm$core$Maybe$Nothing})));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
@@ -10804,10 +10812,15 @@ var author$project$Main$handleUrlTriggers = F2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
 			A2(elm$core$Debug$log, 'url', normalizedUrl));
-		var _n7 = A2(elm$core$Debug$log, 'parsed', parsed);
-		if ((_n7.$ === 'Just') && (_n7.a.$ === 'Just')) {
-			var triggerMsg = _n7.a.a;
-			return A2(author$project$Main$update, triggerMsg, model);
+		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
+			var triggerMsg = parsed.a.a;
+			var _n8 = A2(author$project$Main$update, triggerMsg, model);
+			var newModel = _n8.a;
+			var newCmd = _n8.b;
+			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[newCmd, removeTriggersFromUrl]));
+			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 		} else {
 			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
@@ -10865,13 +10878,6 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
-					var removeTriggersFromUrl = A2(
-						elm$browser$Browser$Navigation$replaceUrl,
-						environment.navkey,
-						elm$url$Url$toString(
-							_Utils_update(
-								url,
-								{query: elm$core$Maybe$Nothing})));
 					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
 					var modelAfter = _n4.a;
 					var effectsAfter = _n4.b;
