@@ -348,7 +348,7 @@ update msg ({ viewState, appData, environment } as model) =
         ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString url)
+                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString { url | query = Nothing })
 
                 Browser.External href ->
                     justRunCommand <| Nav.load href

@@ -93,64 +93,7 @@ For fixed distances, that's easy, but variable intervals could be far back or ju
 -}
 lookBack : ( Moment, Time.Zone ) -> Duration -> Moment
 lookBack ( present, zone ) ( count, interval ) =
-    let
-        fixedDistance =
-            add interval -count zone present
-
-        variableDistance =
-            Time.Extra.floor interval zone ifMoreThanOne
-
-        ifMoreThanOne =
-            add interval (1 - count) zone present
-    in
-    case interval of
-        Year ->
-            variableDistance
-
-        Quarter ->
-            variableDistance
-
-        Month ->
-            variableDistance
-
-        Week ->
-            variableDistance
-
-        Monday ->
-            variableDistance
-
-        Tuesday ->
-            variableDistance
-
-        Wednesday ->
-            variableDistance
-
-        Thursday ->
-            variableDistance
-
-        Friday ->
-            variableDistance
-
-        Saturday ->
-            variableDistance
-
-        Sunday ->
-            variableDistance
-
-        Day ->
-            variableDistance
-
-        Hour ->
-            fixedDistance
-
-        Minute ->
-            fixedDistance
-
-        Second ->
-            fixedDistance
-
-        Millisecond ->
-            fixedDistance
+    add interval -count zone present
 
 
 relevantTimeline : Timeline -> ( Moment, Zone ) -> Duration -> Timeline
@@ -160,7 +103,7 @@ relevantTimeline timeline ( now, zone ) duration =
 
 justToday : Timeline -> ( Moment, Zone ) -> Timeline
 justToday timeline ( now, zone ) =
-    timelineLimit timeline now (lookBack ( now, zone ) ( 1, Day ))
+    timelineLimit timeline now (Time.Extra.floor Day zone now)
 
 
 inFuzzyWords : Int -> String

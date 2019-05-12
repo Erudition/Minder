@@ -193,6 +193,21 @@ writeActivityTotal app env activity =
         ""
 
 
+exportActivityUsage : AppData -> Environment -> Activity -> String
+exportActivityUsage app env activity =
+    let
+        lastPeriod =
+            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
+
+        total =
+            Measure.totalLive env.time lastPeriod activity.id
+
+        totalSeconds =
+            total // 1000
+    in
+    String.fromInt totalSeconds
+
+
 
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
@@ -232,7 +247,7 @@ update msg state app env =
             , Cmd.batch
                 [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
                 , Commands.changeActivity (getName newActivity)
-                    (writeActivityUsage app env newActivity)
+                    (exportActivityUsage app env newActivity)
                 , Commands.hideWindow
                 ]
             )
