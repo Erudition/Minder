@@ -348,12 +348,12 @@ update msg ({ viewState, appData, environment } as model) =
         ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString { url | query = Nothing })
+                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString url)
 
                 Browser.External href ->
                     justRunCommand <| Nav.load href
 
-        -- TODO should we also insert Nav command to hide extra stuff from address bar after nav, while still updating the viewState?
+        -- TODO done!
         ( NewUrl url, _ ) ->
             let
                 ( modelAfter, effectsAfter ) =
@@ -440,7 +440,7 @@ routeParser =
 {-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
 -}
 handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
-handleUrlTriggers rawUrl ({ appData } as model) =
+handleUrlTriggers rawUrl ({ appData, environment } as model) =
     let
         url =
             bypassFakeFragment rawUrl
@@ -460,10 +460,21 @@ handleUrlTriggers rawUrl ({ appData } as model) =
 
         taskTriggers =
             []
+
+        --TODO only remove handled triggers
+        removeTriggersFromUrl =
+            Nav.replaceUrl environment.navkey (Url.toString { url | query = Nothing })
     in
-    case Debug.log "parsed" <| parsed of
+    case parsed of
         Just (Just triggerMsg) ->
-            update triggerMsg model
+            let
+                ( newModel, newCmd ) =
+                    update triggerMsg model
+
+                newCmdWithUrlCleaner =
+                    Cmd.batch [ newCmd, removeTriggersFromUrl ]
+            in
+            ( newModel, newCmdWithUrlCleaner )
 
         _ ->
             ( model, Cmd.none )
