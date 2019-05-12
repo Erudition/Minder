@@ -19456,7 +19456,7 @@ var author$project$Activity$Measure$justToday = F2(
 		var zone = _n0.b;
 		var lastMidnight = A3(justinmimbs$time_extra$Time$Extra$floor, justinmimbs$time_extra$Time$Extra$Day, zone, now);
 		var last3am = A4(justinmimbs$time_extra$Time$Extra$add, justinmimbs$time_extra$Time$Extra$Hour, 3, zone, lastMidnight);
-		return A3(author$project$Activity$Measure$timelineLimit, timeline, now, last3am);
+		return A3(author$project$Activity$Measure$timelineLimit, timeline, now, lastMidnight);
 	});
 var author$project$TimeTracker$writeActivityToday = F3(
 	function (app, env, activity) {
