@@ -10076,80 +10076,6 @@ var author$project$TimeTracker$currentActivity = function (app) {
 		author$project$Activity$Activity$allActivities(app.activities),
 		app.timeline);
 };
-var author$project$Activity$Measure$session = F2(
-	function (_n0, _n1) {
-		var newer = _n0.a;
-		var older = _n1.a;
-		var activityId = _n1.b;
-		return _Utils_Tuple2(
-			activityId,
-			elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older));
-	});
-var elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
-				}
-			}
-		}
-	});
-var author$project$Activity$Measure$allSessions = function (switchList) {
-	var offsetList = A2(elm$core$List$drop, 1, switchList);
-	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
-};
-var author$project$Activity$Measure$getMatchingDurations = F2(
-	function (targetId, _n0) {
-		var itemId = _n0.a;
-		var dur = _n0.b;
-		return _Utils_eq(itemId, targetId) ? elm$core$Maybe$Just(dur) : elm$core$Maybe$Nothing;
-	});
-var author$project$Activity$Measure$sessions = F2(
-	function (switchList, activityId) {
-		var all = author$project$Activity$Measure$allSessions(switchList);
-		return A2(
-			elm$core$List$filterMap,
-			author$project$Activity$Measure$getMatchingDurations(activityId),
-			all);
-	});
-var elm$core$List$sum = function (numbers) {
-	return A3(elm$core$List$foldl, elm$core$Basics$add, 0, numbers);
-};
-var author$project$Activity$Measure$total = F2(
-	function (switchList, activityId) {
-		return elm$core$List$sum(
-			A2(author$project$Activity$Measure$sessions, switchList, activityId));
-	});
-var author$project$TimeTracker$switchPopup = F3(
-	function (timeline, _new, old) {
-		var total = (A2(author$project$Activity$Measure$total, timeline, old.id) / 1000) | 0;
-		var timeSpentString = function (num) {
-			return elm$core$String$fromInt(num) + ' s spent, ';
-		};
-		var timeSpent = A2(
-			elm$core$Maybe$map,
-			function (n) {
-				return (n / 1000) | 0;
-			},
-			elm$core$List$head(
-				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n' + (A2(
-			elm$core$Maybe$withDefault,
-			'',
-			A2(elm$core$Maybe$map, timeSpentString, timeSpent)) + ('new total ' + (elm$core$String$fromInt(total) + ' s'))))));
-	});
 var justinmimbs$date$Date$Days = {$: 'Days'};
 var justinmimbs$date$Date$Months = {$: 'Months'};
 var elm$core$Basics$min = F2(
@@ -10537,246 +10463,13 @@ var justinmimbs$time_extra$Time$Extra$add = F4(
 			}
 		}
 	});
-var justinmimbs$date$Date$Day = {$: 'Day'};
-var justinmimbs$date$Date$Friday = {$: 'Friday'};
-var justinmimbs$date$Date$Monday = {$: 'Monday'};
-var justinmimbs$date$Date$Month = {$: 'Month'};
-var justinmimbs$date$Date$Quarter = {$: 'Quarter'};
-var justinmimbs$date$Date$Saturday = {$: 'Saturday'};
-var justinmimbs$date$Date$Sunday = {$: 'Sunday'};
-var justinmimbs$date$Date$Thursday = {$: 'Thursday'};
-var justinmimbs$date$Date$Tuesday = {$: 'Tuesday'};
-var justinmimbs$date$Date$Wednesday = {$: 'Wednesday'};
-var justinmimbs$date$Date$Week = {$: 'Week'};
-var justinmimbs$date$Date$Year = {$: 'Year'};
-var elm$time$Time$Fri = {$: 'Fri'};
-var elm$time$Time$Mon = {$: 'Mon'};
-var elm$time$Time$Sat = {$: 'Sat'};
-var elm$time$Time$Sun = {$: 'Sun'};
-var elm$time$Time$Thu = {$: 'Thu'};
-var elm$time$Time$Tue = {$: 'Tue'};
-var elm$time$Time$Wed = {$: 'Wed'};
-var justinmimbs$date$Date$weekdayNumber = function (_n0) {
-	var rd = _n0.a;
-	var _n1 = A2(elm$core$Basics$modBy, 7, rd);
-	if (!_n1) {
-		return 7;
-	} else {
-		var n = _n1;
-		return n;
-	}
-};
-var justinmimbs$date$Date$weekdayToNumber = function (wd) {
-	switch (wd.$) {
-		case 'Mon':
-			return 1;
-		case 'Tue':
-			return 2;
-		case 'Wed':
-			return 3;
-		case 'Thu':
-			return 4;
-		case 'Fri':
-			return 5;
-		case 'Sat':
-			return 6;
-		default:
-			return 7;
-	}
-};
-var justinmimbs$date$Date$daysSincePreviousWeekday = F2(
-	function (wd, date) {
-		return A2(
-			elm$core$Basics$modBy,
-			7,
-			(justinmimbs$date$Date$weekdayNumber(date) + 7) - justinmimbs$date$Date$weekdayToNumber(wd));
-	});
-var justinmimbs$date$Date$firstOfMonth = F2(
-	function (y, m) {
-		return justinmimbs$date$Date$RD(
-			(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + 1);
-	});
-var justinmimbs$date$Date$firstOfYear = function (y) {
-	return justinmimbs$date$Date$RD(
-		justinmimbs$date$Date$daysBeforeYear(y) + 1);
-};
-var justinmimbs$date$Date$month = A2(
-	elm$core$Basics$composeR,
-	justinmimbs$date$Date$toCalendarDate,
-	function ($) {
-		return $.month;
-	});
-var justinmimbs$date$Date$monthToQuarter = function (m) {
-	return ((justinmimbs$date$Date$monthToNumber(m) + 2) / 3) | 0;
-};
-var justinmimbs$date$Date$quarter = A2(elm$core$Basics$composeR, justinmimbs$date$Date$month, justinmimbs$date$Date$monthToQuarter);
-var justinmimbs$date$Date$quarterToMonth = function (q) {
-	return justinmimbs$date$Date$numberToMonth((q * 3) - 2);
-};
-var justinmimbs$date$Date$floor = F2(
-	function (interval, date) {
-		var rd = date.a;
-		switch (interval.$) {
-			case 'Year':
-				return justinmimbs$date$Date$firstOfYear(
-					justinmimbs$date$Date$year(date));
-			case 'Quarter':
-				return A2(
-					justinmimbs$date$Date$firstOfMonth,
-					justinmimbs$date$Date$year(date),
-					justinmimbs$date$Date$quarterToMonth(
-						justinmimbs$date$Date$quarter(date)));
-			case 'Month':
-				return A2(
-					justinmimbs$date$Date$firstOfMonth,
-					justinmimbs$date$Date$year(date),
-					justinmimbs$date$Date$month(date));
-			case 'Week':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Mon, date));
-			case 'Monday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Mon, date));
-			case 'Tuesday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Tue, date));
-			case 'Wednesday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Wed, date));
-			case 'Thursday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Thu, date));
-			case 'Friday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Fri, date));
-			case 'Saturday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Sat, date));
-			case 'Sunday':
-				return justinmimbs$date$Date$RD(
-					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Sun, date));
-			default:
-				return date;
-		}
-	});
-var justinmimbs$time_extra$Time$Extra$floorDate = F3(
-	function (dateInterval, zone, posix) {
-		return A3(
-			justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-			zone,
-			A2(
-				justinmimbs$date$Date$floor,
-				dateInterval,
-				A2(justinmimbs$date$Date$fromPosix, zone, posix)),
-			0);
-	});
-var justinmimbs$time_extra$Time$Extra$floor = F3(
-	function (interval, zone, posix) {
-		switch (interval.$) {
-			case 'Millisecond':
-				return posix;
-			case 'Second':
-				return A3(
-					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-					zone,
-					A2(justinmimbs$date$Date$fromPosix, zone, posix),
-					A4(
-						justinmimbs$time_extra$Time$Extra$timeFromClock,
-						A2(elm$time$Time$toHour, zone, posix),
-						A2(elm$time$Time$toMinute, zone, posix),
-						A2(elm$time$Time$toSecond, zone, posix),
-						0));
-			case 'Minute':
-				return A3(
-					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-					zone,
-					A2(justinmimbs$date$Date$fromPosix, zone, posix),
-					A4(
-						justinmimbs$time_extra$Time$Extra$timeFromClock,
-						A2(elm$time$Time$toHour, zone, posix),
-						A2(elm$time$Time$toMinute, zone, posix),
-						0,
-						0));
-			case 'Hour':
-				return A3(
-					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-					zone,
-					A2(justinmimbs$date$Date$fromPosix, zone, posix),
-					A4(
-						justinmimbs$time_extra$Time$Extra$timeFromClock,
-						A2(elm$time$Time$toHour, zone, posix),
-						0,
-						0,
-						0));
-			case 'Day':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Day, zone, posix);
-			case 'Month':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Month, zone, posix);
-			case 'Year':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Year, zone, posix);
-			case 'Quarter':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Quarter, zone, posix);
-			case 'Week':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Week, zone, posix);
-			case 'Monday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Monday, zone, posix);
-			case 'Tuesday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Tuesday, zone, posix);
-			case 'Wednesday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Wednesday, zone, posix);
-			case 'Thursday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Thursday, zone, posix);
-			case 'Friday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Friday, zone, posix);
-			case 'Saturday':
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Saturday, zone, posix);
-			default:
-				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Sunday, zone, posix);
-		}
-	});
 var author$project$Activity$Measure$lookBack = F2(
 	function (_n0, _n1) {
 		var present = _n0.a;
 		var zone = _n0.b;
 		var count = _n1.a;
 		var interval = _n1.b;
-		var ifMoreThanOne = A4(justinmimbs$time_extra$Time$Extra$add, interval, 1 - count, zone, present);
-		var variableDistance = A3(justinmimbs$time_extra$Time$Extra$floor, interval, zone, ifMoreThanOne);
-		var fixedDistance = A4(justinmimbs$time_extra$Time$Extra$add, interval, -count, zone, present);
-		switch (interval.$) {
-			case 'Year':
-				return variableDistance;
-			case 'Quarter':
-				return variableDistance;
-			case 'Month':
-				return variableDistance;
-			case 'Week':
-				return variableDistance;
-			case 'Monday':
-				return variableDistance;
-			case 'Tuesday':
-				return variableDistance;
-			case 'Wednesday':
-				return variableDistance;
-			case 'Thursday':
-				return variableDistance;
-			case 'Friday':
-				return variableDistance;
-			case 'Saturday':
-				return variableDistance;
-			case 'Sunday':
-				return variableDistance;
-			case 'Day':
-				return variableDistance;
-			case 'Hour':
-				return fixedDistance;
-			case 'Minute':
-				return fixedDistance;
-			case 'Second':
-				return fixedDistance;
-			default:
-				return fixedDistance;
-		}
+		return A4(justinmimbs$time_extra$Time$Extra$add, interval, -count, zone, present);
 	});
 var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
 var elm$core$List$partition = F2(
@@ -10838,6 +10531,57 @@ var author$project$Activity$Measure$relevantTimeline = F3(
 				_Utils_Tuple2(now, zone),
 				duration));
 	});
+var author$project$Activity$Measure$session = F2(
+	function (_n0, _n1) {
+		var newer = _n0.a;
+		var older = _n1.a;
+		var activityId = _n1.b;
+		return _Utils_Tuple2(
+			activityId,
+			elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older));
+	});
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var author$project$Activity$Measure$allSessions = function (switchList) {
+	var offsetList = A2(elm$core$List$drop, 1, switchList);
+	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
+};
+var author$project$Activity$Measure$getMatchingDurations = F2(
+	function (targetId, _n0) {
+		var itemId = _n0.a;
+		var dur = _n0.b;
+		return _Utils_eq(itemId, targetId) ? elm$core$Maybe$Just(dur) : elm$core$Maybe$Nothing;
+	});
+var author$project$Activity$Measure$sessions = F2(
+	function (switchList, activityId) {
+		var all = author$project$Activity$Measure$allSessions(switchList);
+		return A2(
+			elm$core$List$filterMap,
+			author$project$Activity$Measure$getMatchingDurations(activityId),
+			all);
+	});
+var elm$core$List$sum = function (numbers) {
+	return A3(elm$core$List$foldl, elm$core$Basics$add, 0, numbers);
+};
 var author$project$Activity$Measure$totalLive = F3(
 	function (now, switchList, activityId) {
 		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
@@ -10847,7 +10591,7 @@ var author$project$Activity$Measure$totalLive = F3(
 				A2(elm$core$List$cons, fakeSwitch, switchList),
 				activityId));
 	});
-var author$project$TimeTracker$writeActivityUsage = F3(
+var author$project$TimeTracker$exportActivityUsage = F3(
 	function (app, env, activity) {
 		var lastPeriod = A3(
 			author$project$Activity$Measure$relevantTimeline,
@@ -10855,8 +10599,31 @@ var author$project$TimeTracker$writeActivityUsage = F3(
 			_Utils_Tuple2(env.time, env.timeZone),
 			activity.maxTime.b);
 		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
-		var totalMinutes = (total / 60000) | 0;
-		return (total > 0) ? (elm$core$String$fromInt(totalMinutes) + 'm') : '';
+		var totalSeconds = (total / 1000) | 0;
+		return elm$core$String$fromInt(totalSeconds);
+	});
+var author$project$Activity$Measure$total = F2(
+	function (switchList, activityId) {
+		return elm$core$List$sum(
+			A2(author$project$Activity$Measure$sessions, switchList, activityId));
+	});
+var author$project$TimeTracker$switchPopup = F3(
+	function (timeline, _new, old) {
+		var total = (A2(author$project$Activity$Measure$total, timeline, old.id) / 1000) | 0;
+		var timeSpentString = function (num) {
+			return elm$core$String$fromInt(num) + ' s spent, ';
+		};
+		var timeSpent = A2(
+			elm$core$Maybe$map,
+			function (n) {
+				return (n / 1000) | 0;
+			},
+			elm$core$List$head(
+				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
+		return author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n' + (A2(
+			elm$core$Maybe$withDefault,
+			'',
+			A2(elm$core$Maybe$map, timeSpentString, timeSpent)) + ('new total ' + (elm$core$String$fromInt(total) + ' s'))))));
 	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
@@ -10888,7 +10655,7 @@ var author$project$TimeTracker$update = F4(
 							A2(
 							author$project$External$Commands$changeActivity,
 							author$project$Activity$Activity$getName(newActivity),
-							A3(author$project$TimeTracker$writeActivityUsage, app, env, newActivity)),
+							A3(author$project$TimeTracker$exportActivityUsage, app, env, newActivity)),
 							author$project$External$Commands$hideWindow
 						])));
 		}
@@ -11089,7 +10856,10 @@ var author$project$Main$update = F2(
 							A2(
 								elm$browser$Browser$Navigation$pushUrl,
 								environment.navkey,
-								elm$url$Url$toString(url)));
+								elm$url$Url$toString(
+									_Utils_update(
+										url,
+										{query: elm$core$Maybe$Nothing}))));
 					} else {
 						var href = urlRequest.a;
 						return justRunCommand(
@@ -14699,10 +14469,24 @@ var justinmimbs$date$Date$fromOrdinalParts = F2(
 				justinmimbs$date$Date$daysBeforeYear(y) + od)) : elm$core$Result$Err(
 			'Invalid ordinal date (' + (elm$core$String$fromInt(y) + (', ' + (elm$core$String$fromInt(od) + ')'))));
 	});
+var justinmimbs$date$Date$weekdayNumber = function (_n0) {
+	var rd = _n0.a;
+	var _n1 = A2(elm$core$Basics$modBy, 7, rd);
+	if (!_n1) {
+		return 7;
+	} else {
+		var n = _n1;
+		return n;
+	}
+};
 var justinmimbs$date$Date$daysBeforeWeekYear = function (y) {
 	var jan4 = justinmimbs$date$Date$daysBeforeYear(y) + 4;
 	return jan4 - justinmimbs$date$Date$weekdayNumber(
 		justinmimbs$date$Date$RD(jan4));
+};
+var justinmimbs$date$Date$firstOfYear = function (y) {
+	return justinmimbs$date$Date$RD(
+		justinmimbs$date$Date$daysBeforeYear(y) + 1);
 };
 var justinmimbs$date$Date$is53WeekYear = function (y) {
 	var wdnJan1 = justinmimbs$date$Date$weekdayNumber(
@@ -15739,6 +15523,189 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 			return rtfeldman$elm_css$Html$Styled$text('');
 	}
 };
+var justinmimbs$date$Date$Day = {$: 'Day'};
+var justinmimbs$date$Date$Friday = {$: 'Friday'};
+var justinmimbs$date$Date$Monday = {$: 'Monday'};
+var justinmimbs$date$Date$Month = {$: 'Month'};
+var justinmimbs$date$Date$Quarter = {$: 'Quarter'};
+var justinmimbs$date$Date$Saturday = {$: 'Saturday'};
+var justinmimbs$date$Date$Sunday = {$: 'Sunday'};
+var justinmimbs$date$Date$Thursday = {$: 'Thursday'};
+var justinmimbs$date$Date$Tuesday = {$: 'Tuesday'};
+var justinmimbs$date$Date$Wednesday = {$: 'Wednesday'};
+var justinmimbs$date$Date$Week = {$: 'Week'};
+var justinmimbs$date$Date$Year = {$: 'Year'};
+var elm$time$Time$Fri = {$: 'Fri'};
+var elm$time$Time$Mon = {$: 'Mon'};
+var elm$time$Time$Sat = {$: 'Sat'};
+var elm$time$Time$Sun = {$: 'Sun'};
+var elm$time$Time$Thu = {$: 'Thu'};
+var elm$time$Time$Tue = {$: 'Tue'};
+var elm$time$Time$Wed = {$: 'Wed'};
+var justinmimbs$date$Date$weekdayToNumber = function (wd) {
+	switch (wd.$) {
+		case 'Mon':
+			return 1;
+		case 'Tue':
+			return 2;
+		case 'Wed':
+			return 3;
+		case 'Thu':
+			return 4;
+		case 'Fri':
+			return 5;
+		case 'Sat':
+			return 6;
+		default:
+			return 7;
+	}
+};
+var justinmimbs$date$Date$daysSincePreviousWeekday = F2(
+	function (wd, date) {
+		return A2(
+			elm$core$Basics$modBy,
+			7,
+			(justinmimbs$date$Date$weekdayNumber(date) + 7) - justinmimbs$date$Date$weekdayToNumber(wd));
+	});
+var justinmimbs$date$Date$firstOfMonth = F2(
+	function (y, m) {
+		return justinmimbs$date$Date$RD(
+			(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + 1);
+	});
+var justinmimbs$date$Date$month = A2(
+	elm$core$Basics$composeR,
+	justinmimbs$date$Date$toCalendarDate,
+	function ($) {
+		return $.month;
+	});
+var justinmimbs$date$Date$monthToQuarter = function (m) {
+	return ((justinmimbs$date$Date$monthToNumber(m) + 2) / 3) | 0;
+};
+var justinmimbs$date$Date$quarter = A2(elm$core$Basics$composeR, justinmimbs$date$Date$month, justinmimbs$date$Date$monthToQuarter);
+var justinmimbs$date$Date$quarterToMonth = function (q) {
+	return justinmimbs$date$Date$numberToMonth((q * 3) - 2);
+};
+var justinmimbs$date$Date$floor = F2(
+	function (interval, date) {
+		var rd = date.a;
+		switch (interval.$) {
+			case 'Year':
+				return justinmimbs$date$Date$firstOfYear(
+					justinmimbs$date$Date$year(date));
+			case 'Quarter':
+				return A2(
+					justinmimbs$date$Date$firstOfMonth,
+					justinmimbs$date$Date$year(date),
+					justinmimbs$date$Date$quarterToMonth(
+						justinmimbs$date$Date$quarter(date)));
+			case 'Month':
+				return A2(
+					justinmimbs$date$Date$firstOfMonth,
+					justinmimbs$date$Date$year(date),
+					justinmimbs$date$Date$month(date));
+			case 'Week':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Mon, date));
+			case 'Monday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Mon, date));
+			case 'Tuesday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Tue, date));
+			case 'Wednesday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Wed, date));
+			case 'Thursday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Thu, date));
+			case 'Friday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Fri, date));
+			case 'Saturday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Sat, date));
+			case 'Sunday':
+				return justinmimbs$date$Date$RD(
+					rd - A2(justinmimbs$date$Date$daysSincePreviousWeekday, elm$time$Time$Sun, date));
+			default:
+				return date;
+		}
+	});
+var justinmimbs$time_extra$Time$Extra$floorDate = F3(
+	function (dateInterval, zone, posix) {
+		return A3(
+			justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+			zone,
+			A2(
+				justinmimbs$date$Date$floor,
+				dateInterval,
+				A2(justinmimbs$date$Date$fromPosix, zone, posix)),
+			0);
+	});
+var justinmimbs$time_extra$Time$Extra$floor = F3(
+	function (interval, zone, posix) {
+		switch (interval.$) {
+			case 'Millisecond':
+				return posix;
+			case 'Second':
+				return A3(
+					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+					zone,
+					A2(justinmimbs$date$Date$fromPosix, zone, posix),
+					A4(
+						justinmimbs$time_extra$Time$Extra$timeFromClock,
+						A2(elm$time$Time$toHour, zone, posix),
+						A2(elm$time$Time$toMinute, zone, posix),
+						A2(elm$time$Time$toSecond, zone, posix),
+						0));
+			case 'Minute':
+				return A3(
+					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+					zone,
+					A2(justinmimbs$date$Date$fromPosix, zone, posix),
+					A4(
+						justinmimbs$time_extra$Time$Extra$timeFromClock,
+						A2(elm$time$Time$toHour, zone, posix),
+						A2(elm$time$Time$toMinute, zone, posix),
+						0,
+						0));
+			case 'Hour':
+				return A3(
+					justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+					zone,
+					A2(justinmimbs$date$Date$fromPosix, zone, posix),
+					A4(
+						justinmimbs$time_extra$Time$Extra$timeFromClock,
+						A2(elm$time$Time$toHour, zone, posix),
+						0,
+						0,
+						0));
+			case 'Day':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Day, zone, posix);
+			case 'Month':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Month, zone, posix);
+			case 'Year':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Year, zone, posix);
+			case 'Quarter':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Quarter, zone, posix);
+			case 'Week':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Week, zone, posix);
+			case 'Monday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Monday, zone, posix);
+			case 'Tuesday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Tuesday, zone, posix);
+			case 'Wednesday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Wednesday, zone, posix);
+			case 'Thursday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Thursday, zone, posix);
+			case 'Friday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Friday, zone, posix);
+			case 'Saturday':
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Saturday, zone, posix);
+			default:
+				return A3(justinmimbs$time_extra$Time$Extra$floorDate, justinmimbs$date$Date$Sunday, zone, posix);
+		}
+	});
 var author$project$Activity$Measure$justToday = F2(
 	function (timeline, _n0) {
 		var now = _n0.a;
@@ -15747,10 +15714,7 @@ var author$project$Activity$Measure$justToday = F2(
 			author$project$Activity$Measure$timelineLimit,
 			timeline,
 			now,
-			A2(
-				author$project$Activity$Measure$lookBack,
-				_Utils_Tuple2(now, zone),
-				_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)));
+			A3(justinmimbs$time_extra$Time$Extra$floor, justinmimbs$time_extra$Time$Extra$Day, zone, now));
 	});
 var author$project$TimeTracker$writeActivityTotal = F3(
 	function (app, env, activity) {
@@ -15758,6 +15722,17 @@ var author$project$TimeTracker$writeActivityTotal = F3(
 			author$project$Activity$Measure$justToday,
 			app.timeline,
 			_Utils_Tuple2(env.time, env.timeZone));
+		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
+		var totalMinutes = (total / 60000) | 0;
+		return (total > 0) ? (elm$core$String$fromInt(totalMinutes) + 'm') : '';
+	});
+var author$project$TimeTracker$writeActivityUsage = F3(
+	function (app, env, activity) {
+		var lastPeriod = A3(
+			author$project$Activity$Measure$relevantTimeline,
+			app.timeline,
+			_Utils_Tuple2(env.time, env.timeZone),
+			activity.maxTime.b);
 		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
 		var totalMinutes = (total / 60000) | 0;
 		return (total > 0) ? (elm$core$String$fromInt(totalMinutes) + 'm') : '';
