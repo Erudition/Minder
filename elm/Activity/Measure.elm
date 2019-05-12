@@ -107,10 +107,11 @@ justToday timeline ( now, zone ) =
         lastMidnight =
             Time.Extra.floor Day zone now
 
+        -- TODO: what if between midnight and 3am
         last3am =
             add Hour 3 zone lastMidnight
     in
-    timelineLimit timeline now last3am
+    timelineLimit timeline now lastMidnight
 
 
 inFuzzyWords : Int -> String
