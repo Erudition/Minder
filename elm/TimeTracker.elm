@@ -122,7 +122,7 @@ viewActivity app env activity =
                 [ text (writeActivityUsage app env activity)
                 ]
             , div []
-                [ text (writeActivityTotal app env activity)
+                [ text (writeActivityToday app env activity)
                 ]
             , label
                 []
@@ -174,8 +174,8 @@ writeActivityUsage app env activity =
         ""
 
 
-writeActivityTotal : AppData -> Environment -> Activity -> String
-writeActivityTotal app env activity =
+writeActivityToday : AppData -> Environment -> Activity -> String
+writeActivityToday app env activity =
     let
         lastPeriod =
             justToday app.timeline ( env.time, env.timeZone )

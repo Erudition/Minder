@@ -103,7 +103,14 @@ relevantTimeline timeline ( now, zone ) duration =
 
 justToday : Timeline -> ( Moment, Zone ) -> Timeline
 justToday timeline ( now, zone ) =
-    timelineLimit timeline now (Time.Extra.floor Day zone now)
+    let
+        lastMidnight =
+            Time.Extra.floor Day zone now
+
+        last3am =
+            add Hour 3 zone lastMidnight
+    in
+    timelineLimit timeline now last3am
 
 
 inFuzzyWords : Int -> String
