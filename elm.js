@@ -10799,7 +10799,7 @@ var author$project$Main$handleUrlTriggers = F2(
 			environment.navkey,
 			elm$url$Url$toString(
 				_Utils_update(
-					rawUrl,
+					url,
 					{query: elm$core$Maybe$Nothing})));
 		var parseList = A2(
 			elm$core$List$map,
