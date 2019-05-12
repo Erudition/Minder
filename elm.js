@@ -10749,6 +10749,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 };
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
+var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
 var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
@@ -10856,10 +10857,7 @@ var author$project$Main$update = F2(
 							A2(
 								elm$browser$Browser$Navigation$pushUrl,
 								environment.navkey,
-								elm$url$Url$toString(
-									_Utils_update(
-										url,
-										{query: elm$core$Maybe$Nothing}))));
+								elm$url$Url$toString(url)));
 					} else {
 						var href = urlRequest.a;
 						return justRunCommand(
@@ -10867,6 +10865,13 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
+					var removeTriggersFromUrl = A2(
+						elm$browser$Browser$Navigation$replaceUrl,
+						environment.navkey,
+						elm$url$Url$toString(
+							_Utils_update(
+								url,
+								{query: elm$core$Maybe$Nothing})));
 					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
 					var modelAfter = _n4.a;
 					var effectsAfter = _n4.b;
