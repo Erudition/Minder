@@ -463,7 +463,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
 
         --TODO only remove handled triggers
         removeTriggersFromUrl =
-            Nav.replaceUrl environment.navkey (Url.toString { url | query = Nothing })
+            Nav.replaceUrl environment.navkey (Url.toString { rawUrl | query = Nothing })
     in
     case parsed of
         Just (Just triggerMsg) ->
