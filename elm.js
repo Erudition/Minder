@@ -13902,7 +13902,7 @@ var author$project$External$Commands$changeActivity = F2(
 					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ElmSelected', newName)),
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ActivityTotal', newTotal))
+					_Utils_Tuple2('ActivityTotalSec', newTotal))
 				]));
 	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
