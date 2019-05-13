@@ -262,7 +262,7 @@ switchPopup timeline new old =
     let
         timeSpentString num =
             String.fromInt num
-                ++ " s spent, "
+                ++ "s "
 
         timeSpent =
             Maybe.map (\n -> n // 1000) (List.head (Measure.sessions timeline old.id))
@@ -270,14 +270,14 @@ switchPopup timeline new old =
         total =
             Measure.total timeline old.id // 1000
     in
-    getName old
+    Maybe.withDefault "" (Maybe.map timeSpentString timeSpent)
+        ++ getName old
+        ++ " ("
+        ++ String.fromInt total
+        ++ " s)"
         ++ " ➤ "
         ++ getName new
         ++ "\n"
-        ++ Maybe.withDefault "" (Maybe.map timeSpentString timeSpent)
-        ++ "new total "
-        ++ String.fromInt total
-        ++ " s"
 
 
 currentActivity : AppData -> Activity
