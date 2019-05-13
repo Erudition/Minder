@@ -183,10 +183,10 @@ exportActivityUsage : AppData -> Environment -> Activity -> String
 exportActivityUsage app env activity =
     let
         lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.excusable)
+            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second excusableLimit)
 
         excusableLimit =
-            activity.excusable
+            Activity.excusableFor activity
 
         total =
             Measure.totalLive env.time lastPeriod activity.id
