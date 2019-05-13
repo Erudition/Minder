@@ -1,6 +1,7 @@
-module Activity.Measure exposing (inFuzzyWords, justToday, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
+import Environment exposing (..)
 import Time exposing (..)
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)
@@ -85,18 +86,18 @@ timelineLimit timeline now pastLimit =
     pass ++ [ fakeEndSwitch ]
 
 
-{-| Given a Duration, how far back in time would it reach?
+{-| Given a HumanDuration, how far back in time would it reach?
 This returns that Moment in history.
 
 For fixed distances, that's easy, but variable intervals could be far back or just a millisecond ago.
 
 -}
-lookBack : ( Moment, Time.Zone ) -> Duration -> Moment
+lookBack : ( Moment, Time.Zone ) -> HumanDuration -> Moment
 lookBack ( present, zone ) ( count, interval ) =
     add interval -count zone present
 
 
-relevantTimeline : Timeline -> ( Moment, Zone ) -> Duration -> Timeline
+relevantTimeline : Timeline -> ( Moment, Zone ) -> HumanDuration -> Timeline
 relevantTimeline timeline ( now, zone ) duration =
     timelineLimit timeline now (lookBack ( now, zone ) duration)
 
@@ -114,6 +115,47 @@ justToday timeline ( now, zone ) =
     timelineLimit timeline now lastMidnight
 
 
-inFuzzyWords : Int -> String
+justTodayTotal : Timeline -> Environment -> Activity -> Duration
+justTodayTotal timeline env activity =
+    let
+        lastPeriod =
+            justToday timeline ( env.time, env.timeZone )
+    in
+    totalLive env.time lastPeriod activity.id
+
+
+inFuzzyWords : Duration -> String
 inFuzzyWords ms =
     Time.Distance.inWords (Time.millisToPosix 0) (Time.millisToPosix ms)
+
+
+inHoursMinutes : Duration -> String
+inHoursMinutes duration =
+    let
+        hour =
+            3600000
+
+        wholeHours =
+            duration // hour
+
+        wholeMinutes =
+            (duration - (wholeHours * hour)) // 60000
+
+        hoursString =
+            String.fromInt wholeHours ++ "h"
+
+        minutesString =
+            String.fromInt wholeMinutes ++ "m"
+    in
+    case ( wholeHours, wholeMinutes ) of
+        ( 0, 0 ) ->
+            minutesString
+
+        ( _, 0 ) ->
+            hoursString
+
+        ( 0, _ ) ->
+            minutesString
+
+        ( _, _ ) ->
+            hoursString ++ " " ++ minutesString

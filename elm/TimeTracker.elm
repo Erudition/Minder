@@ -176,28 +176,17 @@ writeActivityUsage app env activity =
 
 writeActivityToday : AppData -> Environment -> Activity -> String
 writeActivityToday app env activity =
-    let
-        lastPeriod =
-            justToday app.timeline ( env.time, env.timeZone )
-
-        total =
-            Measure.totalLive env.time lastPeriod activity.id
-
-        totalMinutes =
-            total // 60000
-    in
-    if total > 0 then
-        String.fromInt totalMinutes ++ "m"
-
-    else
-        ""
+    Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activity)
 
 
 exportActivityUsage : AppData -> Environment -> Activity -> String
 exportActivityUsage app env activity =
     let
         lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
+            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.excusable)
+
+        excusableLimit =
+            activity.excusable
 
         total =
             Measure.totalLive env.time lastPeriod activity.id

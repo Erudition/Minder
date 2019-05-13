@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), HumanDuration, Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -19,6 +19,10 @@ import Time.Extra exposing (..)
 
 type alias Moment =
     Time.Posix
+
+
+type alias Duration =
+    Int
 
 
 {-| Definition of an activity.
@@ -211,6 +215,19 @@ encodeExcusable v =
             Encode.string "IndefinitelyExcused"
 
 
+excusableFor : Activity -> DurationPerPeriod
+excusableFor activity =
+    case activity.excusable of
+        NeverExcused ->
+            ( ( 0, Minute ), ( 0, Minute ) )
+
+        TemporarilyExcused durationPerPeriod ->
+            durationPerPeriod
+
+        IndefinitelyExcused ->
+            ( ( 24, Hour ), ( 24, Hour ) )
+
+
 {-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes" , without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
 
 Making Invalid States Unrepresentable: is there anyway to guarantee (via the type system) that the second duration is at least as large as the first?
@@ -219,7 +236,7 @@ Using a Custom type instead of a type alias: considering it, but it'd just have 
 
 -}
 type alias DurationPerPeriod =
-    ( Duration, Duration )
+    ( HumanDuration, HumanDuration )
 
 
 encodeDurationPerPeriod : DurationPerPeriod -> Encode.Value
@@ -237,22 +254,22 @@ decodeDurationPerPeriod =
 Seems like there ought to be a more native way to represent Durations... but all the Time-related packages out there seem to ignore this use case, focusing instead on moments. Maybe I should add it to one of them?
 
 -}
-type alias Duration =
+type alias HumanDuration =
     ( Int, Interval )
 
 
-encodeDuration : Duration -> Encode.Value
+encodeDuration : HumanDuration -> Encode.Value
 encodeDuration v =
     Debug.todo "encode duration"
 
 
-decodeDuration : Decode.Decoder Duration
+decodeDuration : Decode.Decoder HumanDuration
 decodeDuration =
     arrayAsTuple2 Decode.int decodeInterval
 
 
 
--- interpretDuration : Duration ->
+-- interpretDuration : HumanDuration ->
 
 
 {-| Icons. For activities, at least.
