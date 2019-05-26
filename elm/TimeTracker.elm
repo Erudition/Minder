@@ -2,6 +2,7 @@ module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, upd
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure exposing (..)
+import Activity.Switching as Switching
 import AppData exposing (..)
 import Browser
 import Browser.Dom
@@ -113,7 +114,7 @@ viewActivity app env activity =
         [ class "activity" ]
         [ button
             [ class "activity-button"
-            , classList [ ( "current", (currentActivity app).id == activity.id ) ]
+            , classList [ ( "current", (Switching.currentActivityFromApp app).id == activity.id ) ]
             , onClick (StartTracking activity.id)
             , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activity.id))
             ]
@@ -179,24 +180,6 @@ writeActivityToday app env activity =
     Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activity)
 
 
-exportActivityUsage : AppData -> Environment -> Activity -> String
-exportActivityUsage app env activity =
-    let
-        lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second excusableLimit)
-
-        excusableLimit =
-            Activity.excusableFor activity
-
-        total =
-            Measure.totalLive env.time lastPeriod activity.id
-
-        totalSeconds =
-            total // 1000
-    in
-    String.fromInt totalSeconds
-
-
 
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
@@ -222,23 +205,12 @@ update msg state app env =
 
         StartTracking activityId ->
             let
-                updatedApp =
-                    { app | timeline = Switch env.time activityId :: app.timeline }
-
-                newActivity =
-                    getActivity (allActivities app.activities) activityId
-
-                oldActivity =
-                    currentActivity app
+                ( updatedApp, cmds ) =
+                    Switching.switchActivity activityId app env
             in
             ( state
             , updatedApp
-            , Cmd.batch
-                [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
-                , Commands.changeActivity (getName newActivity)
-                    (exportActivityUsage app env newActivity)
-                , Commands.hideWindow
-                ]
+            , cmds
             )
 
 
@@ -255,31 +227,3 @@ urlTriggers app =
     [ PQ.enum "start" <| Dict.fromList activitiesWithNames
     , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
     ]
-
-
-switchPopup : Timeline -> Activity -> Activity -> String
-switchPopup timeline new old =
-    let
-        timeSpentString num =
-            String.fromInt num
-                ++ "s "
-
-        timeSpent =
-            Maybe.map (\n -> n // 1000) (List.head (Measure.sessions timeline old.id))
-
-        total =
-            Measure.total timeline old.id // 1000
-    in
-    Maybe.withDefault "" (Maybe.map timeSpentString timeSpent)
-        ++ getName old
-        ++ " ("
-        ++ String.fromInt total
-        ++ " s)"
-        ++ " ➤ "
-        ++ getName new
-        ++ "\n"
-
-
-currentActivity : AppData -> Activity
-currentActivity app =
-    Activity.currentActivity (allActivities app.activities) app.timeline

@@ -3,6 +3,7 @@ module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Custo
 import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
+import External.Commands as Commands exposing (..)
 import Ionicon
 import Ionicon.Android as Android
 import Json.Decode.Exploration as Decode exposing (..)

@@ -1,6 +1,7 @@
-module Activity.Measure exposing (inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (exportActivityUsage, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
+import AppData exposing (AppData)
 import Environment exposing (..)
 import Time exposing (..)
 import Time.Distance exposing (..)
@@ -159,3 +160,21 @@ inHoursMinutes duration =
 
         ( _, _ ) ->
             hoursString ++ " " ++ minutesString
+
+
+exportActivityUsage : AppData -> Environment -> Activity -> String
+exportActivityUsage app env activity =
+    let
+        lastPeriod =
+            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second excusableLimit)
+
+        excusableLimit =
+            Activity.excusableFor activity
+
+        totalMs =
+            totalLive env.time lastPeriod activity.id
+
+        totalSeconds =
+            totalMs // 1000
+    in
+    String.fromInt totalSeconds
