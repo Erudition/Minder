@@ -2,9 +2,12 @@ module Activity.Switching exposing (currentActivityFromApp, switchActivity, swit
 
 import Activity.Activity exposing (..)
 import Activity.Measure as Measure
+import Activity.Reminder exposing (..)
 import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
+import Time
+import Time.Extra as Time
 
 
 switchActivity : ActivityId -> AppData -> Environment -> ( AppData, Cmd msg )
@@ -55,3 +58,20 @@ switchPopup timeline new old =
 currentActivityFromApp : AppData -> Activity
 currentActivityFromApp app =
     currentActivity (allActivities app.activities) app.timeline
+
+
+scheduleReminders : Moment -> Duration -> List Reminder
+scheduleReminders now limit =
+    let
+        future distance =
+            Time.millisToPosix <| Time.posixToMillis now + distance
+    in
+    [ Reminder "Half-way done!"
+        "1/2 time left for activity."
+        (future <| limit // 2)
+        []
+    , Reminder "Two-thirds done!"
+        "1/3 time left for activity."
+        (future <| limit - (limit // 3))
+        []
+    ]
