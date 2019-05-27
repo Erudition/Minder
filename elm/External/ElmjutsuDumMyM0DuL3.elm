@@ -1,4 +1,5 @@
-port module External.Commands exposing (changeActivity, hideWindow, toast)
+port module External.ElmjutsuDumMyM0DuL3 exposing (..)
+-- exposing (changeActivity, hideWindow, toast)
 
 import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)

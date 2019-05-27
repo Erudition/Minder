@@ -1,4 +1,6 @@
 port module External.Capacitor exposing (notificationsOut)
 
+import Json.Encode as Encode
 
-port notificationsOut : String -> Cmd msg
+
+port notificationsOut : Encode.Value -> Cmd msg

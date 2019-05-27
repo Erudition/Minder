@@ -65,13 +65,24 @@ scheduleReminders now limit =
     let
         future distance =
             Time.millisToPosix <| Time.posixToMillis now + distance
+
+        fractionLeft denom =
+            future <| limit - (limit // denom)
     in
     [ Reminder "Half-way done!"
         "1/2 time left for activity."
-        (future <| limit // 2)
+        (fractionLeft 2)
         []
     , Reminder "Two-thirds done!"
         "1/3 time left for activity."
-        (future <| limit - (limit // 3))
+        (fractionLeft 3)
+        []
+    , Reminder "Three-Quarters done!"
+        "1/4 time left for activity."
+        (fractionLeft 4)
+        []
+    , Reminder "Time's up!"
+        "Reached maximum time allowed for this."
+        (future limit)
         []
     ]
