@@ -5,7 +5,7 @@ import Time.Extra exposing (..)
 
 
 
-{- A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.  -}
+{- A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it. -}
 
 
 type Duration
@@ -34,11 +34,170 @@ sum list =
     Milliseconds <| List.sum (List.map inMs list)
 
 
-{-| Break a duration down into smaller units, in the natural human way.
+{-| Break a duration down into a human-readable list of smaller time units, the natural way.
+
+For consistency, the list will start with the largest nonzero unit and extend all the way down to milliseconds. If you want to ignore all zero values instead (even when between two nonzero units), try `breakdownNonzero`.
+
+If you just don't need milliseconds, use `breakdownToSec`.
+
 -}
 breakdown : Duration -> List Duration
 breakdown duration =
-    []
+    let
+        ( days, hours, minutes, seconds, milliseconds ) =
+            breakdownDHMSM duration
+    in
+    if days > 0 then
+        [ Days days, Hours hours, Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
+
+    else if hours > 0 then
+        [ Hours hours, Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
+
+    else if minutes > 0 then
+        [ Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
+
+    else if seconds > 0 then
+        [ Seconds seconds, Milliseconds milliseconds ]
+
+    else if milliseconds > 0 then
+        [ Milliseconds milliseconds ]
+
+    else
+        [ Zero ]
+
+
+{-| Break a duration down into (days, hours, minutes, seconds, milliseconds).
+-}
+breakdownDHMSM : Duration -> ( Int, Int, Int, Int, Int )
+breakdownDHMSM duration =
+    let
+        all =
+            inMs duration
+
+        days =
+            all // 86400000
+
+        withoutDays =
+            all - (days * 86400000)
+
+        hours =
+            withoutDays // 3600000
+
+        withoutHours =
+            withoutDays - (hours * 3600000)
+
+        minutes =
+            withoutHours // 60000
+
+        withoutMinutes =
+            withoutHours - (minutes - 60000)
+
+        seconds =
+            withoutMinutes // 1000
+
+        withoutSeconds =
+            withoutMinutes - (seconds * 1000)
+    in
+    ( days, hours, minutes, seconds, withoutSeconds )
+
+
+{-| Break a duration down into (days, hours, minutes, seconds).
+-}
+breakdownDHMS : Duration -> ( Int, Int, Int, Int )
+breakdownDHMS duration =
+    let
+        ( days, hours, minutes, seconds, _ ) =
+            breakdownDHMSM duration
+    in
+    ( days, hours, minutes, seconds )
+
+
+{-| Break a duration down into (days, hours, minutes).
+-}
+breakdownDHM : Duration -> ( Int, Int, Int )
+breakdownDHM duration =
+    let
+        ( days, hours, minutes, _, _ ) =
+            breakdownDHMSM duration
+    in
+    ( days, hours, minutes )
+
+
+{-| Break a duration down into (days, hours).
+-}
+breakdownDH : Duration -> ( Int, Int )
+breakdownDH duration =
+    let
+        ( days, hours, _, _, _ ) =
+            breakdownDHMSM duration
+    in
+    ( days, hours )
+
+
+{-| Break a duration down into (hours, minutes, seconds, milliseconds).
+-}
+breakdownHMSM : Duration -> ( Int, Int, Int, Int )
+breakdownHMSM duration =
+    let
+        ( _, _, minutes, seconds, milliseconds ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeHours duration, minutes, seconds, milliseconds )
+
+
+{-| Break a duration down into (hours, minutes, seconds).
+-}
+breakdownHMS : Duration -> ( Int, Int, Int )
+breakdownHMS duration =
+    let
+        ( _, _, minutes, seconds, _ ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeHours duration, minutes, seconds )
+
+
+{-| Break a duration down into (hours, minutes).
+-}
+breakdownHM : Duration -> ( Int, Int )
+breakdownHM duration =
+    let
+        ( _, _, minutes, _, _ ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeHours duration, minutes )
+
+
+{-| Break a duration down into (minutes, seconds, milliseconds).
+-}
+breakdownMSM : Duration -> ( Int, Int, Int )
+breakdownMSM duration =
+    let
+        ( _, _, _, seconds, milliseconds ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeMinutes duration, seconds, milliseconds )
+
+
+{-| Break a duration down into (minutes, seconds).
+-}
+breakdownMS : Duration -> ( Int, Int )
+breakdownMS duration =
+    let
+        ( _, _, _, seconds, _ ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeMinutes duration, seconds )
+
+
+{-| Break a duration down into (seconds, milliseconds).
+-}
+breakdownSM : Duration -> ( Int, Int )
+breakdownSM duration =
+    let
+        ( _, _, _, _, milliseconds ) =
+            breakdownDHMSM duration
+    in
+    ( inWholeSeconds duration, milliseconds )
 
 
 {-| Measure a given `Duration` in `Milliseconds`.
