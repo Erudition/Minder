@@ -502,3 +502,35 @@ inLargestExactUnits duration =
 
         Milliseconds milliseconds ->
             inMs duration
+
+
+{-| Add two durations!
+-}
+add : Duration -> Duration -> Duration
+add duration1 duration2 =
+    Milliseconds <| inMs duration1 + inMs duration2
+
+
+{-| Subtract two durations. Does the same thing as negating the second one and adding them.
+
+This is subtraction, so order matters. If you want to avoid negatives, use `difference` instead.
+
+-}
+subtract : Duration -> Duration -> Duration
+subtract duration1 duration2 =
+    Milliseconds <| inMs duration1 - inMs duration2
+
+
+{-| How different are these two durations?
+
+Does the same thing as subtracting them and taking the absolute value.
+
+-}
+difference : Duration -> Duration -> Duration
+difference =
+    abs subtract
+
+
+type TimeScale
+    = Unix
+    | TAI
