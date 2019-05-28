@@ -66,6 +66,118 @@ breakdown duration =
         [ Zero ]
 
 
+{-| A version of `breakdown` that returns a `Set` instead of a `List` -- a type like a list, but guaranteed by the type system to contain only one of each unique entry, and specifically NOT guaranteed to be in any particular order.
+
+Sets are cool, and fit the constraints of the `breakdown` family well, but they're currently far less convenient to work with in Elm (no syntactic sugar, etc.) so instead this library normally returns Lists in the correct order and promises you the entries will always be unique.
+
+If we've delivered on that promise, this Set-producing function will always return the same stuff as the normal `breakdown`.
+
+-}
+breakdownSet : Duration -> Set Duration
+breakdownSet duration =
+    Set.fromList (breakdown duration)
+
+
+{-| Like the standard `breakdown`, but stops short of providing a `Milliseconds` value. Typically, showing milliseconds is overkill, especially if it's part of a currently running clock.
+
+If don't need seconds either, use `breakdownToMin`.
+
+-}
+breakdownToSec : Duration -> List Duration
+breakdownToSec duration =
+    let
+        isMilliseconds entry =
+            case entry of
+                Milliseconds ->
+                    False
+
+                _ ->
+                    True
+    in
+    List.filter isMilliseconds (breakdown duration)
+
+
+{-| Like the standard `breakdown`, but stops short of providing a `Seconds` or a `Milliseconds` value. Typically, showing these is overkill, especially if it's part of a currently running clock.
+
+To keep the seconds, use `breakdownToSec`.
+
+-}
+breakdownToMin : Duration -> List Duration
+breakdownToMin duration =
+    let
+        isSmall entry =
+            case entry of
+                Milliseconds ->
+                    False
+
+                Seconds ->
+                    False
+
+                _ ->
+                    True
+    in
+    List.filter isSmall (breakdown duration)
+
+
+{-| If `breakdownToSec` and `breakdownToMin` don't go far enough for you, this function will chop off the minutes as well, leaving only `Hours` and `Days`.
+
+This is included for completeness, but chances are you'd be better served by another helper instead, like `inWholeHours` or `breakdownDH`.
+
+-}
+breakdownToHour : Duration -> List Duration
+breakdownToHour duration =
+    let
+        isSmall entry =
+            case entry of
+                Milliseconds ->
+                    False
+
+                Seconds ->
+                    False
+
+                Minutes ->
+                    False
+
+                _ ->
+                    True
+    in
+    List.filter isSmall (breakdown duration)
+
+
+{-| Break a duration down into a human-readable list of smaller time units, skipping unit groups with a value of zero.
+
+This will always give the smallest correct list of time units, turning 5 days and 17 minutes into `[Days 5, Minutes 17]`. However, for displaying multiple durations to users, you may find it more natural and consistent to say "5 days, 0 hours and 17 minutes".
+
+-}
+breakdownNonzero : Duration -> List Duration
+breakdownNonzero duration =
+    let
+        ( days, hours, minutes, seconds, milliseconds ) =
+            breakdownDHMSM duration
+
+        makeOptional tagger amount =
+            if amount > 0 then
+                Just (tagger amount)
+
+            else
+                Nothing
+
+        maybeList =
+            List.map makeOptional
+                [ Days days
+                , Hours hours
+                , Minutes minutes
+                , Seconds seconds
+                , Milliseconds milliseconds
+                ]
+    in
+    if inMs duration == 0 then
+        [ Zero ]
+
+    else
+        List.filterMap identity maybeList
+
+
 {-| Break a duration down into (days, hours, minutes, seconds, milliseconds).
 -}
 breakdownDHMSM : Duration -> ( Int, Int, Int, Int, Int )
