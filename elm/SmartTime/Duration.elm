@@ -1,6 +1,5 @@
 module SmartTime.Duration exposing (Duration(..), DurationBreakdown, TimeScale(..), add, breakdown, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, difference, inHours, inHoursRounded, inLargestExactUnits, inLargestWholeUnits, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, sum)
 
-import Set exposing (Set)
 import Time exposing (..)
 import Time.Extra exposing (..)
 
