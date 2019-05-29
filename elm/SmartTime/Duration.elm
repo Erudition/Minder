@@ -1,11 +1,9 @@
 module SmartTime.Duration exposing (Duration(..), DurationBreakdown, TimeScale(..), add, breakdown, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, difference, inHours, inHoursRounded, inLargestExactUnits, inLargestWholeUnits, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, sum)
 
-import Time exposing (..)
-import Time.Extra exposing (..)
-
-
 {-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
 -}
+
+
 type Duration
     = Milliseconds Int
     | Seconds Int
@@ -19,7 +17,7 @@ type Duration
 Typically you only need one unit (e.g. `Minutes 5`), in which case you can just use that instead! If however you need a more compound duration like "1min 30s" and don't feel like writing `Seconds 90`, this builder function has got your back.
 
 Examples:
-2hr 45min == `sum [Hours 1, Minutes 45]`
+2hr 45min == `sum [Hours 2, Minutes 45]`
 17min 30sec 450ms == `sum [Minutes 17, Seconds 1, Milliseconds 450]`
 5d 45min == `sum [Days 5, Minutes 45]`
 
@@ -456,3 +454,45 @@ difference duration1 duration2 =
 type TimeScale
     = Unix
     | TAI
+
+
+{-| Create a duration from a custom floating-point number of seconds, with half-millisecond-accuracy.
+
+Useful if you want your users to specify durations in terms of larger units that can have decimals, rather than smaller units or multiple sizes of units.
+
+-}
+fromSeconds : Float -> Duration
+fromSeconds float =
+    Milliseconds (round (float * 1000))
+
+
+{-| Create a duration from a custom floating-point number of minutes, with half-millisecond-accuracy.
+
+Useful if you want your users to specify durations in terms of larger units that can have decimals, rather than smaller units or multiple sizes of units.
+
+-}
+fromMinutes : Float -> Duration
+fromMinutes float =
+    Milliseconds (round (float * 60000))
+
+
+{-| Create a duration from a custom floating-point number of minutes, with half-millisecond-accuracy.
+
+Useful if you want your users to specify durations in terms of larger units that can have decimals, rather than smaller units or multiple sizes of units.
+
+For example, maybe you're dealing with the hours worked by employees. You want them to enter the number of hours only, but you want to allow fractions of an hour as well, like "8.5 hours" worked. This function will properly turn that into 8 hours and 30 minutes.
+
+-}
+fromHours : Float -> Duration
+fromHours float =
+    Milliseconds (round (float * 3600000))
+
+
+{-| Create a duration from a custom floating-point number of days, with half-millisecond-accuracy.
+
+Useful if you want your users to specify durations in terms of larger units that can have decimals, rather than smaller units or multiple sizes of units.
+
+-}
+fromDays : Float -> Duration
+fromDays float =
+    Milliseconds (round (float * 86400000))
