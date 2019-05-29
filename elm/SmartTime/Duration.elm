@@ -1,16 +1,14 @@
-module Time.Duration exposing (Duration(..), duration)
+module SmartTime.Duration exposing (Duration(..), DurationBreakdown, TimeScale(..), add, breakdown, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, difference, inHours, inHoursRounded, inLargestExactUnits, inLargestWholeUnits, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, sum)
 
+import Set exposing (Set)
 import Time exposing (..)
 import Time.Extra exposing (..)
 
 
-
-{- A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it. -}
-
-
+{-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
+-}
 type Duration
-    = Zero
-    | Milliseconds Int
+    = Milliseconds Int
     | Seconds Int
     | Minutes Int
     | Hours Int
@@ -34,116 +32,6 @@ sum list =
     Milliseconds <| List.sum (List.map inMs list)
 
 
-{-| Break a duration down into a human-readable list of smaller time units, the natural way.
-
-For consistency, the list will start with the largest nonzero unit and extend all the way down to milliseconds. If you want to ignore all zero values instead (even when between two nonzero units), try `breakdownNonzero`.
-
-If you just don't need milliseconds, use `breakdownToSec`.
-
--}
-breakdown : Duration -> List Duration
-breakdown duration =
-    let
-        ( days, hours, minutes, seconds, milliseconds ) =
-            breakdownDHMSM duration
-    in
-    if days > 0 then
-        [ Days days, Hours hours, Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
-
-    else if hours > 0 then
-        [ Hours hours, Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
-
-    else if minutes > 0 then
-        [ Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
-
-    else if seconds > 0 then
-        [ Seconds seconds, Milliseconds milliseconds ]
-
-    else if milliseconds > 0 then
-        [ Milliseconds milliseconds ]
-
-    else
-        [ Zero ]
-
-
-{-| A version of `breakdown` that returns a `Set` instead of a `List` -- a type like a list, but guaranteed by the type system to contain only one of each unique entry, and specifically NOT guaranteed to be in any particular order.
-
-Sets are cool, and fit the constraints of the `breakdown` family well, but they're currently far less convenient to work with in Elm (no syntactic sugar, etc.) so instead this library normally returns Lists in the correct order and promises you the entries will always be unique.
-
-If we've delivered on that promise, this Set-producing function will always return the same stuff as the normal `breakdown`.
-
--}
-breakdownSet : Duration -> Set Duration
-breakdownSet duration =
-    Set.fromList (breakdown duration)
-
-
-{-| Like the standard `breakdown`, but stops short of providing a `Milliseconds` value. Typically, showing milliseconds is overkill, especially if it's part of a currently running clock.
-
-If don't need seconds either, use `breakdownToMin`.
-
--}
-breakdownToSec : Duration -> List Duration
-breakdownToSec duration =
-    let
-        isMilliseconds entry =
-            case entry of
-                Milliseconds ->
-                    False
-
-                _ ->
-                    True
-    in
-    List.filter isMilliseconds (breakdown duration)
-
-
-{-| Like the standard `breakdown`, but stops short of providing a `Seconds` or a `Milliseconds` value. Typically, showing these is overkill, especially if it's part of a currently running clock.
-
-To keep the seconds, use `breakdownToSec`.
-
--}
-breakdownToMin : Duration -> List Duration
-breakdownToMin duration =
-    let
-        isSmall entry =
-            case entry of
-                Milliseconds ->
-                    False
-
-                Seconds ->
-                    False
-
-                _ ->
-                    True
-    in
-    List.filter isSmall (breakdown duration)
-
-
-{-| If `breakdownToSec` and `breakdownToMin` don't go far enough for you, this function will chop off the minutes as well, leaving only `Hours` and `Days`.
-
-This is included for completeness, but chances are you'd be better served by another helper instead, like `inWholeHours` or `breakdownDH`.
-
--}
-breakdownToHour : Duration -> List Duration
-breakdownToHour duration =
-    let
-        isSmall entry =
-            case entry of
-                Milliseconds ->
-                    False
-
-                Seconds ->
-                    False
-
-                Minutes ->
-                    False
-
-                _ ->
-                    True
-    in
-    List.filter isSmall (breakdown duration)
-
-
 {-| Break a duration down into a human-readable list of smaller time units, skipping unit groups with a value of zero.
 
 This will always give the smallest correct list of time units, turning 5 days and 17 minutes into `[Days 5, Minutes 17]`. However, for displaying multiple durations to users, you may find it more natural and consistent to say "5 days, 0 hours and 17 minutes".
@@ -152,10 +40,10 @@ This will always give the smallest correct list of time units, turning 5 days an
 breakdownNonzero : Duration -> List Duration
 breakdownNonzero duration =
     let
-        ( days, hours, minutes, seconds, milliseconds ) =
-            breakdownDHMSM duration
+        { days, hours, minutes, seconds, milliseconds } =
+            breakdown duration
 
-        makeOptional tagger amount =
+        makeOptional ( tagger, amount ) =
             if amount > 0 then
                 Just (tagger amount)
 
@@ -164,24 +52,29 @@ breakdownNonzero duration =
 
         maybeList =
             List.map makeOptional
-                [ Days days
-                , Hours hours
-                , Minutes minutes
-                , Seconds seconds
-                , Milliseconds milliseconds
+                [ ( Days, days )
+                , ( Hours, hours )
+                , ( Minutes, minutes )
+                , ( Seconds, seconds )
+                , ( Milliseconds, milliseconds )
                 ]
     in
-    if inMs duration == 0 then
-        [ Zero ]
-
-    else
-        List.filterMap identity maybeList
+    List.filterMap identity maybeList
 
 
-{-| Break a duration down into (days, hours, minutes, seconds, milliseconds).
+type alias DurationBreakdown =
+    { days : Int
+    , hours : Int
+    , minutes : Int
+    , seconds : Int
+    , milliseconds : Int
+    }
+
+
+{-| Break a duration down into {days, hours, minutes, seconds, milliseconds}.
 -}
-breakdownDHMSM : Duration -> ( Int, Int, Int, Int, Int )
-breakdownDHMSM duration =
+breakdown : Duration -> DurationBreakdown
+breakdown duration =
     let
         all =
             inMs duration
@@ -210,106 +103,142 @@ breakdownDHMSM duration =
         withoutSeconds =
             withoutMinutes - (seconds * 1000)
     in
-    ( days, hours, minutes, seconds, withoutSeconds )
+    { days = days
+    , hours = hours
+    , minutes = minutes
+    , seconds = seconds
+    , milliseconds = withoutSeconds
+    }
 
 
-{-| Break a duration down into (days, hours, minutes, seconds).
+{-| Break a duration down into a human-readable list of smaller time units, the natural way.
+
+For consistency, the list will start with the largest nonzero unit and extend all the way down to milliseconds. If you want to ignore all zero values instead (even when between two nonzero units), try `breakdownNonzero`.
+
+Breaks a duration down into the list of whole units [ `Days`, `Hours`, `Minutes`, `Seconds`, `Milliseconds` ] for easy mapping.
+
 -}
-breakdownDHMS : Duration -> ( Int, Int, Int, Int )
+breakdownDHMSM : Duration -> List Duration
+breakdownDHMSM duration =
+    let
+        { days, hours, minutes, seconds, milliseconds } =
+            breakdown duration
+    in
+    [ Days days, Hours hours, Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
+
+
+{-| Like the standard `breakdownDHMSM`, but stops short of providing a `Milliseconds` value. Typically, showing milliseconds is overkill, especially if it's part of a currently running clock.
+
+If don't need seconds either, use `breakdownDHM`.
+
+Breaks a duration down into the list of whole units [ `Days`, `Hours`, `Minutes`, `Seconds` ] for easy mapping.
+
+-}
+breakdownDHMS : Duration -> List Duration
 breakdownDHMS duration =
     let
-        ( days, hours, minutes, seconds, _ ) =
-            breakdownDHMSM duration
+        { days, hours, minutes, seconds } =
+            breakdown duration
     in
-    ( days, hours, minutes, seconds )
+    [ Days days, Hours hours, Minutes minutes, Seconds seconds ]
 
 
-{-| Break a duration down into (days, hours, minutes).
+{-| Like the standard `breakdownDHMSM`, but stops short of providing a `Seconds` or a `Milliseconds` value. Typically, showing these is overkill, especially if it's part of a currently running clock.
+
+To keep the seconds, use `breakdownDHMS`.
+
+Breaks a duration down into the list of whole units [ `Days`, `Hours`, `Minutes` ] for easy mapping.
+
 -}
-breakdownDHM : Duration -> ( Int, Int, Int )
+breakdownDHM : Duration -> List Duration
 breakdownDHM duration =
     let
-        ( days, hours, minutes, _, _ ) =
-            breakdownDHMSM duration
+        { days, hours, minutes } =
+            breakdown duration
     in
-    ( days, hours, minutes )
+    [ Days days, Hours hours, Minutes minutes ]
 
 
-{-| Break a duration down into (days, hours).
+{-| If `breakdownDHMS` and `breakdownDHM` don't go far enough for you, this function will chop off the minutes as well, leaving only `Hours` and `Days`.
+
+This is included for completeness, but chances are you'd be better served by another helper instead, like `inWholeHours` or `breakdownDH`.
+
+Break a duration down into the list of whole units [ `Days`, `Hours` ] for easy mapping.
+
 -}
-breakdownDH : Duration -> ( Int, Int )
+breakdownDH : Duration -> List Duration
 breakdownDH duration =
     let
-        ( days, hours, _, _, _ ) =
-            breakdownDHMSM duration
+        { days, hours } =
+            breakdown duration
     in
-    ( days, hours )
+    [ Days days, Hours hours ]
 
 
-{-| Break a duration down into (hours, minutes, seconds, milliseconds).
+{-| Break a duration down into the list of whole units [ `Hours`, `Minutes`, `Seconds`, `Milliseconds` ] for easy mapping.
 -}
-breakdownHMSM : Duration -> ( Int, Int, Int, Int )
+breakdownHMSM : Duration -> List Duration
 breakdownHMSM duration =
     let
-        ( _, _, minutes, seconds, milliseconds ) =
-            breakdownDHMSM duration
+        { days, hours, minutes, seconds, milliseconds } =
+            breakdown duration
     in
-    ( inWholeHours duration, minutes, seconds, milliseconds )
+    [ Hours (inWholeHours duration), Minutes minutes, Seconds seconds, Milliseconds milliseconds ]
 
 
-{-| Break a duration down into (hours, minutes, seconds).
+{-| Break a duration down into the list of whole units [ `Hours`, `Minutes`, `Seconds` ] for easy mapping.
 -}
-breakdownHMS : Duration -> ( Int, Int, Int )
+breakdownHMS : Duration -> List Duration
 breakdownHMS duration =
     let
-        ( _, _, minutes, seconds, _ ) =
-            breakdownDHMSM duration
+        { minutes, seconds } =
+            breakdown duration
     in
-    ( inWholeHours duration, minutes, seconds )
+    [ Hours (inWholeHours duration), Minutes minutes, Seconds seconds ]
 
 
-{-| Break a duration down into (hours, minutes).
+{-| Break a duration down into the list of whole units [`Hours`, `Minutes`] for easy mapping.
 -}
-breakdownHM : Duration -> ( Int, Int )
+breakdownHM : Duration -> List Duration
 breakdownHM duration =
     let
-        ( _, _, minutes, _, _ ) =
-            breakdownDHMSM duration
+        { minutes } =
+            breakdown duration
     in
-    ( inWholeHours duration, minutes )
+    [ Hours (inWholeHours duration), Minutes minutes ]
 
 
-{-| Break a duration down into (minutes, seconds, milliseconds).
+{-| Break a duration down into the list of whole units [ `Minutes`, `Seconds`, `Milliseconds` ] for easy mapping.
 -}
-breakdownMSM : Duration -> ( Int, Int, Int )
+breakdownMSM : Duration -> List Duration
 breakdownMSM duration =
     let
-        ( _, _, _, seconds, milliseconds ) =
-            breakdownDHMSM duration
+        { seconds, milliseconds } =
+            breakdown duration
     in
-    ( inWholeMinutes duration, seconds, milliseconds )
+    [ Minutes (inWholeMinutes duration), Seconds seconds, Milliseconds milliseconds ]
 
 
-{-| Break a duration down into (minutes, seconds).
+{-| Break a duration down into the list of whole units [ `Minutes`, `Seconds` ] for easy mapping.
 -}
-breakdownMS : Duration -> ( Int, Int )
+breakdownMS : Duration -> List Duration
 breakdownMS duration =
     let
-        ( _, _, _, seconds, _ ) =
-            breakdownDHMSM duration
+        { seconds } =
+            breakdown duration
     in
-    ( inWholeMinutes duration, seconds )
+    [ Minutes (inWholeMinutes duration), Seconds seconds ]
 
 
-{-| Break a duration down into (seconds, milliseconds).
+{-| Break a duration down into the list of whole units [ `Seconds`, `Milliseconds` ] for easy mapping.
 -}
-breakdownSM : Duration -> ( Int, Int )
+breakdownSM : Duration -> List Duration
 breakdownSM duration =
     let
-        ( _, _, _, _, milliseconds ) =
-            breakdownDHMSM duration
+        { milliseconds } =
+            breakdown duration
     in
-    ( inWholeSeconds duration, milliseconds )
+    [ Seconds (inWholeSeconds duration), Milliseconds milliseconds ]
 
 
 {-| Measure a given `Duration` in `Milliseconds`.
@@ -333,9 +262,6 @@ inMs duration =
         Milliseconds milliseconds ->
             milliseconds
 
-        Zero ->
-            0
-
 
 
 -- SECONDS
@@ -352,7 +278,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inSeconds : Duration -> Float
 inSeconds duration =
-    inMs duration / 1000
+    toFloat (inMs duration) / 1000
 
 
 {-| Measure a given `Duration` in whole `Seconds`.
@@ -372,7 +298,7 @@ This is more accurate than `inWholeSeconds` 50% of the time, but if displayed to
 -}
 inSecondsRounded : Duration -> Int
 inSecondsRounded duration =
-    round (inMs duration / 1000)
+    round (toFloat (inMs duration) / 1000)
 
 
 
@@ -390,7 +316,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inMinutes : Duration -> Float
 inMinutes duration =
-    inMs duration / 60000
+    toFloat (inMs duration) / 60000
 
 
 {-| Measure a given `Duration` in whole `Minutes`.
@@ -410,7 +336,7 @@ This is more accurate (by 1) than `inWholeMinutes` 50% of the time, but if displ
 -}
 inMinutesRounded : Duration -> Int
 inMinutesRounded duration =
-    round (inMs duration / 60000)
+    round (toFloat (inMs duration) / 60000)
 
 
 
@@ -426,7 +352,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inHours : Duration -> Float
 inHours duration =
-    inMs duration / 3600000
+    toFloat (inMs duration) / 3600000
 
 
 {-| Measure a given `Duration` in whole `Hours`.
@@ -446,7 +372,7 @@ This is more accurate (by 1) than `inWholeHours` 50% of the time, but if display
 -}
 inHoursRounded : Duration -> Int
 inHoursRounded duration =
-    round (inMs duration / 3600000)
+    round (toFloat (inMs duration) / 3600000)
 
 
 
@@ -462,7 +388,7 @@ On the other hand, for a film of duration 1 hour 59 minutes, you'd get `Hours 1`
 -}
 inLargestWholeUnits : Duration -> Duration
 inLargestWholeUnits duration =
-    Maybe.withDefault Zero <| List.head (breakdown duration)
+    Maybe.withDefault (Milliseconds 0) <| List.head (breakdownDHMSM duration)
 
 
 {-| Express a duration in terms of only one unit (the largest possible), while keeping exact precision.
@@ -476,32 +402,29 @@ inLargestExactUnits : Duration -> Duration
 inLargestExactUnits duration =
     let
         partsSmallToBig =
-            List.reverse (breakdown duration)
+            List.reverse (breakdownDHMSM duration)
 
         smallestPart =
-            Maybe.withDefault Zero (List.head partsSmallToBig)
+            Maybe.withDefault (Milliseconds 0) (List.head partsSmallToBig)
     in
     case smallestPart of
-        Zero ->
-            Zero
-
         Days days ->
             -- no greater unit to absorb
             Days days
 
         Hours hours ->
             -- turns days into hours first
-            inWholeHours duration
+            Hours (inWholeHours duration)
 
         Minutes minutes ->
             -- and so on
-            inWholeMinutes duration
+            Minutes (inWholeMinutes duration)
 
         Seconds seconds ->
-            inWholeSeconds duration
+            Seconds (inWholeSeconds duration)
 
         Milliseconds milliseconds ->
-            inMs duration
+            Milliseconds (inMs duration)
 
 
 {-| Add two durations!
@@ -527,8 +450,8 @@ Does the same thing as subtracting them and taking the absolute value.
 
 -}
 difference : Duration -> Duration -> Duration
-difference =
-    abs subtract
+difference duration1 duration2 =
+    Milliseconds <| abs <| inMs duration1 - inMs duration2
 
 
 type TimeScale
