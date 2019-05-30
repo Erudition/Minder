@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration(..), DurationBreakdown, TimeScale(..), add, breakdown, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, difference, inHours, inHoursRounded, inLargestExactUnits, inLargestWholeUnits, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, sum)
+module SmartTime.Duration exposing (Duration(..), DurationBreakdown, add, breakdown, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, difference, inHours, inHoursRounded, inLargestExactUnits, inLargestWholeUnits, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, sum)
 
 {-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
 -}
@@ -449,11 +449,6 @@ Does the same thing as subtracting them and taking the absolute value.
 difference : Duration -> Duration -> Duration
 difference duration1 duration2 =
     Milliseconds <| abs <| inMs duration1 - inMs duration2
-
-
-type TimeScale
-    = Unix
-    | TAI
 
 
 {-| Create a duration from a custom floating-point number of seconds, with half-millisecond-accuracy.
