@@ -28,6 +28,8 @@ switchActivity activityId app env =
         , Commands.changeActivity (getName newActivity)
             (Measure.exportActivityUsage app env newActivity)
         , Commands.hideWindow
+
+        -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
         ]
     )
 
