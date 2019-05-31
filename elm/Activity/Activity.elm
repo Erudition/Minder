@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, Duration, DurationPerPeriod, Evidence(..), Excusable(..), HumanDuration, Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDuration, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDuration, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -12,6 +12,8 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
 import Porting exposing (..)
+import SmartTime.Duration as Duration exposing (..)
+import SmartTime.HumanDuration exposing (..)
 import Svg.Styled exposing (..)
 import Task.TaskMoment exposing (decodeMoment, encodeMoment)
 import Time
@@ -20,10 +22,6 @@ import Time.Extra exposing (..)
 
 type alias Moment =
     Time.Posix
-
-
-type alias Duration =
-    Int
 
 
 {-| Definition of an activity.
@@ -220,13 +218,13 @@ excusableFor : Activity -> DurationPerPeriod
 excusableFor activity =
     case activity.excusable of
         NeverExcused ->
-            ( ( 0, Minute ), ( 0, Minute ) )
+            ( Minutes 0, Minutes 0 )
 
         TemporarilyExcused durationPerPeriod ->
             durationPerPeriod
 
         IndefinitelyExcused ->
-            ( ( 24, Hour ), ( 24, Hour ) )
+            ( Hours 24, Hours 24 )
 
 
 {-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes" , without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
@@ -247,26 +245,21 @@ encodeDurationPerPeriod v =
 
 decodeDurationPerPeriod : Decode.Decoder DurationPerPeriod
 decodeDurationPerPeriod =
-    arrayAsTuple2 decodeDuration decodeDuration
+    arrayAsTuple2 decodeHumanDuration decodeHumanDuration
 
 
-{-| Duration: How long something lasts, e.g. "5 minutes".
-
-Seems like there ought to be a more native way to represent Durations... but all the Time-related packages out there seem to ignore this use case, focusing instead on moments. Maybe I should add it to one of them?
-
--}
-type alias HumanDuration =
-    ( Int, Interval )
+encodeHumanDuration : HumanDuration -> Encode.Value
+encodeHumanDuration humanDuration =
+    Encode.int <| Duration.inMs (toDuration humanDuration)
 
 
-encodeDuration : HumanDuration -> Encode.Value
-encodeDuration v =
-    Debug.todo "encode duration"
-
-
-decodeDuration : Decode.Decoder HumanDuration
-decodeDuration =
-    arrayAsTuple2 Decode.int decodeInterval
+decodeHumanDuration : Decode.Decoder HumanDuration
+decodeHumanDuration =
+    let
+        convertAndNormalize durationAsInt =
+            inLargestExactUnits (fromInt durationAsInt)
+    in
+    Decode.map convertAndNormalize Decode.int
 
 
 
@@ -440,7 +433,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 1, Hour ) )
+            , maxTime = ( Minutes 0, Hours 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -449,12 +442,12 @@ defaults startWith =
         Apparel ->
             { names = [ "Appareling", "Dressing", "Getting Dressed", "Dressing Up" ]
             , icon = File "shirt.svg"
-            , excusable = TemporarilyExcused ( ( 10, Minute ), ( 3, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Hygiene
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -463,12 +456,12 @@ defaults startWith =
         Messaging ->
             { names = [ "Messaging", "Texting", "Chatting", "Text Messaging" ]
             , icon = File "messaging.svg"
-            , excusable = TemporarilyExcused ( ( 5, Minute ), ( 30, Minute ) )
+            , excusable = TemporarilyExcused ( Minutes 5, Minutes 30 )
             , taskOptional = True
             , evidence = []
             , category = Communication
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 5, Hour ) )
+            , maxTime = ( Hours 2, Hours 5 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -477,12 +470,12 @@ defaults startWith =
         Restroom ->
             { names = [ "Restroom", "Toilet", "WC", "Washroom", "Latrine", "Lavatory", "Water Closet" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 15, Minute ), ( 2, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 20, Minute ), ( 2, Hour ) )
+            , maxTime = ( Minutes 20, Hours 2 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -496,7 +489,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -505,12 +498,12 @@ defaults startWith =
         Meal ->
             { names = [ "Meal", "Eating", "Food", "Lunch", "Dinner", "Breakfast" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 35, Minute ), ( 3, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 35, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -524,7 +517,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -533,12 +526,12 @@ defaults startWith =
         Workout ->
             { names = [ "Workout", "Working Out", "Work Out" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 10, Minute ), ( 3, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -547,12 +540,12 @@ defaults startWith =
         Shower ->
             { names = [ "Shower", "Bathing", "Showering" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 20, Minute ), ( 18, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 20, Hours 18 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -566,7 +559,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -580,7 +573,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -589,12 +582,12 @@ defaults startWith =
         Wakeup ->
             { names = [ "Wakeup", "Waking Up", "Wakeup Walk" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 12, Minute ), ( 15, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 12, Hours 15 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -608,7 +601,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -617,12 +610,12 @@ defaults startWith =
         Plan ->
             { names = [ "Plan", "Planning", "Plans" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 15, Minute ), ( 2, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -631,12 +624,12 @@ defaults startWith =
         Configure ->
             { names = [ "Configure", "Configuring", "Configuration" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 30, Minute ), ( 5, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 30, Hours 5 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -645,12 +638,12 @@ defaults startWith =
         Email ->
             { names = [ "Email", "E-Mail", "E-mail", "Emailing", "E-mails", "Emails", "E-mailing" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 10, Minute ), ( 2, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 2 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -659,12 +652,12 @@ defaults startWith =
         Work ->
             { names = [ "Work", "Working", "Listings Work" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 1, Hour ), ( 12, Hour ) )
+            , excusable = TemporarilyExcused ( Hours 1, Hours 12 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 8, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 8, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -673,12 +666,12 @@ defaults startWith =
         Call ->
             { names = [ "Call", "Calling", "Phone Call", "Phone", "Phone Calls", "Calling", "Voice Call", "Voice Chat", "Video Call" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 35, Minute ), ( 4, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 35, Hours 4 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -692,7 +685,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -701,12 +694,12 @@ defaults startWith =
         Parents ->
             { names = [ "Parents", "Parent" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 1, Hour ), ( 12, Hour ) )
+            , excusable = TemporarilyExcused ( Hours 1, Hours 12 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -720,7 +713,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 24, Hour ) )
+            , maxTime = ( Minutes 30, Hours 24 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -729,12 +722,12 @@ defaults startWith =
         Lover ->
             { names = [ "Lover", "S.O.", "Partner" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 2, Hour ), ( 8, Hour ) )
+            , excusable = TemporarilyExcused ( Hours 2, Hours 8 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -743,12 +736,12 @@ defaults startWith =
         Driving ->
             { names = [ "Driving", "Drive" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 1, Hour ), ( 6, Hour ) )
+            , excusable = TemporarilyExcused ( Hours 1, Hours 6 )
             , taskOptional = True
             , evidence = []
             , category = Transit
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -757,12 +750,12 @@ defaults startWith =
         Riding ->
             { names = [ "Riding", "Ride", "Passenger" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 30, Minute ), ( 8, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 30, Hours 8 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 30, Minute ), ( 5, Hour ) )
+            , maxTime = ( Minutes 30, Hours 5 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -771,12 +764,12 @@ defaults startWith =
         SocialMedia ->
             { names = [ "Social Media" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 10, Minute ), ( 4, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 4 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -790,7 +783,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -804,7 +797,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -818,7 +811,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -832,7 +825,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -846,7 +839,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -860,7 +853,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -874,7 +867,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -888,7 +881,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -897,12 +890,12 @@ defaults startWith =
         BrainTrain ->
             { names = [ "Brain Training", "Braining", "Brain Train", "Mental Math Practice" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 30, Minute ), ( 1, Day ) )
+            , excusable = TemporarilyExcused ( Minutes 30, Days 1 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -916,7 +909,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -930,7 +923,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -944,7 +937,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -958,7 +951,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -972,7 +965,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -986,7 +979,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1000,7 +993,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1014,7 +1007,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1028,7 +1021,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1042,7 +1035,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1056,7 +1049,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1070,7 +1063,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1079,12 +1072,12 @@ defaults startWith =
         MealPrep ->
             { names = [ "Meal Prep", "Cooking", "Food making" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( ( 45, Minute ), ( 3, Hour ) )
+            , excusable = TemporarilyExcused ( Minutes 45, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1098,7 +1091,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1112,7 +1105,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1126,7 +1119,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1140,7 +1133,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1154,7 +1147,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1168,7 +1161,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith
@@ -1182,7 +1175,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( ( 2, Hour ), ( 1, Day ) )
+            , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
             , id = Stock startWith

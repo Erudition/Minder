@@ -3,6 +3,8 @@ module Activity.Measure exposing (exportActivityUsage, inFuzzyWords, inHoursMinu
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
 import Environment exposing (..)
+import SmartTime.Duration exposing (Duration)
+import SmartTime.HumanDuration exposing (HumanDuration)
 import Time exposing (..)
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)

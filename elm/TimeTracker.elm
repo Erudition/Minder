@@ -169,7 +169,7 @@ writeActivityUsage app env activity =
             total // 60000
     in
     if total > 0 then
-        String.fromInt totalMinutes ++ "m"
+        String.fromInt totalMinutes ++ "/" ++ "Tuple.second activity.maxTime" ++ "m"
 
     else
         ""
