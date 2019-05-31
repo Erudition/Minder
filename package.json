@@ -4,7 +4,8 @@
   "description": "Docket - personal agenda",
   "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "elm make --output=www/elm.js elm/Main.elm && npx @capacitor/cli copy"
   },
   "repository": {
     "type": "git",
@@ -29,7 +30,7 @@
   },
   "homepage": "https://github.com/Erudition/Docket#readme",
   "dependencies": {
-    "@capacitor/android": "^1.0.0-beta.19",
+    "@capacitor/android": "^1.0.0",
     "@stencil/core": "^0.18.0",
     "@stencil/dev-server": "0.0.18"
   }
