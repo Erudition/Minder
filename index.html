@@ -51,6 +51,46 @@ app.ports.exit.subscribe(function(data) {
       console.log("Tried to exit, if tasker was here");
   }
 });
+
+// below copied from https://capacitor.ionicframework.com/docs/apis/app
+
+import { Plugins, AppState } from '@capacitor/core';
+
+const { App } = Plugins;
+
+App.addListener('appStateChange', (state: AppState) => {
+  // state.isActive contains the active state
+  console.log('App state changed. Is active?', state.isActive);
+  app.ports.appStateChange.send(state.isActive);
+});
+
+// Listen for serious plugin errors
+App.addListener('pluginError', (info: any) => {
+  console.error('There was a serious error with a plugin', err, info);
+  app.ports.pluginError.send(state.isActive);
+});
+
+var ret = await App.canOpenUrl({ url: 'app.docket' });
+console.log('Can open url: ', ret.value);
+
+//ret = await App.openUrl({ url: 'app.docket://page?id=ionicframework' });
+//console.log('Open url response: ', ret);
+
+ret = await App.getLaunchUrl();
+if(ret && ret.url) {
+  console.log('App opened with URL: ' + ret.url);
+}
+console.log('Launch url: ', ret);
+
+App.addListener('appUrlOpen', (data: any) => {
+  console.log('App opened with URL: ' +  data.url);
+});
+
+App.addListener('appRestoredResult', (data: any) => {
+  console.log('Restored state:', data);
+});
+
+
 </script>
 <!-- <script type="text/javascript" src="tasker.js"></script> -->
 
