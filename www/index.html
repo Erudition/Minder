@@ -13,7 +13,7 @@
 
 <body>
 </body>
-
+<script type="text/javascript" src="https://unpkg.com/@capacitor/core"></script>
 <script type="text/javascript">
 
 var storedState = localStorage.getItem('docket-v0.1-data');
@@ -54,9 +54,11 @@ app.ports.exit.subscribe(function(data) {
 
 // below copied from https://capacitor.ionicframework.com/docs/apis/app
 
-import { Plugins, AppState } from '@capacitor/core';
+// import { Plugins, AppState } from '@capacitor/core';
+//
+// const { App } = Plugins;
 
-const { App } = Plugins;
+const App = window.Capacitor.plugins;
 
 App.addListener('appStateChange', (state: AppState) => {
   // state.isActive contains the active state
