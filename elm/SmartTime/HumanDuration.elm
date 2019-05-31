@@ -1,6 +1,49 @@
-module SmartTime.HumanDuration exposing (HumanDuration(..), breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, inLargestExactUnits, inLargestWholeUnits, sum, toDuration)
+module SmartTime.HumanDuration exposing (HumanDuration(..), breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, colonSeparated, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, sum, toDuration, withLetter)
 
 import SmartTime.Duration exposing (..)
+
+
+
+{-
+   CODE EXAMPLE of no longer needed (from Measure.elm):
+
+   ```
+       inHoursMinutes : Duration -> String
+       inHoursMinutes duration =
+           let
+               durationInMs =
+                   inMs duration
+
+               hour =
+                   3600000
+
+               wholeHours =
+                   durationInMs // hour
+
+               wholeMinutes =
+                   (durationInMs - (wholeHours * hour)) // 60000
+
+               hoursString =
+                   String.fromInt wholeHours ++ "h"
+
+               minutesString =
+                   String.fromInt wholeMinutes ++ "m"
+           in
+           case ( wholeHours, wholeMinutes ) of
+               ( 0, 0 ) ->
+                   minutesString
+
+               ( _, 0 ) ->
+                   hoursString
+
+               ( 0, _ ) ->
+                   minutesString
+
+               ( _, _ ) ->
+                   hoursString ++ " " ++ minutesString
+   ```
+
+-}
 
 
 {-| A `HumanDuration` is a plain-English value for units of duration.
@@ -271,3 +314,101 @@ inLargestExactUnits duration =
 
         Milliseconds milliseconds ->
             Milliseconds (inMs duration)
+
+
+
+-- ENGLISH
+
+
+{-| Render a HumanDuration list in english, in a compact single-letter, single-space form, like `5h 32m 15s`.
+
+    Best used with hours/minutes or hours/minutes/seconds.
+
+-}
+singleLetterSpaced : List HumanDuration -> String
+singleLetterSpaced humanDurationList =
+    String.concat <| List.intersperse " " (List.map withLetter humanDurationList)
+
+
+{-| Render a HumanDuration list in a compact, standard colon-separated form, like `5:32:15`.
+
+    Best used with hours/minutes or hours/minutes/seconds.
+
+    Note that this function uses a period before Milliseconds, to remove ambiguity  (and because it's a more commonly accepted form). Effectively, this means the millisecond value is shown as the decimal part of the seconds value.
+
+-}
+colonSeparated : List HumanDuration -> String
+colonSeparated breakdownList =
+    let
+        separate list =
+            String.concat <| List.intersperse ":" (List.map justNumber list)
+
+        backwards =
+            List.reverse breakdownList
+    in
+    case backwards of
+        (Milliseconds ms) :: tail ->
+            separate tail ++ "." ++ String.fromInt ms
+
+        _ ->
+            separate breakdownList
+
+
+
+-- PER-UNIT FUNCTIONS
+
+
+{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
+
+So `Minutes 5` becomes "5m", `Hours 3` becomes "3h", etcetera.
+
+Conveniently, this form is also readable in Spanish and other languages as well!
+
+Note that this function uses a two-letter abbreviation for Milliseconds, "ms", to remove ambiguity with minutes (and because it's a more commonly accepted form).
+
+-}
+justNumber : HumanDuration -> String
+justNumber unit =
+    case unit of
+        Milliseconds int ->
+            String.fromInt int
+
+        Seconds int ->
+            String.fromInt int
+
+        Minutes int ->
+            String.fromInt int
+
+        Hours int ->
+            String.fromInt int
+
+        Days int ->
+            String.fromInt int
+
+
+{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
+
+So `Minutes 5` becomes "5m", `Hours 3` becomes "3h", etcetera.
+
+Conveniently, this form is also readable in Spanish and other languages as well!
+
+Note that this function uses a two-letter abbreviation for Milliseconds, "ms", to remove ambiguity with minutes (and because it's a more commonly accepted form).
+
+-}
+withLetter : HumanDuration -> String
+withLetter unit =
+    case unit of
+        Milliseconds int ->
+            String.fromInt int ++ "ms"
+
+        Seconds int ->
+            String.fromInt int ++ "s"
+
+        Minutes int ->
+            String.fromInt int ++ "m"
+
+        Hours int ->
+            String.fromInt int ++ "h"
+
+        Days int ->
+            String.fromInt int ++ "d"
