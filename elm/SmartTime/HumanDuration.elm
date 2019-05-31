@@ -1,4 +1,4 @@
-module SmartTime.HumanDuration exposing (HumanDuration(..), breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, colonSeparated, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, sum, toDuration, withLetter)
+module SmartTime.HumanDuration exposing (HumanDuration(..), breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, toDuration, withLetter)
 
 import SmartTime.Duration exposing (..)
 
@@ -92,8 +92,8 @@ Examples:
 This robust function can handle nonstandard possibilities that this library will never output, such as duplicate units (combine them!), out-of-order entries (it's essentially a `Set`), and values that should have been grouped into larger units. However, if you're just trying to add two durations, just use `add`!
 
 -}
-sum : List HumanDuration -> Duration
-sum list =
+build : List HumanDuration -> Duration
+build list =
     fromInt <| List.sum (List.map normalize list)
 
 
