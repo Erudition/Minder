@@ -2,7 +2,8 @@ package com.getcapacitor.plugin.camera;
 
 public enum CameraResultType {
     BASE64("base64"),
-    URI("uri");
+    URI("uri"),
+    DATAURL("dataUrl");
 
     private String type;
 

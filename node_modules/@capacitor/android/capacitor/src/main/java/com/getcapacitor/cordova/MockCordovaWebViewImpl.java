@@ -2,7 +2,9 @@ package com.getcapacitor.cordova;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
 import android.view.View;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
@@ -32,6 +34,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
   private CordovaInterface cordova;
   private CapacitorCordovaCookieManager cookieManager;
   private WebView webView;
+  private boolean hasPausedEver;
 
   public MockCordovaWebViewImpl(Context context) {
     this.context = context;
@@ -93,7 +96,10 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
 
   @Override
   public void loadUrlIntoView(String url, boolean recreatePlugins) {
-
+    if (url.equals("about:blank") || url.startsWith("javascript:")) {
+      webView.loadUrl(url);
+      return;
+    }
   }
 
   @Override
@@ -131,8 +137,9 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
     if (!isInitialized()) {
       return;
     }
+    hasPausedEver = true;
     pluginManager.onPause(keepRunning);
-
+    triggerDocumentEvent("pause");
     // If app doesn't want to run in background
     if (!keepRunning) {
       // Pause JavaScript timers. This affects all webviews within the app!
@@ -154,6 +161,9 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
     }
     this.setPaused(false);
     this.pluginManager.onResume(keepRunning);
+    if (hasPausedEver) {
+      triggerDocumentEvent("resume");
+    }
   }
 
   @Override
@@ -183,6 +193,24 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
   @Override
   public void sendJavascript(String statememt) {
     nativeToJsMessageQueue.addJavaScript(statememt);
+  }
+
+  public void eval(final String js, final ValueCallback<String> callback) {
+    Handler mainHandler = new Handler(context.getMainLooper());
+    mainHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        webView.evaluateJavascript(js, callback);
+      }
+    });
+  }
+
+  public void triggerDocumentEvent(final String eventName) {
+    eval("window.Capacitor.triggerEvent('" + eventName + "', 'document');", new ValueCallback<String>() {
+      @Override
+      public void onReceiveValue(String s) {
+      }
+    });
   }
 
   @Override
@@ -257,7 +285,7 @@ public class MockCordovaWebViewImpl implements CordovaWebView {
 
   @Override
   public void loadUrl(String url) {
-
+    loadUrlIntoView(url, true);
   }
 
   @Override
