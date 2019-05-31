@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, subtract)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, zero)
 
 {-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
 -}
@@ -250,6 +250,23 @@ Does the same thing as subtracting them and taking the absolute value.
 difference : Duration -> Duration -> Duration
 difference (Duration int1) (Duration int2) =
     Duration <| abs (int1 - int2)
+
+
+{-| Get the sum of a list of durations, as a `Duration`.
+-}
+combine : List Duration -> Duration
+combine durationList =
+    List.foldl add (Duration 0) durationList
+
+
+{-| A zero-length duration.
+
+Perhaps you want to use a function that demands a `Duration` on something that returns a `Maybe Duration` - this would be a good fallback to use with `Maybe.withDefault`.
+
+-}
+zero : Duration
+zero =
+    Duration 0
 
 
 
