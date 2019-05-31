@@ -3,11 +3,11 @@ module Activity.Measure exposing (exportActivityUsage, inFuzzyWords, inHoursMinu
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
 import Environment exposing (..)
-import SmartTime.Duration exposing (Duration)
-import SmartTime.HumanDuration exposing (HumanDuration)
+import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.HumanDuration exposing (..)
 import Time exposing (..)
 import Time.Distance exposing (..)
-import Time.Extra exposing (..)
+import Time.Extra
 
 
 {-| Mind if I doodle here?
@@ -19,7 +19,7 @@ import Time.Extra exposing (..)
     session: ...[Jog 2,     Walk 3,     Eat 1     ]
 
 -}
-allSessions : List Switch -> List ( ActivityId, Int )
+allSessions : List Switch -> List ( ActivityId, Duration )
 allSessions switchList =
     let
         offsetList =
@@ -28,22 +28,22 @@ allSessions switchList =
     List.map2 session switchList offsetList
 
 
-session : Switch -> Switch -> ( ActivityId, Int )
+session : Switch -> Switch -> ( ActivityId, Duration )
 session (Switch newer _) (Switch older activityId) =
-    ( activityId, Time.posixToMillis newer - Time.posixToMillis older )
+    ( activityId, Duration.fromInt (Time.posixToMillis newer - Time.posixToMillis older) )
 
 
-sessions : List Switch -> ActivityId -> List Int
+sessions : List Switch -> ActivityId -> List Duration
 sessions switchList activityId =
     let
         all =
             allSessions switchList
     in
-    List.filterMap (getMatchingDurations activityId) all
+    List.filterMap (isMatchingDuration activityId) all
 
 
-getMatchingDurations : ActivityId -> ( ActivityId, Int ) -> Maybe Int
-getMatchingDurations targetId ( itemId, dur ) =
+isMatchingDuration : ActivityId -> ( ActivityId, Duration ) -> Maybe Duration
+isMatchingDuration targetId ( itemId, dur ) =
     if itemId == targetId then
         Just dur
 
@@ -51,18 +51,18 @@ getMatchingDurations targetId ( itemId, dur ) =
         Nothing
 
 
-total : List Switch -> ActivityId -> Int
+total : List Switch -> ActivityId -> Duration
 total switchList activityId =
-    List.sum (sessions switchList activityId)
+    Duration.combine (sessions switchList activityId)
 
 
-totalLive : Moment -> List Switch -> ActivityId -> Int
+totalLive : Moment -> List Switch -> ActivityId -> Duration
 totalLive now switchList activityId =
     let
         fakeSwitch =
             Switch now activityId
     in
-    List.sum (sessions (fakeSwitch :: switchList) activityId)
+    Duration.combine (sessions (fakeSwitch :: switchList) activityId)
 
 
 {-| Narrow a timeline down to a given time frame.
@@ -96,8 +96,8 @@ For fixed distances, that's easy, but variable intervals could be far back or ju
 
 -}
 lookBack : ( Moment, Time.Zone ) -> HumanDuration -> Moment
-lookBack ( present, zone ) ( count, interval ) =
-    add interval -count zone present
+lookBack ( present, zone ) humanDuration =
+    Time.Extra.add Time.Extra.Millisecond -(Duration.inMs (toDuration humanDuration)) zone present
 
 
 relevantTimeline : Timeline -> ( Moment, Zone ) -> HumanDuration -> Timeline
@@ -109,11 +109,11 @@ justToday : Timeline -> ( Moment, Zone ) -> Timeline
 justToday timeline ( now, zone ) =
     let
         lastMidnight =
-            Time.Extra.floor Day zone now
+            Time.Extra.floor Time.Extra.Day zone now
 
         -- TODO: what if between midnight and 3am
         last3am =
-            add Hour 3 zone lastMidnight
+            Time.Extra.add Time.Extra.Hour 3 zone lastMidnight
     in
     timelineLimit timeline now lastMidnight
 
@@ -128,21 +128,24 @@ justTodayTotal timeline env activity =
 
 
 inFuzzyWords : Duration -> String
-inFuzzyWords ms =
-    Time.Distance.inWords (Time.millisToPosix 0) (Time.millisToPosix ms)
+inFuzzyWords duration =
+    Time.Distance.inWords (Time.millisToPosix 0) (Time.millisToPosix (Duration.inMs duration))
 
 
 inHoursMinutes : Duration -> String
 inHoursMinutes duration =
     let
+        durationInMs =
+            Duration.inMs duration
+
         hour =
             3600000
 
         wholeHours =
-            duration // hour
+            durationInMs // hour
 
         wholeMinutes =
-            (duration - (wholeHours * hour)) // 60000
+            (durationInMs - (wholeHours * hour)) // 60000
 
         hoursString =
             String.fromInt wholeHours ++ "h"
@@ -177,6 +180,10 @@ exportActivityUsage app env activity =
             totalLive env.time lastPeriod activity.id
 
         totalSeconds =
-            totalMs // 1000
+            Duration.inMs totalMs // 1000
     in
     String.fromInt totalSeconds
+
+
+
+-- TODO use SmartTime instead

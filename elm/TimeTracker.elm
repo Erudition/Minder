@@ -22,6 +22,8 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Duration as Duration exposing (..)
+import SmartTime.HumanDuration as HumanDuration exposing (..)
 import Task as Job
 import Time
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
@@ -166,9 +168,9 @@ writeActivityUsage app env activity =
             Measure.totalLive env.time lastPeriod activity.id
 
         totalMinutes =
-            total // 60000
+            Duration.inMinutesRounded total
     in
-    if total > 0 then
+    if inMs total > 0 then
         String.fromInt totalMinutes ++ "/" ++ "Tuple.second activity.maxTime" ++ "m"
 
     else

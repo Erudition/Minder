@@ -6,6 +6,8 @@ import Activity.Reminder exposing (..)
 import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
+import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.HumanDuration as HumanDuration exposing (..)
 import Time
 import Time.Extra as Time
 
@@ -37,17 +39,16 @@ switchActivity activityId app env =
 switchPopup : Timeline -> Activity -> Activity -> String
 switchPopup timeline new old =
     let
-        timeSpentString num =
-            String.fromInt num
-                ++ "s "
+        timeSpentString dur =
+            singleLetterSpaced (breakdownMS dur)
 
         timeSpent =
-            Maybe.map (\n -> n // 1000) (List.head (Measure.sessions timeline old.id))
+            Maybe.withDefault Duration.zero (List.head (Measure.sessions timeline old.id))
 
         total =
-            Measure.total timeline old.id // 1000
+            Duration.inSecondsRounded <| Measure.total timeline old.id
     in
-    Maybe.withDefault "" (Maybe.map timeSpentString timeSpent)
+    timeSpentString timeSpent
         ++ getName old
         ++ " ("
         ++ String.fromInt total
@@ -63,8 +64,11 @@ currentActivityFromApp app =
 
 
 scheduleReminders : Moment -> Duration -> List Reminder
-scheduleReminders now limit =
+scheduleReminders now fromNow =
     let
+        limit =
+            Duration.inMs fromNow
+
         future distance =
             Time.millisToPosix <| Time.posixToMillis now + distance
 
