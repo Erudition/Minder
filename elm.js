@@ -5974,6 +5974,122 @@ var author$project$Activity$Activity$decodeCategory = A2(
 		}
 	},
 	zwilias$json_decode_exploration$Json$Decode$Exploration$string);
+var author$project$SmartTime$Duration$Duration = function (a) {
+	return {$: 'Duration', a: a};
+};
+var author$project$SmartTime$Duration$fromInt = function (_int) {
+	return author$project$SmartTime$Duration$Duration(_int);
+};
+var author$project$SmartTime$Duration$inMs = function (_n0) {
+	var _int = _n0.a;
+	return _int;
+};
+var author$project$SmartTime$Duration$inWholeHours = function (duration) {
+	return (author$project$SmartTime$Duration$inMs(duration) / 3600000) | 0;
+};
+var author$project$SmartTime$Duration$inWholeMinutes = function (duration) {
+	return (author$project$SmartTime$Duration$inMs(duration) / 60000) | 0;
+};
+var author$project$SmartTime$Duration$inWholeSeconds = function (duration) {
+	return (author$project$SmartTime$Duration$inMs(duration) / 1000) | 0;
+};
+var author$project$SmartTime$HumanDuration$Days = function (a) {
+	return {$: 'Days', a: a};
+};
+var author$project$SmartTime$HumanDuration$Hours = function (a) {
+	return {$: 'Hours', a: a};
+};
+var author$project$SmartTime$HumanDuration$Milliseconds = function (a) {
+	return {$: 'Milliseconds', a: a};
+};
+var author$project$SmartTime$HumanDuration$Minutes = function (a) {
+	return {$: 'Minutes', a: a};
+};
+var author$project$SmartTime$HumanDuration$Seconds = function (a) {
+	return {$: 'Seconds', a: a};
+};
+var author$project$SmartTime$Duration$breakdown = function (duration) {
+	var all = author$project$SmartTime$Duration$inMs(duration);
+	var days = (all / 86400000) | 0;
+	var withoutDays = all - (days * 86400000);
+	var hours = (withoutDays / 3600000) | 0;
+	var withoutHours = withoutDays - (hours * 3600000);
+	var minutes = (withoutHours / 60000) | 0;
+	var withoutMinutes = withoutHours - (minutes - 60000);
+	var seconds = (withoutMinutes / 1000) | 0;
+	var withoutSeconds = withoutMinutes - (seconds * 1000);
+	return {days: days, hours: hours, milliseconds: withoutSeconds, minutes: minutes, seconds: seconds};
+};
+var author$project$SmartTime$HumanDuration$breakdownDHMSM = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var days = _n0.days;
+	var hours = _n0.hours;
+	var minutes = _n0.minutes;
+	var seconds = _n0.seconds;
+	var milliseconds = _n0.milliseconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$HumanDuration$Days(days),
+			author$project$SmartTime$HumanDuration$Hours(hours),
+			author$project$SmartTime$HumanDuration$Minutes(minutes),
+			author$project$SmartTime$HumanDuration$Seconds(seconds),
+			author$project$SmartTime$HumanDuration$Milliseconds(milliseconds)
+		]);
+};
+var elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return elm$core$Maybe$Just(x);
+	} else {
+		return elm$core$Maybe$Nothing;
+	}
+};
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var author$project$SmartTime$HumanDuration$inLargestExactUnits = function (duration) {
+	var partsSmallToBig = elm$core$List$reverse(
+		author$project$SmartTime$HumanDuration$breakdownDHMSM(duration));
+	var smallestPart = A2(
+		elm$core$Maybe$withDefault,
+		author$project$SmartTime$HumanDuration$Milliseconds(0),
+		elm$core$List$head(partsSmallToBig));
+	switch (smallestPart.$) {
+		case 'Days':
+			var days = smallestPart.a;
+			return author$project$SmartTime$HumanDuration$Days(days);
+		case 'Hours':
+			var hours = smallestPart.a;
+			return author$project$SmartTime$HumanDuration$Hours(
+				author$project$SmartTime$Duration$inWholeHours(duration));
+		case 'Minutes':
+			var minutes = smallestPart.a;
+			return author$project$SmartTime$HumanDuration$Minutes(
+				author$project$SmartTime$Duration$inWholeMinutes(duration));
+		case 'Seconds':
+			var seconds = smallestPart.a;
+			return author$project$SmartTime$HumanDuration$Seconds(
+				author$project$SmartTime$Duration$inWholeSeconds(duration));
+		default:
+			var milliseconds = smallestPart.a;
+			return author$project$SmartTime$HumanDuration$Milliseconds(
+				author$project$SmartTime$Duration$inMs(duration));
+	}
+};
+var author$project$Activity$Activity$decodeHumanDuration = function () {
+	var convertAndNormalize = function (durationAsInt) {
+		return author$project$SmartTime$HumanDuration$inLargestExactUnits(
+			author$project$SmartTime$Duration$fromInt(durationAsInt));
+	};
+	return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, convertAndNormalize, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
+}();
 var elm$core$Tuple$second = function (_n0) {
 	var y = _n0.b;
 	return y;
@@ -6087,65 +6203,7 @@ var author$project$Porting$arrayAsTuple2 = F2(
 			},
 			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$index, 0, a));
 	});
-var justinmimbs$time_extra$Time$Extra$Day = {$: 'Day'};
-var justinmimbs$time_extra$Time$Extra$Friday = {$: 'Friday'};
-var justinmimbs$time_extra$Time$Extra$Hour = {$: 'Hour'};
-var justinmimbs$time_extra$Time$Extra$Millisecond = {$: 'Millisecond'};
-var justinmimbs$time_extra$Time$Extra$Minute = {$: 'Minute'};
-var justinmimbs$time_extra$Time$Extra$Monday = {$: 'Monday'};
-var justinmimbs$time_extra$Time$Extra$Month = {$: 'Month'};
-var justinmimbs$time_extra$Time$Extra$Quarter = {$: 'Quarter'};
-var justinmimbs$time_extra$Time$Extra$Saturday = {$: 'Saturday'};
-var justinmimbs$time_extra$Time$Extra$Second = {$: 'Second'};
-var justinmimbs$time_extra$Time$Extra$Sunday = {$: 'Sunday'};
-var justinmimbs$time_extra$Time$Extra$Thursday = {$: 'Thursday'};
-var justinmimbs$time_extra$Time$Extra$Tuesday = {$: 'Tuesday'};
-var justinmimbs$time_extra$Time$Extra$Wednesday = {$: 'Wednesday'};
-var justinmimbs$time_extra$Time$Extra$Week = {$: 'Week'};
-var justinmimbs$time_extra$Time$Extra$Year = {$: 'Year'};
-var author$project$Porting$decodeInterval = A2(
-	zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
-	function (string) {
-		switch (string) {
-			case 'Year':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Year);
-			case 'Quarter':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Quarter);
-			case 'Month':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Month);
-			case 'Week':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Week);
-			case 'Monday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Monday);
-			case 'Tuesday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Tuesday);
-			case 'Wednesday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Wednesday);
-			case 'Thursday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Thursday);
-			case 'Friday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Friday);
-			case 'Saturday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Saturday);
-			case 'Sunday':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Sunday);
-			case 'Day':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Day);
-			case 'Hour':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Hour);
-			case 'Minute':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Minute);
-			case 'Second':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Second);
-			case 'Millisecond':
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(justinmimbs$time_extra$Time$Extra$Millisecond);
-			default:
-				return zwilias$json_decode_exploration$Json$Decode$Exploration$fail('Invalid Interval');
-		}
-	},
-	zwilias$json_decode_exploration$Json$Decode$Exploration$string);
-var author$project$Activity$Activity$decodeDuration = A2(author$project$Porting$arrayAsTuple2, zwilias$json_decode_exploration$Json$Decode$Exploration$int, author$project$Porting$decodeInterval);
-var author$project$Activity$Activity$decodeDurationPerPeriod = A2(author$project$Porting$arrayAsTuple2, author$project$Activity$Activity$decodeDuration, author$project$Activity$Activity$decodeDuration);
+var author$project$Activity$Activity$decodeDurationPerPeriod = A2(author$project$Porting$arrayAsTuple2, author$project$Activity$Activity$decodeHumanDuration, author$project$Activity$Activity$decodeHumanDuration);
 var author$project$Activity$Activity$Evidence = {$: 'Evidence'};
 var author$project$Activity$Activity$decodeEvidence = author$project$Porting$decodeCustom(
 	_List_fromArray(
@@ -7087,15 +7145,6 @@ var elm$core$Maybe$map = F2(
 				f(value));
 		} else {
 			return elm$core$Maybe$Nothing;
-		}
-	});
-var elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
-		} else {
-			return _default;
 		}
 	});
 var elm$core$String$length = _String_length;
@@ -8218,8 +8267,8 @@ var author$project$Activity$Activity$encodeDurationPerPeriod = function (v) {
 	return _Debug_todo(
 		'Activity.Activity',
 		{
-			start: {line: 245, column: 5},
-			end: {line: 245, column: 15}
+			start: {line: 243, column: 5},
+			end: {line: 243, column: 15}
 		})('encode duration');
 };
 var author$project$Activity$Activity$encodeEvidence = function (v) {
@@ -8938,8 +8987,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('shrugging-attempt.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour)),
+					author$project$SmartTime$HumanDuration$Minutes(0),
+					author$project$SmartTime$HumanDuration$Hours(1)),
 				names: _List_fromArray(
 					['Nothing', 'Dilly-dally', 'Distracted']),
 				taskOptional: true,
@@ -8952,14 +9001,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(10),
+						author$project$SmartTime$HumanDuration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('shirt.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Appareling', 'Dressing', 'Getting Dressed', 'Dressing Up']),
 				taskOptional: true,
@@ -8972,14 +9021,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute))),
+						author$project$SmartTime$HumanDuration$Minutes(5),
+						author$project$SmartTime$HumanDuration$Minutes(30))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('messaging.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Hours(5)),
 				names: _List_fromArray(
 					['Messaging', 'Texting', 'Chatting', 'Text Messaging']),
 				taskOptional: true,
@@ -8992,14 +9041,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(15),
+						author$project$SmartTime$HumanDuration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(20, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour)),
+					author$project$SmartTime$HumanDuration$Minutes(20),
+					author$project$SmartTime$HumanDuration$Hours(2)),
 				names: _List_fromArray(
 					['Restroom', 'Toilet', 'WC', 'Washroom', 'Latrine', 'Lavatory', 'Water Closet']),
 				taskOptional: true,
@@ -9015,8 +9064,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Grooming', 'Tending', 'Groom']),
 				taskOptional: true,
@@ -9029,14 +9078,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(35, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(35),
+						author$project$SmartTime$HumanDuration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Meal', 'Eating', 'Food', 'Lunch', 'Dinner', 'Breakfast']),
 				taskOptional: true,
@@ -9052,8 +9101,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Supplements', 'Pills', 'Medication']),
 				taskOptional: true,
@@ -9066,14 +9115,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(10),
+						author$project$SmartTime$HumanDuration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Workout', 'Working Out', 'Work Out']),
 				taskOptional: true,
@@ -9086,14 +9135,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(20, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(18, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(20),
+						author$project$SmartTime$HumanDuration$Hours(18))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Shower', 'Bathing', 'Showering']),
 				taskOptional: true,
@@ -9109,8 +9158,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Toothbrush', 'Teeth', 'Brushing Teeth', 'Teethbrushing']),
 				taskOptional: true,
@@ -9126,8 +9175,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Floss', 'Flossing']),
 				taskOptional: true,
@@ -9140,14 +9189,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(12, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(12),
+						author$project$SmartTime$HumanDuration$Hours(15))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Wakeup', 'Waking Up', 'Wakeup Walk']),
 				taskOptional: true,
@@ -9163,8 +9212,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Sleep', 'Sleeping']),
 				taskOptional: true,
@@ -9177,14 +9226,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(15, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(15),
+						author$project$SmartTime$HumanDuration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Plan', 'Planning', 'Plans']),
 				taskOptional: true,
@@ -9197,14 +9246,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(30),
+						author$project$SmartTime$HumanDuration$Hours(5))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Configure', 'Configuring', 'Configuration']),
 				taskOptional: true,
@@ -9217,14 +9266,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(10),
+						author$project$SmartTime$HumanDuration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Email', 'E-Mail', 'E-mail', 'Emailing', 'E-mails', 'Emails', 'E-mailing']),
 				taskOptional: true,
@@ -9237,14 +9286,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour),
-						_Utils_Tuple2(12, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Hours(1),
+						author$project$SmartTime$HumanDuration$Hours(12))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(8, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(8),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Work', 'Working', 'Listings Work']),
 				taskOptional: true,
@@ -9257,14 +9306,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(35, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(4, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(35),
+						author$project$SmartTime$HumanDuration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Call', 'Calling', 'Phone Call', 'Phone', 'Phone Calls', 'Calling', 'Voice Call', 'Voice Chat', 'Video Call']),
 				taskOptional: true,
@@ -9280,8 +9329,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Chore', 'Chores']),
 				taskOptional: true,
@@ -9294,14 +9343,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour),
-						_Utils_Tuple2(12, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Hours(1),
+						author$project$SmartTime$HumanDuration$Hours(12))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Parents', 'Parent']),
 				taskOptional: true,
@@ -9317,8 +9366,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(24, justinmimbs$time_extra$Time$Extra$Hour)),
+					author$project$SmartTime$HumanDuration$Minutes(30),
+					author$project$SmartTime$HumanDuration$Hours(24)),
 				names: _List_fromArray(
 					['Prepare', 'Preparing', 'Preparation']),
 				taskOptional: true,
@@ -9331,14 +9380,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-						_Utils_Tuple2(8, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Hours(2),
+						author$project$SmartTime$HumanDuration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Lover', 'S.O.', 'Partner']),
 				taskOptional: true,
@@ -9351,14 +9400,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Hour),
-						_Utils_Tuple2(6, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Hours(1),
+						author$project$SmartTime$HumanDuration$Hours(6))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Driving', 'Drive']),
 				taskOptional: true,
@@ -9371,14 +9420,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(8, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(30),
+						author$project$SmartTime$HumanDuration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-					_Utils_Tuple2(5, justinmimbs$time_extra$Time$Extra$Hour)),
+					author$project$SmartTime$HumanDuration$Minutes(30),
+					author$project$SmartTime$HumanDuration$Hours(5)),
 				names: _List_fromArray(
 					['Riding', 'Ride', 'Passenger']),
 				taskOptional: true,
@@ -9391,14 +9440,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(10, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(4, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(10),
+						author$project$SmartTime$HumanDuration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Social Media']),
 				taskOptional: true,
@@ -9414,8 +9463,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Pacing', 'Pace']),
 				taskOptional: true,
@@ -9431,8 +9480,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Sport', 'Sports', 'Playing Sports']),
 				taskOptional: true,
@@ -9448,8 +9497,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Finance', 'Financial']),
 				taskOptional: true,
@@ -9465,8 +9514,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Laundry']),
 				taskOptional: true,
@@ -9482,8 +9531,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Bedward', 'Bedward-bound', 'Going to Bed']),
 				taskOptional: true,
@@ -9499,8 +9548,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Browse', 'Browsing']),
 				taskOptional: true,
@@ -9516,8 +9565,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Fiction', 'Reading Fiction']),
 				taskOptional: true,
@@ -9533,8 +9582,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Learn', 'Learning']),
 				taskOptional: true,
@@ -9547,14 +9596,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(30, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day))),
+						author$project$SmartTime$HumanDuration$Minutes(30),
+						author$project$SmartTime$HumanDuration$Days(1))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Brain Training', 'Braining', 'Brain Train', 'Mental Math Practice']),
 				taskOptional: true,
@@ -9570,8 +9619,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Music', 'Music Listening']),
 				taskOptional: true,
@@ -9587,8 +9636,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Create', 'Creating', 'Creation', 'Making']),
 				taskOptional: true,
@@ -9604,8 +9653,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Children', 'Kids']),
 				taskOptional: true,
@@ -9621,8 +9670,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Meeting', 'Meet', 'Meetings']),
 				taskOptional: true,
@@ -9638,8 +9687,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Cinema', 'Movies', 'Movie Theatre', 'Movie Theater']),
 				taskOptional: true,
@@ -9655,8 +9704,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Films', 'Film Watching', 'Watching Movies']),
 				taskOptional: true,
@@ -9672,8 +9721,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Series', 'TV Shows', 'TV Series']),
 				taskOptional: true,
@@ -9689,8 +9738,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Broadcast']),
 				taskOptional: true,
@@ -9706,8 +9755,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Theatre', 'Play', 'Play/Musical', 'Drama']),
 				taskOptional: true,
@@ -9723,8 +9772,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Shopping', 'Shop']),
 				taskOptional: true,
@@ -9740,8 +9789,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Video', 'Video Gaming', 'Gaming']),
 				taskOptional: true,
@@ -9757,8 +9806,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Housekeeping']),
 				taskOptional: true,
@@ -9771,14 +9820,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						_Utils_Tuple2(45, justinmimbs$time_extra$Time$Extra$Minute),
-						_Utils_Tuple2(3, justinmimbs$time_extra$Time$Extra$Hour))),
+						author$project$SmartTime$HumanDuration$Minutes(45),
+						author$project$SmartTime$HumanDuration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Meal Prep', 'Cooking', 'Food making']),
 				taskOptional: true,
@@ -9794,8 +9843,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Networking']),
 				taskOptional: true,
@@ -9811,8 +9860,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Meditate', 'Meditation', 'Meditating']),
 				taskOptional: true,
@@ -9828,8 +9877,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Homework', 'Schoolwork']),
 				taskOptional: true,
@@ -9845,8 +9894,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Flight', 'Aviation', 'Flying', 'Airport']),
 				taskOptional: true,
@@ -9862,8 +9911,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Course', 'Courses', 'Classes', 'Class']),
 				taskOptional: true,
@@ -9879,8 +9928,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Pet', 'Pets', 'Pet Care']),
 				taskOptional: true,
@@ -9896,8 +9945,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('presentation.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					_Utils_Tuple2(2, justinmimbs$time_extra$Time$Extra$Hour),
-					_Utils_Tuple2(1, justinmimbs$time_extra$Time$Extra$Day)),
+					author$project$SmartTime$HumanDuration$Hours(2),
+					author$project$SmartTime$HumanDuration$Days(1)),
 				names: _List_fromArray(
 					['Presentation', 'Presenting', 'Present']),
 				taskOptional: true,
@@ -9985,15 +10034,6 @@ var author$project$Activity$Activity$allActivities = function (stored) {
 		A2(elm$core$List$filter, templateMissing, author$project$Activity$Template$stockActivities));
 	return _Utils_ap(customizedActivities, remainingActivities);
 };
-var elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return elm$core$Maybe$Just(x);
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
-};
 var author$project$Activity$Activity$getActivity = F2(
 	function (activities, activityId) {
 		var matches = function (act) {
@@ -10016,17 +10056,37 @@ var author$project$Activity$Activity$excusableFor = function (activity) {
 	switch (_n0.$) {
 		case 'NeverExcused':
 			return _Utils_Tuple2(
-				_Utils_Tuple2(0, justinmimbs$time_extra$Time$Extra$Minute),
-				_Utils_Tuple2(0, justinmimbs$time_extra$Time$Extra$Minute));
+				author$project$SmartTime$HumanDuration$Minutes(0),
+				author$project$SmartTime$HumanDuration$Minutes(0));
 		case 'TemporarilyExcused':
 			var durationPerPeriod = _n0.a;
 			return durationPerPeriod;
 		default:
 			return _Utils_Tuple2(
-				_Utils_Tuple2(24, justinmimbs$time_extra$Time$Extra$Hour),
-				_Utils_Tuple2(24, justinmimbs$time_extra$Time$Extra$Hour));
+				author$project$SmartTime$HumanDuration$Hours(24),
+				author$project$SmartTime$HumanDuration$Hours(24));
 	}
 };
+var author$project$SmartTime$HumanDuration$toDuration = function (humanDuration) {
+	switch (humanDuration.$) {
+		case 'Days':
+			var days = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(days * 86400000);
+		case 'Hours':
+			var hours = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(hours * 3600000);
+		case 'Minutes':
+			var minutes = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(minutes * 60000);
+		case 'Seconds':
+			var seconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(seconds * 1000);
+		default:
+			var milliseconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(milliseconds);
+	}
+};
+var justinmimbs$time_extra$Time$Extra$Millisecond = {$: 'Millisecond'};
 var justinmimbs$date$Date$Days = {$: 'Days'};
 var justinmimbs$date$Date$Months = {$: 'Months'};
 var elm$core$Basics$min = F2(
@@ -10267,6 +10327,8 @@ var justinmimbs$date$Date$fromPosix = F2(
 			A2(elm$time$Time$toMonth, zone, posix),
 			A2(elm$time$Time$toDay, zone, posix));
 	});
+var justinmimbs$time_extra$Time$Extra$Day = {$: 'Day'};
+var justinmimbs$time_extra$Time$Extra$Month = {$: 'Month'};
 var justinmimbs$date$Date$toRataDie = function (_n0) {
 	var rd = _n0.a;
 	return rd;
@@ -10415,12 +10477,16 @@ var justinmimbs$time_extra$Time$Extra$add = F4(
 		}
 	});
 var author$project$Activity$Measure$lookBack = F2(
-	function (_n0, _n1) {
+	function (_n0, humanDuration) {
 		var present = _n0.a;
 		var zone = _n0.b;
-		var count = _n1.a;
-		var interval = _n1.b;
-		return A4(justinmimbs$time_extra$Time$Extra$add, interval, -count, zone, present);
+		return A4(
+			justinmimbs$time_extra$Time$Extra$add,
+			justinmimbs$time_extra$Time$Extra$Millisecond,
+			-author$project$SmartTime$Duration$inMs(
+				author$project$SmartTime$HumanDuration$toDuration(humanDuration)),
+			zone,
+			present);
 	});
 var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
 var elm$core$List$partition = F2(
@@ -10489,7 +10555,8 @@ var author$project$Activity$Measure$session = F2(
 		var activityId = _n1.b;
 		return _Utils_Tuple2(
 			activityId,
-			elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older));
+			author$project$SmartTime$Duration$fromInt(
+				elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older)));
 	});
 var elm$core$List$drop = F2(
 	function (n, list) {
@@ -10516,7 +10583,7 @@ var author$project$Activity$Measure$allSessions = function (switchList) {
 	var offsetList = A2(elm$core$List$drop, 1, switchList);
 	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
 };
-var author$project$Activity$Measure$getMatchingDurations = F2(
+var author$project$Activity$Measure$isMatchingDuration = F2(
 	function (targetId, _n0) {
 		var itemId = _n0.a;
 		var dur = _n0.b;
@@ -10527,16 +10594,26 @@ var author$project$Activity$Measure$sessions = F2(
 		var all = author$project$Activity$Measure$allSessions(switchList);
 		return A2(
 			elm$core$List$filterMap,
-			author$project$Activity$Measure$getMatchingDurations(activityId),
+			author$project$Activity$Measure$isMatchingDuration(activityId),
 			all);
 	});
-var elm$core$List$sum = function (numbers) {
-	return A3(elm$core$List$foldl, elm$core$Basics$add, 0, numbers);
+var author$project$SmartTime$Duration$add = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var author$project$SmartTime$Duration$combine = function (durationList) {
+	return A3(
+		elm$core$List$foldl,
+		author$project$SmartTime$Duration$add,
+		author$project$SmartTime$Duration$Duration(0),
+		durationList);
 };
 var author$project$Activity$Measure$totalLive = F3(
 	function (now, switchList, activityId) {
 		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
-		return elm$core$List$sum(
+		return author$project$SmartTime$Duration$combine(
 			A2(
 				author$project$Activity$Measure$sessions,
 				A2(elm$core$List$cons, fakeSwitch, switchList),
@@ -10551,7 +10628,7 @@ var author$project$Activity$Measure$exportActivityUsage = F3(
 			_Utils_Tuple2(env.time, env.timeZone),
 			excusableLimit.b);
 		var totalMs = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
-		var totalSeconds = (totalMs / 1000) | 0;
+		var totalSeconds = (author$project$SmartTime$Duration$inMs(totalMs) / 1000) | 0;
 		return elm$core$String$fromInt(totalSeconds);
 	});
 var author$project$Activity$Activity$latestSwitch = function (timeline) {
@@ -10586,26 +10663,67 @@ var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 };
 var author$project$Activity$Measure$total = F2(
 	function (switchList, activityId) {
-		return elm$core$List$sum(
+		return author$project$SmartTime$Duration$combine(
 			A2(author$project$Activity$Measure$sessions, switchList, activityId));
 	});
+var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / 1000);
+};
+var author$project$SmartTime$Duration$zero = author$project$SmartTime$Duration$Duration(0);
+var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var seconds = _n0.seconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$HumanDuration$Minutes(
+			author$project$SmartTime$Duration$inWholeMinutes(duration)),
+			author$project$SmartTime$HumanDuration$Seconds(seconds)
+		]);
+};
+var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 's';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'm';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'h';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var elm$core$String$concat = function (strings) {
+	return A2(elm$core$String$join, '', strings);
+};
+var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
+};
 var author$project$Activity$Switching$switchPopup = F3(
 	function (timeline, _new, old) {
-		var total = (A2(author$project$Activity$Measure$total, timeline, old.id) / 1000) | 0;
-		var timeSpentString = function (num) {
-			return elm$core$String$fromInt(num) + 's ';
+		var total = author$project$SmartTime$Duration$inSecondsRounded(
+			A2(author$project$Activity$Measure$total, timeline, old.id));
+		var timeSpentString = function (dur) {
+			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
+				author$project$SmartTime$HumanDuration$breakdownMS(dur));
 		};
 		var timeSpent = A2(
-			elm$core$Maybe$map,
-			function (n) {
-				return (n / 1000) | 0;
-			},
+			elm$core$Maybe$withDefault,
+			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
 				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return A2(
-			elm$core$Maybe$withDefault,
-			'',
-			A2(elm$core$Maybe$map, timeSpentString, timeSpent)) + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n'))))));
+		return timeSpentString(timeSpent) + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n'))))));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
@@ -15451,11 +15569,12 @@ var author$project$TaskList$view = F3(
 var author$project$Activity$Activity$showing = function (activity) {
 	return !activity.hidden;
 };
-var author$project$Activity$Measure$inFuzzyWords = function (ms) {
+var author$project$Activity$Measure$inFuzzyWords = function (duration) {
 	return A2(
 		sporto$time_distance$Time$Distance$inWords,
 		elm$time$Time$millisToPosix(0),
-		elm$time$Time$millisToPosix(ms));
+		elm$time$Time$millisToPosix(
+			author$project$SmartTime$Duration$inMs(duration)));
 };
 var rtfeldman$elm_css$Css$Internal$property = F2(
 	function (key, value) {
@@ -15559,9 +15678,10 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 };
 var author$project$Activity$Measure$inHoursMinutes = function (duration) {
 	var hour = 3600000;
-	var wholeHours = (duration / hour) | 0;
+	var durationInMs = author$project$SmartTime$Duration$inMs(duration);
+	var wholeHours = (durationInMs / hour) | 0;
 	var hoursString = elm$core$String$fromInt(wholeHours) + 'h';
-	var wholeMinutes = ((duration - (wholeHours * hour)) / 60000) | 0;
+	var wholeMinutes = ((durationInMs - (wholeHours * hour)) / 60000) | 0;
 	var minutesString = elm$core$String$fromInt(wholeMinutes) + 'm';
 	var _n0 = _Utils_Tuple2(wholeHours, wholeMinutes);
 	if (!_n0.a) {
@@ -15578,6 +15698,7 @@ var author$project$Activity$Measure$inHoursMinutes = function (duration) {
 		}
 	}
 };
+var justinmimbs$time_extra$Time$Extra$Hour = {$: 'Hour'};
 var justinmimbs$date$Date$Day = {$: 'Day'};
 var justinmimbs$date$Date$Friday = {$: 'Friday'};
 var justinmimbs$date$Date$Monday = {$: 'Monday'};
@@ -15782,16 +15903,23 @@ var author$project$TimeTracker$writeActivityToday = F3(
 		return author$project$Activity$Measure$inHoursMinutes(
 			A3(author$project$Activity$Measure$justTodayTotal, app.timeline, env, activity));
 	});
+var author$project$SmartTime$Duration$inMinutesRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / 60000);
+};
 var author$project$TimeTracker$writeActivityUsage = F3(
 	function (app, env, activity) {
+		var period = activity.maxTime.b;
 		var lastPeriod = A3(
 			author$project$Activity$Measure$relevantTimeline,
 			app.timeline,
 			_Utils_Tuple2(env.time, env.timeZone),
-			activity.maxTime.b);
+			period);
 		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
-		var totalMinutes = (total / 60000) | 0;
-		return (total > 0) ? (elm$core$String$fromInt(totalMinutes) + 'm') : '';
+		var totalMinutes = author$project$SmartTime$Duration$inMinutesRounded(total);
+		return (author$project$SmartTime$Duration$inMs(total) > 0) ? (elm$core$String$fromInt(totalMinutes) + ('/' + (elm$core$String$fromInt(
+			author$project$SmartTime$Duration$inMinutesRounded(
+				author$project$SmartTime$HumanDuration$toDuration(period))) + 'm'))) : '';
 	});
 var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
 var author$project$TimeTracker$viewActivity = F3(
