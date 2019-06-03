@@ -11623,5 +11623,6 @@ app.ports.exit.subscribe(function(data) {
 app.ports.setStorage.subscribe(function(state) {
     logflash("Storage set!");
     taskerOut("ElmAppData", state);
+    exit();
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });
