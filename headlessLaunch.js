@@ -38,6 +38,15 @@
             }
         }
 
+        function taskerReadFile (file) {
+            try {
+                return readFile(file);
+            } catch (e) {
+                console.log("Tried to read file " + file);
+                return ' ';
+            }
+        }
+
 // Elm init
         //var storedState = localStorage.getItem('docket-v0.1-data');
         //var startingState = storedState ? storedState : null;
@@ -53,7 +62,7 @@
         //taskerTry(() => {writeFile("docket.dat","",true)});
 
         var app = this.Elm.Headless.init({ flags: [taskerUrl,
-                taskerTry(() => {readFile("docket.dat")}
+                taskerReadFile("docket.dat")
             )]
          });
 

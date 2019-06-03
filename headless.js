@@ -11576,6 +11576,15 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             }
         }
 
+        function taskerReadFile (file) {
+            try {
+                return readFile(file);
+            } catch (e) {
+                console.log("Tried to read file " + file);
+                return ' ';
+            }
+        }
+
 // Elm init
         //var storedState = localStorage.getItem('docket-v0.1-data');
         //var startingState = storedState ? storedState : null;
@@ -11591,7 +11600,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         //taskerTry(() => {writeFile("docket.dat","",true)});
 
         var app = this.Elm.Headless.init({ flags: [taskerUrl,
-                taskerTry(() => {readFile("docket.dat")}
+                taskerReadFile("docket.dat")
             )]
          });
 
