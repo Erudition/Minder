@@ -11548,13 +11548,13 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         var Elm = this.Elm; //trick I discovered to bypass importing
 
         try {
-            var taskerIn = tk.global("ElmAppData");
+            var taskerIn = global("ElmAppData");
         } catch (e) {
             var taskerIn = null;
         }
 
         try {
-            var taskerUrl = tk.global("ElmUrl");
+            var taskerUrl = global("ElmUrl");
         } catch (e) {
             var taskerUrl = "http://docket.app/?start=nothing";
         }
@@ -11568,9 +11568,9 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         function taskerOut (name, value) {
             try {
                 if (name.toLower == name)
-                  tk.setLocal(name, value);
+                  setLocal(name, value);
                 else
-                  tk.setGlobal(name, value);
+                  setGlobal(name, value);
             } catch (e) {
                 console.log("Setting " +name+ " to " +value+ " if tasker was here");
             }
