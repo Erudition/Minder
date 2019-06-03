@@ -30,7 +30,7 @@ import Url.Parser.Query as PQ
 main : Program (Maybe JsonAppDatabase) Model Msg
 main =
     Browser.application
-        { init = init
+        { init = initGraphical
         , view = view
         , update = updateWithTime
         , subscriptions = subscriptions
@@ -40,16 +40,20 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { environment } =
+subscriptions ({ appData, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
           Time.every (60 * 1000) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
+        , headlessMsg (\s -> Debug.log s NoOp)
         ]
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
+
+
+port headlessMsg : (String -> msg) -> Sub msg
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -101,34 +105,33 @@ updateWithTime msg ({ environment } as model) =
             updateWithTime (Tick msg) model
 
 
-{-| TODO: The "ModelAsJson" could be a whole slew of flags instead.
-Key and URL also need to be fed into the model.
--}
-init : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init maybeJson url key =
+initGraphical : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+initGraphical maybeJson url key =
+    Debug.log "hello?" <| init maybeJson url (Just key)
+
+
+init : Maybe JsonAppDatabase -> Url.Url -> Maybe Nav.Key -> ( Model, Cmd Msg )
+init maybeJson url maybeKey =
     let
         startingModel =
             case maybeJson of
                 Just jsonAppDatabase ->
                     case appDataFromJson jsonAppDatabase of
                         Success savedAppData ->
-                            buildModel savedAppData url key
+                            buildModel savedAppData url maybeKey
 
                         WithWarnings warnings savedAppData ->
-                            buildModel (AppData.saveWarnings savedAppData warnings) url key
+                            buildModel (AppData.saveWarnings savedAppData warnings) url maybeKey
 
                         Errors errors ->
-                            buildModel (AppData.saveErrors AppData.fromScratch errors) url key
+                            buildModel (AppData.saveErrors AppData.fromScratch errors) url maybeKey
 
                         BadJson ->
-                            buildModel AppData.fromScratch url key
+                            buildModel AppData.fromScratch url maybeKey
 
                 -- no json stored at all
                 Nothing ->
-                    buildModel AppData.fromScratch url key
-
-        environment =
-            Environment
+                    buildModel AppData.fromScratch url maybeKey
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel
@@ -162,11 +165,11 @@ type alias Model =
     }
 
 
-buildModel : AppData -> Url.Url -> Nav.Key -> Model
-buildModel appData url key =
+buildModel : AppData -> Url.Url -> Maybe Nav.Key -> Model
+buildModel appData url maybeKey =
     { viewState = viewUrl url
     , appData = appData
-    , environment = Environment.preInit key
+    , environment = Environment.preInit maybeKey
     }
 
 
@@ -348,7 +351,14 @@ update msg ({ viewState, appData, environment } as model) =
         ( Link urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    justRunCommand <| Nav.pushUrl environment.navkey (Url.toString url)
+                    case environment.navkey of
+                        Just navkey ->
+                            -- in browser
+                            justRunCommand <| Nav.pushUrl navkey (Url.toString url)
+
+                        Nothing ->
+                            -- running headless
+                            ( model, Cmd.none )
 
                 Browser.External href ->
                     justRunCommand <| Nav.load href
@@ -462,9 +472,12 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             []
 
         --TODO only remove handled triggers
-        removeTriggersFromUrl =
+        removeTriggersFromUrl navkey =
             -- TODO maintain Fake Fragment. currently destroys it
-            Nav.replaceUrl environment.navkey (Url.toString { url | query = Nothing })
+            Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
+
+        removeTriggersFromUrlUnlessHeadless =
+            Maybe.withDefault Cmd.none (Maybe.map removeTriggersFromUrl environment.navkey)
     in
     case parsed of
         Just (Just triggerMsg) ->
@@ -473,7 +486,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                     update triggerMsg model
 
                 newCmdWithUrlCleaner =
-                    Cmd.batch [ newCmd, removeTriggersFromUrl ]
+                    Cmd.batch [ newCmd, removeTriggersFromUrlUnlessHeadless ]
             in
             ( newModel, newCmdWithUrlCleaner )
 

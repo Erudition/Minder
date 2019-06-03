@@ -161,8 +161,11 @@ viewIcon icon =
 writeActivityUsage : AppData -> Environment -> Activity -> String
 writeActivityUsage app env activity =
     let
+        period =
+            Tuple.second activity.maxTime
+
         lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second activity.maxTime)
+            relevantTimeline app.timeline ( env.time, env.timeZone ) period
 
         total =
             Measure.totalLive env.time lastPeriod activity.id
@@ -171,7 +174,7 @@ writeActivityUsage app env activity =
             Duration.inMinutesRounded total
     in
     if inMs total > 0 then
-        String.fromInt totalMinutes ++ "/" ++ "Tuple.second activity.maxTime" ++ "m"
+        String.fromInt totalMinutes ++ "/" ++ String.fromInt (inMinutesRounded (toDuration period)) ++ "m"
 
     else
         ""

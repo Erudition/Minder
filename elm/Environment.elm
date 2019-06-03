@@ -18,16 +18,16 @@ TODO FUTURE fields:
 -}
 type alias Environment =
     { time : Time.Posix -- current time (effectively)
-    , navkey : Nav.Key -- instance-specific (can't store it)
+    , navkey : Maybe Nav.Key -- instance-specific (can't store it)
     , timeZone : Time.Zone -- according to browser
     }
 
 
 {-| Empty Environment before the init function fills in all the details.
 -}
-preInit : Nav.Key -> Environment
-preInit key =
+preInit : Maybe Nav.Key -> Environment
+preInit maybeKey =
     { time = Time.millisToPosix 0 -- temporary placeholder
-    , navkey = key -- passed from init
+    , navkey = maybeKey -- passed from init
     , timeZone = Time.utc -- temporary placeholder
     }

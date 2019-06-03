@@ -4,8 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Docket</title>
-  <script type="application/javascript" src="elm.js"></script>
-  <!-- <script type="application/javascript" src="http://localhost:8088/build?path=file:///home/connor/Projects/Elm/Docket/www/elm.js"></script> -->
   <link rel="stylesheet" href="styles/style.css">
   <link rel="stylesheet" href="styles/sliders.css">
   <link rel="stylesheet" href="styles/timetracker.css">
@@ -14,46 +12,13 @@
 <body>
 </body>
 <script src="capacitor.js"></script>
-<script src="cap-app.js" type="module"></script>
-<script type="text/javascript">
+<!-- <script type="module" src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+<script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script> -->
 
-var storedState = localStorage.getItem('docket-v0.1-data');
-//var startingState = storedState ? JSON.parse(storedState) : null;
-var startingState = storedState ? storedState : null;
-var app = Elm.Main.init({ flags: startingState });
-app.ports.setStorage.subscribe(function(state) {
-    localStorage.setItem('docket-v0.1-data', state);
-    //console.log(state);
-});//was JSON.stringify(state)
-
-app.ports.flash.subscribe(function(data) {
-  try {
-      tk.flash(data)
-  } catch (e) {
-      console.log("With Tasker, would have flashed: \n" +data);
-  }
-});
-
-app.ports.variableOut.subscribe(function(data) {
-  try {
-      if (data[0].toLower == data[0])
-        tk.setLocal(data[0], data[1]);
-      else
-        tk.setGlobal(data[0], data[1]);
-  } catch (e) {
-      console.log("Setting " +data[0]+ " to " +data[1]+ " if tasker was here");
-  }
-});
-
-app.ports.exit.subscribe(function(data) {
-  try {
-      tk.exit()
-  } catch (e) {
-      console.log("Tried to exit, if tasker was here");
-  }
-});
-
-</script>
+<script type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+<script nomodule="" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.js"></script>
+<script type="application/javascript" src="elm.js"></script>
+<script type="text/javascript" src="index.js"></script>
 <!-- <script type="text/javascript" src="tasker.js"></script> -->
 
 </html>
