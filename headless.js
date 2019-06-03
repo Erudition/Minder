@@ -11569,9 +11569,10 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
         function taskerTry (func) {
             try {
-                func();
+                return func();
             } catch (e) {
                 console.log("Tried " + func);
+                return null;
             }
         }
 
