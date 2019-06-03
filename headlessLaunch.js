@@ -64,7 +64,7 @@ var taskerUrl = taskerUrl ? taskerUrl : "http://docket.app/?start=pet"
 //taskerTry(() => {writeFile("docket.dat","",true)});
 
 var app = this.Elm.Headless.init(
-    { flags: [taskerUrl, taskerReadAppData()]
+    { flags: [taskerUrl, null]
     });
 
  logflash("Running Elm! \n Url: "+ taskerUrl);
