@@ -11626,3 +11626,5 @@ app.ports.setStorage.subscribe(function(state) {
     exit();
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });
+
+app.ports.headlessMsg.send("yo");
