@@ -11567,19 +11567,31 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             }
         }
 
+        function taskerTry (func) {
+            try {
+                func();
+            } catch (e) {
+                console.log("Tried " + func);
+            }
+        }
 
 // Elm init
         //var storedState = localStorage.getItem('docket-v0.1-data');
         //var startingState = storedState ? storedState : null;
 
         var Elm = this.Elm; //trick I discovered to bypass importing
-        logflash("Running Elm! "+ getVar("ElmAppData"))
+
 
 
         var taskerUrl = getVar("ElmUrl") ? getVar("ElmUrl") : "http://docket.app/?start=pet"
 
 
-        var app = this.Elm.Headless.init({ flags: [taskerUrl, getVar("ElmAppData")] });
+        var app = this.Elm.Headless.init({ flags: [taskerUrl,
+                taskerTry(() => {readFile("docket.dat")}
+            )]
+         });
+
+         logflash("Running Elm! "+ getVar("ElmUrl"));
 
         app.ports.variableOut.subscribe(function(data) {
             taskerOut(data[0], data[1]);
@@ -11588,10 +11600,8 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
 
         app.ports.setStorage.subscribe(function(state) {
-            taskerOut("ElmAppData", state);
-            logflash("storage set!");
-            logflash(state);
-            // done = true;
+            //taskerOut("ElmAppData", state);
+            taskerTry(() => {writeFile("docket.dat",state,false)});
         });
 
         app.ports.headlessMsg.send("Message sent Is anybody home?");
