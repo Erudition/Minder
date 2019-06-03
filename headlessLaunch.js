@@ -7,9 +7,12 @@ function getGlobalVar (name) {
         let g = global(name);
         if (typeof g !== 'undefined')
             return g;
-        else
+        else {
+            logflash(`Failed to get global: ${name} \n because it was undefined`);
             return null;
+        }
     } catch (e) {
+        logflash(`Failed to get global: ${name} \n because ${e}`);
         return null;
     }
 }
@@ -18,6 +21,7 @@ function getLocalUrl () {
     if (typeof elmurl !== 'undefined')
         return elmurl;
     else
+        logflash(`Failed to get local url because it was undefined`);
         return null;
 }
 
@@ -44,7 +48,7 @@ function taskerTry (func) {
     try {
         return func();
     } catch (e) {
-        console.log("Tried " + func);
+        logflash("Tried " + func);
         return null;
     }
 }
@@ -54,7 +58,7 @@ function taskerReadAppData () {
         //return readFile("docket.dat");
         return getGlobalVar("ElmAppData");
     } catch (e) {
-        console.log("Tried to read file " + file);
+        logflash("Failed to read file " + file);
         return ' ';
     }
 }
@@ -68,7 +72,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.app/?start=pet";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
 
 
 // touch file in case it's not There
@@ -78,7 +82,7 @@ var app = this.Elm.Headless.init(
     { flags: [taskerUrl, null]
     });
 
- logflash("Running Elm! \n Url: "+ taskerUrl);
+ logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
 app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
@@ -88,7 +92,7 @@ app.ports.exit.subscribe(function(data) {
   try {
       exit()
   } catch (e) {
-      console.log("Tried to exit, if tasker was here");
+      logflash("Tried to exit, if tasker was here");
   }
 });
 
@@ -106,4 +110,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 5");
+logflash("Hit bottom! rev 6");
