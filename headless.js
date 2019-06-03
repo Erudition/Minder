@@ -11553,8 +11553,13 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             var taskerIn = null;
         }
 
+        try {
+            var taskerUrl = tk.global("ElmUrl");
+        } catch (e) {
+            var taskerUrl = "http://docket.app/?start=nothing";
+        }
 
-        var app = this.Elm.Headless.init({ flags: ["http://docket.app/?start=pet", taskerIn] });
+        var app = this.Elm.Headless.init({ flags: [taskerUrl, taskerIn] });
 
         app.ports.variableOut.subscribe(function(data) {
             taskerOut(data[0], data[1]);
