@@ -11546,7 +11546,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         //var startingState = storedState ? storedState : null;
 
         var Elm = this.Elm; //trick I discovered to bypass importing
-
+        flash("testing! "+ global("ElmAppData"))
         try {
             var taskerIn = global("ElmAppData");
         } catch (e) {
