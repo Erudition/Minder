@@ -5365,10 +5365,6 @@ var author$project$AppData$saveWarnings = F2(
 					appData.errors)
 			});
 	});
-var author$project$Environment$Environment = F3(
-	function (time, navkey, timeZone) {
-		return {navkey: navkey, time: time, timeZone: timeZone};
-	});
 var author$project$Main$NoOp = {$: 'NoOp'};
 var author$project$Main$SetZone = function (a) {
 	return {$: 'SetZone', a: a};
@@ -7130,9 +7126,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$decodeString = F2(
 var author$project$Main$appDataFromJson = function (incomingJson) {
 	return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$decodeString, author$project$AppData$decodeAppData, incomingJson);
 };
-var author$project$Environment$preInit = function (key) {
+var author$project$Environment$preInit = function (maybeKey) {
 	return {
-		navkey: key,
+		navkey: maybeKey,
 		time: elm$time$Time$millisToPosix(0),
 		timeZone: elm$time$Time$utc
 	};
@@ -8104,10 +8100,10 @@ var author$project$Main$viewUrl = function (url) {
 		A2(elm$url$Url$Parser$parse, author$project$Main$routeParser, finalUrl));
 };
 var author$project$Main$buildModel = F3(
-	function (appData, url, key) {
+	function (appData, url, maybeKey) {
 		return {
 			appData: appData,
-			environment: author$project$Environment$preInit(key),
+			environment: author$project$Environment$preInit(maybeKey),
 			viewState: author$project$Main$viewUrl(url)
 		};
 	});
@@ -10935,13 +10931,19 @@ var author$project$Main$handleUrlTriggers = F2(
 				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
 			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
-		var removeTriggersFromUrl = A2(
-			elm$browser$Browser$Navigation$replaceUrl,
-			environment.navkey,
-			elm$url$Url$toString(
-				_Utils_update(
-					url,
-					{query: elm$core$Maybe$Nothing})));
+		var removeTriggersFromUrl = function (navkey) {
+			return A2(
+				elm$browser$Browser$Navigation$replaceUrl,
+				navkey,
+				elm$url$Url$toString(
+					_Utils_update(
+						url,
+						{query: elm$core$Maybe$Nothing})));
+		};
+		var removeTriggersFromUrlUnlessHeadless = A2(
+			elm$core$Maybe$withDefault,
+			elm$core$Platform$Cmd$none,
+			A2(elm$core$Maybe$map, removeTriggersFromUrl, environment.navkey));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
@@ -10955,12 +10957,12 @@ var author$project$Main$handleUrlTriggers = F2(
 			A2(elm$core$Debug$log, 'url', normalizedUrl));
 		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
 			var triggerMsg = parsed.a.a;
-			var _n8 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n8.a;
-			var newCmd = _n8.b;
+			var _n9 = A2(author$project$Main$update, triggerMsg, model);
+			var newModel = _n9.a;
+			var newCmd = _n9.b;
 			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 				_List_fromArray(
-					[newCmd, removeTriggersFromUrl]));
+					[newCmd, removeTriggersFromUrlUnlessHeadless]));
 			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 		} else {
 			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -11007,11 +11009,17 @@ var author$project$Main$update = F2(
 					var urlRequest = _n0.a.a;
 					if (urlRequest.$ === 'Internal') {
 						var url = urlRequest.a;
-						return justRunCommand(
-							A2(
-								elm$browser$Browser$Navigation$pushUrl,
-								environment.navkey,
-								elm$url$Url$toString(url)));
+						var _n4 = environment.navkey;
+						if (_n4.$ === 'Just') {
+							var navkey = _n4.a;
+							return justRunCommand(
+								A2(
+									elm$browser$Browser$Navigation$pushUrl,
+									navkey,
+									elm$url$Url$toString(url)));
+						} else {
+							return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+						}
 					} else {
 						var href = urlRequest.a;
 						return justRunCommand(
@@ -11019,9 +11027,9 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
-					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
-					var modelAfter = _n4.a;
-					var effectsAfter = _n4.b;
+					var _n5 = A2(author$project$Main$handleUrlTriggers, url, model);
+					var modelAfter = _n5.a;
+					var effectsAfter = _n5.b;
 					return _Utils_Tuple2(
 						_Utils_update(
 							modelAfter,
@@ -11033,10 +11041,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n5 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n5.a;
-						var newApp = _n5.b;
-						var newCommand = _n5.c;
+						var _n6 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n6.a;
+						var newApp = _n6.b;
+						var newCommand = _n6.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11054,10 +11062,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TimeTracker') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n6 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n6.a;
-						var newApp = _n6.b;
-						var newCommand = _n6.c;
+						var _n7 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n7.a;
+						var newApp = _n7.b;
+						var newCommand = _n7.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11140,7 +11148,7 @@ var author$project$Main$updateWithTime = F2(
 	});
 var elm$time$Time$here = _Time_here(_Utils_Tuple0);
 var author$project$Main$init = F3(
-	function (maybeJson, url, key) {
+	function (maybeJson, url, maybeKey) {
 		var startingModel = function () {
 			if (maybeJson.$ === 'Just') {
 				var jsonAppDatabase = maybeJson.a;
@@ -11148,7 +11156,7 @@ var author$project$Main$init = F3(
 				switch (_n2.$) {
 					case 'Success':
 						var savedAppData = _n2.a;
-						return A3(author$project$Main$buildModel, savedAppData, url, key);
+						return A3(author$project$Main$buildModel, savedAppData, url, maybeKey);
 					case 'WithWarnings':
 						var warnings = _n2.a;
 						var savedAppData = _n2.b;
@@ -11156,22 +11164,21 @@ var author$project$Main$init = F3(
 							author$project$Main$buildModel,
 							A2(author$project$AppData$saveWarnings, savedAppData, warnings),
 							url,
-							key);
+							maybeKey);
 					case 'Errors':
 						var errors = _n2.a;
 						return A3(
 							author$project$Main$buildModel,
 							A2(author$project$AppData$saveErrors, author$project$AppData$fromScratch, errors),
 							url,
-							key);
+							maybeKey);
 					default:
-						return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, key);
+						return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, maybeKey);
 				}
 			} else {
-				return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, key);
+				return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, maybeKey);
 			}
 		}();
-		var environment = author$project$Environment$Environment;
 		var _n0 = A2(
 			author$project$Main$updateWithTime,
 			author$project$Main$NewUrl(url),
@@ -11191,6 +11198,18 @@ var author$project$Main$init = F3(
 			modelWithFirstUpdate,
 			elm$core$Platform$Cmd$batch(effects));
 	});
+var author$project$Main$initGraphical = F3(
+	function (maybeJson, url, key) {
+		return A2(
+			elm$core$Debug$log,
+			'hello?',
+			A3(
+				author$project$Main$init,
+				maybeJson,
+				url,
+				elm$core$Maybe$Just(key)));
+	});
+var author$project$Main$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
 var elm$browser$Browser$Events$Document = {$: 'Document'};
 var elm$browser$Browser$Events$MySub = F3(
 	function (a, b, c) {
@@ -11637,8 +11656,9 @@ var elm$time$Time$every = F2(
 		return elm$time$Time$subscription(
 			A2(elm$time$Time$Every, interval, tagger));
 	});
-var author$project$Main$subscriptions = function (_n0) {
-	var environment = _n0.environment;
+var author$project$Main$subscriptions = function (model) {
+	var appData = model.appData;
+	var environment = model.environment;
 	return elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
@@ -11647,8 +11667,12 @@ var author$project$Main$subscriptions = function (_n0) {
 				60 * 1000,
 				author$project$Main$Tock(author$project$Main$NoOp)),
 				elm$browser$Browser$Events$onVisibilityChange(
-				function (_n1) {
+				function (_n0) {
 					return author$project$Main$Tick(author$project$Main$NoOp);
+				}),
+				author$project$Main$headlessMsg(
+				function (s) {
+					return A2(elm$core$Debug$log, s, author$project$Main$NoOp);
 				})
 			]));
 };
@@ -16229,7 +16253,7 @@ var author$project$Main$view = function (_n0) {
 };
 var elm$browser$Browser$application = _Browser_application;
 var author$project$Main$main = elm$browser$Browser$application(
-	{init: author$project$Main$init, onUrlChange: author$project$Main$NewUrl, onUrlRequest: author$project$Main$Link, subscriptions: author$project$Main$subscriptions, update: author$project$Main$updateWithTime, view: author$project$Main$view});
+	{init: author$project$Main$initGraphical, onUrlChange: author$project$Main$NewUrl, onUrlRequest: author$project$Main$Link, subscriptions: author$project$Main$subscriptions, update: author$project$Main$updateWithTime, view: author$project$Main$view});
 _Platform_export({'Main':{'init':author$project$Main$main(
 	elm$json$Json$Decode$oneOf(
 		_List_fromArray(
