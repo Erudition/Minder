@@ -11594,7 +11594,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 
-var taskerUrl = getVar("elmUrl")
+var taskerUrl = getVar("elmurl")
 var taskerUrl = taskerUrl ? taskerUrl : "http://docket.app/?start=pet"
 
 
@@ -11633,4 +11633,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 2");
+logflash("Hit bottom! rev 3");
