@@ -11594,7 +11594,8 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
 
 
-        var taskerUrl = getVar("ElmUrl") ? getVar("ElmUrl") : "http://docket.app/?start=pet"
+        var taskerUrl = getVar("elmUrl")
+        var taskerUrl = taskerUrl ? taskerUrl : "http://docket.app/?start=pet"
 
 
         // touch file in case it's not There
@@ -11604,7 +11605,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             { flags: [taskerUrl, taskerReadAppData()]
             });
 
-         logflash("Running Elm! \n Url: "+ getVar("ElmUrl"));
+         logflash("Running Elm! \n Url: "+ taskerUrl);
 
         app.ports.variableOut.subscribe(function(data) {
             taskerOut(data[0], data[1]);
