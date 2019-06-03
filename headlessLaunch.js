@@ -50,7 +50,7 @@
 
 
         // touch file in case it's not There
-        taskerTry(() => {writeFile("docket.dat","",true)});
+        //taskerTry(() => {writeFile("docket.dat","",true)});
 
         var app = this.Elm.Headless.init({ flags: [taskerUrl,
                 taskerTry(() => {readFile("docket.dat")}
