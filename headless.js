@@ -11576,7 +11576,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             }
         }
 
-        logflash(msg) {
+        function logflash(msg) {
             try {
                 flash(msg);
             } catch (e) {
