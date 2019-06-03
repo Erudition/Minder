@@ -11576,9 +11576,10 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             }
         }
 
-        function taskerReadFile (file) {
+        function taskerReadAppData () {
             try {
-                return readFile(file);
+                //return readFile("docket.dat");
+                return getVar("ElmAppData");
             } catch (e) {
                 console.log("Tried to read file " + file);
                 return ' ';
@@ -11600,7 +11601,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         //taskerTry(() => {writeFile("docket.dat","",true)});
 
         var app = this.Elm.Headless.init(
-            { flags: [taskerUrl, taskerReadFile("docket.dat")]
+            { flags: [taskerUrl, taskerReadAppData()]
             });
 
          logflash("Running Elm! \n Url: "+ getVar("ElmUrl"));
@@ -11619,6 +11620,6 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
 
         app.ports.setStorage.subscribe(function(state) {
-            //taskerOut("ElmAppData", state);
-            taskerTry(() => {writeFile("docket.dat",state,false)});
+            taskerOut("ElmAppData", state);
+            //taskerTry(() => {writeFile("docket.dat",state,false)});
         });
