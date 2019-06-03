@@ -11542,7 +11542,14 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
 function getVar (name) {
     try {
-        return global(name);
+        let g = global(name);
+        let l = local(name);
+        if (typeof g !== 'undefined')
+            return g;
+        else if (typeof l !== 'undefined')
+            return l;
+        else
+            return null;
     } catch (e) {
         return null;
     }
@@ -11595,7 +11602,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getVar("elmurl")
-var taskerUrl = taskerUrl ? taskerUrl : "http://docket.app/?start=pet"
+var taskerUrl = (taskerUrl != undefined) ? taskerUrl : "http://docket.app/?start=pet"
 
 
 // touch file in case it's not There
@@ -11633,4 +11640,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 3");
+logflash("Hit bottom! rev 4");
