@@ -89,4 +89,19 @@ app.ports.setStorage.subscribe(function(state) {
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });
 
+
+app.ports.flash.subscribe(function(data) {
+  try {
+      tk.flash(data)
+  } catch (e) {
+      Toast.show({
+          text: data,
+          duration: '10000'
+      }).then();
+  } finally {
+      console.log("Would have flashed: " +data);
+  }
+
 app.ports.headlessMsg.send("yo");
+
+logflash("Hit bottom!");
