@@ -2,19 +2,23 @@
 
 //my helper functions:
 
-function getVar (name) {
+function getGlobalVar (name) {
     try {
         let g = global(name);
-        let l = local(name);
         if (typeof g !== 'undefined')
             return g;
-        else if (typeof l !== 'undefined')
-            return l;
         else
             return null;
     } catch (e) {
         return null;
     }
+}
+
+function getLocalUrl () {
+    if (typeof elmurl !== 'undefined')
+        return elmurl;
+    else
+        return null;
 }
 
 function taskerOut (name, value) {
@@ -48,7 +52,7 @@ function taskerTry (func) {
 function taskerReadAppData () {
     try {
         //return readFile("docket.dat");
-        return getVar("ElmAppData");
+        return getGlobalVar("ElmAppData");
     } catch (e) {
         console.log("Tried to read file " + file);
         return ' ';
@@ -63,8 +67,8 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 
-var taskerUrl = getVar("elmurl")
-var taskerUrl = (taskerUrl != undefined) ? taskerUrl : "http://docket.app/?start=pet"
+var taskerUrl = getLocalUrl();
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.app/?start=pet";
 
 
 // touch file in case it's not There
@@ -102,4 +106,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 4");
+logflash("Hit bottom! rev 5");
