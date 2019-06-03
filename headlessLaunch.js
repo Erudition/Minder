@@ -1,6 +1,6 @@
 
 //var Elm = require('./headless.js').Elm;
-//import { Elm } from './headless.js';
+import { Elm } from './headless.js';
 
 var storedState = localStorage.getItem('docket-v0.1-data');
 var startingState = storedState ? storedState : null;
