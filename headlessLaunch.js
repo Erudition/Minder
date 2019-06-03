@@ -110,4 +110,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 6");
+logflash("Hit bottom! rev 8");
