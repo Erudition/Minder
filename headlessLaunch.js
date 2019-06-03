@@ -76,5 +76,3 @@
             //taskerOut("ElmAppData", state);
             taskerTry(() => {writeFile("docket.dat",state,false)});
         });
-
-        app.ports.headlessMsg.send("Message sent Is anybody home?");
