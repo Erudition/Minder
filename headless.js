@@ -11629,15 +11629,7 @@ app.ports.setStorage.subscribe(function(state) {
 
 
 app.ports.flash.subscribe(function(data) {
-  try {
-      tk.flash(data)
-  } catch (e) {
-      Toast.show({
-          text: data,
-          duration: '10000'
-      }).then();
-  } finally {
-      console.log("Would have flashed: " +data);
+  logflash(data);
   }
 
 app.ports.headlessMsg.send("yo");
