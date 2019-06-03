@@ -11538,32 +11538,15 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)}});}(this));
 
 
+//my helper functions:
 
-
-
-
-        //var storedState = localStorage.getItem('docket-v0.1-data');
-        //var startingState = storedState ? storedState : null;
-
-        var Elm = this.Elm; //trick I discovered to bypass importing
-        logflash("Running Elm! "+ global("ElmAppData"))
-        try {
-            var taskerIn = global("ElmAppData");
-        } catch (e) {
-            var taskerIn = null;
+        function getVar (name) {
+            try {
+                return global(name);
+            } catch (e) {
+                return null;
+            }
         }
-
-        try {
-            var taskerUrl = global("ElmUrl");
-        } catch (e) {
-            var taskerUrl = "http://docket.app/?start=nothing";
-        }
-
-        var app = this.Elm.Headless.init({ flags: [taskerUrl, taskerIn] });
-
-        app.ports.variableOut.subscribe(function(data) {
-            taskerOut(data[0], data[1]);
-        });
 
         function taskerOut (name, value) {
             try {
@@ -11583,6 +11566,26 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
                 console.log(msg);
             }
         }
+
+
+// Elm init
+        //var storedState = localStorage.getItem('docket-v0.1-data');
+        //var startingState = storedState ? storedState : null;
+
+        var Elm = this.Elm; //trick I discovered to bypass importing
+        logflash("Running Elm! "+ getVar("ElmAppData"))
+
+
+        var taskerUrl = getVar("ElmUrl") ? getVar("ElmUrl") : "http://docket.app/?start=nothing"
+
+
+        var app = this.Elm.Headless.init({ flags: [taskerUrl, getVar("ElmAppData")] });
+
+        app.ports.variableOut.subscribe(function(data) {
+            taskerOut(data[0], data[1]);
+        });
+
+
 
         app.ports.setStorage.subscribe(function(state) {
             taskerOut("ElmAppData", state);
