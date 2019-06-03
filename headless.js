@@ -11546,7 +11546,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         //var startingState = storedState ? storedState : null;
 
         var Elm = this.Elm; //trick I discovered to bypass importing
-        flash("testing! "+ global("ElmAppData"))
+        logflash("Running Elm! "+ global("ElmAppData"))
         try {
             var taskerIn = global("ElmAppData");
         } catch (e) {
@@ -11572,15 +11572,22 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
                 else
                   setGlobal(name, value);
             } catch (e) {
-                console.log("Setting " +name+ " to " +value+ " if tasker was here");
+                logflash("Setting " +name+ " to " +value+ " if tasker was here");
             }
         }
 
+        logflash(msg) {
+            try {
+                flash(msg);
+            } catch (e) {
+                console.log(msg);
+            }
+        }
 
         app.ports.setStorage.subscribe(function(state) {
             taskerOut("ElmAppData", state);
-            console.log("storage set!");
-            console.log(state);
+            logflash("storage set!");
+            logflash(state);
             // done = true;
         });
 
