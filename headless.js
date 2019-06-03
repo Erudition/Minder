@@ -11592,12 +11592,19 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
             )]
          });
 
-         logflash("Running Elm! "+ getVar("ElmUrl"));
+         logflash("Running Elm! \n Url: "+ getVar("ElmUrl"));
 
         app.ports.variableOut.subscribe(function(data) {
             taskerOut(data[0], data[1]);
         });
 
+        app.ports.exit.subscribe(function(data) {
+          try {
+              exit()
+          } catch (e) {
+              console.log("Tried to exit, if tasker was here");
+          }
+        });
 
 
         app.ports.setStorage.subscribe(function(state) {
