@@ -11617,7 +11617,7 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=noth
 //taskerTry(() => {writeFile("docket.dat","",true)});
 
 var app = this.Elm.Headless.init(
-    { flags: [taskerUrl, null]
+    { flags: [taskerUrl, taskerReadAppData()]
     });
 
  logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
