@@ -11576,7 +11576,7 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         logflash("Running Elm! "+ getVar("ElmAppData"))
 
 
-        var taskerUrl = getVar("ElmUrl") ? getVar("ElmUrl") : "http://docket.app/?start=nothing"
+        var taskerUrl = getVar("ElmUrl") ? getVar("ElmUrl") : "http://docket.app/?start=pet"
 
 
         var app = this.Elm.Headless.init({ flags: [taskerUrl, getVar("ElmAppData")] });
@@ -11595,3 +11595,5 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
         });
 
         app.ports.headlessMsg.send("Message sent Is anybody home?");
+
+        logflash(taskerUrl);
