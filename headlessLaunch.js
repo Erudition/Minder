@@ -81,7 +81,7 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=noth
 var app = this.Elm.Headless.init(
     { flags: [
         //taskerUrl, taskerReadAppData()
-        "", ""
+        taskerUrl, ""
     ]
     });
 
@@ -113,4 +113,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 9");
+logflash("Hit bottom! rev 10");
