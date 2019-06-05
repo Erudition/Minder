@@ -46,14 +46,10 @@ subscriptions ({ appData, environment } as model) =
           -- TODO sync subscription with current activity
           Time.every (60 * 1000) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
-        , headlessMsg (\s -> Debug.log s NoOp)
         ]
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
-
-
-port headlessMsg : (String -> msg) -> Sub msg
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -100,6 +96,15 @@ updateWithTime msg ({ environment } as model) =
             in
             updateWithStorage submsg { model | environment = newEnv }
 
+        SetZoneAndTime zone time ->
+            -- The only time we ever need to fetch the zone is at the start, and that's also when we need the time, so we combine them to reduce initial updates - this saves us one
+            let
+                newEnv =
+                    { environment | time = time, timeZone = zone }
+            in
+            -- no need to run updateWithStorage yet - on first run we do the first update anyway, with the passed in Msg, so skipping it here saves us another update with a storage write
+            ( { model | environment = newEnv }, Cmd.none )
+
         -- intercept normal update
         otherMsg ->
             updateWithTime (Tick msg) model
@@ -107,7 +112,7 @@ updateWithTime msg ({ environment } as model) =
 
 initGraphical : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 initGraphical maybeJson url key =
-    Debug.log "hello?" <| init maybeJson url (Just key)
+    init maybeJson url (Just key)
 
 
 init : Maybe JsonAppDatabase -> Url.Url -> Maybe Nav.Key -> ( Model, Cmd Msg )
@@ -137,8 +142,7 @@ init maybeJson url maybeKey =
             updateWithTime (NewUrl url) startingModel
 
         effects =
-            [ Job.perform (Tock NoOp) Time.now
-            , Job.perform SetZone Time.here
+            [ Job.perform identity (Job.map2 SetZoneAndTime Time.here Time.now) -- reduces initial calls to update
             , firstEffects
             ]
     in
@@ -317,7 +321,7 @@ type Msg
     = NoOp
     | Tick Msg
     | Tock Msg Time.Posix
-    | SetZone Time.Zone
+    | SetZoneAndTime Time.Zone Time.Posix
     | ClearErrors
     | Link Browser.UrlRequest
     | NewUrl Url.Url
@@ -339,12 +343,6 @@ update msg ({ viewState, appData, environment } as model) =
             ( Model viewState appData newEnv, Cmd.none )
     in
     case ( msg, viewState.primaryView ) of
-        ( NoOp, _ ) ->
-            ( model, Cmd.none )
-
-        ( SetZone zone, _ ) ->
-            justSetEnv { environment | timeZone = zone }
-
         ( ClearErrors, _ ) ->
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
