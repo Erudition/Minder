@@ -1,4 +1,4 @@
-module Headless exposing (main)
+port module Headless exposing (main)
 
 import AppData exposing (AppData)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -15,7 +15,7 @@ main =
     worker
         { init = initHeadless
         , update = updateWithTime
-        , subscriptions = subscriptions
+        , subscriptions = headlessSubscriptions
         }
 
 
@@ -32,3 +32,13 @@ urlOrElse urlAsString =
             { protocol = Url.Http, host = "docket.app", port_ = Nothing, path = "", query = Nothing, fragment = Nothing }
     in
     Maybe.withDefault fallbackUrl (Url.fromString urlAsString)
+
+
+headlessSubscriptions : Model -> Sub Msg
+headlessSubscriptions ({ appData, environment } as model) =
+    Sub.batch
+        [ headlessMsg (\s -> Debug.log s NoOp)
+        ]
+
+
+port headlessMsg : (String -> msg) -> Sub msg
