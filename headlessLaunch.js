@@ -112,6 +112,10 @@ app.ports.flash.subscribe(function(data) {
 });
 
 
-app.ports.headlessMsg.send(taskerUrl);
+setTimeout(sendIt, 1500);
 
-logflash("Hit bottom of headlessLaunch.js, rev 16");
+function sendIt() {
+    app.ports.headlessMsg.send(taskerUrl);
+}
+
+logflash("Hit bottom of headlessLaunch.js, rev 17");
