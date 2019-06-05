@@ -8103,15 +8103,6 @@ var author$project$Main$buildModel = F3(
 			viewState: author$project$Main$viewUrl(url)
 		};
 	});
-var author$project$Main$TimeTrackerMsg = function (a) {
-	return {$: 'TimeTrackerMsg', a: a};
-};
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
-};
-var author$project$TimeTracker$testMsg = author$project$TimeTracker$StartTracking(
-	author$project$Activity$Activity$Stock(author$project$Activity$Template$FilmWatching));
-var author$project$Main$testMsg = author$project$Main$TimeTrackerMsg(author$project$TimeTracker$testMsg);
 var author$project$Main$Tick = function (a) {
 	return {$: 'Tick', a: a};
 };
@@ -8617,12 +8608,19 @@ var author$project$Main$appDataToJson = function (appData) {
 		author$project$AppData$encodeAppData(appData));
 };
 var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
+var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
+var author$project$External$Commands$toast = function (message) {
+	return author$project$External$Tasker$flash(message);
+};
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
 		return {appData: appData, environment: environment, viewState: viewState};
 	});
 var author$project$Main$TaskListMsg = function (a) {
 	return {$: 'TaskListMsg', a: a};
+};
+var author$project$Main$TimeTrackerMsg = function (a) {
+	return {$: 'TimeTrackerMsg', a: a};
 };
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
@@ -10758,10 +10756,6 @@ var author$project$External$Tasker$exit = _Platform_outgoingPort(
 		return elm$json$Json$Encode$null;
 	});
 var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
-var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
-var author$project$External$Commands$toast = function (message) {
-	return author$project$External$Tasker$flash(message);
-};
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10803,174 +10797,9 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
-var elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		elm$core$List$foldl,
-		F2(
-			function (_n0, dict) {
-				var key = _n0.a;
-				var value = _n0.b;
-				return A3(elm$core$Dict$insert, key, value, dict);
-			}),
-		elm$core$Dict$empty,
-		assocs);
-};
-var elm$core$String$toLower = _String_toLower;
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					A2(
-						elm$core$Maybe$withDefault,
-						_List_Nil,
-						A2(elm$core$Dict$get, key, dict)));
-			});
-	});
-var elm$url$Url$Parser$Query$enum = F2(
-	function (key, dict) {
-		return A2(
-			elm$url$Url$Parser$Query$custom,
-			key,
-			function (stringList) {
-				if (stringList.b && (!stringList.b.b)) {
-					var str = stringList.a;
-					return A2(elm$core$Dict$get, str, dict);
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			});
-	});
-var author$project$TimeTracker$urlTriggers = function (app) {
-	var entriesPerActivity = function (activity) {
-		return _Utils_ap(
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						n,
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names),
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						elm$core$String$toLower(n),
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names));
-	};
-	var activitiesWithNames = elm$core$List$concat(
-		A2(
-			elm$core$List$map,
-			entriesPerActivity,
-			author$project$Activity$Activity$allActivities(app.activities)));
-	return _List_fromArray(
-		[
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'start',
-			elm$core$Dict$fromList(activitiesWithNames)),
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'stop',
-			elm$core$Dict$fromList(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'stop',
-						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
-					])))
-		]);
-};
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
-var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
-var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$map = _Platform_map;
-var elm$url$Url$Parser$query = function (_n0) {
-	var queryParser = _n0.a;
-	return elm$url$Url$Parser$Parser(
-		function (_n1) {
-			var visited = _n1.visited;
-			var unvisited = _n1.unvisited;
-			var params = _n1.params;
-			var frag = _n1.frag;
-			var value = _n1.value;
-			return _List_fromArray(
-				[
-					A5(
-					elm$url$Url$Parser$State,
-					visited,
-					unvisited,
-					params,
-					frag,
-					value(
-						queryParser(params)))
-				]);
-		});
-};
-var elm$url$Url$Parser$Query$map = F2(
-	function (func, _n0) {
-		var a = _n0.a;
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					a(dict));
-			});
-	});
-var author$project$Main$handleUrlTriggers = F2(
-	function (rawUrl, model) {
-		var appData = model.appData;
-		var environment = model.environment;
-		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var timeTrackerTriggers = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$Query$map(
-				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
-			author$project$TimeTracker$urlTriggers(appData));
-		var taskTriggers = _List_Nil;
-		var removeTriggersFromUrl = function (navkey) {
-			return A2(
-				elm$browser$Browser$Navigation$replaceUrl,
-				navkey,
-				elm$url$Url$toString(
-					_Utils_update(
-						url,
-						{query: elm$core$Maybe$Nothing})));
-		};
-		var removeTriggersFromUrlUnlessHeadless = A2(
-			elm$core$Maybe$withDefault,
-			elm$core$Platform$Cmd$none,
-			A2(elm$core$Maybe$map, removeTriggersFromUrl, environment.navkey));
-		var parseList = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$query,
-			_Utils_ap(timeTrackerTriggers, taskTriggers));
-		var normalizedUrl = _Utils_update(
-			url,
-			{path: ''});
-		var parsed = A2(
-			elm$url$Url$Parser$parse,
-			elm$url$Url$Parser$oneOf(parseList),
-			A2(elm$core$Debug$log, 'url', normalizedUrl));
-		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
-			var triggerMsg = parsed.a.a;
-			var _n8 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n8.a;
-			var newCmd = _n8.b;
-			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[newCmd, removeTriggersFromUrlUnlessHeadless]));
-			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
-		} else {
-			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-		}
-	});
 var author$project$Main$update = F2(
 	function (msg, model) {
 		var viewState = model.viewState;
@@ -11021,24 +10850,17 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
-					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
-					var modelAfter = _n4.a;
-					var effectsAfter = _n4.b;
-					return _Utils_Tuple2(
-						_Utils_update(
-							modelAfter,
-							{
-								viewState: author$project$Main$viewUrl(url)
-							}),
-						effectsAfter);
+					return justRunCommand(
+						author$project$External$Commands$toast(
+							'got NewUrl' + elm$url$Url$toString(url)));
 				case 'TaskListMsg':
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n5 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n5.a;
-						var newApp = _n5.b;
-						var newCommand = _n5.c;
+						var _n4 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n4.a;
+						var newApp = _n4.b;
+						var newCommand = _n4.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11056,10 +10878,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TimeTracker') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n6 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n6.a;
-						var newApp = _n6.b;
-						var newCommand = _n6.c;
+						var _n5 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n5.a;
+						var newApp = _n5.b;
+						var newCommand = _n5.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11184,7 +11006,10 @@ var author$project$Main$init = F3(
 				return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, maybeKey);
 			}
 		}();
-		var _n0 = A2(author$project$Main$updateWithTime, author$project$Main$testMsg, startingModel);
+		var _n0 = A2(
+			author$project$Main$updateWithTime,
+			author$project$Main$NewUrl(url),
+			startingModel);
 		var modelWithFirstUpdate = _n0.a;
 		var firstEffects = _n0.b;
 		var effects = _List_fromArray(
@@ -11267,6 +11092,18 @@ var elm$browser$Browser$Events$spawn = F3(
 						A2(elm$browser$Browser$Events$Event, key, event));
 				}));
 	});
+var elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		elm$core$List$foldl,
+		F2(
+			function (_n0, dict) {
+				var key = _n0.a;
+				var value = _n0.b;
+				return A3(elm$core$Dict$insert, key, value, dict);
+			}),
+		elm$core$Dict$empty,
+		assocs);
+};
 var elm$core$Dict$foldl = F3(
 	function (func, acc, dict) {
 		foldl:
@@ -15593,6 +15430,9 @@ var author$project$Activity$Measure$inFuzzyWords = function (duration) {
 		elm$time$Time$millisToPosix(0),
 		elm$time$Time$millisToPosix(
 			author$project$SmartTime$Duration$inMs(duration)));
+};
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
 };
 var rtfeldman$elm_css$Css$Internal$property = F2(
 	function (key, value) {
