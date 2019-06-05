@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, testMsg, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 --import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
 --import Time.TimeZones as TimeZones
@@ -495,3 +495,8 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
 nerfUrl : Url.Url -> Url.Url
 nerfUrl original =
     { original | path = "" }
+
+
+testMsg : Msg
+testMsg =
+    TimeTrackerMsg TimeTracker.testMsg
