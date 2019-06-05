@@ -111,6 +111,6 @@ app.ports.flash.subscribe(function(data) {
   logflash(data);
 });
 
-app.ports.headlessMsg.send("yo");
+//app.ports.headlessMsg.send("yo");
 
 logflash("Hit bottom of headlessLaunch.js, rev 13");
