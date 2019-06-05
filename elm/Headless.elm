@@ -32,13 +32,13 @@ urlOrElse urlAsString =
 
 fallbackUrl : Url.Url
 fallbackUrl =
-    { protocol = Url.Http, host = "headless.docket.com", port_ = Nothing, path = "", query = Just "start=nothing", fragment = Nothing }
+    { protocol = Url.Http, host = "headless.docket.com", port_ = Nothing, path = "", query = Nothing, fragment = Nothing }
 
 
 headlessSubscriptions : Model -> Sub Msg
 headlessSubscriptions ({ appData, environment } as model) =
     Sub.batch
-        [ headlessMsg (\s -> NewUrl fallbackUrl)
+        [ headlessMsg (\s -> NewUrl (urlOrElse s))
         ]
 
 

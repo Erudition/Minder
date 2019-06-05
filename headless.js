@@ -4357,19 +4357,6 @@ function _Time_getZoneName()
 		callback(_Scheduler_succeed(name));
 	});
 }
-var elm$core$Maybe$Just = function (a) {
-	return {$: 'Just', a: a};
-};
-var elm$core$Maybe$Nothing = {$: 'Nothing'};
-var elm$url$Url$Http = {$: 'Http'};
-var author$project$Headless$fallbackUrl = {
-	fragment: elm$core$Maybe$Nothing,
-	host: 'headless.docket.com',
-	path: '',
-	port_: elm$core$Maybe$Nothing,
-	protocol: elm$url$Url$Http,
-	query: elm$core$Maybe$Just('start=nothing')
-};
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
@@ -4622,6 +4609,10 @@ var elm$core$Array$initialize = F2(
 			return A5(elm$core$Array$initializeHelp, fn, initialFromIndex, len, _List_Nil, tail);
 		}
 	});
+var elm$core$Maybe$Just = function (a) {
+	return {$: 'Just', a: a};
+};
+var elm$core$Maybe$Nothing = {$: 'Nothing'};
 var elm$core$Result$Err = function (a) {
 	return {$: 'Err', a: a};
 };
@@ -4843,22 +4834,8 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 	});
 var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Headless$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
-var author$project$Main$NewUrl = function (a) {
-	return {$: 'NewUrl', a: a};
-};
-var elm$core$Platform$Sub$batch = _Platform_batch;
-var author$project$Headless$headlessSubscriptions = function (model) {
-	var appData = model.appData;
-	var environment = model.environment;
-	return elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				author$project$Headless$headlessMsg(
-				function (s) {
-					return author$project$Main$NewUrl(author$project$Headless$fallbackUrl);
-				})
-			]));
-};
+var elm$url$Url$Http = {$: 'Http'};
+var author$project$Headless$fallbackUrl = {fragment: elm$core$Maybe$Nothing, host: 'headless.docket.com', path: '', port_: elm$core$Maybe$Nothing, protocol: elm$url$Url$Http, query: elm$core$Maybe$Nothing};
 var elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -5001,6 +4978,23 @@ var author$project$Headless$urlOrElse = function (urlAsString) {
 		elm$core$Maybe$withDefault,
 		author$project$Headless$fallbackUrl,
 		elm$url$Url$fromString(urlAsString));
+};
+var author$project$Main$NewUrl = function (a) {
+	return {$: 'NewUrl', a: a};
+};
+var elm$core$Platform$Sub$batch = _Platform_batch;
+var author$project$Headless$headlessSubscriptions = function (model) {
+	var appData = model.appData;
+	var environment = model.environment;
+	return elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				author$project$Headless$headlessMsg(
+				function (s) {
+					return author$project$Main$NewUrl(
+						author$project$Headless$urlOrElse(s));
+				})
+			]));
 };
 var author$project$AppData$fromScratch = {activities: _List_Nil, errors: _List_Nil, tasks: _List_Nil, timeline: _List_Nil, uid: 0};
 var elm$core$List$foldrHelper = F4(
@@ -11203,6 +11197,6 @@ app.ports.flash.subscribe(function(data) {
   logflash(data);
 });
 
-//app.ports.headlessMsg.send("yo");
+app.ports.headlessMsg.send("");
 
-logflash("Hit bottom of headlessLaunch.js, rev 13");
+logflash("Hit bottom of headlessLaunch.js, rev 14");
