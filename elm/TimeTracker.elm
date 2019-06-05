@@ -1,8 +1,9 @@
-module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
+module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, testMsg, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure exposing (..)
 import Activity.Switching as Switching
+import Activity.Template
 import AppData exposing (..)
 import Browser
 import Browser.Dom
@@ -41,6 +42,11 @@ import VirtualDom
 
 type ViewState
     = Normal
+
+
+testMsg : Msg
+testMsg =
+    StartTracking (Stock Activity.Template.FilmWatching)
 
 
 

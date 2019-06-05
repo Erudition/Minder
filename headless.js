@@ -4834,6 +4834,32 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 	});
 var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Headless$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
+var author$project$Main$TimeTrackerMsg = function (a) {
+	return {$: 'TimeTrackerMsg', a: a};
+};
+var author$project$Activity$Activity$Stock = function (a) {
+	return {$: 'Stock', a: a};
+};
+var author$project$Activity$Template$FilmWatching = {$: 'FilmWatching'};
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
+};
+var author$project$TimeTracker$testMsg = author$project$TimeTracker$StartTracking(
+	author$project$Activity$Activity$Stock(author$project$Activity$Template$FilmWatching));
+var author$project$Main$testMsg = author$project$Main$TimeTrackerMsg(author$project$TimeTracker$testMsg);
+var elm$core$Platform$Sub$batch = _Platform_batch;
+var author$project$Headless$headlessSubscriptions = function (model) {
+	var appData = model.appData;
+	var environment = model.environment;
+	return elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				author$project$Headless$headlessMsg(
+				function (s) {
+					return author$project$Main$testMsg;
+				})
+			]));
+};
 var elm$url$Url$Http = {$: 'Http'};
 var author$project$Headless$fallbackUrl = {fragment: elm$core$Maybe$Nothing, host: 'headless.docket.com', path: '', port_: elm$core$Maybe$Nothing, protocol: elm$url$Url$Http, query: elm$core$Maybe$Nothing};
 var elm$core$Maybe$withDefault = F2(
@@ -4978,23 +5004,6 @@ var author$project$Headless$urlOrElse = function (urlAsString) {
 		elm$core$Maybe$withDefault,
 		author$project$Headless$fallbackUrl,
 		elm$url$Url$fromString(urlAsString));
-};
-var author$project$Main$NewUrl = function (a) {
-	return {$: 'NewUrl', a: a};
-};
-var elm$core$Platform$Sub$batch = _Platform_batch;
-var author$project$Headless$headlessSubscriptions = function (model) {
-	var appData = model.appData;
-	var environment = model.environment;
-	return elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				author$project$Headless$headlessMsg(
-				function (s) {
-					return author$project$Main$NewUrl(
-						author$project$Headless$urlOrElse(s));
-				})
-			]));
 };
 var author$project$AppData$fromScratch = {activities: _List_Nil, errors: _List_Nil, tasks: _List_Nil, timeline: _List_Nil, uid: 0};
 var elm$core$List$foldrHelper = F4(
@@ -5353,6 +5362,9 @@ var author$project$AppData$saveWarnings = F2(
 					appData.errors)
 			});
 	});
+var author$project$Main$NewUrl = function (a) {
+	return {$: 'NewUrl', a: a};
+};
 var author$project$Main$SetZoneAndTime = F2(
 	function (a, b) {
 		return {$: 'SetZoneAndTime', a: a, b: b};
@@ -5383,9 +5395,6 @@ var author$project$Activity$Activity$Customizations = function (names) {
 var author$project$Activity$Activity$Custom = function (a) {
 	return {$: 'Custom', a: a};
 };
-var author$project$Activity$Activity$Stock = function (a) {
-	return {$: 'Stock', a: a};
-};
 var author$project$Activity$Template$Apparel = {$: 'Apparel'};
 var author$project$Activity$Template$Bedward = {$: 'Bedward'};
 var author$project$Activity$Template$BrainTrain = {$: 'BrainTrain'};
@@ -5402,7 +5411,6 @@ var author$project$Activity$Template$DillyDally = {$: 'DillyDally'};
 var author$project$Activity$Template$Driving = {$: 'Driving'};
 var author$project$Activity$Template$Email = {$: 'Email'};
 var author$project$Activity$Template$Fiction = {$: 'Fiction'};
-var author$project$Activity$Template$FilmWatching = {$: 'FilmWatching'};
 var author$project$Activity$Template$Finance = {$: 'Finance'};
 var author$project$Activity$Template$Flight = {$: 'Flight'};
 var author$project$Activity$Template$Floss = {$: 'Floss'};
@@ -8467,9 +8475,6 @@ var author$project$Main$Model = F3(
 var author$project$Main$TaskListMsg = function (a) {
 	return {$: 'TaskListMsg', a: a};
 };
-var author$project$Main$TimeTrackerMsg = function (a) {
-	return {$: 'TimeTrackerMsg', a: a};
-};
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
 		case 'None':
@@ -10649,9 +10654,6 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
-};
 var elm$core$Dict$fromList = function (assocs) {
 	return A3(
 		elm$core$List$foldl,
@@ -11200,4 +11202,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send(taskerUrl);
 
-logflash("Hit bottom of headlessLaunch.js, rev 15");
+logflash("Hit bottom of headlessLaunch.js, rev 16");
