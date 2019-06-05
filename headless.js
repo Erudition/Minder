@@ -11197,6 +11197,7 @@ app.ports.flash.subscribe(function(data) {
   logflash(data);
 });
 
-app.ports.headlessMsg.send("");
 
-logflash("Hit bottom of headlessLaunch.js, rev 14");
+app.ports.headlessMsg.send(taskerUrl);
+
+logflash("Hit bottom of headlessLaunch.js, rev 15");
