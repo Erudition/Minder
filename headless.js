@@ -5362,9 +5362,6 @@ var author$project$AppData$saveWarnings = F2(
 					appData.errors)
 			});
 	});
-var author$project$Main$NewUrl = function (a) {
-	return {$: 'NewUrl', a: a};
-};
 var author$project$Main$SetZoneAndTime = F2(
 	function (a, b) {
 		return {$: 'SetZoneAndTime', a: a, b: b};
@@ -11035,10 +11032,7 @@ var author$project$Main$init = F3(
 				return A3(author$project$Main$buildModel, author$project$AppData$fromScratch, url, maybeKey);
 			}
 		}();
-		var _n0 = A2(
-			author$project$Main$updateWithTime,
-			author$project$Main$NewUrl(url),
-			startingModel);
+		var _n0 = A2(author$project$Main$updateWithTime, author$project$Main$testMsg, startingModel);
 		var modelWithFirstUpdate = _n0.a;
 		var firstEffects = _n0.b;
 		var effects = _List_fromArray(

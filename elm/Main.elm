@@ -139,7 +139,7 @@ init maybeJson url maybeKey =
                     buildModel AppData.fromScratch url maybeKey
 
         ( modelWithFirstUpdate, firstEffects ) =
-            updateWithTime (NewUrl url) startingModel
+            updateWithTime testMsg startingModel
 
         effects =
             [ Job.perform identity (Job.map2 SetZoneAndTime Time.here Time.now) -- reduces initial calls to update
