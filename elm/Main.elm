@@ -1,9 +1,5 @@
 port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, testMsg, update, updateWithStorage, updateWithTime, view, viewUrl)
 
---import Time.DateTime as Moment exposing (DateTime, dateTime, year, month, day, hour, minute, second, millisecond)
---import Time.TimeZones as TimeZones
---import Time.ZonedDateTime as LocalMoment exposing (ZonedDateTime)
-
 import AppData exposing (..)
 import Browser
 import Browser.Dom as Dom
@@ -139,7 +135,7 @@ init maybeJson url maybeKey =
                     buildModel AppData.fromScratch url maybeKey
 
         ( modelWithFirstUpdate, firstEffects ) =
-            updateWithTime testMsg startingModel
+            updateWithTime (NewUrl url) startingModel
 
         effects =
             [ Job.perform identity (Job.map2 SetZoneAndTime Time.here Time.now) -- reduces initial calls to update
@@ -363,11 +359,12 @@ update msg ({ viewState, appData, environment } as model) =
 
         -- TODO done!
         ( NewUrl url, _ ) ->
-            let
-                ( modelAfter, effectsAfter ) =
-                    handleUrlTriggers url model
-            in
-            ( { modelAfter | viewState = viewUrl url }, effectsAfter )
+            -- let
+            --     ( modelAfter, effectsAfter ) =
+            --         handleUrlTriggers url model
+            -- in
+            -- ( { modelAfter | viewState = viewUrl url }, effectsAfter )
+            justRunCommand <| External.Commands.toast ("got NewUrl" ++ Url.toString url)
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
