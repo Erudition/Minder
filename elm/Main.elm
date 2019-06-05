@@ -360,13 +360,13 @@ update msg ({ viewState, appData, environment } as model) =
         -- TODO done!
         ( NewUrl url, _ ) ->
             let
-                ( modelAfter, _ ) =
+                ( modelAfter, effectsAfter ) =
                     handleUrlTriggers url model
 
-                effectsAfter =
+                effectsAfterDebug =
                     External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( { modelAfter | viewState = viewUrl url }, effectsAfter )
+            ( { modelAfter | viewState = viewUrl url }, effectsAfterDebug )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
