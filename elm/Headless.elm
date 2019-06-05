@@ -27,17 +27,18 @@ initHeadless ( urlAsString, maybeJson ) =
 urlOrElse : String -> Url.Url
 urlOrElse urlAsString =
     -- since we can't pull URLs from JS
-    let
-        fallbackUrl =
-            { protocol = Url.Http, host = "docket.app", port_ = Nothing, path = "", query = Nothing, fragment = Nothing }
-    in
     Maybe.withDefault fallbackUrl (Url.fromString urlAsString)
+
+
+fallbackUrl : Url.Url
+fallbackUrl =
+    { protocol = Url.Http, host = "headless.docket.com", port_ = Nothing, path = "", query = Just "start=nothing", fragment = Nothing }
 
 
 headlessSubscriptions : Model -> Sub Msg
 headlessSubscriptions ({ appData, environment } as model) =
     Sub.batch
-        [ headlessMsg (\s -> Debug.log s NoOp)
+        [ headlessMsg (\s -> NewUrl fallbackUrl)
         ]
 
 

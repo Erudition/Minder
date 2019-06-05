@@ -4357,6 +4357,19 @@ function _Time_getZoneName()
 		callback(_Scheduler_succeed(name));
 	});
 }
+var elm$core$Maybe$Just = function (a) {
+	return {$: 'Just', a: a};
+};
+var elm$core$Maybe$Nothing = {$: 'Nothing'};
+var elm$url$Url$Http = {$: 'Http'};
+var author$project$Headless$fallbackUrl = {
+	fragment: elm$core$Maybe$Nothing,
+	host: 'headless.docket.com',
+	path: '',
+	port_: elm$core$Maybe$Nothing,
+	protocol: elm$url$Url$Http,
+	query: elm$core$Maybe$Just('start=nothing')
+};
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
@@ -4609,10 +4622,6 @@ var elm$core$Array$initialize = F2(
 			return A5(elm$core$Array$initializeHelp, fn, initialFromIndex, len, _List_Nil, tail);
 		}
 	});
-var elm$core$Maybe$Just = function (a) {
-	return {$: 'Just', a: a};
-};
-var elm$core$Maybe$Nothing = {$: 'Nothing'};
 var elm$core$Result$Err = function (a) {
 	return {$: 'Err', a: a};
 };
@@ -4834,8 +4843,9 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 	});
 var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Headless$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
-var author$project$Main$NoOp = {$: 'NoOp'};
-var elm$core$Debug$log = _Debug_log;
+var author$project$Main$NewUrl = function (a) {
+	return {$: 'NewUrl', a: a};
+};
 var elm$core$Platform$Sub$batch = _Platform_batch;
 var author$project$Headless$headlessSubscriptions = function (model) {
 	var appData = model.appData;
@@ -4845,7 +4855,7 @@ var author$project$Headless$headlessSubscriptions = function (model) {
 			[
 				author$project$Headless$headlessMsg(
 				function (s) {
-					return A2(elm$core$Debug$log, s, author$project$Main$NoOp);
+					return author$project$Main$NewUrl(author$project$Headless$fallbackUrl);
 				})
 			]));
 };
@@ -4858,7 +4868,6 @@ var elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var elm$url$Url$Http = {$: 'Http'};
 var elm$core$String$length = _String_length;
 var elm$core$String$slice = _String_slice;
 var elm$core$String$dropLeft = F2(
@@ -4988,10 +4997,9 @@ var elm$url$Url$fromString = function (str) {
 		A2(elm$core$String$dropLeft, 8, str)) : elm$core$Maybe$Nothing);
 };
 var author$project$Headless$urlOrElse = function (urlAsString) {
-	var fallbackUrl = {fragment: elm$core$Maybe$Nothing, host: 'docket.app', path: '', port_: elm$core$Maybe$Nothing, protocol: elm$url$Url$Http, query: elm$core$Maybe$Nothing};
 	return A2(
 		elm$core$Maybe$withDefault,
-		fallbackUrl,
+		author$project$Headless$fallbackUrl,
 		elm$url$Url$fromString(urlAsString));
 };
 var author$project$AppData$fromScratch = {activities: _List_Nil, errors: _List_Nil, tasks: _List_Nil, timeline: _List_Nil, uid: 0};
@@ -5351,9 +5359,6 @@ var author$project$AppData$saveWarnings = F2(
 					appData.errors)
 			});
 	});
-var author$project$Main$NewUrl = function (a) {
-	return {$: 'NewUrl', a: a};
-};
 var author$project$Main$SetZoneAndTime = F2(
 	function (a, b) {
 		return {$: 'SetZoneAndTime', a: a, b: b};
@@ -10740,6 +10745,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
+var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
 	var queryParser = _n0.a;

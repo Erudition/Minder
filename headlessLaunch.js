@@ -8,11 +8,11 @@ function getGlobalVar (name) {
         if (typeof g !== 'undefined')
             return g;
         else {
-            logflash(`Failed to get global: ${name} \n because it was undefined`);
+            logflash(`Failed to get global: ${name} because it was undefined`);
             return null;
         }
     } catch (e) {
-        logflash(`Failed to get global: ${name} \n because ${e}`);
+        logflash(`Failed to get global: ${name} because ${e}`);
         return null;
     }
 }
@@ -72,7 +72,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=pet";
 
 
 // touch file in case it's not There
@@ -81,7 +81,7 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=noth
 var app = this.Elm.Headless.init(
     { flags: [
         //taskerUrl, taskerReadAppData()
-        "taskerUrl", taskerReadAppData()
+        "", taskerReadAppData()
     ]
     });
 
@@ -101,8 +101,8 @@ app.ports.exit.subscribe(function(data) {
 
 
 app.ports.setStorage.subscribe(function(state) {
-    logflash("Storage set!");
     taskerOut("ElmAppData", state);
+    logflash("Storage set!");
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });
 
@@ -113,4 +113,4 @@ app.ports.flash.subscribe(function(data) {
 
 app.ports.headlessMsg.send("yo");
 
-logflash("Hit bottom! rev 11");
+logflash("Hit bottom of headlessLaunch.js, rev 13");
