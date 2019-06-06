@@ -10599,7 +10599,7 @@ var author$project$External$Commands$changeActivity = F2(
 					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ActivityTotalSec', newTotal)),
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ElmSelected', newTotal))
+					_Utils_Tuple2('ElmSelected', newName))
 				]));
 	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
@@ -11213,4 +11213,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 61");
+logflash("Hit bottom of headlessLaunch.js, rev 62");
