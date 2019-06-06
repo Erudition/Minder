@@ -1,4 +1,4 @@
-module Activity.Measure exposing (exportActivityUsage, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (exportActivityUsage, exportLastSession, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
@@ -180,9 +180,18 @@ exportActivityUsage app env activity =
             totalLive env.time lastPeriod activity.id
 
         totalSeconds =
-            Duration.inMs totalMs // 1000
+            Duration.inSecondsRounded totalMs
     in
     String.fromInt totalSeconds
+
+
+exportLastSession : AppData -> Activity -> String
+exportLastSession app old =
+    let
+        timeSpent =
+            Maybe.withDefault Duration.zero (List.head (sessions app.timeline old.id))
+    in
+    String.fromInt <| Duration.inMinutesRounded timeSpent
 
 
 

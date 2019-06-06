@@ -38,7 +38,7 @@ changeActivity newName newTotal oldTotal =
     Cmd.batch
         [ variableOut ( "ActivityTotalSec", newTotal )
         , variableOut ( "ElmSelected", newName )
-        , variableOut ( "PreviousActivityTotalSec", oldTotal )
+        , variableOut ( "PreviousActivityTotal", oldTotal )
         ]
 
 
