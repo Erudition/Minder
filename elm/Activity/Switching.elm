@@ -30,8 +30,8 @@ switchActivity activityId app env =
 
         -- Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
         , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity)
-        , Commands.hideWindow
 
+        -- , Commands.hideWindow
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
         ]
     )
