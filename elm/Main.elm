@@ -478,21 +478,21 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
     in
     case parsed of
         Just (Just triggerMsg) ->
-            -- let
-            --     ( newModel, newCmd ) =
-            --         update triggerMsg model
-            --
-            --     newCmdWithUrlCleaner =
-            --         Cmd.batch [ newCmd, removeTriggersFromUrl ]
-            -- in
+            let
+                ( newModel, newCmd ) =
+                    update triggerMsg model
+
+                newCmdWithUrlCleaner =
+                    Cmd.batch [ newCmd, removeTriggersFromUrl ]
+            in
             ( model
               -- newModel
-            , External.Commands.toast "I'm inside handleUrlTriggers!"
+            , External.Commands.toast "I'm inside handleUrlTriggers! match!"
               -- newCmdWithUrlCleaner
             )
 
         _ ->
-            ( model, Cmd.none )
+            ( model, Cmd.batch [ External.Commands.toast "I'm inside handleUrlTriggers! no match", External.Commands.hideWindow ] )
 
 
 nerfUrl : Url.Url -> Url.Url

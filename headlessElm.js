@@ -8460,6 +8460,16 @@ var author$project$Main$appDataToJson = function (appData) {
 		author$project$AppData$encodeAppData(appData));
 };
 var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
+var author$project$External$Tasker$exit = _Platform_outgoingPort(
+	'exit',
+	function ($) {
+		return elm$json$Json$Encode$null;
+	});
+var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
+var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
+var author$project$External$Commands$toast = function (message) {
+	return author$project$External$Tasker$flash(message);
+};
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
 		return {appData: appData, environment: environment, viewState: viewState};
@@ -8470,10 +8480,61 @@ var author$project$Main$TaskListMsg = function (a) {
 var author$project$Main$TimeTrackerMsg = function (a) {
 	return {$: 'TimeTrackerMsg', a: a};
 };
-var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
-var author$project$External$Commands$toast = function (message) {
-	return author$project$External$Tasker$flash(message);
+var author$project$Task$Progress$unitMax = function (unit) {
+	switch (unit.$) {
+		case 'None':
+			return 1;
+		case 'Percent':
+			return 100;
+		case 'Permille':
+			return 1000;
+		case 'Word':
+			var wordTarget = unit.a;
+			return wordTarget;
+		case 'Minute':
+			var minuteTarget = unit.a;
+			return minuteTarget;
+		default:
+			var _n1 = unit.a;
+			var customTarget = unit.b;
+			return customTarget;
+	}
 };
+var author$project$Task$Progress$getWhole = function (_n0) {
+	var unit = _n0.b;
+	return author$project$Task$Progress$unitMax(unit);
+};
+var author$project$Task$Progress$isMax = function (progress) {
+	return _Utils_eq(
+		author$project$Task$Progress$getPortion(progress),
+		author$project$Task$Progress$getWhole(progress));
+};
+var author$project$Task$Task$completed = function (task) {
+	return author$project$Task$Progress$isMax(
+		function ($) {
+			return $.completion;
+		}(task));
+};
+var author$project$Task$Task$newTask = F2(
+	function (description, id) {
+		return {
+			completion: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
+			deadline: author$project$Task$TaskMoment$Unset,
+			editing: false,
+			history: _List_Nil,
+			id: id,
+			parent: elm$core$Maybe$Nothing,
+			plannedFinish: author$project$Task$TaskMoment$Unset,
+			plannedStart: author$project$Task$TaskMoment$Unset,
+			predictedEffort: 0,
+			project: elm$core$Maybe$Just(0),
+			relevanceEnds: author$project$Task$TaskMoment$Unset,
+			relevanceStarts: author$project$Task$TaskMoment$Unset,
+			tags: _List_Nil,
+			title: description
+		};
+	});
+var author$project$TaskList$NoOp = {$: 'NoOp'};
 var elm$browser$Browser$External = function (a) {
 	return {$: 'External', a: a};
 };
@@ -8584,125 +8645,6 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 			return 3;
 	}
 };
-var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
-var elm$core$Debug$log = _Debug_log;
-var elm$core$Platform$Cmd$batch = _Platform_batch;
-var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
-var elm$url$Url$Parser$query = function (_n0) {
-	var queryParser = _n0.a;
-	return elm$url$Url$Parser$Parser(
-		function (_n1) {
-			var visited = _n1.visited;
-			var unvisited = _n1.unvisited;
-			var params = _n1.params;
-			var frag = _n1.frag;
-			var value = _n1.value;
-			return _List_fromArray(
-				[
-					A5(
-					elm$url$Url$Parser$State,
-					visited,
-					unvisited,
-					params,
-					frag,
-					value(
-						queryParser(params)))
-				]);
-		});
-};
-var author$project$Main$handleUrlTriggers = F2(
-	function (rawUrl, model) {
-		var appData = model.appData;
-		var environment = model.environment;
-		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var taskTriggers = _List_Nil;
-		var removeTriggersFromUrl = function () {
-			var _n1 = environment.navkey;
-			if (_n1.$ === 'Just') {
-				var navkey = _n1.a;
-				return A2(
-					elm$browser$Browser$Navigation$replaceUrl,
-					navkey,
-					elm$url$Url$toString(
-						_Utils_update(
-							url,
-							{query: elm$core$Maybe$Nothing})));
-			} else {
-				return elm$core$Platform$Cmd$none;
-			}
-		}();
-		var parseList = A2(elm$core$List$map, elm$url$Url$Parser$query, taskTriggers);
-		var normalizedUrl = _Utils_update(
-			url,
-			{path: ''});
-		var parsed = A2(
-			elm$url$Url$Parser$parse,
-			elm$url$Url$Parser$oneOf(parseList),
-			A2(elm$core$Debug$log, 'url', normalizedUrl));
-		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
-			var triggerMsg = parsed.a.a;
-			return _Utils_Tuple2(
-				model,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers!'));
-		} else {
-			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-		}
-	});
-var author$project$Task$Progress$unitMax = function (unit) {
-	switch (unit.$) {
-		case 'None':
-			return 1;
-		case 'Percent':
-			return 100;
-		case 'Permille':
-			return 1000;
-		case 'Word':
-			var wordTarget = unit.a;
-			return wordTarget;
-		case 'Minute':
-			var minuteTarget = unit.a;
-			return minuteTarget;
-		default:
-			var _n1 = unit.a;
-			var customTarget = unit.b;
-			return customTarget;
-	}
-};
-var author$project$Task$Progress$getWhole = function (_n0) {
-	var unit = _n0.b;
-	return author$project$Task$Progress$unitMax(unit);
-};
-var author$project$Task$Progress$isMax = function (progress) {
-	return _Utils_eq(
-		author$project$Task$Progress$getPortion(progress),
-		author$project$Task$Progress$getWhole(progress));
-};
-var author$project$Task$Task$completed = function (task) {
-	return author$project$Task$Progress$isMax(
-		function ($) {
-			return $.completion;
-		}(task));
-};
-var author$project$Task$Task$newTask = F2(
-	function (description, id) {
-		return {
-			completion: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
-			deadline: author$project$Task$TaskMoment$Unset,
-			editing: false,
-			history: _List_Nil,
-			id: id,
-			parent: elm$core$Maybe$Nothing,
-			plannedFinish: author$project$Task$TaskMoment$Unset,
-			plannedStart: author$project$Task$TaskMoment$Unset,
-			predictedEffort: 0,
-			project: elm$core$Maybe$Just(0),
-			relevanceEnds: author$project$Task$TaskMoment$Unset,
-			relevanceStarts: author$project$Task$TaskMoment$Unset,
-			tags: _List_Nil,
-			title: description
-		};
-	});
-var author$project$TaskList$NoOp = {$: 'NoOp'};
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$Basics$composeL = F3(
 	function (g, f, x) {
@@ -8722,6 +8664,8 @@ var elm$core$List$filter = F2(
 			_List_Nil,
 			list);
 	});
+var elm$core$Platform$Cmd$batch = _Platform_batch;
+var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var elm$core$Task$onError = _Scheduler_onError;
 var elm$core$Task$attempt = F2(
 	function (resultToMessage, task) {
@@ -10664,12 +10608,6 @@ var author$project$External$Commands$changeActivity = F2(
 					_Utils_Tuple2('ActivityTotalSec', newTotal))
 				]));
 	});
-var author$project$External$Tasker$exit = _Platform_outgoingPort(
-	'exit',
-	function ($) {
-		return elm$json$Json$Encode$null;
-	});
-var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10713,7 +10651,82 @@ var author$project$TimeTracker$update = F4(
 	});
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
+var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
+var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$map = _Platform_map;
+var elm$url$Url$Parser$query = function (_n0) {
+	var queryParser = _n0.a;
+	return elm$url$Url$Parser$Parser(
+		function (_n1) {
+			var visited = _n1.visited;
+			var unvisited = _n1.unvisited;
+			var params = _n1.params;
+			var frag = _n1.frag;
+			var value = _n1.value;
+			return _List_fromArray(
+				[
+					A5(
+					elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
+};
+var author$project$Main$handleUrlTriggers = F2(
+	function (rawUrl, model) {
+		var appData = model.appData;
+		var environment = model.environment;
+		var url = author$project$Main$bypassFakeFragment(rawUrl);
+		var taskTriggers = _List_Nil;
+		var removeTriggersFromUrl = function () {
+			var _n9 = environment.navkey;
+			if (_n9.$ === 'Just') {
+				var navkey = _n9.a;
+				return A2(
+					elm$browser$Browser$Navigation$replaceUrl,
+					navkey,
+					elm$url$Url$toString(
+						_Utils_update(
+							url,
+							{query: elm$core$Maybe$Nothing})));
+			} else {
+				return elm$core$Platform$Cmd$none;
+			}
+		}();
+		var parseList = A2(elm$core$List$map, elm$url$Url$Parser$query, taskTriggers);
+		var normalizedUrl = _Utils_update(
+			url,
+			{path: ''});
+		var parsed = A2(
+			elm$url$Url$Parser$parse,
+			elm$url$Url$Parser$oneOf(parseList),
+			A2(elm$core$Debug$log, 'url', normalizedUrl));
+		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
+			var triggerMsg = parsed.a.a;
+			var _n8 = A2(author$project$Main$update, triggerMsg, model);
+			var newModel = _n8.a;
+			var newCmd = _n8.b;
+			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[newCmd, removeTriggersFromUrl]));
+			return _Utils_Tuple2(
+				model,
+				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! match!'));
+		} else {
+			return _Utils_Tuple2(
+				model,
+				elm$core$Platform$Cmd$batch(
+					_List_fromArray(
+						[
+							author$project$External$Commands$toast('I\'m inside handleUrlTriggers! no match'),
+							author$project$External$Commands$hideWindow
+						])));
+		}
+	});
 var author$project$Main$update = F2(
 	function (msg, model) {
 		var viewState = model.viewState;
