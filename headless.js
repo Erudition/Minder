@@ -10727,7 +10727,17 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 			elm$core$Dict$fromList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('stop', author$project$TimeTracker$NoOp)
+						_Utils_Tuple2(
+						'stop',
+						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
+					]))),
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'start',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2('start', author$project$TimeTracker$NoOp)
 					])))
 		]);
 };
@@ -11203,4 +11213,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 33");
+logflash("Hit bottom of headlessLaunch.js, rev 34");
