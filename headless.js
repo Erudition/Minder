@@ -10597,7 +10597,9 @@ var author$project$External$Commands$changeActivity = F2(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ElmSelected', newName))
+					_Utils_Tuple2('ElmSelected', newName)),
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('Hello', newTotal))
 				]));
 	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
@@ -11187,9 +11189,9 @@ var app = this.Elm.Headless.init(
 
 logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
-// app.ports.variableOut.subscribe(function(data) {
-//     taskerOut(data[0], data[1]);
-// });
+app.ports.variableOut.subscribe(function(data) {
+    taskerOut(data[0], data[1]);
+});
 
 
 
@@ -11211,4 +11213,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 57");
+logflash("Hit bottom of headlessLaunch.js, rev 58");
