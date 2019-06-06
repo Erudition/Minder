@@ -10589,7 +10589,7 @@ var author$project$Activity$Switching$switchPopup = F3(
 			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
 				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return timeSpentString(timeSpent) + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n'))))));
+		return timeSpentString(timeSpent) + (' spent ' + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n')))))));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
@@ -10644,7 +10644,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
 						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity),
-						A2(author$project$Activity$Measure$exportLastSession, app, oldActivity))
+						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity))
 					])));
 	});
 var author$project$TimeTracker$update = F4(

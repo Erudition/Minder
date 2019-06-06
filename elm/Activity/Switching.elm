@@ -27,7 +27,7 @@ switchActivity activityId app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
-        , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity) (Measure.exportLastSession app oldActivity)
+        , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity) (Measure.exportLastSession updatedApp oldActivity)
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
         ]
@@ -47,6 +47,7 @@ switchPopup timeline new old =
             Duration.inSecondsRounded <| Measure.total timeline old.id
     in
     timeSpentString timeSpent
+        ++ " spent "
         ++ getName old
         ++ " ("
         ++ String.fromInt total
