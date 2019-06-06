@@ -10713,9 +10713,7 @@ var author$project$Main$handleUrlTriggers = F2(
 			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[newCmd, removeTriggersFromUrl]));
-			return _Utils_Tuple2(
-				newModel,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! match!'));
+			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 		} else {
 			return _Utils_Tuple2(
 				model,
@@ -11106,4 +11104,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 27");
+logflash("Hit bottom of headlessLaunch.js, rev 28");
