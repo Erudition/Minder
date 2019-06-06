@@ -8608,10 +8608,6 @@ var author$project$Main$appDataToJson = function (appData) {
 		author$project$AppData$encodeAppData(appData));
 };
 var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
-var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
-var author$project$External$Commands$toast = function (message) {
-	return author$project$External$Tasker$flash(message);
-};
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
 		return {appData: appData, environment: environment, viewState: viewState};
@@ -8622,359 +8618,10 @@ var author$project$Main$TaskListMsg = function (a) {
 var author$project$Main$TimeTrackerMsg = function (a) {
 	return {$: 'TimeTrackerMsg', a: a};
 };
-var author$project$Task$Progress$unitMax = function (unit) {
-	switch (unit.$) {
-		case 'None':
-			return 1;
-		case 'Percent':
-			return 100;
-		case 'Permille':
-			return 1000;
-		case 'Word':
-			var wordTarget = unit.a;
-			return wordTarget;
-		case 'Minute':
-			var minuteTarget = unit.a;
-			return minuteTarget;
-		default:
-			var _n1 = unit.a;
-			var customTarget = unit.b;
-			return customTarget;
-	}
+var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
+var author$project$External$Commands$toast = function (message) {
+	return author$project$External$Tasker$flash(message);
 };
-var author$project$Task$Progress$getWhole = function (_n0) {
-	var unit = _n0.b;
-	return author$project$Task$Progress$unitMax(unit);
-};
-var author$project$Task$Progress$isMax = function (progress) {
-	return _Utils_eq(
-		author$project$Task$Progress$getPortion(progress),
-		author$project$Task$Progress$getWhole(progress));
-};
-var author$project$Task$Task$completed = function (task) {
-	return author$project$Task$Progress$isMax(
-		function ($) {
-			return $.completion;
-		}(task));
-};
-var author$project$Task$Task$newTask = F2(
-	function (description, id) {
-		return {
-			completion: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
-			deadline: author$project$Task$TaskMoment$Unset,
-			editing: false,
-			history: _List_Nil,
-			id: id,
-			parent: elm$core$Maybe$Nothing,
-			plannedFinish: author$project$Task$TaskMoment$Unset,
-			plannedStart: author$project$Task$TaskMoment$Unset,
-			predictedEffort: 0,
-			project: elm$core$Maybe$Just(0),
-			relevanceEnds: author$project$Task$TaskMoment$Unset,
-			relevanceStarts: author$project$Task$TaskMoment$Unset,
-			tags: _List_Nil,
-			title: description
-		};
-	});
-var author$project$TaskList$NoOp = {$: 'NoOp'};
-var elm$browser$Browser$External = function (a) {
-	return {$: 'External', a: a};
-};
-var elm$browser$Browser$Internal = function (a) {
-	return {$: 'Internal', a: a};
-};
-var elm$browser$Browser$Dom$NotFound = function (a) {
-	return {$: 'NotFound', a: a};
-};
-var elm$core$Basics$never = function (_n0) {
-	never:
-	while (true) {
-		var nvr = _n0.a;
-		var $temp$_n0 = nvr;
-		_n0 = $temp$_n0;
-		continue never;
-	}
-};
-var elm$core$Task$Perform = function (a) {
-	return {$: 'Perform', a: a};
-};
-var elm$core$Task$succeed = _Scheduler_succeed;
-var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
-var elm$core$Task$andThen = _Scheduler_andThen;
-var elm$core$Task$map = F2(
-	function (func, taskA) {
-		return A2(
-			elm$core$Task$andThen,
-			function (a) {
-				return elm$core$Task$succeed(
-					func(a));
-			},
-			taskA);
-	});
-var elm$core$Task$map2 = F3(
-	function (func, taskA, taskB) {
-		return A2(
-			elm$core$Task$andThen,
-			function (a) {
-				return A2(
-					elm$core$Task$andThen,
-					function (b) {
-						return elm$core$Task$succeed(
-							A2(func, a, b));
-					},
-					taskB);
-			},
-			taskA);
-	});
-var elm$core$Task$sequence = function (tasks) {
-	return A3(
-		elm$core$List$foldr,
-		elm$core$Task$map2(elm$core$List$cons),
-		elm$core$Task$succeed(_List_Nil),
-		tasks);
-};
-var elm$core$Platform$sendToApp = _Platform_sendToApp;
-var elm$core$Task$spawnCmd = F2(
-	function (router, _n0) {
-		var task = _n0.a;
-		return _Scheduler_spawn(
-			A2(
-				elm$core$Task$andThen,
-				elm$core$Platform$sendToApp(router),
-				task));
-	});
-var elm$core$Task$onEffects = F3(
-	function (router, commands, state) {
-		return A2(
-			elm$core$Task$map,
-			function (_n0) {
-				return _Utils_Tuple0;
-			},
-			elm$core$Task$sequence(
-				A2(
-					elm$core$List$map,
-					elm$core$Task$spawnCmd(router),
-					commands)));
-	});
-var elm$core$Task$onSelfMsg = F3(
-	function (_n0, _n1, _n2) {
-		return elm$core$Task$succeed(_Utils_Tuple0);
-	});
-var elm$core$Task$cmdMap = F2(
-	function (tagger, _n0) {
-		var task = _n0.a;
-		return elm$core$Task$Perform(
-			A2(elm$core$Task$map, tagger, task));
-	});
-_Platform_effectManagers['Task'] = _Platform_createManager(elm$core$Task$init, elm$core$Task$onEffects, elm$core$Task$onSelfMsg, elm$core$Task$cmdMap);
-var elm$core$Task$command = _Platform_leaf('Task');
-var elm$core$Task$perform = F2(
-	function (toMessage, task) {
-		return elm$core$Task$command(
-			elm$core$Task$Perform(
-				A2(elm$core$Task$map, toMessage, task)));
-	});
-var elm$json$Json$Decode$map2 = _Json_map2;
-var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
-	switch (handler.$) {
-		case 'Normal':
-			return 0;
-		case 'MayStopPropagation':
-			return 1;
-		case 'MayPreventDefault':
-			return 2;
-		default:
-			return 3;
-	}
-};
-var elm$browser$Browser$Dom$focus = _Browser_call('focus');
-var elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
-var elm$core$Basics$neq = _Utils_notEqual;
-var elm$core$Basics$not = _Basics_not;
-var elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var elm$core$Platform$Cmd$batch = _Platform_batch;
-var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
-var elm$core$Task$onError = _Scheduler_onError;
-var elm$core$Task$attempt = F2(
-	function (resultToMessage, task) {
-		return elm$core$Task$command(
-			elm$core$Task$Perform(
-				A2(
-					elm$core$Task$onError,
-					A2(
-						elm$core$Basics$composeL,
-						A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
-						elm$core$Result$Err),
-					A2(
-						elm$core$Task$andThen,
-						A2(
-							elm$core$Basics$composeL,
-							A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
-							elm$core$Result$Ok),
-						task))));
-	});
-var author$project$TaskList$update = F4(
-	function (msg, state, app, env) {
-		switch (msg.$) {
-			case 'Add':
-				if (state.c === '') {
-					var filters = state.a;
-					return _Utils_Tuple3(
-						A3(author$project$TaskList$Normal, filters, elm$core$Maybe$Nothing, ''),
-						app,
-						elm$core$Platform$Cmd$none);
-				} else {
-					var filters = state.a;
-					var newTaskTitle = state.c;
-					return _Utils_Tuple3(
-						A3(author$project$TaskList$Normal, filters, elm$core$Maybe$Nothing, ''),
-						_Utils_update(
-							app,
-							{
-								tasks: _Utils_ap(
-									app.tasks,
-									_List_fromArray(
-										[
-											A2(
-											author$project$Task$Task$newTask,
-											newTaskTitle,
-											elm$time$Time$posixToMillis(env.time))
-										]))
-							}),
-						elm$core$Platform$Cmd$none);
-				}
-			case 'UpdateNewEntryField':
-				var typedSoFar = msg.a;
-				return _Utils_Tuple3(
-					function () {
-						var _n2 = state;
-						var filters = _n2.a;
-						var expanded = _n2.b;
-						return A3(author$project$TaskList$Normal, filters, expanded, typedSoFar);
-					}(),
-					app,
-					elm$core$Platform$Cmd$none);
-			case 'EditingTitle':
-				var id = msg.a;
-				var isEditing = msg.b;
-				var updateTask = function (t) {
-					return _Utils_eq(t.id, id) ? _Utils_update(
-						t,
-						{editing: isEditing}) : t;
-				};
-				var focus = elm$browser$Browser$Dom$focus(
-					'task-' + elm$core$String$fromInt(id));
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(elm$core$List$map, updateTask, app.tasks)
-						}),
-					A2(
-						elm$core$Task$attempt,
-						function (_n3) {
-							return author$project$TaskList$NoOp;
-						},
-						focus));
-			case 'UpdateTask':
-				var id = msg.a;
-				var task = msg.b;
-				var updateTask = function (t) {
-					return _Utils_eq(t.id, id) ? _Utils_update(
-						t,
-						{title: task}) : t;
-				};
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(elm$core$List$map, updateTask, app.tasks)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'UpdateTaskDate':
-				var id = msg.a;
-				var field = msg.b;
-				var date = msg.c;
-				var updateTask = function (t) {
-					return _Utils_eq(t.id, id) ? _Utils_update(
-						t,
-						{deadline: date}) : t;
-				};
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(elm$core$List$map, updateTask, app.tasks)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'Delete':
-				var id = msg.a;
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(
-								elm$core$List$filter,
-								function (t) {
-									return !_Utils_eq(t.id, id);
-								},
-								app.tasks)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'DeleteComplete':
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(
-								elm$core$List$filter,
-								A2(elm$core$Basics$composeL, elm$core$Basics$not, author$project$Task$Task$completed),
-								app.tasks)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'UpdateProgress':
-				var id = msg.a;
-				var new_completion = msg.b;
-				var updateTask = function (t) {
-					return _Utils_eq(t.id, id) ? _Utils_update(
-						t,
-						{completion: new_completion}) : t;
-				};
-				return _Utils_Tuple3(
-					state,
-					_Utils_update(
-						app,
-						{
-							tasks: A2(elm$core$List$map, updateTask, app.tasks)
-						}),
-					elm$core$Platform$Cmd$none);
-			case 'FocusSlider':
-				var task = msg.a;
-				var focused = msg.b;
-				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
-			default:
-				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
-		}
-	});
 var author$project$Activity$Activity$defaults = function (startWith) {
 	switch (startWith.$) {
 		case 'DillyDally':
@@ -9986,6 +9633,18 @@ var author$project$Activity$Activity$withTemplate = function (delta) {
 };
 var author$project$Activity$Template$stockActivities = _List_fromArray(
 	[author$project$Activity$Template$DillyDally, author$project$Activity$Template$Apparel, author$project$Activity$Template$Messaging, author$project$Activity$Template$Restroom, author$project$Activity$Template$Grooming, author$project$Activity$Template$Meal, author$project$Activity$Template$Supplements, author$project$Activity$Template$Workout, author$project$Activity$Template$Shower, author$project$Activity$Template$Toothbrush, author$project$Activity$Template$Floss, author$project$Activity$Template$Wakeup, author$project$Activity$Template$Sleep, author$project$Activity$Template$Plan, author$project$Activity$Template$Configure, author$project$Activity$Template$Email, author$project$Activity$Template$Work, author$project$Activity$Template$Call, author$project$Activity$Template$Chores, author$project$Activity$Template$Parents, author$project$Activity$Template$Prepare, author$project$Activity$Template$Lover, author$project$Activity$Template$Driving, author$project$Activity$Template$Riding, author$project$Activity$Template$SocialMedia, author$project$Activity$Template$Pacing, author$project$Activity$Template$Sport, author$project$Activity$Template$Finance, author$project$Activity$Template$Laundry, author$project$Activity$Template$Bedward, author$project$Activity$Template$Browse, author$project$Activity$Template$Fiction, author$project$Activity$Template$Learning, author$project$Activity$Template$BrainTrain, author$project$Activity$Template$Music, author$project$Activity$Template$Create, author$project$Activity$Template$Children, author$project$Activity$Template$Meeting, author$project$Activity$Template$Cinema, author$project$Activity$Template$FilmWatching, author$project$Activity$Template$Series, author$project$Activity$Template$Broadcast, author$project$Activity$Template$Theatre, author$project$Activity$Template$Shopping, author$project$Activity$Template$VideoGaming, author$project$Activity$Template$Housekeeping, author$project$Activity$Template$MealPrep, author$project$Activity$Template$Networking, author$project$Activity$Template$Meditate, author$project$Activity$Template$Homework, author$project$Activity$Template$Flight, author$project$Activity$Template$Course, author$project$Activity$Template$Pet, author$project$Activity$Template$Presentation]);
+var elm$core$Basics$not = _Basics_not;
+var elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:
@@ -10034,6 +9693,514 @@ var author$project$Activity$Activity$allActivities = function (stored) {
 		A2(elm$core$List$filter, templateMissing, author$project$Activity$Template$stockActivities));
 	return _Utils_ap(customizedActivities, remainingActivities);
 };
+var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
+};
+var elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		elm$core$List$foldl,
+		F2(
+			function (_n0, dict) {
+				var key = _n0.a;
+				var value = _n0.b;
+				return A3(elm$core$Dict$insert, key, value, dict);
+			}),
+		elm$core$Dict$empty,
+		assocs);
+};
+var elm$core$String$toLower = _String_toLower;
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2(elm$core$Dict$get, key, dict)));
+			});
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
+var author$project$TimeTracker$urlTriggers = function (app) {
+	var entriesPerActivity = function (activity) {
+		return _Utils_ap(
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						n,
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names),
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						elm$core$String$toLower(n),
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names));
+	};
+	var activitiesWithNames = elm$core$List$concat(
+		A2(
+			elm$core$List$map,
+			entriesPerActivity,
+			author$project$Activity$Activity$allActivities(app.activities)));
+	return _List_fromArray(
+		[
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'start',
+			elm$core$Dict$fromList(activitiesWithNames)),
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'stop',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'stop',
+						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
+					])))
+		]);
+};
+var elm$browser$Browser$External = function (a) {
+	return {$: 'External', a: a};
+};
+var elm$browser$Browser$Internal = function (a) {
+	return {$: 'Internal', a: a};
+};
+var elm$browser$Browser$Dom$NotFound = function (a) {
+	return {$: 'NotFound', a: a};
+};
+var elm$core$Basics$never = function (_n0) {
+	never:
+	while (true) {
+		var nvr = _n0.a;
+		var $temp$_n0 = nvr;
+		_n0 = $temp$_n0;
+		continue never;
+	}
+};
+var elm$core$Task$Perform = function (a) {
+	return {$: 'Perform', a: a};
+};
+var elm$core$Task$succeed = _Scheduler_succeed;
+var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
+var elm$core$Task$andThen = _Scheduler_andThen;
+var elm$core$Task$map = F2(
+	function (func, taskA) {
+		return A2(
+			elm$core$Task$andThen,
+			function (a) {
+				return elm$core$Task$succeed(
+					func(a));
+			},
+			taskA);
+	});
+var elm$core$Task$map2 = F3(
+	function (func, taskA, taskB) {
+		return A2(
+			elm$core$Task$andThen,
+			function (a) {
+				return A2(
+					elm$core$Task$andThen,
+					function (b) {
+						return elm$core$Task$succeed(
+							A2(func, a, b));
+					},
+					taskB);
+			},
+			taskA);
+	});
+var elm$core$Task$sequence = function (tasks) {
+	return A3(
+		elm$core$List$foldr,
+		elm$core$Task$map2(elm$core$List$cons),
+		elm$core$Task$succeed(_List_Nil),
+		tasks);
+};
+var elm$core$Platform$sendToApp = _Platform_sendToApp;
+var elm$core$Task$spawnCmd = F2(
+	function (router, _n0) {
+		var task = _n0.a;
+		return _Scheduler_spawn(
+			A2(
+				elm$core$Task$andThen,
+				elm$core$Platform$sendToApp(router),
+				task));
+	});
+var elm$core$Task$onEffects = F3(
+	function (router, commands, state) {
+		return A2(
+			elm$core$Task$map,
+			function (_n0) {
+				return _Utils_Tuple0;
+			},
+			elm$core$Task$sequence(
+				A2(
+					elm$core$List$map,
+					elm$core$Task$spawnCmd(router),
+					commands)));
+	});
+var elm$core$Task$onSelfMsg = F3(
+	function (_n0, _n1, _n2) {
+		return elm$core$Task$succeed(_Utils_Tuple0);
+	});
+var elm$core$Task$cmdMap = F2(
+	function (tagger, _n0) {
+		var task = _n0.a;
+		return elm$core$Task$Perform(
+			A2(elm$core$Task$map, tagger, task));
+	});
+_Platform_effectManagers['Task'] = _Platform_createManager(elm$core$Task$init, elm$core$Task$onEffects, elm$core$Task$onSelfMsg, elm$core$Task$cmdMap);
+var elm$core$Task$command = _Platform_leaf('Task');
+var elm$core$Task$perform = F2(
+	function (toMessage, task) {
+		return elm$core$Task$command(
+			elm$core$Task$Perform(
+				A2(elm$core$Task$map, toMessage, task)));
+	});
+var elm$json$Json$Decode$map2 = _Json_map2;
+var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
+	switch (handler.$) {
+		case 'Normal':
+			return 0;
+		case 'MayStopPropagation':
+			return 1;
+		case 'MayPreventDefault':
+			return 2;
+		default:
+			return 3;
+	}
+};
+var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
+var elm$core$Debug$log = _Debug_log;
+var elm$core$Platform$Cmd$batch = _Platform_batch;
+var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
+var elm$url$Url$Parser$query = function (_n0) {
+	var queryParser = _n0.a;
+	return elm$url$Url$Parser$Parser(
+		function (_n1) {
+			var visited = _n1.visited;
+			var unvisited = _n1.unvisited;
+			var params = _n1.params;
+			var frag = _n1.frag;
+			var value = _n1.value;
+			return _List_fromArray(
+				[
+					A5(
+					elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
+};
+var elm$url$Url$Parser$Query$map = F2(
+	function (func, _n0) {
+		var a = _n0.a;
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					a(dict));
+			});
+	});
+var author$project$Main$handleUrlTriggers = F2(
+	function (rawUrl, model) {
+		var appData = model.appData;
+		var environment = model.environment;
+		var url = author$project$Main$bypassFakeFragment(rawUrl);
+		var timeTrackerTriggers = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$Query$map(
+				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+			author$project$TimeTracker$urlTriggers(appData));
+		var taskTriggers = _List_Nil;
+		var removeTriggersFromUrl = function () {
+			var _n1 = environment.navkey;
+			if (_n1.$ === 'Just') {
+				var navkey = _n1.a;
+				return A2(
+					elm$browser$Browser$Navigation$replaceUrl,
+					navkey,
+					elm$url$Url$toString(
+						_Utils_update(
+							url,
+							{query: elm$core$Maybe$Nothing})));
+			} else {
+				return elm$core$Platform$Cmd$none;
+			}
+		}();
+		var parseList = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$query,
+			_Utils_ap(timeTrackerTriggers, taskTriggers));
+		var normalizedUrl = _Utils_update(
+			url,
+			{path: ''});
+		var parsed = A2(
+			elm$url$Url$Parser$parse,
+			elm$url$Url$Parser$oneOf(parseList),
+			A2(elm$core$Debug$log, 'url', normalizedUrl));
+		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
+			var triggerMsg = parsed.a.a;
+			return _Utils_Tuple2(
+				model,
+				author$project$External$Commands$toast('I\'m inside handleUrlTriggers!'));
+		} else {
+			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+		}
+	});
+var author$project$Task$Progress$unitMax = function (unit) {
+	switch (unit.$) {
+		case 'None':
+			return 1;
+		case 'Percent':
+			return 100;
+		case 'Permille':
+			return 1000;
+		case 'Word':
+			var wordTarget = unit.a;
+			return wordTarget;
+		case 'Minute':
+			var minuteTarget = unit.a;
+			return minuteTarget;
+		default:
+			var _n1 = unit.a;
+			var customTarget = unit.b;
+			return customTarget;
+	}
+};
+var author$project$Task$Progress$getWhole = function (_n0) {
+	var unit = _n0.b;
+	return author$project$Task$Progress$unitMax(unit);
+};
+var author$project$Task$Progress$isMax = function (progress) {
+	return _Utils_eq(
+		author$project$Task$Progress$getPortion(progress),
+		author$project$Task$Progress$getWhole(progress));
+};
+var author$project$Task$Task$completed = function (task) {
+	return author$project$Task$Progress$isMax(
+		function ($) {
+			return $.completion;
+		}(task));
+};
+var author$project$Task$Task$newTask = F2(
+	function (description, id) {
+		return {
+			completion: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
+			deadline: author$project$Task$TaskMoment$Unset,
+			editing: false,
+			history: _List_Nil,
+			id: id,
+			parent: elm$core$Maybe$Nothing,
+			plannedFinish: author$project$Task$TaskMoment$Unset,
+			plannedStart: author$project$Task$TaskMoment$Unset,
+			predictedEffort: 0,
+			project: elm$core$Maybe$Just(0),
+			relevanceEnds: author$project$Task$TaskMoment$Unset,
+			relevanceStarts: author$project$Task$TaskMoment$Unset,
+			tags: _List_Nil,
+			title: description
+		};
+	});
+var author$project$TaskList$NoOp = {$: 'NoOp'};
+var elm$browser$Browser$Dom$focus = _Browser_call('focus');
+var elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var elm$core$Basics$neq = _Utils_notEqual;
+var elm$core$Task$onError = _Scheduler_onError;
+var elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return elm$core$Task$command(
+			elm$core$Task$Perform(
+				A2(
+					elm$core$Task$onError,
+					A2(
+						elm$core$Basics$composeL,
+						A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
+						elm$core$Result$Err),
+					A2(
+						elm$core$Task$andThen,
+						A2(
+							elm$core$Basics$composeL,
+							A2(elm$core$Basics$composeL, elm$core$Task$succeed, resultToMessage),
+							elm$core$Result$Ok),
+						task))));
+	});
+var author$project$TaskList$update = F4(
+	function (msg, state, app, env) {
+		switch (msg.$) {
+			case 'Add':
+				if (state.c === '') {
+					var filters = state.a;
+					return _Utils_Tuple3(
+						A3(author$project$TaskList$Normal, filters, elm$core$Maybe$Nothing, ''),
+						app,
+						elm$core$Platform$Cmd$none);
+				} else {
+					var filters = state.a;
+					var newTaskTitle = state.c;
+					return _Utils_Tuple3(
+						A3(author$project$TaskList$Normal, filters, elm$core$Maybe$Nothing, ''),
+						_Utils_update(
+							app,
+							{
+								tasks: _Utils_ap(
+									app.tasks,
+									_List_fromArray(
+										[
+											A2(
+											author$project$Task$Task$newTask,
+											newTaskTitle,
+											elm$time$Time$posixToMillis(env.time))
+										]))
+							}),
+						elm$core$Platform$Cmd$none);
+				}
+			case 'UpdateNewEntryField':
+				var typedSoFar = msg.a;
+				return _Utils_Tuple3(
+					function () {
+						var _n2 = state;
+						var filters = _n2.a;
+						var expanded = _n2.b;
+						return A3(author$project$TaskList$Normal, filters, expanded, typedSoFar);
+					}(),
+					app,
+					elm$core$Platform$Cmd$none);
+			case 'EditingTitle':
+				var id = msg.a;
+				var isEditing = msg.b;
+				var updateTask = function (t) {
+					return _Utils_eq(t.id, id) ? _Utils_update(
+						t,
+						{editing: isEditing}) : t;
+				};
+				var focus = elm$browser$Browser$Dom$focus(
+					'task-' + elm$core$String$fromInt(id));
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(elm$core$List$map, updateTask, app.tasks)
+						}),
+					A2(
+						elm$core$Task$attempt,
+						function (_n3) {
+							return author$project$TaskList$NoOp;
+						},
+						focus));
+			case 'UpdateTask':
+				var id = msg.a;
+				var task = msg.b;
+				var updateTask = function (t) {
+					return _Utils_eq(t.id, id) ? _Utils_update(
+						t,
+						{title: task}) : t;
+				};
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(elm$core$List$map, updateTask, app.tasks)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'UpdateTaskDate':
+				var id = msg.a;
+				var field = msg.b;
+				var date = msg.c;
+				var updateTask = function (t) {
+					return _Utils_eq(t.id, id) ? _Utils_update(
+						t,
+						{deadline: date}) : t;
+				};
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(elm$core$List$map, updateTask, app.tasks)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'Delete':
+				var id = msg.a;
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(
+								elm$core$List$filter,
+								function (t) {
+									return !_Utils_eq(t.id, id);
+								},
+								app.tasks)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'DeleteComplete':
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(
+								elm$core$List$filter,
+								A2(elm$core$Basics$composeL, elm$core$Basics$not, author$project$Task$Task$completed),
+								app.tasks)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'UpdateProgress':
+				var id = msg.a;
+				var new_completion = msg.b;
+				var updateTask = function (t) {
+					return _Utils_eq(t.id, id) ? _Utils_update(
+						t,
+						{completion: new_completion}) : t;
+				};
+				return _Utils_Tuple3(
+					state,
+					_Utils_update(
+						app,
+						{
+							tasks: A2(elm$core$List$map, updateTask, app.tasks)
+						}),
+					elm$core$Platform$Cmd$none);
+			case 'FocusSlider':
+				var task = msg.a;
+				var focused = msg.b;
+				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+			default:
+				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+		}
+	});
 var author$project$Activity$Activity$getActivity = F2(
 	function (activities, activityId) {
 		var matches = function (act) {
@@ -10488,7 +10655,6 @@ var author$project$Activity$Measure$lookBack = F2(
 			zone,
 			present);
 	});
-var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
 var elm$core$List$partition = F2(
 	function (pred, list) {
 		var step = F2(
@@ -10797,181 +10963,9 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
-};
-var elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		elm$core$List$foldl,
-		F2(
-			function (_n0, dict) {
-				var key = _n0.a;
-				var value = _n0.b;
-				return A3(elm$core$Dict$insert, key, value, dict);
-			}),
-		elm$core$Dict$empty,
-		assocs);
-};
-var elm$core$String$toLower = _String_toLower;
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					A2(
-						elm$core$Maybe$withDefault,
-						_List_Nil,
-						A2(elm$core$Dict$get, key, dict)));
-			});
-	});
-var elm$url$Url$Parser$Query$enum = F2(
-	function (key, dict) {
-		return A2(
-			elm$url$Url$Parser$Query$custom,
-			key,
-			function (stringList) {
-				if (stringList.b && (!stringList.b.b)) {
-					var str = stringList.a;
-					return A2(elm$core$Dict$get, str, dict);
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			});
-	});
-var author$project$TimeTracker$urlTriggers = function (app) {
-	var entriesPerActivity = function (activity) {
-		return _Utils_ap(
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						n,
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names),
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						elm$core$String$toLower(n),
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names));
-	};
-	var activitiesWithNames = elm$core$List$concat(
-		A2(
-			elm$core$List$map,
-			entriesPerActivity,
-			author$project$Activity$Activity$allActivities(app.activities)));
-	return _List_fromArray(
-		[
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'start',
-			elm$core$Dict$fromList(activitiesWithNames)),
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'stop',
-			elm$core$Dict$fromList(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'stop',
-						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
-					])))
-		]);
-};
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
-var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
-var elm$core$Debug$log = _Debug_log;
 var elm$core$Platform$Cmd$map = _Platform_map;
-var elm$url$Url$Parser$query = function (_n0) {
-	var queryParser = _n0.a;
-	return elm$url$Url$Parser$Parser(
-		function (_n1) {
-			var visited = _n1.visited;
-			var unvisited = _n1.unvisited;
-			var params = _n1.params;
-			var frag = _n1.frag;
-			var value = _n1.value;
-			return _List_fromArray(
-				[
-					A5(
-					elm$url$Url$Parser$State,
-					visited,
-					unvisited,
-					params,
-					frag,
-					value(
-						queryParser(params)))
-				]);
-		});
-};
-var elm$url$Url$Parser$Query$map = F2(
-	function (func, _n0) {
-		var a = _n0.a;
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					a(dict));
-			});
-	});
-var author$project$Main$handleUrlTriggers = F2(
-	function (rawUrl, model) {
-		var appData = model.appData;
-		var environment = model.environment;
-		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var timeTrackerTriggers = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$Query$map(
-				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
-			author$project$TimeTracker$urlTriggers(appData));
-		var taskTriggers = _List_Nil;
-		var removeTriggersFromUrl = function () {
-			var _n9 = environment.navkey;
-			if (_n9.$ === 'Just') {
-				var navkey = _n9.a;
-				return A2(
-					elm$browser$Browser$Navigation$replaceUrl,
-					navkey,
-					elm$url$Url$toString(
-						_Utils_update(
-							url,
-							{query: elm$core$Maybe$Nothing})));
-			} else {
-				return elm$core$Platform$Cmd$none;
-			}
-		}();
-		var parseList = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$query,
-			_Utils_ap(timeTrackerTriggers, taskTriggers));
-		var normalizedUrl = _Utils_update(
-			url,
-			{path: ''});
-		var parsed = A2(
-			elm$url$Url$Parser$parse,
-			elm$url$Url$Parser$oneOf(parseList),
-			A2(elm$core$Debug$log, 'url', normalizedUrl));
-		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
-			var triggerMsg = parsed.a.a;
-			var _n8 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n8.a;
-			var newCmd = _n8.b;
-			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[newCmd, removeTriggersFromUrl]));
-			return _Utils_Tuple2(
-				model,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers!'));
-		} else {
-			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-		}
-	});
 var author$project$Main$update = F2(
 	function (msg, model) {
 		var viewState = model.viewState;
