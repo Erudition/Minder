@@ -221,13 +221,7 @@ update msg state app env =
             in
             ( state
             , updatedApp
-              -- updatedApp
-            , Cmd.batch
-                [ Commands.toast "ran StartTracking"
-                , Commands.changeActivity "41!" "newTotal"
-                , cmds
-                ]
-              -- cmds
+            , cmds
             )
 
 
@@ -241,7 +235,7 @@ urlTriggers app =
             List.map (\n -> ( n, StartTracking activity.id )) activity.names
                 ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
     in
-    [ -- PQ.enum "start" <| Dict.fromList activitiesWithNames
-      PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
-    , PQ.enum "start" <| Dict.fromList [ ( "start", NoOp ) ]
+    [ PQ.enum "start" <| Dict.fromList activitiesWithNames
+    , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
+    , PQ.enum "noop" <| Dict.fromList [ ( "noop", NoOp ) ]
     ]

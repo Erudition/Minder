@@ -9897,6 +9897,12 @@ var author$project$Activity$Activity$getActivity = F2(
 			elm$core$List$head(
 				A2(elm$core$List$filter, matches, activities)));
 	});
+var author$project$Activity$Activity$getName = function (activity) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		'?',
+		elm$core$List$head(activity.names));
+};
 var author$project$Activity$Activity$latestSwitch = function (timeline) {
 	return A2(
 		elm$core$Maybe$withDefault,
@@ -9927,29 +9933,6 @@ var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 		author$project$Activity$Activity$allActivities(app.activities),
 		app.timeline);
 };
-var author$project$Activity$Switching$switchActivity = F3(
-	function (activityId, app, env) {
-		var updatedApp = _Utils_update(
-			app,
-			{
-				timeline: A2(
-					elm$core$List$cons,
-					A2(author$project$Activity$Activity$Switch, env.time, activityId),
-					app.timeline)
-			});
-		var oldActivity = author$project$Activity$Switching$currentActivityFromApp(app);
-		var newActivity = A2(
-			author$project$Activity$Activity$getActivity,
-			author$project$Activity$Activity$allActivities(app.activities),
-			activityId);
-		return _Utils_Tuple2(
-			updatedApp,
-			elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[
-						author$project$External$Commands$toast('I\'m in switching now!')
-					])));
-	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
 	function ($) {
@@ -9975,6 +9958,33 @@ var author$project$External$Commands$changeActivity = F2(
 					_Utils_Tuple2('ActivityTotalSec', newTotal))
 				]));
 	});
+var author$project$Activity$Switching$switchActivity = F3(
+	function (activityId, app, env) {
+		var updatedApp = _Utils_update(
+			app,
+			{
+				timeline: A2(
+					elm$core$List$cons,
+					A2(author$project$Activity$Activity$Switch, env.time, activityId),
+					app.timeline)
+			});
+		var oldActivity = author$project$Activity$Switching$currentActivityFromApp(app);
+		var newActivity = A2(
+			author$project$Activity$Activity$getActivity,
+			author$project$Activity$Activity$allActivities(app.activities),
+			activityId);
+		return _Utils_Tuple2(
+			updatedApp,
+			elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						author$project$External$Commands$toast('I\'m in switching now! Down to the wire!'),
+						A2(
+						author$project$External$Commands$changeActivity,
+						author$project$Activity$Activity$getName(newActivity),
+						'usage')
+					])));
+	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
 		if (msg.$ === 'NoOp') {
@@ -9984,16 +9994,7 @@ var author$project$TimeTracker$update = F4(
 			var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
 			var updatedApp = _n1.a;
 			var cmds = _n1.b;
-			return _Utils_Tuple3(
-				state,
-				updatedApp,
-				elm$core$Platform$Cmd$batch(
-					_List_fromArray(
-						[
-							author$project$External$Commands$toast('ran StartTracking'),
-							A2(author$project$External$Commands$changeActivity, '41!', 'newTotal'),
-							cmds
-						])));
+			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
 var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
@@ -10071,6 +10072,10 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 		[
 			A2(
 			elm$url$Url$Parser$Query$enum,
+			'start',
+			elm$core$Dict$fromList(activitiesWithNames)),
+			A2(
+			elm$url$Url$Parser$Query$enum,
 			'stop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
@@ -10081,11 +10086,11 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 					]))),
 			A2(
 			elm$url$Url$Parser$Query$enum,
-			'start',
+			'noop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('start', author$project$TimeTracker$NoOp)
+						_Utils_Tuple2('noop', author$project$TimeTracker$NoOp)
 					])))
 		]);
 };
@@ -10561,4 +10566,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 42");
+logflash("Hit bottom of headlessLaunch.js, rev 43");
