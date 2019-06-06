@@ -26,7 +26,7 @@ switchActivity activityId app env =
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast "I'm in switching now! Down to the wire!"
+        [ Commands.toast "In the command list that causes problems"
         , Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
         , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity)
 

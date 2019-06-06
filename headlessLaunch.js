@@ -87,18 +87,7 @@ app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
 });
 
-// app.ports.exit.subscribe(function(data) {
-//   setTimeout(exitTasker, 500)
-// });
-//
-// function exitTasker() {
-//     try {
-//             // exit()
-//             logflash("Would have exited");
-//         } catch (e) {
-//             logflash("Tried to exit, if tasker was here");
-//         }
-// }
+
 
 app.ports.setStorage.subscribe(function(state) {
     taskerOut("ElmAppData", state);

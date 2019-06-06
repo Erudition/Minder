@@ -10597,8 +10597,6 @@ var author$project$External$Commands$changeActivity = F2(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('Hello', newTotal)),
-					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ElmSelected', newName))
 				]));
 	});
@@ -10622,7 +10620,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						author$project$External$Commands$toast('I\'m in switching now! Down to the wire!'),
+						author$project$External$Commands$toast('In the command list that causes problems'),
 						author$project$External$Commands$toast(
 						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
 						A2(
@@ -11186,18 +11184,7 @@ app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
 });
 
-// app.ports.exit.subscribe(function(data) {
-//   setTimeout(exitTasker, 500)
-// });
-//
-// function exitTasker() {
-//     try {
-//             // exit()
-//             logflash("Would have exited");
-//         } catch (e) {
-//             logflash("Tried to exit, if tasker was here");
-//         }
-// }
+
 
 app.ports.setStorage.subscribe(function(state) {
     taskerOut("ElmAppData", state);

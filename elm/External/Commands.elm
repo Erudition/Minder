@@ -36,8 +36,7 @@ toast message =
 
 changeActivity newName newTotal =
     Cmd.batch
-        [ variableOut ( "Hello", newTotal )
-        , variableOut ( "ElmSelected", newName )
+        [ variableOut ( "ElmSelected", newName )
         ]
 
 

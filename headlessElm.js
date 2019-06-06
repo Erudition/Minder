@@ -10597,8 +10597,6 @@ var author$project$External$Commands$changeActivity = F2(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('Hello', newTotal)),
-					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ElmSelected', newName))
 				]));
 	});
@@ -10622,7 +10620,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						author$project$External$Commands$toast('I\'m in switching now! Down to the wire!'),
+						author$project$External$Commands$toast('In the command list that causes problems'),
 						author$project$External$Commands$toast(
 						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
 						A2(
