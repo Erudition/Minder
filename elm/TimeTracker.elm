@@ -220,7 +220,7 @@ update msg state app env =
                     Switching.switchActivity activityId app env
             in
             ( state
-            , app
+            , updatedApp
               -- updatedApp
             , Commands.toast "ran StartTracking"
               -- cmds

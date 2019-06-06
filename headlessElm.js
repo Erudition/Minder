@@ -10648,7 +10648,7 @@ var author$project$TimeTracker$update = F4(
 			var cmds = _n1.b;
 			return _Utils_Tuple3(
 				state,
-				app,
+				updatedApp,
 				author$project$External$Commands$toast('ran StartTracking'));
 		}
 	});
