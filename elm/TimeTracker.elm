@@ -215,13 +215,15 @@ update msg state app env =
             )
 
         StartTracking activityId ->
-            let
-                ( updatedApp, cmds ) =
-                    Switching.switchActivity activityId app env
-            in
+            -- let
+            --     ( updatedApp, cmds ) =
+            --         Switching.switchActivity activityId app env
+            -- in
             ( state
-            , updatedApp
-            , cmds
+            , app
+              -- updatedApp
+            , Commands.changeActivity "newName" "newTotal"
+              -- cmds
             )
 
 
