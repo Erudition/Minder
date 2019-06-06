@@ -235,6 +235,7 @@ urlTriggers app =
             List.map (\n -> ( n, StartTracking activity.id )) activity.names
                 ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
     in
-    [-- PQ.enum "start" <| Dict.fromList activitiesWithNames
-     -- , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
+    [ -- PQ.enum "start" <| Dict.fromList activitiesWithNames
+      -- , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
+      PQ.enum "string" <| Dict.fromList [ ( "stop", NoOp ) ]
     ]

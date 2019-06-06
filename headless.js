@@ -10649,10 +10649,51 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
+var author$project$TimeTracker$NoOp = {$: 'NoOp'};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
 };
+var elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		elm$core$List$foldl,
+		F2(
+			function (_n0, dict) {
+				var key = _n0.a;
+				var value = _n0.b;
+				return A3(elm$core$Dict$insert, key, value, dict);
+			}),
+		elm$core$Dict$empty,
+		assocs);
+};
 var elm$core$String$toLower = _String_toLower;
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2(elm$core$Dict$get, key, dict)));
+			});
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
 var author$project$TimeTracker$urlTriggers = function (app) {
 	var entriesPerActivity = function (activity) {
 		return _Utils_ap(
@@ -10678,7 +10719,17 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 			elm$core$List$map,
 			entriesPerActivity,
 			author$project$Activity$Activity$allActivities(app.activities)));
-	return _List_Nil;
+	return _List_fromArray(
+		[
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'string',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2('stop', author$project$TimeTracker$NoOp)
+					])))
+		]);
 };
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
@@ -10706,9 +10757,6 @@ var elm$url$Url$Parser$query = function (_n0) {
 						queryParser(params)))
 				]);
 		});
-};
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
 };
 var elm$url$Url$Parser$Query$map = F2(
 	function (func, _n0) {
@@ -11155,4 +11203,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 31");
+logflash("Hit bottom of headlessLaunch.js, rev 32");
