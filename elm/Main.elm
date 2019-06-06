@@ -447,56 +447,52 @@ routeParser =
 -}
 handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
 handleUrlTriggers rawUrl ({ appData, environment } as model) =
-    -- let
-    --     url =
-    --         bypassFakeFragment rawUrl
-    --
-    --     -- so that parsers run regardless of path:
-    --     normalizedUrl =
-    --         { url | path = "" }
-    --
-    --     parsed =
-    --         P.parse (P.oneOf parseList) (Debug.log "url" <| normalizedUrl)
-    --
-    --     parseList =
-    --         List.map P.query (timeTrackerTriggers ++ taskTriggers)
-    --
-    --     timeTrackerTriggers =
-    --         List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
-    --
-    --     taskTriggers =
-    --         []
-    --
-    --     --TODO only remove handled triggers
-    --     removeTriggersFromUrl =
-    --         case environment.navkey of
-    --             Just navkey ->
-    --                 -- TODO maintain Fake Fragment. currently destroys it
-    --                 Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
-    --
-    --             Nothing ->
-    --                 Cmd.none
-    -- in
-    -- case parsed of
-    --     Just (Just triggerMsg) ->
-    --         -- let
-    --         --     ( newModel, newCmd ) =
-    --         --         update triggerMsg model
-    --         --
-    --         --     newCmdWithUrlCleaner =
-    --         --         Cmd.batch [ newCmd, removeTriggersFromUrl ]
-    --         -- in
-    ( model
-      -- newModel
-    , External.Commands.toast "I'm inside handleUrlTriggers!"
-      -- newCmdWithUrlCleaner
-    )
+    let
+        url =
+            bypassFakeFragment rawUrl
 
+        -- so that parsers run regardless of path:
+        normalizedUrl =
+            { url | path = "" }
 
+        parsed =
+            P.parse (P.oneOf parseList) (Debug.log "url" <| normalizedUrl)
 
---
--- _ ->
---     ( model, Cmd.none )
+        parseList =
+            List.map P.query taskTriggers
+
+        -- timeTrackerTriggers =
+        --     List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
+        taskTriggers =
+            []
+
+        --TODO only remove handled triggers
+        removeTriggersFromUrl =
+            case environment.navkey of
+                Just navkey ->
+                    -- TODO maintain Fake Fragment. currently destroys it
+                    Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
+
+                Nothing ->
+                    Cmd.none
+    in
+    case parsed of
+        Just (Just triggerMsg) ->
+            -- let
+            --     ( newModel, newCmd ) =
+            --         update triggerMsg model
+            --
+            --     newCmdWithUrlCleaner =
+            --         Cmd.batch [ newCmd, removeTriggersFromUrl ]
+            -- in
+            ( model
+              -- newModel
+            , External.Commands.toast "I'm inside handleUrlTriggers!"
+              -- newCmdWithUrlCleaner
+            )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 nerfUrl : Url.Url -> Url.Url

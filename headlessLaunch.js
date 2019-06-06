@@ -118,4 +118,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 24");
+logflash("Hit bottom of headlessLaunch.js, rev 25");
