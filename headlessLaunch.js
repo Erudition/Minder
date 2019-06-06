@@ -91,13 +91,15 @@ app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
 });
 
-// app.ports.exit.subscribe(function(data) {
-//   try {
-//       exit()
-//   } catch (e) {
-//       logflash("Tried to exit, if tasker was here");
-//   }
-// });
+app.ports.exit.subscribe(function(data) {
+
+  setTimeout(() => {   try {
+                    exit()
+                } catch (e) {
+                    logflash("Tried to exit, if tasker was here");
+                }},
+            1500)
+});
 
 
 app.ports.setStorage.subscribe(function(state) {
@@ -118,4 +120,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 46");
+logflash("Hit bottom of headlessLaunch.js, rev 47");
