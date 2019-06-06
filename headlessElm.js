@@ -9944,7 +9944,11 @@ var author$project$Activity$Switching$switchActivity = F3(
 			activityId);
 		return _Utils_Tuple2(
 			updatedApp,
-			elm$core$Platform$Cmd$batch(_List_Nil));
+			elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						author$project$External$Commands$toast('I\'m in switching now!')
+					])));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
