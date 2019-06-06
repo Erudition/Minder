@@ -461,8 +461,9 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
         parseList =
             List.map P.query taskTriggers
 
-        -- timeTrackerTriggers =
-        --     List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
+        timeTrackerTriggers =
+            List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
+
         taskTriggers =
             []
 
