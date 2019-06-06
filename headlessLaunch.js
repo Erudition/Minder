@@ -97,7 +97,7 @@ function exitTasker() {
             logflash("Would have exited");
         } catch (e) {
             logflash("Tried to exit, if tasker was here");
-        }   
+        }
 }
 
 app.ports.setStorage.subscribe(function(state) {
@@ -118,4 +118,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 49");
+logflash("Hit bottom of headlessLaunch.js, rev 50");
