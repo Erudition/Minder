@@ -72,20 +72,16 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=flight";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/";
 
 
 // touch file in case it's not There
 //taskerTry(() => {writeFile("docket.dat","",true)});
 
 var app = this.Elm.Headless.init(
-    { flags: [
-        //taskerUrl, taskerReadAppData()
-        taskerUrl, taskerReadAppData()
-    ]
-    });
+    { flags: [taskerUrl, taskerReadAppData()] });
 
-//logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
+logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
 app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
@@ -120,4 +116,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 47");
+logflash("Hit bottom of headlessLaunch.js, rev 48");
