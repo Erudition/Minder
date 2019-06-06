@@ -459,7 +459,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             P.parse (P.oneOf parseList) (Debug.log "url" <| normalizedUrl)
 
         parseList =
-            List.map P.query taskTriggers
+            List.map P.query (taskTriggers ++ timeTrackerTriggers)
 
         timeTrackerTriggers =
             List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)

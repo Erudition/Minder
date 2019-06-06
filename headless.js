@@ -10649,92 +10649,8 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
-};
-var elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		elm$core$List$foldl,
-		F2(
-			function (_n0, dict) {
-				var key = _n0.a;
-				var value = _n0.b;
-				return A3(elm$core$Dict$insert, key, value, dict);
-			}),
-		elm$core$Dict$empty,
-		assocs);
-};
-var elm$core$String$toLower = _String_toLower;
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					A2(
-						elm$core$Maybe$withDefault,
-						_List_Nil,
-						A2(elm$core$Dict$get, key, dict)));
-			});
-	});
-var elm$url$Url$Parser$Query$enum = F2(
-	function (key, dict) {
-		return A2(
-			elm$url$Url$Parser$Query$custom,
-			key,
-			function (stringList) {
-				if (stringList.b && (!stringList.b.b)) {
-					var str = stringList.a;
-					return A2(elm$core$Dict$get, str, dict);
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			});
-	});
 var author$project$TimeTracker$urlTriggers = function (app) {
-	var entriesPerActivity = function (activity) {
-		return _Utils_ap(
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						n,
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names),
-			A2(
-				elm$core$List$map,
-				function (n) {
-					return _Utils_Tuple2(
-						elm$core$String$toLower(n),
-						author$project$TimeTracker$StartTracking(activity.id));
-				},
-				activity.names));
-	};
-	var activitiesWithNames = elm$core$List$concat(
-		A2(
-			elm$core$List$map,
-			entriesPerActivity,
-			author$project$Activity$Activity$allActivities(app.activities)));
-	return _List_fromArray(
-		[
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'start',
-			elm$core$Dict$fromList(activitiesWithNames)),
-			A2(
-			elm$url$Url$Parser$Query$enum,
-			'stop',
-			elm$core$Dict$fromList(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'stop',
-						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
-					])))
-		]);
+	return _List_Nil;
 };
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
@@ -10762,6 +10678,9 @@ var elm$url$Url$Parser$query = function (_n0) {
 						queryParser(params)))
 				]);
 		});
+};
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
 };
 var elm$url$Url$Parser$Query$map = F2(
 	function (func, _n0) {
@@ -10798,7 +10717,10 @@ var author$project$Main$handleUrlTriggers = F2(
 				return elm$core$Platform$Cmd$none;
 			}
 		}();
-		var parseList = A2(elm$core$List$map, elm$url$Url$Parser$query, taskTriggers);
+		var parseList = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$query,
+			_Utils_ap(taskTriggers, timeTrackerTriggers));
 		var normalizedUrl = _Utils_update(
 			url,
 			{path: ''});
@@ -11172,7 +11094,7 @@ var app = this.Elm.Headless.init(
     ]
     });
 
- logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
+//logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
 app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
@@ -11205,4 +11127,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 29");
+logflash("Hit bottom of headlessLaunch.js, rev 30");
