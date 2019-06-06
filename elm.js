@@ -10776,6 +10776,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
+						author$project$External$Commands$toast('I\'m in switching now! Down to the wire!'),
 						author$project$External$Commands$toast(
 						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
 						A2(
@@ -10797,6 +10798,7 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
+var author$project$TimeTracker$NoOp = {$: 'NoOp'};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
 };
@@ -10881,6 +10883,14 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 						_Utils_Tuple2(
 						'stop',
 						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
+					]))),
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'noop',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2('noop', author$project$TimeTracker$NoOp)
 					])))
 		]);
 };
