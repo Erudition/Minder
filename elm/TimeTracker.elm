@@ -227,15 +227,14 @@ update msg state app env =
 
 urlTriggers : AppData -> List (PQ.Parser (Maybe Msg))
 urlTriggers app =
-    -- let
-    --     activitiesWithNames =
-    --         List.concat <| List.map entriesPerActivity (allActivities app.activities)
-    --
-    --     entriesPerActivity activity =
-    --         List.map (\n -> ( n, StartTracking activity.id )) activity.names
-    --             ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
-    -- in
-    -- [ PQ.enum "start" <| Dict.fromList activitiesWithNames
-    -- , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
-    -- ]
-    []
+    let
+        activitiesWithNames =
+            List.concat <| List.map entriesPerActivity (allActivities app.activities)
+
+        entriesPerActivity activity =
+            List.map (\n -> ( n, StartTracking activity.id )) activity.names
+                ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
+    in
+    [-- PQ.enum "start" <| Dict.fromList activitiesWithNames
+     -- , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
+    ]

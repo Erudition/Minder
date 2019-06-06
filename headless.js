@@ -10649,7 +10649,35 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
+};
+var elm$core$String$toLower = _String_toLower;
 var author$project$TimeTracker$urlTriggers = function (app) {
+	var entriesPerActivity = function (activity) {
+		return _Utils_ap(
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						n,
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names),
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						elm$core$String$toLower(n),
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names));
+	};
+	var activitiesWithNames = elm$core$List$concat(
+		A2(
+			elm$core$List$map,
+			entriesPerActivity,
+			author$project$Activity$Activity$allActivities(app.activities)));
 	return _List_Nil;
 };
 var elm$browser$Browser$Navigation$load = _Browser_load;
@@ -11127,4 +11155,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 30");
+logflash("Hit bottom of headlessLaunch.js, rev 31");
