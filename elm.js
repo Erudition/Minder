@@ -10946,7 +10946,10 @@ var author$project$Main$handleUrlTriggers = F2(
 				return elm$core$Platform$Cmd$none;
 			}
 		}();
-		var parseList = A2(elm$core$List$map, elm$url$Url$Parser$query, taskTriggers);
+		var parseList = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$query,
+			_Utils_ap(taskTriggers, timeTrackerTriggers));
 		var normalizedUrl = _Utils_update(
 			url,
 			{path: ''});
