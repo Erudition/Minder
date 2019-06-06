@@ -10649,7 +10649,12 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(
 				state,
 				updatedApp,
-				author$project$External$Commands$toast('ran StartTracking'));
+				elm$core$Platform$Cmd$batch(
+					_List_fromArray(
+						[
+							author$project$External$Commands$toast('ran StartTracking'),
+							A2(author$project$External$Commands$changeActivity, 'newName', 'newTotal')
+						])));
 		}
 	});
 var author$project$TimeTracker$NoOp = {$: 'NoOp'};

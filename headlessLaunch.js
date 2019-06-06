@@ -87,9 +87,9 @@ var app = this.Elm.Headless.init(
 
 //logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
-// app.ports.variableOut.subscribe(function(data) {
-//     taskerOut(data[0], data[1]);
-// });
+app.ports.variableOut.subscribe(function(data) {
+    taskerOut(data[0], data[1]);
+});
 
 // app.ports.exit.subscribe(function(data) {
 //   try {
@@ -118,4 +118,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 39");
+logflash("Hit bottom of headlessLaunch.js, rev 40");

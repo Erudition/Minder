@@ -10649,7 +10649,12 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(
 				state,
 				updatedApp,
-				author$project$External$Commands$toast('ran StartTracking'));
+				elm$core$Platform$Cmd$batch(
+					_List_fromArray(
+						[
+							author$project$External$Commands$toast('ran StartTracking'),
+							A2(author$project$External$Commands$changeActivity, 'newName', 'newTotal')
+						])));
 		}
 	});
 var author$project$TimeTracker$NoOp = {$: 'NoOp'};
@@ -11185,9 +11190,9 @@ var app = this.Elm.Headless.init(
 
 //logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
-// app.ports.variableOut.subscribe(function(data) {
-//     taskerOut(data[0], data[1]);
-// });
+app.ports.variableOut.subscribe(function(data) {
+    taskerOut(data[0], data[1]);
+});
 
 // app.ports.exit.subscribe(function(data) {
 //   try {
@@ -11216,4 +11221,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 39");
+logflash("Hit bottom of headlessLaunch.js, rev 40");

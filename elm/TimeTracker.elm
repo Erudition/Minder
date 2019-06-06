@@ -222,7 +222,10 @@ update msg state app env =
             ( state
             , updatedApp
               -- updatedApp
-            , Commands.toast "ran StartTracking"
+            , Cmd.batch
+                [ Commands.toast "ran StartTracking"
+                , Commands.changeActivity "newName" "newTotal"
+                ]
               -- cmds
             )
 
