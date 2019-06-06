@@ -11196,7 +11196,7 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=conf
 var app = this.Elm.Headless.init(
     { flags: [taskerUrl, taskerReadAppData()] });
 
-logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
+//logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
 app.ports.variableOut.subscribe(function(data) {
     taskerOut(data[0], data[1]);
@@ -11206,7 +11206,7 @@ app.ports.variableOut.subscribe(function(data) {
 
 app.ports.setStorage.subscribe(function(state) {
     taskerOut("ElmAppData", state);
-    logflash("Storage set!");
+    //logflash("Storage set!");
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });
 
@@ -11222,4 +11222,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 66");
+//logflash("Hit bottom of headlessLaunch.js, rev 66");
