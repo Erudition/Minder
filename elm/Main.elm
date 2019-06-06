@@ -485,14 +485,13 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                 newCmdWithUrlCleaner =
                     Cmd.batch [ newCmd, removeTriggersFromUrl ]
             in
-            ( model
-              -- newModel
+            ( newModel
             , External.Commands.toast "I'm inside handleUrlTriggers! match!"
               -- newCmdWithUrlCleaner
             )
 
         _ ->
-            ( model, Cmd.batch [ External.Commands.toast "I'm inside handleUrlTriggers! no match", External.Commands.hideWindow ] )
+            ( model, External.Commands.toast "I'm inside handleUrlTriggers! no match" )
 
 
 nerfUrl : Url.Url -> Url.Url

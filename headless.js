@@ -8460,12 +8460,6 @@ var author$project$Main$appDataToJson = function (appData) {
 		author$project$AppData$encodeAppData(appData));
 };
 var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
-var author$project$External$Tasker$exit = _Platform_outgoingPort(
-	'exit',
-	function ($) {
-		return elm$json$Json$Encode$null;
-	});
-var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
@@ -10608,6 +10602,12 @@ var author$project$External$Commands$changeActivity = F2(
 					_Utils_Tuple2('ActivityTotalSec', newTotal))
 				]));
 	});
+var author$project$External$Tasker$exit = _Platform_outgoingPort(
+	'exit',
+	function ($) {
+		return elm$json$Json$Encode$null;
+	});
+var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10714,17 +10714,12 @@ var author$project$Main$handleUrlTriggers = F2(
 				_List_fromArray(
 					[newCmd, removeTriggersFromUrl]));
 			return _Utils_Tuple2(
-				model,
+				newModel,
 				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! match!'));
 		} else {
 			return _Utils_Tuple2(
 				model,
-				elm$core$Platform$Cmd$batch(
-					_List_fromArray(
-						[
-							author$project$External$Commands$toast('I\'m inside handleUrlTriggers! no match'),
-							author$project$External$Commands$hideWindow
-						])));
+				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! no match'));
 		}
 	});
 var author$project$Main$update = F2(
@@ -11111,4 +11106,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 26");
+logflash("Hit bottom of headlessLaunch.js, rev 27");
