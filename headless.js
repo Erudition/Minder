@@ -11178,7 +11178,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
 
 
 // touch file in case it's not There
@@ -11196,11 +11196,12 @@ app.ports.variableOut.subscribe(function(data) {
 app.ports.exit.subscribe(function(data) {
 
   setTimeout(() => {   try {
-                    exit()
+                    // exit()
+                    logflash("Would have exited");
                 } catch (e) {
                     logflash("Tried to exit, if tasker was here");
                 }},
-            1500)
+            500)
 });
 
 
