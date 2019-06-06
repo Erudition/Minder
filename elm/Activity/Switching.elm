@@ -27,8 +27,7 @@ switchActivity activityId app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast "I'm in switching now! Down to the wire!"
-
-        -- Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
+        , Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
         , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity)
 
         -- , Commands.hideWindow
