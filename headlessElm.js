@@ -9927,138 +9927,6 @@ var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 		author$project$Activity$Activity$allActivities(app.activities),
 		app.timeline);
 };
-var author$project$Activity$Activity$getName = function (activity) {
-	return A2(
-		elm$core$Maybe$withDefault,
-		'?',
-		elm$core$List$head(activity.names));
-};
-var author$project$Activity$Measure$session = F2(
-	function (_n0, _n1) {
-		var newer = _n0.a;
-		var older = _n1.a;
-		var activityId = _n1.b;
-		return _Utils_Tuple2(
-			activityId,
-			author$project$SmartTime$Duration$fromInt(
-				elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older)));
-	});
-var elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
-				}
-			}
-		}
-	});
-var author$project$Activity$Measure$allSessions = function (switchList) {
-	var offsetList = A2(elm$core$List$drop, 1, switchList);
-	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
-};
-var author$project$Activity$Measure$isMatchingDuration = F2(
-	function (targetId, _n0) {
-		var itemId = _n0.a;
-		var dur = _n0.b;
-		return _Utils_eq(itemId, targetId) ? elm$core$Maybe$Just(dur) : elm$core$Maybe$Nothing;
-	});
-var author$project$Activity$Measure$sessions = F2(
-	function (switchList, activityId) {
-		var all = author$project$Activity$Measure$allSessions(switchList);
-		return A2(
-			elm$core$List$filterMap,
-			author$project$Activity$Measure$isMatchingDuration(activityId),
-			all);
-	});
-var author$project$SmartTime$Duration$add = F2(
-	function (_n0, _n1) {
-		var int1 = _n0.a;
-		var int2 = _n1.a;
-		return author$project$SmartTime$Duration$Duration(int1 + int2);
-	});
-var author$project$SmartTime$Duration$combine = function (durationList) {
-	return A3(
-		elm$core$List$foldl,
-		author$project$SmartTime$Duration$add,
-		author$project$SmartTime$Duration$Duration(0),
-		durationList);
-};
-var author$project$Activity$Measure$total = F2(
-	function (switchList, activityId) {
-		return author$project$SmartTime$Duration$combine(
-			A2(author$project$Activity$Measure$sessions, switchList, activityId));
-	});
-var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
-	return elm$core$Basics$round(
-		author$project$SmartTime$Duration$inMs(duration) / 1000);
-};
-var author$project$SmartTime$Duration$zero = author$project$SmartTime$Duration$Duration(0);
-var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
-	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var seconds = _n0.seconds;
-	return _List_fromArray(
-		[
-			author$project$SmartTime$HumanDuration$Minutes(
-			author$project$SmartTime$Duration$inWholeMinutes(duration)),
-			author$project$SmartTime$HumanDuration$Seconds(seconds)
-		]);
-};
-var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
-	switch (unit.$) {
-		case 'Milliseconds':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'ms';
-		case 'Seconds':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 's';
-		case 'Minutes':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'm';
-		case 'Hours':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'h';
-		default:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'd';
-	}
-};
-var elm$core$String$concat = function (strings) {
-	return A2(elm$core$String$join, '', strings);
-};
-var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanDurationList) {
-	return elm$core$String$concat(
-		A2(
-			elm$core$List$intersperse,
-			' ',
-			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
-};
-var author$project$Activity$Switching$switchPopup = F3(
-	function (timeline, _new, old) {
-		var total = author$project$SmartTime$Duration$inSecondsRounded(
-			A2(author$project$Activity$Measure$total, timeline, old.id));
-		var timeSpentString = function (dur) {
-			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
-				author$project$SmartTime$HumanDuration$breakdownMS(dur));
-		};
-		var timeSpent = A2(
-			elm$core$Maybe$withDefault,
-			author$project$SmartTime$Duration$zero,
-			elm$core$List$head(
-				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return timeSpentString(timeSpent) + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n'))))));
-	});
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10079,9 +9947,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						author$project$External$Commands$toast('In the command list that causes problems'),
-						author$project$External$Commands$toast(
-						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity))
+						author$project$External$Commands$toast('In the command list that causes problems')
 					])));
 	});
 var author$project$TimeTracker$update = F4(
