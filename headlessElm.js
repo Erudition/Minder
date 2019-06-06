@@ -9927,6 +9927,685 @@ var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 		author$project$Activity$Activity$allActivities(app.activities),
 		app.timeline);
 };
+var author$project$Activity$Activity$getName = function (activity) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		'?',
+		elm$core$List$head(activity.names));
+};
+var author$project$Activity$Activity$excusableFor = function (activity) {
+	var _n0 = activity.excusable;
+	switch (_n0.$) {
+		case 'NeverExcused':
+			return _Utils_Tuple2(
+				author$project$SmartTime$HumanDuration$Minutes(0),
+				author$project$SmartTime$HumanDuration$Minutes(0));
+		case 'TemporarilyExcused':
+			var durationPerPeriod = _n0.a;
+			return durationPerPeriod;
+		default:
+			return _Utils_Tuple2(
+				author$project$SmartTime$HumanDuration$Hours(24),
+				author$project$SmartTime$HumanDuration$Hours(24));
+	}
+};
+var author$project$SmartTime$HumanDuration$toDuration = function (humanDuration) {
+	switch (humanDuration.$) {
+		case 'Days':
+			var days = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(days * 86400000);
+		case 'Hours':
+			var hours = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(hours * 3600000);
+		case 'Minutes':
+			var minutes = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(minutes * 60000);
+		case 'Seconds':
+			var seconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(seconds * 1000);
+		default:
+			var milliseconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(milliseconds);
+	}
+};
+var justinmimbs$time_extra$Time$Extra$Millisecond = {$: 'Millisecond'};
+var justinmimbs$date$Date$Days = {$: 'Days'};
+var justinmimbs$date$Date$Months = {$: 'Months'};
+var elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
+var justinmimbs$date$Date$isLeapYear = function (y) {
+	return ((!A2(elm$core$Basics$modBy, 4, y)) && A2(elm$core$Basics$modBy, 100, y)) || (!A2(elm$core$Basics$modBy, 400, y));
+};
+var justinmimbs$date$Date$daysBeforeMonth = F2(
+	function (y, m) {
+		var leapDays = justinmimbs$date$Date$isLeapYear(y) ? 1 : 0;
+		switch (m.$) {
+			case 'Jan':
+				return 0;
+			case 'Feb':
+				return 31;
+			case 'Mar':
+				return 59 + leapDays;
+			case 'Apr':
+				return 90 + leapDays;
+			case 'May':
+				return 120 + leapDays;
+			case 'Jun':
+				return 151 + leapDays;
+			case 'Jul':
+				return 181 + leapDays;
+			case 'Aug':
+				return 212 + leapDays;
+			case 'Sep':
+				return 243 + leapDays;
+			case 'Oct':
+				return 273 + leapDays;
+			case 'Nov':
+				return 304 + leapDays;
+			default:
+				return 334 + leapDays;
+		}
+	});
+var justinmimbs$date$Date$floorDiv = F2(
+	function (a, b) {
+		return elm$core$Basics$floor(a / b);
+	});
+var justinmimbs$date$Date$daysBeforeYear = function (y1) {
+	var y = y1 - 1;
+	var leapYears = (A2(justinmimbs$date$Date$floorDiv, y, 4) - A2(justinmimbs$date$Date$floorDiv, y, 100)) + A2(justinmimbs$date$Date$floorDiv, y, 400);
+	return (365 * y) + leapYears;
+};
+var justinmimbs$date$Date$daysInMonth = F2(
+	function (y, m) {
+		switch (m.$) {
+			case 'Jan':
+				return 31;
+			case 'Feb':
+				return justinmimbs$date$Date$isLeapYear(y) ? 29 : 28;
+			case 'Mar':
+				return 31;
+			case 'Apr':
+				return 30;
+			case 'May':
+				return 31;
+			case 'Jun':
+				return 30;
+			case 'Jul':
+				return 31;
+			case 'Aug':
+				return 31;
+			case 'Sep':
+				return 30;
+			case 'Oct':
+				return 31;
+			case 'Nov':
+				return 30;
+			default:
+				return 31;
+		}
+	});
+var justinmimbs$date$Date$monthToNumber = function (m) {
+	switch (m.$) {
+		case 'Jan':
+			return 1;
+		case 'Feb':
+			return 2;
+		case 'Mar':
+			return 3;
+		case 'Apr':
+			return 4;
+		case 'May':
+			return 5;
+		case 'Jun':
+			return 6;
+		case 'Jul':
+			return 7;
+		case 'Aug':
+			return 8;
+		case 'Sep':
+			return 9;
+		case 'Oct':
+			return 10;
+		case 'Nov':
+			return 11;
+		default:
+			return 12;
+	}
+};
+var justinmimbs$date$Date$numberToMonth = function (mn) {
+	var _n0 = A2(elm$core$Basics$max, 1, mn);
+	switch (_n0) {
+		case 1:
+			return elm$time$Time$Jan;
+		case 2:
+			return elm$time$Time$Feb;
+		case 3:
+			return elm$time$Time$Mar;
+		case 4:
+			return elm$time$Time$Apr;
+		case 5:
+			return elm$time$Time$May;
+		case 6:
+			return elm$time$Time$Jun;
+		case 7:
+			return elm$time$Time$Jul;
+		case 8:
+			return elm$time$Time$Aug;
+		case 9:
+			return elm$time$Time$Sep;
+		case 10:
+			return elm$time$Time$Oct;
+		case 11:
+			return elm$time$Time$Nov;
+		default:
+			return elm$time$Time$Dec;
+	}
+};
+var justinmimbs$date$Date$toCalendarDateHelp = F3(
+	function (y, m, d) {
+		toCalendarDateHelp:
+		while (true) {
+			var monthDays = A2(justinmimbs$date$Date$daysInMonth, y, m);
+			var mn = justinmimbs$date$Date$monthToNumber(m);
+			if ((mn < 12) && (_Utils_cmp(d, monthDays) > 0)) {
+				var $temp$y = y,
+					$temp$m = justinmimbs$date$Date$numberToMonth(mn + 1),
+					$temp$d = d - monthDays;
+				y = $temp$y;
+				m = $temp$m;
+				d = $temp$d;
+				continue toCalendarDateHelp;
+			} else {
+				return {day: d, month: m, year: y};
+			}
+		}
+	});
+var justinmimbs$date$Date$divWithRemainder = F2(
+	function (a, b) {
+		return _Utils_Tuple2(
+			A2(justinmimbs$date$Date$floorDiv, a, b),
+			A2(elm$core$Basics$modBy, b, a));
+	});
+var justinmimbs$date$Date$year = function (_n0) {
+	var rd = _n0.a;
+	var _n1 = A2(justinmimbs$date$Date$divWithRemainder, rd, 146097);
+	var n400 = _n1.a;
+	var r400 = _n1.b;
+	var _n2 = A2(justinmimbs$date$Date$divWithRemainder, r400, 36524);
+	var n100 = _n2.a;
+	var r100 = _n2.b;
+	var _n3 = A2(justinmimbs$date$Date$divWithRemainder, r100, 1461);
+	var n4 = _n3.a;
+	var r4 = _n3.b;
+	var _n4 = A2(justinmimbs$date$Date$divWithRemainder, r4, 365);
+	var n1 = _n4.a;
+	var r1 = _n4.b;
+	var n = (!r1) ? 0 : 1;
+	return ((((n400 * 400) + (n100 * 100)) + (n4 * 4)) + n1) + n;
+};
+var justinmimbs$date$Date$toOrdinalDate = function (_n0) {
+	var rd = _n0.a;
+	var y = justinmimbs$date$Date$year(
+		justinmimbs$date$Date$RD(rd));
+	return {
+		ordinalDay: rd - justinmimbs$date$Date$daysBeforeYear(y),
+		year: y
+	};
+};
+var justinmimbs$date$Date$toCalendarDate = function (_n0) {
+	var rd = _n0.a;
+	var date = justinmimbs$date$Date$toOrdinalDate(
+		justinmimbs$date$Date$RD(rd));
+	return A3(justinmimbs$date$Date$toCalendarDateHelp, date.year, elm$time$Time$Jan, date.ordinalDay);
+};
+var justinmimbs$date$Date$add = F3(
+	function (unit, n, _n0) {
+		var rd = _n0.a;
+		switch (unit.$) {
+			case 'Years':
+				return A3(
+					justinmimbs$date$Date$add,
+					justinmimbs$date$Date$Months,
+					12 * n,
+					justinmimbs$date$Date$RD(rd));
+			case 'Months':
+				var date = justinmimbs$date$Date$toCalendarDate(
+					justinmimbs$date$Date$RD(rd));
+				var wholeMonths = ((12 * (date.year - 1)) + (justinmimbs$date$Date$monthToNumber(date.month) - 1)) + n;
+				var m = justinmimbs$date$Date$numberToMonth(
+					A2(elm$core$Basics$modBy, 12, wholeMonths) + 1);
+				var y = A2(justinmimbs$date$Date$floorDiv, wholeMonths, 12) + 1;
+				return justinmimbs$date$Date$RD(
+					(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + A2(
+						elm$core$Basics$min,
+						date.day,
+						A2(justinmimbs$date$Date$daysInMonth, y, m)));
+			case 'Weeks':
+				return justinmimbs$date$Date$RD(rd + (7 * n));
+			default:
+				return justinmimbs$date$Date$RD(rd + n);
+		}
+	});
+var elm$core$Basics$clamp = F3(
+	function (low, high, number) {
+		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
+	});
+var justinmimbs$date$Date$fromCalendarDate = F3(
+	function (y, m, d) {
+		return justinmimbs$date$Date$RD(
+			(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + A3(
+				elm$core$Basics$clamp,
+				1,
+				A2(justinmimbs$date$Date$daysInMonth, y, m),
+				d));
+	});
+var justinmimbs$date$Date$fromPosix = F2(
+	function (zone, posix) {
+		return A3(
+			justinmimbs$date$Date$fromCalendarDate,
+			A2(elm$time$Time$toYear, zone, posix),
+			A2(elm$time$Time$toMonth, zone, posix),
+			A2(elm$time$Time$toDay, zone, posix));
+	});
+var justinmimbs$time_extra$Time$Extra$Day = {$: 'Day'};
+var justinmimbs$time_extra$Time$Extra$Month = {$: 'Month'};
+var justinmimbs$date$Date$toRataDie = function (_n0) {
+	var rd = _n0.a;
+	return rd;
+};
+var justinmimbs$time_extra$Time$Extra$dateToMillis = function (date) {
+	var daysSinceEpoch = justinmimbs$date$Date$toRataDie(date) - 719163;
+	return daysSinceEpoch * 86400000;
+};
+var justinmimbs$time_extra$Time$Extra$timeFromClock = F4(
+	function (hour, minute, second, millisecond) {
+		return (((hour * 3600000) + (minute * 60000)) + (second * 1000)) + millisecond;
+	});
+var justinmimbs$time_extra$Time$Extra$timeFromPosix = F2(
+	function (zone, posix) {
+		return A4(
+			justinmimbs$time_extra$Time$Extra$timeFromClock,
+			A2(elm$time$Time$toHour, zone, posix),
+			A2(elm$time$Time$toMinute, zone, posix),
+			A2(elm$time$Time$toSecond, zone, posix),
+			A2(elm$time$Time$toMillis, zone, posix));
+	});
+var justinmimbs$time_extra$Time$Extra$toOffset = F2(
+	function (zone, posix) {
+		var millis = elm$time$Time$posixToMillis(posix);
+		var localMillis = justinmimbs$time_extra$Time$Extra$dateToMillis(
+			A2(justinmimbs$date$Date$fromPosix, zone, posix)) + A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix);
+		return ((localMillis - millis) / 60000) | 0;
+	});
+var justinmimbs$time_extra$Time$Extra$posixFromDateTime = F3(
+	function (zone, date, time) {
+		var millis = justinmimbs$time_extra$Time$Extra$dateToMillis(date) + time;
+		var offset0 = A2(
+			justinmimbs$time_extra$Time$Extra$toOffset,
+			zone,
+			elm$time$Time$millisToPosix(millis));
+		var posix1 = elm$time$Time$millisToPosix(millis - (offset0 * 60000));
+		var offset1 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix1);
+		if (_Utils_eq(offset0, offset1)) {
+			return posix1;
+		} else {
+			var posix2 = elm$time$Time$millisToPosix(millis - (offset1 * 60000));
+			var offset2 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix2);
+			return _Utils_eq(offset1, offset2) ? posix2 : posix1;
+		}
+	});
+var justinmimbs$time_extra$Time$Extra$add = F4(
+	function (interval, n, zone, posix) {
+		add:
+		while (true) {
+			switch (interval.$) {
+				case 'Millisecond':
+					return elm$time$Time$millisToPosix(
+						elm$time$Time$posixToMillis(posix) + n);
+				case 'Second':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
+						$temp$n = n * 1000,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				case 'Minute':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
+						$temp$n = n * 60000,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				case 'Hour':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
+						$temp$n = n * 3600000,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				case 'Day':
+					return A3(
+						justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+						zone,
+						A3(
+							justinmimbs$date$Date$add,
+							justinmimbs$date$Date$Days,
+							n,
+							A2(justinmimbs$date$Date$fromPosix, zone, posix)),
+						A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix));
+				case 'Month':
+					return A3(
+						justinmimbs$time_extra$Time$Extra$posixFromDateTime,
+						zone,
+						A3(
+							justinmimbs$date$Date$add,
+							justinmimbs$date$Date$Months,
+							n,
+							A2(justinmimbs$date$Date$fromPosix, zone, posix)),
+						A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix));
+				case 'Year':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Month,
+						$temp$n = n * 12,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				case 'Quarter':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Month,
+						$temp$n = n * 3,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				case 'Week':
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Day,
+						$temp$n = n * 7,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+				default:
+					var weekday = interval;
+					var $temp$interval = justinmimbs$time_extra$Time$Extra$Day,
+						$temp$n = n * 7,
+						$temp$zone = zone,
+						$temp$posix = posix;
+					interval = $temp$interval;
+					n = $temp$n;
+					zone = $temp$zone;
+					posix = $temp$posix;
+					continue add;
+			}
+		}
+	});
+var author$project$Activity$Measure$lookBack = F2(
+	function (_n0, humanDuration) {
+		var present = _n0.a;
+		var zone = _n0.b;
+		return A4(
+			justinmimbs$time_extra$Time$Extra$add,
+			justinmimbs$time_extra$Time$Extra$Millisecond,
+			-author$project$SmartTime$Duration$inMs(
+				author$project$SmartTime$HumanDuration$toDuration(humanDuration)),
+			zone,
+			present);
+	});
+var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
+var elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _n0) {
+				var trues = _n0.a;
+				var falses = _n0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2(elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2(elm$core$List$cons, x, falses));
+			});
+		return A3(
+			elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var author$project$Activity$Measure$timelineLimit = F3(
+	function (timeline, now, pastLimit) {
+		var switchActivityId = function (_n2) {
+			var id = _n2.b;
+			return id;
+		};
+		var recentEnough = function (_n1) {
+			var moment = _n1.a;
+			return _Utils_cmp(
+				elm$time$Time$posixToMillis(moment),
+				elm$time$Time$posixToMillis(pastLimit)) > 0;
+		};
+		var _n0 = A2(elm$core$List$partition, recentEnough, timeline);
+		var pass = _n0.a;
+		var fail = _n0.b;
+		var justMissedId = A2(
+			elm$core$Maybe$withDefault,
+			author$project$Activity$Activity$dummy,
+			A2(
+				elm$core$Maybe$map,
+				switchActivityId,
+				elm$core$List$head(fail)));
+		var fakeEndSwitch = A2(author$project$Activity$Activity$Switch, pastLimit, justMissedId);
+		return _Utils_ap(
+			pass,
+			_List_fromArray(
+				[fakeEndSwitch]));
+	});
+var author$project$Activity$Measure$relevantTimeline = F3(
+	function (timeline, _n0, duration) {
+		var now = _n0.a;
+		var zone = _n0.b;
+		return A3(
+			author$project$Activity$Measure$timelineLimit,
+			timeline,
+			now,
+			A2(
+				author$project$Activity$Measure$lookBack,
+				_Utils_Tuple2(now, zone),
+				duration));
+	});
+var author$project$Activity$Measure$session = F2(
+	function (_n0, _n1) {
+		var newer = _n0.a;
+		var older = _n1.a;
+		var activityId = _n1.b;
+		return _Utils_Tuple2(
+			activityId,
+			author$project$SmartTime$Duration$fromInt(
+				elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older)));
+	});
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var author$project$Activity$Measure$allSessions = function (switchList) {
+	var offsetList = A2(elm$core$List$drop, 1, switchList);
+	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
+};
+var author$project$Activity$Measure$isMatchingDuration = F2(
+	function (targetId, _n0) {
+		var itemId = _n0.a;
+		var dur = _n0.b;
+		return _Utils_eq(itemId, targetId) ? elm$core$Maybe$Just(dur) : elm$core$Maybe$Nothing;
+	});
+var author$project$Activity$Measure$sessions = F2(
+	function (switchList, activityId) {
+		var all = author$project$Activity$Measure$allSessions(switchList);
+		return A2(
+			elm$core$List$filterMap,
+			author$project$Activity$Measure$isMatchingDuration(activityId),
+			all);
+	});
+var author$project$SmartTime$Duration$add = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var author$project$SmartTime$Duration$combine = function (durationList) {
+	return A3(
+		elm$core$List$foldl,
+		author$project$SmartTime$Duration$add,
+		author$project$SmartTime$Duration$Duration(0),
+		durationList);
+};
+var author$project$Activity$Measure$totalLive = F3(
+	function (now, switchList, activityId) {
+		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
+		return author$project$SmartTime$Duration$combine(
+			A2(
+				author$project$Activity$Measure$sessions,
+				A2(elm$core$List$cons, fakeSwitch, switchList),
+				activityId));
+	});
+var author$project$Activity$Measure$exportActivityUsage = F3(
+	function (app, env, activity) {
+		var excusableLimit = author$project$Activity$Activity$excusableFor(activity);
+		var lastPeriod = A3(
+			author$project$Activity$Measure$relevantTimeline,
+			app.timeline,
+			_Utils_Tuple2(env.time, env.timeZone),
+			excusableLimit.b);
+		var totalMs = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
+		var totalSeconds = (author$project$SmartTime$Duration$inMs(totalMs) / 1000) | 0;
+		return elm$core$String$fromInt(totalSeconds);
+	});
+var author$project$Activity$Measure$total = F2(
+	function (switchList, activityId) {
+		return author$project$SmartTime$Duration$combine(
+			A2(author$project$Activity$Measure$sessions, switchList, activityId));
+	});
+var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / 1000);
+};
+var author$project$SmartTime$Duration$zero = author$project$SmartTime$Duration$Duration(0);
+var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var seconds = _n0.seconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$HumanDuration$Minutes(
+			author$project$SmartTime$Duration$inWholeMinutes(duration)),
+			author$project$SmartTime$HumanDuration$Seconds(seconds)
+		]);
+};
+var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 's';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'm';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'h';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var elm$core$String$concat = function (strings) {
+	return A2(elm$core$String$join, '', strings);
+};
+var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
+};
+var author$project$Activity$Switching$switchPopup = F3(
+	function (timeline, _new, old) {
+		var total = author$project$SmartTime$Duration$inSecondsRounded(
+			A2(author$project$Activity$Measure$total, timeline, old.id));
+		var timeSpentString = function (dur) {
+			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
+				author$project$SmartTime$HumanDuration$breakdownMS(dur));
+		};
+		var timeSpent = A2(
+			elm$core$Maybe$withDefault,
+			author$project$SmartTime$Duration$zero,
+			elm$core$List$head(
+				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
+		return timeSpentString(timeSpent) + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n'))))));
+	});
+var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
+	'variableOut',
+	function ($) {
+		var a = $.a;
+		var b = $.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					elm$json$Json$Encode$string(a),
+					elm$json$Json$Encode$string(b)
+				]));
+	});
+var author$project$External$Commands$changeActivity = F2(
+	function (newName, newTotal) {
+		return elm$core$Platform$Cmd$batch(
+			_List_fromArray(
+				[
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('ElmSelected', newName))
+				]));
+	});
+var author$project$External$Tasker$exit = _Platform_outgoingPort(
+	'exit',
+	function ($) {
+		return elm$json$Json$Encode$null;
+	});
+var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -9947,7 +10626,14 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						author$project$External$Commands$toast('In the command list that causes problems')
+						author$project$External$Commands$toast('In the command list that causes problems'),
+						author$project$External$Commands$toast(
+						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
+						A2(
+						author$project$External$Commands$changeActivity,
+						author$project$Activity$Activity$getName(newActivity),
+						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity)),
+						author$project$External$Commands$hideWindow
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -9968,7 +10654,6 @@ var author$project$TimeTracker$update = F4(
 			}
 		}
 	});
-var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
 var author$project$TimeTracker$NoOp = {$: 'NoOp'};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
