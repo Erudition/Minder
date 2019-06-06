@@ -237,5 +237,5 @@ urlTriggers app =
     in
     [ -- PQ.enum "start" <| Dict.fromList activitiesWithNames
       -- , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
-      PQ.enum "string" <| Dict.fromList [ ( "stop", NoOp ) ]
+      PQ.enum "stop" <| Dict.fromList [ ( "stop", NoOp ) ]
     ]

@@ -10723,7 +10723,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 		[
 			A2(
 			elm$url$Url$Parser$Query$enum,
-			'string',
+			'stop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
 					[
@@ -11166,7 +11166,7 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=pet"
 var app = this.Elm.Headless.init(
     { flags: [
         //taskerUrl, taskerReadAppData()
-        "", taskerReadAppData()
+        taskerUrl, taskerReadAppData()
     ]
     });
 
@@ -11203,4 +11203,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 32");
+logflash("Hit bottom of headlessLaunch.js, rev 33");

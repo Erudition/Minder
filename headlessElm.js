@@ -10723,7 +10723,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 		[
 			A2(
 			elm$url$Url$Parser$Query$enum,
-			'string',
+			'stop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
 					[
