@@ -10602,12 +10602,6 @@ var author$project$External$Commands$changeActivity = F2(
 					_Utils_Tuple2('ElmSelected', newName))
 				]));
 	});
-var author$project$External$Tasker$exit = _Platform_outgoingPort(
-	'exit',
-	function ($) {
-		return elm$json$Json$Encode$null;
-	});
-var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10634,8 +10628,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 						A2(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
-						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity)),
-						author$project$External$Commands$hideWindow
+						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
