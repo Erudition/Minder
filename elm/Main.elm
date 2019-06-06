@@ -486,7 +486,8 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                 newCmdWithUrlCleaner =
                     Cmd.batch [ newCmd, removeTriggersFromUrl ]
             in
-            ( newModel
+            ( model
+              -- newModel
             , External.Commands.toast "I'm inside handleUrlTriggers!"
               -- newCmdWithUrlCleaner
             )

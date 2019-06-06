@@ -10818,7 +10818,7 @@ var author$project$Main$handleUrlTriggers = F2(
 				_List_fromArray(
 					[newCmd, removeTriggersFromUrl]));
 			return _Utils_Tuple2(
-				newModel,
+				model,
 				author$project$External$Commands$toast('I\'m inside handleUrlTriggers!'));
 		} else {
 			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -11202,7 +11202,7 @@ app.ports.flash.subscribe(function(data) {
 });
 
 
-setTimeout(sendIt, 1500);
+//setTimeout(sendIt, 1500);
 
 function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);

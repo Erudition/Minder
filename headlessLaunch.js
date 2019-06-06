@@ -112,7 +112,7 @@ app.ports.flash.subscribe(function(data) {
 });
 
 
-setTimeout(sendIt, 1500);
+//setTimeout(sendIt, 1500);
 
 function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
