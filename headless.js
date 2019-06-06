@@ -8827,31 +8827,6 @@ var author$project$TaskList$update = F4(
 				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
-	'variableOut',
-	function ($) {
-		var a = $.a;
-		var b = $.b;
-		return A2(
-			elm$json$Json$Encode$list,
-			elm$core$Basics$identity,
-			_List_fromArray(
-				[
-					elm$json$Json$Encode$string(a),
-					elm$json$Json$Encode$string(b)
-				]));
-	});
-var author$project$External$Commands$changeActivity = F2(
-	function (newName, newTotal) {
-		return elm$core$Platform$Cmd$batch(
-			_List_fromArray(
-				[
-					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ElmSelected', newName)),
-					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ActivityTotalSec', newTotal))
-				]));
-	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
 		if (msg.$ === 'NoOp') {
@@ -8861,7 +8836,7 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(
 				state,
 				app,
-				A2(author$project$External$Commands$changeActivity, 'newName', 'newTotal'));
+				author$project$External$Commands$toast('ran StartTracking'));
 		}
 	});
 var author$project$Activity$Activity$defaults = function (startWith) {
@@ -10442,7 +10417,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=pet";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?stop=stop";
 
 
 // touch file in case it's not There
@@ -10457,9 +10432,9 @@ var app = this.Elm.Headless.init(
 
 //logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
-app.ports.variableOut.subscribe(function(data) {
-    taskerOut(data[0], data[1]);
-});
+// app.ports.variableOut.subscribe(function(data) {
+//     taskerOut(data[0], data[1]);
+// });
 
 // app.ports.exit.subscribe(function(data) {
 //   try {
@@ -10488,4 +10463,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 36");
+logflash("Hit bottom of headlessLaunch.js, rev 37");

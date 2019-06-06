@@ -222,7 +222,7 @@ update msg state app env =
             ( state
             , app
               -- updatedApp
-            , Commands.changeActivity "newName" "newTotal"
+            , Commands.toast "ran StartTracking"
               -- cmds
             )
 
