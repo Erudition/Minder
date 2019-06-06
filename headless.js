@@ -11194,16 +11194,17 @@ app.ports.variableOut.subscribe(function(data) {
 });
 
 app.ports.exit.subscribe(function(data) {
-
-  setTimeout(() => {   try {
-                    // exit()
-                    logflash("Would have exited");
-                } catch (e) {
-                    logflash("Tried to exit, if tasker was here");
-                }},
-            500)
+  setTimeout(exitTasker, 500)
 });
 
+function exitTasker() {
+    try {
+            // exit()
+            logflash("Would have exited");
+        } catch (e) {
+            logflash("Tried to exit, if tasker was here");
+        }
+}
 
 app.ports.setStorage.subscribe(function(state) {
     taskerOut("ElmAppData", state);
@@ -11223,4 +11224,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 48");
+logflash("Hit bottom of headlessLaunch.js, rev 49");
