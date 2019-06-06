@@ -12,7 +12,7 @@ function getGlobalVar (name) {
             return null;
         }
     } catch (e) {
-        logflash(`Failed to get global: ${name} because ${e}`);
+        //logflash(`Failed to get global: ${name} because ${e}`);
         return null;
     }
 }
@@ -48,7 +48,7 @@ function taskerTry (func) {
     try {
         return func();
     } catch (e) {
-        logflash("Tried " + func);
+        //logflash("Tried " + func);
         return null;
     }
 }
@@ -58,7 +58,7 @@ function taskerReadAppData () {
         //return readFile("docket.dat");
         return getGlobalVar("ElmAppData");
     } catch (e) {
-        logflash("Failed to read file " + file);
+        //logflash("Failed to read file " + file);
         return ' ';
     }
 }
@@ -118,4 +118,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 22");
+logflash("Hit bottom of headlessLaunch.js, rev 24");
