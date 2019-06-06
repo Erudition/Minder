@@ -10861,9 +10861,7 @@ var author$project$Main$handleUrlTriggers = F2(
 			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[newCmd, removeTriggersFromUrl]));
-			return _Utils_Tuple2(
-				newModel,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! match!'));
+			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 		} else {
 			return _Utils_Tuple2(
 				model,
