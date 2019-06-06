@@ -363,10 +363,9 @@ update msg ({ viewState, appData, environment } as model) =
                 ( modelAfter, effectsAfter ) =
                     handleUrlTriggers url model
 
-                effectsAfterDebug =
-                    External.Commands.toast ("got NewUrl: " ++ Url.toString url)
+                -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( { modelAfter | viewState = viewUrl url }, effectsAfterDebug )
+            ( { modelAfter | viewState = viewUrl url }, effectsAfter )
 
         ( TaskListMsg subMsg, TaskList subViewState ) ->
             let
@@ -469,12 +468,14 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             []
 
         --TODO only remove handled triggers
-        removeTriggersFromUrl navkey =
-            -- TODO maintain Fake Fragment. currently destroys it
-            Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
+        removeTriggersFromUrl =
+            case environment.navkey of
+                Just navkey ->
+                    -- TODO maintain Fake Fragment. currently destroys it
+                    Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
 
-        removeTriggersFromUrlUnlessHeadless =
-            Maybe.withDefault Cmd.none (Maybe.map removeTriggersFromUrl environment.navkey)
+                Nothing ->
+                    Cmd.none
     in
     case parsed of
         Just (Just triggerMsg) ->
@@ -483,9 +484,12 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                     update triggerMsg model
 
                 newCmdWithUrlCleaner =
-                    Cmd.batch [ newCmd, removeTriggersFromUrlUnlessHeadless ]
+                    Cmd.batch [ newCmd, removeTriggersFromUrl ]
             in
-            ( newModel, newCmdWithUrlCleaner )
+            ( newModel
+            , External.Commands.toast "I'm inside handleUrlTriggers!"
+              -- newCmdWithUrlCleaner
+            )
 
         _ ->
             ( model, Cmd.none )

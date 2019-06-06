@@ -10783,19 +10783,21 @@ var author$project$Main$handleUrlTriggers = F2(
 				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
 			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
-		var removeTriggersFromUrl = function (navkey) {
-			return A2(
-				elm$browser$Browser$Navigation$replaceUrl,
-				navkey,
-				elm$url$Url$toString(
-					_Utils_update(
-						url,
-						{query: elm$core$Maybe$Nothing})));
-		};
-		var removeTriggersFromUrlUnlessHeadless = A2(
-			elm$core$Maybe$withDefault,
-			elm$core$Platform$Cmd$none,
-			A2(elm$core$Maybe$map, removeTriggersFromUrl, environment.navkey));
+		var removeTriggersFromUrl = function () {
+			var _n9 = environment.navkey;
+			if (_n9.$ === 'Just') {
+				var navkey = _n9.a;
+				return A2(
+					elm$browser$Browser$Navigation$replaceUrl,
+					navkey,
+					elm$url$Url$toString(
+						_Utils_update(
+							url,
+							{query: elm$core$Maybe$Nothing})));
+			} else {
+				return elm$core$Platform$Cmd$none;
+			}
+		}();
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
@@ -10814,8 +10816,10 @@ var author$project$Main$handleUrlTriggers = F2(
 			var newCmd = _n8.b;
 			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 				_List_fromArray(
-					[newCmd, removeTriggersFromUrlUnlessHeadless]));
-			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
+					[newCmd, removeTriggersFromUrl]));
+			return _Utils_Tuple2(
+				newModel,
+				author$project$External$Commands$toast('I\'m inside handleUrlTriggers!'));
 		} else {
 			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
@@ -10870,8 +10874,6 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
-					var effectsAfterDebug = author$project$External$Commands$toast(
-						'got NewUrl: ' + elm$url$Url$toString(url));
 					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
 					var modelAfter = _n4.a;
 					var effectsAfter = _n4.b;
@@ -10881,7 +10883,7 @@ var author$project$Main$update = F2(
 							{
 								viewState: author$project$Main$viewUrl(url)
 							}),
-						effectsAfterDebug);
+						effectsAfter);
 				case 'TaskListMsg':
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
@@ -11206,4 +11208,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 19");
+logflash("Hit bottom of headlessLaunch.js, rev 20");
