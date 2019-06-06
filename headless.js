@@ -5995,7 +5995,7 @@ var author$project$SmartTime$Duration$breakdown = function (duration) {
 	var hours = (withoutDays / 3600000) | 0;
 	var withoutHours = withoutDays - (hours * 3600000);
 	var minutes = (withoutHours / 60000) | 0;
-	var withoutMinutes = withoutHours - (minutes - 60000);
+	var withoutMinutes = withoutHours - (minutes * 60000);
 	var seconds = (withoutMinutes / 1000) | 0;
 	var withoutSeconds = withoutMinutes - (seconds * 1000);
 	return {days: days, hours: hours, milliseconds: withoutSeconds, minutes: minutes, seconds: seconds};
@@ -11208,4 +11208,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 63");
+logflash("Hit bottom of headlessLaunch.js, rev 64");

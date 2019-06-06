@@ -41,7 +41,7 @@ breakdown duration =
             withoutHours // 60000
 
         withoutMinutes =
-            withoutHours - (minutes - 60000)
+            withoutHours - (minutes * 60000)
 
         seconds =
             withoutMinutes // 1000
