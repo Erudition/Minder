@@ -10797,6 +10797,93 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
+var author$project$TimeTracker$StartTracking = function (a) {
+	return {$: 'StartTracking', a: a};
+};
+var elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		elm$core$List$foldl,
+		F2(
+			function (_n0, dict) {
+				var key = _n0.a;
+				var value = _n0.b;
+				return A3(elm$core$Dict$insert, key, value, dict);
+			}),
+		elm$core$Dict$empty,
+		assocs);
+};
+var elm$core$String$toLower = _String_toLower;
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2(elm$core$Dict$get, key, dict)));
+			});
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
+var author$project$TimeTracker$urlTriggers = function (app) {
+	var entriesPerActivity = function (activity) {
+		return _Utils_ap(
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						n,
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names),
+			A2(
+				elm$core$List$map,
+				function (n) {
+					return _Utils_Tuple2(
+						elm$core$String$toLower(n),
+						author$project$TimeTracker$StartTracking(activity.id));
+				},
+				activity.names));
+	};
+	var activitiesWithNames = elm$core$List$concat(
+		A2(
+			elm$core$List$map,
+			entriesPerActivity,
+			author$project$Activity$Activity$allActivities(app.activities)));
+	return _List_fromArray(
+		[
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'start',
+			elm$core$Dict$fromList(activitiesWithNames)),
+			A2(
+			elm$url$Url$Parser$Query$enum,
+			'stop',
+			elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'stop',
+						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
+					])))
+		]);
+};
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
@@ -10824,11 +10911,25 @@ var elm$url$Url$Parser$query = function (_n0) {
 				]);
 		});
 };
+var elm$url$Url$Parser$Query$map = F2(
+	function (func, _n0) {
+		var a = _n0.a;
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					a(dict));
+			});
+	});
 var author$project$Main$handleUrlTriggers = F2(
 	function (rawUrl, model) {
 		var appData = model.appData;
 		var environment = model.environment;
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
+		var timeTrackerTriggers = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$Query$map(
+				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
 			var _n9 = environment.navkey;
@@ -11167,18 +11268,6 @@ var elm$browser$Browser$Events$spawn = F3(
 						A2(elm$browser$Browser$Events$Event, key, event));
 				}));
 	});
-var elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		elm$core$List$foldl,
-		F2(
-			function (_n0, dict) {
-				var key = _n0.a;
-				var value = _n0.b;
-				return A3(elm$core$Dict$insert, key, value, dict);
-			}),
-		elm$core$Dict$empty,
-		assocs);
-};
 var elm$core$Dict$foldl = F3(
 	function (func, acc, dict) {
 		foldl:
@@ -15505,9 +15594,6 @@ var author$project$Activity$Measure$inFuzzyWords = function (duration) {
 		elm$time$Time$millisToPosix(0),
 		elm$time$Time$millisToPosix(
 			author$project$SmartTime$Duration$inMs(duration)));
-};
-var author$project$TimeTracker$StartTracking = function (a) {
-	return {$: 'StartTracking', a: a};
 };
 var rtfeldman$elm_css$Css$Internal$property = F2(
 	function (key, value) {
