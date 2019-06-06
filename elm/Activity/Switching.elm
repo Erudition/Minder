@@ -26,10 +26,8 @@ switchActivity activityId app env =
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast "In the command list that causes problems"
-        , Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
-        , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity)
-        , Commands.hideWindow
+        [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
+        , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity) (Measure.exportActivityUsage app env oldActivity)
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
         ]

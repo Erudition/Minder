@@ -10591,23 +10591,19 @@ var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 					elm$json$Json$Encode$string(b)
 				]));
 	});
-var author$project$External$Commands$changeActivity = F2(
-	function (newName, newTotal) {
+var author$project$External$Commands$changeActivity = F3(
+	function (newName, newTotal, oldTotal) {
 		return elm$core$Platform$Cmd$batch(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ActivityTotalSec', newTotal)),
 					author$project$External$Tasker$variableOut(
-					_Utils_Tuple2('ElmSelected', newName))
+					_Utils_Tuple2('ElmSelected', newName)),
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('PreviousActivityTotalSec', oldTotal))
 				]));
 	});
-var author$project$External$Tasker$exit = _Platform_outgoingPort(
-	'exit',
-	function ($) {
-		return elm$json$Json$Encode$null;
-	});
-var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10628,14 +10624,13 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						author$project$External$Commands$toast('In the command list that causes problems'),
 						author$project$External$Commands$toast(
 						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
-						A2(
+						A3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
-						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity)),
-						author$project$External$Commands$hideWindow
+						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity),
+						A3(author$project$Activity$Measure$exportActivityUsage, app, env, oldActivity))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
