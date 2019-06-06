@@ -9959,12 +9959,12 @@ var author$project$TimeTracker$update = F4(
 			if (_Utils_eq(
 				activityId,
 				author$project$Activity$Switching$currentActivityFromApp(app).id)) {
+				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+			} else {
 				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
 				var updatedApp = _n1.a;
 				var cmds = _n1.b;
 				return _Utils_Tuple3(state, updatedApp, cmds);
-			} else {
-				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 			}
 		}
 	});
@@ -10491,7 +10491,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=configure";
 
 
 // touch file in case it's not There
@@ -10526,4 +10526,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 54");
+logflash("Hit bottom of headlessLaunch.js, rev 56");

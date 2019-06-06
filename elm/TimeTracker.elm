@@ -216,14 +216,14 @@ update msg state app env =
 
         StartTracking activityId ->
             if activityId == (Switching.currentActivityFromApp app).id then
+                ( state, app, Cmd.none )
+
+            else
                 let
                     ( updatedApp, cmds ) =
                         Switching.switchActivity activityId app env
                 in
                 ( state, updatedApp, cmds )
-
-            else
-                ( state, app, Cmd.none )
 
 
 urlTriggers : AppData -> List (PQ.Parser (Maybe Msg))

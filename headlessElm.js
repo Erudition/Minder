@@ -9959,12 +9959,12 @@ var author$project$TimeTracker$update = F4(
 			if (_Utils_eq(
 				activityId,
 				author$project$Activity$Switching$currentActivityFromApp(app).id)) {
+				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+			} else {
 				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
 				var updatedApp = _n1.a;
 				var cmds = _n1.b;
 				return _Utils_Tuple3(state, updatedApp, cmds);
-			} else {
-				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 			}
 		}
 	});

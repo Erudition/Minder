@@ -72,7 +72,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=configure";
 
 
 // touch file in case it's not There
@@ -107,4 +107,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-logflash("Hit bottom of headlessLaunch.js, rev 55");
+logflash("Hit bottom of headlessLaunch.js, rev 56");
