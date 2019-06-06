@@ -97,7 +97,7 @@ function exitTasker() {
             logflash("Would have exited");
         } catch (e) {
             logflash("Tried to exit, if tasker was here");
-        }
+        }   
 }
 
 app.ports.setStorage.subscribe(function(state) {
