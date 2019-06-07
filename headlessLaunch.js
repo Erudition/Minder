@@ -1,5 +1,4 @@
 
-
 //my helper functions:
 
 function getGlobalVar (name) {
@@ -100,6 +99,10 @@ app.ports.flash.subscribe(function(data) {
   logflash(data);
 });
 
+app.ports.exit.subscribe(function(data) {
+  setTimeout(() => exit());
+});
+
 
 //setTimeout(sendIt, 1500);
 
@@ -107,4 +110,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-//logflash("Hit bottom of headlessLaunch.js, rev 66");
+taskerOut("ElmScriptVersion", "68 - trying exit");

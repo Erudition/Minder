@@ -10532,6 +10532,65 @@ var author$project$Activity$Measure$exportLastSession = F2(
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
 	});
+var author$project$Activity$Measure$total = F2(
+	function (switchList, activityId) {
+		return author$project$SmartTime$Duration$combine(
+			A2(author$project$Activity$Measure$sessions, switchList, activityId));
+	});
+var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var seconds = _n0.seconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$HumanDuration$Minutes(
+			author$project$SmartTime$Duration$inWholeMinutes(duration)),
+			author$project$SmartTime$HumanDuration$Seconds(seconds)
+		]);
+};
+var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 's';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'm';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'h';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var elm$core$String$concat = function (strings) {
+	return A2(elm$core$String$join, '', strings);
+};
+var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
+};
+var author$project$Activity$Switching$switchPopup = F3(
+	function (timeline, _new, old) {
+		var total = author$project$SmartTime$Duration$inSecondsRounded(
+			A2(author$project$Activity$Measure$total, timeline, old.id));
+		var timeSpentString = function (dur) {
+			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
+				author$project$SmartTime$HumanDuration$breakdownMS(dur));
+		};
+		var timeSpent = A2(
+			elm$core$Maybe$withDefault,
+			author$project$SmartTime$Duration$zero,
+			elm$core$List$head(
+				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
+		return timeSpentString(timeSpent) + (' spent ' + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n')))))));
+	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
 	function ($) {
@@ -10559,6 +10618,12 @@ var author$project$External$Commands$changeActivity = F3(
 					_Utils_Tuple2('PreviousActivityTotal', oldTotal))
 				]));
 	});
+var author$project$External$Tasker$exit = _Platform_outgoingPort(
+	'exit',
+	function ($) {
+		return elm$json$Json$Encode$null;
+	});
+var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -10579,12 +10644,14 @@ var author$project$Activity$Switching$switchActivity = F3(
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						elm$core$Platform$Cmd$none,
+						author$project$External$Commands$toast(
+						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
 						A3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
 						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity),
-						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity))
+						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
+						author$project$External$Commands$hideWindow
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -11054,7 +11121,6 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 							]))));
 		},
 		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)}});}(this));
-
 //my helper functions:
 
 function getGlobalVar (name) {
@@ -11155,6 +11221,10 @@ app.ports.flash.subscribe(function(data) {
   logflash(data);
 });
 
+app.ports.exit.subscribe(function(data) {
+  setTimeout(() => exit());
+});
+
 
 //setTimeout(sendIt, 1500);
 
@@ -11162,4 +11232,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-//logflash("Hit bottom of headlessLaunch.js, rev 66");
+taskerOut("ElmScriptVersion", "68 - trying exit");
