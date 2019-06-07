@@ -11184,6 +11184,13 @@ function taskerReadAppData () {
     }
 }
 
+function taskerExit () {
+    try {
+        exit();
+    } catch (e) {
+        logflash("Tried to exit");
+    }
+}
 // Elm init
 //var storedState = localStorage.getItem('docket-v0.1-data');
 //var startingState = storedState ? storedState : null;
@@ -11218,11 +11225,13 @@ app.ports.setStorage.subscribe(function(state) {
 
 
 app.ports.flash.subscribe(function(data) {
-  logflash(data);
+    logflash(data);
 });
 
+
+
 app.ports.exit.subscribe(function(data) {
-  setTimeout(() => exit());
+    setTimeout(() => taskerExit(), 10);
 });
 
 
@@ -11232,4 +11241,4 @@ function sendIt() {
     app.ports.headlessMsg.send(taskerUrl);
 }
 
-taskerOut("ElmScriptVersion", "68 - trying exit");
+taskerOut("ElmScriptVersion", "68 - trying delayed exit");
