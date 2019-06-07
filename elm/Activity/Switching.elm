@@ -26,8 +26,8 @@ switchActivity activityId app env =
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
-        , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity) (Measure.exportLastSession updatedApp oldActivity)
+        [ Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
+        , Commands.changeActivity (getName newActivity) (Measure.exportExcusedUsageSeconds app env.time newActivity) (Measure.exportLastSession updatedApp oldActivity)
         , Commands.hideWindow
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
@@ -35,27 +35,25 @@ switchActivity activityId app env =
     )
 
 
-switchPopup : Timeline -> Activity -> Activity -> String
-switchPopup timeline new old =
+switchPopup : Timeline -> Environment -> Activity -> Activity -> String
+switchPopup timeline env new old =
     let
         timeSpentString dur =
             singleLetterSpaced (breakdownMS dur)
 
-        timeSpent =
+        timeSpentLastSession =
             Maybe.withDefault Duration.zero (List.head (Measure.sessions timeline old.id))
-
-        total =
-            Duration.inSecondsRounded <| Measure.total timeline old.id
     in
-    timeSpentString timeSpent
-        ++ " spent "
+    timeSpentString timeSpentLastSession
+        ++ " spent on "
         ++ getName old
-        ++ " ("
-        ++ String.fromInt total
-        ++ " s)"
+        ++ "\n\n"
+        ++ getName old
         ++ " ➤ "
         ++ getName new
-        ++ "\n"
+        ++ "\n\n"
+        ++ "Starting from "
+        ++ timeSpentString (Measure.excusedUsage timeline env.time new)
 
 
 currentActivityFromApp : AppData -> Activity

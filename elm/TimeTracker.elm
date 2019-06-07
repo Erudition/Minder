@@ -216,7 +216,7 @@ update msg state app env =
 
         StartTracking activityId ->
             if activityId == (Switching.currentActivityFromApp app).id then
-                ( state, app, Cmd.none )
+                ( state, app, Cmd.batch [ Commands.toast "That activity is already running!", Commands.hideWindow ] )
 
             else
                 let

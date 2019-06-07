@@ -10359,15 +10359,13 @@ var justinmimbs$time_extra$Time$Extra$add = F4(
 		}
 	});
 var author$project$Activity$Measure$lookBack = F2(
-	function (_n0, humanDuration) {
-		var present = _n0.a;
-		var zone = _n0.b;
+	function (present, humanDuration) {
 		return A4(
 			justinmimbs$time_extra$Time$Extra$add,
 			justinmimbs$time_extra$Time$Extra$Millisecond,
 			-author$project$SmartTime$Duration$inMs(
 				author$project$SmartTime$HumanDuration$toDuration(humanDuration)),
-			zone,
+			elm$time$Time$utc,
 			present);
 	});
 var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
@@ -10418,17 +10416,12 @@ var author$project$Activity$Measure$timelineLimit = F3(
 				[fakeEndSwitch]));
 	});
 var author$project$Activity$Measure$relevantTimeline = F3(
-	function (timeline, _n0, duration) {
-		var now = _n0.a;
-		var zone = _n0.b;
+	function (timeline, now, duration) {
 		return A3(
 			author$project$Activity$Measure$timelineLimit,
 			timeline,
 			now,
-			A2(
-				author$project$Activity$Measure$lookBack,
-				_Utils_Tuple2(now, zone),
-				duration));
+			A2(author$project$Activity$Measure$lookBack, now, duration));
 	});
 var author$project$Activity$Measure$session = F2(
 	function (_n0, _n1) {
@@ -10501,21 +10494,21 @@ var author$project$Activity$Measure$totalLive = F3(
 				A2(elm$core$List$cons, fakeSwitch, switchList),
 				activityId));
 	});
+var author$project$Activity$Measure$excusedUsage = F3(
+	function (timeline, now, activity) {
+		var excusableLimit = author$project$Activity$Activity$excusableFor(activity);
+		var lastPeriod = A3(author$project$Activity$Measure$relevantTimeline, timeline, now, excusableLimit.b);
+		return A3(author$project$Activity$Measure$totalLive, now, lastPeriod, activity.id);
+	});
 var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
 	return elm$core$Basics$round(
 		author$project$SmartTime$Duration$inMs(duration) / 1000);
 };
-var author$project$Activity$Measure$exportActivityUsage = F3(
-	function (app, env, activity) {
-		var excusableLimit = author$project$Activity$Activity$excusableFor(activity);
-		var lastPeriod = A3(
-			author$project$Activity$Measure$relevantTimeline,
-			app.timeline,
-			_Utils_Tuple2(env.time, env.timeZone),
-			excusableLimit.b);
-		var totalMs = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
-		var totalSeconds = author$project$SmartTime$Duration$inSecondsRounded(totalMs);
-		return elm$core$String$fromInt(totalSeconds);
+var author$project$Activity$Measure$exportExcusedUsageSeconds = F3(
+	function (app, now, activity) {
+		return elm$core$String$fromInt(
+			author$project$SmartTime$Duration$inSecondsRounded(
+				A3(author$project$Activity$Measure$excusedUsage, app.timeline, now, activity)));
 	});
 var author$project$SmartTime$Duration$inMinutesRounded = function (duration) {
 	return elm$core$Basics$round(
@@ -10531,11 +10524,6 @@ var author$project$Activity$Measure$exportLastSession = F2(
 				A2(author$project$Activity$Measure$sessions, app.timeline, old.id)));
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
-	});
-var author$project$Activity$Measure$total = F2(
-	function (switchList, activityId) {
-		return author$project$SmartTime$Duration$combine(
-			A2(author$project$Activity$Measure$sessions, switchList, activityId));
 	});
 var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
@@ -10576,20 +10564,19 @@ var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanD
 			' ',
 			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
 };
-var author$project$Activity$Switching$switchPopup = F3(
-	function (timeline, _new, old) {
-		var total = author$project$SmartTime$Duration$inSecondsRounded(
-			A2(author$project$Activity$Measure$total, timeline, old.id));
+var author$project$Activity$Switching$switchPopup = F4(
+	function (timeline, env, _new, old) {
 		var timeSpentString = function (dur) {
 			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
 				author$project$SmartTime$HumanDuration$breakdownMS(dur));
 		};
-		var timeSpent = A2(
+		var timeSpentLastSession = A2(
 			elm$core$Maybe$withDefault,
 			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
 				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return timeSpentString(timeSpent) + (' spent ' + (author$project$Activity$Activity$getName(old) + (' (' + (elm$core$String$fromInt(total) + (' s)' + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + '\n')))))));
+		return timeSpentString(timeSpentLastSession) + (' spent on ' + (author$project$Activity$Activity$getName(old) + ('\n\n' + (author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n\n' + ('Starting from ' + timeSpentString(
+			A3(author$project$Activity$Measure$excusedUsage, timeline, env.time, _new))))))))));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
@@ -10645,11 +10632,11 @@ var author$project$Activity$Switching$switchActivity = F3(
 				_List_fromArray(
 					[
 						author$project$External$Commands$toast(
-						A3(author$project$Activity$Switching$switchPopup, updatedApp.timeline, newActivity, oldActivity)),
+						A4(author$project$Activity$Switching$switchPopup, updatedApp.timeline, env, newActivity, oldActivity)),
 						A3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
-						A3(author$project$Activity$Measure$exportActivityUsage, app, env, newActivity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.time, newActivity),
 						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
 						author$project$External$Commands$hideWindow
 					])));
@@ -10663,7 +10650,15 @@ var author$project$TimeTracker$update = F4(
 			if (_Utils_eq(
 				activityId,
 				author$project$Activity$Switching$currentActivityFromApp(app).id)) {
-				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+				return _Utils_Tuple3(
+					state,
+					app,
+					elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								author$project$External$Commands$toast('That activity is already running!'),
+								author$project$External$Commands$hideWindow
+							])));
 			} else {
 				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
 				var updatedApp = _n1.a;

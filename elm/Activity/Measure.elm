@@ -1,4 +1,4 @@
-module Activity.Measure exposing (exportActivityUsage, exportLastSession, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (excusedUsage, exportExcusedUsageSeconds, exportLastSession, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
@@ -95,14 +95,15 @@ This returns that Moment in history.
 For fixed distances, that's easy, but variable intervals could be far back or just a millisecond ago.
 
 -}
-lookBack : ( Moment, Time.Zone ) -> HumanDuration -> Moment
-lookBack ( present, zone ) humanDuration =
-    Time.Extra.add Time.Extra.Millisecond -(Duration.inMs (toDuration humanDuration)) zone present
+lookBack : Moment -> HumanDuration -> Moment
+lookBack present humanDuration =
+    -- TODO use SmartTime so only fixed increments can be used
+    Time.Extra.add Time.Extra.Millisecond -(Duration.inMs (toDuration humanDuration)) utc present
 
 
-relevantTimeline : Timeline -> ( Moment, Zone ) -> HumanDuration -> Timeline
-relevantTimeline timeline ( now, zone ) duration =
-    timelineLimit timeline now (lookBack ( now, zone ) duration)
+relevantTimeline : Timeline -> Moment -> HumanDuration -> Timeline
+relevantTimeline timeline now duration =
+    timelineLimit timeline now (lookBack now duration)
 
 
 justToday : Timeline -> ( Moment, Zone ) -> Timeline
@@ -167,22 +168,23 @@ inHoursMinutes duration =
             hoursString ++ " " ++ minutesString
 
 
-exportActivityUsage : AppData -> Environment -> Activity -> String
-exportActivityUsage app env activity =
+{-| Total time used within the excused window.
+-}
+excusedUsage : Timeline -> Moment -> Activity -> Duration
+excusedUsage timeline now activity =
     let
         lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) (Tuple.second excusableLimit)
+            relevantTimeline timeline now (Tuple.second excusableLimit)
 
         excusableLimit =
             Activity.excusableFor activity
-
-        totalMs =
-            totalLive env.time lastPeriod activity.id
-
-        totalSeconds =
-            Duration.inSecondsRounded totalMs
     in
-    String.fromInt totalSeconds
+    totalLive now lastPeriod activity.id
+
+
+exportExcusedUsageSeconds : AppData -> Moment -> Activity -> String
+exportExcusedUsageSeconds app now activity =
+    String.fromInt <| Duration.inSecondsRounded (excusedUsage app.timeline now activity)
 
 
 exportLastSession : AppData -> Activity -> String
