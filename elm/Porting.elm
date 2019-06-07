@@ -1,4 +1,4 @@
-module Porting exposing (EncodeField, arrayAsTuple2, customDecoder, decodeCustom, decodeCustomFlat, decodeInterval, encodeInterval, ifPresent, normal, omitNothings, omittable, subtype, subtype2)
+module Porting exposing (EncodeField, arrayAsTuple2, customDecoder, decodeCustom, decodeCustomFlat, decodeInterval, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -20,6 +20,14 @@ arrayAsTuple2 a b =
                 index 1 b
                     |> andThen (\bVal -> Decode.succeed ( aVal, bVal ))
             )
+
+
+{-| Opposite of arrayAsTuple2.
+Only works on tuple2s where the types are the same.
+-}
+homogeneousTuple2AsArray : (sameType -> Encode.Value) -> ( sameType, sameType ) -> Encode.Value
+homogeneousTuple2AsArray encoder ( a, b ) =
+    Encode.list encoder [ a, b ]
 
 
 customDecoder : Decoder b -> (b -> Result String a) -> Decoder a

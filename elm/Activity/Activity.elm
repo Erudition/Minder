@@ -239,8 +239,8 @@ type alias DurationPerPeriod =
 
 
 encodeDurationPerPeriod : DurationPerPeriod -> Encode.Value
-encodeDurationPerPeriod v =
-    Debug.todo "encode duration"
+encodeDurationPerPeriod tuple =
+    homogeneousTuple2AsArray encodeHumanDuration tuple
 
 
 decodeDurationPerPeriod : Decode.Decoder DurationPerPeriod

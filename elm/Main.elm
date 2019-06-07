@@ -48,6 +48,12 @@ subscriptions ({ appData, environment } as model) =
 port setStorage : JsonAppDatabase -> Cmd msg
 
 
+log : String -> a -> a
+log string input =
+    --Debug.log "url" input
+    input
+
+
 {-| We want to `setStorage` on every update. This function adds the setStorage
 command for every step of the update function.
 -}
@@ -456,7 +462,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             { url | path = "" }
 
         parsed =
-            P.parse (P.oneOf parseList) (Debug.log "url" <| normalizedUrl)
+            P.parse (P.oneOf parseList) (log "url" <| normalizedUrl)
 
         parseList =
             List.map P.query (taskTriggers ++ timeTrackerTriggers)
