@@ -26,7 +26,7 @@ switchActivity activityId app env =
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
+        [ Cmd.none --Commands.toast (switchPopup updatedApp.timeline newActivity oldActivity)
         , Commands.changeActivity (getName newActivity) (Measure.exportActivityUsage app env newActivity) (Measure.exportLastSession updatedApp oldActivity)
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
