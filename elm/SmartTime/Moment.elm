@@ -1,7 +1,7 @@
 module SmartTime.Moment exposing (moment)
 
-import SmartTime.Duration exposing (Duration, fromInt)
-import Task as Job exposing (map)
+import SmartTime.Duration as Duration exposing (Duration)
+import Task as Job
 import Time
 
 
@@ -15,7 +15,7 @@ type Moment
 
 {-| Get the POSIX time at the moment when this task is run.
 -}
-now : Job.Task x ElmTime
+now : Job.Task x Moment
 now =
     Job.map fromElmTime Time.now
 
@@ -36,8 +36,18 @@ type alias ElmTime =
 moment : TimeScale -> Epoch -> Duration -> Moment
 moment scale epoch duration =
     case ( scale, epoch ) of
-        ( UTC, UnixEpoch ) ->
-            Moment (fromInt (fromUTCScale int))
+        ( _, _ ) ->
+            --TODO
+            Moment (Duration.map linearFromUTC duration)
+
+
+linearFromUTC : Int -> Int
+linearFromUTC int =
+    int
+
+
+
+--TODO
 
 
 {-| As _all_ numbers in Javascript are double precision _floating point_ numbers (following the international IEEE 754 standard), that includes its internal representation of time -- yes, this means it will lose accuracy as we move into the future! (Any "integer" over 15 digits loses accuracy, so `9999999999999999 == 10000000000000000`.)
@@ -47,7 +57,7 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 -}
 fromJsTime : Float -> Moment
 fromJsTime floatMsUtc =
-    moment (fromInt (round floatMsUtc)) UnixEpoch
+    moment UTC UnixEpoch (Duration.fromInt (round floatMsUtc))
 
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
@@ -59,7 +69,7 @@ If you actually want a conversion from real "POSIX" time (rather than the elm ty
 -}
 fromElmTime : ElmTime -> Moment
 fromElmTime intMsUtc =
-    moment (fromInt intMsUtc) UnixEpoch
+    fromElmInt <| Time.posixToMillis intMsUtc
 
 
 {-| Handy alias for `(moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
@@ -69,7 +79,7 @@ If your time is still in Elm's native form, you want `fromElmTime` instead.
 -}
 fromElmInt : Int -> Moment
 fromElmInt intMsUtc =
-    moment UTC UnixEpoch
+    moment UTC UnixEpoch (Duration.fromInt intMsUtc)
 
 
 {-| Turn a Unix time value into a Moment.
@@ -83,7 +93,7 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 -}
 fromUnixTime : Float -> Moment
 fromUnixTime float =
-    moment (fromInt (round (float * 1000))) UnixEpoch
+    moment UTC UnixEpoch (Duration.fromInt (round (float * 1000)))
 
 
 type Epoch

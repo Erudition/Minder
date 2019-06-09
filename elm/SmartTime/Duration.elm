@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, map, scale, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -300,6 +300,14 @@ As you can see, simply use a fraction (e.g. "(1/2)") to get a certain portion of
 scale : Duration -> Float -> Duration
 scale (Duration dur) scalar =
     Duration <| round (toFloat dur * scalar)
+
+
+{-| Map onto a duration any function that deals with `Int`s.
+If for some reason the functions provided in this library aren't enough, this is your guy!
+-}
+map : (Int -> Int) -> Duration -> Duration
+map func (Duration int) =
+    Duration (func int)
 
 
 {-| A zero-length duration.
