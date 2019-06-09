@@ -1,9 +1,37 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, scale, subtract, zero)
 
-{-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
+{-| Library for working with time and time zones.
+
+
+# Time
+
+@docs Posix, now, every, posixToMillis, millisToPosix
+
+
+# Time Zones
+
+@docs Zone, utc, here
+
+
+# Human Times
+
+@docs toYear, toMonth, toDay, toWeekday, toHour, toMinute, toSecond, toMillis
+
+
+# Weeks and Months
+
+@docs Weekday, Month
+
+
+# For Package Authors
+
+@docs customZone, getZoneName, ZoneName
+
 -}
 
 
+{-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
+-}
 type Duration
     = Duration Int
 
@@ -65,8 +93,10 @@ inMs (Duration int) =
     int
 
 
-{-| Create a `Duration` straight from a raw integer, which in elm is the number of milliseconds.
-For consistency, it's better to use the `Milliseconds` constructor from `HumanDuration`.
+{-| Note: Use the `Milliseconds` constructor function from `HumanDuration` for consistency and readability. This function is mainly for other libraries, like HumanDuration.
+
+Creates a `Duration` straight from a raw number, which in elm is an integer of milliseconds.
+
 -}
 fromInt : Int -> Duration
 fromInt int =
@@ -252,11 +282,24 @@ difference (Duration int1) (Duration int2) =
     Duration <| abs (int1 - int2)
 
 
-{-| Get the sum of a list of durations, as a `Duration`.
+{-| Get the sum of a list of durations, as a final `Duration`.
 -}
 combine : List Duration -> Duration
 combine durationList =
     List.foldl add (Duration 0) durationList
+
+
+{-| Multiply a Duration by some factor, or take a portion of a duration.
+Double a Duration: `scale duration 2`
+Half a Duration: `scale duration (1/2)`
+It doesn't matter what unit you're thinking in terms of, the output will always be correct.
+
+As you can see, simply use a fraction (e.g. "(1/2)") to get a certain portion of the Duration. This eliminates the need for separate `multiply` and `divide` functions.
+
+-}
+scale : Duration -> Float -> Duration
+scale (Duration dur) scalar =
+    Duration <| round (toFloat dur * scalar)
 
 
 {-| A zero-length duration.

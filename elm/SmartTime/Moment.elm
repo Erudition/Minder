@@ -1,40 +1,43 @@
 module SmartTime.Moment exposing (moment)
 
-import SmartTime.Duration exposing (..)
+import SmartTime.Duration exposing (Duration, fromInt)
+import Task as Job exposing (map)
 import Time
 
 
 
--- SHH, secretely we just use an Int under the hood, rather than an (Epoch, Duration) pair. But that's just for computational efficiency! We assume the same Epoch everywhere when storing these values, but our API does not need to know this.
+-- SHH, throughout this library we secretely we just use a Duration (which unboxes to a simple Int) under the hood, rather than an (Epoch, Duration) pair. But that's just to reduce overhead! We assume the same Epoch everywhere when storing these values, but our API does not need to know this. Oh, and the Moment should then unbox to a pure Int as well - this is exactly how elm/time does it too, I checked, so it's just as efficient. Otherwise I would have just made Moment a type alias for Posix, which it used to be (for easy compatibility with the ecosystem).
 
 
-type alias Moment =
+type Moment
+    = Moment Duration
+
+
+{-| Get the POSIX time at the moment when this task is run.
+-}
+now : Job.Task x ElmTime
+now =
+    Job.map fromElmTime Time.now
+
+
+{-| Get the current Time Zone, based on the the UTC offset given to us by Javascript. Provided here so you can ditch your `Time` imports entirely if you want.
+-}
+here : Job.Task x Time.Zone
+here =
+    Time.here
+
+
+type alias ElmTime =
     Time.Posix
-
-
-create int =
-    Time.millisToPosix int
 
 
 {-| Create a Moment. A Moment is an `Epoch` and some `Duration` -- the amount of time since that Epoch -- which gives us a globally fixed point in time. You can shift this moment forward or backward by adding other `Duration` values to it.
 -}
-moment : Duration -> Epoch -> Moment
-moment duration epoch =
-    case epoch of
-        UnixEpoch ->
-            create (inMs duration)
-
-        GPSEpoch ->
-            -- TODO
-            create (inMs duration)
-
-        HumanEraStart ->
-            -- TODO
-            create (inMs duration)
-
-
-type alias MsSinceUnixEpoch =
-    Time.Posix
+moment : TimeScale -> Epoch -> Duration -> Moment
+moment scale epoch duration =
+    case ( scale, epoch ) of
+        ( UTC, UnixEpoch ) ->
+            Moment (fromInt (fromUTCScale int))
 
 
 {-| As _all_ numbers in Javascript are double precision _floating point_ numbers (following the international IEEE 754 standard), that includes its internal representation of time -- yes, this means it will lose accuracy as we move into the future! (Any "integer" over 15 digits loses accuracy, so `9999999999999999 == 10000000000000000`.)
@@ -43,20 +46,30 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 
 -}
 fromJsTime : Float -> Moment
-fromJsTime float =
-    moment (Milliseconds (round float)) UnixEpoch
+fromJsTime floatMsUtc =
+    moment (fromInt (round floatMsUtc)) UnixEpoch
 
 
-{-| Turn an Elm time (from the core `Time` library) into a Moment.
+{-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
 
-Since 0.19 Elm has a single type for UTC time, called `Posix`. Yet `Posix` isn't a way of telling time, it's a description of how an operating system should work (like Unix and Gnu/Linux). It does mention a standard for representing UTC (which is actually a way of telling time), but that's already got a slightly nicer nickname ("Unix Time") and is _not_ stored as milliseconds since the epoch (like the Elm `Posix`). Rather, it counts _seconds_ since that epoch. (If sub-second accuracy is needed, it is expressed with decimal fractions.)
+Since 0.19 Elm has a single type for UTC time, called `Posix`. In reality "POSIX" isn't a way of telling time, it's a description of how an operating system should work (like Unix and Gnu/Linux). It does mention a standard for representing UTC (which is actually a way of telling time), but that's already got a slightly nicer nickname ("Unix Time") and is _not_ stored as milliseconds since the epoch (like the Elm `Posix`). Rather, it counts _seconds_ since that epoch. (If sub-second accuracy is needed, it is expressed with decimal fractions.)
 
-If you actually want a conversion from "Posix" time (rather than the elm type that bears the name), check out `fromUnixTime`.
+If you actually want a conversion from real "POSIX" time (rather than the elm type that bears the name), check out `fromUnixTime`.
 
 -}
-fromElmTime : Int -> Moment
-fromElmTime int =
-    moment (Milliseconds int) UnixEpoch
+fromElmTime : ElmTime -> Moment
+fromElmTime intMsUtc =
+    moment (fromInt intMsUtc) UnixEpoch
+
+
+{-| Handy alias for `(moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
+
+If your time is still in Elm's native form, you want `fromElmTime` instead.
+
+-}
+fromElmInt : Int -> Moment
+fromElmInt intMsUtc =
+    moment UTC UnixEpoch
 
 
 {-| Turn a Unix time value into a Moment.
@@ -70,7 +83,7 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 -}
 fromUnixTime : Float -> Moment
 fromUnixTime float =
-    moment (Milliseconds (round (float * 1000))) UnixEpoch
+    moment (fromInt (round (float * 1000))) UnixEpoch
 
 
 type Epoch
@@ -87,7 +100,7 @@ type Epoch
   - UTC: Forget moving around with the sun, we want to pick a single length of a second and stick with it! Except we still kinda like having our solar day line up... so let's shoot ourselves in the foot and make the length of a _day_ inconsistent! Yes, UTC is finally synced to the Atomic clock, so it always ticks every SI second. But, a day is not always 84,400 seconds anymore, because at any time there could be a "leap second", all so that we can get back within a second of UT1. Yes, really. Better yet, leap seconds do not even ensure that the sun culminates exactly at 12:00:00.000, as solar noon always deviates from it (up to 16 minutes) over the course of a single year!
   - TAI: Forget all that discontinuous nonsense, for real this time! TAI is just the Atomic clock scale - a pure, linear scale of SI seconds. No leap seconds, no adjustments, no surprises - in the future nor the past. Finally some sanity! UTC is based on atomic time, and would be the same exact scale since 1958 if not for the leap seconds (10 + 27 so far; we only get 6 months' notice on future leaps, some of which may be leaps _backwards_). PTP (Precise Time Protocol) is an uber-precise (sub-microsecond!) standard for distributing time to power grids (PUP accuracy: 1 μs) and such, and it also follows TAI.
   - GMT: Greenwich Mean Time is just the old name for Universal Time, from before 1935, when the term Universal Time was recommended by the International Astronomical Union as a more precise term (because GMT could refer to either an astronomical day starting at noon, or a civil day starting at midnight). But some still use this name for civil time - better to specify UT1 or UTC.
-  - GPST: The GPS Time system is 19 seconds behind TAI, and uses a pure linear scale as well - and for good reason, as just one of those leap seconds would cause a location error of up to 460 meters! Currently, GPST is 18 seconds ahead of UTC.
+  - GPST: The GPS Time system is 19 seconds behind TAI, and uses a pure linear scale as well - and for good reason, as just one of those leap seconds would cause a GPS location error of up to 460 meters! Currently, GPST is 18 seconds ahead of UTC.
   - TT: Terrestrial Time is exactly 32.184s ahead of TAI for any moment after 1 January 1977 00:00:32.184, when we started applying correction for gravity slowing down/speeding up time (!) based on your elevation. As you may have guessed from the name, TT is often used for talking about timing of objects in space, from the point of view of our terrestrial selves.
 
 -}
