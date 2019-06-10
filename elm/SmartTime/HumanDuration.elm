@@ -1,4 +1,4 @@
-module SmartTime.HumanDuration exposing (HumanDuration(..), breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, toDuration, withLetter)
+module SmartTime.HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, toDuration, withAbbreviation, withLetter)
 
 import SmartTime.Duration exposing (..)
 
@@ -330,6 +330,26 @@ singleLetterSpaced humanDurationList =
     String.concat <| List.intersperse " " (List.map withLetter humanDurationList)
 
 
+{-| Render a HumanDuration list in english, in a single-space form with abbreviated unit names, like `5hr 32min 15sec`.
+
+    Best used with combinations including days, hours, minutes, and seconds.
+
+-}
+abbreviatedSpaced : List HumanDuration -> String
+abbreviatedSpaced humanDurationList =
+    String.concat <| List.intersperse " " (List.map withAbbreviation humanDurationList)
+
+
+{-| Render a HumanDuration list in english, in a comma-separated form with abbreviated unit names, like `5hr, 32min, 15sec`.
+
+    Best used with combinations including days, hours, minutes, and seconds.
+
+-}
+abbreviatedWithCommas : List HumanDuration -> String
+abbreviatedWithCommas humanDurationList =
+    String.concat <| List.intersperse ", " (List.map withAbbreviation humanDurationList)
+
+
 {-| Render a HumanDuration list in a compact, standard colon-separated form, like `5:32:15`.
 
     Best used with hours/minutes or hours/minutes/seconds.
@@ -409,6 +429,32 @@ withLetter unit =
 
         Hours int ->
             String.fromInt int ++ "h"
+
+        Days int ->
+            String.fromInt int ++ "d"
+
+
+{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`abbreviatedSpaced` does this for you!).
+
+So `Minutes 5` becomes "5min", `Hours 3` becomes "3hr", etcetera.
+
+Conveniently, this form is also readable in Spanish and other languages as well!
+
+-}
+withAbbreviation : HumanDuration -> String
+withAbbreviation unit =
+    case unit of
+        Milliseconds int ->
+            String.fromInt int ++ "ms"
+
+        Seconds int ->
+            String.fromInt int ++ "sec"
+
+        Minutes int ->
+            String.fromInt int ++ "min"
+
+        Hours int ->
+            String.fromInt int ++ "hr"
 
         Days int ->
             String.fromInt int ++ "d"
