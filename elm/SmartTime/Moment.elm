@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (moment)
+module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), fromElmInt, fromElmTime, fromJsTime, fromUnixTime, future, here, linearFromUTC, moment, now, past)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
@@ -6,14 +6,14 @@ import Time
 
 
 
--- SHH, throughout this library we secretely we just use a Duration (which unboxes to a simple Int) under the hood, rather than an (Epoch, Duration) pair. But that's just to reduce overhead! We assume the same Epoch everywhere when storing these values, but our API does not need to know this. Oh, and the Moment should then unbox to a pure Int as well - this is exactly how elm/time does it too, I checked, so it's just as efficient. Otherwise I would have just made Moment a type alias for Posix, which it used to be (for easy compatibility with the ecosystem).
+-- SHH, throughout this library we secretely we just use a Duration (which unboxes to a simple Int) under the hood, rather than an (Epoch, Duration) pair. But that's just to reduce overhead! We assume the same Epoch everywhere when storing these values, but our API does not need to know this. Oh, and the Moment should then unbox to a pure Int as well - (this is exactly how elm/time does it too, I checked) so it's just as efficient. Otherwise I would have just made Moment a type alias for Posix, which it used to be (for easy compatibility with the ecosystem).
 
 
 type Moment
     = Moment Duration
 
 
-{-| Get the POSIX time at the moment when this task is run.
+{-| Get the `Moment` of the, um, moment... that this task is run.
 -}
 now : Job.Task x Moment
 now =
@@ -46,8 +46,25 @@ linearFromUTC int =
     int
 
 
+{-| Shift a `Moment` into its future by some amount of time (`Duration`).
+Obviously it doesn't make much sense to "add" a `Moment` to another `Moment`, but you often want to add some time to one.
 
---TODO
+Rather than dealing with negative durations, look to `past` for shifting into the past.
+
+-}
+future : Moment -> Duration -> Moment
+future (Moment time) duration =
+    Moment <| Duration.add time duration
+
+
+{-| Shift a `Moment` into its past by some amount of time (`Duration`).
+
+This way you don't have to deal with negative durations.
+
+-}
+past : Moment -> Duration -> Moment
+past (Moment time) duration =
+    Moment <| Duration.subtract time duration
 
 
 {-| As _all_ numbers in Javascript are double precision _floating point_ numbers (following the international IEEE 754 standard), that includes its internal representation of time -- yes, this means it will lose accuracy as we move into the future! (Any "integer" over 15 digits loses accuracy, so `9999999999999999 == 10000000000000000`.)
