@@ -11941,8 +11941,8 @@ var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=conf
 
 //setTimeout(sendIt, 1500);
 
-function sendIt() {
-    app.ports.headlessMsg.send(taskerUrl);
-}
+// function sendIt() {
+//     app.ports.headlessMsg.send(taskerUrl);
+// }
 
-taskerOut("ElmScriptVersion", "68 - trying delayed exit");
+// taskerOut("ElmScriptVersion", "68 - trying delayed exit");
