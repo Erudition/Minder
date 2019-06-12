@@ -73,7 +73,7 @@ function taskerExit () {
 //var storedState = localStorage.getItem('docket-v0.1-data');
 //var startingState = storedState ? storedState : null;
 
-var Elm = this.Elm; //trick I discovered to bypass importing
+//var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 
