@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), Moment, StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityId(..), Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeActivityId, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeActivityId, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, isStock, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -14,14 +14,11 @@ import List.Nonempty exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.HumanDuration exposing (..)
+import SmartTime.Moment as Moment exposing (..)
 import Svg.Styled exposing (..)
 import Task.TaskMoment exposing (decodeMoment, encodeMoment)
 import Time
 import Time.Extra exposing (..)
-
-
-type alias Moment =
-    Time.Posix
 
 
 {-| Definition of an activity.
@@ -1198,7 +1195,7 @@ type alias Timeline =
 
 latestSwitch : Timeline -> Switch
 latestSwitch timeline =
-    Maybe.withDefault (Switch (Time.millisToPosix 0) (Stock DillyDally)) (List.head timeline)
+    Maybe.withDefault (Switch Moment.zero (Stock DillyDally)) (List.head timeline)
 
 
 currentActivityId : Timeline -> ActivityId

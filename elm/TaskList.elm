@@ -17,11 +17,11 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
 import Task.TaskMoment exposing (..)
-import Time
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
@@ -290,7 +290,7 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Time.Posix -> Task -> Html Msg
+timingInfo : Moment -> Task -> Html Msg
 timingInfo time task =
     text <| describeTaskMoment time task.deadline
 
@@ -432,7 +432,7 @@ update msg state app env =
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | tasks = app.tasks ++ [ newTask newTaskTitle (Time.posixToMillis env.time) ]
+                        | tasks = app.tasks ++ [ newTask newTaskTitle (Moment.toSmartInt env.time) ]
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none

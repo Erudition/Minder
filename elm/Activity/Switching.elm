@@ -8,6 +8,7 @@ import Environment exposing (..)
 import External.Commands as Commands
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.HumanDuration as HumanDuration exposing (..)
+import SmartTime.Moment exposing (..)
 import Time
 import Time.Extra as Time
 
@@ -27,7 +28,10 @@ switchActivity activityId app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
-        , Commands.changeActivity (getName newActivity) (Measure.exportExcusedUsageSeconds app env.time newActivity) (Measure.exportLastSession updatedApp oldActivity)
+        , Commands.changeActivity
+            (getName newActivity)
+            (Measure.exportExcusedUsageSeconds app env.time newActivity)
+            (Measure.exportLastSession updatedApp oldActivity)
         , Commands.hideWindow
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
@@ -64,29 +68,23 @@ currentActivityFromApp app =
 scheduleReminders : Moment -> Duration -> List Reminder
 scheduleReminders now fromNow =
     let
-        limit =
-            Duration.inMs fromNow
-
-        future distance =
-            Time.millisToPosix <| Time.posixToMillis now + distance
-
         fractionLeft denom =
-            future <| limit - (limit // denom)
+            future now <| Duration.subtract fromNow (Duration.scale fromNow (1 / denom))
     in
-    [ Reminder "Half-way done!"
+    [ Reminder (fractionLeft 2)
+        "Half-way done!"
         "1/2 time left for activity."
-        (fractionLeft 2)
         []
-    , Reminder "Two-thirds done!"
+    , Reminder (fractionLeft 3)
+        "Two-thirds done!"
         "1/3 time left for activity."
-        (fractionLeft 3)
         []
-    , Reminder "Three-Quarters done!"
+    , Reminder (fractionLeft 4)
+        "Three-Quarters done!"
         "1/4 time left for activity."
-        (fractionLeft 4)
         []
-    , Reminder "Time's up!"
+    , Reminder (future now fromNow)
+        "Time's up!"
         "Reached maximum time allowed for this."
-        (future limit)
         []
     ]

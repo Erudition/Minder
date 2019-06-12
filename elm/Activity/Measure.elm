@@ -1,11 +1,11 @@
-module Activity.Measure exposing (excusedUsage, exportExcusedUsageSeconds, exportLastSession, inFuzzyWords, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (excusedUsage, exportExcusedUsageSeconds, exportLastSession, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
 import Environment exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.HumanDuration exposing (..)
-import Time exposing (..)
+import SmartTime.Moment as Moment exposing (..)
 import Time.Distance exposing (..)
 import Time.Extra
 
@@ -30,7 +30,7 @@ allSessions switchList =
 
 session : Switch -> Switch -> ( ActivityId, Duration )
 session (Switch newer _) (Switch older activityId) =
-    ( activityId, Duration.fromInt (Time.posixToMillis newer - Time.posixToMillis older) )
+    ( activityId, Moment.difference newer older )
 
 
 sessions : List Switch -> ActivityId -> List Duration
@@ -75,7 +75,7 @@ timelineLimit timeline now pastLimit =
             id
 
         recentEnough (Switch moment _) =
-            Time.posixToMillis moment > Time.posixToMillis pastLimit
+            Moment.compare moment pastLimit == GT
 
         ( pass, fail ) =
             List.partition recentEnough timeline
@@ -97,8 +97,7 @@ For fixed distances, that's easy, but variable intervals could be far back or ju
 -}
 lookBack : Moment -> HumanDuration -> Moment
 lookBack present humanDuration =
-    -- TODO use SmartTime so only fixed increments can be used
-    Time.Extra.add Time.Extra.Millisecond -(Duration.inMs (toDuration humanDuration)) utc present
+    Moment.past present (toDuration humanDuration)
 
 
 relevantTimeline : Timeline -> Moment -> HumanDuration -> Timeline
@@ -110,11 +109,11 @@ justToday : Timeline -> ( Moment, Zone ) -> Timeline
 justToday timeline ( now, zone ) =
     let
         lastMidnight =
-            Time.Extra.floor Time.Extra.Day zone now
+            fromElmTime <| Time.Extra.floor Time.Extra.Day zone (toElmTime now)
 
         -- TODO: what if between midnight and 3am
-        last3am =
-            Time.Extra.add Time.Extra.Hour 3 zone lastMidnight
+        -- last3am =
+        --     Time.Extra.add Time.Extra.Hour 3 zone lastMidnight
     in
     timelineLimit timeline now lastMidnight
 
@@ -126,11 +125,6 @@ justTodayTotal timeline env activity =
             justToday timeline ( env.time, env.timeZone )
     in
     totalLive env.time lastPeriod activity.id
-
-
-inFuzzyWords : Duration -> String
-inFuzzyWords duration =
-    Time.Distance.inWords (Time.millisToPosix 0) (Time.millisToPosix (Duration.inMs duration))
 
 
 inHoursMinutes : Duration -> String
