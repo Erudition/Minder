@@ -1,7 +1,9 @@
-module Porting exposing (EncodeField, arrayAsTuple2, customDecoder, decodeCustom, decodeCustomFlat, decodeInterval, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2)
+module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2, toClassic, updateable)
 
+import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
+import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
 import Time.Extra exposing (Interval(..))
 
@@ -265,3 +267,71 @@ normal =
 ifPresent : String -> Decoder a -> Decoder (Maybe a -> b) -> Decoder b
 ifPresent fieldName decoder =
     Pipeline.optional fieldName (Decode.map Just decoder) Nothing
+
+
+type alias BoolAsInt =
+    Int
+
+
+decodeBoolAsInt : Decoder Bool
+decodeBoolAsInt =
+    oneOf
+        [ check int 1 <| succeed True
+        , check int 0 <| succeed False
+        ]
+
+
+encodeBoolAsInt : Bool -> Encode.Value
+encodeBoolAsInt bool =
+    case bool of
+        True ->
+            Encode.int 1
+
+        False ->
+            Encode.int 0
+
+
+{-| Allows for Updateable fields during decoding, such as for incremental syncs or storing only deltas.
+-}
+type Updateable a
+    = NoChange
+    | ChangedTo a
+
+
+{-| Pipeline: Same as `optional` but works on Updateable fields - wraps matches in `ChangedTo`, otherwise returns `NoChange`.
+-}
+updateable : String -> Decoder a -> Decoder (Updateable a -> b) -> Decoder b
+updateable key valDecoder decoder =
+    let
+        wrappedValDecoder =
+            Decode.map ChangedTo valDecoder
+    in
+    decoder |> optional key wrappedValDecoder NoChange
+
+
+applyChanges : a -> Updateable a -> a
+applyChanges original change =
+    case change of
+        NoChange ->
+            original
+
+        ChangedTo new ->
+            new
+
+
+toClassic : Decoder a -> ClassicDecode.Decoder a
+toClassic decoder =
+    let
+        runRealDecoder value =
+            decodeValue decoder value
+
+        asResult value =
+            strict (runRealDecoder value)
+
+        convertToNormalResult fancyResult =
+            Result.mapError errorsToString fancyResult
+
+        final value =
+            convertToNormalResult (asResult value)
+    in
+    ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
