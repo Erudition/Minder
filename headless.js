@@ -11903,8 +11903,8 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 
 
 
-var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=configure";
+// var taskerUrl = getLocalUrl();
+// var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=configure";
 
 
 // touch file in case it's not There
