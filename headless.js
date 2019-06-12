@@ -11879,4 +11879,4 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 
 // taskerOut("ElmScriptVersion", "68 - trying delayed exit");
 
-exit();
+setTimeout(() => taskerExit(), 10);

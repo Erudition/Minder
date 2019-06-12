@@ -121,4 +121,4 @@
 
 // taskerOut("ElmScriptVersion", "68 - trying delayed exit");
 
-exit();
+setTimeout(() => taskerExit(), 10);
