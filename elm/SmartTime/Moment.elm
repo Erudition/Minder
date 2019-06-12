@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, zero)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
@@ -22,6 +22,25 @@ now =
 
 type alias ElmTime =
     ElmTime.Posix
+
+
+{-| Get the current time periodically. How often though? Well, you provide a `Duration` and that is how often you get a new time!
+
+Want to hardcode this value? Yup, thought so. In that case use `Clock.every` instead, and you can just use `HumanDuration`s directly!
+
+(Not for efficient animation. Use the [`elm/animation-frame`][af]
+package instead.)
+[af]: /packages/elm/animation-frame/latest
+
+-}
+every : Duration -> (Moment -> msg) -> Sub msg
+every interval tagger =
+    let
+        convertedTagger : ElmTime -> msg
+        convertedTagger elmTime =
+            tagger (fromElmTime elmTime)
+    in
+    ElmTime.every (toFloat <| Duration.inMs interval) convertedTagger
 
 
 {-| Create a Moment. A Moment is an `Epoch` and some `Duration` -- the amount of time since that Epoch -- which gives us a globally fixed point in time. You can shift this moment forward or backward by adding other `Duration` values to it.

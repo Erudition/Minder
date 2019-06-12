@@ -1,6 +1,7 @@
-module SmartTime.Human.Clock exposing (Clock, Clock12Hr, NoonBasedHour(..), Zone, localZone, toClock, toClock12Hr, utc)
+module SmartTime.Human.Clock exposing (Clock, Clock12Hr, NoonBasedHour(..), Zone, every, localZone, toClock, toClock12Hr, utc)
 
-import SmartTime.Moment exposing (..)
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
+import SmartTime.Moment as Moment exposing (..)
 import Task as Job
 import Time as ElmTime exposing (toHour, toMillis, toMinute, toSecond)
 
@@ -104,3 +105,19 @@ utc =
 localZone : Job.Task x Zone
 localZone =
     ElmTime.here
+
+
+{-| Get the current time periodically. How often though? Well, you provide a `HumanDuration` and that is how often you get a new time!
+
+This is a convenient replacement for `Moment.every` that directly accepts HumanDurations, so you can cleanly hardcode a value like:
+
+`Clock.every [ Minutes 1 ] MyUpdateMsg`
+
+(Not for efficient animation. Use the [`elm/animation-frame`][af]
+package instead.)
+[af]: /packages/elm/animation-frame/latest
+
+-}
+every : HumanDuration -> (Moment -> msg) -> Sub msg
+every interval tagger =
+    Moment.every (HumanDuration.toDuration interval) tagger

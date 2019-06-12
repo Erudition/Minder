@@ -29,6 +29,8 @@ module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown,
 
 -}
 
+-- Look, ma! No imports!
+
 
 {-| A `Duration` is an exact amount of time. You can increase or decrease its length by adding other `Duration` values to it.
 -}
