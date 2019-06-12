@@ -11759,74 +11759,74 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)}});}(this));
 //my helper functions:
 
-function getGlobalVar (name) {
-    try {
-        let g = global(name);
-        if (typeof g !== 'undefined')
-            return g;
-        else {
-            logflash(`Failed to get global: ${name} because it was undefined`);
-            return null;
-        }
-    } catch (e) {
-        //logflash(`Failed to get global: ${name} because ${e}`);
-        return null;
-    }
-}
-
-function getLocalUrl () {
-    if (typeof elmurl !== 'undefined')
-        return elmurl;
-    else
-        logflash(`Failed to get local url because it was undefined`);
-        return null;
-}
-
-function taskerOut (name, value) {
-    try {
-        if (name.toLower == name)
-          setLocal(name, value);
-        else
-          setGlobal(name, value);
-    } catch (e) {
-        logflash("Setting " +name+ " to " +value+ " if tasker was here");
-    }
-}
-
-function logflash(msg) {
-    try {
-        flash(msg);
-    } catch (e) {
-        console.log(msg);
-    }
-}
-
-function taskerTry (func) {
-    try {
-        return func();
-    } catch (e) {
-        //logflash("Tried " + func);
-        return null;
-    }
-}
-
-function taskerReadAppData () {
-    try {
-        //return readFile("docket.dat");
-        return getGlobalVar("ElmAppData");
-    } catch (e) {
-        //logflash("Failed to read file " + file);
-        return ' ';
-    }
-}
-
-function taskerExit () {
-    try {
-        exit();
-    } catch (e) {
-        logflash("Tried to exit");
-    }
-}
+// function getGlobalVar (name) {
+//     try {
+//         let g = global(name);
+//         if (typeof g !== 'undefined')
+//             return g;
+//         else {
+//             logflash(`Failed to get global: ${name} because it was undefined`);
+//             return null;
+//         }
+//     } catch (e) {
+//         //logflash(`Failed to get global: ${name} because ${e}`);
+//         return null;
+//     }
+// }
+//
+// function getLocalUrl () {
+//     if (typeof elmurl !== 'undefined')
+//         return elmurl;
+//     else
+//         logflash(`Failed to get local url because it was undefined`);
+//         return null;
+// }
+//
+// function taskerOut (name, value) {
+//     try {
+//         if (name.toLower == name)
+//           setLocal(name, value);
+//         else
+//           setGlobal(name, value);
+//     } catch (e) {
+//         logflash("Setting " +name+ " to " +value+ " if tasker was here");
+//     }
+// }
+//
+// function logflash(msg) {
+//     try {
+//         flash(msg);
+//     } catch (e) {
+//         console.log(msg);
+//     }
+// }
+//
+// function taskerTry (func) {
+//     try {
+//         return func();
+//     } catch (e) {
+//         //logflash("Tried " + func);
+//         return null;
+//     }
+// }
+//
+// function taskerReadAppData () {
+//     try {
+//         //return readFile("docket.dat");
+//         return getGlobalVar("ElmAppData");
+//     } catch (e) {
+//         //logflash("Failed to read file " + file);
+//         return ' ';
+//     }
+// }
+//
+// function taskerExit () {
+//     try {
+//         exit();
+//     } catch (e) {
+//         logflash("Tried to exit");
+//     }
+// }
 // Elm init
 //var storedState = localStorage.getItem('docket-v0.1-data');
 //var startingState = storedState ? storedState : null;
