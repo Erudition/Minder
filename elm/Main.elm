@@ -5,18 +5,21 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
+import Dict
 import Environment exposing (..)
 import External.Commands exposing (..)
+import External.TodoistSync as Todoist
 import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import SmartTime.Human.Clock as Clock exposing (Zone)
+import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
 import TaskList
-import Time
 import TimeTracker exposing (..)
 import Url
 import Url.Parser as P exposing ((</>), Parser, int, map, oneOf, s, string)
@@ -40,7 +43,7 @@ subscriptions ({ appData, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          Time.every (60 * 1000) (Tock NoOp)
+          Moment.every [ Minutes 1 ] (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         ]
 
@@ -87,7 +90,7 @@ updateWithTime msg ({ environment } as model) =
         -- first get the current time
         Tick submsg ->
             ( model
-            , Job.perform (Tock submsg) Time.now
+            , Job.perform (Tock submsg) Moment.now
             )
 
         -- actually do the update
@@ -144,7 +147,7 @@ init maybeJson url maybeKey =
             updateWithTime (NewUrl url) startingModel
 
         effects =
-            [ Job.perform identity (Job.map2 SetZoneAndTime Time.here Time.now) -- reduces initial calls to update
+            [ Job.perform identity (Job.map2 SetZoneAndTime Clock.localZone Moment.now) -- reduces initial calls to update
             , firstEffects
             ]
     in
@@ -236,7 +239,7 @@ defaultView =
 
 view : Model -> Browser.Document Msg
 view { viewState, appData, environment } =
-    if environment.time == Time.millisToPosix 0 then
+    if environment.time == Moment.zero then
         { title = "Loading..."
         , body = [ toUnstyled (H.map (\_ -> NoOp) (text "Loading")) ]
         }
@@ -322,9 +325,10 @@ to them.
 type Msg
     = NoOp
     | Tick Msg
-    | Tock Msg Time.Posix
-    | SetZoneAndTime Time.Zone Time.Posix
+    | Tock Msg Moment
+    | SetZoneAndTime Zone Moment
     | ClearErrors
+    | SyncTodoist
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -347,6 +351,9 @@ update msg ({ viewState, appData, environment } as model) =
     case ( msg, viewState.primaryView ) of
         ( ClearErrors, _ ) ->
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
+
+        ( SyncTodoist, _ ) ->
+            justRunCommand Todoist.sync appData.tokens.todoistSyncToken
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
@@ -465,7 +472,10 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             P.parse (P.oneOf parseList) (log "url" <| normalizedUrl)
 
         parseList =
-            List.map P.query (taskTriggers ++ timeTrackerTriggers)
+            List.map P.query (mainTriggers ++ taskTriggers ++ timeTrackerTriggers)
+
+        mainTriggers =
+            [ PQ.enum "sync" <| Dict.fromList [ ( "todoist", SyncTodoist ) ] ]
 
         timeTrackerTriggers =
             List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)

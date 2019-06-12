@@ -1,4 +1,4 @@
-module External.TodoistSync exposing (Item, Project)
+module External.TodoistSync exposing (Item, Project, sync)
 
 import Dict exposing (Dict)
 import Http
@@ -12,17 +12,17 @@ import Url
 import Url.Builder
 
 
-syncUrl : Maybe Token -> String
+syncUrl : Token -> String
 syncUrl incrementalSyncToken =
     Url.Builder.crossOrigin "https://todoist.com"
         [ "api", "v8", "sync" ]
         [ Url.Builder.string "token" "0bdc5149510737ab941485bace8135c60e2d812b"
-        , Url.Builder.string "sync_token" (Maybe.withDefault "*" incrementalSyncToken)
+        , Url.Builder.string "sync_token" incrementalSyncToken
         , Url.Builder.string "resource_type" "[\"all\"]"
         ]
 
 
-sync : Maybe Token -> Cmd TodoistMsg
+sync : Token -> Cmd TodoistMsg
 sync incrementalSyncToken =
     Http.get
         { url = syncUrl incrementalSyncToken

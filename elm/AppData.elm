@@ -22,6 +22,7 @@ type alias AppData =
     , tasks : List Task
     , activities : StoredActivities
     , timeline : Timeline
+    , tokens : Tokens
     }
 
 
@@ -32,6 +33,7 @@ fromScratch =
     , tasks = []
     , activities = []
     , timeline = []
+    , tokens = emptyTokens
     }
 
 
@@ -43,6 +45,7 @@ decodeAppData =
         |> optional "tasks" (Decode.list decodeTask) []
         |> optional "activities" Activity.decodeStoredActivities []
         |> optional "timeline" (Decode.list decodeSwitch) []
+        |> optional "tokens" decodeTokens emptyTokens
 
 
 encodeAppData : AppData -> Encode.Value
@@ -53,6 +56,28 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
+        ]
+
+
+type alias Tokens =
+    { todoistSyncToken : String
+    }
+
+
+emptyTokens =
+    Tokens "*"
+
+
+decodeTokens : Decoder Tokens
+decodeTokens =
+    Pipeline.decode Tokens
+        |> required "todoistSyncToken" Decode.string
+
+
+encodeTokens : Tokens -> Encode.Value
+encodeTokens record =
+    Encode.object
+        [ ( "todoistSyncToken", Encode.string record.todoistSyncToken )
         ]
 
 
