@@ -84,9 +84,19 @@ decodeTaskMoment =
 {-| TODO make encoder
 -}
 encodeTaskMoment : TaskMoment -> Encode.Value
-encodeTaskMoment taskmoment =
-    Encode.object
-        []
+encodeTaskMoment v =
+    case v of
+        Unset ->
+            Encode.string "Unset"
+
+        LocalDate date ->
+            Encode.string "LocalDate"
+
+        Localized parts ->
+            Encode.string "Localized"
+
+        Universal moment ->
+            Encode.string "Universal"
 
 
 {-| Brief human-friendly description of due dates relative to now.

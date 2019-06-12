@@ -299,8 +299,14 @@ infoFooter =
 errorList : List String -> Html Msg
 errorList stringList =
     let
+        descWithBreaks desc =
+            String.split "\n" desc
+
         asLi desc =
-            li [ onClick ClearErrors ] [ text desc ]
+            li [ onDoubleClick ClearErrors ] (List.map asP (descWithBreaks desc))
+
+        asP sub =
+            p [ class "error-line" ] [ text sub ]
     in
     ol [] (List.map asLi stringList)
 

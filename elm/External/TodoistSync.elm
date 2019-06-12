@@ -9,6 +9,8 @@ import Json.Decode.Extra exposing (fromResult)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode2
 import Porting exposing (..)
+import Task.Progress
+import Task.Task exposing (Task, newTask)
 import Url
 import Url.Builder
 
@@ -84,31 +86,32 @@ decodeResponse =
         |> required "full_sync" bool
         |> optional "items" (list decodeItem) []
         |> optional "projects" (list decodeProjectChanges) []
-        |> ignored "temp_id_mapping"
-
-
-
--- |> ignored "collaborators"
--- |> ignored "collaboratorStates"
--- |> ignored "dayOrders"
--- |> ignored "filters"
--- |> ignored "labels"
--- |> ignored "liveNotifications"
--- |> ignored "liveNotificationsLastReadId"
--- |> ignored "notes"
--- |> ignored "projectNotes"
--- |> ignored "reminders"
--- |> ignored "settingsNotifications"
--- |> ignored "tempIdMapping"
--- |> ignored "user"
--- |> ignored "userSettings"
+        |> optionalIgnored "temp_id_mapping"
+        |> optionalIgnored "collaborators"
+        |> optionalIgnored "collaboratorStates"
+        |> optionalIgnored "dayOrders"
+        |> optionalIgnored "filters"
+        |> optionalIgnored "labels"
+        |> optionalIgnored "liveNotifications"
+        |> optionalIgnored "liveNotificationsLastReadId"
+        |> optionalIgnored "notes"
+        |> optionalIgnored "projectNotes"
+        |> optionalIgnored "reminders"
+        |> optionalIgnored "settingsNotifications"
+        |> optionalIgnored "tempIdMapping"
+        |> optionalIgnored "user"
+        |> optionalIgnored "userSettings"
+        |> optionalIgnored "sections"
 
 
 handle : TodoistMsg -> AppData -> AppData
 handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
     case result of
         Ok data ->
-            { app | tokens = { todoistSyncToken = data.sync_token } }
+            { app
+                | tokens = { todoistSyncToken = data.sync_token }
+                , tasks = List.map itemToTask data.items
+            }
 
         Err err ->
             case err of
@@ -210,6 +213,8 @@ decodeItem =
         -- API docs do not indicate this is an optional field
         |> required "date_added" string
         |> optionalIgnored "legacy_id"
+        |> optionalIgnored "legacy_project_id"
+        |> optionalIgnored "sync_id"
 
 
 optionalIgnored : String -> Decoder a -> Decoder a
@@ -245,6 +250,24 @@ encodeItem record =
         , ( "is_archived", encodeBoolAsInt <| record.is_archived )
         , ( "date_added", Encode.string <| record.date_added )
         ]
+
+
+itemToTask : Item -> Task
+itemToTask item =
+    let
+        base =
+            newTask item.content item.id
+    in
+    { base
+        | completion =
+            if item.checked then
+                Task.Progress.maximize base.completion
+
+            else
+                base.completion
+        , tags = []
+        , project = Just item.project_id
+    }
 
 
 type Priority
