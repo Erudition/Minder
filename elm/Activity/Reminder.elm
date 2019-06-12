@@ -1,8 +1,8 @@
-module Activity.Reminder exposing (Alarm, NotificationAction, Reminder)
+module Activity.Reminder exposing (Alarm, Intent, NotificationAction, Reminder, scheduleExcusedReminders)
 
 import SmartTime.Duration as Duration exposing (..)
-import SmartTime.HumanDuration as HumanDuration exposing (singleLetterSpaced)
-import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.HumanDuration as HumanDuration exposing (abbreviatedSpaced, breakdownHM)
+import SmartTime.Moment as Moment exposing (Moment, future)
 
 
 type alias Intent =
@@ -11,14 +11,6 @@ type alias Intent =
 
 type alias Reminder =
     { scheduledFor : Moment
-    , title : String
-    , subtitle : String
-    , actions : List NotificationAction
-    }
-
-
-type alias RelativeReminder =
-    { arrivesIn : Moment
     , title : String
     , subtitle : String
     , actions : List NotificationAction
@@ -39,12 +31,9 @@ type alias Alarm =
 
 
 {-| Calculate the interim reminders before the activity expires from being excused.
-
-Implementation note: It was tempting to use two Moments for this: now and expiresAt (the end time). But we can narrow our input even further: by passing in only a Duration, we actually still have all the information we need to work with to schedule all of the interim reminders - higher functions can translate that into actual times!
-
 -}
-scheduleExcusedReminders : Duration -> List RelativeReminder
-scheduleExcusedReminders timeLeft =
+scheduleExcusedReminders : Moment -> Duration -> List Reminder
+scheduleExcusedReminders now timeLeft =
     let
         halfLeft =
             Duration.scale timeLeft (1 / 2)
@@ -59,11 +48,26 @@ scheduleExcusedReminders timeLeft =
             Duration.scale timeLeft (4 / 5)
 
         write durLeft =
-            singleLetterSpaced <| breakdownHM durLeft
+            abbreviatedSpaced <| breakdownHM durLeft
     in
-    [ { arrivesIn = halfLeft
-      , title = ""
-      , subtitle = ""
+    [ { scheduledFor = future now halfLeft
+      , title = "Half Time!"
+      , subtitle = write halfLeft ++ " left"
+      , actions = []
+      }
+    , { scheduledFor = future now thirdLeft
+      , title = "Excused for " ++ write thirdLeft ++ " more"
+      , subtitle = "Only one third left"
+      , actions = []
+      }
+    , { scheduledFor = future now quarterLeft
+      , title = "Excused for " ++ write quarterLeft ++ " more"
+      , subtitle = "Only one quarter left"
+      , actions = []
+      }
+    , { scheduledFor = future now fifthLeft
+      , title = "Excused for " ++ write fifthLeft ++ " more"
+      , subtitle = "Only one fifth left"
       , actions = []
       }
     ]
