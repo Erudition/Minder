@@ -1,4 +1,4 @@
-module Task.TaskMoment exposing (Duration, Moment, TaskMoment(..), decodeMoment, decodeTaskMoment, describeTaskMoment, encodeMoment, encodeTaskMoment)
+module Task.TaskMoment exposing (Duration, TaskMoment(..), decodeMoment, decodeTaskMoment, describeTaskMoment, encodeMoment, encodeTaskMoment)
 
 import Date exposing (Date)
 import Json.Decode
@@ -6,16 +6,10 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Extra
 import Json.Encode as Encode exposing (..)
 import Porting exposing (decodeCustom, subtype)
+import SmartTime.Moment as Moment exposing (..)
 import Time exposing (posixToMillis, utc)
 import Time.Distance as Distance
 import Time.Extra exposing (Parts, partsToPosix, posixToParts)
-
-
-{-| A Posix-Time Integer represents an exact, universal, single Date and Time. You could almost say it's simply a MOMENT in time.... Hey wait a second... that's a way better name!
-Silly Elm.
--}
-type alias Moment =
-    Time.Posix
 
 
 {-| This is a bit of a clever hack: Parts is not an export-friendly datatype (being a large record), but Posix is (being a single Int); we take advantage of Posix's compact form by giving it a fake timezone. Unfortunately the resulting JSON is technically a lie and wouldn't be super intuitive to an outsider.
@@ -27,23 +21,24 @@ encodeParts parts =
 
 decodeParts : Decode.Decoder Parts
 decodeParts =
-    Decode.map (posixToParts zoneless) decodeMoment
+    Decode.map (posixToParts zoneless << toElmTime) decodeMoment
 
 
-{-| The timezone we arbitrarily choose to temporarily use for encoding Parts. Factored out as an extra reminder that we're not dealing with utc for real.
+{-| The timezone we arbitrarily choose to temporarily use for encoding Parts. Factored out, as an extra reminder that we're not dealing with utc for real.
 -}
+zoneless : Time.Zone
 zoneless =
     utc
 
 
 encodeMoment : Moment -> Encode.Value
 encodeMoment moment =
-    Encode.int (Time.posixToMillis moment)
+    Encode.int (toSmartInt moment)
 
 
 decodeMoment : Decode.Decoder Moment
 decodeMoment =
-    Decode.map Time.millisToPosix Decode.int
+    Decode.map fromSmartInt Decode.int
 
 
 {-| Rata Die is cool! And just so perfect for this task. (It turns any calendar day into a unique integer: 1 = 1 January 0001.)
@@ -105,15 +100,16 @@ describeTaskMoment now target =
 
         -- TODO, obviously
         LocalDate date ->
-            "in " ++ String.fromInt (Date.diff Date.Days date (Date.fromPosix userTimeZonePlaceholder now)) ++ " days"
+            "in " ++ String.fromInt (Date.diff Date.Days date (Date.fromPosix userTimeZonePlaceholder (toElmTime now))) ++ " days"
 
         Localized moment ->
-            Distance.inWords now (partsToPosix userTimeZonePlaceholder moment)
+            Distance.inWords (toElmTime now) (partsToPosix userTimeZonePlaceholder moment)
 
         Universal moment ->
-            Distance.inWords now moment
+            Distance.inWords (toElmTime now) (toElmTime moment)
 
 
+userTimeZonePlaceholder : Time.Zone
 userTimeZonePlaceholder =
     utc
 

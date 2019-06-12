@@ -1,8 +1,8 @@
-module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), fromElmInt, fromElmTime, fromJsTime, fromUnixTime, future, here, linearFromUTC, moment, now, past)
+module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), Zone, compare, difference, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, here, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, utc, zero)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
-import Time
+import Time as ElmTime
 
 
 
@@ -17,18 +17,27 @@ type Moment
 -}
 now : Job.Task x Moment
 now =
-    Job.map fromElmTime Time.now
+    Job.map fromElmTime ElmTime.now
+
+
+type alias Zone =
+    ElmTime.Zone
+
+
+utc : ElmTime.Zone
+utc =
+    ElmTime.utc
 
 
 {-| Get the current Time Zone, based on the the UTC offset given to us by Javascript. Provided here so you can ditch your `Time` imports entirely if you want.
 -}
-here : Job.Task x Time.Zone
+here : Job.Task x Zone
 here =
-    Time.here
+    ElmTime.here
 
 
 type alias ElmTime =
-    Time.Posix
+    ElmTime.Posix
 
 
 {-| Create a Moment. A Moment is an `Epoch` and some `Duration` -- the amount of time since that Epoch -- which gives us a globally fixed point in time. You can shift this moment forward or backward by adding other `Duration` values to it.
@@ -43,6 +52,11 @@ moment scale epoch duration =
 
 linearFromUTC : Int -> Int
 linearFromUTC int =
+    int
+
+
+utcFromLinear : Int -> Int
+utcFromLinear int =
     int
 
 
@@ -67,6 +81,16 @@ past (Moment time) duration =
     Moment <| Duration.subtract time duration
 
 
+{-| Compare a `Moment` to another, the same way you can compare integers.
+-}
+compare (Moment time1) (Moment time2) =
+    Basics.compare (Duration.inMs time1) (Duration.inMs time2)
+
+
+difference (Moment time1) (Moment time2) =
+    Duration.difference time1 time2
+
+
 {-| As _all_ numbers in Javascript are double precision _floating point_ numbers (following the international IEEE 754 standard), that includes its internal representation of time -- yes, this means it will lose accuracy as we move into the future! (Any "integer" over 15 digits loses accuracy, so `9999999999999999 == 10000000000000000`.)
 
 If for some reason you have one of these numbers (`Float` number of milliseconds since the UTC Epoch), this function will turn it into a Moment for you. However, it's more common to use Javascript's `new Date().getTime();`, which means you have an integer instead (in which case just use `moment (Milliseconds intHere) UTCEpoch` to get a moment, or `fromElmTime`.)
@@ -74,7 +98,7 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 -}
 fromJsTime : Float -> Moment
 fromJsTime floatMsUtc =
-    moment UTC UnixEpoch (Duration.fromInt (round floatMsUtc))
+    moment CoordinatedUniversal UnixEpoch (Duration.fromInt (round floatMsUtc))
 
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
@@ -86,7 +110,12 @@ If you actually want a conversion from real "POSIX" time (rather than the elm ty
 -}
 fromElmTime : ElmTime -> Moment
 fromElmTime intMsUtc =
-    fromElmInt <| Time.posixToMillis intMsUtc
+    fromElmInt <| ElmTime.posixToMillis intMsUtc
+
+
+toElmTime : Moment -> ElmTime
+toElmTime (Moment dur) =
+    ElmTime.millisToPosix <| utcFromLinear (Duration.inMs dur)
 
 
 {-| Handy alias for `(moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
@@ -96,7 +125,7 @@ If your time is still in Elm's native form, you want `fromElmTime` instead.
 -}
 fromElmInt : Int -> Moment
 fromElmInt intMsUtc =
-    moment UTC UnixEpoch (Duration.fromInt intMsUtc)
+    moment CoordinatedUniversal UnixEpoch (Duration.fromInt intMsUtc)
 
 
 {-| Turn a Unix time value into a Moment.
@@ -110,7 +139,64 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 -}
 fromUnixTime : Float -> Moment
 fromUnixTime float =
-    moment UTC UnixEpoch (Duration.fromInt (round (float * 1000)))
+    moment CoordinatedUniversal UnixEpoch (Duration.fromInt (round (float * 1000)))
+
+
+{-| How far is this Moment from a particular `Epoch`?
+-}
+since : Moment -> Epoch -> Duration
+since (Moment dur) epoch =
+    dur
+
+
+
+-- TODO
+
+
+{-| Turn a Moment into a `Duration` since the given Epoch.
+-}
+toDuration : Moment -> TimeScale -> Epoch -> Duration
+toDuration (Moment dur) timeScale epoch =
+    dur
+
+
+
+--TODO
+
+
+{-| Turn a Moment into a raw Int so you can Encode it.
+(Don't care about the format? Just use `toSmartInt`!)
+The Int will be the number of milliseconds since the chosen `Epoch`, with corrections applied for your chosen `TimeScale`.
+-}
+toInt : Moment -> TimeScale -> Epoch -> Int
+toInt (Moment dur) timeScale epoch =
+    Duration.inMs dur
+
+
+
+--TODO
+
+
+{-| Turn a `Moment` into a raw `Int` so you can Encode it.
+To decode it back to SmartTime, use `fromSmartInt`. These functions are recommended for Decoders/Encoders and storage of `Moment`s.
+
+Synonymous with `toInt InternationalAtomic HumanEraStart`. If your exported number should be compatible with another system, look to those functions (e.g. `toUnixTime`) instead.
+
+-}
+toSmartInt : Moment -> Int
+toSmartInt (Moment dur) =
+    Duration.inMs dur
+
+
+{-| Decode a raw `Int` (from SmartTime) into a `Moment`.
+To get these values, use `toSmartInt`. These functions are recommended for Decoders/Encoders and storage of `Moment`s.
+
+Creates a `Moment` just like `moment InternationalAtomic HumanEraStart`, with a `Duration` equal to the given number of milliseconds.
+
+-}
+fromSmartInt : Int -> Moment
+fromSmartInt int =
+    Moment (Duration.fromInt int)
 
 
 type Epoch
@@ -132,7 +218,15 @@ type Epoch
 
 -}
 type TimeScale
-    = UTC
-    | TAI
-    | GPST
-    | TT
+    = CoordinatedUniversal
+    | InternationalAtomic
+    | GPS
+    | Terrestrial
+
+
+{-| Represents the beginning of the year 0 HE.
+Just about anything recorded in civilization happened later than this, so it's a great default or "dummy" value for `Moment`.
+-}
+zero : Moment
+zero =
+    Moment Duration.zero
