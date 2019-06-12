@@ -1,4 +1,4 @@
-module External.TodoistSync exposing (Item, Project, sync)
+module External.TodoistSync exposing (Item, Project, TodoistMsg, sync)
 
 import Dict exposing (Dict)
 import Http
@@ -26,7 +26,7 @@ sync : Token -> Cmd TodoistMsg
 sync incrementalSyncToken =
     Http.get
         { url = syncUrl incrementalSyncToken
-        , expect = Http.expectJson Response (toClassic decodeResponse)
+        , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
         }
 
 
@@ -37,7 +37,7 @@ type alias TodoistData =
     }
 
 
-type alias TodoistResponse =
+type alias Response =
     { sync_token : String
     , full_sync : Bool
     , items : List Item
@@ -45,9 +45,9 @@ type alias TodoistResponse =
     }
 
 
-decodeResponse : Decoder TodoistResponse
+decodeResponse : Decoder Response
 decodeResponse =
-    decode TodoistResponse
+    decode Response
         |> required "sync_token" string
         |> required "full_sync" decodeBoolAsInt
         |> optional "items" (list decodeItem) []
@@ -69,7 +69,7 @@ decodeResponse =
 
 
 handle : TodoistMsg -> a
-handle (Response result) =
+handle (SyncResponded result) =
     case result of
         Ok data ->
             Debug.todo "String.String"
@@ -79,7 +79,7 @@ handle (Response result) =
 
 
 type TodoistMsg
-    = Response (Result Http.Error TodoistResponse)
+    = SyncResponded (Result Http.Error Response)
 
 
 type alias Token =

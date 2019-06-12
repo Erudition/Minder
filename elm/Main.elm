@@ -15,6 +15,7 @@ import Html.Styled.Events exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import SmartTime.Human.Clock as Clock exposing (Zone)
+import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)
@@ -43,7 +44,7 @@ subscriptions ({ appData, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          Moment.every [ Minutes 1 ] (Tock NoOp)
+          Clock.every (Minutes 1) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         ]
 
@@ -329,6 +330,7 @@ type Msg
     | SetZoneAndTime Zone Moment
     | ClearErrors
     | SyncTodoist
+    | TodoistServerResponse Todoist.TodoistMsg
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -353,7 +355,10 @@ update msg ({ viewState, appData, environment } as model) =
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
         ( SyncTodoist, _ ) ->
-            justRunCommand Todoist.sync appData.tokens.todoistSyncToken
+            justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.tokens.todoistSyncToken
+
+        ( TodoistServerResponse response, _ ) ->
+            justRunCommand <| toast "Synced"
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
