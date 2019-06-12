@@ -89,14 +89,14 @@ var app = this.Elm.Headless.init(
 
 //logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
-app.ports.variableOut.subscribe(function(data) {
-    //taskerOut(data[0], data[1]);
-});
+// app.ports.variableOut.subscribe(function(data) {
+//     taskerOut(data[0], data[1]);
+// });
 
 
 
 app.ports.setStorage.subscribe(function(state) {
-    //taskerOut("ElmAppData", state);
+    taskerOut("ElmAppData", state);
     //logflash("Storage set!");
     //taskerTry(() => {writeFile("docket.dat",state,false)});
 });

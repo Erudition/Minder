@@ -27,12 +27,12 @@ switchActivity activityId app env =
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
-        , Commands.changeActivity
-            (getName newActivity)
-            (Measure.exportExcusedUsageSeconds app env.time newActivity)
-            (Measure.exportLastSession updatedApp oldActivity)
-        , Commands.hideWindow
+        [ -- Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
+          -- , Commands.changeActivity
+          --     (getName newActivity)
+          --     (Measure.exportExcusedUsageSeconds app env.time newActivity)
+          --     (Measure.exportLastSession updatedApp oldActivity),
+          Commands.hideWindow
 
         -- , Commands.scheduleNotify (scheduleReminders env.time (timeLeft newActivity))
         ]
