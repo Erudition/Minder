@@ -368,6 +368,16 @@ function _Debug_toAnsiString(ansi, value)
 		return _Debug_ctorColor(ansi, tag) + output;
 	}
 
+	if (typeof DataView === 'function' && value instanceof DataView)
+	{
+		return _Debug_stringColor(ansi, '<' + value.byteLength + ' bytes>');
+	}
+
+	if (typeof File === 'function' && value instanceof File)
+	{
+		return _Debug_internalColor(ansi, '<' + value.name + '>');
+	}
+
 	if (typeof value === 'object')
 	{
 		var output = [];
@@ -436,6 +446,10 @@ function _Debug_internalColor(ansi, string)
 	return ansi ? '\x1b[94m' + string + '\x1b[0m' : string;
 }
 
+function _Debug_toHexDigit(n)
+{
+	return String.fromCharCode(n < 10 ? 48 + n : 55 + n);
+}
 
 
 // CRASH
@@ -605,7 +619,7 @@ function _Utils_cmp(x, y, ord)
 	//*/
 
 	/**_UNUSED/
-	if (!x.$)
+	if (typeof x.$ === 'undefined')
 	//*/
 	/**/
 	if (x.$[0] === '#')
@@ -1171,9 +1185,7 @@ function _Char_fromCode(code)
 			? String.fromCharCode(code)
 			:
 		(code -= 0x10000,
-			String.fromCharCode(Math.floor(code / 0x400) + 0xD800)
-			+
-			String.fromCharCode(code % 0x400 + 0xDC00)
+			String.fromCharCode(Math.floor(code / 0x400) + 0xD800, code % 0x400 + 0xDC00)
 		)
 	);
 }
@@ -1226,21 +1238,56 @@ function _Json_fail(msg)
 	};
 }
 
-var _Json_decodeInt = { $: 2 };
-var _Json_decodeBool = { $: 3 };
-var _Json_decodeFloat = { $: 4 };
-var _Json_decodeValue = { $: 5 };
-var _Json_decodeString = { $: 6 };
+function _Json_decodePrim(decoder)
+{
+	return { $: 2, b: decoder };
+}
 
-function _Json_decodeList(decoder) { return { $: 7, b: decoder }; }
-function _Json_decodeArray(decoder) { return { $: 8, b: decoder }; }
+var _Json_decodeInt = _Json_decodePrim(function(value) {
+	return (typeof value !== 'number')
+		? _Json_expecting('an INT', value)
+		:
+	(-2147483647 < value && value < 2147483647 && (value | 0) === value)
+		? elm$core$Result$Ok(value)
+		:
+	(isFinite(value) && !(value % 1))
+		? elm$core$Result$Ok(value)
+		: _Json_expecting('an INT', value);
+});
 
-function _Json_decodeNull(value) { return { $: 9, c: value }; }
+var _Json_decodeBool = _Json_decodePrim(function(value) {
+	return (typeof value === 'boolean')
+		? elm$core$Result$Ok(value)
+		: _Json_expecting('a BOOL', value);
+});
+
+var _Json_decodeFloat = _Json_decodePrim(function(value) {
+	return (typeof value === 'number')
+		? elm$core$Result$Ok(value)
+		: _Json_expecting('a FLOAT', value);
+});
+
+var _Json_decodeValue = _Json_decodePrim(function(value) {
+	return elm$core$Result$Ok(_Json_wrap(value));
+});
+
+var _Json_decodeString = _Json_decodePrim(function(value) {
+	return (typeof value === 'string')
+		? elm$core$Result$Ok(value)
+		: (value instanceof String)
+			? elm$core$Result$Ok(value + '')
+			: _Json_expecting('a STRING', value);
+});
+
+function _Json_decodeList(decoder) { return { $: 3, b: decoder }; }
+function _Json_decodeArray(decoder) { return { $: 4, b: decoder }; }
+
+function _Json_decodeNull(value) { return { $: 5, c: value }; }
 
 var _Json_decodeField = F2(function(field, decoder)
 {
 	return {
-		$: 10,
+		$: 6,
 		d: field,
 		b: decoder
 	};
@@ -1249,7 +1296,7 @@ var _Json_decodeField = F2(function(field, decoder)
 var _Json_decodeIndex = F2(function(index, decoder)
 {
 	return {
-		$: 11,
+		$: 7,
 		e: index,
 		b: decoder
 	};
@@ -1258,7 +1305,7 @@ var _Json_decodeIndex = F2(function(index, decoder)
 function _Json_decodeKeyValuePairs(decoder)
 {
 	return {
-		$: 12,
+		$: 8,
 		b: decoder
 	};
 }
@@ -1266,7 +1313,7 @@ function _Json_decodeKeyValuePairs(decoder)
 function _Json_mapMany(f, decoders)
 {
 	return {
-		$: 13,
+		$: 9,
 		f: f,
 		g: decoders
 	};
@@ -1275,7 +1322,7 @@ function _Json_mapMany(f, decoders)
 var _Json_andThen = F2(function(callback, decoder)
 {
 	return {
-		$: 14,
+		$: 10,
 		b: decoder,
 		h: callback
 	};
@@ -1284,7 +1331,7 @@ var _Json_andThen = F2(function(callback, decoder)
 function _Json_oneOf(decoders)
 {
 	return {
-		$: 15,
+		$: 11,
 		g: decoders
 	};
 }
@@ -1357,61 +1404,29 @@ function _Json_runHelp(decoder, value)
 {
 	switch (decoder.$)
 	{
-		case 3:
-			return (typeof value === 'boolean')
-				? elm$core$Result$Ok(value)
-				: _Json_expecting('a BOOL', value);
-
 		case 2:
-			if (typeof value !== 'number') {
-				return _Json_expecting('an INT', value);
-			}
+			return decoder.b(value);
 
-			if (-2147483647 < value && value < 2147483647 && (value | 0) === value) {
-				return elm$core$Result$Ok(value);
-			}
-
-			if (isFinite(value) && !(value % 1)) {
-				return elm$core$Result$Ok(value);
-			}
-
-			return _Json_expecting('an INT', value);
-
-		case 4:
-			return (typeof value === 'number')
-				? elm$core$Result$Ok(value)
-				: _Json_expecting('a FLOAT', value);
-
-		case 6:
-			return (typeof value === 'string')
-				? elm$core$Result$Ok(value)
-				: (value instanceof String)
-					? elm$core$Result$Ok(value + '')
-					: _Json_expecting('a STRING', value);
-
-		case 9:
+		case 5:
 			return (value === null)
 				? elm$core$Result$Ok(decoder.c)
 				: _Json_expecting('null', value);
 
-		case 5:
-			return elm$core$Result$Ok(_Json_wrap(value));
-
-		case 7:
-			if (!Array.isArray(value))
+		case 3:
+			if (!_Json_isArray(value))
 			{
 				return _Json_expecting('a LIST', value);
 			}
 			return _Json_runArrayDecoder(decoder.b, value, _List_fromArray);
 
-		case 8:
-			if (!Array.isArray(value))
+		case 4:
+			if (!_Json_isArray(value))
 			{
 				return _Json_expecting('an ARRAY', value);
 			}
 			return _Json_runArrayDecoder(decoder.b, value, _Json_toElmArray);
 
-		case 10:
+		case 6:
 			var field = decoder.d;
 			if (typeof value !== 'object' || value === null || !(field in value))
 			{
@@ -1420,9 +1435,9 @@ function _Json_runHelp(decoder, value)
 			var result = _Json_runHelp(decoder.b, value[field]);
 			return (elm$core$Result$isOk(result)) ? result : elm$core$Result$Err(A2(elm$json$Json$Decode$Field, field, result.a));
 
-		case 11:
+		case 7:
 			var index = decoder.e;
-			if (!Array.isArray(value))
+			if (!_Json_isArray(value))
 			{
 				return _Json_expecting('an ARRAY', value);
 			}
@@ -1433,8 +1448,8 @@ function _Json_runHelp(decoder, value)
 			var result = _Json_runHelp(decoder.b, value[index]);
 			return (elm$core$Result$isOk(result)) ? result : elm$core$Result$Err(A2(elm$json$Json$Decode$Index, index, result.a));
 
-		case 12:
-			if (typeof value !== 'object' || value === null || Array.isArray(value))
+		case 8:
+			if (typeof value !== 'object' || value === null || _Json_isArray(value))
 			{
 				return _Json_expecting('an OBJECT', value);
 			}
@@ -1455,7 +1470,7 @@ function _Json_runHelp(decoder, value)
 			}
 			return elm$core$Result$Ok(elm$core$List$reverse(keyValuePairs));
 
-		case 13:
+		case 9:
 			var answer = decoder.f;
 			var decoders = decoder.g;
 			for (var i = 0; i < decoders.length; i++)
@@ -1469,13 +1484,13 @@ function _Json_runHelp(decoder, value)
 			}
 			return elm$core$Result$Ok(answer);
 
-		case 14:
+		case 10:
 			var result = _Json_runHelp(decoder.b, value);
 			return (!elm$core$Result$isOk(result))
 				? result
 				: _Json_runHelp(decoder.h(result.a), value);
 
-		case 15:
+		case 11:
 			var errors = _List_Nil;
 			for (var temp = decoder.g; temp.b; temp = temp.b) // WHILE_CONS
 			{
@@ -1512,6 +1527,11 @@ function _Json_runArrayDecoder(decoder, value, toElmValue)
 	return elm$core$Result$Ok(toElmValue(array));
 }
 
+function _Json_isArray(value)
+{
+	return Array.isArray(value) || (typeof FileList !== 'undefined' && value instanceof FileList);
+}
+
 function _Json_toElmArray(array)
 {
 	return A2(elm$core$Array$initialize, array.length, function(i) { return array[i]; });
@@ -1543,34 +1563,30 @@ function _Json_equality(x, y)
 		case 1:
 			return x.a === y.a;
 
-		case 3:
 		case 2:
-		case 4:
-		case 6:
-		case 5:
-			return true;
+			return x.b === y.b;
 
-		case 9:
+		case 5:
 			return x.c === y.c;
 
-		case 7:
+		case 3:
+		case 4:
 		case 8:
-		case 12:
 			return _Json_equality(x.b, y.b);
 
-		case 10:
+		case 6:
 			return x.d === y.d && _Json_equality(x.b, y.b);
 
-		case 11:
+		case 7:
 			return x.e === y.e && _Json_equality(x.b, y.b);
 
-		case 13:
+		case 9:
 			return x.f === y.f && _Json_listEquality(x.g, y.g);
 
-		case 14:
+		case 10:
 			return x.h === y.h && _Json_equality(x.b, y.b);
 
-		case 15:
+		case 11:
 			return _Json_listEquality(x.g, y.g);
 	}
 }
@@ -2313,6 +2329,181 @@ function _Platform_mergeExportsDebug(moduleName, obj, exports)
 	}
 }
 
+
+
+// SEND REQUEST
+
+var _Http_toTask = F3(function(router, toTask, request)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		function done(response) {
+			callback(toTask(request.expect.a(response)));
+		}
+
+		var xhr = new XMLHttpRequest();
+		xhr.addEventListener('error', function() { done(elm$http$Http$NetworkError_); });
+		xhr.addEventListener('timeout', function() { done(elm$http$Http$Timeout_); });
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.expect.b, xhr)); });
+		elm$core$Maybe$isJust(request.tracker) && _Http_track(router, xhr, request.tracker.a);
+
+		try {
+			xhr.open(request.method, request.url, true);
+		} catch (e) {
+			return done(elm$http$Http$BadUrl_(request.url));
+		}
+
+		_Http_configureRequest(xhr, request);
+
+		request.body.a && xhr.setRequestHeader('Content-Type', request.body.a);
+		xhr.send(request.body.b);
+
+		return function() { xhr.c = true; xhr.abort(); };
+	});
+});
+
+
+// CONFIGURE
+
+function _Http_configureRequest(xhr, request)
+{
+	for (var headers = request.headers; headers.b; headers = headers.b) // WHILE_CONS
+	{
+		xhr.setRequestHeader(headers.a.a, headers.a.b);
+	}
+	xhr.timeout = request.timeout.a || 0;
+	xhr.responseType = request.expect.d;
+	xhr.withCredentials = request.allowCookiesFromOtherDomains;
+}
+
+
+// RESPONSES
+
+function _Http_toResponse(toBody, xhr)
+{
+	return A2(
+		200 <= xhr.status && xhr.status < 300 ? elm$http$Http$GoodStatus_ : elm$http$Http$BadStatus_,
+		_Http_toMetadata(xhr),
+		toBody(xhr.response)
+	);
+}
+
+
+// METADATA
+
+function _Http_toMetadata(xhr)
+{
+	return {
+		url: xhr.responseURL,
+		statusCode: xhr.status,
+		statusText: xhr.statusText,
+		headers: _Http_parseHeaders(xhr.getAllResponseHeaders())
+	};
+}
+
+
+// HEADERS
+
+function _Http_parseHeaders(rawHeaders)
+{
+	if (!rawHeaders)
+	{
+		return elm$core$Dict$empty;
+	}
+
+	var headers = elm$core$Dict$empty;
+	var headerPairs = rawHeaders.split('\r\n');
+	for (var i = headerPairs.length; i--; )
+	{
+		var headerPair = headerPairs[i];
+		var index = headerPair.indexOf(': ');
+		if (index > 0)
+		{
+			var key = headerPair.substring(0, index);
+			var value = headerPair.substring(index + 2);
+
+			headers = A3(elm$core$Dict$update, key, function(oldValue) {
+				return elm$core$Maybe$Just(elm$core$Maybe$isJust(oldValue)
+					? value + ', ' + oldValue.a
+					: value
+				);
+			}, headers);
+		}
+	}
+	return headers;
+}
+
+
+// EXPECT
+
+var _Http_expect = F3(function(type, toBody, toValue)
+{
+	return {
+		$: 0,
+		d: type,
+		b: toBody,
+		a: toValue
+	};
+});
+
+var _Http_mapExpect = F2(function(func, expect)
+{
+	return {
+		$: 0,
+		d: expect.d,
+		b: expect.b,
+		a: function(x) { return func(expect.a(x)); }
+	};
+});
+
+function _Http_toDataView(arrayBuffer)
+{
+	return new DataView(arrayBuffer);
+}
+
+
+// BODY and PARTS
+
+var _Http_emptyBody = { $: 0 };
+var _Http_pair = F2(function(a, b) { return { $: 0, a: a, b: b }; });
+
+function _Http_toFormData(parts)
+{
+	for (var formData = new FormData(); parts.b; parts = parts.b) // WHILE_CONS
+	{
+		var part = parts.a;
+		formData.append(part.a, part.b);
+	}
+	return formData;
+}
+
+var _Http_bytesToBlob = F2(function(mime, bytes)
+{
+	return new Blob([bytes], { type: mime });
+});
+
+
+// PROGRESS
+
+function _Http_track(router, xhr, tracker)
+{
+	// TODO check out lengthComputable on loadstart event
+
+	xhr.upload.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Sending({
+			sent: event.loaded,
+			size: event.total
+		}))));
+	});
+	xhr.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Receiving({
+			received: event.loaded,
+			size: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
+		}))));
+	});
+}
 
 
 
@@ -4530,6 +4721,10 @@ var author$project$Main$Link = function (a) {
 var author$project$Main$NewUrl = function (a) {
 	return {$: 'NewUrl', a: a};
 };
+var author$project$AppData$Tokens = function (todoistSyncToken) {
+	return {todoistSyncToken: todoistSyncToken};
+};
+var author$project$AppData$emptyTokens = author$project$AppData$Tokens('*');
 var elm$core$Basics$EQ = {$: 'EQ'};
 var elm$core$Basics$LT = {$: 'LT'};
 var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
@@ -4610,8 +4805,15 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var author$project$AppData$fromScratch = {activities: _List_Nil, errors: _List_Nil, tasks: _List_Nil, timeline: _List_Nil, uid: 0};
-var elm$core$Basics$append = _Utils_append;
+var author$project$AppData$fromScratch = {activities: _List_Nil, errors: _List_Nil, tasks: _List_Nil, timeline: _List_Nil, tokens: author$project$AppData$emptyTokens, uid: 0};
+var author$project$AppData$saveError = F2(
+	function (appData, error) {
+		return _Utils_update(
+			appData,
+			{
+				errors: A2(elm$core$List$cons, error, appData.errors)
+			});
+	});
 var elm$core$Basics$apR = F2(
 	function (x, f) {
 		return f(x);
@@ -4725,6 +4927,7 @@ var elm$core$Basics$apL = F2(
 	function (f, x) {
 		return f(x);
 	});
+var elm$core$Basics$append = _Utils_append;
 var elm$core$String$fromInt = _String_fromNumber;
 var zwilias$json_decode_exploration$Json$Decode$Exploration$expectedTypeToString = function (expectedType) {
 	switch (expectedType.$) {
@@ -5302,18 +5505,12 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString = fun
 					'',
 					zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToStrings(errors)))));
 };
-var author$project$AppData$saveErrors = F2(
+var author$project$AppData$saveDecodeErrors = F2(
 	function (appData, errors) {
-		return _Utils_update(
+		return A2(
+			author$project$AppData$saveError,
 			appData,
-			{
-				errors: _Utils_ap(
-					_List_fromArray(
-						[
-							zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors)
-						]),
-					appData.errors)
-			});
+			zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors));
 	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$warningToString = function (warning) {
 	var _n0 = function () {
@@ -5985,19 +6182,19 @@ var author$project$SmartTime$Duration$inWholeMinutes = function (duration) {
 var author$project$SmartTime$Duration$inWholeSeconds = function (duration) {
 	return (author$project$SmartTime$Duration$inMs(duration) / 1000) | 0;
 };
-var author$project$SmartTime$HumanDuration$Days = function (a) {
+var author$project$SmartTime$Human$Duration$Days = function (a) {
 	return {$: 'Days', a: a};
 };
-var author$project$SmartTime$HumanDuration$Hours = function (a) {
+var author$project$SmartTime$Human$Duration$Hours = function (a) {
 	return {$: 'Hours', a: a};
 };
-var author$project$SmartTime$HumanDuration$Milliseconds = function (a) {
+var author$project$SmartTime$Human$Duration$Milliseconds = function (a) {
 	return {$: 'Milliseconds', a: a};
 };
-var author$project$SmartTime$HumanDuration$Minutes = function (a) {
+var author$project$SmartTime$Human$Duration$Minutes = function (a) {
 	return {$: 'Minutes', a: a};
 };
-var author$project$SmartTime$HumanDuration$Seconds = function (a) {
+var author$project$SmartTime$Human$Duration$Seconds = function (a) {
 	return {$: 'Seconds', a: a};
 };
 var author$project$SmartTime$Duration$breakdown = function (duration) {
@@ -6012,7 +6209,7 @@ var author$project$SmartTime$Duration$breakdown = function (duration) {
 	var withoutSeconds = withoutMinutes - (seconds * 1000);
 	return {days: days, hours: hours, milliseconds: withoutSeconds, minutes: minutes, seconds: seconds};
 };
-var author$project$SmartTime$HumanDuration$breakdownDHMSM = function (duration) {
+var author$project$SmartTime$Human$Duration$breakdownDHMSM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
 	var days = _n0.days;
 	var hours = _n0.hours;
@@ -6021,11 +6218,11 @@ var author$project$SmartTime$HumanDuration$breakdownDHMSM = function (duration) 
 	var milliseconds = _n0.milliseconds;
 	return _List_fromArray(
 		[
-			author$project$SmartTime$HumanDuration$Days(days),
-			author$project$SmartTime$HumanDuration$Hours(hours),
-			author$project$SmartTime$HumanDuration$Minutes(minutes),
-			author$project$SmartTime$HumanDuration$Seconds(seconds),
-			author$project$SmartTime$HumanDuration$Milliseconds(milliseconds)
+			author$project$SmartTime$Human$Duration$Days(days),
+			author$project$SmartTime$Human$Duration$Hours(hours),
+			author$project$SmartTime$Human$Duration$Minutes(minutes),
+			author$project$SmartTime$Human$Duration$Seconds(seconds),
+			author$project$SmartTime$Human$Duration$Milliseconds(milliseconds)
 		]);
 };
 var elm$core$List$head = function (list) {
@@ -6046,38 +6243,38 @@ var elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var author$project$SmartTime$HumanDuration$inLargestExactUnits = function (duration) {
+var author$project$SmartTime$Human$Duration$inLargestExactUnits = function (duration) {
 	var partsSmallToBig = elm$core$List$reverse(
-		author$project$SmartTime$HumanDuration$breakdownDHMSM(duration));
+		author$project$SmartTime$Human$Duration$breakdownDHMSM(duration));
 	var smallestPart = A2(
 		elm$core$Maybe$withDefault,
-		author$project$SmartTime$HumanDuration$Milliseconds(0),
+		author$project$SmartTime$Human$Duration$Milliseconds(0),
 		elm$core$List$head(partsSmallToBig));
 	switch (smallestPart.$) {
 		case 'Days':
 			var days = smallestPart.a;
-			return author$project$SmartTime$HumanDuration$Days(days);
+			return author$project$SmartTime$Human$Duration$Days(days);
 		case 'Hours':
 			var hours = smallestPart.a;
-			return author$project$SmartTime$HumanDuration$Hours(
+			return author$project$SmartTime$Human$Duration$Hours(
 				author$project$SmartTime$Duration$inWholeHours(duration));
 		case 'Minutes':
 			var minutes = smallestPart.a;
-			return author$project$SmartTime$HumanDuration$Minutes(
+			return author$project$SmartTime$Human$Duration$Minutes(
 				author$project$SmartTime$Duration$inWholeMinutes(duration));
 		case 'Seconds':
 			var seconds = smallestPart.a;
-			return author$project$SmartTime$HumanDuration$Seconds(
+			return author$project$SmartTime$Human$Duration$Seconds(
 				author$project$SmartTime$Duration$inWholeSeconds(duration));
 		default:
 			var milliseconds = smallestPart.a;
-			return author$project$SmartTime$HumanDuration$Milliseconds(
+			return author$project$SmartTime$Human$Duration$Milliseconds(
 				author$project$SmartTime$Duration$inMs(duration));
 	}
 };
 var author$project$Activity$Activity$decodeHumanDuration = function () {
 	var convertAndNormalize = function (durationAsInt) {
-		return author$project$SmartTime$HumanDuration$inLargestExactUnits(
+		return author$project$SmartTime$Human$Duration$inLargestExactUnits(
 			author$project$SmartTime$Duration$fromInt(durationAsInt));
 	};
 	return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, convertAndNormalize, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
@@ -6523,16 +6720,24 @@ var author$project$Porting$subtype2 = F5(
 			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$field, fieldName1, subType1Decoder),
 			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$field, fieldName2, subType2Decoder));
 	});
-var elm$time$Time$Posix = function (a) {
-	return {$: 'Posix', a: a};
+var author$project$SmartTime$Moment$Moment = function (a) {
+	return {$: 'Moment', a: a};
 };
-var elm$time$Time$millisToPosix = elm$time$Time$Posix;
-var author$project$Task$TaskMoment$decodeMoment = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, elm$time$Time$millisToPosix, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
+var author$project$SmartTime$Moment$fromSmartInt = function (_int) {
+	return author$project$SmartTime$Moment$Moment(
+		author$project$SmartTime$Duration$fromInt(_int));
+};
+var author$project$Task$TaskMoment$decodeMoment = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$SmartTime$Moment$fromSmartInt, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
 var author$project$Activity$Activity$decodeSwitch = A5(author$project$Porting$subtype2, author$project$Activity$Activity$Switch, 'Time', author$project$Task$TaskMoment$decodeMoment, 'Activity', author$project$Activity$Activity$decodeActivityId);
-var author$project$AppData$AppData = F5(
-	function (uid, errors, tasks, activities, timeline) {
-		return {activities: activities, errors: errors, tasks: tasks, timeline: timeline, uid: uid};
+var author$project$AppData$AppData = F6(
+	function (uid, errors, tasks, activities, timeline, tokens) {
+		return {activities: activities, errors: errors, tasks: tasks, timeline: timeline, tokens: tokens, uid: uid};
 	});
+var author$project$AppData$decodeTokens = A3(
+	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+	'todoistSyncToken',
+	zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$AppData$Tokens));
 var author$project$Task$Progress$Percent = {$: 'Percent'};
 var author$project$Task$Progress$progressFromFloat = function (_float) {
 	return _Utils_Tuple2(
@@ -6607,12 +6812,30 @@ var justinmimbs$date$Date$fromRataDie = function (rd) {
 	return justinmimbs$date$Date$RD(rd);
 };
 var author$project$Task$TaskMoment$decodeDate = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, justinmimbs$date$Date$fromRataDie, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
+var author$project$SmartTime$Moment$utcFromLinear = function (_int) {
+	return _int;
+};
+var elm$time$Time$Posix = function (a) {
+	return {$: 'Posix', a: a};
+};
+var elm$time$Time$millisToPosix = elm$time$Time$Posix;
+var author$project$SmartTime$Moment$toElmTime = function (_n0) {
+	var dur = _n0.a;
+	return elm$time$Time$millisToPosix(
+		author$project$SmartTime$Moment$utcFromLinear(
+			author$project$SmartTime$Duration$inMs(dur)));
+};
 var elm$time$Time$Zone = F2(
 	function (a, b) {
 		return {$: 'Zone', a: a, b: b};
 	});
 var elm$time$Time$utc = A2(elm$time$Time$Zone, 0, _List_Nil);
 var author$project$Task$TaskMoment$zoneless = elm$time$Time$utc;
+var elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
 var elm$time$Time$flooredDiv = F2(
 	function (numerator, denominator) {
 		return elm$core$Basics$floor(numerator / denominator);
@@ -6778,7 +7001,10 @@ var justinmimbs$time_extra$Time$Extra$posixToParts = F2(
 	});
 var author$project$Task$TaskMoment$decodeParts = A2(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$map,
-	justinmimbs$time_extra$Time$Extra$posixToParts(author$project$Task$TaskMoment$zoneless),
+	A2(
+		elm$core$Basics$composeL,
+		justinmimbs$time_extra$Time$Extra$posixToParts(author$project$Task$TaskMoment$zoneless),
+		author$project$SmartTime$Moment$toElmTime),
 	author$project$Task$TaskMoment$decodeMoment);
 var author$project$Task$TaskMoment$decodeTaskMoment = author$project$Porting$decodeCustom(
 	_List_fromArray(
@@ -6863,29 +7089,34 @@ var author$project$Task$Task$decodeTask = A3(
 														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$Task$Task$Task)))))))))))))));
 var author$project$AppData$decodeAppData = A4(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-	'timeline',
-	zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Activity$Activity$decodeSwitch),
-	_List_Nil,
+	'tokens',
+	author$project$AppData$decodeTokens,
+	author$project$AppData$emptyTokens,
 	A4(
 		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-		'activities',
-		author$project$Activity$Activity$decodeStoredActivities,
+		'timeline',
+		zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Activity$Activity$decodeSwitch),
 		_List_Nil,
 		A4(
 			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-			'tasks',
-			zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeTask),
+			'activities',
+			author$project$Activity$Activity$decodeStoredActivities,
 			_List_Nil,
 			A4(
 				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-				'errors',
-				zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				'tasks',
+				zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeTask),
 				_List_Nil,
-				A3(
-					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-					'uid',
-					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$AppData$AppData))))));
+				A4(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+					'errors',
+					zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+					_List_Nil,
+					A3(
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+						'uid',
+						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$AppData$AppData)))))));
 var elm$json$Json$Decode$decodeString = _Json_runOnString;
 var elm$json$Json$Decode$value = _Json_decodeValue;
 var zwilias$json_decode_exploration$Json$Decode$Exploration$BadJson = {$: 'BadJson'};
@@ -7122,12 +7353,11 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$decodeString = F2(
 var author$project$Main$appDataFromJson = function (incomingJson) {
 	return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$decodeString, author$project$AppData$decodeAppData, incomingJson);
 };
+var author$project$SmartTime$Human$Clock$utc = elm$time$Time$utc;
+var author$project$SmartTime$Duration$zero = author$project$SmartTime$Duration$Duration(0);
+var author$project$SmartTime$Moment$zero = author$project$SmartTime$Moment$Moment(author$project$SmartTime$Duration$zero);
 var author$project$Environment$preInit = function (maybeKey) {
-	return {
-		navkey: maybeKey,
-		time: elm$time$Time$millisToPosix(0),
-		timeZone: elm$time$Time$utc
-	};
+	return {navkey: maybeKey, time: author$project$SmartTime$Moment$zero, timeZone: author$project$SmartTime$Human$Clock$utc};
 };
 var elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -8258,14 +8488,42 @@ var author$project$Activity$Activity$encodeCategory = function (v) {
 			return elm$json$Json$Encode$string('Communication');
 	}
 };
-var elm$core$Debug$todo = _Debug_todo;
-var author$project$Activity$Activity$encodeDurationPerPeriod = function (v) {
-	return _Debug_todo(
-		'Activity.Activity',
-		{
-			start: {line: 243, column: 5},
-			end: {line: 243, column: 15}
-		})('encode duration');
+var author$project$SmartTime$Human$Duration$toDuration = function (humanDuration) {
+	switch (humanDuration.$) {
+		case 'Days':
+			var days = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(days * 86400000);
+		case 'Hours':
+			var hours = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(hours * 3600000);
+		case 'Minutes':
+			var minutes = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(minutes * 60000);
+		case 'Seconds':
+			var seconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(seconds * 1000);
+		default:
+			var milliseconds = humanDuration.a;
+			return author$project$SmartTime$Duration$fromInt(milliseconds);
+	}
+};
+var author$project$Activity$Activity$encodeHumanDuration = function (humanDuration) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(
+			author$project$SmartTime$Human$Duration$toDuration(humanDuration)));
+};
+var author$project$Porting$homogeneousTuple2AsArray = F2(
+	function (encoder, _n0) {
+		var a = _n0.a;
+		var b = _n0.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			encoder,
+			_List_fromArray(
+				[a, b]));
+	});
+var author$project$Activity$Activity$encodeDurationPerPeriod = function (tuple) {
+	return A2(author$project$Porting$homogeneousTuple2AsArray, author$project$Activity$Activity$encodeHumanDuration, tuple);
 };
 var author$project$Activity$Activity$encodeEvidence = function (v) {
 	return elm$json$Json$Encode$string('Evidence');
@@ -8365,9 +8623,13 @@ var author$project$Activity$Activity$encodeCustomizations = function (record) {
 				])));
 };
 var author$project$Activity$Activity$encodeStoredActivities = elm$json$Json$Encode$list(author$project$Activity$Activity$encodeCustomizations);
+var author$project$SmartTime$Moment$toSmartInt = function (_n0) {
+	var dur = _n0.a;
+	return author$project$SmartTime$Duration$inMs(dur);
+};
 var author$project$Task$TaskMoment$encodeMoment = function (moment) {
 	return elm$json$Json$Encode$int(
-		elm$time$Time$posixToMillis(moment));
+		author$project$SmartTime$Moment$toSmartInt(moment));
 };
 var author$project$Activity$Activity$encodeSwitch = function (_n0) {
 	var time = _n0.a;
@@ -8381,6 +8643,15 @@ var author$project$Activity$Activity$encodeSwitch = function (_n0) {
 				_Utils_Tuple2(
 				'Activity',
 				author$project$Activity$Activity$encodeActivityId(activityId))
+			]));
+};
+var author$project$AppData$encodeTokens = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'todoistSyncToken',
+				elm$json$Json$Encode$string(record.todoistSyncToken))
 			]));
 };
 var author$project$Task$Progress$getPortion = function (_n0) {
@@ -8598,7 +8869,10 @@ var author$project$AppData$encodeAppData = function (record) {
 					A2(elm$core$List$take, 100, record.errors))),
 				_Utils_Tuple2(
 				'timeline',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.timeline))
+				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.timeline)),
+				_Utils_Tuple2(
+				'tokens',
+				author$project$AppData$encodeTokens(record.tokens))
 			]));
 };
 var author$project$Main$appDataToJson = function (appData) {
@@ -8612,20 +8886,6 @@ var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$j
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
 };
-var author$project$Main$Model = F3(
-	function (viewState, appData, environment) {
-		return {appData: appData, environment: environment, viewState: viewState};
-	});
-var author$project$Main$TaskListMsg = function (a) {
-	return {$: 'TaskListMsg', a: a};
-};
-var author$project$Main$TimeTrackerMsg = function (a) {
-	return {$: 'TimeTrackerMsg', a: a};
-};
-var author$project$Main$log = F2(
-	function (string, input) {
-		return input;
-	});
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
 		case 'None':
@@ -8646,20 +8906,11 @@ var author$project$Task$Progress$unitMax = function (unit) {
 			return customTarget;
 	}
 };
-var author$project$Task$Progress$getWhole = function (_n0) {
+var author$project$Task$Progress$maximize = function (_n0) {
 	var unit = _n0.b;
-	return author$project$Task$Progress$unitMax(unit);
-};
-var author$project$Task$Progress$isMax = function (progress) {
-	return _Utils_eq(
-		author$project$Task$Progress$getPortion(progress),
-		author$project$Task$Progress$getWhole(progress));
-};
-var author$project$Task$Task$completed = function (task) {
-	return author$project$Task$Progress$isMax(
-		function ($) {
-			return $.completion;
-		}(task));
+	return _Utils_Tuple2(
+		author$project$Task$Progress$unitMax(unit),
+		unit);
 };
 var author$project$Task$Task$newTask = F2(
 	function (description, id) {
@@ -8680,40 +8931,660 @@ var author$project$Task$Task$newTask = F2(
 			title: description
 		};
 	});
-var author$project$TaskList$NoOp = {$: 'NoOp'};
-var elm$browser$Browser$External = function (a) {
-	return {$: 'External', a: a};
+var author$project$External$TodoistSync$itemToTask = function (item) {
+	var base = A2(author$project$Task$Task$newTask, item.content, item.id);
+	return _Utils_update(
+		base,
+		{
+			completion: item.checked ? author$project$Task$Progress$maximize(base.completion) : base.completion,
+			project: elm$core$Maybe$Just(item.project_id),
+			tags: _List_Nil
+		});
 };
-var elm$browser$Browser$Internal = function (a) {
-	return {$: 'Internal', a: a};
+var author$project$External$TodoistSync$handle = F2(
+	function (_n0, app) {
+		var result = _n0.a;
+		var tasks = app.tasks;
+		var activities = app.activities;
+		var tokens = app.tokens;
+		if (result.$ === 'Ok') {
+			var data = result.a;
+			return _Utils_update(
+				app,
+				{
+					tasks: A2(elm$core$List$map, author$project$External$TodoistSync$itemToTask, data.items),
+					tokens: {todoistSyncToken: data.sync_token}
+				});
+		} else {
+			var err = result.a;
+			switch (err.$) {
+				case 'BadUrl':
+					var msg = err.a;
+					return A2(author$project$AppData$saveError, app, msg);
+				case 'Timeout':
+					return A2(author$project$AppData$saveError, app, 'Timeout?');
+				case 'NetworkError':
+					return A2(author$project$AppData$saveError, app, 'Network Error');
+				case 'BadStatus':
+					var status = err.a;
+					return A2(
+						author$project$AppData$saveError,
+						app,
+						'Got Error code' + elm$core$String$fromInt(status));
+				default:
+					var string = err.a;
+					return A2(author$project$AppData$saveError, app, string);
+			}
+		}
+	});
+var author$project$External$TodoistSync$SyncResponded = function (a) {
+	return {$: 'SyncResponded', a: a};
 };
-var elm$browser$Browser$Dom$NotFound = function (a) {
-	return {$: 'NotFound', a: a};
+var author$project$External$TodoistSync$Response = F4(
+	function (sync_token, full_sync, items, projects) {
+		return {full_sync: full_sync, items: items, projects: projects, sync_token: sync_token};
+	});
+var author$project$External$TodoistSync$Item = function (id) {
+	return function (user_id) {
+		return function (project_id) {
+			return function (content) {
+				return function (due) {
+					return function (indent) {
+						return function (priority) {
+							return function (parent_id) {
+								return function (item_order) {
+									return function (day_order) {
+										return function (collapsed) {
+											return function (children) {
+												return function (labels) {
+													return function (assigned_by_uid) {
+														return function (responsible_uid) {
+															return function (checked) {
+																return function (in_history) {
+																	return function (is_deleted) {
+																		return function (is_archived) {
+																			return function (date_added) {
+																				return {assigned_by_uid: assigned_by_uid, checked: checked, children: children, collapsed: collapsed, content: content, date_added: date_added, day_order: day_order, due: due, id: id, in_history: in_history, indent: indent, is_archived: is_archived, is_deleted: is_deleted, item_order: item_order, labels: labels, parent_id: parent_id, priority: priority, project_id: project_id, responsible_uid: responsible_uid, user_id: user_id};
+																			};
+																		};
+																	};
+																};
+															};
+														};
+													};
+												};
+											};
+										};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
 };
-var elm$core$Basics$never = function (_n0) {
-	never:
-	while (true) {
-		var nvr = _n0.a;
-		var $temp$_n0 = nvr;
-		_n0 = $temp$_n0;
-		continue never;
+var author$project$External$TodoistSync$Due = F5(
+	function (date, timezone, string, lang, isRecurring) {
+		return {date: date, isRecurring: isRecurring, lang: lang, string: string, timezone: timezone};
+	});
+var author$project$External$TodoistSync$decodeDue = A3(
+	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+	'isRecurring',
+	zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+	A3(
+		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+		'lang',
+		zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+		A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+			'string',
+			zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+			A3(
+				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+				'timezone',
+				zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				A3(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+					'date',
+					zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Due))))));
+var author$project$External$TodoistSync$Priority = function (a) {
+	return {$: 'Priority', a: a};
+};
+var author$project$External$TodoistSync$decodePriority = zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+	_List_fromArray(
+		[
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			4,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+				author$project$External$TodoistSync$Priority(1))),
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			3,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+				author$project$External$TodoistSync$Priority(2))),
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			2,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+				author$project$External$TodoistSync$Priority(3))),
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			1,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+				author$project$External$TodoistSync$Priority(4)))
+		]));
+var author$project$External$TodoistSync$optionalIgnored = F2(
+	function (field, pipeline) {
+		return A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
+			function (_n0) {
+				return pipeline;
+			},
+			zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+				_List_fromArray(
+					[
+						A2(
+						zwilias$json_decode_exploration$Json$Decode$Exploration$field,
+						field,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(_Utils_Tuple0)),
+						zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(_Utils_Tuple0)
+					])));
+	});
+var author$project$Porting$decodeBoolAsInt = zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+	_List_fromArray(
+		[
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			1,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(true)),
+			A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$check,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			0,
+			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(false))
+		]));
+var author$project$External$TodoistSync$decodeItem = A2(
+	author$project$External$TodoistSync$optionalIgnored,
+	'sync_id',
+	A2(
+		author$project$External$TodoistSync$optionalIgnored,
+		'legacy_project_id',
+		A2(
+			author$project$External$TodoistSync$optionalIgnored,
+			'legacy_id',
+			A3(
+				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+				'date_added',
+				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+				A4(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+					'is_archived',
+					author$project$Porting$decodeBoolAsInt,
+					false,
+					A3(
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+						'is_deleted',
+						author$project$Porting$decodeBoolAsInt,
+						A3(
+							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+							'in_history',
+							author$project$Porting$decodeBoolAsInt,
+							A3(
+								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+								'checked',
+								author$project$Porting$decodeBoolAsInt,
+								A3(
+									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+									'responsible_uid',
+									zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+									A4(
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+										'assigned_by_uid',
+										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+										0,
+										A3(
+											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+											'labels',
+											zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+											A4(
+												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+												'children',
+												zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+												_List_Nil,
+												A3(
+													zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+													'collapsed',
+													author$project$Porting$decodeBoolAsInt,
+													A3(
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+														'day_order',
+														zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+														A3(
+															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+															'child_order',
+															zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+															A3(
+																zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																'parent_id',
+																zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+																A3(
+																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																	'priority',
+																	author$project$External$TodoistSync$decodePriority,
+																	A4(
+																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																		'indent',
+																		zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																		0,
+																		A3(
+																			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																			'due',
+																			zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(author$project$External$TodoistSync$decodeDue),
+																			A3(
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																				'content',
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																				A3(
+																					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																					'project_id',
+																					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																					A3(
+																						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																						'user_id',
+																						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																						A3(
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																							'id',
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item))))))))))))))))))))))));
+var author$project$External$TodoistSync$ProjectChanges = function (id) {
+	return function (name) {
+		return function (color) {
+			return function (parentId) {
+				return function (childOrder) {
+					return function (collapsed) {
+						return function (shared) {
+							return function (isDeleted) {
+								return function (isArchived) {
+									return function (isFavorite) {
+										return {childOrder: childOrder, collapsed: collapsed, color: color, id: id, isArchived: isArchived, isDeleted: isDeleted, isFavorite: isFavorite, name: name, parentId: parentId, shared: shared};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var author$project$Porting$ChangedTo = function (a) {
+	return {$: 'ChangedTo', a: a};
+};
+var author$project$Porting$NoChange = {$: 'NoChange'};
+var author$project$Porting$updateable = F3(
+	function (key, valDecoder, decoder) {
+		var wrappedValDecoder = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Porting$ChangedTo, valDecoder);
+		return A4(zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional, key, wrappedValDecoder, author$project$Porting$NoChange, decoder);
+	});
+var author$project$External$TodoistSync$decodeProjectChanges = A3(
+	author$project$Porting$updateable,
+	'isFavorite',
+	zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+	A3(
+		author$project$Porting$updateable,
+		'isArchived',
+		zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+		A3(
+			author$project$Porting$updateable,
+			'isDeleted',
+			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+			A3(
+				author$project$Porting$updateable,
+				'shared',
+				zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+				A3(
+					author$project$Porting$updateable,
+					'collapsed',
+					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+					A3(
+						author$project$Porting$updateable,
+						'childOrder',
+						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+						A3(
+							author$project$Porting$updateable,
+							'parentId',
+							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+							A3(
+								author$project$Porting$updateable,
+								'color',
+								zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+								A3(
+									author$project$Porting$updateable,
+									'name',
+									zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+									A3(
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+										'id',
+										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$ProjectChanges)))))))))));
+var author$project$External$TodoistSync$decodeResponse = A2(
+	author$project$External$TodoistSync$optionalIgnored,
+	'sections',
+	A2(
+		author$project$External$TodoistSync$optionalIgnored,
+		'userSettings',
+		A2(
+			author$project$External$TodoistSync$optionalIgnored,
+			'user',
+			A2(
+				author$project$External$TodoistSync$optionalIgnored,
+				'tempIdMapping',
+				A2(
+					author$project$External$TodoistSync$optionalIgnored,
+					'settingsNotifications',
+					A2(
+						author$project$External$TodoistSync$optionalIgnored,
+						'reminders',
+						A2(
+							author$project$External$TodoistSync$optionalIgnored,
+							'projectNotes',
+							A2(
+								author$project$External$TodoistSync$optionalIgnored,
+								'notes',
+								A2(
+									author$project$External$TodoistSync$optionalIgnored,
+									'liveNotificationsLastReadId',
+									A2(
+										author$project$External$TodoistSync$optionalIgnored,
+										'liveNotifications',
+										A2(
+											author$project$External$TodoistSync$optionalIgnored,
+											'labels',
+											A2(
+												author$project$External$TodoistSync$optionalIgnored,
+												'filters',
+												A2(
+													author$project$External$TodoistSync$optionalIgnored,
+													'dayOrders',
+													A2(
+														author$project$External$TodoistSync$optionalIgnored,
+														'collaboratorStates',
+														A2(
+															author$project$External$TodoistSync$optionalIgnored,
+															'collaborators',
+															A2(
+																author$project$External$TodoistSync$optionalIgnored,
+																'temp_id_mapping',
+																A4(
+																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																	'projects',
+																	zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeProjectChanges),
+																	_List_Nil,
+																	A4(
+																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																		'items',
+																		zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeItem),
+																		_List_Nil,
+																		A3(
+																			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																			'full_sync',
+																			zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+																			A3(
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																				'sync_token',
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Response)))))))))))))))))))));
+var elm$core$Debug$log = _Debug_log;
+var elm$core$String$concat = function (strings) {
+	return A2(elm$core$String$join, '', strings);
+};
+var author$project$External$TodoistSync$syncUrl = function (incrementalSyncToken) {
+	var resources = '[%22all%22]';
+	var devSecret = '0bdc5149510737ab941485bace8135c60e2d812b';
+	var query = elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			'&',
+			_List_fromArray(
+				['token=' + devSecret, 'sync_token=' + incrementalSyncToken, 'resource_types=' + resources])));
+	return A2(
+		elm$core$Debug$log,
+		'calling url:',
+		{
+			fragment: elm$core$Maybe$Nothing,
+			host: 'todoist.com',
+			path: '/api/v8/sync',
+			port_: elm$core$Maybe$Nothing,
+			protocol: elm$url$Url$Https,
+			query: elm$core$Maybe$Just(query)
+		});
+};
+var elm$json$Json$Decode$fail = _Json_fail;
+var elm_community$json_extra$Json$Decode$Extra$fromResult = function (result) {
+	if (result.$ === 'Ok') {
+		var successValue = result.a;
+		return elm$json$Json$Decode$succeed(successValue);
+	} else {
+		var errorMessage = result.a;
+		return elm$json$Json$Decode$fail(errorMessage);
 	}
 };
-var elm$core$Task$Perform = function (a) {
-	return {$: 'Perform', a: a};
+var author$project$Porting$toClassicLoose = function (decoder) {
+	var runRealDecoder = function (value) {
+		return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$decodeValue, decoder, value);
+	};
+	var asResult = function (value) {
+		var _n0 = runRealDecoder(value);
+		switch (_n0.$) {
+			case 'BadJson':
+				return elm$core$Result$Err('Bad JSON');
+			case 'Errors':
+				var errors = _n0.a;
+				return elm$core$Result$Err(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors));
+			case 'WithWarnings':
+				var result = _n0.b;
+				return elm$core$Result$Ok(result);
+			default:
+				var result = _n0.a;
+				return elm$core$Result$Ok(result);
+		}
+	};
+	var _final = function (value) {
+		return asResult(value);
+	};
+	return A2(
+		elm$json$Json$Decode$andThen,
+		A2(elm$core$Basics$composeL, elm_community$json_extra$Json$Decode$Extra$fromResult, _final),
+		elm$json$Json$Decode$value);
+};
+var elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return elm$core$Result$Err(
+				f(e));
+		}
+	});
+var elm$core$Maybe$isJust = function (maybe) {
+	if (maybe.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var elm$core$Platform$sendToApp = _Platform_sendToApp;
+var elm$core$Platform$sendToSelf = _Platform_sendToSelf;
+var elm$http$Http$BadStatus_ = F2(
+	function (a, b) {
+		return {$: 'BadStatus_', a: a, b: b};
+	});
+var elm$http$Http$BadUrl_ = function (a) {
+	return {$: 'BadUrl_', a: a};
+};
+var elm$http$Http$GoodStatus_ = F2(
+	function (a, b) {
+		return {$: 'GoodStatus_', a: a, b: b};
+	});
+var elm$http$Http$NetworkError_ = {$: 'NetworkError_'};
+var elm$http$Http$Receiving = function (a) {
+	return {$: 'Receiving', a: a};
+};
+var elm$http$Http$Sending = function (a) {
+	return {$: 'Sending', a: a};
+};
+var elm$http$Http$Timeout_ = {$: 'Timeout_'};
+var elm$http$Http$expectStringResponse = F2(
+	function (toMsg, toResult) {
+		return A3(
+			_Http_expect,
+			'',
+			elm$core$Basics$identity,
+			A2(elm$core$Basics$composeR, toResult, toMsg));
+	});
+var elm$http$Http$BadBody = function (a) {
+	return {$: 'BadBody', a: a};
+};
+var elm$http$Http$BadStatus = function (a) {
+	return {$: 'BadStatus', a: a};
+};
+var elm$http$Http$BadUrl = function (a) {
+	return {$: 'BadUrl', a: a};
+};
+var elm$http$Http$NetworkError = {$: 'NetworkError'};
+var elm$http$Http$Timeout = {$: 'Timeout'};
+var elm$http$Http$resolve = F2(
+	function (toResult, response) {
+		switch (response.$) {
+			case 'BadUrl_':
+				var url = response.a;
+				return elm$core$Result$Err(
+					elm$http$Http$BadUrl(url));
+			case 'Timeout_':
+				return elm$core$Result$Err(elm$http$Http$Timeout);
+			case 'NetworkError_':
+				return elm$core$Result$Err(elm$http$Http$NetworkError);
+			case 'BadStatus_':
+				var metadata = response.a;
+				return elm$core$Result$Err(
+					elm$http$Http$BadStatus(metadata.statusCode));
+			default:
+				var body = response.b;
+				return A2(
+					elm$core$Result$mapError,
+					elm$http$Http$BadBody,
+					toResult(body));
+		}
+	});
+var elm$http$Http$expectJson = F2(
+	function (toMsg, decoder) {
+		return A2(
+			elm$http$Http$expectStringResponse,
+			toMsg,
+			elm$http$Http$resolve(
+				function (string) {
+					return A2(
+						elm$core$Result$mapError,
+						elm$json$Json$Decode$errorToString,
+						A2(elm$json$Json$Decode$decodeString, decoder, string));
+				}));
+	});
+var elm$http$Http$emptyBody = _Http_emptyBody;
+var elm$http$Http$Request = function (a) {
+	return {$: 'Request', a: a};
 };
 var elm$core$Task$succeed = _Scheduler_succeed;
-var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
+var elm$http$Http$State = F2(
+	function (reqs, subs) {
+		return {reqs: reqs, subs: subs};
+	});
+var elm$http$Http$init = elm$core$Task$succeed(
+	A2(elm$http$Http$State, elm$core$Dict$empty, _List_Nil));
 var elm$core$Task$andThen = _Scheduler_andThen;
-var elm$core$Task$map = F2(
-	function (func, taskA) {
+var elm$core$Process$kill = _Scheduler_kill;
+var elm$core$Process$spawn = _Scheduler_spawn;
+var elm$http$Http$updateReqs = F3(
+	function (router, cmds, reqs) {
+		updateReqs:
+		while (true) {
+			if (!cmds.b) {
+				return elm$core$Task$succeed(reqs);
+			} else {
+				var cmd = cmds.a;
+				var otherCmds = cmds.b;
+				if (cmd.$ === 'Cancel') {
+					var tracker = cmd.a;
+					var _n2 = A2(elm$core$Dict$get, tracker, reqs);
+					if (_n2.$ === 'Nothing') {
+						var $temp$router = router,
+							$temp$cmds = otherCmds,
+							$temp$reqs = reqs;
+						router = $temp$router;
+						cmds = $temp$cmds;
+						reqs = $temp$reqs;
+						continue updateReqs;
+					} else {
+						var pid = _n2.a;
+						return A2(
+							elm$core$Task$andThen,
+							function (_n3) {
+								return A3(
+									elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A2(elm$core$Dict$remove, tracker, reqs));
+							},
+							elm$core$Process$kill(pid));
+					}
+				} else {
+					var req = cmd.a;
+					return A2(
+						elm$core$Task$andThen,
+						function (pid) {
+							var _n4 = req.tracker;
+							if (_n4.$ === 'Nothing') {
+								return A3(elm$http$Http$updateReqs, router, otherCmds, reqs);
+							} else {
+								var tracker = _n4.a;
+								return A3(
+									elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A3(elm$core$Dict$insert, tracker, pid, reqs));
+							}
+						},
+						elm$core$Process$spawn(
+							A3(
+								_Http_toTask,
+								router,
+								elm$core$Platform$sendToApp(router),
+								req)));
+				}
+			}
+		}
+	});
+var elm$http$Http$onEffects = F4(
+	function (router, cmds, subs, state) {
 		return A2(
 			elm$core$Task$andThen,
-			function (a) {
+			function (reqs) {
 				return elm$core$Task$succeed(
-					func(a));
+					A2(elm$http$Http$State, reqs, subs));
 			},
-			taskA);
+			A3(elm$http$Http$updateReqs, router, cmds, state.reqs));
 	});
 var elm$core$Task$map2 = F3(
 	function (func, taskA, taskB) {
@@ -8737,7 +9608,156 @@ var elm$core$Task$sequence = function (tasks) {
 		elm$core$Task$succeed(_List_Nil),
 		tasks);
 };
-var elm$core$Platform$sendToApp = _Platform_sendToApp;
+var elm$http$Http$maybeSend = F4(
+	function (router, desiredTracker, progress, _n0) {
+		var actualTracker = _n0.a;
+		var toMsg = _n0.b;
+		return _Utils_eq(desiredTracker, actualTracker) ? elm$core$Maybe$Just(
+			A2(
+				elm$core$Platform$sendToApp,
+				router,
+				toMsg(progress))) : elm$core$Maybe$Nothing;
+	});
+var elm$http$Http$onSelfMsg = F3(
+	function (router, _n0, state) {
+		var tracker = _n0.a;
+		var progress = _n0.b;
+		return A2(
+			elm$core$Task$andThen,
+			function (_n1) {
+				return elm$core$Task$succeed(state);
+			},
+			elm$core$Task$sequence(
+				A2(
+					elm$core$List$filterMap,
+					A3(elm$http$Http$maybeSend, router, tracker, progress),
+					state.subs)));
+	});
+var elm$http$Http$Cancel = function (a) {
+	return {$: 'Cancel', a: a};
+};
+var elm$http$Http$cmdMap = F2(
+	function (func, cmd) {
+		if (cmd.$ === 'Cancel') {
+			var tracker = cmd.a;
+			return elm$http$Http$Cancel(tracker);
+		} else {
+			var r = cmd.a;
+			return elm$http$Http$Request(
+				{
+					allowCookiesFromOtherDomains: r.allowCookiesFromOtherDomains,
+					body: r.body,
+					expect: A2(_Http_mapExpect, func, r.expect),
+					headers: r.headers,
+					method: r.method,
+					timeout: r.timeout,
+					tracker: r.tracker,
+					url: r.url
+				});
+		}
+	});
+var elm$http$Http$MySub = F2(
+	function (a, b) {
+		return {$: 'MySub', a: a, b: b};
+	});
+var elm$http$Http$subMap = F2(
+	function (func, _n0) {
+		var tracker = _n0.a;
+		var toMsg = _n0.b;
+		return A2(
+			elm$http$Http$MySub,
+			tracker,
+			A2(elm$core$Basics$composeR, toMsg, func));
+	});
+_Platform_effectManagers['Http'] = _Platform_createManager(elm$http$Http$init, elm$http$Http$onEffects, elm$http$Http$onSelfMsg, elm$http$Http$cmdMap, elm$http$Http$subMap);
+var elm$http$Http$command = _Platform_leaf('Http');
+var elm$http$Http$subscription = _Platform_leaf('Http');
+var elm$http$Http$request = function (r) {
+	return elm$http$Http$command(
+		elm$http$Http$Request(
+			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
+};
+var elm$http$Http$get = function (r) {
+	return elm$http$Http$request(
+		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
+};
+var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
+	return elm$http$Http$get(
+		{
+			expect: A2(
+				elm$http$Http$expectJson,
+				author$project$External$TodoistSync$SyncResponded,
+				author$project$Porting$toClassicLoose(author$project$External$TodoistSync$decodeResponse)),
+			url: elm$url$Url$toString(
+				author$project$External$TodoistSync$syncUrl(incrementalSyncToken))
+		});
+};
+var author$project$Main$Model = F3(
+	function (viewState, appData, environment) {
+		return {appData: appData, environment: environment, viewState: viewState};
+	});
+var author$project$Main$SyncTodoist = {$: 'SyncTodoist'};
+var author$project$Main$TaskListMsg = function (a) {
+	return {$: 'TaskListMsg', a: a};
+};
+var author$project$Main$TimeTrackerMsg = function (a) {
+	return {$: 'TimeTrackerMsg', a: a};
+};
+var author$project$Main$TodoistServerResponse = function (a) {
+	return {$: 'TodoistServerResponse', a: a};
+};
+var author$project$Main$log = F2(
+	function (string, input) {
+		return input;
+	});
+var author$project$Task$Progress$getWhole = function (_n0) {
+	var unit = _n0.b;
+	return author$project$Task$Progress$unitMax(unit);
+};
+var author$project$Task$Progress$isMax = function (progress) {
+	return _Utils_eq(
+		author$project$Task$Progress$getPortion(progress),
+		author$project$Task$Progress$getWhole(progress));
+};
+var author$project$Task$Task$completed = function (task) {
+	return author$project$Task$Progress$isMax(
+		function ($) {
+			return $.completion;
+		}(task));
+};
+var author$project$TaskList$NoOp = {$: 'NoOp'};
+var elm$browser$Browser$External = function (a) {
+	return {$: 'External', a: a};
+};
+var elm$browser$Browser$Internal = function (a) {
+	return {$: 'Internal', a: a};
+};
+var elm$browser$Browser$Dom$NotFound = function (a) {
+	return {$: 'NotFound', a: a};
+};
+var elm$core$Basics$never = function (_n0) {
+	never:
+	while (true) {
+		var nvr = _n0.a;
+		var $temp$_n0 = nvr;
+		_n0 = $temp$_n0;
+		continue never;
+	}
+};
+var elm$core$Task$Perform = function (a) {
+	return {$: 'Perform', a: a};
+};
+var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
+var elm$core$Task$map = F2(
+	function (func, taskA) {
+		return A2(
+			elm$core$Task$andThen,
+			function (a) {
+				return elm$core$Task$succeed(
+					func(a));
+			},
+			taskA);
+	});
 var elm$core$Task$spawnCmd = F2(
 	function (router, _n0) {
 		var task = _n0.a;
@@ -8792,11 +9812,6 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	}
 };
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
-var elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
 var elm$core$Basics$neq = _Utils_notEqual;
 var elm$core$Basics$not = _Basics_not;
 var elm$core$List$filter = F2(
@@ -8856,7 +9871,7 @@ var author$project$TaskList$update = F4(
 											A2(
 											author$project$Task$Task$newTask,
 											newTaskTitle,
-											elm$time$Time$posixToMillis(env.time))
+											author$project$SmartTime$Moment$toSmartInt(env.time))
 										]))
 							}),
 						elm$core$Platform$Cmd$none);
@@ -8991,8 +10006,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('shrugging-attempt.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Minutes(0),
-					author$project$SmartTime$HumanDuration$Hours(1)),
+					author$project$SmartTime$Human$Duration$Minutes(0),
+					author$project$SmartTime$Human$Duration$Hours(1)),
 				names: _List_fromArray(
 					['Nothing', 'Dilly-dally', 'Distracted']),
 				taskOptional: true,
@@ -9005,14 +10020,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(10),
-						author$project$SmartTime$HumanDuration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('shirt.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Appareling', 'Dressing', 'Getting Dressed', 'Dressing Up']),
 				taskOptional: true,
@@ -9025,14 +10040,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(5),
-						author$project$SmartTime$HumanDuration$Minutes(30))),
+						author$project$SmartTime$Human$Duration$Minutes(5),
+						author$project$SmartTime$Human$Duration$Minutes(30))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('messaging.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Hours(5)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Hours(5)),
 				names: _List_fromArray(
 					['Messaging', 'Texting', 'Chatting', 'Text Messaging']),
 				taskOptional: true,
@@ -9045,14 +10060,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(15),
-						author$project$SmartTime$HumanDuration$Hours(2))),
+						author$project$SmartTime$Human$Duration$Minutes(15),
+						author$project$SmartTime$Human$Duration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Minutes(20),
-					author$project$SmartTime$HumanDuration$Hours(2)),
+					author$project$SmartTime$Human$Duration$Minutes(20),
+					author$project$SmartTime$Human$Duration$Hours(2)),
 				names: _List_fromArray(
 					['Restroom', 'Toilet', 'WC', 'Washroom', 'Latrine', 'Lavatory', 'Water Closet']),
 				taskOptional: true,
@@ -9068,8 +10083,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Grooming', 'Tending', 'Groom']),
 				taskOptional: true,
@@ -9082,14 +10097,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(35),
-						author$project$SmartTime$HumanDuration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Minutes(35),
+						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Meal', 'Eating', 'Food', 'Lunch', 'Dinner', 'Breakfast']),
 				taskOptional: true,
@@ -9105,8 +10120,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Supplements', 'Pills', 'Medication']),
 				taskOptional: true,
@@ -9119,14 +10134,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(10),
-						author$project$SmartTime$HumanDuration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Workout', 'Working Out', 'Work Out']),
 				taskOptional: true,
@@ -9139,14 +10154,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(20),
-						author$project$SmartTime$HumanDuration$Hours(18))),
+						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Hours(18))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Shower', 'Bathing', 'Showering']),
 				taskOptional: true,
@@ -9162,8 +10177,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Toothbrush', 'Teeth', 'Brushing Teeth', 'Teethbrushing']),
 				taskOptional: true,
@@ -9179,8 +10194,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Floss', 'Flossing']),
 				taskOptional: true,
@@ -9193,14 +10208,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(12),
-						author$project$SmartTime$HumanDuration$Hours(15))),
+						author$project$SmartTime$Human$Duration$Minutes(12),
+						author$project$SmartTime$Human$Duration$Hours(15))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Wakeup', 'Waking Up', 'Wakeup Walk']),
 				taskOptional: true,
@@ -9216,8 +10231,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Sleep', 'Sleeping']),
 				taskOptional: true,
@@ -9230,14 +10245,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(15),
-						author$project$SmartTime$HumanDuration$Hours(2))),
+						author$project$SmartTime$Human$Duration$Minutes(15),
+						author$project$SmartTime$Human$Duration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Plan', 'Planning', 'Plans']),
 				taskOptional: true,
@@ -9250,14 +10265,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(30),
-						author$project$SmartTime$HumanDuration$Hours(5))),
+						author$project$SmartTime$Human$Duration$Minutes(30),
+						author$project$SmartTime$Human$Duration$Hours(5))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Configure', 'Configuring', 'Configuration']),
 				taskOptional: true,
@@ -9270,14 +10285,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(10),
-						author$project$SmartTime$HumanDuration$Hours(2))),
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Email', 'E-Mail', 'E-mail', 'Emailing', 'E-mails', 'Emails', 'E-mailing']),
 				taskOptional: true,
@@ -9290,14 +10305,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Hours(1),
-						author$project$SmartTime$HumanDuration$Hours(12))),
+						author$project$SmartTime$Human$Duration$Hours(1),
+						author$project$SmartTime$Human$Duration$Hours(12))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(8),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(8),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Work', 'Working', 'Listings Work']),
 				taskOptional: true,
@@ -9310,14 +10325,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(35),
-						author$project$SmartTime$HumanDuration$Hours(4))),
+						author$project$SmartTime$Human$Duration$Minutes(35),
+						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Call', 'Calling', 'Phone Call', 'Phone', 'Phone Calls', 'Calling', 'Voice Call', 'Voice Chat', 'Video Call']),
 				taskOptional: true,
@@ -9333,8 +10348,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Chore', 'Chores']),
 				taskOptional: true,
@@ -9347,14 +10362,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Hours(1),
-						author$project$SmartTime$HumanDuration$Hours(12))),
+						author$project$SmartTime$Human$Duration$Hours(1),
+						author$project$SmartTime$Human$Duration$Hours(12))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Parents', 'Parent']),
 				taskOptional: true,
@@ -9370,8 +10385,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Minutes(30),
-					author$project$SmartTime$HumanDuration$Hours(24)),
+					author$project$SmartTime$Human$Duration$Minutes(30),
+					author$project$SmartTime$Human$Duration$Hours(24)),
 				names: _List_fromArray(
 					['Prepare', 'Preparing', 'Preparation']),
 				taskOptional: true,
@@ -9384,14 +10399,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Hours(2),
-						author$project$SmartTime$HumanDuration$Hours(8))),
+						author$project$SmartTime$Human$Duration$Hours(2),
+						author$project$SmartTime$Human$Duration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Lover', 'S.O.', 'Partner']),
 				taskOptional: true,
@@ -9404,14 +10419,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Hours(1),
-						author$project$SmartTime$HumanDuration$Hours(6))),
+						author$project$SmartTime$Human$Duration$Hours(1),
+						author$project$SmartTime$Human$Duration$Hours(6))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Driving', 'Drive']),
 				taskOptional: true,
@@ -9424,14 +10439,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(30),
-						author$project$SmartTime$HumanDuration$Hours(8))),
+						author$project$SmartTime$Human$Duration$Minutes(30),
+						author$project$SmartTime$Human$Duration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Minutes(30),
-					author$project$SmartTime$HumanDuration$Hours(5)),
+					author$project$SmartTime$Human$Duration$Minutes(30),
+					author$project$SmartTime$Human$Duration$Hours(5)),
 				names: _List_fromArray(
 					['Riding', 'Ride', 'Passenger']),
 				taskOptional: true,
@@ -9444,14 +10459,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(10),
-						author$project$SmartTime$HumanDuration$Hours(4))),
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Social Media']),
 				taskOptional: true,
@@ -9467,8 +10482,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Pacing', 'Pace']),
 				taskOptional: true,
@@ -9484,8 +10499,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Sport', 'Sports', 'Playing Sports']),
 				taskOptional: true,
@@ -9501,8 +10516,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Finance', 'Financial']),
 				taskOptional: true,
@@ -9518,8 +10533,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Laundry']),
 				taskOptional: true,
@@ -9535,8 +10550,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Bedward', 'Bedward-bound', 'Going to Bed']),
 				taskOptional: true,
@@ -9552,8 +10567,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Browse', 'Browsing']),
 				taskOptional: true,
@@ -9569,8 +10584,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Fiction', 'Reading Fiction']),
 				taskOptional: true,
@@ -9586,8 +10601,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Learn', 'Learning']),
 				taskOptional: true,
@@ -9600,14 +10615,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(30),
-						author$project$SmartTime$HumanDuration$Days(1))),
+						author$project$SmartTime$Human$Duration$Minutes(30),
+						author$project$SmartTime$Human$Duration$Days(1))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Brain Training', 'Braining', 'Brain Train', 'Mental Math Practice']),
 				taskOptional: true,
@@ -9623,8 +10638,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Music', 'Music Listening']),
 				taskOptional: true,
@@ -9640,8 +10655,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Create', 'Creating', 'Creation', 'Making']),
 				taskOptional: true,
@@ -9657,8 +10672,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Children', 'Kids']),
 				taskOptional: true,
@@ -9674,8 +10689,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Meeting', 'Meet', 'Meetings']),
 				taskOptional: true,
@@ -9691,8 +10706,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Cinema', 'Movies', 'Movie Theatre', 'Movie Theater']),
 				taskOptional: true,
@@ -9708,8 +10723,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Films', 'Film Watching', 'Watching Movies']),
 				taskOptional: true,
@@ -9725,8 +10740,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Series', 'TV Shows', 'TV Series']),
 				taskOptional: true,
@@ -9742,8 +10757,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Broadcast']),
 				taskOptional: true,
@@ -9759,8 +10774,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Theatre', 'Play', 'Play/Musical', 'Drama']),
 				taskOptional: true,
@@ -9776,8 +10791,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Shopping', 'Shop']),
 				taskOptional: true,
@@ -9793,8 +10808,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Video', 'Video Gaming', 'Gaming']),
 				taskOptional: true,
@@ -9810,8 +10825,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Housekeeping']),
 				taskOptional: true,
@@ -9824,14 +10839,14 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$HumanDuration$Minutes(45),
-						author$project$SmartTime$HumanDuration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Minutes(45),
+						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Meal Prep', 'Cooking', 'Food making']),
 				taskOptional: true,
@@ -9847,8 +10862,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Networking']),
 				taskOptional: true,
@@ -9864,8 +10879,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Meditate', 'Meditation', 'Meditating']),
 				taskOptional: true,
@@ -9881,8 +10896,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Homework', 'Schoolwork']),
 				taskOptional: true,
@@ -9898,8 +10913,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Flight', 'Aviation', 'Flying', 'Airport']),
 				taskOptional: true,
@@ -9915,8 +10930,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Course', 'Courses', 'Classes', 'Class']),
 				taskOptional: true,
@@ -9932,8 +10947,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Pet', 'Pets', 'Pet Care']),
 				taskOptional: true,
@@ -9949,8 +10964,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				icon: author$project$Activity$Activity$File('presentation.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
-					author$project$SmartTime$HumanDuration$Hours(2),
-					author$project$SmartTime$HumanDuration$Days(1)),
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Presentation', 'Presenting', 'Present']),
 				taskOptional: true,
@@ -10043,7 +11058,7 @@ var author$project$Activity$Activity$latestSwitch = function (timeline) {
 		elm$core$Maybe$withDefault,
 		A2(
 			author$project$Activity$Activity$Switch,
-			elm$time$Time$millisToPosix(0),
+			author$project$SmartTime$Moment$zero,
 			author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally)),
 		elm$core$List$head(timeline));
 };
@@ -10090,437 +11105,46 @@ var author$project$Activity$Activity$excusableFor = function (activity) {
 	switch (_n0.$) {
 		case 'NeverExcused':
 			return _Utils_Tuple2(
-				author$project$SmartTime$HumanDuration$Minutes(0),
-				author$project$SmartTime$HumanDuration$Minutes(0));
+				author$project$SmartTime$Human$Duration$Minutes(0),
+				author$project$SmartTime$Human$Duration$Minutes(0));
 		case 'TemporarilyExcused':
 			var durationPerPeriod = _n0.a;
 			return durationPerPeriod;
 		default:
 			return _Utils_Tuple2(
-				author$project$SmartTime$HumanDuration$Hours(24),
-				author$project$SmartTime$HumanDuration$Hours(24));
+				author$project$SmartTime$Human$Duration$Hours(24),
+				author$project$SmartTime$Human$Duration$Hours(24));
 	}
 };
-var author$project$SmartTime$HumanDuration$toDuration = function (humanDuration) {
-	switch (humanDuration.$) {
-		case 'Days':
-			var days = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(days * 86400000);
-		case 'Hours':
-			var hours = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(hours * 3600000);
-		case 'Minutes':
-			var minutes = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(minutes * 60000);
-		case 'Seconds':
-			var seconds = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(seconds * 1000);
-		default:
-			var milliseconds = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(milliseconds);
-	}
-};
-var justinmimbs$time_extra$Time$Extra$Millisecond = {$: 'Millisecond'};
-var justinmimbs$date$Date$Days = {$: 'Days'};
-var justinmimbs$date$Date$Months = {$: 'Months'};
-var elm$core$Basics$min = F2(
-	function (x, y) {
-		return (_Utils_cmp(x, y) < 0) ? x : y;
+var author$project$SmartTime$Duration$subtract = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 - int2);
 	});
-var justinmimbs$date$Date$isLeapYear = function (y) {
-	return ((!A2(elm$core$Basics$modBy, 4, y)) && A2(elm$core$Basics$modBy, 100, y)) || (!A2(elm$core$Basics$modBy, 400, y));
-};
-var justinmimbs$date$Date$daysBeforeMonth = F2(
-	function (y, m) {
-		var leapDays = justinmimbs$date$Date$isLeapYear(y) ? 1 : 0;
-		switch (m.$) {
-			case 'Jan':
-				return 0;
-			case 'Feb':
-				return 31;
-			case 'Mar':
-				return 59 + leapDays;
-			case 'Apr':
-				return 90 + leapDays;
-			case 'May':
-				return 120 + leapDays;
-			case 'Jun':
-				return 151 + leapDays;
-			case 'Jul':
-				return 181 + leapDays;
-			case 'Aug':
-				return 212 + leapDays;
-			case 'Sep':
-				return 243 + leapDays;
-			case 'Oct':
-				return 273 + leapDays;
-			case 'Nov':
-				return 304 + leapDays;
-			default:
-				return 334 + leapDays;
-		}
-	});
-var justinmimbs$date$Date$floorDiv = F2(
-	function (a, b) {
-		return elm$core$Basics$floor(a / b);
-	});
-var justinmimbs$date$Date$daysBeforeYear = function (y1) {
-	var y = y1 - 1;
-	var leapYears = (A2(justinmimbs$date$Date$floorDiv, y, 4) - A2(justinmimbs$date$Date$floorDiv, y, 100)) + A2(justinmimbs$date$Date$floorDiv, y, 400);
-	return (365 * y) + leapYears;
-};
-var justinmimbs$date$Date$daysInMonth = F2(
-	function (y, m) {
-		switch (m.$) {
-			case 'Jan':
-				return 31;
-			case 'Feb':
-				return justinmimbs$date$Date$isLeapYear(y) ? 29 : 28;
-			case 'Mar':
-				return 31;
-			case 'Apr':
-				return 30;
-			case 'May':
-				return 31;
-			case 'Jun':
-				return 30;
-			case 'Jul':
-				return 31;
-			case 'Aug':
-				return 31;
-			case 'Sep':
-				return 30;
-			case 'Oct':
-				return 31;
-			case 'Nov':
-				return 30;
-			default:
-				return 31;
-		}
-	});
-var justinmimbs$date$Date$monthToNumber = function (m) {
-	switch (m.$) {
-		case 'Jan':
-			return 1;
-		case 'Feb':
-			return 2;
-		case 'Mar':
-			return 3;
-		case 'Apr':
-			return 4;
-		case 'May':
-			return 5;
-		case 'Jun':
-			return 6;
-		case 'Jul':
-			return 7;
-		case 'Aug':
-			return 8;
-		case 'Sep':
-			return 9;
-		case 'Oct':
-			return 10;
-		case 'Nov':
-			return 11;
-		default:
-			return 12;
-	}
-};
-var justinmimbs$date$Date$numberToMonth = function (mn) {
-	var _n0 = A2(elm$core$Basics$max, 1, mn);
-	switch (_n0) {
-		case 1:
-			return elm$time$Time$Jan;
-		case 2:
-			return elm$time$Time$Feb;
-		case 3:
-			return elm$time$Time$Mar;
-		case 4:
-			return elm$time$Time$Apr;
-		case 5:
-			return elm$time$Time$May;
-		case 6:
-			return elm$time$Time$Jun;
-		case 7:
-			return elm$time$Time$Jul;
-		case 8:
-			return elm$time$Time$Aug;
-		case 9:
-			return elm$time$Time$Sep;
-		case 10:
-			return elm$time$Time$Oct;
-		case 11:
-			return elm$time$Time$Nov;
-		default:
-			return elm$time$Time$Dec;
-	}
-};
-var justinmimbs$date$Date$toCalendarDateHelp = F3(
-	function (y, m, d) {
-		toCalendarDateHelp:
-		while (true) {
-			var monthDays = A2(justinmimbs$date$Date$daysInMonth, y, m);
-			var mn = justinmimbs$date$Date$monthToNumber(m);
-			if ((mn < 12) && (_Utils_cmp(d, monthDays) > 0)) {
-				var $temp$y = y,
-					$temp$m = justinmimbs$date$Date$numberToMonth(mn + 1),
-					$temp$d = d - monthDays;
-				y = $temp$y;
-				m = $temp$m;
-				d = $temp$d;
-				continue toCalendarDateHelp;
-			} else {
-				return {day: d, month: m, year: y};
-			}
-		}
-	});
-var justinmimbs$date$Date$divWithRemainder = F2(
-	function (a, b) {
-		return _Utils_Tuple2(
-			A2(justinmimbs$date$Date$floorDiv, a, b),
-			A2(elm$core$Basics$modBy, b, a));
-	});
-var justinmimbs$date$Date$year = function (_n0) {
-	var rd = _n0.a;
-	var _n1 = A2(justinmimbs$date$Date$divWithRemainder, rd, 146097);
-	var n400 = _n1.a;
-	var r400 = _n1.b;
-	var _n2 = A2(justinmimbs$date$Date$divWithRemainder, r400, 36524);
-	var n100 = _n2.a;
-	var r100 = _n2.b;
-	var _n3 = A2(justinmimbs$date$Date$divWithRemainder, r100, 1461);
-	var n4 = _n3.a;
-	var r4 = _n3.b;
-	var _n4 = A2(justinmimbs$date$Date$divWithRemainder, r4, 365);
-	var n1 = _n4.a;
-	var r1 = _n4.b;
-	var n = (!r1) ? 0 : 1;
-	return ((((n400 * 400) + (n100 * 100)) + (n4 * 4)) + n1) + n;
-};
-var justinmimbs$date$Date$toOrdinalDate = function (_n0) {
-	var rd = _n0.a;
-	var y = justinmimbs$date$Date$year(
-		justinmimbs$date$Date$RD(rd));
-	return {
-		ordinalDay: rd - justinmimbs$date$Date$daysBeforeYear(y),
-		year: y
-	};
-};
-var justinmimbs$date$Date$toCalendarDate = function (_n0) {
-	var rd = _n0.a;
-	var date = justinmimbs$date$Date$toOrdinalDate(
-		justinmimbs$date$Date$RD(rd));
-	return A3(justinmimbs$date$Date$toCalendarDateHelp, date.year, elm$time$Time$Jan, date.ordinalDay);
-};
-var justinmimbs$date$Date$add = F3(
-	function (unit, n, _n0) {
-		var rd = _n0.a;
-		switch (unit.$) {
-			case 'Years':
-				return A3(
-					justinmimbs$date$Date$add,
-					justinmimbs$date$Date$Months,
-					12 * n,
-					justinmimbs$date$Date$RD(rd));
-			case 'Months':
-				var date = justinmimbs$date$Date$toCalendarDate(
-					justinmimbs$date$Date$RD(rd));
-				var wholeMonths = ((12 * (date.year - 1)) + (justinmimbs$date$Date$monthToNumber(date.month) - 1)) + n;
-				var m = justinmimbs$date$Date$numberToMonth(
-					A2(elm$core$Basics$modBy, 12, wholeMonths) + 1);
-				var y = A2(justinmimbs$date$Date$floorDiv, wholeMonths, 12) + 1;
-				return justinmimbs$date$Date$RD(
-					(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + A2(
-						elm$core$Basics$min,
-						date.day,
-						A2(justinmimbs$date$Date$daysInMonth, y, m)));
-			case 'Weeks':
-				return justinmimbs$date$Date$RD(rd + (7 * n));
-			default:
-				return justinmimbs$date$Date$RD(rd + n);
-		}
-	});
-var elm$core$Basics$clamp = F3(
-	function (low, high, number) {
-		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
-	});
-var justinmimbs$date$Date$fromCalendarDate = F3(
-	function (y, m, d) {
-		return justinmimbs$date$Date$RD(
-			(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + A3(
-				elm$core$Basics$clamp,
-				1,
-				A2(justinmimbs$date$Date$daysInMonth, y, m),
-				d));
-	});
-var justinmimbs$date$Date$fromPosix = F2(
-	function (zone, posix) {
-		return A3(
-			justinmimbs$date$Date$fromCalendarDate,
-			A2(elm$time$Time$toYear, zone, posix),
-			A2(elm$time$Time$toMonth, zone, posix),
-			A2(elm$time$Time$toDay, zone, posix));
-	});
-var justinmimbs$time_extra$Time$Extra$Day = {$: 'Day'};
-var justinmimbs$time_extra$Time$Extra$Month = {$: 'Month'};
-var justinmimbs$date$Date$toRataDie = function (_n0) {
-	var rd = _n0.a;
-	return rd;
-};
-var justinmimbs$time_extra$Time$Extra$dateToMillis = function (date) {
-	var daysSinceEpoch = justinmimbs$date$Date$toRataDie(date) - 719163;
-	return daysSinceEpoch * 86400000;
-};
-var justinmimbs$time_extra$Time$Extra$timeFromClock = F4(
-	function (hour, minute, second, millisecond) {
-		return (((hour * 3600000) + (minute * 60000)) + (second * 1000)) + millisecond;
-	});
-var justinmimbs$time_extra$Time$Extra$timeFromPosix = F2(
-	function (zone, posix) {
-		return A4(
-			justinmimbs$time_extra$Time$Extra$timeFromClock,
-			A2(elm$time$Time$toHour, zone, posix),
-			A2(elm$time$Time$toMinute, zone, posix),
-			A2(elm$time$Time$toSecond, zone, posix),
-			A2(elm$time$Time$toMillis, zone, posix));
-	});
-var justinmimbs$time_extra$Time$Extra$toOffset = F2(
-	function (zone, posix) {
-		var millis = elm$time$Time$posixToMillis(posix);
-		var localMillis = justinmimbs$time_extra$Time$Extra$dateToMillis(
-			A2(justinmimbs$date$Date$fromPosix, zone, posix)) + A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix);
-		return ((localMillis - millis) / 60000) | 0;
-	});
-var justinmimbs$time_extra$Time$Extra$posixFromDateTime = F3(
-	function (zone, date, time) {
-		var millis = justinmimbs$time_extra$Time$Extra$dateToMillis(date) + time;
-		var offset0 = A2(
-			justinmimbs$time_extra$Time$Extra$toOffset,
-			zone,
-			elm$time$Time$millisToPosix(millis));
-		var posix1 = elm$time$Time$millisToPosix(millis - (offset0 * 60000));
-		var offset1 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix1);
-		if (_Utils_eq(offset0, offset1)) {
-			return posix1;
-		} else {
-			var posix2 = elm$time$Time$millisToPosix(millis - (offset1 * 60000));
-			var offset2 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix2);
-			return _Utils_eq(offset1, offset2) ? posix2 : posix1;
-		}
-	});
-var justinmimbs$time_extra$Time$Extra$add = F4(
-	function (interval, n, zone, posix) {
-		add:
-		while (true) {
-			switch (interval.$) {
-				case 'Millisecond':
-					return elm$time$Time$millisToPosix(
-						elm$time$Time$posixToMillis(posix) + n);
-				case 'Second':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
-						$temp$n = n * 1000,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				case 'Minute':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
-						$temp$n = n * 60000,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				case 'Hour':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Millisecond,
-						$temp$n = n * 3600000,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				case 'Day':
-					return A3(
-						justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-						zone,
-						A3(
-							justinmimbs$date$Date$add,
-							justinmimbs$date$Date$Days,
-							n,
-							A2(justinmimbs$date$Date$fromPosix, zone, posix)),
-						A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix));
-				case 'Month':
-					return A3(
-						justinmimbs$time_extra$Time$Extra$posixFromDateTime,
-						zone,
-						A3(
-							justinmimbs$date$Date$add,
-							justinmimbs$date$Date$Months,
-							n,
-							A2(justinmimbs$date$Date$fromPosix, zone, posix)),
-						A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix));
-				case 'Year':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Month,
-						$temp$n = n * 12,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				case 'Quarter':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Month,
-						$temp$n = n * 3,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				case 'Week':
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Day,
-						$temp$n = n * 7,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-				default:
-					var weekday = interval;
-					var $temp$interval = justinmimbs$time_extra$Time$Extra$Day,
-						$temp$n = n * 7,
-						$temp$zone = zone,
-						$temp$posix = posix;
-					interval = $temp$interval;
-					n = $temp$n;
-					zone = $temp$zone;
-					posix = $temp$posix;
-					continue add;
-			}
-		}
+var author$project$SmartTime$Moment$past = F2(
+	function (_n0, duration) {
+		var time = _n0.a;
+		return author$project$SmartTime$Moment$Moment(
+			A2(author$project$SmartTime$Duration$subtract, time, duration));
 	});
 var author$project$Activity$Measure$lookBack = F2(
 	function (present, humanDuration) {
-		return A4(
-			justinmimbs$time_extra$Time$Extra$add,
-			justinmimbs$time_extra$Time$Extra$Millisecond,
-			-author$project$SmartTime$Duration$inMs(
-				author$project$SmartTime$HumanDuration$toDuration(humanDuration)),
-			elm$time$Time$utc,
-			present);
+		return A2(
+			author$project$SmartTime$Moment$past,
+			present,
+			author$project$SmartTime$Human$Duration$toDuration(humanDuration));
 	});
 var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
+var author$project$SmartTime$Moment$compare = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		return A2(
+			elm$core$Basics$compare,
+			author$project$SmartTime$Duration$inMs(time1),
+			author$project$SmartTime$Duration$inMs(time2));
+	});
 var elm$core$List$partition = F2(
 	function (pred, list) {
 		var step = F2(
@@ -10547,9 +11171,9 @@ var author$project$Activity$Measure$timelineLimit = F3(
 		};
 		var recentEnough = function (_n1) {
 			var moment = _n1.a;
-			return _Utils_cmp(
-				elm$time$Time$posixToMillis(moment),
-				elm$time$Time$posixToMillis(pastLimit)) > 0;
+			return _Utils_eq(
+				A2(author$project$SmartTime$Moment$compare, moment, pastLimit),
+				elm$core$Basics$GT);
 		};
 		var _n0 = A2(elm$core$List$partition, recentEnough, timeline);
 		var pass = _n0.a;
@@ -10575,6 +11199,22 @@ var author$project$Activity$Measure$relevantTimeline = F3(
 			now,
 			A2(author$project$Activity$Measure$lookBack, now, duration));
 	});
+var elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var author$project$SmartTime$Duration$difference = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(
+			elm$core$Basics$abs(int1 - int2));
+	});
+var author$project$SmartTime$Moment$difference = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		return A2(author$project$SmartTime$Duration$difference, time1, time2);
+	});
 var author$project$Activity$Measure$session = F2(
 	function (_n0, _n1) {
 		var newer = _n0.a;
@@ -10582,8 +11222,7 @@ var author$project$Activity$Measure$session = F2(
 		var activityId = _n1.b;
 		return _Utils_Tuple2(
 			activityId,
-			author$project$SmartTime$Duration$fromInt(
-				elm$time$Time$posixToMillis(newer) - elm$time$Time$posixToMillis(older)));
+			A2(author$project$SmartTime$Moment$difference, newer, older));
 	});
 var elm$core$List$drop = F2(
 	function (n, list) {
@@ -10666,7 +11305,6 @@ var author$project$SmartTime$Duration$inMinutesRounded = function (duration) {
 	return elm$core$Basics$round(
 		author$project$SmartTime$Duration$inMs(duration) / 60000);
 };
-var author$project$SmartTime$Duration$zero = author$project$SmartTime$Duration$Duration(0);
 var author$project$Activity$Measure$exportLastSession = F2(
 	function (app, old) {
 		var timeSpent = A2(
@@ -10677,17 +11315,17 @@ var author$project$Activity$Measure$exportLastSession = F2(
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
 	});
-var author$project$SmartTime$HumanDuration$breakdownMS = function (duration) {
+var author$project$SmartTime$Human$Duration$breakdownMS = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
 	var seconds = _n0.seconds;
 	return _List_fromArray(
 		[
-			author$project$SmartTime$HumanDuration$Minutes(
+			author$project$SmartTime$Human$Duration$Minutes(
 			author$project$SmartTime$Duration$inWholeMinutes(duration)),
-			author$project$SmartTime$HumanDuration$Seconds(seconds)
+			author$project$SmartTime$Human$Duration$Seconds(seconds)
 		]);
 };
-var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
+var author$project$SmartTime$Human$Duration$withLetter = function (unit) {
 	switch (unit.$) {
 		case 'Milliseconds':
 			var _int = unit.a;
@@ -10706,21 +11344,18 @@ var author$project$SmartTime$HumanDuration$withLetter = function (unit) {
 			return elm$core$String$fromInt(_int) + 'd';
 	}
 };
-var elm$core$String$concat = function (strings) {
-	return A2(elm$core$String$join, '', strings);
-};
-var author$project$SmartTime$HumanDuration$singleLetterSpaced = function (humanDurationList) {
+var author$project$SmartTime$Human$Duration$singleLetterSpaced = function (humanDurationList) {
 	return elm$core$String$concat(
 		A2(
 			elm$core$List$intersperse,
 			' ',
-			A2(elm$core$List$map, author$project$SmartTime$HumanDuration$withLetter, humanDurationList)));
+			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withLetter, humanDurationList)));
 };
 var author$project$Activity$Switching$switchPopup = F4(
 	function (timeline, env, _new, old) {
 		var timeSpentString = function (dur) {
-			return author$project$SmartTime$HumanDuration$singleLetterSpaced(
-				author$project$SmartTime$HumanDuration$breakdownMS(dur));
+			return author$project$SmartTime$Human$Duration$singleLetterSpaced(
+				author$project$SmartTime$Human$Duration$breakdownMS(dur));
 		};
 		var timeSpentLastSession = A2(
 			elm$core$Maybe$withDefault,
@@ -10962,9 +11597,9 @@ var author$project$Main$handleUrlTriggers = F2(
 			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
-			var _n9 = environment.navkey;
-			if (_n9.$ === 'Just') {
-				var navkey = _n9.a;
+			var _n10 = environment.navkey;
+			if (_n10.$ === 'Just') {
+				var navkey = _n10.a;
 				return A2(
 					elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -10976,22 +11611,35 @@ var author$project$Main$handleUrlTriggers = F2(
 				return elm$core$Platform$Cmd$none;
 			}
 		}();
-		var parseList = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$query,
-			_Utils_ap(taskTriggers, timeTrackerTriggers));
 		var normalizedUrl = _Utils_update(
 			url,
 			{path: ''});
+		var mainTriggers = _List_fromArray(
+			[
+				A2(
+				elm$url$Url$Parser$Query$enum,
+				'sync',
+				elm$core$Dict$fromList(
+					_List_fromArray(
+						[
+							_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
+						])))
+			]);
+		var parseList = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$query,
+			_Utils_ap(
+				mainTriggers,
+				_Utils_ap(taskTriggers, timeTrackerTriggers)));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
 			A2(author$project$Main$log, 'url', normalizedUrl));
 		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
 			var triggerMsg = parsed.a.a;
-			var _n8 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n8.a;
-			var newCmd = _n8.b;
+			var _n9 = A2(author$project$Main$update, triggerMsg, model);
+			var newModel = _n9.a;
+			var newCmd = _n9.b;
 			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[newCmd, removeTriggersFromUrl]));
@@ -11016,7 +11664,7 @@ var author$project$Main$update = F2(
 			return _Utils_Tuple2(model, command);
 		};
 		var _n0 = _Utils_Tuple2(msg, viewState.primaryView);
-		_n0$5:
+		_n0$7:
 		while (true) {
 			switch (_n0.a.$) {
 				case 'ClearErrors':
@@ -11030,13 +11678,29 @@ var author$project$Main$update = F2(
 								{errors: _List_Nil}),
 							environment),
 						elm$core$Platform$Cmd$none);
+				case 'SyncTodoist':
+					var _n2 = _n0.a;
+					return justRunCommand(
+						A2(
+							elm$core$Platform$Cmd$map,
+							author$project$Main$TodoistServerResponse,
+							author$project$External$TodoistSync$sync(appData.tokens.todoistSyncToken)));
+				case 'TodoistServerResponse':
+					var response = _n0.a.a;
+					return _Utils_Tuple2(
+						A3(
+							author$project$Main$Model,
+							viewState,
+							A2(author$project$External$TodoistSync$handle, response, appData),
+							environment),
+						elm$core$Platform$Cmd$none);
 				case 'Link':
 					var urlRequest = _n0.a.a;
 					if (urlRequest.$ === 'Internal') {
 						var url = urlRequest.a;
-						var _n3 = environment.navkey;
-						if (_n3.$ === 'Just') {
-							var navkey = _n3.a;
+						var _n4 = environment.navkey;
+						if (_n4.$ === 'Just') {
+							var navkey = _n4.a;
 							return justRunCommand(
 								A2(
 									elm$browser$Browser$Navigation$pushUrl,
@@ -11052,9 +11716,9 @@ var author$project$Main$update = F2(
 					}
 				case 'NewUrl':
 					var url = _n0.a.a;
-					var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
-					var modelAfter = _n4.a;
-					var effectsAfter = _n4.b;
+					var _n5 = A2(author$project$Main$handleUrlTriggers, url, model);
+					var modelAfter = _n5.a;
+					var effectsAfter = _n5.b;
 					return _Utils_Tuple2(
 						_Utils_update(
 							modelAfter,
@@ -11066,10 +11730,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 'TaskList') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n5 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n5.a;
-						var newApp = _n5.b;
-						var newCommand = _n5.c;
+						var _n6 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n6.a;
+						var newApp = _n6.b;
+						var newCommand = _n6.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11081,16 +11745,16 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
 					} else {
-						break _n0$5;
+						break _n0$7;
 					}
 				case 'TimeTrackerMsg':
 					if (_n0.b.$ === 'TimeTracker') {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n6 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n6.a;
-						var newApp = _n6.b;
-						var newCommand = _n6.c;
+						var _n7 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n7.a;
+						var newApp = _n7.b;
+						var newCommand = _n7.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -11102,10 +11766,10 @@ var author$project$Main$update = F2(
 								environment),
 							A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
 					} else {
-						break _n0$5;
+						break _n0$7;
 					}
 				default:
-					break _n0$5;
+					break _n0$7;
 			}
 		}
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -11125,6 +11789,34 @@ var author$project$Main$updateWithStorage = F2(
 						cmds
 					])));
 	});
+var author$project$SmartTime$Moment$CoordinatedUniversal = {$: 'CoordinatedUniversal'};
+var author$project$SmartTime$Moment$UnixEpoch = {$: 'UnixEpoch'};
+var author$project$SmartTime$Duration$map = F2(
+	function (func, _n0) {
+		var _int = _n0.a;
+		return author$project$SmartTime$Duration$Duration(
+			func(_int));
+	});
+var author$project$SmartTime$Moment$linearFromUTC = function (_int) {
+	return _int;
+};
+var author$project$SmartTime$Moment$moment = F3(
+	function (scale, epoch, duration) {
+		var _n0 = _Utils_Tuple2(scale, epoch);
+		return author$project$SmartTime$Moment$Moment(
+			A2(author$project$SmartTime$Duration$map, author$project$SmartTime$Moment$linearFromUTC, duration));
+	});
+var author$project$SmartTime$Moment$fromElmInt = function (intMsUtc) {
+	return A3(
+		author$project$SmartTime$Moment$moment,
+		author$project$SmartTime$Moment$CoordinatedUniversal,
+		author$project$SmartTime$Moment$UnixEpoch,
+		author$project$SmartTime$Duration$fromInt(intMsUtc));
+};
+var author$project$SmartTime$Moment$fromElmTime = function (intMsUtc) {
+	return author$project$SmartTime$Moment$fromElmInt(
+		elm$time$Time$posixToMillis(intMsUtc));
+};
 var elm$time$Time$Name = function (a) {
 	return {$: 'Name', a: a};
 };
@@ -11133,6 +11825,7 @@ var elm$time$Time$Offset = function (a) {
 };
 var elm$time$Time$customZone = elm$time$Time$Zone;
 var elm$time$Time$now = _Time_now(elm$time$Time$millisToPosix);
+var author$project$SmartTime$Moment$now = A2(elm$core$Task$map, author$project$SmartTime$Moment$fromElmTime, elm$time$Time$now);
 var author$project$Main$updateWithTime = F2(
 	function (msg, model) {
 		updateWithTime:
@@ -11148,7 +11841,7 @@ var author$project$Main$updateWithTime = F2(
 						A2(
 							elm$core$Task$perform,
 							author$project$Main$Tock(submsg),
-							elm$time$Time$now));
+							author$project$SmartTime$Moment$now));
 				case 'Tock':
 					var submsg = msg.a;
 					var time = msg.b;
@@ -11183,6 +11876,7 @@ var author$project$Main$updateWithTime = F2(
 		}
 	});
 var elm$time$Time$here = _Time_here(_Utils_Tuple0);
+var author$project$SmartTime$Human$Clock$localZone = elm$time$Time$here;
 var author$project$Main$init = F3(
 	function (maybeJson, url, maybeKey) {
 		var startingModel = function () {
@@ -11205,7 +11899,7 @@ var author$project$Main$init = F3(
 						var errors = _n2.a;
 						return A3(
 							author$project$Main$buildModel,
-							A2(author$project$AppData$saveErrors, author$project$AppData$fromScratch, errors),
+							A2(author$project$AppData$saveDecodeErrors, author$project$AppData$fromScratch, errors),
 							url,
 							maybeKey);
 					default:
@@ -11226,7 +11920,7 @@ var author$project$Main$init = F3(
 				A2(
 				elm$core$Task$perform,
 				elm$core$Basics$identity,
-				A3(elm$core$Task$map2, author$project$Main$SetZoneAndTime, elm$time$Time$here, elm$time$Time$now)),
+				A3(elm$core$Task$map2, author$project$Main$SetZoneAndTime, author$project$SmartTime$Human$Clock$localZone, author$project$SmartTime$Moment$now)),
 				firstEffects
 			]);
 		return _Utils_Tuple2(
@@ -11242,65 +11936,16 @@ var author$project$Main$initGraphical = F3(
 			elm$core$Maybe$Just(key));
 	});
 var author$project$Main$NoOp = {$: 'NoOp'};
-var elm$browser$Browser$Events$Document = {$: 'Document'};
-var elm$browser$Browser$Events$MySub = F3(
-	function (a, b, c) {
-		return {$: 'MySub', a: a, b: b, c: c};
+var elm$time$Time$Every = F2(
+	function (a, b) {
+		return {$: 'Every', a: a, b: b};
 	});
-var elm$browser$Browser$Events$State = F2(
-	function (subs, pids) {
-		return {pids: pids, subs: subs};
+var elm$time$Time$State = F2(
+	function (taggers, processes) {
+		return {processes: processes, taggers: taggers};
 	});
-var elm$browser$Browser$Events$init = elm$core$Task$succeed(
-	A2(elm$browser$Browser$Events$State, _List_Nil, elm$core$Dict$empty));
-var elm$browser$Browser$Events$nodeToKey = function (node) {
-	if (node.$ === 'Document') {
-		return 'd_';
-	} else {
-		return 'w_';
-	}
-};
-var elm$browser$Browser$Events$addKey = function (sub) {
-	var node = sub.a;
-	var name = sub.b;
-	return _Utils_Tuple2(
-		_Utils_ap(
-			elm$browser$Browser$Events$nodeToKey(node),
-			name),
-		sub);
-};
-var elm$browser$Browser$Events$Event = F2(
-	function (key, event) {
-		return {event: event, key: key};
-	});
-var elm$core$Platform$sendToSelf = _Platform_sendToSelf;
-var elm$browser$Browser$Events$spawn = F3(
-	function (router, key, _n0) {
-		var node = _n0.a;
-		var name = _n0.b;
-		var actualNode = function () {
-			if (node.$ === 'Document') {
-				return _Browser_doc;
-			} else {
-				return _Browser_window;
-			}
-		}();
-		return A2(
-			elm$core$Task$map,
-			function (value) {
-				return _Utils_Tuple2(key, value);
-			},
-			A3(
-				_Browser_on,
-				actualNode,
-				name,
-				function (event) {
-					return A2(
-						elm$core$Platform$sendToSelf,
-						router,
-						A2(elm$browser$Browser$Events$Event, key, event));
-				}));
-	});
+var elm$time$Time$init = elm$core$Task$succeed(
+	A2(elm$time$Time$State, elm$core$Dict$empty, elm$core$Dict$empty));
 var elm$core$Dict$foldl = F3(
 	function (func, acc, dict) {
 		foldl:
@@ -11387,153 +12032,6 @@ var elm$core$Dict$merge = F6(
 			intermediateResult,
 			leftovers);
 	});
-var elm$core$Dict$union = F2(
-	function (t1, t2) {
-		return A3(elm$core$Dict$foldl, elm$core$Dict$insert, t2, t1);
-	});
-var elm$core$Process$kill = _Scheduler_kill;
-var elm$browser$Browser$Events$onEffects = F3(
-	function (router, subs, state) {
-		var stepRight = F3(
-			function (key, sub, _n6) {
-				var deads = _n6.a;
-				var lives = _n6.b;
-				var news = _n6.c;
-				return _Utils_Tuple3(
-					deads,
-					lives,
-					A2(
-						elm$core$List$cons,
-						A3(elm$browser$Browser$Events$spawn, router, key, sub),
-						news));
-			});
-		var stepLeft = F3(
-			function (_n4, pid, _n5) {
-				var deads = _n5.a;
-				var lives = _n5.b;
-				var news = _n5.c;
-				return _Utils_Tuple3(
-					A2(elm$core$List$cons, pid, deads),
-					lives,
-					news);
-			});
-		var stepBoth = F4(
-			function (key, pid, _n2, _n3) {
-				var deads = _n3.a;
-				var lives = _n3.b;
-				var news = _n3.c;
-				return _Utils_Tuple3(
-					deads,
-					A3(elm$core$Dict$insert, key, pid, lives),
-					news);
-			});
-		var newSubs = A2(elm$core$List$map, elm$browser$Browser$Events$addKey, subs);
-		var _n0 = A6(
-			elm$core$Dict$merge,
-			stepLeft,
-			stepBoth,
-			stepRight,
-			state.pids,
-			elm$core$Dict$fromList(newSubs),
-			_Utils_Tuple3(_List_Nil, elm$core$Dict$empty, _List_Nil));
-		var deadPids = _n0.a;
-		var livePids = _n0.b;
-		var makeNewPids = _n0.c;
-		return A2(
-			elm$core$Task$andThen,
-			function (pids) {
-				return elm$core$Task$succeed(
-					A2(
-						elm$browser$Browser$Events$State,
-						newSubs,
-						A2(
-							elm$core$Dict$union,
-							livePids,
-							elm$core$Dict$fromList(pids))));
-			},
-			A2(
-				elm$core$Task$andThen,
-				function (_n1) {
-					return elm$core$Task$sequence(makeNewPids);
-				},
-				elm$core$Task$sequence(
-					A2(elm$core$List$map, elm$core$Process$kill, deadPids))));
-	});
-var elm$browser$Browser$Events$onSelfMsg = F3(
-	function (router, _n0, state) {
-		var key = _n0.key;
-		var event = _n0.event;
-		var toMessage = function (_n2) {
-			var subKey = _n2.a;
-			var _n3 = _n2.b;
-			var node = _n3.a;
-			var name = _n3.b;
-			var decoder = _n3.c;
-			return _Utils_eq(subKey, key) ? A2(_Browser_decodeEvent, decoder, event) : elm$core$Maybe$Nothing;
-		};
-		var messages = A2(elm$core$List$filterMap, toMessage, state.subs);
-		return A2(
-			elm$core$Task$andThen,
-			function (_n1) {
-				return elm$core$Task$succeed(state);
-			},
-			elm$core$Task$sequence(
-				A2(
-					elm$core$List$map,
-					elm$core$Platform$sendToApp(router),
-					messages)));
-	});
-var elm$browser$Browser$Events$subMap = F2(
-	function (func, _n0) {
-		var node = _n0.a;
-		var name = _n0.b;
-		var decoder = _n0.c;
-		return A3(
-			elm$browser$Browser$Events$MySub,
-			node,
-			name,
-			A2(elm$json$Json$Decode$map, func, decoder));
-	});
-_Platform_effectManagers['Browser.Events'] = _Platform_createManager(elm$browser$Browser$Events$init, elm$browser$Browser$Events$onEffects, elm$browser$Browser$Events$onSelfMsg, 0, elm$browser$Browser$Events$subMap);
-var elm$browser$Browser$Events$subscription = _Platform_leaf('Browser.Events');
-var elm$browser$Browser$Events$on = F3(
-	function (node, name, decoder) {
-		return elm$browser$Browser$Events$subscription(
-			A3(elm$browser$Browser$Events$MySub, node, name, decoder));
-	});
-var elm$browser$Browser$Events$Hidden = {$: 'Hidden'};
-var elm$browser$Browser$Events$Visible = {$: 'Visible'};
-var elm$browser$Browser$Events$withHidden = F2(
-	function (func, isHidden) {
-		return func(
-			isHidden ? elm$browser$Browser$Events$Hidden : elm$browser$Browser$Events$Visible);
-	});
-var elm$json$Json$Decode$field = _Json_decodeField;
-var elm$browser$Browser$Events$onVisibilityChange = function (func) {
-	var info = _Browser_visibilityInfo(_Utils_Tuple0);
-	return A3(
-		elm$browser$Browser$Events$on,
-		elm$browser$Browser$Events$Document,
-		info.change,
-		A2(
-			elm$json$Json$Decode$map,
-			elm$browser$Browser$Events$withHidden(func),
-			A2(
-				elm$json$Json$Decode$field,
-				'target',
-				A2(elm$json$Json$Decode$field, info.hidden, elm$json$Json$Decode$bool))));
-};
-var elm$core$Platform$Sub$batch = _Platform_batch;
-var elm$time$Time$Every = F2(
-	function (a, b) {
-		return {$: 'Every', a: a, b: b};
-	});
-var elm$time$Time$State = F2(
-	function (taggers, processes) {
-		return {processes: processes, taggers: taggers};
-	});
-var elm$time$Time$init = elm$core$Task$succeed(
-	A2(elm$time$Time$State, elm$core$Dict$empty, elm$core$Dict$empty));
 var elm$time$Time$addMySub = F2(
 	function (_n0, state) {
 		var interval = _n0.a;
@@ -11555,7 +12053,6 @@ var elm$time$Time$addMySub = F2(
 				state);
 		}
 	});
-var elm$core$Process$spawn = _Scheduler_spawn;
 var elm$time$Time$setInterval = _Time_setInterval;
 var elm$time$Time$spawnHelp = F3(
 	function (router, intervals, processes) {
@@ -11688,6 +12185,218 @@ var elm$time$Time$every = F2(
 		return elm$time$Time$subscription(
 			A2(elm$time$Time$Every, interval, tagger));
 	});
+var author$project$SmartTime$Moment$every = F2(
+	function (interval, tagger) {
+		var convertedTagger = function (elmTime) {
+			return tagger(
+				author$project$SmartTime$Moment$fromElmTime(elmTime));
+		};
+		return A2(
+			elm$time$Time$every,
+			author$project$SmartTime$Duration$inMs(interval),
+			convertedTagger);
+	});
+var author$project$SmartTime$Human$Clock$every = F2(
+	function (interval, tagger) {
+		return A2(
+			author$project$SmartTime$Moment$every,
+			author$project$SmartTime$Human$Duration$toDuration(interval),
+			tagger);
+	});
+var elm$browser$Browser$Events$Document = {$: 'Document'};
+var elm$browser$Browser$Events$MySub = F3(
+	function (a, b, c) {
+		return {$: 'MySub', a: a, b: b, c: c};
+	});
+var elm$browser$Browser$Events$State = F2(
+	function (subs, pids) {
+		return {pids: pids, subs: subs};
+	});
+var elm$browser$Browser$Events$init = elm$core$Task$succeed(
+	A2(elm$browser$Browser$Events$State, _List_Nil, elm$core$Dict$empty));
+var elm$browser$Browser$Events$nodeToKey = function (node) {
+	if (node.$ === 'Document') {
+		return 'd_';
+	} else {
+		return 'w_';
+	}
+};
+var elm$browser$Browser$Events$addKey = function (sub) {
+	var node = sub.a;
+	var name = sub.b;
+	return _Utils_Tuple2(
+		_Utils_ap(
+			elm$browser$Browser$Events$nodeToKey(node),
+			name),
+		sub);
+};
+var elm$browser$Browser$Events$Event = F2(
+	function (key, event) {
+		return {event: event, key: key};
+	});
+var elm$browser$Browser$Events$spawn = F3(
+	function (router, key, _n0) {
+		var node = _n0.a;
+		var name = _n0.b;
+		var actualNode = function () {
+			if (node.$ === 'Document') {
+				return _Browser_doc;
+			} else {
+				return _Browser_window;
+			}
+		}();
+		return A2(
+			elm$core$Task$map,
+			function (value) {
+				return _Utils_Tuple2(key, value);
+			},
+			A3(
+				_Browser_on,
+				actualNode,
+				name,
+				function (event) {
+					return A2(
+						elm$core$Platform$sendToSelf,
+						router,
+						A2(elm$browser$Browser$Events$Event, key, event));
+				}));
+	});
+var elm$core$Dict$union = F2(
+	function (t1, t2) {
+		return A3(elm$core$Dict$foldl, elm$core$Dict$insert, t2, t1);
+	});
+var elm$browser$Browser$Events$onEffects = F3(
+	function (router, subs, state) {
+		var stepRight = F3(
+			function (key, sub, _n6) {
+				var deads = _n6.a;
+				var lives = _n6.b;
+				var news = _n6.c;
+				return _Utils_Tuple3(
+					deads,
+					lives,
+					A2(
+						elm$core$List$cons,
+						A3(elm$browser$Browser$Events$spawn, router, key, sub),
+						news));
+			});
+		var stepLeft = F3(
+			function (_n4, pid, _n5) {
+				var deads = _n5.a;
+				var lives = _n5.b;
+				var news = _n5.c;
+				return _Utils_Tuple3(
+					A2(elm$core$List$cons, pid, deads),
+					lives,
+					news);
+			});
+		var stepBoth = F4(
+			function (key, pid, _n2, _n3) {
+				var deads = _n3.a;
+				var lives = _n3.b;
+				var news = _n3.c;
+				return _Utils_Tuple3(
+					deads,
+					A3(elm$core$Dict$insert, key, pid, lives),
+					news);
+			});
+		var newSubs = A2(elm$core$List$map, elm$browser$Browser$Events$addKey, subs);
+		var _n0 = A6(
+			elm$core$Dict$merge,
+			stepLeft,
+			stepBoth,
+			stepRight,
+			state.pids,
+			elm$core$Dict$fromList(newSubs),
+			_Utils_Tuple3(_List_Nil, elm$core$Dict$empty, _List_Nil));
+		var deadPids = _n0.a;
+		var livePids = _n0.b;
+		var makeNewPids = _n0.c;
+		return A2(
+			elm$core$Task$andThen,
+			function (pids) {
+				return elm$core$Task$succeed(
+					A2(
+						elm$browser$Browser$Events$State,
+						newSubs,
+						A2(
+							elm$core$Dict$union,
+							livePids,
+							elm$core$Dict$fromList(pids))));
+			},
+			A2(
+				elm$core$Task$andThen,
+				function (_n1) {
+					return elm$core$Task$sequence(makeNewPids);
+				},
+				elm$core$Task$sequence(
+					A2(elm$core$List$map, elm$core$Process$kill, deadPids))));
+	});
+var elm$browser$Browser$Events$onSelfMsg = F3(
+	function (router, _n0, state) {
+		var key = _n0.key;
+		var event = _n0.event;
+		var toMessage = function (_n2) {
+			var subKey = _n2.a;
+			var _n3 = _n2.b;
+			var node = _n3.a;
+			var name = _n3.b;
+			var decoder = _n3.c;
+			return _Utils_eq(subKey, key) ? A2(_Browser_decodeEvent, decoder, event) : elm$core$Maybe$Nothing;
+		};
+		var messages = A2(elm$core$List$filterMap, toMessage, state.subs);
+		return A2(
+			elm$core$Task$andThen,
+			function (_n1) {
+				return elm$core$Task$succeed(state);
+			},
+			elm$core$Task$sequence(
+				A2(
+					elm$core$List$map,
+					elm$core$Platform$sendToApp(router),
+					messages)));
+	});
+var elm$browser$Browser$Events$subMap = F2(
+	function (func, _n0) {
+		var node = _n0.a;
+		var name = _n0.b;
+		var decoder = _n0.c;
+		return A3(
+			elm$browser$Browser$Events$MySub,
+			node,
+			name,
+			A2(elm$json$Json$Decode$map, func, decoder));
+	});
+_Platform_effectManagers['Browser.Events'] = _Platform_createManager(elm$browser$Browser$Events$init, elm$browser$Browser$Events$onEffects, elm$browser$Browser$Events$onSelfMsg, 0, elm$browser$Browser$Events$subMap);
+var elm$browser$Browser$Events$subscription = _Platform_leaf('Browser.Events');
+var elm$browser$Browser$Events$on = F3(
+	function (node, name, decoder) {
+		return elm$browser$Browser$Events$subscription(
+			A3(elm$browser$Browser$Events$MySub, node, name, decoder));
+	});
+var elm$browser$Browser$Events$Hidden = {$: 'Hidden'};
+var elm$browser$Browser$Events$Visible = {$: 'Visible'};
+var elm$browser$Browser$Events$withHidden = F2(
+	function (func, isHidden) {
+		return func(
+			isHidden ? elm$browser$Browser$Events$Hidden : elm$browser$Browser$Events$Visible);
+	});
+var elm$json$Json$Decode$field = _Json_decodeField;
+var elm$browser$Browser$Events$onVisibilityChange = function (func) {
+	var info = _Browser_visibilityInfo(_Utils_Tuple0);
+	return A3(
+		elm$browser$Browser$Events$on,
+		elm$browser$Browser$Events$Document,
+		info.change,
+		A2(
+			elm$json$Json$Decode$map,
+			elm$browser$Browser$Events$withHidden(func),
+			A2(
+				elm$json$Json$Decode$field,
+				'target',
+				A2(elm$json$Json$Decode$field, info.hidden, elm$json$Json$Decode$bool))));
+};
+var elm$core$Platform$Sub$batch = _Platform_batch;
 var author$project$Main$subscriptions = function (model) {
 	var appData = model.appData;
 	var environment = model.environment;
@@ -11695,8 +12404,8 @@ var author$project$Main$subscriptions = function (model) {
 		_List_fromArray(
 			[
 				A2(
-				elm$time$Time$every,
-				60 * 1000,
+				author$project$SmartTime$Human$Clock$every,
+				author$project$SmartTime$Human$Duration$Minutes(1),
 				author$project$Main$Tock(author$project$Main$NoOp)),
 				elm$browser$Browser$Events$onVisibilityChange(
 				function (_n0) {
@@ -11713,6 +12422,7 @@ var rtfeldman$elm_css$VirtualDom$Styled$node = rtfeldman$elm_css$VirtualDom$Styl
 var rtfeldman$elm_css$Html$Styled$node = rtfeldman$elm_css$VirtualDom$Styled$node;
 var rtfeldman$elm_css$Html$Styled$li = rtfeldman$elm_css$Html$Styled$node('li');
 var rtfeldman$elm_css$Html$Styled$ol = rtfeldman$elm_css$Html$Styled$node('ol');
+var rtfeldman$elm_css$Html$Styled$p = rtfeldman$elm_css$Html$Styled$node('p');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var rtfeldman$elm_css$VirtualDom$Styled$Unstyled = function (a) {
 	return {$: 'Unstyled', a: a};
@@ -11722,62 +12432,16 @@ var rtfeldman$elm_css$VirtualDom$Styled$text = function (str) {
 		elm$virtual_dom$VirtualDom$text(str));
 };
 var rtfeldman$elm_css$Html$Styled$text = rtfeldman$elm_css$VirtualDom$Styled$text;
-var elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var rtfeldman$elm_css$VirtualDom$Styled$Attribute = F3(
-	function (a, b, c) {
-		return {$: 'Attribute', a: a, b: b, c: c};
-	});
-var rtfeldman$elm_css$VirtualDom$Styled$on = F2(
-	function (eventName, handler) {
-		return A3(
-			rtfeldman$elm_css$VirtualDom$Styled$Attribute,
-			A2(elm$virtual_dom$VirtualDom$on, eventName, handler),
-			_List_Nil,
-			'');
-	});
-var rtfeldman$elm_css$Html$Styled$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			rtfeldman$elm_css$VirtualDom$Styled$on,
-			event,
-			elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var rtfeldman$elm_css$Html$Styled$Events$onClick = function (msg) {
-	return A2(
-		rtfeldman$elm_css$Html$Styled$Events$on,
-		'click',
-		elm$json$Json$Decode$succeed(msg));
-};
-var author$project$Main$errorList = function (stringList) {
-	var asLi = function (desc) {
-		return A2(
-			rtfeldman$elm_css$Html$Styled$li,
-			_List_fromArray(
-				[
-					rtfeldman$elm_css$Html$Styled$Events$onClick(author$project$Main$ClearErrors)
-				]),
-			_List_fromArray(
-				[
-					rtfeldman$elm_css$Html$Styled$text(desc)
-				]));
-	};
-	return A2(
-		rtfeldman$elm_css$Html$Styled$ol,
-		_List_Nil,
-		A2(elm$core$List$map, asLi, stringList));
-};
-var rtfeldman$elm_css$Html$Styled$a = rtfeldman$elm_css$Html$Styled$node('a');
-var rtfeldman$elm_css$Html$Styled$footer = rtfeldman$elm_css$Html$Styled$node('footer');
-var rtfeldman$elm_css$Html$Styled$p = rtfeldman$elm_css$Html$Styled$node('p');
 var elm$virtual_dom$VirtualDom$property = F2(
 	function (key, value) {
 		return A2(
 			_VirtualDom_property,
 			_VirtualDom_noInnerHtmlOrFormAction(key),
 			_VirtualDom_noJavaScriptOrHtmlUri(value));
+	});
+var rtfeldman$elm_css$VirtualDom$Styled$Attribute = F3(
+	function (a, b, c) {
+		return {$: 'Attribute', a: a, b: b, c: c};
 	});
 var rtfeldman$elm_css$VirtualDom$Styled$property = F2(
 	function (key, value) {
@@ -11795,6 +12459,66 @@ var rtfeldman$elm_css$Html$Styled$Attributes$stringProperty = F2(
 			elm$json$Json$Encode$string(string));
 	});
 var rtfeldman$elm_css$Html$Styled$Attributes$class = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('className');
+var elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var rtfeldman$elm_css$VirtualDom$Styled$on = F2(
+	function (eventName, handler) {
+		return A3(
+			rtfeldman$elm_css$VirtualDom$Styled$Attribute,
+			A2(elm$virtual_dom$VirtualDom$on, eventName, handler),
+			_List_Nil,
+			'');
+	});
+var rtfeldman$elm_css$Html$Styled$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			rtfeldman$elm_css$VirtualDom$Styled$on,
+			event,
+			elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var rtfeldman$elm_css$Html$Styled$Events$onDoubleClick = function (msg) {
+	return A2(
+		rtfeldman$elm_css$Html$Styled$Events$on,
+		'dblclick',
+		elm$json$Json$Decode$succeed(msg));
+};
+var author$project$Main$errorList = function (stringList) {
+	var descWithBreaks = function (desc) {
+		return A2(elm$core$String$split, '\n', desc);
+	};
+	var asP = function (sub) {
+		return A2(
+			rtfeldman$elm_css$Html$Styled$p,
+			_List_fromArray(
+				[
+					rtfeldman$elm_css$Html$Styled$Attributes$class('error-line')
+				]),
+			_List_fromArray(
+				[
+					rtfeldman$elm_css$Html$Styled$text(sub)
+				]));
+	};
+	var asLi = function (desc) {
+		return A2(
+			rtfeldman$elm_css$Html$Styled$li,
+			_List_fromArray(
+				[
+					rtfeldman$elm_css$Html$Styled$Events$onDoubleClick(author$project$Main$ClearErrors)
+				]),
+			A2(
+				elm$core$List$map,
+				asP,
+				descWithBreaks(desc)));
+	};
+	return A2(
+		rtfeldman$elm_css$Html$Styled$ol,
+		_List_Nil,
+		A2(elm$core$List$map, asLi, stringList));
+};
+var rtfeldman$elm_css$Html$Styled$a = rtfeldman$elm_css$Html$Styled$node('a');
+var rtfeldman$elm_css$Html$Styled$footer = rtfeldman$elm_css$Html$Styled$node('footer');
 var rtfeldman$elm_css$Html$Styled$Attributes$href = function (url) {
 	return A2(rtfeldman$elm_css$Html$Styled$Attributes$stringProperty, 'href', url);
 };
@@ -11859,6 +12583,12 @@ var rtfeldman$elm_css$Html$Styled$Attributes$boolProperty = F2(
 			elm$json$Json$Encode$bool(bool));
 	});
 var rtfeldman$elm_css$Html$Styled$Attributes$hidden = rtfeldman$elm_css$Html$Styled$Attributes$boolProperty('hidden');
+var rtfeldman$elm_css$Html$Styled$Events$onClick = function (msg) {
+	return A2(
+		rtfeldman$elm_css$Html$Styled$Events$on,
+		'click',
+		elm$json$Json$Decode$succeed(msg));
+};
 var author$project$TaskList$viewControlsClear = function (tasksCompleted) {
 	return A2(
 		rtfeldman$elm_css$Html$Styled$button,
@@ -13996,7 +14726,6 @@ var author$project$TaskList$Add = {$: 'Add'};
 var author$project$TaskList$UpdateNewEntryField = function (a) {
 	return {$: 'UpdateNewEntryField', a: a};
 };
-var elm$json$Json$Decode$fail = _Json_fail;
 var elm$json$Json$Decode$int = _Json_decodeInt;
 var rtfeldman$elm_css$Html$Styled$Events$keyCode = A2(elm$json$Json$Decode$field, 'keyCode', elm$json$Json$Decode$int);
 var author$project$TaskList$onEnter = function (msg) {
@@ -14077,12 +14806,6 @@ var author$project$TaskList$viewInput = function (task) {
 				_List_Nil)
 			]));
 };
-var author$project$Task$Progress$maximize = function (_n0) {
-	var unit = _n0.b;
-	return _Utils_Tuple2(
-		author$project$Task$Progress$unitMax(unit),
-		unit);
-};
 var author$project$Task$Progress$setPortion = F2(
 	function (_n0, newpart) {
 		var part = _n0.a;
@@ -14115,17 +14838,6 @@ var author$project$TaskList$UpdateTaskDate = F3(
 var elm$core$Basics$always = F2(
 	function (a, _n0) {
 		return a;
-	});
-var elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return elm$core$Result$Err(
-				f(e));
-		}
 	});
 var elm$parser$Parser$Advanced$Bad = F2(
 	function (a, b) {
@@ -14645,10 +15357,110 @@ var justinmimbs$date$Date$dayOfYear = elm$parser$Parser$oneOf(
 			elm$parser$Parser$succeed(
 			justinmimbs$date$Date$OrdinalDay(1))
 		]));
+var justinmimbs$date$Date$isLeapYear = function (y) {
+	return ((!A2(elm$core$Basics$modBy, 4, y)) && A2(elm$core$Basics$modBy, 100, y)) || (!A2(elm$core$Basics$modBy, 400, y));
+};
+var justinmimbs$date$Date$daysBeforeMonth = F2(
+	function (y, m) {
+		var leapDays = justinmimbs$date$Date$isLeapYear(y) ? 1 : 0;
+		switch (m.$) {
+			case 'Jan':
+				return 0;
+			case 'Feb':
+				return 31;
+			case 'Mar':
+				return 59 + leapDays;
+			case 'Apr':
+				return 90 + leapDays;
+			case 'May':
+				return 120 + leapDays;
+			case 'Jun':
+				return 151 + leapDays;
+			case 'Jul':
+				return 181 + leapDays;
+			case 'Aug':
+				return 212 + leapDays;
+			case 'Sep':
+				return 243 + leapDays;
+			case 'Oct':
+				return 273 + leapDays;
+			case 'Nov':
+				return 304 + leapDays;
+			default:
+				return 334 + leapDays;
+		}
+	});
+var justinmimbs$date$Date$floorDiv = F2(
+	function (a, b) {
+		return elm$core$Basics$floor(a / b);
+	});
+var justinmimbs$date$Date$daysBeforeYear = function (y1) {
+	var y = y1 - 1;
+	var leapYears = (A2(justinmimbs$date$Date$floorDiv, y, 4) - A2(justinmimbs$date$Date$floorDiv, y, 100)) + A2(justinmimbs$date$Date$floorDiv, y, 400);
+	return (365 * y) + leapYears;
+};
+var justinmimbs$date$Date$daysInMonth = F2(
+	function (y, m) {
+		switch (m.$) {
+			case 'Jan':
+				return 31;
+			case 'Feb':
+				return justinmimbs$date$Date$isLeapYear(y) ? 29 : 28;
+			case 'Mar':
+				return 31;
+			case 'Apr':
+				return 30;
+			case 'May':
+				return 31;
+			case 'Jun':
+				return 30;
+			case 'Jul':
+				return 31;
+			case 'Aug':
+				return 31;
+			case 'Sep':
+				return 30;
+			case 'Oct':
+				return 31;
+			case 'Nov':
+				return 30;
+			default:
+				return 31;
+		}
+	});
 var justinmimbs$date$Date$isBetweenInt = F3(
 	function (a, b, x) {
 		return (_Utils_cmp(a, x) < 1) && (_Utils_cmp(x, b) < 1);
 	});
+var justinmimbs$date$Date$numberToMonth = function (mn) {
+	var _n0 = A2(elm$core$Basics$max, 1, mn);
+	switch (_n0) {
+		case 1:
+			return elm$time$Time$Jan;
+		case 2:
+			return elm$time$Time$Feb;
+		case 3:
+			return elm$time$Time$Mar;
+		case 4:
+			return elm$time$Time$Apr;
+		case 5:
+			return elm$time$Time$May;
+		case 6:
+			return elm$time$Time$Jun;
+		case 7:
+			return elm$time$Time$Jul;
+		case 8:
+			return elm$time$Time$Aug;
+		case 9:
+			return elm$time$Time$Sep;
+		case 10:
+			return elm$time$Time$Oct;
+		case 11:
+			return elm$time$Time$Nov;
+		default:
+			return elm$time$Time$Dec;
+	}
+};
 var justinmimbs$date$Date$fromCalendarParts = F3(
 	function (y, mn, d) {
 		return (A3(justinmimbs$date$Date$isBetweenInt, 1, 12, mn) && A3(
@@ -14849,9 +15661,6 @@ var author$project$Task$Progress$getUnits = function (_n0) {
 var author$project$Task$Progress$isDiscrete = function (_n0) {
 	return false;
 };
-var elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
 var elm$core$String$fromFloat = _String_fromNumber;
 var rtfeldman$elm_css$Css$Structure$Compatible = {$: 'Compatible'};
 var rtfeldman$elm_css$Css$angleConverter = F2(
@@ -15049,12 +15858,6 @@ var rtfeldman$elm_css$Html$Styled$Events$onBlur = function (msg) {
 		'blur',
 		elm$json$Json$Decode$succeed(msg));
 };
-var rtfeldman$elm_css$Html$Styled$Events$onDoubleClick = function (msg) {
-	return A2(
-		rtfeldman$elm_css$Html$Styled$Events$on,
-		'dblclick',
-		elm$json$Json$Decode$succeed(msg));
-};
 var rtfeldman$elm_css$Html$Styled$Events$onFocus = function (msg) {
 	return A2(
 		rtfeldman$elm_css$Html$Styled$Events$on,
@@ -15092,7 +15895,93 @@ var author$project$TaskList$progressSlider = function (task) {
 		_List_Nil);
 };
 var author$project$Task$TaskMoment$userTimeZonePlaceholder = elm$time$Time$utc;
+var justinmimbs$date$Date$Days = {$: 'Days'};
 var elm$core$Basics$truncate = _Basics_truncate;
+var justinmimbs$date$Date$monthToNumber = function (m) {
+	switch (m.$) {
+		case 'Jan':
+			return 1;
+		case 'Feb':
+			return 2;
+		case 'Mar':
+			return 3;
+		case 'Apr':
+			return 4;
+		case 'May':
+			return 5;
+		case 'Jun':
+			return 6;
+		case 'Jul':
+			return 7;
+		case 'Aug':
+			return 8;
+		case 'Sep':
+			return 9;
+		case 'Oct':
+			return 10;
+		case 'Nov':
+			return 11;
+		default:
+			return 12;
+	}
+};
+var justinmimbs$date$Date$toCalendarDateHelp = F3(
+	function (y, m, d) {
+		toCalendarDateHelp:
+		while (true) {
+			var monthDays = A2(justinmimbs$date$Date$daysInMonth, y, m);
+			var mn = justinmimbs$date$Date$monthToNumber(m);
+			if ((mn < 12) && (_Utils_cmp(d, monthDays) > 0)) {
+				var $temp$y = y,
+					$temp$m = justinmimbs$date$Date$numberToMonth(mn + 1),
+					$temp$d = d - monthDays;
+				y = $temp$y;
+				m = $temp$m;
+				d = $temp$d;
+				continue toCalendarDateHelp;
+			} else {
+				return {day: d, month: m, year: y};
+			}
+		}
+	});
+var justinmimbs$date$Date$divWithRemainder = F2(
+	function (a, b) {
+		return _Utils_Tuple2(
+			A2(justinmimbs$date$Date$floorDiv, a, b),
+			A2(elm$core$Basics$modBy, b, a));
+	});
+var justinmimbs$date$Date$year = function (_n0) {
+	var rd = _n0.a;
+	var _n1 = A2(justinmimbs$date$Date$divWithRemainder, rd, 146097);
+	var n400 = _n1.a;
+	var r400 = _n1.b;
+	var _n2 = A2(justinmimbs$date$Date$divWithRemainder, r400, 36524);
+	var n100 = _n2.a;
+	var r100 = _n2.b;
+	var _n3 = A2(justinmimbs$date$Date$divWithRemainder, r100, 1461);
+	var n4 = _n3.a;
+	var r4 = _n3.b;
+	var _n4 = A2(justinmimbs$date$Date$divWithRemainder, r4, 365);
+	var n1 = _n4.a;
+	var r1 = _n4.b;
+	var n = (!r1) ? 0 : 1;
+	return ((((n400 * 400) + (n100 * 100)) + (n4 * 4)) + n1) + n;
+};
+var justinmimbs$date$Date$toOrdinalDate = function (_n0) {
+	var rd = _n0.a;
+	var y = justinmimbs$date$Date$year(
+		justinmimbs$date$Date$RD(rd));
+	return {
+		ordinalDay: rd - justinmimbs$date$Date$daysBeforeYear(y),
+		year: y
+	};
+};
+var justinmimbs$date$Date$toCalendarDate = function (_n0) {
+	var rd = _n0.a;
+	var date = justinmimbs$date$Date$toOrdinalDate(
+		justinmimbs$date$Date$RD(rd));
+	return A3(justinmimbs$date$Date$toCalendarDateHelp, date.year, elm$time$Time$Jan, date.ordinalDay);
+};
 var justinmimbs$date$Date$toMonths = function (rd) {
 	var date = justinmimbs$date$Date$toCalendarDate(
 		justinmimbs$date$Date$RD(rd));
@@ -15112,6 +16001,72 @@ var justinmimbs$date$Date$diff = F3(
 				return ((rd2 - rd1) / 7) | 0;
 			default:
 				return rd2 - rd1;
+		}
+	});
+var elm$core$Basics$clamp = F3(
+	function (low, high, number) {
+		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
+	});
+var justinmimbs$date$Date$fromCalendarDate = F3(
+	function (y, m, d) {
+		return justinmimbs$date$Date$RD(
+			(justinmimbs$date$Date$daysBeforeYear(y) + A2(justinmimbs$date$Date$daysBeforeMonth, y, m)) + A3(
+				elm$core$Basics$clamp,
+				1,
+				A2(justinmimbs$date$Date$daysInMonth, y, m),
+				d));
+	});
+var justinmimbs$date$Date$fromPosix = F2(
+	function (zone, posix) {
+		return A3(
+			justinmimbs$date$Date$fromCalendarDate,
+			A2(elm$time$Time$toYear, zone, posix),
+			A2(elm$time$Time$toMonth, zone, posix),
+			A2(elm$time$Time$toDay, zone, posix));
+	});
+var justinmimbs$date$Date$toRataDie = function (_n0) {
+	var rd = _n0.a;
+	return rd;
+};
+var justinmimbs$time_extra$Time$Extra$dateToMillis = function (date) {
+	var daysSinceEpoch = justinmimbs$date$Date$toRataDie(date) - 719163;
+	return daysSinceEpoch * 86400000;
+};
+var justinmimbs$time_extra$Time$Extra$timeFromClock = F4(
+	function (hour, minute, second, millisecond) {
+		return (((hour * 3600000) + (minute * 60000)) + (second * 1000)) + millisecond;
+	});
+var justinmimbs$time_extra$Time$Extra$timeFromPosix = F2(
+	function (zone, posix) {
+		return A4(
+			justinmimbs$time_extra$Time$Extra$timeFromClock,
+			A2(elm$time$Time$toHour, zone, posix),
+			A2(elm$time$Time$toMinute, zone, posix),
+			A2(elm$time$Time$toSecond, zone, posix),
+			A2(elm$time$Time$toMillis, zone, posix));
+	});
+var justinmimbs$time_extra$Time$Extra$toOffset = F2(
+	function (zone, posix) {
+		var millis = elm$time$Time$posixToMillis(posix);
+		var localMillis = justinmimbs$time_extra$Time$Extra$dateToMillis(
+			A2(justinmimbs$date$Date$fromPosix, zone, posix)) + A2(justinmimbs$time_extra$Time$Extra$timeFromPosix, zone, posix);
+		return ((localMillis - millis) / 60000) | 0;
+	});
+var justinmimbs$time_extra$Time$Extra$posixFromDateTime = F3(
+	function (zone, date, time) {
+		var millis = justinmimbs$time_extra$Time$Extra$dateToMillis(date) + time;
+		var offset0 = A2(
+			justinmimbs$time_extra$Time$Extra$toOffset,
+			zone,
+			elm$time$Time$millisToPosix(millis));
+		var posix1 = elm$time$Time$millisToPosix(millis - (offset0 * 60000));
+		var offset1 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix1);
+		if (_Utils_eq(offset0, offset1)) {
+			return posix1;
+		} else {
+			var posix2 = elm$time$Time$millisToPosix(millis - (offset1 * 60000));
+			var offset2 = A2(justinmimbs$time_extra$Time$Extra$toOffset, zone, posix2);
+			return _Utils_eq(offset1, offset2) ? posix2 : posix1;
 		}
 	});
 var justinmimbs$time_extra$Time$Extra$partsToPosix = F2(
@@ -15222,16 +16177,22 @@ var author$project$Task$TaskMoment$describeTaskMoment = F2(
 						justinmimbs$date$Date$diff,
 						justinmimbs$date$Date$Days,
 						date,
-						A2(justinmimbs$date$Date$fromPosix, author$project$Task$TaskMoment$userTimeZonePlaceholder, now))) + ' days');
+						A2(
+							justinmimbs$date$Date$fromPosix,
+							author$project$Task$TaskMoment$userTimeZonePlaceholder,
+							author$project$SmartTime$Moment$toElmTime(now)))) + ' days');
 			case 'Localized':
 				var moment = target.a;
 				return A2(
 					sporto$time_distance$Time$Distance$inWords,
-					now,
+					author$project$SmartTime$Moment$toElmTime(now),
 					A2(justinmimbs$time_extra$Time$Extra$partsToPosix, author$project$Task$TaskMoment$userTimeZonePlaceholder, moment));
 			default:
 				var moment = target.a;
-				return A2(sporto$time_distance$Time$Distance$inWords, now, moment);
+				return A2(
+					sporto$time_distance$Time$Distance$inWords,
+					author$project$SmartTime$Moment$toElmTime(now),
+					author$project$SmartTime$Moment$toElmTime(moment));
 		}
 	});
 var author$project$TaskList$timingInfo = F2(
@@ -15621,12 +16582,27 @@ var author$project$TaskList$view = F3(
 var author$project$Activity$Activity$showing = function (activity) {
 	return !activity.hidden;
 };
-var author$project$Activity$Measure$inFuzzyWords = function (duration) {
-	return A2(
-		sporto$time_distance$Time$Distance$inWords,
-		elm$time$Time$millisToPosix(0),
-		elm$time$Time$millisToPosix(
-			author$project$SmartTime$Duration$inMs(duration)));
+var author$project$Activity$Measure$inHoursMinutes = function (duration) {
+	var hour = 3600000;
+	var durationInMs = author$project$SmartTime$Duration$inMs(duration);
+	var wholeHours = (durationInMs / hour) | 0;
+	var hoursString = elm$core$String$fromInt(wholeHours) + 'h';
+	var wholeMinutes = ((durationInMs - (wholeHours * hour)) / 60000) | 0;
+	var minutesString = elm$core$String$fromInt(wholeMinutes) + 'm';
+	var _n0 = _Utils_Tuple2(wholeHours, wholeMinutes);
+	if (!_n0.a) {
+		if (!_n0.b) {
+			return minutesString;
+		} else {
+			return minutesString;
+		}
+	} else {
+		if (!_n0.b) {
+			return hoursString;
+		} else {
+			return hoursString + (' ' + minutesString);
+		}
+	}
 };
 var rtfeldman$elm_css$Css$Internal$property = F2(
 	function (key, value) {
@@ -15728,29 +16704,7 @@ var author$project$TimeTracker$viewIcon = function (icon) {
 			return rtfeldman$elm_css$Html$Styled$text('');
 	}
 };
-var author$project$Activity$Measure$inHoursMinutes = function (duration) {
-	var hour = 3600000;
-	var durationInMs = author$project$SmartTime$Duration$inMs(duration);
-	var wholeHours = (durationInMs / hour) | 0;
-	var hoursString = elm$core$String$fromInt(wholeHours) + 'h';
-	var wholeMinutes = ((durationInMs - (wholeHours * hour)) / 60000) | 0;
-	var minutesString = elm$core$String$fromInt(wholeMinutes) + 'm';
-	var _n0 = _Utils_Tuple2(wholeHours, wholeMinutes);
-	if (!_n0.a) {
-		if (!_n0.b) {
-			return minutesString;
-		} else {
-			return minutesString;
-		}
-	} else {
-		if (!_n0.b) {
-			return hoursString;
-		} else {
-			return hoursString + (' ' + minutesString);
-		}
-	}
-};
-var justinmimbs$time_extra$Time$Extra$Hour = {$: 'Hour'};
+var justinmimbs$time_extra$Time$Extra$Day = {$: 'Day'};
 var justinmimbs$date$Date$Day = {$: 'Day'};
 var justinmimbs$date$Date$Friday = {$: 'Friday'};
 var justinmimbs$date$Date$Monday = {$: 'Monday'};
@@ -15938,8 +16892,12 @@ var author$project$Activity$Measure$justToday = F2(
 	function (timeline, _n0) {
 		var now = _n0.a;
 		var zone = _n0.b;
-		var lastMidnight = A3(justinmimbs$time_extra$Time$Extra$floor, justinmimbs$time_extra$Time$Extra$Day, zone, now);
-		var last3am = A4(justinmimbs$time_extra$Time$Extra$add, justinmimbs$time_extra$Time$Extra$Hour, 3, zone, lastMidnight);
+		var lastMidnight = author$project$SmartTime$Moment$fromElmTime(
+			A3(
+				justinmimbs$time_extra$Time$Extra$floor,
+				justinmimbs$time_extra$Time$Extra$Day,
+				zone,
+				author$project$SmartTime$Moment$toElmTime(now)));
 		return A3(author$project$Activity$Measure$timelineLimit, timeline, now, lastMidnight);
 	});
 var author$project$Activity$Measure$justTodayTotal = F3(
@@ -15958,22 +16916,18 @@ var author$project$TimeTracker$writeActivityToday = F3(
 var author$project$TimeTracker$writeActivityUsage = F3(
 	function (app, env, activity) {
 		var period = activity.maxTime.b;
-		var lastPeriod = A3(
-			author$project$Activity$Measure$relevantTimeline,
-			app.timeline,
-			_Utils_Tuple2(env.time, env.timeZone),
-			period);
+		var lastPeriod = A3(author$project$Activity$Measure$relevantTimeline, app.timeline, env.time, period);
 		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activity.id);
 		var totalMinutes = author$project$SmartTime$Duration$inMinutesRounded(total);
 		return (author$project$SmartTime$Duration$inMs(total) > 0) ? (elm$core$String$fromInt(totalMinutes) + ('/' + (elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(
-				author$project$SmartTime$HumanDuration$toDuration(period))) + 'm'))) : '';
+				author$project$SmartTime$Human$Duration$toDuration(period))) + 'm'))) : '';
 	});
 var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
 var author$project$TimeTracker$viewActivity = F3(
 	function (app, env, activity) {
 		var describeSession = function (sesh) {
-			return author$project$Activity$Measure$inFuzzyWords(sesh) + '\n';
+			return author$project$Activity$Measure$inHoursMinutes(sesh) + '\n';
 		};
 		return A2(
 			rtfeldman$elm_css$Html$Styled$li,
@@ -16210,9 +17164,7 @@ var author$project$Main$view = function (_n0) {
 	var viewState = _n0.viewState;
 	var appData = _n0.appData;
 	var environment = _n0.environment;
-	if (_Utils_eq(
-		environment.time,
-		elm$time$Time$millisToPosix(0))) {
+	if (_Utils_eq(environment.time, author$project$SmartTime$Moment$zero)) {
 		return {
 			body: _List_fromArray(
 				[
