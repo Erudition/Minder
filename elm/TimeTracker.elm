@@ -24,7 +24,8 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (..)
-import SmartTime.HumanDuration as HumanDuration exposing (..)
+import SmartTime.Human.Clock as Clock exposing (Clock, toClock)
+import SmartTime.Human.Duration as HumanDuration exposing (..)
 import Task as Job
 import Time
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
@@ -116,7 +117,7 @@ viewActivity : AppData -> Environment -> Activity -> Html Msg
 viewActivity app env activity =
     let
         describeSession sesh =
-            Measure.inFuzzyWords sesh ++ "\n"
+            Measure.inHoursMinutes sesh ++ "\n"
     in
     li
         [ class "activity" ]
@@ -143,7 +144,11 @@ viewActivity app env activity =
 
 writeTime : Environment -> String
 writeTime env =
-    String.fromInt (Time.toHour env.timeZone env.time) ++ ":" ++ String.fromInt (Time.toMinute env.timeZone env.time)
+    let
+        nowClock =
+            toClock env.timeZone env.time
+    in
+    String.fromInt nowClock.hour ++ ":" ++ String.fromInt nowClock.minute
 
 
 viewIcon : Activity.Icon -> Html Msg
@@ -171,7 +176,7 @@ writeActivityUsage app env activity =
             Tuple.second activity.maxTime
 
         lastPeriod =
-            relevantTimeline app.timeline ( env.time, env.timeZone ) period
+            relevantTimeline app.timeline env.time period
 
         total =
             Measure.totalLive env.time lastPeriod activity.id

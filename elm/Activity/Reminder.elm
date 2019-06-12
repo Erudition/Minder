@@ -1,7 +1,7 @@
 module Activity.Reminder exposing (Alarm, Intent, NotificationAction, Reminder, scheduleExcusedReminders)
 
 import SmartTime.Duration as Duration exposing (..)
-import SmartTime.HumanDuration as HumanDuration exposing (abbreviatedSpaced, breakdownHM)
+import SmartTime.Human.Duration as HumanDuration exposing (abbreviatedSpaced, breakdownHM)
 import SmartTime.Moment as Moment exposing (Moment, future)
 
 

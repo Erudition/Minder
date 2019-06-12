@@ -7,7 +7,7 @@ import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
 import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.HumanDuration as HumanDuration exposing (..)
+import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment exposing (..)
 import Time
 import Time.Extra as Time
