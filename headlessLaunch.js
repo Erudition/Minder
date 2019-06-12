@@ -95,22 +95,22 @@ var app = this.Elm.Headless.init(
 
 
 
-app.ports.setStorage.subscribe(function(state) {
-    taskerOut("ElmAppData", state);
-    //logflash("Storage set!");
-    //taskerTry(() => {writeFile("docket.dat",state,false)});
-});
-
-
-app.ports.flash.subscribe(function(data) {
-    logflash(data);
-});
-
-
-
-app.ports.exit.subscribe(function(data) {
-    setTimeout(() => taskerExit(), 10);
-});
+// app.ports.setStorage.subscribe(function(state) {
+//     taskerOut("ElmAppData", state);
+//     //logflash("Storage set!");
+//     //taskerTry(() => {writeFile("docket.dat",state,false)});
+// });
+//
+//
+// app.ports.flash.subscribe(function(data) {
+//     logflash(data);
+// });
+//
+//
+//
+// app.ports.exit.subscribe(function(data) {
+//     setTimeout(() => taskerExit(), 10);
+// });
 
 
 //setTimeout(sendIt, 1500);

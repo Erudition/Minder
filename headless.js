@@ -10958,6 +10958,304 @@ var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 		author$project$Activity$Activity$allActivities(app.activities),
 		app.timeline);
 };
+var author$project$Activity$Activity$getName = function (activity) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		'?',
+		elm$core$List$head(activity.names));
+};
+var author$project$Activity$Activity$excusableFor = function (activity) {
+	var _n0 = activity.excusable;
+	switch (_n0.$) {
+		case 'NeverExcused':
+			return _Utils_Tuple2(
+				author$project$SmartTime$Human$Duration$Minutes(0),
+				author$project$SmartTime$Human$Duration$Minutes(0));
+		case 'TemporarilyExcused':
+			var durationPerPeriod = _n0.a;
+			return durationPerPeriod;
+		default:
+			return _Utils_Tuple2(
+				author$project$SmartTime$Human$Duration$Hours(24),
+				author$project$SmartTime$Human$Duration$Hours(24));
+	}
+};
+var author$project$SmartTime$Duration$subtract = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 - int2);
+	});
+var author$project$SmartTime$Moment$past = F2(
+	function (_n0, duration) {
+		var time = _n0.a;
+		return author$project$SmartTime$Moment$Moment(
+			A2(author$project$SmartTime$Duration$subtract, time, duration));
+	});
+var author$project$Activity$Measure$lookBack = F2(
+	function (present, humanDuration) {
+		return A2(
+			author$project$SmartTime$Moment$past,
+			present,
+			author$project$SmartTime$Human$Duration$toDuration(humanDuration));
+	});
+var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
+var author$project$SmartTime$Moment$compare = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		return A2(
+			elm$core$Basics$compare,
+			author$project$SmartTime$Duration$inMs(time1),
+			author$project$SmartTime$Duration$inMs(time2));
+	});
+var elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _n0) {
+				var trues = _n0.a;
+				var falses = _n0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2(elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2(elm$core$List$cons, x, falses));
+			});
+		return A3(
+			elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var author$project$Activity$Measure$timelineLimit = F3(
+	function (timeline, now, pastLimit) {
+		var switchActivityId = function (_n2) {
+			var id = _n2.b;
+			return id;
+		};
+		var recentEnough = function (_n1) {
+			var moment = _n1.a;
+			return _Utils_eq(
+				A2(author$project$SmartTime$Moment$compare, moment, pastLimit),
+				elm$core$Basics$GT);
+		};
+		var _n0 = A2(elm$core$List$partition, recentEnough, timeline);
+		var pass = _n0.a;
+		var fail = _n0.b;
+		var justMissedId = A2(
+			elm$core$Maybe$withDefault,
+			author$project$Activity$Activity$dummy,
+			A2(
+				elm$core$Maybe$map,
+				switchActivityId,
+				elm$core$List$head(fail)));
+		var fakeEndSwitch = A2(author$project$Activity$Activity$Switch, pastLimit, justMissedId);
+		return _Utils_ap(
+			pass,
+			_List_fromArray(
+				[fakeEndSwitch]));
+	});
+var author$project$Activity$Measure$relevantTimeline = F3(
+	function (timeline, now, duration) {
+		return A3(
+			author$project$Activity$Measure$timelineLimit,
+			timeline,
+			now,
+			A2(author$project$Activity$Measure$lookBack, now, duration));
+	});
+var elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var author$project$SmartTime$Duration$difference = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(
+			elm$core$Basics$abs(int1 - int2));
+	});
+var author$project$SmartTime$Moment$difference = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		return A2(author$project$SmartTime$Duration$difference, time1, time2);
+	});
+var author$project$Activity$Measure$session = F2(
+	function (_n0, _n1) {
+		var newer = _n0.a;
+		var older = _n1.a;
+		var activityId = _n1.b;
+		return _Utils_Tuple2(
+			activityId,
+			A2(author$project$SmartTime$Moment$difference, newer, older));
+	});
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var author$project$Activity$Measure$allSessions = function (switchList) {
+	var offsetList = A2(elm$core$List$drop, 1, switchList);
+	return A3(elm$core$List$map2, author$project$Activity$Measure$session, switchList, offsetList);
+};
+var author$project$Activity$Measure$isMatchingDuration = F2(
+	function (targetId, _n0) {
+		var itemId = _n0.a;
+		var dur = _n0.b;
+		return _Utils_eq(itemId, targetId) ? elm$core$Maybe$Just(dur) : elm$core$Maybe$Nothing;
+	});
+var author$project$Activity$Measure$sessions = F2(
+	function (switchList, activityId) {
+		var all = author$project$Activity$Measure$allSessions(switchList);
+		return A2(
+			elm$core$List$filterMap,
+			author$project$Activity$Measure$isMatchingDuration(activityId),
+			all);
+	});
+var author$project$SmartTime$Duration$add = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var author$project$SmartTime$Duration$combine = function (durationList) {
+	return A3(
+		elm$core$List$foldl,
+		author$project$SmartTime$Duration$add,
+		author$project$SmartTime$Duration$Duration(0),
+		durationList);
+};
+var author$project$Activity$Measure$totalLive = F3(
+	function (now, switchList, activityId) {
+		var fakeSwitch = A2(author$project$Activity$Activity$Switch, now, activityId);
+		return author$project$SmartTime$Duration$combine(
+			A2(
+				author$project$Activity$Measure$sessions,
+				A2(elm$core$List$cons, fakeSwitch, switchList),
+				activityId));
+	});
+var author$project$Activity$Measure$excusedUsage = F3(
+	function (timeline, now, activity) {
+		var excusableLimit = author$project$Activity$Activity$excusableFor(activity);
+		var lastPeriod = A3(author$project$Activity$Measure$relevantTimeline, timeline, now, excusableLimit.b);
+		return A3(author$project$Activity$Measure$totalLive, now, lastPeriod, activity.id);
+	});
+var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / 1000);
+};
+var author$project$Activity$Measure$exportExcusedUsageSeconds = F3(
+	function (app, now, activity) {
+		return elm$core$String$fromInt(
+			author$project$SmartTime$Duration$inSecondsRounded(
+				A3(author$project$Activity$Measure$excusedUsage, app.timeline, now, activity)));
+	});
+var author$project$SmartTime$Duration$inMinutesRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / 60000);
+};
+var author$project$Activity$Measure$exportLastSession = F2(
+	function (app, old) {
+		var timeSpent = A2(
+			elm$core$Maybe$withDefault,
+			author$project$SmartTime$Duration$zero,
+			elm$core$List$head(
+				A2(author$project$Activity$Measure$sessions, app.timeline, old.id)));
+		return elm$core$String$fromInt(
+			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
+	});
+var author$project$SmartTime$Human$Duration$breakdownMS = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var seconds = _n0.seconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$Human$Duration$Minutes(
+			author$project$SmartTime$Duration$inWholeMinutes(duration)),
+			author$project$SmartTime$Human$Duration$Seconds(seconds)
+		]);
+};
+var author$project$SmartTime$Human$Duration$withLetter = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 's';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'm';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'h';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var author$project$SmartTime$Human$Duration$singleLetterSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withLetter, humanDurationList)));
+};
+var author$project$Activity$Switching$switchPopup = F4(
+	function (timeline, env, _new, old) {
+		var timeSpentString = function (dur) {
+			return author$project$SmartTime$Human$Duration$singleLetterSpaced(
+				author$project$SmartTime$Human$Duration$breakdownMS(dur));
+		};
+		var timeSpentLastSession = A2(
+			elm$core$Maybe$withDefault,
+			author$project$SmartTime$Duration$zero,
+			elm$core$List$head(
+				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
+		return timeSpentString(timeSpentLastSession) + (' spent on ' + (author$project$Activity$Activity$getName(old) + ('\n\n' + (author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n\n' + ('Starting from ' + timeSpentString(
+			A3(author$project$Activity$Measure$excusedUsage, timeline, env.time, _new))))))))));
+	});
+var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
+	'variableOut',
+	function ($) {
+		var a = $.a;
+		var b = $.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					elm$json$Json$Encode$string(a),
+					elm$json$Json$Encode$string(b)
+				]));
+	});
+var author$project$External$Commands$changeActivity = F3(
+	function (newName, newTotal, oldTotal) {
+		return elm$core$Platform$Cmd$batch(
+			_List_fromArray(
+				[
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('ActivityTotalSec', newTotal)),
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('ElmSelected', newName)),
+					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('PreviousActivityTotal', oldTotal))
+				]));
+	});
 var author$project$External$Tasker$exit = _Platform_outgoingPort(
 	'exit',
 	function ($) {
@@ -10983,7 +11281,16 @@ var author$project$Activity$Switching$switchActivity = F3(
 			updatedApp,
 			elm$core$Platform$Cmd$batch(
 				_List_fromArray(
-					[author$project$External$Commands$hideWindow])));
+					[
+						author$project$External$Commands$toast(
+						A4(author$project$Activity$Switching$switchPopup, updatedApp.timeline, env, newActivity, oldActivity)),
+						A3(
+						author$project$External$Commands$changeActivity,
+						author$project$Activity$Activity$getName(newActivity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.time, newActivity),
+						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
+						author$project$External$Commands$hideWindow
+					])));
 	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
@@ -11011,7 +11318,6 @@ var author$project$TimeTracker$update = F4(
 			}
 		}
 	});
-var author$project$Activity$Activity$dummy = author$project$Activity$Activity$Stock(author$project$Activity$Template$DillyDally);
 var author$project$TimeTracker$NoOp = {$: 'NoOp'};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
@@ -11615,22 +11921,22 @@ var app = this.Elm.Headless.init(
 
 
 
-app.ports.setStorage.subscribe(function(state) {
-    taskerOut("ElmAppData", state);
-    //logflash("Storage set!");
-    //taskerTry(() => {writeFile("docket.dat",state,false)});
-});
-
-
-app.ports.flash.subscribe(function(data) {
-    logflash(data);
-});
-
-
-
-app.ports.exit.subscribe(function(data) {
-    setTimeout(() => taskerExit(), 10);
-});
+// app.ports.setStorage.subscribe(function(state) {
+//     taskerOut("ElmAppData", state);
+//     //logflash("Storage set!");
+//     //taskerTry(() => {writeFile("docket.dat",state,false)});
+// });
+//
+//
+// app.ports.flash.subscribe(function(data) {
+//     logflash(data);
+// });
+//
+//
+//
+// app.ports.exit.subscribe(function(data) {
+//     setTimeout(() => taskerExit(), 10);
+// });
 
 
 //setTimeout(sendIt, 1500);
