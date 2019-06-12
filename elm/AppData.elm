@@ -56,6 +56,7 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
+        , ( "tokens", encodeTokens record.tokens )
         ]
 
 
@@ -64,6 +65,7 @@ type alias Tokens =
     }
 
 
+emptyTokens : Tokens
 emptyTokens =
     Tokens "*"
 

@@ -1,4 +1,4 @@
-module External.TodoistSync exposing (Item, Project, TodoistMsg, sync)
+module External.TodoistSync exposing (Item, Project, TodoistMsg, handle, sync)
 
 import Dict exposing (Dict)
 import Http
@@ -12,20 +12,51 @@ import Url
 import Url.Builder
 
 
-syncUrl : Token -> String
+syncUrl : Token -> Url.Url
 syncUrl incrementalSyncToken =
-    Url.Builder.crossOrigin "https://todoist.com"
-        [ "api", "v8", "sync" ]
-        [ Url.Builder.string "token" "0bdc5149510737ab941485bace8135c60e2d812b"
-        , Url.Builder.string "sync_token" incrementalSyncToken
-        , Url.Builder.string "resource_type" "[\"all\"]"
-        ]
+    let
+        resources =
+            """[%22items%22]"""
+
+        devSecret =
+            "0bdc5149510737ab941485bace8135c60e2d812b"
+
+        query =
+            String.concat <|
+                List.intersperse "&" <|
+                    [ "token=" ++ devSecret
+                    , "sync_token=" ++ incrementalSyncToken
+                    , "resource_types=" ++ Debug.log resources resources
+                    ]
+    in
+    Debug.log "calling url:"
+        { protocol = Url.Https
+        , host = "todoist.com"
+        , port_ = Nothing
+        , path = "/api/v8/sync"
+        , query = Just query
+        , fragment = Nothing
+        }
+
+
+
+-- Fails due to percent-encoding of last field:
+-- Url.Builder.crossOrigin "https://todoist.com"
+--     [ "api", "v8", "sync" ]
+--     [ Url.Builder.string "token" "0bdc5149510737ab941485bace8135c60e2d812b"
+--     , Url.Builder.string "sync_token" incrementalSyncToken
+--     , Url.Builder.string "resource_type" (Debug.log resources resources)
+--     ]
+-- curl https://todoist.com/api/v8/sync \
+--     -d token=0bdc5149510737ab941485bace8135c60e2d812b \
+--     -d sync_token='*' \
+--     -d resource_types='["all"]'
 
 
 sync : Token -> Cmd TodoistMsg
 sync incrementalSyncToken =
     Http.get
-        { url = syncUrl incrementalSyncToken
+        { url = Url.toString <| syncUrl incrementalSyncToken
         , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
         }
 
@@ -49,33 +80,51 @@ decodeResponse : Decoder Response
 decodeResponse =
     decode Response
         |> required "sync_token" string
-        |> required "full_sync" decodeBoolAsInt
+        |> required "full_sync" bool
         |> optional "items" (list decodeItem) []
         |> optional "projects" (list decodeProjectChanges) []
-        |> ignored "collaborators"
-        |> ignored "collaboratorStates"
-        |> ignored "dayOrders"
-        |> ignored "filters"
-        |> ignored "labels"
-        |> ignored "liveNotifications"
-        |> ignored "liveNotificationsLastReadId"
-        |> ignored "notes"
-        |> ignored "projectNotes"
-        |> ignored "reminders"
-        |> ignored "settingsNotifications"
-        |> ignored "tempIdMapping"
-        |> ignored "user"
-        |> ignored "userSettings"
+        |> ignored "temp_id_mapping"
 
 
-handle : TodoistMsg -> a
+
+-- |> ignored "collaborators"
+-- |> ignored "collaboratorStates"
+-- |> ignored "dayOrders"
+-- |> ignored "filters"
+-- |> ignored "labels"
+-- |> ignored "liveNotifications"
+-- |> ignored "liveNotificationsLastReadId"
+-- |> ignored "notes"
+-- |> ignored "projectNotes"
+-- |> ignored "reminders"
+-- |> ignored "settingsNotifications"
+-- |> ignored "tempIdMapping"
+-- |> ignored "user"
+-- |> ignored "userSettings"
+
+
+handle : TodoistMsg -> String
 handle (SyncResponded result) =
     case result of
         Ok data ->
-            Debug.todo "String.String"
+            Debug.toString data
 
         Err err ->
-            Debug.todo "Fail"
+            case err of
+                Http.BadUrl msg ->
+                    msg
+
+                Http.Timeout ->
+                    "Timeout?"
+
+                Http.NetworkError ->
+                    "Network Error"
+
+                Http.BadStatus status ->
+                    "Got Error code" ++ String.fromInt status
+
+                Http.BadBody string ->
+                    string
 
 
 type TodoistMsg

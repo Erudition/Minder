@@ -358,7 +358,7 @@ update msg ({ viewState, appData, environment } as model) =
             justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.tokens.todoistSyncToken
 
         ( TodoistServerResponse response, _ ) ->
-            justRunCommand <| toast "Synced"
+            justRunCommand <| toast <| Todoist.handle response
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
