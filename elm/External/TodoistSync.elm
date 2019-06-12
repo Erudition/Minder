@@ -1,5 +1,6 @@
 module External.TodoistSync exposing (Item, Project, TodoistMsg, handle, sync)
 
+import AppData exposing (AppData, saveError)
 import Dict exposing (Dict)
 import Http
 import Json.Decode.Exploration as Decode exposing (..)
@@ -16,7 +17,7 @@ syncUrl : Token -> Url.Url
 syncUrl incrementalSyncToken =
     let
         resources =
-            """[%22items%22]"""
+            """[%22all%22]"""
 
         devSecret =
             "0bdc5149510737ab941485bace8135c60e2d812b"
@@ -26,7 +27,7 @@ syncUrl incrementalSyncToken =
                 List.intersperse "&" <|
                     [ "token=" ++ devSecret
                     , "sync_token=" ++ incrementalSyncToken
-                    , "resource_types=" ++ Debug.log resources resources
+                    , "resource_types=" ++ resources
                     ]
     in
     Debug.log "calling url:"
@@ -57,7 +58,7 @@ sync : Token -> Cmd TodoistMsg
 sync incrementalSyncToken =
     Http.get
         { url = Url.toString <| syncUrl incrementalSyncToken
-        , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
+        , expect = Http.expectJson SyncResponded (toClassicLoose decodeResponse)
         }
 
 
@@ -103,28 +104,28 @@ decodeResponse =
 -- |> ignored "userSettings"
 
 
-handle : TodoistMsg -> String
-handle (SyncResponded result) =
+handle : TodoistMsg -> AppData -> AppData
+handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
     case result of
         Ok data ->
-            Debug.toString data
+            { app | tokens = { todoistSyncToken = data.sync_token } }
 
         Err err ->
             case err of
                 Http.BadUrl msg ->
-                    msg
+                    saveError app msg
 
                 Http.Timeout ->
-                    "Timeout?"
+                    saveError app "Timeout?"
 
                 Http.NetworkError ->
-                    "Network Error"
+                    saveError app "Network Error"
 
                 Http.BadStatus status ->
-                    "Got Error code" ++ String.fromInt status
+                    saveError app <| "Got Error code" ++ String.fromInt status
 
                 Http.BadBody string ->
-                    string
+                    saveError app string
 
 
 type TodoistMsg
@@ -191,21 +192,33 @@ decodeItem =
         |> required "project_id" int
         |> required "content" string
         |> required "due" (maybe decodeDue)
-        |> required "indent" int
+        |> optional "indent" int 0
         |> required "priority" decodePriority
         |> required "parent_id" (maybe int)
-        |> required "item_order" int
+        |> required "child_order" int
+        -- API docs has incorrect "item_order" in example code (only)
         |> required "day_order" int
         |> required "collapsed" decodeBoolAsInt
         |> optional "children" (list int) []
         |> required "labels" (list int)
-        |> required "assigned_by_uid" int
+        |> optional "assigned_by_uid" int 0
         |> required "responsible_uid" (maybe int)
         |> required "checked" decodeBoolAsInt
         |> required "in_history" decodeBoolAsInt
         |> required "is_deleted" decodeBoolAsInt
-        |> required "is_archived" decodeBoolAsInt
+        |> optional "is_archived" decodeBoolAsInt False
+        -- API docs do not indicate this is an optional field
         |> required "date_added" string
+        |> optionalIgnored "legacy_id"
+
+
+optionalIgnored : String -> Decoder a -> Decoder a
+optionalIgnored field pipeline =
+    Decode.oneOf
+        [ Decode.field field (Decode.succeed ())
+        , Decode.succeed ()
+        ]
+        |> Decode.andThen (\_ -> pipeline)
 
 
 encodeItem : Item -> Encode.Value

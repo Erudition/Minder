@@ -1,4 +1,4 @@
-module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2, toClassic, updateable)
+module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2, toClassic, toClassicLoose, updateable)
 
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
@@ -319,6 +319,10 @@ applyChanges original change =
             new
 
 
+
+-- toClassic TODO: Switch to using Pipeline.resolve, ya dummy
+
+
 toClassic : Decoder a -> ClassicDecode.Decoder a
 toClassic decoder =
     let
@@ -333,5 +337,31 @@ toClassic decoder =
 
         final value =
             convertToNormalResult (asResult value)
+    in
+    ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
+
+
+toClassicLoose : Decoder a -> ClassicDecode.Decoder a
+toClassicLoose decoder =
+    let
+        runRealDecoder value =
+            decodeValue decoder value
+
+        asResult value =
+            case runRealDecoder value of
+                BadJson ->
+                    Err "Bad JSON"
+
+                Errors errors ->
+                    Err <| errorsToString errors
+
+                WithWarnings _ result ->
+                    Ok result
+
+                Success result ->
+                    Ok result
+
+        final value =
+            asResult value
     in
     ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)

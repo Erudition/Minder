@@ -135,7 +135,7 @@ init maybeJson url maybeKey =
                             buildModel (AppData.saveWarnings savedAppData warnings) url maybeKey
 
                         Errors errors ->
-                            buildModel (AppData.saveErrors AppData.fromScratch errors) url maybeKey
+                            buildModel (AppData.saveDecodeErrors AppData.fromScratch errors) url maybeKey
 
                         BadJson ->
                             buildModel AppData.fromScratch url maybeKey
@@ -358,7 +358,7 @@ update msg ({ viewState, appData, environment } as model) =
             justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.tokens.todoistSyncToken
 
         ( TodoistServerResponse response, _ ) ->
-            justRunCommand <| toast <| Todoist.handle response
+            ( Model viewState (Todoist.handle response appData) environment, Cmd.none )
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
