@@ -32,14 +32,13 @@ syncUrl incrementalSyncToken =
                     , "resource_types=" ++ resources
                     ]
     in
-    Debug.log "calling url:"
-        { protocol = Url.Https
-        , host = "todoist.com"
-        , port_ = Nothing
-        , path = "/api/v8/sync"
-        , query = Just query
-        , fragment = Nothing
-        }
+    { protocol = Url.Https
+    , host = "todoist.com"
+    , port_ = Nothing
+    , path = "/api/v8/sync"
+    , query = Just query
+    , fragment = Nothing
+    }
 
 
 
@@ -48,7 +47,7 @@ syncUrl incrementalSyncToken =
 --     [ "api", "v8", "sync" ]
 --     [ Url.Builder.string "token" "0bdc5149510737ab941485bace8135c60e2d812b"
 --     , Url.Builder.string "sync_token" incrementalSyncToken
---     , Url.Builder.string "resource_type" (Debug.log resources resources)
+--     , Url.Builder.string "resource_type"  resources
 --     ]
 -- curl https://todoist.com/api/v8/sync \
 --     -d token=0bdc5149510737ab941485bace8135c60e2d812b \
