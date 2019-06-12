@@ -6,9 +6,9 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Moment as Moment exposing (..)
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (..)
-import Time
 
 
 {-| Definition of a single task.

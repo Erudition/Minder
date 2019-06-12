@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), Zone, compare, difference, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, here, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, utc, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, zero)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
@@ -18,22 +18,6 @@ type Moment
 now : Job.Task x Moment
 now =
     Job.map fromElmTime ElmTime.now
-
-
-type alias Zone =
-    ElmTime.Zone
-
-
-utc : ElmTime.Zone
-utc =
-    ElmTime.utc
-
-
-{-| Get the current Time Zone, based on the the UTC offset given to us by Javascript. Provided here so you can ditch your `Time` imports entirely if you want.
--}
-here : Job.Task x Zone
-here =
-    ElmTime.here
 
 
 type alias ElmTime =

@@ -3,7 +3,8 @@ module Environment exposing (Environment, preInit)
 -- "Environment"
 
 import Browser.Navigation as Nav exposing (..)
-import SmartTime.Moment exposing (Moment, Zone, utc, zero)
+import SmartTime.Human.Clock exposing (Zone, utc)
+import SmartTime.Moment exposing (Moment, zero)
 
 
 {-| Part three of our three-part Model: "environment".

@@ -1,6 +1,7 @@
-module SmartTime.Human.Clock exposing (Clock, Clock12Hr, NoonBasedHour(..), toClock, toClock12Hr)
+module SmartTime.Human.Clock exposing (Clock, Clock12Hr, NoonBasedHour(..), Zone, localZone, toClock, toClock12Hr, utc)
 
 import SmartTime.Moment exposing (..)
+import Task as Job
 import Time as ElmTime exposing (toHour, toMillis, toMinute, toSecond)
 
 
@@ -87,3 +88,19 @@ toClock12Hr zone moment =
     , bareHour = hourOf12HrDay
     , pm = postMeridiem
     }
+
+
+type alias Zone =
+    ElmTime.Zone
+
+
+utc : ElmTime.Zone
+utc =
+    ElmTime.utc
+
+
+{-| Get the current Time Zone, based on the the UTC offset given to us by Javascript. Provided here so you can ditch your `Time` imports entirely if you want.
+-}
+localZone : Job.Task x Zone
+localZone =
+    ElmTime.here
