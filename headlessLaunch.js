@@ -120,3 +120,5 @@
 // }
 
 // taskerOut("ElmScriptVersion", "68 - trying delayed exit");
+
+exit();
