@@ -4,7 +4,7 @@ import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)
 import External.Tasker exposing (..)
 import Json.Encode as Encode exposing (Value, string)
-import Time
+import SmartTime.Moment as Moment
 
 
 scheduleNotify : List Reminder -> Cmd msg
@@ -25,11 +25,12 @@ encodeNotification v =
     Encode.object
         [ ( "title", Encode.string v.title )
         , ( "subtitle", Encode.string v.subtitle )
-        , ( "schedule", Encode.int (Time.posixToMillis v.schedule) )
+        , ( "scheduledFor", Encode.int (Moment.toSmartInt v.scheduledFor) )
         , ( "actions", Encode.list encodeNotificationButton v.actions )
         ]
 
 
+toast : String -> Cmd msg
 toast message =
     flash message
 
