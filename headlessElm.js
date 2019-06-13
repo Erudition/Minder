@@ -11681,9 +11681,7 @@ var author$project$Main$handleUrlTriggers = F2(
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
-			_Utils_ap(
-				mainTriggers,
-				_Utils_ap(timeTrackerTriggers, mainTriggers)));
+			_Utils_ap(timeTrackerTriggers, mainTriggers));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
