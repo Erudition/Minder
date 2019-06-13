@@ -309,7 +309,7 @@ errorList stringList =
             li [ onDoubleClick ClearErrors ] (List.map asP (descWithBreaks desc))
 
         asP sub =
-            p [ class "error-line" ] [ text sub ]
+            div [ class "error-line" ] [ text sub ]
     in
     ol [] (List.map asLi stringList)
 
@@ -486,7 +486,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             P.parse (P.oneOf parseList) normalizedUrl
 
         parseList =
-            List.map P.query (mainTriggers ++ timeTrackerTriggers ++ mainTriggers)
+            List.map P.query (timeTrackerTriggers ++ mainTriggers)
 
         createQueryParsers ( key, values ) =
             PQ.enum key values

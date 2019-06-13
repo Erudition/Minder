@@ -45,9 +45,9 @@ decodeTask =
         |> Pipeline.required "id" Decode.int
         |> Pipeline.required "predictedEffort" Decode.int
         |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
-        |> Pipeline.required "parent" (Decode.maybe Decode.int)
+        |> Pipeline.required "parent" (Decode.nullable Decode.int)
         |> Pipeline.required "tags" (Decode.list Decode.string)
-        |> Pipeline.required "project" (Decode.maybe Decode.int)
+        |> Pipeline.required "project" (Decode.nullable Decode.int)
         |> Pipeline.required "deadline" decodeTaskMoment
         |> Pipeline.required "plannedStart" decodeTaskMoment
         |> Pipeline.required "plannedFinish" decodeTaskMoment

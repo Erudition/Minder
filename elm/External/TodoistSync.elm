@@ -105,6 +105,9 @@ decodeResponse =
         |> optionalIgnored "day_orders_timestamp"
         |> optionalIgnored "incomplete_project_ids"
         |> optionalIgnored "incomplete_item_ids"
+        |> optionalIgnored "stats"
+        |> optionalIgnored "locations"
+        |> optionalIgnored "tooltips"
 
 
 handle : TodoistMsg -> AppData -> AppData
@@ -217,19 +220,11 @@ decodeItem =
         |> required "date_added" string
         |> optionalIgnored "legacy_id"
         |> optionalIgnored "legacy_project_id"
+        |> optionalIgnored "legacy_parent_id"
         |> optionalIgnored "sync_id"
         |> optionalIgnored "date_completed"
         |> optionalIgnored "has_more_notes"
         |> optionalIgnored "section_id"
-
-
-optionalIgnored : String -> Decoder a -> Decoder a
-optionalIgnored field pipeline =
-    Decode.oneOf
-        [ Decode.field field Decode.value
-        , Decode.succeed Encode.null
-        ]
-        |> Decode.andThen (\_ -> pipeline)
 
 
 encodeItem : Item -> Encode.Value
@@ -243,7 +238,7 @@ encodeItem record =
         , ( "indent", Encode.int <| record.indent )
         , ( "priority", encodePriority <| record.priority )
         , ( "parent_id", Encode2.maybe Encode.int <| record.parent_id )
-        , ( "item_order", Encode.int <| record.child_order )
+        , ( "child_order", Encode.int <| record.child_order )
         , ( "day_order", Encode.int <| record.day_order )
         , ( "collapsed", encodeBoolAsInt <| record.collapsed )
         , ( "children", Encode.list Encode.int <| record.children )
@@ -355,13 +350,21 @@ decodeProjectChanges =
         |> required "id" int
         |> updateable "name" string
         |> updateable "color" int
-        |> updateable "parentId" int
-        |> updateable "childOrder" int
+        |> updateable "parent_id" int
+        |> updateable "child_order" int
         |> updateable "collapsed" int
         |> updateable "shared" bool
-        |> updateable "isDeleted" int
-        |> updateable "isArchived" int
-        |> updateable "isFavorite" int
+        |> updateable "is_deleted" int
+        |> updateable "is_archived" int
+        |> updateable "is_favorite" int
+        |> optionalIgnored "legacy_parent_id"
+        |> optionalIgnored "legacy_id"
+        |> optionalIgnored "has_more_notes"
+        |> optionalIgnored "inbox_project"
+
+
+
+--should be id 1 anyway
 
 
 encodeProject : Project -> Encode.Value
@@ -370,13 +373,13 @@ encodeProject record =
         [ ( "id", Encode.int <| record.id )
         , ( "name", Encode.string <| record.name )
         , ( "color", Encode.int <| record.color )
-        , ( "parentId", Encode.int <| record.parentId )
-        , ( "childOrder", Encode.int <| record.childOrder )
+        , ( "parent_id", Encode.int <| record.parentId )
+        , ( "child_order", Encode.int <| record.childOrder )
         , ( "collapsed", Encode.int <| record.collapsed )
         , ( "shared", Encode.bool <| record.shared )
-        , ( "isDeleted", Encode.int <| record.isDeleted )
-        , ( "isArchived", Encode.int <| record.isArchived )
-        , ( "isFavorite", Encode.int <| record.isFavorite )
+        , ( "is_deleted", Encode.int <| record.isDeleted )
+        , ( "is_archived", Encode.int <| record.isArchived )
+        , ( "is_favorite", Encode.int <| record.isFavorite )
         ]
 
 
@@ -396,7 +399,7 @@ decodeDue =
         |> required "timezone" (nullable string)
         |> required "string" string
         |> required "lang" string
-        |> required "isRecurring" bool
+        |> required "is_recurring" bool
 
 
 encodeDue : Due -> Encode.Value
@@ -406,5 +409,5 @@ encodeDue record =
         , ( "timezone", Encode2.maybe Encode.string <| record.timezone )
         , ( "string", Encode.string <| record.string )
         , ( "lang", Encode.string <| record.lang )
-        , ( "isRecurring", Encode.bool <| record.isRecurring )
+        , ( "is_recurring", Encode.bool <| record.isRecurring )
         ]

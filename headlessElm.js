@@ -784,11 +784,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.bX.aX === region.ct.aX)
+	if (region.bX.aX === region.cu.aX)
 	{
 		return 'on line ' + region.bX.aX;
 	}
-	return 'on lines ' + region.bX.aX + ' through ' + region.ct.aX;
+	return 'on lines ' + region.bX.aX + ' through ' + region.cu.aX;
 }
 
 
@@ -6183,12 +6183,12 @@ var author$project$SmartTime$Duration$breakdown = function (duration) {
 	var withoutMinutes = withoutHours - (minutes * 60000);
 	var seconds = (withoutMinutes / 1000) | 0;
 	var withoutSeconds = withoutMinutes - (seconds * 1000);
-	return {cr: days, cz: hours, cP: withoutSeconds, cQ: minutes, da: seconds};
+	return {cs: days, cA: hours, cP: withoutSeconds, cQ: minutes, da: seconds};
 };
 var author$project$SmartTime$Human$Duration$breakdownDHMSM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var days = _n0.cr;
-	var hours = _n0.cz;
+	var days = _n0.cs;
+	var hours = _n0.cA;
 	var minutes = _n0.cQ;
 	var seconds = _n0.da;
 	var milliseconds = _n0.cP;
@@ -6847,7 +6847,7 @@ var elm$time$Time$toCivil = function (minutes) {
 	var month = mp + ((mp < 10) ? 3 : (-9));
 	var year = yearOfEra + (era * 400);
 	return {
-		cp: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
+		cq: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
 		cR: month,
 		dt: year + ((month <= 2) ? 1 : 0)
 	};
@@ -6855,7 +6855,7 @@ var elm$time$Time$toCivil = function (minutes) {
 var elm$time$Time$toDay = F2(
 	function (zone, time) {
 		return elm$time$Time$toCivil(
-			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cp;
+			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cq;
 	});
 var elm$core$Basics$modBy = _Basics_modBy;
 var elm$time$Time$toHour = F2(
@@ -6943,7 +6943,7 @@ var elm$time$Time$toYear = F2(
 var justinmimbs$time_extra$Time$Extra$posixToParts = F2(
 	function (zone, posix) {
 		return {
-			cp: A2(elm$time$Time$toDay, zone, posix),
+			cq: A2(elm$time$Time$toDay, zone, posix),
 			bf: A2(elm$time$Time$toHour, zone, posix),
 			bI: A2(elm$time$Time$toMillis, zone, posix),
 			bi: A2(elm$time$Time$toMinute, zone, posix),
@@ -6975,12 +6975,12 @@ var author$project$Task$TaskMoment$decodeTaskMoment = author$project$Porting$dec
 			'Universal',
 			A3(author$project$Porting$subtype, author$project$Task$TaskMoment$Universal, 'Moment', author$project$Task$TaskMoment$decodeMoment))
 		]));
-var zwilias$json_decode_exploration$Json$Decode$Exploration$maybe = function (decoder) {
+var zwilias$json_decode_exploration$Json$Decode$Exploration$nullable = function (decoder) {
 	return zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
 		_List_fromArray(
 			[
-				A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, elm$core$Maybe$Just, decoder),
-				zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(elm$core$Maybe$Nothing)
+				zwilias$json_decode_exploration$Json$Decode$Exploration$null(elm$core$Maybe$Nothing),
+				A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, elm$core$Maybe$Just, decoder)
 			]));
 };
 var author$project$Task$Task$decodeTask = A3(
@@ -7006,7 +7006,7 @@ var author$project$Task$Task$decodeTask = A3(
 					A3(
 						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 						'project',
-						zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+						zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
 						A3(
 							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 							'tags',
@@ -7014,7 +7014,7 @@ var author$project$Task$Task$decodeTask = A3(
 							A3(
 								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 								'parent',
-								zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+								zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
 								A3(
 									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 									'history',
@@ -8820,7 +8820,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 					return function (indent) {
 						return function (priority) {
 							return function (parent_id) {
-								return function (item_order) {
+								return function (child_order) {
 									return function (day_order) {
 										return function (collapsed) {
 											return function (children) {
@@ -8832,7 +8832,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 																	return function (is_deleted) {
 																		return function (is_archived) {
 																			return function (date_added) {
-																				return {ca: assigned_by_uid, bw: checked, cl: children, Q: collapsed, by: content, co: date_added, cq: day_order, cs: due, c: id, cB: in_history, cC: indent, cH: is_archived, cI: is_deleted, cK: item_order, cN: labels, cV: parent_id, cY: priority, bT: project_id, c7: responsible_uid, dp: user_id};
+																				return {ca: assigned_by_uid, bw: checked, cl: child_order, cm: children, Q: collapsed, by: content, cp: date_added, cr: day_order, ct: due, c: id, cC: in_history, cD: indent, cI: is_archived, cJ: is_deleted, cN: labels, cV: parent_id, cY: priority, bT: project_id, c7: responsible_uid, dp: user_id};
 																			};
 																		};
 																	};
@@ -8855,11 +8855,11 @@ var author$project$External$TodoistSync$Item = function (id) {
 };
 var author$project$External$TodoistSync$Due = F5(
 	function (date, timezone, string, lang, isRecurring) {
-		return {cn: date, cG: isRecurring, cO: lang, df: string, dk: timezone};
+		return {co: date, cH: isRecurring, cO: lang, df: string, dk: timezone};
 	});
 var author$project$External$TodoistSync$decodeDue = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-	'isRecurring',
+	'is_recurring',
 	zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 	A3(
 		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
@@ -8872,7 +8872,7 @@ var author$project$External$TodoistSync$decodeDue = A3(
 			A3(
 				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 				'timezone',
-				zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
 				A3(
 					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 					'date',
@@ -8903,23 +8903,6 @@ var author$project$External$TodoistSync$decodePriority = zwilias$json_decode_exp
 			1,
 			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(4))
 		]));
-var author$project$External$TodoistSync$optionalIgnored = F2(
-	function (field, pipeline) {
-		return A2(
-			zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
-			function (_n0) {
-				return pipeline;
-			},
-			zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
-				_List_fromArray(
-					[
-						A2(
-						zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-						field,
-						zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(0)),
-						zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(0)
-					])));
-	});
 var author$project$Porting$decodeBoolAsInt = zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
 	_List_fromArray(
 		[
@@ -8934,100 +8917,132 @@ var author$project$Porting$decodeBoolAsInt = zwilias$json_decode_exploration$Jso
 			0,
 			zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(false))
 		]));
+var zwilias$json_decode_exploration$Json$Decode$Exploration$value = function (json) {
+	return A2(
+		zwilias$json_decode_exploration$Json$Decode$Exploration$ok,
+		zwilias$json_decode_exploration$Json$Decode$Exploration$markUsed(json),
+		zwilias$json_decode_exploration$Json$Decode$Exploration$encode(json));
+};
+var author$project$Porting$optionalIgnored = F2(
+	function (field, pipeline) {
+		return A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
+			function (_n0) {
+				return pipeline;
+			},
+			zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+				_List_fromArray(
+					[
+						A2(zwilias$json_decode_exploration$Json$Decode$Exploration$field, field, zwilias$json_decode_exploration$Json$Decode$Exploration$value),
+						zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(elm$json$Json$Encode$null)
+					])));
+	});
 var author$project$External$TodoistSync$decodeItem = A2(
-	author$project$External$TodoistSync$optionalIgnored,
-	'sync_id',
+	author$project$Porting$optionalIgnored,
+	'section_id',
 	A2(
-		author$project$External$TodoistSync$optionalIgnored,
-		'legacy_project_id',
+		author$project$Porting$optionalIgnored,
+		'has_more_notes',
 		A2(
-			author$project$External$TodoistSync$optionalIgnored,
-			'legacy_id',
-			A3(
-				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-				'date_added',
-				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-				A4(
-					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-					'is_archived',
-					author$project$Porting$decodeBoolAsInt,
-					false,
-					A3(
-						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-						'is_deleted',
-						author$project$Porting$decodeBoolAsInt,
-						A3(
-							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-							'in_history',
-							author$project$Porting$decodeBoolAsInt,
+			author$project$Porting$optionalIgnored,
+			'date_completed',
+			A2(
+				author$project$Porting$optionalIgnored,
+				'sync_id',
+				A2(
+					author$project$Porting$optionalIgnored,
+					'legacy_parent_id',
+					A2(
+						author$project$Porting$optionalIgnored,
+						'legacy_project_id',
+						A2(
+							author$project$Porting$optionalIgnored,
+							'legacy_id',
 							A3(
 								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-								'checked',
-								author$project$Porting$decodeBoolAsInt,
-								A3(
-									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-									'responsible_uid',
-									zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-									A4(
-										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-										'assigned_by_uid',
-										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-										0,
+								'date_added',
+								zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+								A4(
+									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+									'is_archived',
+									author$project$Porting$decodeBoolAsInt,
+									false,
+									A3(
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+										'is_deleted',
+										author$project$Porting$decodeBoolAsInt,
 										A3(
 											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-											'labels',
-											zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-											A4(
-												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-												'children',
-												zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-												_List_Nil,
+											'in_history',
+											author$project$Porting$decodeBoolAsInt,
+											A3(
+												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+												'checked',
+												author$project$Porting$decodeBoolAsInt,
 												A3(
 													zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-													'collapsed',
-													author$project$Porting$decodeBoolAsInt,
-													A3(
-														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-														'day_order',
+													'responsible_uid',
+													zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+													A4(
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+														'assigned_by_uid',
 														zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+														0,
 														A3(
 															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-															'child_order',
-															zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-															A3(
-																zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																'parent_id',
-																zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+															'labels',
+															zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+															A4(
+																zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																'children',
+																zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+																_List_Nil,
 																A3(
 																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																	'priority',
-																	author$project$External$TodoistSync$decodePriority,
-																	A4(
-																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-																		'indent',
+																	'collapsed',
+																	author$project$Porting$decodeBoolAsInt,
+																	A3(
+																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																		'day_order',
 																		zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-																		0,
 																		A3(
 																			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																			'due',
-																			zwilias$json_decode_exploration$Json$Decode$Exploration$maybe(author$project$External$TodoistSync$decodeDue),
+																			'child_order',
+																			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 																			A3(
 																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																				'content',
-																				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																				'parent_id',
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
 																				A3(
 																					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																					'project_id',
-																					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-																					A3(
-																						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																						'user_id',
+																					'priority',
+																					author$project$External$TodoistSync$decodePriority,
+																					A4(
+																						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																						'indent',
 																						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																						0,
 																						A3(
 																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																							'id',
-																							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item))))))))))))))))))))))));
+																							'due',
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(author$project$External$TodoistSync$decodeDue),
+																							A3(
+																								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																								'content',
+																								zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																								A3(
+																									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																									'project_id',
+																									zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																									A3(
+																										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																										'user_id',
+																										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																										A3(
+																											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																											'id',
+																											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item))))))))))))))))))))))))))));
 var author$project$External$TodoistSync$ProjectChanges = function (id) {
 	return function (name) {
 		return function (color) {
@@ -9058,114 +9073,144 @@ var author$project$Porting$updateable = F3(
 		var wrappedValDecoder = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Porting$ChangedTo, valDecoder);
 		return A4(zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional, key, wrappedValDecoder, author$project$Porting$NoChange, decoder);
 	});
-var author$project$External$TodoistSync$decodeProjectChanges = A3(
-	author$project$Porting$updateable,
-	'isFavorite',
-	zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-	A3(
-		author$project$Porting$updateable,
-		'isArchived',
-		zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-		A3(
-			author$project$Porting$updateable,
-			'isDeleted',
-			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-			A3(
-				author$project$Porting$updateable,
-				'shared',
-				zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+var author$project$External$TodoistSync$decodeProjectChanges = A2(
+	author$project$Porting$optionalIgnored,
+	'inbox_project',
+	A2(
+		author$project$Porting$optionalIgnored,
+		'has_more_notes',
+		A2(
+			author$project$Porting$optionalIgnored,
+			'legacy_id',
+			A2(
+				author$project$Porting$optionalIgnored,
+				'legacy_parent_id',
 				A3(
 					author$project$Porting$updateable,
-					'collapsed',
+					'is_favorite',
 					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 					A3(
 						author$project$Porting$updateable,
-						'childOrder',
+						'is_archived',
 						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 						A3(
 							author$project$Porting$updateable,
-							'parentId',
+							'is_deleted',
 							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 							A3(
 								author$project$Porting$updateable,
-								'color',
-								zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+								'shared',
+								zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 								A3(
 									author$project$Porting$updateable,
-									'name',
-									zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+									'collapsed',
+									zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 									A3(
-										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-										'id',
+										author$project$Porting$updateable,
+										'child_order',
 										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$ProjectChanges)))))))))));
+										A3(
+											author$project$Porting$updateable,
+											'parent_id',
+											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+											A3(
+												author$project$Porting$updateable,
+												'color',
+												zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+												A3(
+													author$project$Porting$updateable,
+													'name',
+													zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+													A3(
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+														'id',
+														zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$ProjectChanges)))))))))))))));
 var author$project$External$TodoistSync$decodeResponse = A2(
-	author$project$External$TodoistSync$optionalIgnored,
-	'sections',
+	author$project$Porting$optionalIgnored,
+	'tooltips',
 	A2(
-		author$project$External$TodoistSync$optionalIgnored,
-		'userSettings',
+		author$project$Porting$optionalIgnored,
+		'locations',
 		A2(
-			author$project$External$TodoistSync$optionalIgnored,
-			'user',
+			author$project$Porting$optionalIgnored,
+			'stats',
 			A2(
-				author$project$External$TodoistSync$optionalIgnored,
-				'tempIdMapping',
+				author$project$Porting$optionalIgnored,
+				'incomplete_item_ids',
 				A2(
-					author$project$External$TodoistSync$optionalIgnored,
-					'settingsNotifications',
+					author$project$Porting$optionalIgnored,
+					'incomplete_project_ids',
 					A2(
-						author$project$External$TodoistSync$optionalIgnored,
-						'reminders',
+						author$project$Porting$optionalIgnored,
+						'day_orders_timestamp',
 						A2(
-							author$project$External$TodoistSync$optionalIgnored,
-							'projectNotes',
+							author$project$Porting$optionalIgnored,
+							'due_exceptions',
 							A2(
-								author$project$External$TodoistSync$optionalIgnored,
-								'notes',
+								author$project$Porting$optionalIgnored,
+								'sections',
 								A2(
-									author$project$External$TodoistSync$optionalIgnored,
-									'liveNotificationsLastReadId',
+									author$project$Porting$optionalIgnored,
+									'user_settings',
 									A2(
-										author$project$External$TodoistSync$optionalIgnored,
-										'liveNotifications',
+										author$project$Porting$optionalIgnored,
+										'user',
 										A2(
-											author$project$External$TodoistSync$optionalIgnored,
-											'labels',
+											author$project$Porting$optionalIgnored,
+											'temp_id_mapping',
 											A2(
-												author$project$External$TodoistSync$optionalIgnored,
-												'filters',
+												author$project$Porting$optionalIgnored,
+												'settings_notifications',
 												A2(
-													author$project$External$TodoistSync$optionalIgnored,
-													'dayOrders',
+													author$project$Porting$optionalIgnored,
+													'reminders',
 													A2(
-														author$project$External$TodoistSync$optionalIgnored,
-														'collaboratorStates',
+														author$project$Porting$optionalIgnored,
+														'project_notes',
 														A2(
-															author$project$External$TodoistSync$optionalIgnored,
-															'collaborators',
+															author$project$Porting$optionalIgnored,
+															'notes',
 															A2(
-																author$project$External$TodoistSync$optionalIgnored,
-																'temp_id_mapping',
-																A4(
-																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-																	'projects',
-																	zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeProjectChanges),
-																	_List_Nil,
-																	A4(
-																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-																		'items',
-																		zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeItem),
-																		_List_Nil,
-																		A3(
-																			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																			'full_sync',
-																			zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
-																			A3(
-																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																				'sync_token',
-																				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Response)))))))))))))))))))));
+																author$project$Porting$optionalIgnored,
+																'live_notifications_last_read_id',
+																A2(
+																	author$project$Porting$optionalIgnored,
+																	'live_notifications',
+																	A2(
+																		author$project$Porting$optionalIgnored,
+																		'labels',
+																		A2(
+																			author$project$Porting$optionalIgnored,
+																			'filters',
+																			A2(
+																				author$project$Porting$optionalIgnored,
+																				'day_orders',
+																				A2(
+																					author$project$Porting$optionalIgnored,
+																					'collaborator_states',
+																					A2(
+																						author$project$Porting$optionalIgnored,
+																						'collaborators',
+																						A4(
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																							'projects',
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeProjectChanges),
+																							_List_Nil,
+																							A4(
+																								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																								'items',
+																								zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$External$TodoistSync$decodeItem),
+																								_List_Nil,
+																								A3(
+																									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																									'full_sync',
+																									zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+																									A3(
+																										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																										'sync_token',
+																										zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Response)))))))))))))))))))))))))));
 var elm$core$String$concat = function (strings) {
 	return A2(elm$core$String$join, '', strings);
 };
@@ -9187,45 +9232,6 @@ var author$project$External$TodoistSync$syncUrl = function (incrementalSyncToken
 		d0: elm$core$Maybe$Just(query)
 	};
 };
-var elm$json$Json$Decode$fail = _Json_fail;
-var elm_community$json_extra$Json$Decode$Extra$fromResult = function (result) {
-	if (!result.$) {
-		var successValue = result.a;
-		return elm$json$Json$Decode$succeed(successValue);
-	} else {
-		var errorMessage = result.a;
-		return elm$json$Json$Decode$fail(errorMessage);
-	}
-};
-var author$project$Porting$toClassicLoose = function (decoder) {
-	var runRealDecoder = function (value) {
-		return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$decodeValue, decoder, value);
-	};
-	var asResult = function (value) {
-		var _n0 = runRealDecoder(value);
-		switch (_n0.$) {
-			case 0:
-				return elm$core$Result$Err('Bad JSON');
-			case 1:
-				var errors = _n0.a;
-				return elm$core$Result$Err(
-					zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors));
-			case 2:
-				var result = _n0.b;
-				return elm$core$Result$Ok(result);
-			default:
-				var result = _n0.a;
-				return elm$core$Result$Ok(result);
-		}
-	};
-	var _final = function (value) {
-		return asResult(value);
-	};
-	return A2(
-		elm$json$Json$Decode$andThen,
-		A2(elm$core$Basics$composeL, elm_community$json_extra$Json$Decode$Extra$fromResult, _final),
-		elm$json$Json$Decode$value);
-};
 var elm$core$Result$mapError = F2(
 	function (f, result) {
 		if (!result.$) {
@@ -9237,6 +9243,111 @@ var elm$core$Result$mapError = F2(
 				f(e));
 		}
 	});
+var elm$json$Json$Decode$fail = _Json_fail;
+var elm_community$json_extra$Json$Decode$Extra$fromResult = function (result) {
+	if (!result.$) {
+		var successValue = result.a;
+		return elm$json$Json$Decode$succeed(successValue);
+	} else {
+		var errorMessage = result.a;
+		return elm$json$Json$Decode$fail(errorMessage);
+	}
+};
+var mgold$elm_nonempty_list$List$Nonempty$map = F2(
+	function (f, _n0) {
+		var x = _n0.a;
+		var xs = _n0.b;
+		return A2(
+			mgold$elm_nonempty_list$List$Nonempty$Nonempty,
+			f(x),
+			A2(elm$core$List$map, f, xs));
+	});
+var zwilias$json_decode_exploration$Json$Decode$Exploration$warningToError = function (warning) {
+	if (!warning.$) {
+		var v = warning.a;
+		return A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$Failure,
+			'Unused value',
+			elm$core$Maybe$Just(v));
+	} else {
+		var w = warning.a;
+		var v = warning.b;
+		return A2(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$Failure,
+			w,
+			elm$core$Maybe$Just(v));
+	}
+};
+var zwilias$json_decode_exploration$Json$Decode$Exploration$Located$map = F2(
+	function (op, located) {
+		switch (located.$) {
+			case 0:
+				var f = located.a;
+				var val = located.b;
+				return A2(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField,
+					f,
+					A2(
+						mgold$elm_nonempty_list$List$Nonempty$map,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Located$map(op),
+						val));
+			case 1:
+				var i = located.a;
+				var val = located.b;
+				return A2(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Located$AtIndex,
+					i,
+					A2(
+						mgold$elm_nonempty_list$List$Nonempty$map,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Located$map(op),
+						val));
+			default:
+				var v = located.a;
+				return zwilias$json_decode_exploration$Json$Decode$Exploration$Located$Here(
+					op(v));
+		}
+	});
+var zwilias$json_decode_exploration$Json$Decode$Exploration$warningsToErrors = mgold$elm_nonempty_list$List$Nonempty$map(
+	zwilias$json_decode_exploration$Json$Decode$Exploration$Located$map(zwilias$json_decode_exploration$Json$Decode$Exploration$warningToError));
+var zwilias$json_decode_exploration$Json$Decode$Exploration$strict = function (res) {
+	switch (res.$) {
+		case 1:
+			var e = res.a;
+			return elm$core$Result$Err(e);
+		case 0:
+			return elm$core$Result$Err(
+				mgold$elm_nonempty_list$List$Nonempty$fromElement(
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Located$Here(
+						A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Failure, 'Invalid JSON', elm$core$Maybe$Nothing))));
+		case 2:
+			var w = res.a;
+			return elm$core$Result$Err(
+				zwilias$json_decode_exploration$Json$Decode$Exploration$warningsToErrors(w));
+		default:
+			var v = res.a;
+			return elm$core$Result$Ok(v);
+	}
+};
+var author$project$Porting$toClassic = function (decoder) {
+	var runRealDecoder = function (value) {
+		return A2(zwilias$json_decode_exploration$Json$Decode$Exploration$decodeValue, decoder, value);
+	};
+	var convertToNormalResult = function (fancyResult) {
+		return A2(elm$core$Result$mapError, zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString, fancyResult);
+	};
+	var asResult = function (value) {
+		return zwilias$json_decode_exploration$Json$Decode$Exploration$strict(
+			runRealDecoder(value));
+	};
+	var _final = function (value) {
+		return convertToNormalResult(
+			asResult(value));
+	};
+	return A2(
+		elm$json$Json$Decode$andThen,
+		A2(elm$core$Basics$composeL, elm_community$json_extra$Json$Decode$Extra$fromResult, _final),
+		elm$json$Json$Decode$value);
+};
 var elm$core$Maybe$isJust = function (maybe) {
 	if (!maybe.$) {
 		return true;
@@ -9505,7 +9616,7 @@ var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
 			dG: A2(
 				elm$http$Http$expectJson,
 				elm$core$Basics$identity,
-				author$project$Porting$toClassicLoose(author$project$External$TodoistSync$decodeResponse)),
+				author$project$Porting$toClassic(author$project$External$TodoistSync$decodeResponse)),
 			ee: elm$url$Url$toString(
 				author$project$External$TodoistSync$syncUrl(incrementalSyncToken))
 		});
@@ -11571,7 +11682,7 @@ var author$project$Main$handleUrlTriggers = F2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
 			_Utils_ap(
-				taskTriggers,
+				mainTriggers,
 				_Utils_ap(timeTrackerTriggers, mainTriggers)));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,

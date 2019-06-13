@@ -1,4 +1,4 @@
-module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, subtype, subtype2, toClassic, toClassicLoose, updateable)
+module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, updateable)
 
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
@@ -317,6 +317,15 @@ applyChanges original change =
 
         ChangedTo new ->
             new
+
+
+optionalIgnored : String -> Decoder a -> Decoder a
+optionalIgnored field pipeline =
+    Decode.oneOf
+        [ Decode.field field Decode.value
+        , Decode.succeed Encode.null
+        ]
+        |> Decode.andThen (\_ -> pipeline)
 
 
 
