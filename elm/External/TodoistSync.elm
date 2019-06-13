@@ -59,7 +59,7 @@ sync : Token -> Cmd TodoistMsg
 sync incrementalSyncToken =
     Http.get
         { url = Url.toString <| syncUrl incrementalSyncToken
-        , expect = Http.expectJson SyncResponded (toClassicLoose decodeResponse)
+        , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
         }
 
 
@@ -85,22 +85,26 @@ decodeResponse =
         |> required "full_sync" bool
         |> optional "items" (list decodeItem) []
         |> optional "projects" (list decodeProjectChanges) []
-        |> optionalIgnored "temp_id_mapping"
         |> optionalIgnored "collaborators"
-        |> optionalIgnored "collaboratorStates"
-        |> optionalIgnored "dayOrders"
+        |> optionalIgnored "collaborator_states"
+        |> optionalIgnored "day_orders"
         |> optionalIgnored "filters"
         |> optionalIgnored "labels"
-        |> optionalIgnored "liveNotifications"
-        |> optionalIgnored "liveNotificationsLastReadId"
+        |> optionalIgnored "live_notifications"
+        |> optionalIgnored "live_notifications_last_read_id"
         |> optionalIgnored "notes"
-        |> optionalIgnored "projectNotes"
+        |> optionalIgnored "project_notes"
         |> optionalIgnored "reminders"
-        |> optionalIgnored "settingsNotifications"
-        |> optionalIgnored "tempIdMapping"
+        |> optionalIgnored "settings_notifications"
+        |> optionalIgnored "temp_id_mapping"
         |> optionalIgnored "user"
-        |> optionalIgnored "userSettings"
+        |> optionalIgnored "user_settings"
         |> optionalIgnored "sections"
+        -- each item below not in spec!
+        |> optionalIgnored "due_exceptions"
+        |> optionalIgnored "day_orders_timestamp"
+        |> optionalIgnored "incomplete_project_ids"
+        |> optionalIgnored "incomplete_item_ids"
 
 
 handle : TodoistMsg -> AppData -> AppData
@@ -171,7 +175,7 @@ type alias Item =
     , indent : Int
     , priority : Priority
     , parent_id : Maybe ItemID
-    , item_order : Int
+    , child_order : Int
     , day_order : Int
     , collapsed : Bool
     , children : List ItemID
@@ -193,10 +197,10 @@ decodeItem =
         |> required "user_id" int
         |> required "project_id" int
         |> required "content" string
-        |> required "due" (maybe decodeDue)
+        |> required "due" (nullable decodeDue)
         |> optional "indent" int 0
         |> required "priority" decodePriority
-        |> required "parent_id" (maybe int)
+        |> required "parent_id" (nullable int)
         |> required "child_order" int
         -- API docs has incorrect "item_order" in example code (only)
         |> required "day_order" int
@@ -204,7 +208,7 @@ decodeItem =
         |> optional "children" (list int) []
         |> required "labels" (list int)
         |> optional "assigned_by_uid" int 0
-        |> required "responsible_uid" (maybe int)
+        |> required "responsible_uid" (nullable int)
         |> required "checked" decodeBoolAsInt
         |> required "in_history" decodeBoolAsInt
         |> required "is_deleted" decodeBoolAsInt
@@ -214,13 +218,16 @@ decodeItem =
         |> optionalIgnored "legacy_id"
         |> optionalIgnored "legacy_project_id"
         |> optionalIgnored "sync_id"
+        |> optionalIgnored "date_completed"
+        |> optionalIgnored "has_more_notes"
+        |> optionalIgnored "section_id"
 
 
 optionalIgnored : String -> Decoder a -> Decoder a
 optionalIgnored field pipeline =
     Decode.oneOf
-        [ Decode.field field (Decode.succeed ())
-        , Decode.succeed ()
+        [ Decode.field field Decode.value
+        , Decode.succeed Encode.null
         ]
         |> Decode.andThen (\_ -> pipeline)
 
@@ -236,7 +243,7 @@ encodeItem record =
         , ( "indent", Encode.int <| record.indent )
         , ( "priority", encodePriority <| record.priority )
         , ( "parent_id", Encode2.maybe Encode.int <| record.parent_id )
-        , ( "item_order", Encode.int <| record.item_order )
+        , ( "item_order", Encode.int <| record.child_order )
         , ( "day_order", Encode.int <| record.day_order )
         , ( "collapsed", encodeBoolAsInt <| record.collapsed )
         , ( "children", Encode.list Encode.int <| record.children )
@@ -386,7 +393,7 @@ decodeDue : Decoder Due
 decodeDue =
     decode Due
         |> required "date" string
-        |> required "timezone" (maybe string)
+        |> required "timezone" (nullable string)
         |> required "string" string
         |> required "lang" string
         |> required "isRecurring" bool

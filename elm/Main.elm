@@ -486,7 +486,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             P.parse (P.oneOf parseList) normalizedUrl
 
         parseList =
-            List.map P.query (taskTriggers ++ timeTrackerTriggers ++ mainTriggers)
+            List.map P.query (mainTriggers ++ timeTrackerTriggers ++ mainTriggers)
 
         createQueryParsers ( key, values ) =
             PQ.enum key values
