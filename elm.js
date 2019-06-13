@@ -6812,8 +6812,8 @@ var justinmimbs$date$Date$fromRataDie = function (rd) {
 	return justinmimbs$date$Date$RD(rd);
 };
 var author$project$Task$TaskMoment$decodeDate = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, justinmimbs$date$Date$fromRataDie, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
-var author$project$SmartTime$Moment$utcFromLinear = function (_int) {
-	return _int;
+var author$project$SmartTime$Moment$utcFromLinear = function (num) {
+	return num;
 };
 var elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
@@ -8665,8 +8665,20 @@ var author$project$Task$Progress$encodeProgress = function (progress) {
 var author$project$Task$Task$encodeHistoryEntry = function (record) {
 	return elm$json$Json$Encode$object(_List_Nil);
 };
-var author$project$Task$TaskMoment$encodeTaskMoment = function (taskmoment) {
-	return elm$json$Json$Encode$object(_List_Nil);
+var author$project$Task$TaskMoment$encodeTaskMoment = function (v) {
+	switch (v.$) {
+		case 'Unset':
+			return elm$json$Json$Encode$string('Unset');
+		case 'LocalDate':
+			var date = v.a;
+			return elm$json$Json$Encode$string('LocalDate');
+		case 'Localized':
+			var parts = v.a;
+			return elm$json$Json$Encode$string('Localized');
+		default:
+			var moment = v.a;
+			return elm$json$Json$Encode$string('Universal');
+	}
 };
 var elm_community$json_extra$Json$Encode$Extra$maybe = function (encoder) {
 	return A2(
@@ -9344,7 +9356,6 @@ var author$project$External$TodoistSync$decodeResponse = A2(
 																				'sync_token',
 																				zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Response)))))))))))))))))))));
-var elm$core$Debug$log = _Debug_log;
 var elm$core$String$concat = function (strings) {
 	return A2(elm$core$String$join, '', strings);
 };
@@ -9357,17 +9368,14 @@ var author$project$External$TodoistSync$syncUrl = function (incrementalSyncToken
 			'&',
 			_List_fromArray(
 				['token=' + devSecret, 'sync_token=' + incrementalSyncToken, 'resource_types=' + resources])));
-	return A2(
-		elm$core$Debug$log,
-		'calling url:',
-		{
-			fragment: elm$core$Maybe$Nothing,
-			host: 'todoist.com',
-			path: '/api/v8/sync',
-			port_: elm$core$Maybe$Nothing,
-			protocol: elm$url$Url$Https,
-			query: elm$core$Maybe$Just(query)
-		});
+	return {
+		fragment: elm$core$Maybe$Nothing,
+		host: 'todoist.com',
+		path: '/api/v8/sync',
+		port_: elm$core$Maybe$Nothing,
+		protocol: elm$url$Url$Https,
+		query: elm$core$Maybe$Just(query)
+	};
 };
 var elm$json$Json$Decode$fail = _Json_fail;
 var elm_community$json_extra$Json$Decode$Extra$fromResult = function (result) {
@@ -9706,10 +9714,6 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 'TodoistServerResponse', a: a};
 };
-var author$project$Main$log = F2(
-	function (string, input) {
-		return input;
-	});
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -11398,6 +11402,158 @@ var author$project$External$Tasker$exit = _Platform_outgoingPort(
 		return elm$json$Json$Encode$null;
 	});
 var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
+var author$project$Activity$Switching$sameActivity = F3(
+	function (activityId, app, env) {
+		var activity = author$project$Activity$Switching$currentActivityFromApp(app);
+		return _Utils_Tuple2(
+			app,
+			elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						author$project$External$Commands$toast(
+						A4(author$project$Activity$Switching$switchPopup, app.timeline, env, activity, activity)),
+						A3(
+						author$project$External$Commands$changeActivity,
+						author$project$Activity$Activity$getName(activity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.time, activity),
+						A2(author$project$Activity$Measure$exportLastSession, app, activity)),
+						author$project$External$Commands$hideWindow
+					])));
+	});
+var author$project$Activity$Measure$excusedLeft = F3(
+	function (timeline, now, activity) {
+		var excusableLimit = author$project$SmartTime$Human$Duration$toDuration(
+			author$project$Activity$Activity$excusableFor(activity).b);
+		return A2(
+			author$project$SmartTime$Duration$difference,
+			excusableLimit,
+			A3(author$project$Activity$Measure$excusedUsage, timeline, now, activity));
+	});
+var author$project$SmartTime$Duration$scale = F2(
+	function (_n0, scalar) {
+		var dur = _n0.a;
+		return author$project$SmartTime$Duration$Duration(
+			elm$core$Basics$round(dur * scalar));
+	});
+var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'sec';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'min';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'hr';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withAbbreviation, humanDurationList)));
+};
+var author$project$SmartTime$Human$Duration$breakdownHM = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var minutes = _n0.minutes;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$Human$Duration$Hours(
+			author$project$SmartTime$Duration$inWholeHours(duration)),
+			author$project$SmartTime$Human$Duration$Minutes(minutes)
+		]);
+};
+var author$project$SmartTime$Moment$future = F2(
+	function (_n0, duration) {
+		var time = _n0.a;
+		return author$project$SmartTime$Moment$Moment(
+			A2(author$project$SmartTime$Duration$add, time, duration));
+	});
+var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
+	function (now, timeLeft) {
+		var write = function (durLeft) {
+			return author$project$SmartTime$Human$Duration$abbreviatedSpaced(
+				author$project$SmartTime$Human$Duration$breakdownHM(durLeft));
+		};
+		var thirdLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 2 / 3);
+		var quarterLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 3 / 4);
+		var halfLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
+		var fifthLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 4 / 5);
+		return _List_fromArray(
+			[
+				{
+				actions: _List_Nil,
+				scheduledFor: A2(author$project$SmartTime$Moment$future, now, halfLeft),
+				subtitle: write(halfLeft) + ' left',
+				title: 'Half Time!'
+			},
+				{
+				actions: _List_Nil,
+				scheduledFor: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
+				subtitle: 'Only one third left',
+				title: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, thirdLeft)) + ' more')
+			},
+				{
+				actions: _List_Nil,
+				scheduledFor: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
+				subtitle: 'Only one quarter left',
+				title: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, quarterLeft)) + ' more')
+			},
+				{
+				actions: _List_Nil,
+				scheduledFor: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
+				subtitle: 'Only one fifth left',
+				title: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, fifthLeft)) + ' more')
+			}
+			]);
+	});
+var author$project$External$Commands$compileList = function (reminderList) {
+	return elm$core$String$concat(
+		A2(elm$core$List$intersperse, '§', reminderList));
+};
+var author$project$SmartTime$Duration$inSeconds = function (duration) {
+	return author$project$SmartTime$Duration$inMs(duration) / 1000;
+};
+var author$project$SmartTime$Moment$toUnixTime = function (_n0) {
+	var dur = _n0.a;
+	return author$project$SmartTime$Moment$utcFromLinear(
+		author$project$SmartTime$Duration$inSeconds(dur));
+};
+var elm$core$Basics$truncate = _Basics_truncate;
+var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
+	return author$project$SmartTime$Moment$toUnixTime(mo) | 0;
+};
+var author$project$External$Commands$taskerEncodeNotification = function (reminder) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			';',
+			_List_fromArray(
+				[
+					elm$core$String$fromInt(
+					author$project$SmartTime$Moment$toUnixTimeInt(reminder.scheduledFor)),
+					reminder.title,
+					reminder.subtitle
+				])));
+};
+var author$project$External$Commands$scheduleNotify = function (reminderList) {
+	return author$project$External$Tasker$variableOut(
+		_Utils_Tuple2(
+			'Scheduled',
+			author$project$External$Commands$compileList(
+				A2(elm$core$List$map, author$project$External$Commands$taskerEncodeNotification, reminderList))));
+};
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -11425,7 +11581,12 @@ var author$project$Activity$Switching$switchActivity = F3(
 						author$project$Activity$Activity$getName(newActivity),
 						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.time, newActivity),
 						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
-						author$project$External$Commands$hideWindow
+						author$project$External$Commands$hideWindow,
+						author$project$External$Commands$scheduleNotify(
+						A2(
+							author$project$Activity$Reminder$scheduleExcusedReminders,
+							env.time,
+							A3(author$project$Activity$Measure$excusedLeft, updatedApp.timeline, env.time, newActivity)))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -11434,24 +11595,12 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 		} else {
 			var activityId = msg.a;
-			if (_Utils_eq(
+			var _n1 = _Utils_eq(
 				activityId,
-				author$project$Activity$Switching$currentActivityFromApp(app).id)) {
-				return _Utils_Tuple3(
-					state,
-					app,
-					elm$core$Platform$Cmd$batch(
-						_List_fromArray(
-							[
-								author$project$External$Commands$toast('That activity is already running!'),
-								author$project$External$Commands$hideWindow
-							])));
-			} else {
-				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
-				var updatedApp = _n1.a;
-				var cmds = _n1.b;
-				return _Utils_Tuple3(state, updatedApp, cmds);
-			}
+				author$project$Activity$Switching$currentActivityFromApp(app).id) ? A3(author$project$Activity$Switching$sameActivity, activityId, app, env) : A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
+			var updatedApp = _n1.a;
+			var cmds = _n1.b;
+			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
 var author$project$TimeTracker$NoOp = {$: 'NoOp'};
@@ -11471,34 +11620,6 @@ var elm$core$Dict$fromList = function (assocs) {
 		assocs);
 };
 var elm$core$String$toLower = _String_toLower;
-var elm$url$Url$Parser$Internal$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					A2(
-						elm$core$Maybe$withDefault,
-						_List_Nil,
-						A2(elm$core$Dict$get, key, dict)));
-			});
-	});
-var elm$url$Url$Parser$Query$enum = F2(
-	function (key, dict) {
-		return A2(
-			elm$url$Url$Parser$Query$custom,
-			key,
-			function (stringList) {
-				if (stringList.b && (!stringList.b.b)) {
-					var str = stringList.a;
-					return A2(elm$core$Dict$get, str, dict);
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			});
-	});
 var author$project$TimeTracker$urlTriggers = function (app) {
 	var entriesPerActivity = function (activity) {
 		return _Utils_ap(
@@ -11526,12 +11647,10 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 			author$project$Activity$Activity$allActivities(app.activities)));
 	return _List_fromArray(
 		[
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'start',
 			elm$core$Dict$fromList(activitiesWithNames)),
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'stop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
@@ -11540,8 +11659,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 						'stop',
 						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
 					]))),
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'noop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
@@ -11576,6 +11694,34 @@ var elm$url$Url$Parser$query = function (_n0) {
 				]);
 		});
 };
+var elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2(elm$core$Dict$get, key, dict)));
+			});
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
 var elm$url$Url$Parser$Query$map = F2(
 	function (func, _n0) {
 		var a = _n0.a;
@@ -11590,16 +11736,11 @@ var author$project$Main$handleUrlTriggers = F2(
 		var appData = model.appData;
 		var environment = model.environment;
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var timeTrackerTriggers = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$Query$map(
-				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
-			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
-			var _n10 = environment.navkey;
-			if (_n10.$ === 'Just') {
-				var navkey = _n10.a;
+			var _n16 = environment.navkey;
+			if (_n16.$ === 'Just') {
+				var navkey = _n16.a;
 				return A2(
 					elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -11625,29 +11766,82 @@ var author$project$Main$handleUrlTriggers = F2(
 							_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
 						])))
 			]);
+		var createQueryParsers = function (_n15) {
+			var key = _n15.a;
+			var values = _n15.b;
+			return A2(elm$url$Url$Parser$Query$enum, key, values);
+		};
+		var timeTrackerTriggers = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$Query$map(
+				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+			A2(
+				elm$core$List$map,
+				createQueryParsers,
+				author$project$TimeTracker$urlTriggers(appData)));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
 			_Utils_ap(
-				mainTriggers,
-				_Utils_ap(taskTriggers, timeTrackerTriggers)));
+				taskTriggers,
+				_Utils_ap(timeTrackerTriggers, mainTriggers)));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
-			A2(author$project$Main$log, 'url', normalizedUrl));
-		if ((parsed.$ === 'Just') && (parsed.a.$ === 'Just')) {
-			var triggerMsg = parsed.a.a;
-			var _n9 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n9.a;
-			var newCmd = _n9.b;
-			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[newCmd, removeTriggersFromUrl]));
-			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
+			normalizedUrl);
+		if (parsed.$ === 'Just') {
+			var parsedUrlSuccessfully = parsed.a;
+			var _n9 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
+			if (_n9.a.$ === 'Just') {
+				if (_n9.b.$ === 'Just') {
+					var triggerMsg = _n9.a.a;
+					var _n10 = A2(author$project$Main$update, triggerMsg, model);
+					var newModel = _n10.a;
+					var newCmd = _n10.b;
+					var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[newCmd, removeTriggersFromUrl]));
+					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
+				} else {
+					var triggerMsg = _n9.a.a;
+					var _n12 = _n9.b;
+					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								appData: A2(author$project$AppData$saveError, appData, problemText)
+							}),
+						author$project$External$Commands$toast(problemText));
+				}
+			} else {
+				if (_n9.b.$ === 'Just') {
+					var _n11 = _n9.a;
+					var query = _n9.b.a;
+					var problemText = 'Handle URL Triggers: none of  ' + (elm$core$String$fromInt(
+						elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								appData: A2(author$project$AppData$saveError, appData, problemText)
+							}),
+						author$project$External$Commands$toast(problemText));
+				} else {
+					var _n13 = _n9.a;
+					var _n14 = _n9.b;
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				}
+			}
 		} else {
+			var problemText = 'Handle URL Triggers: failed to parse URL ' + elm$url$Url$toString(normalizedUrl);
 			return _Utils_Tuple2(
-				model,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! no match'));
+				_Utils_update(
+					model,
+					{
+						appData: A2(author$project$AppData$saveError, appData, problemText)
+					}),
+				author$project$External$Commands$toast(problemText));
 		}
 	});
 var author$project$Main$update = F2(
@@ -11797,8 +11991,8 @@ var author$project$SmartTime$Duration$map = F2(
 		return author$project$SmartTime$Duration$Duration(
 			func(_int));
 	});
-var author$project$SmartTime$Moment$linearFromUTC = function (_int) {
-	return _int;
+var author$project$SmartTime$Moment$linearFromUTC = function (num) {
+	return num;
 };
 var author$project$SmartTime$Moment$moment = F3(
 	function (scale, epoch, duration) {
@@ -15896,7 +16090,6 @@ var author$project$TaskList$progressSlider = function (task) {
 };
 var author$project$Task$TaskMoment$userTimeZonePlaceholder = elm$time$Time$utc;
 var justinmimbs$date$Date$Days = {$: 'Days'};
-var elm$core$Basics$truncate = _Basics_truncate;
 var justinmimbs$date$Date$monthToNumber = function (m) {
 	switch (m.$) {
 		case 'Jan':
