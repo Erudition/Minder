@@ -9524,10 +9524,6 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 6, a: a};
 };
-var author$project$Main$log = F2(
-	function (string, input) {
-		return input;
-	});
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -11219,6 +11215,15 @@ var author$project$Activity$Switching$sameActivity = F3(
 						author$project$External$Commands$hideWindow
 					])));
 	});
+var author$project$Activity$Measure$excusedLeft = F3(
+	function (timeline, now, activity) {
+		var excusableLimit = author$project$SmartTime$Human$Duration$toDuration(
+			author$project$Activity$Activity$excusableFor(activity).b);
+		return A2(
+			author$project$SmartTime$Duration$difference,
+			excusableLimit,
+			A3(author$project$Activity$Measure$excusedUsage, timeline, now, activity));
+	});
 var author$project$SmartTime$Duration$scale = F2(
 	function (_n0, scalar) {
 		var dur = _n0;
@@ -11287,19 +11292,22 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
 				aS: _List_Nil,
 				a$: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
 				a1: 'Only one third left',
-				a3: 'Excused for ' + (write(thirdLeft) + ' more')
+				a3: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, thirdLeft)) + ' more')
 			},
 				{
 				aS: _List_Nil,
 				a$: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
 				a1: 'Only one quarter left',
-				a3: 'Excused for ' + (write(quarterLeft) + ' more')
+				a3: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, quarterLeft)) + ' more')
 			},
 				{
 				aS: _List_Nil,
 				a$: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
 				a1: 'Only one fifth left',
-				a3: 'Excused for ' + (write(fifthLeft) + ' more')
+				a3: 'Excused for ' + (write(
+					A2(author$project$SmartTime$Duration$difference, timeLeft, fifthLeft)) + ' more')
 			}
 			]);
 	});
@@ -11371,7 +11379,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 						A2(
 							author$project$Activity$Reminder$scheduleExcusedReminders,
 							env.di,
-							A3(author$project$Activity$Measure$excusedUsage, updatedApp.dj, env.di, newActivity)))
+							A3(author$project$Activity$Measure$excusedLeft, updatedApp.dj, env.di, newActivity)))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -11405,31 +11413,6 @@ var elm$core$Dict$fromList = function (assocs) {
 		assocs);
 };
 var elm$core$String$toLower = _String_toLower;
-var elm$url$Url$Parser$Internal$Parser = elm$core$Basics$identity;
-var elm$url$Url$Parser$Query$custom = F2(
-	function (key, func) {
-		return function (dict) {
-			return func(
-				A2(
-					elm$core$Maybe$withDefault,
-					_List_Nil,
-					A2(elm$core$Dict$get, key, dict)));
-		};
-	});
-var elm$url$Url$Parser$Query$enum = F2(
-	function (key, dict) {
-		return A2(
-			elm$url$Url$Parser$Query$custom,
-			key,
-			function (stringList) {
-				if (stringList.b && (!stringList.b.b)) {
-					var str = stringList.a;
-					return A2(elm$core$Dict$get, str, dict);
-				} else {
-					return elm$core$Maybe$Nothing;
-				}
-			});
-	});
 var author$project$TimeTracker$urlTriggers = function (app) {
 	var entriesPerActivity = function (activity) {
 		return _Utils_ap(
@@ -11457,12 +11440,10 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 			author$project$Activity$Activity$allActivities(app.b5)));
 	return _List_fromArray(
 		[
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'start',
 			elm$core$Dict$fromList(activitiesWithNames)),
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'stop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
@@ -11471,8 +11452,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 						'stop',
 						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
 					]))),
-			A2(
-			elm$url$Url$Parser$Query$enum,
+			_Utils_Tuple2(
 			'noop',
 			elm$core$Dict$fromList(
 				_List_fromArray(
@@ -11506,6 +11486,31 @@ var elm$url$Url$Parser$query = function (_n0) {
 			]);
 	};
 };
+var elm$url$Url$Parser$Internal$Parser = elm$core$Basics$identity;
+var elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return function (dict) {
+			return func(
+				A2(
+					elm$core$Maybe$withDefault,
+					_List_Nil,
+					A2(elm$core$Dict$get, key, dict)));
+		};
+	});
+var elm$url$Url$Parser$Query$enum = F2(
+	function (key, dict) {
+		return A2(
+			elm$url$Url$Parser$Query$custom,
+			key,
+			function (stringList) {
+				if (stringList.b && (!stringList.b.b)) {
+					var str = stringList.a;
+					return A2(elm$core$Dict$get, str, dict);
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			});
+	});
 var elm$url$Url$Parser$Query$map = F2(
 	function (func, _n0) {
 		var a = _n0;
@@ -11519,16 +11524,11 @@ var author$project$Main$handleUrlTriggers = F2(
 		var appData = model.dx;
 		var environment = model.dF;
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var timeTrackerTriggers = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$Query$map(
-				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
-			author$project$TimeTracker$urlTriggers(appData));
 		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
-			var _n10 = environment.cS;
-			if (!_n10.$) {
-				var navkey = _n10.a;
+			var _n16 = environment.cS;
+			if (!_n16.$) {
+				var navkey = _n16.a;
 				return A2(
 					elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -11554,29 +11554,82 @@ var author$project$Main$handleUrlTriggers = F2(
 							_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
 						])))
 			]);
+		var createQueryParsers = function (_n15) {
+			var key = _n15.a;
+			var values = _n15.b;
+			return A2(elm$url$Url$Parser$Query$enum, key, values);
+		};
+		var timeTrackerTriggers = A2(
+			elm$core$List$map,
+			elm$url$Url$Parser$Query$map(
+				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+			A2(
+				elm$core$List$map,
+				createQueryParsers,
+				author$project$TimeTracker$urlTriggers(appData)));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
 			_Utils_ap(
-				mainTriggers,
-				_Utils_ap(taskTriggers, timeTrackerTriggers)));
+				taskTriggers,
+				_Utils_ap(timeTrackerTriggers, mainTriggers)));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
-			A2(author$project$Main$log, 'url', normalizedUrl));
-		if ((!parsed.$) && (!parsed.a.$)) {
-			var triggerMsg = parsed.a.a;
-			var _n9 = A2(author$project$Main$update, triggerMsg, model);
-			var newModel = _n9.a;
-			var newCmd = _n9.b;
-			var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[newCmd, removeTriggersFromUrl]));
-			return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
+			normalizedUrl);
+		if (!parsed.$) {
+			var parsedUrlSuccessfully = parsed.a;
+			var _n9 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d0);
+			if (!_n9.a.$) {
+				if (!_n9.b.$) {
+					var triggerMsg = _n9.a.a;
+					var _n10 = A2(author$project$Main$update, triggerMsg, model);
+					var newModel = _n10.a;
+					var newCmd = _n10.b;
+					var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[newCmd, removeTriggersFromUrl]));
+					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
+				} else {
+					var triggerMsg = _n9.a.a;
+					var _n12 = _n9.b;
+					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								dx: A2(author$project$AppData$saveError, appData, problemText)
+							}),
+						author$project$External$Commands$toast(problemText));
+				}
+			} else {
+				if (!_n9.b.$) {
+					var _n11 = _n9.a;
+					var query = _n9.b.a;
+					var problemText = 'Handle URL Triggers: none of  ' + (elm$core$String$fromInt(
+						elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								dx: A2(author$project$AppData$saveError, appData, problemText)
+							}),
+						author$project$External$Commands$toast(problemText));
+				} else {
+					var _n13 = _n9.a;
+					var _n14 = _n9.b;
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				}
+			}
 		} else {
+			var problemText = 'Handle URL Triggers: failed to parse URL ' + elm$url$Url$toString(normalizedUrl);
 			return _Utils_Tuple2(
-				model,
-				author$project$External$Commands$toast('I\'m inside handleUrlTriggers! no match'));
+				_Utils_update(
+					model,
+					{
+						dx: A2(author$project$AppData$saveError, appData, problemText)
+					}),
+				author$project$External$Commands$toast(problemText));
 		}
 	});
 var author$project$Main$update = F2(

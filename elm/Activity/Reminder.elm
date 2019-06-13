@@ -56,17 +56,17 @@ scheduleExcusedReminders now timeLeft =
       , actions = []
       }
     , { scheduledFor = future now thirdLeft
-      , title = "Excused for " ++ write thirdLeft ++ " more"
+      , title = "Excused for " ++ write (difference timeLeft thirdLeft) ++ " more"
       , subtitle = "Only one third left"
       , actions = []
       }
     , { scheduledFor = future now quarterLeft
-      , title = "Excused for " ++ write quarterLeft ++ " more"
+      , title = "Excused for " ++ write (difference timeLeft quarterLeft) ++ " more"
       , subtitle = "Only one quarter left"
       , actions = []
       }
     , { scheduledFor = future now fifthLeft
-      , title = "Excused for " ++ write fifthLeft ++ " more"
+      , title = "Excused for " ++ write (difference timeLeft fifthLeft) ++ " more"
       , subtitle = "Only one fifth left"
       , actions = []
       }

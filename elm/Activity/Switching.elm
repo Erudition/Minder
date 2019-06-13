@@ -33,7 +33,7 @@ switchActivity activityId app env =
             (Measure.exportExcusedUsageSeconds app env.time newActivity)
             (Measure.exportLastSession updatedApp oldActivity)
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (Measure.excusedUsage updatedApp.timeline env.time newActivity)
+        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (Measure.excusedLeft updatedApp.timeline env.time newActivity)
         ]
     )
 
