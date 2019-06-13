@@ -54,8 +54,8 @@ port setStorage : JsonAppDatabase -> Cmd msg
 
 log : String -> a -> a
 log string input =
-    --Debug.log "url" input
-    input
+    --input
+    Debug.log string input
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -480,16 +480,19 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             { url | path = "" }
 
         parsed =
-            P.parse (P.oneOf parseList) (log "url" <| normalizedUrl)
+            P.parse (P.oneOf parseList) normalizedUrl
 
         parseList =
-            List.map P.query (mainTriggers ++ taskTriggers ++ timeTrackerTriggers)
+            List.map P.query (taskTriggers ++ timeTrackerTriggers ++ mainTriggers)
+
+        createQueryParsers ( key, values ) =
+            PQ.enum key values
 
         mainTriggers =
             [ PQ.enum "sync" <| Dict.fromList [ ( "todoist", SyncTodoist ) ] ]
 
         timeTrackerTriggers =
-            List.map (PQ.map (Maybe.map TimeTrackerMsg)) (TimeTracker.urlTriggers appData)
+            List.map (PQ.map (Maybe.map TimeTrackerMsg)) (List.map createQueryParsers (TimeTracker.urlTriggers appData))
 
         taskTriggers =
             []
@@ -505,20 +508,47 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                     Cmd.none
     in
     case parsed of
-        Just (Just triggerMsg) ->
+        Just parsedUrlSuccessfully ->
+            case ( parsedUrlSuccessfully, normalizedUrl.query ) of
+                ( Just triggerMsg, Just _ ) ->
+                    let
+                        ( newModel, newCmd ) =
+                            update triggerMsg model
+
+                        newCmdWithUrlCleaner =
+                            Cmd.batch [ newCmd, removeTriggersFromUrl ]
+                    in
+                    ( newModel
+                    , newCmdWithUrlCleaner
+                    )
+
+                ( Nothing, Just query ) ->
+                    let
+                        problemText =
+                            "Handle URL Triggers: none of  "
+                                ++ String.fromInt (List.length parseList)
+                                ++ " parsers matched key and value: "
+                                ++ query
+                    in
+                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+
+                ( Just triggerMsg, Nothing ) ->
+                    let
+                        problemText =
+                            "Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!"
+                    in
+                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+
+                ( Nothing, Nothing ) ->
+                    ( model, Cmd.none )
+
+        Nothing ->
             let
-                ( newModel, newCmd ) =
-                    update triggerMsg model
-
-                newCmdWithUrlCleaner =
-                    Cmd.batch [ newCmd, removeTriggersFromUrl ]
+                problemText =
+                    "Handle URL Triggers: failed to parse URL "
+                        ++ Url.toString normalizedUrl
             in
-            ( newModel
-            , newCmdWithUrlCleaner
-            )
-
-        _ ->
-            ( model, External.Commands.toast "I'm inside handleUrlTriggers! no match" )
+            ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
 
 
 nerfUrl : Url.Url -> Url.Url

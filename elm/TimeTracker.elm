@@ -231,7 +231,7 @@ update msg state app env =
             ( state, updatedApp, cmds )
 
 
-urlTriggers : AppData -> List (PQ.Parser (Maybe Msg))
+urlTriggers : AppData -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
     let
         activitiesWithNames =
@@ -241,7 +241,8 @@ urlTriggers app =
             List.map (\n -> ( n, StartTracking activity.id )) activity.names
                 ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
     in
-    [ PQ.enum "start" <| Dict.fromList activitiesWithNames
-    , PQ.enum "stop" <| Dict.fromList [ ( "stop", StartTracking dummy ) ]
-    , PQ.enum "noop" <| Dict.fromList [ ( "noop", NoOp ) ]
+    -- HELP TODO only the first one runs, if it fails the rest are ignored
+    [ ( "start", Dict.fromList activitiesWithNames )
+    , ( "stop", Dict.fromList [ ( "stop", StartTracking dummy ) ] )
+    , ( "noop", Dict.fromList [ ( "noop", NoOp ) ] )
     ]
