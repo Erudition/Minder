@@ -220,15 +220,15 @@ update msg state app env =
             )
 
         StartTracking activityId ->
-            if activityId == (Switching.currentActivityFromApp app).id then
-                ( state, app, Cmd.batch [ Commands.toast "That activity is already running!", Commands.hideWindow ] )
+            let
+                ( updatedApp, cmds ) =
+                    if activityId == (Switching.currentActivityFromApp app).id then
+                        Switching.sameActivity activityId app env
 
-            else
-                let
-                    ( updatedApp, cmds ) =
+                    else
                         Switching.switchActivity activityId app env
-                in
-                ( state, updatedApp, cmds )
+            in
+            ( state, updatedApp, cmds )
 
 
 urlTriggers : AppData -> List (PQ.Parser (Maybe Msg))

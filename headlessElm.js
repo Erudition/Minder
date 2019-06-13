@@ -6767,8 +6767,8 @@ var justinmimbs$date$Date$fromRataDie = function (rd) {
 	return rd;
 };
 var author$project$Task$TaskMoment$decodeDate = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, justinmimbs$date$Date$fromRataDie, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
-var author$project$SmartTime$Moment$utcFromLinear = function (_int) {
-	return _int;
+var author$project$SmartTime$Moment$utcFromLinear = function (num) {
+	return num;
 };
 var elm$time$Time$Posix = elm$core$Basics$identity;
 var elm$time$Time$millisToPosix = elm$core$Basics$identity;
@@ -11201,6 +11201,144 @@ var author$project$External$Tasker$exit = _Platform_outgoingPort(
 		return elm$json$Json$Encode$null;
 	});
 var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(0);
+var author$project$Activity$Switching$sameActivity = F3(
+	function (activityId, app, env) {
+		var activity = author$project$Activity$Switching$currentActivityFromApp(app);
+		return _Utils_Tuple2(
+			app,
+			elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						author$project$External$Commands$toast(
+						A4(author$project$Activity$Switching$switchPopup, app.dj, env, activity, activity)),
+						A3(
+						author$project$External$Commands$changeActivity,
+						author$project$Activity$Activity$getName(activity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.di, activity),
+						A2(author$project$Activity$Measure$exportLastSession, app, activity)),
+						author$project$External$Commands$hideWindow
+					])));
+	});
+var author$project$SmartTime$Duration$scale = F2(
+	function (_n0, scalar) {
+		var dur = _n0;
+		return elm$core$Basics$round(dur * scalar);
+	});
+var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
+	switch (unit.$) {
+		case 0:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 1:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'sec';
+		case 2:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'min';
+		case 3:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'hr';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withAbbreviation, humanDurationList)));
+};
+var author$project$SmartTime$Human$Duration$breakdownHM = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var minutes = _n0.cP;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$Human$Duration$Hours(
+			author$project$SmartTime$Duration$inWholeHours(duration)),
+			author$project$SmartTime$Human$Duration$Minutes(minutes)
+		]);
+};
+var author$project$SmartTime$Moment$future = F2(
+	function (_n0, duration) {
+		var time = _n0;
+		return A2(author$project$SmartTime$Duration$add, time, duration);
+	});
+var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
+	function (now, timeLeft) {
+		var write = function (durLeft) {
+			return author$project$SmartTime$Human$Duration$abbreviatedSpaced(
+				author$project$SmartTime$Human$Duration$breakdownHM(durLeft));
+		};
+		var thirdLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 2 / 3);
+		var quarterLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 3 / 4);
+		var halfLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
+		var fifthLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 4 / 5);
+		return _List_fromArray(
+			[
+				{
+				aS: _List_Nil,
+				a$: A2(author$project$SmartTime$Moment$future, now, halfLeft),
+				a1: write(halfLeft) + ' left',
+				a3: 'Half Time!'
+			},
+				{
+				aS: _List_Nil,
+				a$: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
+				a1: 'Only one third left',
+				a3: 'Excused for ' + (write(thirdLeft) + ' more')
+			},
+				{
+				aS: _List_Nil,
+				a$: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
+				a1: 'Only one quarter left',
+				a3: 'Excused for ' + (write(quarterLeft) + ' more')
+			},
+				{
+				aS: _List_Nil,
+				a$: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
+				a1: 'Only one fifth left',
+				a3: 'Excused for ' + (write(fifthLeft) + ' more')
+			}
+			]);
+	});
+var author$project$External$Commands$compileList = function (reminderList) {
+	return elm$core$String$concat(
+		A2(elm$core$List$intersperse, '§', reminderList));
+};
+var author$project$SmartTime$Duration$inSeconds = function (duration) {
+	return author$project$SmartTime$Duration$inMs(duration) / 1000;
+};
+var author$project$SmartTime$Moment$toUnixTime = function (_n0) {
+	var dur = _n0;
+	return author$project$SmartTime$Moment$utcFromLinear(
+		author$project$SmartTime$Duration$inSeconds(dur));
+};
+var elm$core$Basics$truncate = _Basics_truncate;
+var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
+	return author$project$SmartTime$Moment$toUnixTime(mo) | 0;
+};
+var author$project$External$Commands$taskerEncodeNotification = function (reminder) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			';',
+			_List_fromArray(
+				[
+					elm$core$String$fromInt(
+					author$project$SmartTime$Moment$toUnixTimeInt(reminder.a$)),
+					reminder.a3,
+					reminder.a1
+				])));
+};
+var author$project$External$Commands$scheduleNotify = function (reminderList) {
+	return author$project$External$Tasker$variableOut(
+		_Utils_Tuple2(
+			'Scheduled',
+			author$project$External$Commands$compileList(
+				A2(elm$core$List$map, author$project$External$Commands$taskerEncodeNotification, reminderList))));
+};
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityId, app, env) {
 		var updatedApp = _Utils_update(
@@ -11228,7 +11366,12 @@ var author$project$Activity$Switching$switchActivity = F3(
 						author$project$Activity$Activity$getName(newActivity),
 						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.di, newActivity),
 						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
-						author$project$External$Commands$hideWindow
+						author$project$External$Commands$hideWindow,
+						author$project$External$Commands$scheduleNotify(
+						A2(
+							author$project$Activity$Reminder$scheduleExcusedReminders,
+							env.di,
+							A3(author$project$Activity$Measure$excusedUsage, updatedApp.dj, env.di, newActivity)))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -11237,24 +11380,12 @@ var author$project$TimeTracker$update = F4(
 			return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 		} else {
 			var activityId = msg.a;
-			if (_Utils_eq(
+			var _n1 = _Utils_eq(
 				activityId,
-				author$project$Activity$Switching$currentActivityFromApp(app).c)) {
-				return _Utils_Tuple3(
-					state,
-					app,
-					elm$core$Platform$Cmd$batch(
-						_List_fromArray(
-							[
-								author$project$External$Commands$toast('That activity is already running!'),
-								author$project$External$Commands$hideWindow
-							])));
-			} else {
-				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
-				var updatedApp = _n1.a;
-				var cmds = _n1.b;
-				return _Utils_Tuple3(state, updatedApp, cmds);
-			}
+				author$project$Activity$Switching$currentActivityFromApp(app).c) ? A3(author$project$Activity$Switching$sameActivity, activityId, app, env) : A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
+			var updatedApp = _n1.a;
+			var cmds = _n1.b;
+			return _Utils_Tuple3(state, updatedApp, cmds);
 		}
 	});
 var author$project$TimeTracker$NoOp = {$: 0};
@@ -11594,8 +11725,8 @@ var author$project$SmartTime$Duration$map = F2(
 		var _int = _n0;
 		return func(_int);
 	});
-var author$project$SmartTime$Moment$linearFromUTC = function (_int) {
-	return _int;
+var author$project$SmartTime$Moment$linearFromUTC = function (num) {
+	return num;
 };
 var author$project$SmartTime$Moment$moment = F3(
 	function (scale, epoch, duration) {

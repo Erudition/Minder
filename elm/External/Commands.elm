@@ -1,4 +1,4 @@
-port module External.Commands exposing (changeActivity, hideWindow, toast)
+port module External.Commands exposing (changeActivity, hideWindow, scheduleNotify, toast)
 
 import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)
@@ -9,7 +9,22 @@ import SmartTime.Moment as Moment
 
 scheduleNotify : List Reminder -> Cmd msg
 scheduleNotify reminderList =
-    notificationsOut (Encode.list encodeNotification reminderList)
+    variableOut ( "Scheduled", compileList (List.map taskerEncodeNotification reminderList) )
+
+
+taskerEncodeNotification : Reminder -> String
+taskerEncodeNotification reminder =
+    String.concat <|
+        List.intersperse ";" <|
+            [ String.fromInt <| Moment.toUnixTimeInt reminder.scheduledFor
+            , reminder.title
+            , reminder.subtitle
+            ]
+
+
+compileList : List String -> String
+compileList reminderList =
+    String.concat <| List.intersperse "§" <| reminderList
 
 
 encodeNotification : Reminder -> Encode.Value
