@@ -62,6 +62,7 @@ type Template
     | Course
     | Pet
     | Presentation
+    | Projects
 
 
 decodeTemplate : Decoder Template
@@ -121,6 +122,7 @@ decodeTemplate =
         , ( "Course", Course )
         , ( "Pet", Pet )
         , ( "Presentation", Presentation )
+        , ( "Projects", Projects )
         ]
 
 
@@ -289,7 +291,10 @@ encodeTemplate v =
         Presentation ->
             Encode.string "Presentation"
 
+        Projects ->
+            Encode.string "Projects"
+
 
 stockActivities : List Template
 stockActivities =
-    [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation ]
+    [ DillyDally, Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation, Projects ]

@@ -5622,6 +5622,7 @@ var author$project$Activity$Template$Pet = 52;
 var author$project$Activity$Template$Plan = 13;
 var author$project$Activity$Template$Prepare = 20;
 var author$project$Activity$Template$Presentation = 53;
+var author$project$Activity$Template$Projects = 54;
 var author$project$Activity$Template$Restroom = 3;
 var author$project$Activity$Template$Riding = 23;
 var author$project$Activity$Template$Series = 40;
@@ -5968,7 +5969,8 @@ var author$project$Activity$Template$decodeTemplate = author$project$Porting$dec
 			_Utils_Tuple2('Flight', 50),
 			_Utils_Tuple2('Course', 51),
 			_Utils_Tuple2('Pet', 52),
-			_Utils_Tuple2('Presentation', 53)
+			_Utils_Tuple2('Presentation', 53),
+			_Utils_Tuple2('Projects', 54)
 		]));
 var zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 5};
 var zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
@@ -8266,8 +8268,10 @@ var author$project$Activity$Template$encodeTemplate = function (v) {
 			return elm$json$Json$Encode$string('Course');
 		case 52:
 			return elm$json$Json$Encode$string('Pet');
-		default:
+		case 53:
 			return elm$json$Json$Encode$string('Presentation');
+		default:
+			return elm$json$Json$Encode$string('Projects');
 	}
 };
 var elm$json$Json$Encode$int = _Json_wrap;
@@ -10872,20 +10876,40 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				k: true,
 				e: startWith
 			};
-		default:
+		case 53:
 			return {
 				f: false,
 				g: 3,
 				h: _List_Nil,
 				a: author$project$Activity$Activity$NeverExcused,
 				b: false,
-				i: author$project$Activity$Activity$File('presentation.svg'),
+				i: author$project$Activity$Activity$File('unknown.svg'),
 				c: author$project$Activity$Activity$Stock(startWith),
 				j: _Utils_Tuple2(
 					author$project$SmartTime$Human$Duration$Hours(2),
 					author$project$SmartTime$Human$Duration$Days(1)),
 				d: _List_fromArray(
 					['Presentation', 'Presenting', 'Present']),
+				k: true,
+				e: startWith
+			};
+		default:
+			return {
+				f: false,
+				g: 3,
+				h: _List_Nil,
+				a: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(45),
+						author$project$SmartTime$Human$Duration$Hours(3))),
+				b: false,
+				i: author$project$Activity$Activity$File('unknown.svg'),
+				c: author$project$Activity$Activity$Stock(startWith),
+				j: _Utils_Tuple2(
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
+				d: _List_fromArray(
+					['Project', 'Projects', 'Project Work', 'Fun Project']),
 				k: true,
 				e: startWith
 			};
@@ -10922,7 +10946,7 @@ var author$project$Activity$Activity$withTemplate = function (delta) {
 	};
 };
 var author$project$Activity$Template$stockActivities = _List_fromArray(
-	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53]);
+	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]);
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:

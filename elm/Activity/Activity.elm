@@ -1166,8 +1166,22 @@ defaults startWith =
 
         Presentation ->
             { names = [ "Presentation", "Presenting", "Present" ]
-            , icon = File "presentation.svg"
+            , icon = File "unknown.svg"
             , excusable = NeverExcused
+            , taskOptional = True
+            , evidence = []
+            , category = Slacking
+            , backgroundable = False
+            , maxTime = ( Hours 2, Days 1 )
+            , hidden = False
+            , template = startWith
+            , id = Stock startWith
+            }
+
+        Projects ->
+            { names = [ "Project", "Projects", "Project Work", "Fun Project" ]
+            , icon = File "unknown.svg"
+            , excusable = TemporarilyExcused ( Minutes 45, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
