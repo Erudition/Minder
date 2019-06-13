@@ -183,7 +183,7 @@ excusedLeft : Timeline -> Moment -> Activity -> Duration
 excusedLeft timeline now activity =
     let
         excusableLimit =
-            toDuration (Tuple.second (Activity.excusableFor activity))
+            toDuration (Tuple.first (Activity.excusableFor activity))
     in
     Duration.difference excusableLimit (excusedUsage timeline now activity)
 
