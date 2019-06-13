@@ -193,6 +193,11 @@ exportExcusedUsageSeconds app now activity =
     String.fromInt <| Duration.inSecondsRounded (excusedUsage app.timeline now activity)
 
 
+exportExcusedLeftSeconds : AppData -> Moment -> Activity -> String
+exportExcusedLeftSeconds app now activity =
+    String.fromInt <| Duration.inSecondsRounded (excusedLeft app.timeline now activity)
+
+
 exportLastSession : AppData -> Activity -> String
 exportLastSession app old =
     let
