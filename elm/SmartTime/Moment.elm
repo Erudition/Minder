@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, zero)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
@@ -53,14 +53,14 @@ moment scale epoch duration =
             Moment (Duration.map linearFromUTC duration)
 
 
-linearFromUTC : Int -> Int
-linearFromUTC int =
-    int
+linearFromUTC : number -> number
+linearFromUTC num =
+    num
 
 
-utcFromLinear : Int -> Int
-utcFromLinear int =
-    int
+utcFromLinear : number -> number
+utcFromLinear num =
+    num
 
 
 {-| Shift a `Moment` into its future by some amount of time (`Duration`).
@@ -143,6 +143,16 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 fromUnixTime : Float -> Moment
 fromUnixTime float =
     moment CoordinatedUniversal UnixEpoch (Duration.fromInt (round (float * 1000)))
+
+
+toUnixTime : Moment -> Float
+toUnixTime (Moment dur) =
+    utcFromLinear (Duration.inSeconds dur)
+
+
+toUnixTimeInt : Moment -> Int
+toUnixTimeInt mo =
+    truncate <| toUnixTime mo
 
 
 {-| How far is this Moment from a particular `Epoch`?
