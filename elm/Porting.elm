@@ -374,3 +374,33 @@ toClassicLoose decoder =
             asResult value
     in
     ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
+
+
+tuple2Encoder : (a -> Encode.Value) -> (b -> Encode.Value) -> ( a, b ) -> Encode.Value
+tuple2Encoder firstEncoder secondEncoder ( first, second ) =
+    Encode.list identity [ firstEncoder first, secondEncoder second ]
+
+
+tuple2Decoder : Decoder a -> Decoder b -> Decoder ( a, b )
+tuple2Decoder decoderA decoderB =
+    Decode.map2 Tuple.pair
+        (Decode.index 0 decoderA)
+        (Decode.index 1 decoderB)
+
+
+tuple3Encoder : (a -> Encode.Value) -> (b -> Encode.Value) -> (c -> Encode.Value) -> ( a, b, c ) -> Encode.Value
+tuple3Encoder firstEncoder secondEncoder thirdEncoder ( first, second, third ) =
+    Encode.list identity [ firstEncoder first, secondEncoder second, thirdEncoder third ]
+
+
+tuple3Decoder : Decoder a -> Decoder b -> Decoder c -> Decoder ( a, b, c )
+tuple3Decoder decoderA decoderB decoderC =
+    Decode.map3 triple
+        (Decode.index 0 decoderA)
+        (Decode.index 1 decoderB)
+        (Decode.index 2 decoderC)
+
+
+triple : a -> b -> c -> ( a, b, c )
+triple a b c =
+    ( a, b, c )
