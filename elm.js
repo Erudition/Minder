@@ -5634,6 +5634,7 @@ var author$project$Activity$Template$Pet = {$: 'Pet'};
 var author$project$Activity$Template$Plan = {$: 'Plan'};
 var author$project$Activity$Template$Prepare = {$: 'Prepare'};
 var author$project$Activity$Template$Presentation = {$: 'Presentation'};
+var author$project$Activity$Template$Projects = {$: 'Projects'};
 var author$project$Activity$Template$Restroom = {$: 'Restroom'};
 var author$project$Activity$Template$Riding = {$: 'Riding'};
 var author$project$Activity$Template$Series = {$: 'Series'};
@@ -5987,7 +5988,8 @@ var author$project$Activity$Template$decodeTemplate = author$project$Porting$dec
 			_Utils_Tuple2('Flight', author$project$Activity$Template$Flight),
 			_Utils_Tuple2('Course', author$project$Activity$Template$Course),
 			_Utils_Tuple2('Pet', author$project$Activity$Template$Pet),
-			_Utils_Tuple2('Presentation', author$project$Activity$Template$Presentation)
+			_Utils_Tuple2('Presentation', author$project$Activity$Template$Presentation),
+			_Utils_Tuple2('Projects', author$project$Activity$Template$Projects)
 		]));
 var zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObject'};
 var zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
@@ -8448,8 +8450,10 @@ var author$project$Activity$Template$encodeTemplate = function (v) {
 			return elm$json$Json$Encode$string('Course');
 		case 'Pet':
 			return elm$json$Json$Encode$string('Pet');
-		default:
+		case 'Presentation':
 			return elm$json$Json$Encode$string('Presentation');
+		default:
+			return elm$json$Json$Encode$string('Projects');
 	}
 };
 var elm$json$Json$Encode$int = _Json_wrap;
@@ -11070,20 +11074,40 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				taskOptional: true,
 				template: startWith
 			};
-		default:
+		case 'Presentation':
 			return {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$NeverExcused,
 				hidden: false,
-				icon: author$project$Activity$Activity$File('presentation.svg'),
+				icon: author$project$Activity$Activity$File('unknown.svg'),
 				id: author$project$Activity$Activity$Stock(startWith),
 				maxTime: _Utils_Tuple2(
 					author$project$SmartTime$Human$Duration$Hours(2),
 					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Presentation', 'Presenting', 'Present']),
+				taskOptional: true,
+				template: startWith
+			};
+		default:
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(45),
+						author$project$SmartTime$Human$Duration$Hours(3))),
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				id: author$project$Activity$Activity$Stock(startWith),
+				maxTime: _Utils_Tuple2(
+					author$project$SmartTime$Human$Duration$Hours(2),
+					author$project$SmartTime$Human$Duration$Days(1)),
+				names: _List_fromArray(
+					['Project', 'Projects', 'Project Work', 'Fun Project']),
 				taskOptional: true,
 				template: startWith
 			};
@@ -11120,7 +11144,7 @@ var author$project$Activity$Activity$withTemplate = function (delta) {
 	};
 };
 var author$project$Activity$Template$stockActivities = _List_fromArray(
-	[author$project$Activity$Template$DillyDally, author$project$Activity$Template$Apparel, author$project$Activity$Template$Messaging, author$project$Activity$Template$Restroom, author$project$Activity$Template$Grooming, author$project$Activity$Template$Meal, author$project$Activity$Template$Supplements, author$project$Activity$Template$Workout, author$project$Activity$Template$Shower, author$project$Activity$Template$Toothbrush, author$project$Activity$Template$Floss, author$project$Activity$Template$Wakeup, author$project$Activity$Template$Sleep, author$project$Activity$Template$Plan, author$project$Activity$Template$Configure, author$project$Activity$Template$Email, author$project$Activity$Template$Work, author$project$Activity$Template$Call, author$project$Activity$Template$Chores, author$project$Activity$Template$Parents, author$project$Activity$Template$Prepare, author$project$Activity$Template$Lover, author$project$Activity$Template$Driving, author$project$Activity$Template$Riding, author$project$Activity$Template$SocialMedia, author$project$Activity$Template$Pacing, author$project$Activity$Template$Sport, author$project$Activity$Template$Finance, author$project$Activity$Template$Laundry, author$project$Activity$Template$Bedward, author$project$Activity$Template$Browse, author$project$Activity$Template$Fiction, author$project$Activity$Template$Learning, author$project$Activity$Template$BrainTrain, author$project$Activity$Template$Music, author$project$Activity$Template$Create, author$project$Activity$Template$Children, author$project$Activity$Template$Meeting, author$project$Activity$Template$Cinema, author$project$Activity$Template$FilmWatching, author$project$Activity$Template$Series, author$project$Activity$Template$Broadcast, author$project$Activity$Template$Theatre, author$project$Activity$Template$Shopping, author$project$Activity$Template$VideoGaming, author$project$Activity$Template$Housekeeping, author$project$Activity$Template$MealPrep, author$project$Activity$Template$Networking, author$project$Activity$Template$Meditate, author$project$Activity$Template$Homework, author$project$Activity$Template$Flight, author$project$Activity$Template$Course, author$project$Activity$Template$Pet, author$project$Activity$Template$Presentation]);
+	[author$project$Activity$Template$DillyDally, author$project$Activity$Template$Apparel, author$project$Activity$Template$Messaging, author$project$Activity$Template$Restroom, author$project$Activity$Template$Grooming, author$project$Activity$Template$Meal, author$project$Activity$Template$Supplements, author$project$Activity$Template$Workout, author$project$Activity$Template$Shower, author$project$Activity$Template$Toothbrush, author$project$Activity$Template$Floss, author$project$Activity$Template$Wakeup, author$project$Activity$Template$Sleep, author$project$Activity$Template$Plan, author$project$Activity$Template$Configure, author$project$Activity$Template$Email, author$project$Activity$Template$Work, author$project$Activity$Template$Call, author$project$Activity$Template$Chores, author$project$Activity$Template$Parents, author$project$Activity$Template$Prepare, author$project$Activity$Template$Lover, author$project$Activity$Template$Driving, author$project$Activity$Template$Riding, author$project$Activity$Template$SocialMedia, author$project$Activity$Template$Pacing, author$project$Activity$Template$Sport, author$project$Activity$Template$Finance, author$project$Activity$Template$Laundry, author$project$Activity$Template$Bedward, author$project$Activity$Template$Browse, author$project$Activity$Template$Fiction, author$project$Activity$Template$Learning, author$project$Activity$Template$BrainTrain, author$project$Activity$Template$Music, author$project$Activity$Template$Create, author$project$Activity$Template$Children, author$project$Activity$Template$Meeting, author$project$Activity$Template$Cinema, author$project$Activity$Template$FilmWatching, author$project$Activity$Template$Series, author$project$Activity$Template$Broadcast, author$project$Activity$Template$Theatre, author$project$Activity$Template$Shopping, author$project$Activity$Template$VideoGaming, author$project$Activity$Template$Housekeeping, author$project$Activity$Template$MealPrep, author$project$Activity$Template$Networking, author$project$Activity$Template$Meditate, author$project$Activity$Template$Homework, author$project$Activity$Template$Flight, author$project$Activity$Template$Course, author$project$Activity$Template$Pet, author$project$Activity$Template$Presentation, author$project$Activity$Template$Projects]);
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:
