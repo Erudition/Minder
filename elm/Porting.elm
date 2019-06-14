@@ -1,10 +1,12 @@
-module Porting exposing (EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeInterval, encodeBoolAsInt, encodeInterval, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, updateable)
+module Porting exposing (BoolAsInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeTuple2, decodeTuple3, encodeBoolAsInt, encodeDuration, encodeIntDict, encodeInterval, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable)
 
+import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
+import SmartTime.Duration as Duration exposing (Duration)
 import Time.Extra exposing (Interval(..))
 
 
@@ -376,25 +378,25 @@ toClassicLoose decoder =
     ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
 
 
-tuple2Encoder : (a -> Encode.Value) -> (b -> Encode.Value) -> ( a, b ) -> Encode.Value
-tuple2Encoder firstEncoder secondEncoder ( first, second ) =
+encodeTuple2 : (a -> Encode.Value) -> (b -> Encode.Value) -> ( a, b ) -> Encode.Value
+encodeTuple2 firstEncoder secondEncoder ( first, second ) =
     Encode.list identity [ firstEncoder first, secondEncoder second ]
 
 
-tuple2Decoder : Decoder a -> Decoder b -> Decoder ( a, b )
-tuple2Decoder decoderA decoderB =
+decodeTuple2 : Decoder a -> Decoder b -> Decoder ( a, b )
+decodeTuple2 decoderA decoderB =
     Decode.map2 Tuple.pair
         (Decode.index 0 decoderA)
         (Decode.index 1 decoderB)
 
 
-tuple3Encoder : (a -> Encode.Value) -> (b -> Encode.Value) -> (c -> Encode.Value) -> ( a, b, c ) -> Encode.Value
-tuple3Encoder firstEncoder secondEncoder thirdEncoder ( first, second, third ) =
+encodeTuple3 : (a -> Encode.Value) -> (b -> Encode.Value) -> (c -> Encode.Value) -> ( a, b, c ) -> Encode.Value
+encodeTuple3 firstEncoder secondEncoder thirdEncoder ( first, second, third ) =
     Encode.list identity [ firstEncoder first, secondEncoder second, thirdEncoder third ]
 
 
-tuple3Decoder : Decoder a -> Decoder b -> Decoder c -> Decoder ( a, b, c )
-tuple3Decoder decoderA decoderB decoderC =
+decodeTuple3 : Decoder a -> Decoder b -> Decoder c -> Decoder ( a, b, c )
+decodeTuple3 decoderA decoderB decoderC =
     Decode.map3 triple
         (Decode.index 0 decoderA)
         (Decode.index 1 decoderB)
@@ -404,3 +406,23 @@ tuple3Decoder decoderA decoderB decoderC =
 triple : a -> b -> c -> ( a, b, c )
 triple a b c =
     ( a, b, c )
+
+
+encodeIntDict : (valuetype -> Encode.Value) -> IntDict valuetype -> Encode.Value
+encodeIntDict valueEncoder dict =
+    Encode.list (encodeTuple2 Encode.int valueEncoder) (IntDict.toList dict)
+
+
+decodeIntDict : Decoder valuetype -> Decoder (IntDict valuetype)
+decodeIntDict valueDecoder =
+    Decode.map IntDict.fromList <| Decode.list (decodeTuple2 Decode.int valueDecoder)
+
+
+encodeDuration : Duration -> Encode.Value
+encodeDuration dur =
+    Duration.inMs dur
+
+
+decodeDuration : Decoder Duration
+decodeDuration =
+    Decode.map Duration.fromInt Decode.int
