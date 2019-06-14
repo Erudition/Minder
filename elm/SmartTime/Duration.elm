@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, map, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, map, scale, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -284,6 +284,16 @@ difference (Duration int1) (Duration int2) =
     Duration <| abs (int1 - int2)
 
 
+{-| How do these durations compare?
+
+Works just like a normal `compare`.
+
+-}
+compare : Duration -> Duration -> Order
+compare (Duration int1) (Duration int2) =
+    Basics.compare int1 int2
+
+
 {-| Get the sum of a list of durations, as a final `Duration`.
 -}
 combine : List Duration -> Duration
@@ -320,6 +330,16 @@ Perhaps you want to use a function that demands a `Duration` on something that r
 zero : Duration
 zero =
     Duration 0
+
+
+{-| Find out if a Duration is empty. Zero. Infinitesimal. Instant.
+
+Or use `not` to find out if the Duration has any substance to it.
+
+-}
+isZero : Duration -> Bool
+isZero (Duration int) =
+    int == 0
 
 
 
