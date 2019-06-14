@@ -11,6 +11,7 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
+import IntDict
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -81,8 +82,8 @@ view state app env =
                 [ section
                     [ class "todoapp" ]
                     [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) app.tasks
-                    , lazy2 viewControls filters app.tasks
+                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) (IntDict.values app.tasks)
+                    , lazy2 viewControls filters (IntDict.values app.tasks)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
@@ -180,7 +181,7 @@ viewKeyedTask now task =
 viewTask : Moment -> Task -> Html Msg
 viewTask now task =
     li
-        [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", task.editing ) ] ]
+        [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", False ) ] ]
         [ progressSlider task
         , div
             [ class "view" ]
@@ -432,7 +433,7 @@ update msg state app env =
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | tasks = app.tasks ++ [ newTask newTaskTitle (Moment.toSmartInt env.time) ]
+                        | tasks = IntDict.insert (Moment.toSmartInt env.time) (newTask newTaskTitle (Moment.toSmartInt env.time)) app.tasks
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
@@ -452,72 +453,56 @@ update msg state app env =
         EditingTitle id isEditing ->
             let
                 updateTask t =
-                    if t.id == id then
-                        { t | editing = isEditing }
-                        -- TODO editing should be a viewState thing, not a task prop
+                    t
 
-                    else
-                        t
-
+                -- TODO editing should be a viewState thing, not a task prop
                 focus =
                     Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
             ( state
-            , { app | tasks = List.map updateTask app.tasks }
+            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
             , Job.attempt (\_ -> NoOp) focus
             )
 
         UpdateTask id task ->
             let
                 updateTask t =
-                    if t.id == id then
-                        { t | title = task }
-
-                    else
-                        t
+                    { t | title = task }
             in
             ( state
-            , { app | tasks = List.map updateTask app.tasks }
+            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
             , Cmd.none
             )
 
         UpdateTaskDate id field date ->
             let
                 updateTask t =
-                    if t.id == id then
-                        { t | deadline = date }
-
-                    else
-                        t
+                    { t | deadline = date }
             in
             ( state
-            , { app | tasks = List.map updateTask app.tasks }
+            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
             , Cmd.none
             )
 
         Delete id ->
             ( state
-            , { app | tasks = List.filter (\t -> t.id /= id) app.tasks }
+            , { app | tasks = IntDict.remove id app.tasks }
             , Cmd.none
             )
 
         DeleteComplete ->
             ( state
-            , { app | tasks = List.filter (not << completed) app.tasks }
+            , { app | tasks = IntDict.filter (\_ t -> not (completed t)) app.tasks }
             , Cmd.none
             )
 
         UpdateProgress id new_completion ->
             let
                 updateTask t =
-                    if t.id == id then
-                        { t | completion = new_completion }
-
-                    else
-                        t
+                    { t | completion = new_completion }
             in
             ( state
-            , { app | tasks = List.map updateTask app.tasks }
+            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
             , Cmd.none
             )
 

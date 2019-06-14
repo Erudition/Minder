@@ -3,6 +3,7 @@ module External.TodoistSync exposing (Item, Project, TodoistMsg, handle, sync)
 import AppData exposing (AppData, saveError)
 import Dict exposing (Dict)
 import Http
+import IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Decode.Extra exposing (fromResult)
@@ -116,7 +117,10 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
         Ok data ->
             { app
                 | tokens = { todoistSyncToken = data.sync_token }
-                , tasks = List.map itemToTask data.items
+                , tasks =
+                    IntDict.fromList <|
+                        List.map (\t -> ( t.id, t )) <|
+                            List.map itemToTask data.items
             }
 
         Err err ->
@@ -267,7 +271,7 @@ itemToTask item =
             else
                 base.completion
         , tags = []
-        , project = Just item.project_id
+        , activity = Just item.project_id
     }
 
 

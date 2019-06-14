@@ -6,9 +6,10 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress exposing (..)
-import Task.TaskMoment exposing (..)
+import Task.TaskMoment exposing (TaskMoment(..), decodeTaskMoment, encodeTaskMoment)
 
 
 {-| Definition of a single task.
@@ -28,7 +29,7 @@ type alias Task =
     , history : List HistoryEntry
     , parent : Maybe TaskId
     , tags : List TagId
-    , activity : Maybe ActivityId
+    , activity : Maybe Int
     , deadline : TaskMoment
     , plannedStart : TaskMoment
     , plannedFinish : TaskMoment
@@ -48,7 +49,7 @@ decodeTask =
         |> Pipeline.required "maxEffort" decodeDuration
         |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
         |> Pipeline.required "parent" (Decode.nullable Decode.int)
-        |> Pipeline.required "tags" (Decode.list Decode.string)
+        |> Pipeline.required "tags" (Decode.list Decode.int)
         |> Pipeline.required "activity" (Decode.nullable Decode.int)
         |> Pipeline.required "deadline" decodeTaskMoment
         |> Pipeline.required "plannedStart" decodeTaskMoment
@@ -68,8 +69,8 @@ encodeTask record =
         , ( "maxEffort", encodeDuration <| record.predictedEffort )
         , ( "history", Encode.list encodeHistoryEntry record.history )
         , ( "parent", Encode2.maybe Encode.int record.parent )
-        , ( "tags", Encode.list Encode.string record.tags )
-        , ( "activity", Encode2.maybe Encode.int record.project )
+        , ( "tags", Encode.list Encode.int record.tags )
+        , ( "activity", Encode2.maybe Encode.int record.activity )
         , ( "deadline", encodeTaskMoment record.deadline )
         , ( "plannedStart", encodeTaskMoment record.plannedStart )
         , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
@@ -81,14 +82,15 @@ encodeTask record =
 newTask : String -> Int -> Task
 newTask description id =
     { title = description
-    , editing = False
     , id = id
     , completion = ( 0, Percent )
     , parent = Nothing
-    , predictedEffort = 0
+    , maxEffort = Duration.zero
+    , predictedEffort = Duration.zero
+    , minEffort = Duration.zero
     , history = []
     , tags = []
-    , project = Just 0
+    , activity = Just 0
     , deadline = Unset
     , plannedStart = Unset
     , plannedFinish = Unset
@@ -145,7 +147,7 @@ decodeTaskChange =
         [ ( "CompletionChange", subtype CompletionChange "progress" decodeProgress )
         , ( "Created", subtype Created "moment" decodeMoment )
         , ( "ParentChange", subtype ParentChange "taskId" Decode.int )
-        , ( "PredictedEffortChange", subtype PredictedEffortChange "duration" Decode.int )
+        , ( "PredictedEffortChange", subtype PredictedEffortChange "duration" decodeDuration )
         , ( "TagsChange", succeed TagsChange )
         , ( "TitleChange", subtype TitleChange "string" Decode.string )
         ]
@@ -164,7 +166,7 @@ encodeTaskChange theTaskChange =
             Encode.object [ ( "TitleChange", Encode.string string ) ]
 
         PredictedEffortChange duration ->
-            Encode.object [ ( "PredictedEffortChange", Encode.int duration ) ]
+            Encode.object [ ( "PredictedEffortChange", encodeDuration duration ) ]
 
         ParentChange taskId ->
             Encode.object [ ( "ParentChange", Encode.int taskId ) ]
