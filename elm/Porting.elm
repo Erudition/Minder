@@ -1,4 +1,4 @@
-module Porting exposing (BoolAsInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeTuple2, decodeTuple3, encodeBoolAsInt, encodeDuration, encodeIntDict, encodeInterval, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable)
+module Porting exposing (BoolAsInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolAsInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -7,6 +7,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
 import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Moment as Moment exposing (Moment)
 import Time.Extra exposing (Interval(..))
 
 
@@ -420,9 +421,19 @@ decodeIntDict valueDecoder =
 
 encodeDuration : Duration -> Encode.Value
 encodeDuration dur =
-    Duration.inMs dur
+    Encode.int (Duration.inMs dur)
 
 
 decodeDuration : Decoder Duration
 decodeDuration =
     Decode.map Duration.fromInt Decode.int
+
+
+encodeMoment : Moment -> Encode.Value
+encodeMoment dur =
+    Encode.int (Moment.toSmartInt dur)
+
+
+decodeMoment : Decoder Moment
+decodeMoment =
+    Decode.map Moment.fromSmartInt Decode.int
