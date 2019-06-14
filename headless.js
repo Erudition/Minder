@@ -784,11 +784,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.bX.aX === region.cu.aX)
+	if (region.b$.a0 === region.cy.a0)
 	{
-		return 'on line ' + region.bX.aX;
+		return 'on line ' + region.b$.a0;
 	}
-	return 'on lines ' + region.bX.aX + ' through ' + region.cu.aX;
+	return 'on lines ' + region.b$.a0 + ' through ' + region.cy.a0;
 }
 
 
@@ -1857,9 +1857,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dP,
-		impl.ec,
-		impl.d9,
+		impl.dW,
+		impl.ei,
+		impl.ef,
 		function() { return function() {} }
 	);
 });
@@ -2313,6 +2313,43 @@ function _Platform_mergeExportsDebug(moduleName, obj, exports)
 }
 
 
+
+var _Bitwise_and = F2(function(a, b)
+{
+	return a & b;
+});
+
+var _Bitwise_or = F2(function(a, b)
+{
+	return a | b;
+});
+
+var _Bitwise_xor = F2(function(a, b)
+{
+	return a ^ b;
+});
+
+function _Bitwise_complement(a)
+{
+	return ~a;
+};
+
+var _Bitwise_shiftLeftBy = F2(function(offset, a)
+{
+	return a << offset;
+});
+
+var _Bitwise_shiftRightBy = F2(function(offset, a)
+{
+	return a >> offset;
+});
+
+var _Bitwise_shiftRightZfBy = F2(function(offset, a)
+{
+	return a >>> offset;
+});
+
+
 function _Url_percentEncode(string)
 {
 	return encodeURIComponent(string);
@@ -2338,25 +2375,25 @@ var _Http_toTask = F3(function(router, toTask, request)
 	return _Scheduler_binding(function(callback)
 	{
 		function done(response) {
-			callback(toTask(request.dG.a(response)));
+			callback(toTask(request.dN.a(response)));
 		}
 
 		var xhr = new XMLHttpRequest();
 		xhr.addEventListener('error', function() { done(elm$http$Http$NetworkError_); });
 		xhr.addEventListener('timeout', function() { done(elm$http$Http$Timeout_); });
-		xhr.addEventListener('load', function() { done(_Http_toResponse(request.dG.b, xhr)); });
-		elm$core$Maybe$isJust(request.H) && _Http_track(router, xhr, request.H.a);
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.dN.b, xhr)); });
+		elm$core$Maybe$isJust(request.K) && _Http_track(router, xhr, request.K.a);
 
 		try {
-			xhr.open(request.E, request.ee, true);
+			xhr.open(request.H, request.ek, true);
 		} catch (e) {
-			return done(elm$http$Http$BadUrl_(request.ee));
+			return done(elm$http$Http$BadUrl_(request.ek));
 		}
 
 		_Http_configureRequest(xhr, request);
 
-		request.ba.a && xhr.setRequestHeader('Content-Type', request.ba.a);
-		xhr.send(request.ba.b);
+		request.bg.a && xhr.setRequestHeader('Content-Type', request.bg.a);
+		xhr.send(request.bg.b);
 
 		return function() { xhr.c = true; xhr.abort(); };
 	});
@@ -2367,13 +2404,13 @@ var _Http_toTask = F3(function(router, toTask, request)
 
 function _Http_configureRequest(xhr, request)
 {
-	for (var headers = request.B; headers.b; headers = headers.b) // WHILE_CONS
+	for (var headers = request.E; headers.b; headers = headers.b) // WHILE_CONS
 	{
 		xhr.setRequestHeader(headers.a.a, headers.a.b);
 	}
-	xhr.timeout = request.F.a || 0;
-	xhr.responseType = request.dG.d;
-	xhr.withCredentials = request.al;
+	xhr.timeout = request.I.a || 0;
+	xhr.responseType = request.dN.d;
+	xhr.withCredentials = request.ap;
 }
 
 
@@ -2394,10 +2431,10 @@ function _Http_toResponse(toBody, xhr)
 function _Http_toMetadata(xhr)
 {
 	return {
-		ee: xhr.responseURL,
-		de: xhr.status,
-		d8: xhr.statusText,
-		B: _Http_parseHeaders(xhr.getAllResponseHeaders())
+		ek: xhr.responseURL,
+		dk: xhr.status,
+		ee: xhr.statusText,
+		E: _Http_parseHeaders(xhr.getAllResponseHeaders())
 	};
 }
 
@@ -2492,15 +2529,15 @@ function _Http_track(router, xhr, tracker)
 	xhr.upload.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Sending({
-			d7: event.loaded,
-			bW: event.total
+			ed: event.loaded,
+			b_: event.total
 		}))));
 	});
 	xhr.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Receiving({
-			d1: event.loaded,
-			bW: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
+			d7: event.loaded,
+			b_: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
 		}))));
 	});
 }
@@ -2851,9 +2888,9 @@ var _VirtualDom_mapEventTuple = F2(function(func, tuple)
 var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
-		V: func(record.V),
-		bY: record.bY,
-		bS: record.bS
+		Z: func(record.Z),
+		b0: record.b0,
+		bW: record.bW
 	}
 });
 
@@ -3121,11 +3158,11 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 		// 3 = Custom
 
 		var value = result.a;
-		var message = !tag ? value : tag < 3 ? value.a : value.V;
-		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.bY;
+		var message = !tag ? value : tag < 3 ? value.a : value.Z;
+		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.b0;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
-			(tag == 2 ? value.b : tag == 3 && value.bS) && event.preventDefault(),
+			(tag == 2 ? value.b : tag == 3 && value.bW) && event.preventDefault(),
 			eventNode
 		);
 		var tagger;
@@ -4075,11 +4112,11 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dP,
-		impl.ec,
-		impl.d9,
+		impl.dW,
+		impl.ei,
+		impl.ef,
 		function(sendToApp, initialModel) {
-			var view = impl.ef;
+			var view = impl.el;
 			/**/
 			var domNode = args['node'];
 			//*/
@@ -4111,12 +4148,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dP,
-		impl.ec,
-		impl.d9,
+		impl.dW,
+		impl.ei,
+		impl.ef,
 		function(sendToApp, initialModel) {
-			var divertHrefToApp = impl.a0 && impl.a0(sendToApp)
-			var view = impl.ef;
+			var divertHrefToApp = impl.a6 && impl.a6(sendToApp)
+			var view = impl.el;
 			var title = _VirtualDom_doc.title;
 			var bodyNode = _VirtualDom_doc.body;
 			var currNode = _VirtualDom_virtualize(bodyNode);
@@ -4124,12 +4161,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 			{
 				_VirtualDom_divertHrefToApp = divertHrefToApp;
 				var doc = view(model);
-				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.ba);
+				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.bg);
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
 				_VirtualDom_divertHrefToApp = 0;
-				(title !== doc.a3) && (_VirtualDom_doc.title = title = doc.a3);
+				(title !== doc.a9) && (_VirtualDom_doc.title = title = doc.a9);
 			});
 		}
 	);
@@ -4185,12 +4222,12 @@ function _Browser_makeAnimator(model, draw)
 
 function _Browser_application(impl)
 {
-	var onUrlChange = impl.dU;
-	var onUrlRequest = impl.dV;
+	var onUrlChange = impl.d$;
+	var onUrlRequest = impl.d0;
 	var key = function() { key.a(onUrlChange(_Browser_getUrl())); };
 
 	return _Browser_document({
-		a0: function(sendToApp)
+		a6: function(sendToApp)
 		{
 			key.a = sendToApp;
 			_Browser_window.addEventListener('popstate', key);
@@ -4206,9 +4243,9 @@ function _Browser_application(impl)
 					var next = elm$url$Url$fromString(href).a;
 					sendToApp(onUrlRequest(
 						(next
-							&& curr.d$ === next.d$
-							&& curr.dM === next.dM
-							&& curr.dZ.a === next.dZ.a
+							&& curr.d5 === next.d5
+							&& curr.dT === next.dT
+							&& curr.d4.a === next.d4.a
 						)
 							? elm$browser$Browser$Internal(next)
 							: elm$browser$Browser$External(href)
@@ -4216,13 +4253,13 @@ function _Browser_application(impl)
 				}
 			});
 		},
-		dP: function(flags)
+		dW: function(flags)
 		{
-			return A3(impl.dP, flags, _Browser_getUrl(), key);
+			return A3(impl.dW, flags, _Browser_getUrl(), key);
 		},
-		ef: impl.ef,
-		ec: impl.ec,
-		d9: impl.d9
+		el: impl.el,
+		ei: impl.ei,
+		ef: impl.ef
 	});
 }
 
@@ -4288,17 +4325,17 @@ var _Browser_decodeEvent = F2(function(decoder, event)
 function _Browser_visibilityInfo()
 {
 	return (typeof _VirtualDom_doc.hidden !== 'undefined')
-		? { b: 'hidden', dA: 'visibilitychange' }
+		? { b: 'hidden', dH: 'visibilitychange' }
 		:
 	(typeof _VirtualDom_doc.mozHidden !== 'undefined')
-		? { b: 'mozHidden', dA: 'mozvisibilitychange' }
+		? { b: 'mozHidden', dH: 'mozvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.msHidden !== 'undefined')
-		? { b: 'msHidden', dA: 'msvisibilitychange' }
+		? { b: 'msHidden', dH: 'msvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.webkitHidden !== 'undefined')
-		? { b: 'webkitHidden', dA: 'webkitvisibilitychange' }
-		: { b: 'hidden', dA: 'visibilitychange' };
+		? { b: 'webkitHidden', dH: 'webkitvisibilitychange' }
+		: { b: 'hidden', dH: 'visibilitychange' };
 }
 
 
@@ -4379,12 +4416,12 @@ var _Browser_call = F2(function(functionName, id)
 function _Browser_getViewport()
 {
 	return {
-		c9: _Browser_getScene(),
-		dq: {
-			bt: _Browser_window.pageXOffset,
-			bu: _Browser_window.pageYOffset,
-			aR: _Browser_doc.documentElement.clientWidth,
-			ax: _Browser_doc.documentElement.clientHeight
+		df: _Browser_getScene(),
+		dw: {
+			bz: _Browser_window.pageXOffset,
+			bA: _Browser_window.pageYOffset,
+			aW: _Browser_doc.documentElement.clientWidth,
+			aC: _Browser_doc.documentElement.clientHeight
 		}
 	};
 }
@@ -4394,8 +4431,8 @@ function _Browser_getScene()
 	var body = _Browser_doc.body;
 	var elem = _Browser_doc.documentElement;
 	return {
-		aR: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
-		ax: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
+		aW: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
+		aC: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
 	};
 }
 
@@ -4418,15 +4455,15 @@ function _Browser_getViewportOf(id)
 	return _Browser_withNode(id, function(node)
 	{
 		return {
-			c9: {
-				aR: node.scrollWidth,
-				ax: node.scrollHeight
+			df: {
+				aW: node.scrollWidth,
+				aC: node.scrollHeight
 			},
-			dq: {
-				bt: node.scrollLeft,
-				bu: node.scrollTop,
-				aR: node.clientWidth,
-				ax: node.clientHeight
+			dw: {
+				bz: node.scrollLeft,
+				bA: node.scrollTop,
+				aW: node.clientWidth,
+				aC: node.clientHeight
 			}
 		};
 	});
@@ -4456,18 +4493,18 @@ function _Browser_getElement(id)
 		var x = _Browser_window.pageXOffset;
 		var y = _Browser_window.pageYOffset;
 		return {
-			c9: _Browser_getScene(),
-			dq: {
-				bt: x,
-				bu: y,
-				aR: _Browser_doc.documentElement.clientWidth,
-				ax: _Browser_doc.documentElement.clientHeight
+			df: _Browser_getScene(),
+			dw: {
+				bz: x,
+				bA: y,
+				aW: _Browser_doc.documentElement.clientWidth,
+				aC: _Browser_doc.documentElement.clientHeight
 			},
-			dE: {
-				bt: x + rect.left,
-				bu: y + rect.top,
-				aR: rect.width,
-				ax: rect.height
+			dL: {
+				bz: x + rect.left,
+				bA: y + rect.top,
+				aW: rect.width,
+				aC: rect.height
 			}
 		};
 	});
@@ -4736,25 +4773,25 @@ var elm$core$Basics$sub = _Basics_sub;
 var elm$core$Elm$JsArray$length = _JsArray_length;
 var elm$core$Array$builderToArray = F2(
 	function (reverseNodeList, builder) {
-		if (!builder.v) {
+		if (!builder.y) {
 			return A4(
 				elm$core$Array$Array_elm_builtin,
-				elm$core$Elm$JsArray$length(builder.y),
+				elm$core$Elm$JsArray$length(builder.B),
 				elm$core$Array$shiftStep,
 				elm$core$Elm$JsArray$empty,
-				builder.y);
+				builder.B);
 		} else {
-			var treeLen = builder.v * elm$core$Array$branchFactor;
+			var treeLen = builder.y * elm$core$Array$branchFactor;
 			var depth = elm$core$Basics$floor(
 				A2(elm$core$Basics$logBase, elm$core$Array$branchFactor, treeLen - 1));
-			var correctNodeList = reverseNodeList ? elm$core$List$reverse(builder.z) : builder.z;
-			var tree = A2(elm$core$Array$treeFromBuilder, correctNodeList, builder.v);
+			var correctNodeList = reverseNodeList ? elm$core$List$reverse(builder.C) : builder.C;
+			var tree = A2(elm$core$Array$treeFromBuilder, correctNodeList, builder.y);
 			return A4(
 				elm$core$Array$Array_elm_builtin,
-				elm$core$Elm$JsArray$length(builder.y) + treeLen,
+				elm$core$Elm$JsArray$length(builder.B) + treeLen,
 				A2(elm$core$Basics$max, 5, depth * elm$core$Array$shiftStep),
 				tree,
-				builder.y);
+				builder.B);
 		}
 	});
 var elm$core$Basics$False = 1;
@@ -4769,7 +4806,7 @@ var elm$core$Array$initializeHelp = F5(
 				return A2(
 					elm$core$Array$builderToArray,
 					false,
-					{z: nodeList, v: (len / elm$core$Array$branchFactor) | 0, y: tail});
+					{C: nodeList, y: (len / elm$core$Array$branchFactor) | 0, B: tail});
 			} else {
 				var leaf = elm$core$Array$Leaf(
 					A3(elm$core$Elm$JsArray$initialize, elm$core$Array$branchFactor, fromIndex, fn));
@@ -5026,7 +5063,7 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Headless$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
 var elm$url$Url$Http = 0;
-var author$project$Headless$fallbackUrl = {dJ: elm$core$Maybe$Nothing, dM: 'headless.docket.com', dX: '', dZ: elm$core$Maybe$Nothing, d$: 0, d0: elm$core$Maybe$Nothing};
+var author$project$Headless$fallbackUrl = {dQ: elm$core$Maybe$Nothing, dT: 'headless.docket.com', d2: '', d4: elm$core$Maybe$Nothing, d5: 0, d6: elm$core$Maybe$Nothing};
 var elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (!maybe.$) {
@@ -5060,7 +5097,7 @@ var elm$core$String$contains = _String_contains;
 var elm$core$String$toInt = _String_toInt;
 var elm$url$Url$Url = F6(
 	function (protocol, host, port_, path, query, fragment) {
-		return {dJ: fragment, dM: host, dX: path, dZ: port_, d$: protocol, d0: query};
+		return {dQ: fragment, dT: host, d2: path, d4: port_, d5: protocol, d6: query};
 	});
 var elm$url$Url$chompBeforePath = F5(
 	function (protocol, path, params, frag, str) {
@@ -5175,8 +5212,8 @@ var author$project$Main$NewUrl = function (a) {
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;
 var author$project$Headless$headlessSubscriptions = function (model) {
-	var appData = model.dx;
-	var environment = model.dF;
+	var appData = model.dE;
+	var environment = model.dM;
 	return elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
@@ -5188,16 +5225,18 @@ var author$project$Headless$headlessSubscriptions = function (model) {
 			]));
 };
 var author$project$AppData$Tokens = function (todoistSyncToken) {
-	return {dl: todoistSyncToken};
+	return {dr: todoistSyncToken};
 };
 var author$project$AppData$emptyTokens = author$project$AppData$Tokens('*');
-var author$project$AppData$fromScratch = {b6: _List_Nil, _: _List_Nil, b_: _List_Nil, b0: _List_Nil, b1: author$project$AppData$emptyTokens, b2: 0};
+var elm_community$intdict$IntDict$Empty = {$: 0};
+var elm_community$intdict$IntDict$empty = elm_community$intdict$IntDict$Empty;
+var author$project$AppData$fromScratch = {ca: _List_Nil, ad: _List_Nil, b2: elm_community$intdict$IntDict$empty, b4: _List_Nil, b5: author$project$AppData$emptyTokens, b6: 0};
 var author$project$AppData$saveError = F2(
 	function (appData, error) {
 		return _Utils_update(
 			appData,
 			{
-				_: A2(elm$core$List$cons, error, appData._)
+				ad: A2(elm$core$List$cons, error, appData.ad)
 			});
 	});
 var elm$core$List$foldrHelper = F4(
@@ -5542,12 +5581,12 @@ var author$project$AppData$saveWarnings = F2(
 		return _Utils_update(
 			appData,
 			{
-				_: _Utils_ap(
+				ad: _Utils_ap(
 					_List_fromArray(
 						[
 							zwilias$json_decode_exploration$Json$Decode$Exploration$warningsToString(warnings)
 						]),
-					appData._)
+					appData.ad)
 			});
 	});
 var author$project$Main$SetZoneAndTime = F2(
@@ -5660,7 +5699,7 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$andThen = F2(
 			var _n1 = decoderFnA(json);
 			if (!_n1.$) {
 				var accA = _n1.a;
-				var _n2 = toDecoderB(accA.N);
+				var _n2 = toDecoderB(accA.R);
 				var decoderFnB = _n2;
 				return A2(
 					elm$core$Result$map,
@@ -5668,10 +5707,10 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$andThen = F2(
 						return _Utils_update(
 							accB,
 							{
-								t: _Utils_ap(accA.t, accB.t)
+								w: _Utils_ap(accA.w, accB.w)
 							});
 					},
-					decoderFnB(accA.w));
+					decoderFnB(accA.z));
 			} else {
 				var e = _n1.a;
 				return elm$core$Result$Err(e);
@@ -5881,7 +5920,7 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$markUsed = function 
 var zwilias$json_decode_exploration$Json$Decode$Exploration$ok = F2(
 	function (json, val) {
 		return elm$core$Result$Ok(
-			{w: json, N: val, t: _List_Nil});
+			{z: json, R: val, w: _List_Nil});
 	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$string = function (json) {
 	if (!json.$) {
@@ -6001,9 +6040,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 						var v = res.a.a;
 						return elm$core$Result$Ok(
 							{
-								w: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, values),
-								N: v,
-								t: warnings
+								z: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, values),
+								R: v,
+								w: warnings
 							});
 					}
 				}
@@ -6034,7 +6073,7 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 						return _Utils_Tuple3(
 							A2(
 								elm$core$List$cons,
-								_Utils_Tuple2(key, res.w),
+								_Utils_Tuple2(key, res.z),
 								acc),
 							_Utils_ap(
 								A2(
@@ -6043,10 +6082,10 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 										elm$core$Basics$composeR,
 										mgold$elm_nonempty_list$List$Nonempty$fromElement,
 										zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
-									res.t),
+									res.w),
 								warnings),
 							elm$core$Maybe$Just(
-								elm$core$Result$Ok(res.N)));
+								elm$core$Result$Ok(res.R)));
 					}
 				} else {
 					return _Utils_Tuple3(
@@ -6092,9 +6131,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$int = function (json
 var zwilias$json_decode_exploration$Json$Decode$Exploration$mapAcc = F2(
 	function (f, acc) {
 		return {
-			w: acc.w,
-			N: f(acc.N),
-			t: acc.t
+			z: acc.z,
+			R: f(acc.R),
+			w: acc.w
 		};
 	});
 var zwilias$json_decode_exploration$Json$Decode$Exploration$map = F2(
@@ -6185,15 +6224,15 @@ var author$project$SmartTime$Duration$breakdown = function (duration) {
 	var withoutMinutes = withoutHours - (minutes * 60000);
 	var seconds = (withoutMinutes / 1000) | 0;
 	var withoutSeconds = withoutMinutes - (seconds * 1000);
-	return {cs: days, cA: hours, cP: withoutSeconds, cQ: minutes, da: seconds};
+	return {cw: days, cE: hours, cU: withoutSeconds, cW: minutes, dg: seconds};
 };
 var author$project$SmartTime$Human$Duration$breakdownDHMSM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var days = _n0.cs;
-	var hours = _n0.cA;
-	var minutes = _n0.cQ;
-	var seconds = _n0.da;
-	var milliseconds = _n0.cP;
+	var days = _n0.cw;
+	var hours = _n0.cE;
+	var minutes = _n0.cW;
+	var seconds = _n0.dg;
+	var milliseconds = _n0.cU;
 	return _List_fromArray(
 		[
 			author$project$SmartTime$Human$Duration$Days(days),
@@ -6281,9 +6320,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$index = F2(
 						var v = res.a.a;
 						return elm$core$Result$Ok(
 							{
-								w: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Array, true, values),
-								N: v,
-								t: warnings
+								z: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Array, true, values),
+								R: v,
+								w: warnings
 							});
 					}
 				}
@@ -6313,10 +6352,10 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$index = F2(
 						return _Utils_Tuple2(
 							i - 1,
 							_Utils_Tuple3(
-								A2(elm$core$List$cons, res.w, acc),
-								_Utils_ap(res.t, warnings),
+								A2(elm$core$List$cons, res.z, acc),
+								_Utils_ap(res.w, warnings),
 								elm$core$Maybe$Just(
-									elm$core$Result$Ok(res.N))));
+									elm$core$Result$Ok(res.R))));
 					}
 				} else {
 					return _Utils_Tuple2(
@@ -6425,14 +6464,14 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$map2 = F3(
 			var _n2 = decoderFnA(json);
 			if (!_n2.$) {
 				var accA = _n2.a;
-				var _n3 = decoderFnB(accA.w);
+				var _n3 = decoderFnB(accA.z);
 				if (!_n3.$) {
 					var accB = _n3.a;
 					return elm$core$Result$Ok(
 						{
-							w: accB.w,
-							N: A2(f, accA.N, accB.N),
-							t: _Utils_ap(accA.t, accB.t)
+							z: accB.z,
+							R: A2(f, accA.R, accB.R),
+							w: _Utils_ap(accA.w, accB.w)
 						});
 				} else {
 					var e = _n3.a;
@@ -6545,9 +6584,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$list = function (_n0
 		var warnings = _n5.b;
 		var values = _n5.c;
 		return {
-			w: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Array, true, json),
-			N: values,
-			t: warnings
+			z: A2(zwilias$json_decode_exploration$Json$Decode$Exploration$Array, true, json),
+			R: values,
+			w: warnings
 		};
 	};
 	var accumulate = F2(
@@ -6592,9 +6631,9 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$list = function (_n0
 						idx - 1,
 						elm$core$Result$Ok(
 							_Utils_Tuple3(
-								A2(elm$core$List$cons, res.w, jsonAcc),
-								_Utils_ap(res.t, warnAcc),
-								A2(elm$core$List$cons, res.N, valAcc))));
+								A2(elm$core$List$cons, res.z, jsonAcc),
+								_Utils_ap(res.w, warnAcc),
+								A2(elm$core$List$cons, res.R, valAcc))));
 				}
 			}
 		});
@@ -6691,13 +6730,197 @@ var author$project$Task$TaskMoment$decodeMoment = A2(zwilias$json_decode_explora
 var author$project$Activity$Activity$decodeSwitch = A5(author$project$Porting$subtype2, author$project$Activity$Activity$Switch, 'Time', author$project$Task$TaskMoment$decodeMoment, 'Activity', author$project$Activity$Activity$decodeActivityId);
 var author$project$AppData$AppData = F6(
 	function (uid, errors, tasks, activities, timeline, tokens) {
-		return {b6: activities, _: errors, b_: tasks, b0: timeline, b1: tokens, b2: uid};
+		return {ca: activities, ad: errors, b2: tasks, b4: timeline, b5: tokens, b6: uid};
 	});
 var author$project$AppData$decodeTokens = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 	'todoistSyncToken',
 	zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$AppData$Tokens));
+var elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var author$project$Porting$decodeTuple2 = F2(
+	function (decoderA, decoderB) {
+		return A3(
+			zwilias$json_decode_exploration$Json$Decode$Exploration$map2,
+			elm$core$Tuple$pair,
+			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$index, 0, decoderA),
+			A2(zwilias$json_decode_exploration$Json$Decode$Exploration$index, 1, decoderB));
+	});
+var elm$core$Basics$always = F2(
+	function (a, _n0) {
+		return a;
+	});
+var elm_community$intdict$IntDict$Inner = function (a) {
+	return {$: 2, a: a};
+};
+var elm_community$intdict$IntDict$size = function (dict) {
+	switch (dict.$) {
+		case 0:
+			return 0;
+		case 1:
+			return 1;
+		default:
+			var i = dict.a;
+			return i.b_;
+	}
+};
+var elm_community$intdict$IntDict$inner = F3(
+	function (p, l, r) {
+		var _n0 = _Utils_Tuple2(l, r);
+		if (!_n0.a.$) {
+			var _n1 = _n0.a;
+			return r;
+		} else {
+			if (!_n0.b.$) {
+				var _n2 = _n0.b;
+				return l;
+			} else {
+				return elm_community$intdict$IntDict$Inner(
+					{
+						p: l,
+						t: p,
+						q: r,
+						b_: elm_community$intdict$IntDict$size(l) + elm_community$intdict$IntDict$size(r)
+					});
+			}
+		}
+	});
+var elm$core$Basics$neq = _Utils_notEqual;
+var elm$core$Bitwise$and = _Bitwise_and;
+var elm$core$Bitwise$xor = _Bitwise_xor;
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var elm$core$Bitwise$complement = _Bitwise_complement;
+var elm$core$Bitwise$or = _Bitwise_or;
+var elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
+var elm_community$intdict$IntDict$highestBitSet = function (n) {
+	var shiftOr = F2(
+		function (i, shift) {
+			return i | (i >>> shift);
+		});
+	var n1 = A2(shiftOr, n, 1);
+	var n2 = A2(shiftOr, n1, 2);
+	var n3 = A2(shiftOr, n2, 4);
+	var n4 = A2(shiftOr, n3, 8);
+	var n5 = A2(shiftOr, n4, 16);
+	return n5 & (~(n5 >>> 1));
+};
+var elm_community$intdict$IntDict$signBit = elm_community$intdict$IntDict$highestBitSet(-1);
+var elm_community$intdict$IntDict$isBranchingBitSet = function (p) {
+	return A2(
+		elm$core$Basics$composeR,
+		elm$core$Bitwise$xor(elm_community$intdict$IntDict$signBit),
+		A2(
+			elm$core$Basics$composeR,
+			elm$core$Bitwise$and(p.as),
+			elm$core$Basics$neq(0)));
+};
+var elm_community$intdict$IntDict$higherBitMask = function (branchingBit) {
+	return branchingBit ^ (~(branchingBit - 1));
+};
+var elm_community$intdict$IntDict$lcp = F2(
+	function (x, y) {
+		var branchingBit = elm_community$intdict$IntDict$highestBitSet(x ^ y);
+		var mask = elm_community$intdict$IntDict$higherBitMask(branchingBit);
+		var prefixBits = x & mask;
+		return {as: branchingBit, N: prefixBits};
+	});
+var elm_community$intdict$IntDict$Leaf = function (a) {
+	return {$: 1, a: a};
+};
+var elm_community$intdict$IntDict$leaf = F2(
+	function (k, v) {
+		return elm_community$intdict$IntDict$Leaf(
+			{cQ: k, R: v});
+	});
+var elm_community$intdict$IntDict$prefixMatches = F2(
+	function (p, n) {
+		return _Utils_eq(
+			n & elm_community$intdict$IntDict$higherBitMask(p.as),
+			p.N);
+	});
+var elm_community$intdict$IntDict$update = F3(
+	function (key, alter, dict) {
+		var join = F2(
+			function (_n2, _n3) {
+				var k1 = _n2.a;
+				var l = _n2.b;
+				var k2 = _n3.a;
+				var r = _n3.b;
+				var prefix = A2(elm_community$intdict$IntDict$lcp, k1, k2);
+				return A2(elm_community$intdict$IntDict$isBranchingBitSet, prefix, k2) ? A3(elm_community$intdict$IntDict$inner, prefix, l, r) : A3(elm_community$intdict$IntDict$inner, prefix, r, l);
+			});
+		var alteredNode = function (mv) {
+			var _n1 = alter(mv);
+			if (!_n1.$) {
+				var v = _n1.a;
+				return A2(elm_community$intdict$IntDict$leaf, key, v);
+			} else {
+				return elm_community$intdict$IntDict$empty;
+			}
+		};
+		switch (dict.$) {
+			case 0:
+				return alteredNode(elm$core$Maybe$Nothing);
+			case 1:
+				var l = dict.a;
+				return _Utils_eq(l.cQ, key) ? alteredNode(
+					elm$core$Maybe$Just(l.R)) : A2(
+					join,
+					_Utils_Tuple2(
+						key,
+						alteredNode(elm$core$Maybe$Nothing)),
+					_Utils_Tuple2(l.cQ, dict));
+			default:
+				var i = dict.a;
+				return A2(elm_community$intdict$IntDict$prefixMatches, i.t, key) ? (A2(elm_community$intdict$IntDict$isBranchingBitSet, i.t, key) ? A3(
+					elm_community$intdict$IntDict$inner,
+					i.t,
+					i.p,
+					A3(elm_community$intdict$IntDict$update, key, alter, i.q)) : A3(
+					elm_community$intdict$IntDict$inner,
+					i.t,
+					A3(elm_community$intdict$IntDict$update, key, alter, i.p),
+					i.q)) : A2(
+					join,
+					_Utils_Tuple2(
+						key,
+						alteredNode(elm$core$Maybe$Nothing)),
+					_Utils_Tuple2(i.t.N, dict));
+		}
+	});
+var elm_community$intdict$IntDict$insert = F3(
+	function (key, value, dict) {
+		return A3(
+			elm_community$intdict$IntDict$update,
+			key,
+			elm$core$Basics$always(
+				elm$core$Maybe$Just(value)),
+			dict);
+	});
+var elm_community$intdict$IntDict$fromList = function (pairs) {
+	return A3(
+		elm$core$List$foldl,
+		function (_n0) {
+			var a = _n0.a;
+			var b = _n0.b;
+			return A2(elm_community$intdict$IntDict$insert, a, b);
+		},
+		elm_community$intdict$IntDict$empty,
+		pairs);
+};
+var author$project$Porting$decodeIntDict = function (valueDecoder) {
+	return A2(
+		zwilias$json_decode_exploration$Json$Decode$Exploration$map,
+		elm_community$intdict$IntDict$fromList,
+		zwilias$json_decode_exploration$Json$Decode$Exploration$list(
+			A2(author$project$Porting$decodeTuple2, zwilias$json_decode_exploration$Json$Decode$Exploration$int, valueDecoder)));
+};
+var author$project$Porting$decodeDuration = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$SmartTime$Duration$fromInt, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
 var author$project$Task$Progress$Percent = {$: 2};
 var author$project$Task$Progress$progressFromFloat = function (_float) {
 	return _Utils_Tuple2(
@@ -6719,19 +6942,21 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$float = function (js
 var author$project$Task$Progress$decodeProgress = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Task$Progress$progressFromFloat, zwilias$json_decode_exploration$Json$Decode$Exploration$float);
 var author$project$Task$Task$Task = function (title) {
 	return function (completion) {
-		return function (editing) {
-			return function (id) {
+		return function (id) {
+			return function (minEffort) {
 				return function (predictedEffort) {
-					return function (history) {
-						return function (parent) {
-							return function (tags) {
-								return function (project) {
-									return function (deadline) {
-										return function (plannedStart) {
-											return function (plannedFinish) {
-												return function (relevanceStarts) {
-													return function (relevanceEnds) {
-														return {bx: completion, bA: deadline, bB: editing, bE: history, c: id, bO: parent, bP: plannedFinish, bQ: plannedStart, bR: predictedEffort, d_: project, bU: relevanceEnds, bV: relevanceStarts, ea: tags, a3: title};
+					return function (maxEffort) {
+						return function (history) {
+							return function (parent) {
+								return function (tags) {
+									return function (activity) {
+										return function (deadline) {
+											return function (plannedStart) {
+												return function (plannedFinish) {
+													return function (relevanceStarts) {
+														return function (relevanceEnds) {
+															return {dA: activity, bD: completion, bG: deadline, bJ: history, c: id, cT: maxEffort, cV: minEffort, bT: parent, bU: plannedFinish, bV: plannedStart, a3: predictedEffort, bY: relevanceEnds, bZ: relevanceStarts, eg: tags, a9: title};
+														};
 													};
 												};
 											};
@@ -6808,7 +7033,7 @@ var elm$time$Time$toAdjustedMinutesHelp = F3(
 			} else {
 				var era = eras.a;
 				var olderEras = eras.b;
-				if (_Utils_cmp(era.bX, posixMinutes) < 0) {
+				if (_Utils_cmp(era.b$, posixMinutes) < 0) {
 					return posixMinutes + era.m;
 				} else {
 					var $temp$defaultOffset = defaultOffset,
@@ -6836,9 +7061,6 @@ var elm$time$Time$toAdjustedMinutes = F2(
 			eras);
 	});
 var elm$core$Basics$ge = _Utils_ge;
-var elm$core$Basics$negate = function (n) {
-	return -n;
-};
 var elm$time$Time$toCivil = function (minutes) {
 	var rawDay = A2(elm$time$Time$flooredDiv, minutes, 60 * 24) + 719468;
 	var era = (((rawDay >= 0) ? rawDay : (rawDay - 146096)) / 146097) | 0;
@@ -6849,15 +7071,15 @@ var elm$time$Time$toCivil = function (minutes) {
 	var month = mp + ((mp < 10) ? 3 : (-9));
 	var year = yearOfEra + (era * 400);
 	return {
-		cq: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
-		cR: month,
-		dt: year + ((month <= 2) ? 1 : 0)
+		cu: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
+		cX: month,
+		dz: year + ((month <= 2) ? 1 : 0)
 	};
 };
 var elm$time$Time$toDay = F2(
 	function (zone, time) {
 		return elm$time$Time$toCivil(
-			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cq;
+			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cu;
 	});
 var elm$core$Basics$modBy = _Basics_modBy;
 var elm$time$Time$toHour = F2(
@@ -6899,7 +7121,7 @@ var elm$time$Time$Sep = 8;
 var elm$time$Time$toMonth = F2(
 	function (zone, time) {
 		var _n0 = elm$time$Time$toCivil(
-			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cR;
+			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cX;
 		switch (_n0) {
 			case 1:
 				return 0;
@@ -6940,18 +7162,18 @@ var elm$time$Time$toSecond = F2(
 var elm$time$Time$toYear = F2(
 	function (zone, time) {
 		return elm$time$Time$toCivil(
-			A2(elm$time$Time$toAdjustedMinutes, zone, time)).dt;
+			A2(elm$time$Time$toAdjustedMinutes, zone, time)).dz;
 	});
 var justinmimbs$time_extra$Time$Extra$posixToParts = F2(
 	function (zone, posix) {
 		return {
-			cq: A2(elm$time$Time$toDay, zone, posix),
-			bf: A2(elm$time$Time$toHour, zone, posix),
-			bI: A2(elm$time$Time$toMillis, zone, posix),
-			bi: A2(elm$time$Time$toMinute, zone, posix),
-			cR: A2(elm$time$Time$toMonth, zone, posix),
-			bq: A2(elm$time$Time$toSecond, zone, posix),
-			dt: A2(elm$time$Time$toYear, zone, posix)
+			cu: A2(elm$time$Time$toDay, zone, posix),
+			bl: A2(elm$time$Time$toHour, zone, posix),
+			bN: A2(elm$time$Time$toMillis, zone, posix),
+			bo: A2(elm$time$Time$toMinute, zone, posix),
+			cX: A2(elm$time$Time$toMonth, zone, posix),
+			bw: A2(elm$time$Time$toSecond, zone, posix),
+			dz: A2(elm$time$Time$toYear, zone, posix)
 		};
 	});
 var author$project$Task$TaskMoment$decodeParts = A2(
@@ -7007,12 +7229,12 @@ var author$project$Task$Task$decodeTask = A3(
 					author$project$Task$TaskMoment$decodeTaskMoment,
 					A3(
 						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-						'project',
+						'activity',
 						zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
 						A3(
 							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 							'tags',
-							zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+							zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
 							A3(
 								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 								'parent',
@@ -7023,25 +7245,29 @@ var author$project$Task$Task$decodeTask = A3(
 									zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeHistoryEntry),
 									A3(
 										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-										'predictedEffort',
-										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+										'maxEffort',
+										author$project$Porting$decodeDuration,
 										A3(
 											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-											'id',
-											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+											'predictedEffort',
+											author$project$Porting$decodeDuration,
 											A3(
 												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-												'editing',
-												zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+												'minEffort',
+												author$project$Porting$decodeDuration,
 												A3(
 													zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-													'completion',
-													author$project$Task$Progress$decodeProgress,
+													'id',
+													zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 													A3(
 														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-														'title',
-														zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$Task$Task$Task)))))))))))))));
+														'completion',
+														author$project$Task$Progress$decodeProgress,
+														A3(
+															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+															'title',
+															zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$Task$Task$Task))))))))))))))));
 var author$project$AppData$decodeAppData = A4(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 	'tokens',
@@ -7060,8 +7286,8 @@ var author$project$AppData$decodeAppData = A4(
 			A4(
 				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 				'tasks',
-				zwilias$json_decode_exploration$Json$Decode$Exploration$list(author$project$Task$Task$decodeTask),
-				_List_Nil,
+				author$project$Porting$decodeIntDict(author$project$Task$Task$decodeTask),
+				elm_community$intdict$IntDict$empty,
 				A4(
 					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 					'errors',
@@ -7276,17 +7502,17 @@ var zwilias$json_decode_exploration$Json$Decode$Exploration$decodeValue = F2(
 			} else {
 				var acc = _n2.a;
 				var _n3 = _Utils_ap(
-					acc.t,
-					zwilias$json_decode_exploration$Json$Decode$Exploration$gatherWarnings(acc.w));
+					acc.w,
+					zwilias$json_decode_exploration$Json$Decode$Exploration$gatherWarnings(acc.z));
 				if (!_n3.b) {
-					return zwilias$json_decode_exploration$Json$Decode$Exploration$Success(acc.N);
+					return zwilias$json_decode_exploration$Json$Decode$Exploration$Success(acc.R);
 				} else {
 					var x = _n3.a;
 					var xs = _n3.b;
 					return A2(
 						zwilias$json_decode_exploration$Json$Decode$Exploration$WithWarnings,
 						A2(mgold$elm_nonempty_list$List$Nonempty$Nonempty, x, xs),
-						acc.N);
+						acc.R);
 				}
 			}
 		}
@@ -7308,7 +7534,7 @@ var author$project$SmartTime$Human$Clock$utc = elm$time$Time$utc;
 var author$project$SmartTime$Duration$zero = 0;
 var author$project$SmartTime$Moment$zero = author$project$SmartTime$Duration$zero;
 var author$project$Environment$preInit = function (maybeKey) {
-	return {cT: maybeKey, dj: author$project$SmartTime$Moment$zero, eb: author$project$SmartTime$Human$Clock$utc};
+	return {cZ: maybeKey, dp: author$project$SmartTime$Moment$zero, eh: author$project$SmartTime$Human$Clock$utc};
 };
 var elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -7342,7 +7568,7 @@ var elm$url$Url$addPrefixed = F3(
 	});
 var elm$url$Url$toString = function (url) {
 	var http = function () {
-		var _n0 = url.d$;
+		var _n0 = url.d5;
 		if (!_n0) {
 			return 'http://';
 		} else {
@@ -7352,20 +7578,20 @@ var elm$url$Url$toString = function (url) {
 	return A3(
 		elm$url$Url$addPrefixed,
 		'#',
-		url.dJ,
+		url.dQ,
 		A3(
 			elm$url$Url$addPrefixed,
 			'?',
-			url.d0,
+			url.d6,
 			_Utils_ap(
 				A2(
 					elm$url$Url$addPort,
-					url.dZ,
-					_Utils_ap(http, url.dM)),
-				url.dX)));
+					url.d4,
+					_Utils_ap(http, url.dT)),
+				url.d2)));
 };
 var author$project$Main$bypassFakeFragment = function (url) {
-	var _n0 = A2(elm$core$Maybe$map, elm$core$String$uncons, url.dJ);
+	var _n0 = A2(elm$core$Maybe$map, elm$core$String$uncons, url.dQ);
 	if (((!_n0.$) && (!_n0.a.$)) && ('/' === _n0.a.a.a)) {
 		var _n1 = _n0.a.a;
 		var fakeFragment = _n1.b;
@@ -7391,7 +7617,7 @@ var author$project$Main$TimeTracker = function (a) {
 };
 var author$project$Main$ViewState = F2(
 	function (primaryView, uid) {
-		return {a_: primaryView, b2: uid};
+		return {a4: primaryView, b6: uid};
 	});
 var author$project$TimeTracker$Normal = 0;
 var author$project$TimeTracker$defaultView = 0;
@@ -7403,7 +7629,7 @@ var author$project$Main$TaskList = function (a) {
 	return {$: 0, a: a};
 };
 var author$project$Main$screenToViewState = function (screen) {
-	return {a_: screen, b2: 0};
+	return {a4: screen, b6: 0};
 };
 var author$project$TaskList$IncompleteTasksOnly = 1;
 var author$project$TaskList$Normal = F3(
@@ -7413,15 +7639,15 @@ var author$project$TaskList$Normal = F3(
 var elm$url$Url$Parser$Parser = elm$core$Basics$identity;
 var elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
-		return {ab: frag, af: params, Y: unvisited, N: value, aj: visited};
+		return {af: frag, aj: params, ab: unvisited, R: value, an: visited};
 	});
 var elm$url$Url$Parser$mapState = F2(
 	function (func, _n0) {
-		var visited = _n0.aj;
-		var unvisited = _n0.Y;
-		var params = _n0.af;
-		var frag = _n0.ab;
-		var value = _n0.N;
+		var visited = _n0.an;
+		var unvisited = _n0.ab;
+		var params = _n0.aj;
+		var frag = _n0.af;
+		var value = _n0.R;
 		return A5(
 			elm$url$Url$Parser$State,
 			visited,
@@ -7434,11 +7660,11 @@ var elm$url$Url$Parser$map = F2(
 	function (subValue, _n0) {
 		var parseArg = _n0;
 		return function (_n1) {
-			var visited = _n1.aj;
-			var unvisited = _n1.Y;
-			var params = _n1.af;
-			var frag = _n1.ab;
-			var value = _n1.N;
+			var visited = _n1.an;
+			var unvisited = _n1.ab;
+			var params = _n1.aj;
+			var frag = _n1.af;
+			var value = _n1.R;
 			return A2(
 				elm$core$List$map,
 				elm$url$Url$Parser$mapState(value),
@@ -7448,11 +7674,11 @@ var elm$url$Url$Parser$map = F2(
 	});
 var elm$url$Url$Parser$s = function (str) {
 	return function (_n0) {
-		var visited = _n0.aj;
-		var unvisited = _n0.Y;
-		var params = _n0.af;
-		var frag = _n0.ab;
-		var value = _n0.N;
+		var visited = _n0.an;
+		var unvisited = _n0.ab;
+		var params = _n0.aj;
+		var frag = _n0.af;
+		var value = _n0.R;
 		if (!unvisited.b) {
 			return _List_Nil;
 		} else {
@@ -7516,12 +7742,12 @@ var elm$url$Url$Parser$getFirstMatch = function (states) {
 		} else {
 			var state = states.a;
 			var rest = states.b;
-			var _n1 = state.Y;
+			var _n1 = state.ab;
 			if (!_n1.b) {
-				return elm$core$Maybe$Just(state.N);
+				return elm$core$Maybe$Just(state.R);
 			} else {
 				if ((_n1.a === '') && (!_n1.b.b)) {
-					return elm$core$Maybe$Just(state.N);
+					return elm$core$Maybe$Just(state.R);
 				} else {
 					var $temp$states = rest;
 					states = $temp$states;
@@ -8133,9 +8359,9 @@ var elm$url$Url$Parser$parse = F2(
 				A5(
 					elm$url$Url$Parser$State,
 					_List_Nil,
-					elm$url$Url$Parser$preparePath(url.dX),
-					elm$url$Url$Parser$prepareQuery(url.d0),
-					url.dJ,
+					elm$url$Url$Parser$preparePath(url.d2),
+					elm$url$Url$Parser$prepareQuery(url.d6),
+					url.dQ,
 					elm$core$Basics$identity)));
 	});
 var author$project$Main$viewUrl = function (url) {
@@ -8148,9 +8374,9 @@ var author$project$Main$viewUrl = function (url) {
 var author$project$Main$buildModel = F3(
 	function (appData, url, maybeKey) {
 		return {
-			dx: appData,
-			dF: author$project$Environment$preInit(maybeKey),
-			a7: author$project$Main$viewUrl(url)
+			dE: appData,
+			dM: author$project$Environment$preInit(maybeKey),
+			bd: author$project$Main$viewUrl(url)
 		};
 	});
 var author$project$Main$Tick = function (a) {
@@ -8473,8 +8699,67 @@ var author$project$AppData$encodeTokens = function (record) {
 			[
 				_Utils_Tuple2(
 				'todoistSyncToken',
-				elm$json$Json$Encode$string(record.dl))
+				elm$json$Json$Encode$string(record.dr))
 			]));
+};
+var author$project$Porting$encodeTuple2 = F3(
+	function (firstEncoder, secondEncoder, _n0) {
+		var first = _n0.a;
+		var second = _n0.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					firstEncoder(first),
+					secondEncoder(second)
+				]));
+	});
+var elm_community$intdict$IntDict$foldr = F3(
+	function (f, acc, dict) {
+		foldr:
+		while (true) {
+			switch (dict.$) {
+				case 0:
+					return acc;
+				case 1:
+					var l = dict.a;
+					return A3(f, l.cQ, l.R, acc);
+				default:
+					var i = dict.a;
+					var $temp$f = f,
+						$temp$acc = A3(elm_community$intdict$IntDict$foldr, f, acc, i.q),
+						$temp$dict = i.p;
+					f = $temp$f;
+					acc = $temp$acc;
+					dict = $temp$dict;
+					continue foldr;
+			}
+		}
+	});
+var elm_community$intdict$IntDict$toList = function (dict) {
+	return A3(
+		elm_community$intdict$IntDict$foldr,
+		F3(
+			function (key, value, list) {
+				return A2(
+					elm$core$List$cons,
+					_Utils_Tuple2(key, value),
+					list);
+			}),
+		_List_Nil,
+		dict);
+};
+var author$project$Porting$encodeIntDict = F2(
+	function (valueEncoder, dict) {
+		return A2(
+			elm$json$Json$Encode$list,
+			A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, valueEncoder),
+			elm_community$intdict$IntDict$toList(dict));
+	});
+var author$project$Porting$encodeDuration = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(dur));
 };
 var author$project$Task$Progress$getPortion = function (_n0) {
 	var part = _n0.a;
@@ -8514,46 +8799,49 @@ var author$project$Task$Task$encodeTask = function (record) {
 			[
 				_Utils_Tuple2(
 				'title',
-				elm$json$Json$Encode$string(record.a3)),
+				elm$json$Json$Encode$string(record.a9)),
 				_Utils_Tuple2(
 				'completion',
-				author$project$Task$Progress$encodeProgress(record.bx)),
-				_Utils_Tuple2(
-				'editing',
-				elm$json$Json$Encode$bool(record.bB)),
+				author$project$Task$Progress$encodeProgress(record.bD)),
 				_Utils_Tuple2(
 				'id',
 				elm$json$Json$Encode$int(record.c)),
 				_Utils_Tuple2(
+				'minEffort',
+				author$project$Porting$encodeDuration(record.a3)),
+				_Utils_Tuple2(
 				'predictedEffort',
-				elm$json$Json$Encode$int(record.bR)),
+				author$project$Porting$encodeDuration(record.a3)),
+				_Utils_Tuple2(
+				'maxEffort',
+				author$project$Porting$encodeDuration(record.a3)),
 				_Utils_Tuple2(
 				'history',
-				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.bE)),
+				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.bJ)),
 				_Utils_Tuple2(
 				'parent',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.bO)),
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.bT)),
 				_Utils_Tuple2(
 				'tags',
-				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$string, record.ea)),
+				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.eg)),
 				_Utils_Tuple2(
-				'project',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.d_)),
+				'activity',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.dA)),
 				_Utils_Tuple2(
 				'deadline',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bA)),
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bG)),
 				_Utils_Tuple2(
 				'plannedStart',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bQ)),
-				_Utils_Tuple2(
-				'plannedFinish',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bP)),
-				_Utils_Tuple2(
-				'relevanceStarts',
 				author$project$Task$TaskMoment$encodeTaskMoment(record.bV)),
 				_Utils_Tuple2(
+				'plannedFinish',
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bU)),
+				_Utils_Tuple2(
+				'relevanceStarts',
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bZ)),
+				_Utils_Tuple2(
 				'relevanceEnds',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bU))
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bY))
 			]));
 };
 var elm$core$List$takeReverse = F3(
@@ -8688,25 +8976,25 @@ var author$project$AppData$encodeAppData = function (record) {
 			[
 				_Utils_Tuple2(
 				'tasks',
-				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeTask, record.b_)),
+				A2(author$project$Porting$encodeIntDict, author$project$Task$Task$encodeTask, record.b2)),
 				_Utils_Tuple2(
 				'activities',
-				author$project$Activity$Activity$encodeStoredActivities(record.b6)),
+				author$project$Activity$Activity$encodeStoredActivities(record.ca)),
 				_Utils_Tuple2(
 				'uid',
-				elm$json$Json$Encode$int(record.b2)),
+				elm$json$Json$Encode$int(record.b6)),
 				_Utils_Tuple2(
 				'errors',
 				A2(
 					elm$json$Json$Encode$list,
 					elm$json$Json$Encode$string,
-					A2(elm$core$List$take, 100, record._))),
+					A2(elm$core$List$take, 100, record.ad))),
 				_Utils_Tuple2(
 				'timeline',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.b0)),
+				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.b4)),
 				_Utils_Tuple2(
 				'tokens',
-				author$project$AppData$encodeTokens(record.b1))
+				author$project$AppData$encodeTokens(record.b5))
 			]));
 };
 var author$project$Main$appDataToJson = function (appData) {
@@ -8749,45 +9037,52 @@ var author$project$Task$Progress$maximize = function (_n0) {
 var author$project$Task$Task$newTask = F2(
 	function (description, id) {
 		return {
-			bx: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
-			bA: author$project$Task$TaskMoment$Unset,
-			bB: false,
-			bE: _List_Nil,
+			dA: elm$core$Maybe$Just(0),
+			bD: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
+			bG: author$project$Task$TaskMoment$Unset,
+			bJ: _List_Nil,
 			c: id,
-			bO: elm$core$Maybe$Nothing,
-			bP: author$project$Task$TaskMoment$Unset,
-			bQ: author$project$Task$TaskMoment$Unset,
-			bR: 0,
-			d_: elm$core$Maybe$Just(0),
+			cT: author$project$SmartTime$Duration$zero,
+			cV: author$project$SmartTime$Duration$zero,
+			bT: elm$core$Maybe$Nothing,
 			bU: author$project$Task$TaskMoment$Unset,
 			bV: author$project$Task$TaskMoment$Unset,
-			ea: _List_Nil,
-			a3: description
+			a3: author$project$SmartTime$Duration$zero,
+			bY: author$project$Task$TaskMoment$Unset,
+			bZ: author$project$Task$TaskMoment$Unset,
+			eg: _List_Nil,
+			a9: description
 		};
 	});
 var author$project$External$TodoistSync$itemToTask = function (item) {
-	var base = A2(author$project$Task$Task$newTask, item.by, item.c);
+	var base = A2(author$project$Task$Task$newTask, item.bE, item.c);
 	return _Utils_update(
 		base,
 		{
-			bx: item.bw ? author$project$Task$Progress$maximize(base.bx) : base.bx,
-			d_: elm$core$Maybe$Just(item.bT),
-			ea: _List_Nil
+			dA: elm$core$Maybe$Just(item.bX),
+			bD: item.bC ? author$project$Task$Progress$maximize(base.bD) : base.bD,
+			eg: _List_Nil
 		});
 };
 var author$project$External$TodoistSync$handle = F2(
 	function (_n0, app) {
 		var result = _n0;
-		var tasks = app.b_;
-		var activities = app.b6;
-		var tokens = app.b1;
+		var tasks = app.b2;
+		var activities = app.ca;
+		var tokens = app.b5;
 		if (!result.$) {
 			var data = result.a;
 			return _Utils_update(
 				app,
 				{
-					b_: A2(elm$core$List$map, author$project$External$TodoistSync$itemToTask, data.bF),
-					b1: {dl: data.bZ}
+					b2: elm_community$intdict$IntDict$fromList(
+						A2(
+							elm$core$List$map,
+							function (t) {
+								return _Utils_Tuple2(t.c, t);
+							},
+							A2(elm$core$List$map, author$project$External$TodoistSync$itemToTask, data.bK))),
+					b5: {dr: data.b1}
 				});
 		} else {
 			var err = result.a;
@@ -8814,7 +9109,7 @@ var author$project$External$TodoistSync$handle = F2(
 var author$project$External$TodoistSync$SyncResponded = elm$core$Basics$identity;
 var author$project$External$TodoistSync$Response = F4(
 	function (sync_token, full_sync, items, projects) {
-		return {dK: full_sync, bF: items, c0: projects, bZ: sync_token};
+		return {dR: full_sync, bK: items, c6: projects, b1: sync_token};
 	});
 var author$project$External$TodoistSync$Item = function (id) {
 	return function (user_id) {
@@ -8836,7 +9131,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 																	return function (is_deleted) {
 																		return function (is_archived) {
 																			return function (date_added) {
-																				return {ca: assigned_by_uid, bw: checked, cl: child_order, cm: children, Q: collapsed, by: content, cp: date_added, cr: day_order, ct: due, c: id, cC: in_history, cD: indent, cI: is_archived, cJ: is_deleted, cN: labels, cV: parent_id, cY: priority, bT: project_id, c7: responsible_uid, dp: user_id};
+																				return {ce: assigned_by_uid, bC: checked, cp: child_order, cq: children, U: collapsed, bE: content, ct: date_added, cv: day_order, cx: due, c: id, cG: in_history, cH: indent, cM: is_archived, cN: is_deleted, cR: labels, c$: parent_id, c2: priority, bX: project_id, dd: responsible_uid, dv: user_id};
 																			};
 																		};
 																	};
@@ -8859,7 +9154,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 };
 var author$project$External$TodoistSync$Due = F5(
 	function (date, timezone, string, lang, isRecurring) {
-		return {co: date, cH: isRecurring, cO: lang, df: string, dk: timezone};
+		return {cs: date, cL: isRecurring, cS: lang, dl: string, dq: timezone};
 	});
 var author$project$External$TodoistSync$decodeDue = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
@@ -9057,7 +9352,7 @@ var author$project$External$TodoistSync$ProjectChanges = function (id) {
 							return function (isDeleted) {
 								return function (isArchived) {
 									return function (isFavorite) {
-										return {ap: childOrder, Q: collapsed, aq: color, c: id, ay: isArchived, az: isDeleted, aA: isFavorite, aE: name, aG: parentId, aJ: shared};
+										return {au: childOrder, U: collapsed, av: color, c: id, aD: isArchived, aE: isDeleted, aF: isFavorite, aJ: name, aL: parentId, aO: shared};
 									};
 								};
 							};
@@ -9228,12 +9523,12 @@ var author$project$External$TodoistSync$syncUrl = function (incrementalSyncToken
 			_List_fromArray(
 				['token=' + devSecret, 'sync_token=' + incrementalSyncToken, 'resource_types=' + resources])));
 	return {
-		dJ: elm$core$Maybe$Nothing,
-		dM: 'todoist.com',
-		dX: '/api/v8/sync',
-		dZ: elm$core$Maybe$Nothing,
-		d$: 1,
-		d0: elm$core$Maybe$Just(query)
+		dQ: elm$core$Maybe$Nothing,
+		dT: 'todoist.com',
+		d2: '/api/v8/sync',
+		d4: elm$core$Maybe$Nothing,
+		d5: 1,
+		d6: elm$core$Maybe$Just(query)
 	};
 };
 var elm$core$Result$mapError = F2(
@@ -9413,7 +9708,7 @@ var elm$http$Http$resolve = F2(
 			case 3:
 				var metadata = response.a;
 				return elm$core$Result$Err(
-					elm$http$Http$BadStatus(metadata.de));
+					elm$http$Http$BadStatus(metadata.dk));
 			default:
 				var body = response.b;
 				return A2(
@@ -9442,7 +9737,7 @@ var elm$http$Http$Request = function (a) {
 var elm$core$Task$succeed = _Scheduler_succeed;
 var elm$http$Http$State = F2(
 	function (reqs, subs) {
-		return {c3: reqs, dg: subs};
+		return {c9: reqs, dm: subs};
 	});
 var elm$http$Http$init = elm$core$Task$succeed(
 	A2(elm$http$Http$State, elm$core$Dict$empty, _List_Nil));
@@ -9487,7 +9782,7 @@ var elm$http$Http$updateReqs = F3(
 					return A2(
 						elm$core$Task$andThen,
 						function (pid) {
-							var _n4 = req.H;
+							var _n4 = req.K;
 							if (_n4.$ === 1) {
 								return A3(elm$http$Http$updateReqs, router, otherCmds, reqs);
 							} else {
@@ -9517,7 +9812,7 @@ var elm$http$Http$onEffects = F4(
 				return elm$core$Task$succeed(
 					A2(elm$http$Http$State, reqs, subs));
 			},
-			A3(elm$http$Http$updateReqs, router, cmds, state.c3));
+			A3(elm$http$Http$updateReqs, router, cmds, state.c9));
 	});
 var elm$core$Task$map2 = F3(
 	function (func, taskA, taskB) {
@@ -9564,7 +9859,7 @@ var elm$http$Http$onSelfMsg = F3(
 				A2(
 					elm$core$List$filterMap,
 					A3(elm$http$Http$maybeSend, router, tracker, progress),
-					state.dg)));
+					state.dm)));
 	});
 var elm$http$Http$Cancel = function (a) {
 	return {$: 0, a: a};
@@ -9578,14 +9873,14 @@ var elm$http$Http$cmdMap = F2(
 			var r = cmd.a;
 			return elm$http$Http$Request(
 				{
-					al: r.al,
-					ba: r.ba,
-					dG: A2(_Http_mapExpect, func, r.dG),
-					B: r.B,
+					ap: r.ap,
+					bg: r.bg,
+					dN: A2(_Http_mapExpect, func, r.dN),
 					E: r.E,
-					F: r.F,
 					H: r.H,
-					ee: r.ee
+					I: r.I,
+					K: r.K,
+					ek: r.ek
 				});
 		}
 	});
@@ -9608,26 +9903,26 @@ var elm$http$Http$subscription = _Platform_leaf('Http');
 var elm$http$Http$request = function (r) {
 	return elm$http$Http$command(
 		elm$http$Http$Request(
-			{al: false, ba: r.ba, dG: r.dG, B: r.B, E: r.E, F: r.F, H: r.H, ee: r.ee}));
+			{ap: false, bg: r.bg, dN: r.dN, E: r.E, H: r.H, I: r.I, K: r.K, ek: r.ek}));
 };
 var elm$http$Http$get = function (r) {
 	return elm$http$Http$request(
-		{ba: elm$http$Http$emptyBody, dG: r.dG, B: _List_Nil, E: 'GET', F: elm$core$Maybe$Nothing, H: elm$core$Maybe$Nothing, ee: r.ee});
+		{bg: elm$http$Http$emptyBody, dN: r.dN, E: _List_Nil, H: 'GET', I: elm$core$Maybe$Nothing, K: elm$core$Maybe$Nothing, ek: r.ek});
 };
 var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
 	return elm$http$Http$get(
 		{
-			dG: A2(
+			dN: A2(
 				elm$http$Http$expectJson,
 				elm$core$Basics$identity,
 				author$project$Porting$toClassic(author$project$External$TodoistSync$decodeResponse)),
-			ee: elm$url$Url$toString(
+			ek: elm$url$Url$toString(
 				author$project$External$TodoistSync$syncUrl(incrementalSyncToken))
 		});
 };
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
-		return {dx: appData, dF: environment, a7: viewState};
+		return {dE: appData, dM: environment, bd: viewState};
 	});
 var author$project$Main$SyncTodoist = {$: 5};
 var author$project$Main$TaskListMsg = function (a) {
@@ -9651,7 +9946,7 @@ var author$project$Task$Progress$isMax = function (progress) {
 var author$project$Task$Task$completed = function (task) {
 	return author$project$Task$Progress$isMax(
 		function ($) {
-			return $.bx;
+			return $.bD;
 		}(task));
 };
 var author$project$TaskList$NoOp = {$: 9};
@@ -9735,19 +10030,7 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	}
 };
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
-var elm$core$Basics$neq = _Utils_notEqual;
 var elm$core$Basics$not = _Basics_not;
-var elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
 var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var elm$core$Task$onError = _Scheduler_onError;
@@ -9768,6 +10051,44 @@ var elm$core$Task$attempt = F2(
 						elm$core$Result$Ok),
 					task)));
 	});
+var elm_community$intdict$IntDict$foldl = F3(
+	function (f, acc, dict) {
+		foldl:
+		while (true) {
+			switch (dict.$) {
+				case 0:
+					return acc;
+				case 1:
+					var l = dict.a;
+					return A3(f, l.cQ, l.R, acc);
+				default:
+					var i = dict.a;
+					var $temp$f = f,
+						$temp$acc = A3(elm_community$intdict$IntDict$foldl, f, acc, i.p),
+						$temp$dict = i.q;
+					f = $temp$f;
+					acc = $temp$acc;
+					dict = $temp$dict;
+					continue foldl;
+			}
+		}
+	});
+var elm_community$intdict$IntDict$filter = F2(
+	function (predicate, dict) {
+		var add = F3(
+			function (k, v, d) {
+				return A2(predicate, k, v) ? A3(elm_community$intdict$IntDict$insert, k, v, d) : d;
+			});
+		return A3(elm_community$intdict$IntDict$foldl, add, elm_community$intdict$IntDict$empty, dict);
+	});
+var elm_community$intdict$IntDict$remove = F2(
+	function (key, dict) {
+		return A3(
+			elm_community$intdict$IntDict$update,
+			key,
+			elm$core$Basics$always(elm$core$Maybe$Nothing),
+			dict);
+	});
 var author$project$TaskList$update = F4(
 	function (msg, state, app, env) {
 		switch (msg.$) {
@@ -9786,15 +10107,14 @@ var author$project$TaskList$update = F4(
 						_Utils_update(
 							app,
 							{
-								b_: _Utils_ap(
-									app.b_,
-									_List_fromArray(
-										[
-											A2(
-											author$project$Task$Task$newTask,
-											newTaskTitle,
-											author$project$SmartTime$Moment$toSmartInt(env.dj))
-										]))
+								b2: A3(
+									elm_community$intdict$IntDict$insert,
+									author$project$SmartTime$Moment$toSmartInt(env.dp),
+									A2(
+										author$project$Task$Task$newTask,
+										newTaskTitle,
+										author$project$SmartTime$Moment$toSmartInt(env.dp)),
+									app.b2)
 							}),
 						elm$core$Platform$Cmd$none);
 				}
@@ -9813,9 +10133,7 @@ var author$project$TaskList$update = F4(
 				var id = msg.a;
 				var isEditing = msg.b;
 				var updateTask = function (t) {
-					return _Utils_eq(t.c, id) ? _Utils_update(
-						t,
-						{bB: isEditing}) : t;
+					return t;
 				};
 				var focus = elm$browser$Browser$Dom$focus(
 					'task-' + elm$core$String$fromInt(id));
@@ -9824,7 +10142,11 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b_: A2(elm$core$List$map, updateTask, app.b_)
+							b2: A3(
+								elm_community$intdict$IntDict$update,
+								id,
+								elm$core$Maybe$map(updateTask),
+								app.b2)
 						}),
 					A2(
 						elm$core$Task$attempt,
@@ -9836,16 +10158,20 @@ var author$project$TaskList$update = F4(
 				var id = msg.a;
 				var task = msg.b;
 				var updateTask = function (t) {
-					return _Utils_eq(t.c, id) ? _Utils_update(
+					return _Utils_update(
 						t,
-						{a3: task}) : t;
+						{a9: task});
 				};
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
 						app,
 						{
-							b_: A2(elm$core$List$map, updateTask, app.b_)
+							b2: A3(
+								elm_community$intdict$IntDict$update,
+								id,
+								elm$core$Maybe$map(updateTask),
+								app.b2)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 7:
@@ -9853,16 +10179,20 @@ var author$project$TaskList$update = F4(
 				var field = msg.b;
 				var date = msg.c;
 				var updateTask = function (t) {
-					return _Utils_eq(t.c, id) ? _Utils_update(
+					return _Utils_update(
 						t,
-						{bA: date}) : t;
+						{bG: date});
 				};
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
 						app,
 						{
-							b_: A2(elm$core$List$map, updateTask, app.b_)
+							b2: A3(
+								elm_community$intdict$IntDict$update,
+								id,
+								elm$core$Maybe$map(updateTask),
+								app.b2)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 3:
@@ -9872,12 +10202,7 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b_: A2(
-								elm$core$List$filter,
-								function (t) {
-									return !_Utils_eq(t.c, id);
-								},
-								app.b_)
+							b2: A2(elm_community$intdict$IntDict$remove, id, app.b2)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 4:
@@ -9886,26 +10211,33 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b_: A2(
-								elm$core$List$filter,
-								A2(elm$core$Basics$composeL, elm$core$Basics$not, author$project$Task$Task$completed),
-								app.b_)
+							b2: A2(
+								elm_community$intdict$IntDict$filter,
+								F2(
+									function (_n4, t) {
+										return !author$project$Task$Task$completed(t);
+									}),
+								app.b2)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 5:
 				var id = msg.a;
 				var new_completion = msg.b;
 				var updateTask = function (t) {
-					return _Utils_eq(t.c, id) ? _Utils_update(
+					return _Utils_update(
 						t,
-						{bx: new_completion}) : t;
+						{bD: new_completion});
 				};
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
 						app,
 						{
-							b_: A2(elm$core$List$map, updateTask, app.b_)
+							b2: A3(
+								elm_community$intdict$IntDict$update,
+								id,
+								elm$core$Maybe$map(updateTask),
+								app.b2)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 6:
@@ -10947,6 +11279,17 @@ var author$project$Activity$Activity$withTemplate = function (delta) {
 };
 var author$project$Activity$Template$stockActivities = _List_fromArray(
 	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]);
+var elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
 var elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:
@@ -11033,8 +11376,8 @@ var author$project$Activity$Activity$currentActivity = F2(
 var author$project$Activity$Switching$currentActivityFromApp = function (app) {
 	return A2(
 		author$project$Activity$Activity$currentActivity,
-		author$project$Activity$Activity$allActivities(app.b6),
-		app.b0);
+		author$project$Activity$Activity$allActivities(app.ca),
+		app.b4);
 };
 var author$project$Activity$Activity$getName = function (activity) {
 	return A2(
@@ -11233,7 +11576,7 @@ var author$project$Activity$Measure$exportExcusedUsageSeconds = F3(
 	function (app, now, activity) {
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inSecondsRounded(
-				A3(author$project$Activity$Measure$excusedUsage, app.b0, now, activity)));
+				A3(author$project$Activity$Measure$excusedUsage, app.b4, now, activity)));
 	});
 var author$project$SmartTime$Duration$inMinutesRounded = function (duration) {
 	return elm$core$Basics$round(
@@ -11245,13 +11588,13 @@ var author$project$Activity$Measure$exportLastSession = F2(
 			elm$core$Maybe$withDefault,
 			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
-				A2(author$project$Activity$Measure$sessions, app.b0, old.c)));
+				A2(author$project$Activity$Measure$sessions, app.b4, old.c)));
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
 	});
 var author$project$SmartTime$Human$Duration$breakdownMS = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var seconds = _n0.da;
+	var seconds = _n0.dg;
 	return _List_fromArray(
 		[
 			author$project$SmartTime$Human$Duration$Minutes(
@@ -11297,7 +11640,7 @@ var author$project$Activity$Switching$switchPopup = F4(
 			elm$core$List$head(
 				A2(author$project$Activity$Measure$sessions, timeline, old.c)));
 		return timeSpentString(timeSpentLastSession) + (' spent on ' + (author$project$Activity$Activity$getName(old) + ('\n\n' + (author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n\n' + ('Starting from ' + timeSpentString(
-			A3(author$project$Activity$Measure$excusedUsage, timeline, env.dj, _new))))))))));
+			A3(author$project$Activity$Measure$excusedUsage, timeline, env.dp, _new))))))))));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
@@ -11341,11 +11684,11 @@ var author$project$Activity$Switching$sameActivity = F3(
 				_List_fromArray(
 					[
 						author$project$External$Commands$toast(
-						A4(author$project$Activity$Switching$switchPopup, app.b0, env, activity, activity)),
+						A4(author$project$Activity$Switching$switchPopup, app.b4, env, activity, activity)),
 						A3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(activity),
-						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.dj, activity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.dp, activity),
 						A2(author$project$Activity$Measure$exportLastSession, app, activity)),
 						author$project$External$Commands$hideWindow
 					])));
@@ -11359,6 +11702,10 @@ var author$project$Activity$Measure$excusedLeft = F3(
 			excusableLimit,
 			A3(author$project$Activity$Measure$excusedUsage, timeline, now, activity));
 	});
+var author$project$SmartTime$Duration$isZero = function (_n0) {
+	var _int = _n0;
+	return !_int;
+};
 var author$project$SmartTime$Duration$scale = F2(
 	function (_n0, scalar) {
 		var dur = _n0;
@@ -11392,7 +11739,7 @@ var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanD
 };
 var author$project$SmartTime$Human$Duration$breakdownHM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var minutes = _n0.cQ;
+	var minutes = _n0.cW;
 	return _List_fromArray(
 		[
 			author$project$SmartTime$Human$Duration$Hours(
@@ -11415,36 +11762,36 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
 		var quarterLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 3 / 4);
 		var halfLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
 		var fifthLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 4 / 5);
-		return _List_fromArray(
+		return (!author$project$SmartTime$Duration$isZero(timeLeft)) ? _List_fromArray(
 			[
 				{
-				aS: _List_Nil,
-				a$: A2(author$project$SmartTime$Moment$future, now, halfLeft),
-				a1: write(halfLeft) + ' left',
-				a3: 'Half Time!'
+				aX: _List_Nil,
+				a5: A2(author$project$SmartTime$Moment$future, now, halfLeft),
+				a7: write(halfLeft) + ' left',
+				a9: 'Half Time!'
 			},
 				{
-				aS: _List_Nil,
-				a$: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
-				a1: 'Only one third left',
-				a3: 'Excused for ' + (write(
+				aX: _List_Nil,
+				a5: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
+				a7: 'Only one third left',
+				a9: 'Excused for ' + (write(
 					A2(author$project$SmartTime$Duration$difference, timeLeft, thirdLeft)) + ' more')
 			},
 				{
-				aS: _List_Nil,
-				a$: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
-				a1: 'Only one quarter left',
-				a3: 'Excused for ' + (write(
+				aX: _List_Nil,
+				a5: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
+				a7: 'Only one quarter left',
+				a9: 'Excused for ' + (write(
 					A2(author$project$SmartTime$Duration$difference, timeLeft, quarterLeft)) + ' more')
 			},
 				{
-				aS: _List_Nil,
-				a$: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
-				a1: 'Only one fifth left',
-				a3: 'Excused for ' + (write(
+				aX: _List_Nil,
+				a5: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
+				a7: 'Only one fifth left',
+				a9: 'Excused for ' + (write(
 					A2(author$project$SmartTime$Duration$difference, timeLeft, fifthLeft)) + ' more')
 			}
-			]);
+			]) : _List_Nil;
 	});
 var author$project$External$Commands$compileList = function (reminderList) {
 	return elm$core$String$concat(
@@ -11470,9 +11817,9 @@ var author$project$External$Commands$taskerEncodeNotification = function (remind
 			_List_fromArray(
 				[
 					elm$core$String$fromInt(
-					author$project$SmartTime$Moment$toUnixTimeInt(reminder.a$)),
-					reminder.a3,
-					reminder.a1
+					author$project$SmartTime$Moment$toUnixTimeInt(reminder.a5)),
+					reminder.a9,
+					reminder.a7
 				])));
 };
 var author$project$External$Commands$scheduleNotify = function (reminderList) {
@@ -11487,15 +11834,15 @@ var author$project$Activity$Switching$switchActivity = F3(
 		var updatedApp = _Utils_update(
 			app,
 			{
-				b0: A2(
+				b4: A2(
 					elm$core$List$cons,
-					A2(author$project$Activity$Activity$Switch, env.dj, activityId),
-					app.b0)
+					A2(author$project$Activity$Activity$Switch, env.dp, activityId),
+					app.b4)
 			});
 		var oldActivity = author$project$Activity$Switching$currentActivityFromApp(app);
 		var newActivity = A2(
 			author$project$Activity$Activity$getActivity,
-			author$project$Activity$Activity$allActivities(app.b6),
+			author$project$Activity$Activity$allActivities(app.ca),
 			activityId);
 		return _Utils_Tuple2(
 			updatedApp,
@@ -11503,18 +11850,18 @@ var author$project$Activity$Switching$switchActivity = F3(
 				_List_fromArray(
 					[
 						author$project$External$Commands$toast(
-						A4(author$project$Activity$Switching$switchPopup, updatedApp.b0, env, newActivity, oldActivity)),
+						A4(author$project$Activity$Switching$switchPopup, updatedApp.b4, env, newActivity, oldActivity)),
 						A3(
 						author$project$External$Commands$changeActivity,
 						author$project$Activity$Activity$getName(newActivity),
-						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.dj, newActivity),
+						A3(author$project$Activity$Measure$exportExcusedUsageSeconds, app, env.dp, newActivity),
 						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
 						author$project$External$Commands$hideWindow,
 						author$project$External$Commands$scheduleNotify(
 						A2(
 							author$project$Activity$Reminder$scheduleExcusedReminders,
-							env.dj,
-							A3(author$project$Activity$Measure$excusedLeft, updatedApp.b0, env.dj, newActivity)))
+							env.dp,
+							A3(author$project$Activity$Measure$excusedLeft, updatedApp.b4, env.dp, newActivity)))
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -11572,7 +11919,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 		A2(
 			elm$core$List$map,
 			entriesPerActivity,
-			author$project$Activity$Activity$allActivities(app.b6)));
+			author$project$Activity$Activity$allActivities(app.ca)));
 	return _List_fromArray(
 		[
 			_Utils_Tuple2(
@@ -11603,11 +11950,11 @@ var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
 	var queryParser = _n0;
 	return function (_n1) {
-		var visited = _n1.aj;
-		var unvisited = _n1.Y;
-		var params = _n1.af;
-		var frag = _n1.ab;
-		var value = _n1.N;
+		var visited = _n1.an;
+		var unvisited = _n1.ab;
+		var params = _n1.aj;
+		var frag = _n1.af;
+		var value = _n1.R;
 		return _List_fromArray(
 			[
 				A5(
@@ -11656,12 +12003,12 @@ var elm$url$Url$Parser$Query$map = F2(
 	});
 var author$project$Main$handleUrlTriggers = F2(
 	function (rawUrl, model) {
-		var appData = model.dx;
-		var environment = model.dF;
+		var appData = model.dE;
+		var environment = model.dM;
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
 		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
-			var _n16 = environment.cT;
+			var _n16 = environment.cZ;
 			if (!_n16.$) {
 				var navkey = _n16.a;
 				return A2(
@@ -11670,14 +12017,14 @@ var author$project$Main$handleUrlTriggers = F2(
 					elm$url$Url$toString(
 						_Utils_update(
 							url,
-							{d0: elm$core$Maybe$Nothing})));
+							{d6: elm$core$Maybe$Nothing})));
 			} else {
 				return elm$core$Platform$Cmd$none;
 			}
 		}();
 		var normalizedUrl = _Utils_update(
 			url,
-			{dX: ''});
+			{d2: ''});
 		var mainTriggers = _List_fromArray(
 			[
 				A2(
@@ -11712,7 +12059,7 @@ var author$project$Main$handleUrlTriggers = F2(
 			normalizedUrl);
 		if (!parsed.$) {
 			var parsedUrlSuccessfully = parsed.a;
-			var _n9 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d0);
+			var _n9 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d6);
 			if (!_n9.a.$) {
 				if (!_n9.b.$) {
 					var triggerMsg = _n9.a.a;
@@ -11731,7 +12078,7 @@ var author$project$Main$handleUrlTriggers = F2(
 						_Utils_update(
 							model,
 							{
-								dx: A2(author$project$AppData$saveError, appData, problemText)
+								dE: A2(author$project$AppData$saveError, appData, problemText)
 							}),
 						author$project$External$Commands$toast(problemText));
 				}
@@ -11745,7 +12092,7 @@ var author$project$Main$handleUrlTriggers = F2(
 						_Utils_update(
 							model,
 							{
-								dx: A2(author$project$AppData$saveError, appData, problemText)
+								dE: A2(author$project$AppData$saveError, appData, problemText)
 							}),
 						author$project$External$Commands$toast(problemText));
 				} else {
@@ -11760,16 +12107,16 @@ var author$project$Main$handleUrlTriggers = F2(
 				_Utils_update(
 					model,
 					{
-						dx: A2(author$project$AppData$saveError, appData, problemText)
+						dE: A2(author$project$AppData$saveError, appData, problemText)
 					}),
 				author$project$External$Commands$toast(problemText));
 		}
 	});
 var author$project$Main$update = F2(
 	function (msg, model) {
-		var viewState = model.a7;
-		var appData = model.dx;
-		var environment = model.dF;
+		var viewState = model.bd;
+		var appData = model.dE;
+		var environment = model.dM;
 		var justSetEnv = function (newEnv) {
 			return _Utils_Tuple2(
 				A3(author$project$Main$Model, viewState, appData, newEnv),
@@ -11778,7 +12125,7 @@ var author$project$Main$update = F2(
 		var justRunCommand = function (command) {
 			return _Utils_Tuple2(model, command);
 		};
-		var _n0 = _Utils_Tuple2(msg, viewState.a_);
+		var _n0 = _Utils_Tuple2(msg, viewState.a4);
 		_n0$7:
 		while (true) {
 			switch (_n0.a.$) {
@@ -11790,7 +12137,7 @@ var author$project$Main$update = F2(
 							viewState,
 							_Utils_update(
 								appData,
-								{_: _List_Nil}),
+								{ad: _List_Nil}),
 							environment),
 						elm$core$Platform$Cmd$none);
 				case 5:
@@ -11799,7 +12146,7 @@ var author$project$Main$update = F2(
 						A2(
 							elm$core$Platform$Cmd$map,
 							author$project$Main$TodoistServerResponse,
-							author$project$External$TodoistSync$sync(appData.b1.dl)));
+							author$project$External$TodoistSync$sync(appData.b5.dr)));
 				case 6:
 					var response = _n0.a.a;
 					return _Utils_Tuple2(
@@ -11813,7 +12160,7 @@ var author$project$Main$update = F2(
 					var urlRequest = _n0.a.a;
 					if (!urlRequest.$) {
 						var url = urlRequest.a;
-						var _n4 = environment.cT;
+						var _n4 = environment.cZ;
 						if (!_n4.$) {
 							var navkey = _n4.a;
 							return justRunCommand(
@@ -11838,7 +12185,7 @@ var author$project$Main$update = F2(
 						_Utils_update(
 							modelAfter,
 							{
-								a7: author$project$Main$viewUrl(url)
+								bd: author$project$Main$viewUrl(url)
 							}),
 						effectsAfter);
 				case 9:
@@ -11900,7 +12247,7 @@ var author$project$Main$updateWithStorage = F2(
 				_List_fromArray(
 					[
 						author$project$Main$setStorage(
-						author$project$Main$appDataToJson(newModel.dx)),
+						author$project$Main$appDataToJson(newModel.dE)),
 						cmds
 					])));
 	});
@@ -11943,7 +12290,7 @@ var author$project$Main$updateWithTime = F2(
 	function (msg, model) {
 		updateWithTime:
 		while (true) {
-			var environment = model.dF;
+			var environment = model.dM;
 			switch (msg.$) {
 				case 0:
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
@@ -11960,23 +12307,23 @@ var author$project$Main$updateWithTime = F2(
 					var time = msg.b;
 					var newEnv = _Utils_update(
 						environment,
-						{dj: time});
+						{dp: time});
 					return A2(
 						author$project$Main$updateWithStorage,
 						submsg,
 						_Utils_update(
 							model,
-							{dF: newEnv}));
+							{dM: newEnv}));
 				case 3:
 					var zone = msg.a;
 					var time = msg.b;
 					var newEnv = _Utils_update(
 						environment,
-						{dj: time, eb: zone});
+						{dp: time, eh: zone});
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
-							{dF: newEnv}),
+							{dM: newEnv}),
 						elm$core$Platform$Cmd$none);
 				default:
 					var otherMsg = msg;
@@ -12052,7 +12399,7 @@ var author$project$Headless$initHeadless = function (_n0) {
 var elm$core$Platform$worker = _Platform_worker;
 var elm$json$Json$Decode$index = _Json_decodeIndex;
 var author$project$Headless$main = elm$core$Platform$worker(
-	{dP: author$project$Headless$initHeadless, d9: author$project$Headless$headlessSubscriptions, ec: author$project$Main$updateWithTime});
+	{dW: author$project$Headless$initHeadless, ef: author$project$Headless$headlessSubscriptions, ei: author$project$Main$updateWithTime});
 _Platform_export({'Headless':{'init':author$project$Headless$main(
 	A2(
 		elm$json$Json$Decode$andThen,

@@ -50,24 +50,28 @@ scheduleExcusedReminders now timeLeft =
         write durLeft =
             abbreviatedSpaced <| breakdownHM durLeft
     in
-    [ { scheduledFor = future now halfLeft
-      , title = "Half Time!"
-      , subtitle = write halfLeft ++ " left"
-      , actions = []
-      }
-    , { scheduledFor = future now thirdLeft
-      , title = "Excused for " ++ write (difference timeLeft thirdLeft) ++ " more"
-      , subtitle = "Only one third left"
-      , actions = []
-      }
-    , { scheduledFor = future now quarterLeft
-      , title = "Excused for " ++ write (difference timeLeft quarterLeft) ++ " more"
-      , subtitle = "Only one quarter left"
-      , actions = []
-      }
-    , { scheduledFor = future now fifthLeft
-      , title = "Excused for " ++ write (difference timeLeft fifthLeft) ++ " more"
-      , subtitle = "Only one fifth left"
-      , actions = []
-      }
-    ]
+    if not (Duration.isZero timeLeft) then
+        [ { scheduledFor = future now halfLeft
+          , title = "Half Time!"
+          , subtitle = write halfLeft ++ " left"
+          , actions = []
+          }
+        , { scheduledFor = future now thirdLeft
+          , title = "Excused for " ++ write (difference timeLeft thirdLeft) ++ " more"
+          , subtitle = "Only one third left"
+          , actions = []
+          }
+        , { scheduledFor = future now quarterLeft
+          , title = "Excused for " ++ write (difference timeLeft quarterLeft) ++ " more"
+          , subtitle = "Only one quarter left"
+          , actions = []
+          }
+        , { scheduledFor = future now fifthLeft
+          , title = "Excused for " ++ write (difference timeLeft fifthLeft) ++ " more"
+          , subtitle = "Only one fifth left"
+          , actions = []
+          }
+        ]
+
+    else
+        []

@@ -68,11 +68,11 @@ switchPopup timeline env new old =
     timeSpentString timeSpentLastSession
         ++ " spent on "
         ++ getName old
-        ++ "\n\n"
+        ++ "\n"
         ++ getName old
         ++ " ➤ "
         ++ getName new
-        ++ "\n\n"
+        ++ "\n"
         ++ "Starting from "
         ++ timeSpentString (Measure.excusedUsage timeline env.time new)
 
