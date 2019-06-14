@@ -21,13 +21,14 @@ Working rules:
 type alias Task =
     { title : String
     , completion : Progress
-    , editing : Bool
     , id : TaskId
+    , minEffort : Duration
     , predictedEffort : Duration
+    , maxEffort : Duration
     , history : List HistoryEntry
     , parent : Maybe TaskId
-    , tags : List String
-    , project : Maybe ProjectId
+    , tags : List TagId
+    , activity : Maybe ActivityId
     , deadline : TaskMoment
     , plannedStart : TaskMoment
     , plannedFinish : TaskMoment
@@ -41,13 +42,14 @@ decodeTask =
     decode Task
         |> Pipeline.required "title" Decode.string
         |> Pipeline.required "completion" decodeProgress
-        |> Pipeline.required "editing" Decode.bool
         |> Pipeline.required "id" Decode.int
-        |> Pipeline.required "predictedEffort" Decode.int
+        |> Pipeline.required "minEffort" decodeDuration
+        |> Pipeline.required "predictedEffort" decodeDuration
+        |> Pipeline.required "maxEffort" decodeDuration
         |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
         |> Pipeline.required "parent" (Decode.nullable Decode.int)
         |> Pipeline.required "tags" (Decode.list Decode.string)
-        |> Pipeline.required "project" (Decode.nullable Decode.int)
+        |> Pipeline.required "activity" (Decode.nullable Decode.int)
         |> Pipeline.required "deadline" decodeTaskMoment
         |> Pipeline.required "plannedStart" decodeTaskMoment
         |> Pipeline.required "plannedFinish" decodeTaskMoment
@@ -60,13 +62,14 @@ encodeTask record =
     Encode.object
         [ ( "title", Encode.string <| record.title )
         , ( "completion", encodeProgress <| record.completion )
-        , ( "editing", Encode.bool <| record.editing )
         , ( "id", Encode.int <| record.id )
-        , ( "predictedEffort", Encode.int <| record.predictedEffort )
+        , ( "minEffort", encodeDuration <| record.predictedEffort )
+        , ( "predictedEffort", encodeDuration <| record.predictedEffort )
+        , ( "maxEffort", encodeDuration <| record.predictedEffort )
         , ( "history", Encode.list encodeHistoryEntry record.history )
         , ( "parent", Encode2.maybe Encode.int record.parent )
         , ( "tags", Encode.list Encode.string record.tags )
-        , ( "project", Encode2.maybe Encode.int record.project )
+        , ( "activity", Encode2.maybe Encode.int record.project )
         , ( "deadline", encodeTaskMoment record.deadline )
         , ( "plannedStart", encodeTaskMoment record.plannedStart )
         , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
@@ -92,6 +95,10 @@ newTask description id =
     , relevanceStarts = Unset
     , relevanceEnds = Unset
     }
+
+
+type alias TagId =
+    Int
 
 
 {-| Defines a point where something changed in a task.
