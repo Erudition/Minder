@@ -1,6 +1,6 @@
 module Activity.Switching exposing (currentActivityFromApp, sameActivity, switchActivity, switchPopup)
 
-import Activity.Activity exposing (..)
+import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
 import Activity.Reminder exposing (..)
 import AppData exposing (..)
@@ -33,7 +33,7 @@ switchActivity activityId app env =
             (Measure.exportExcusedUsageSeconds app env.time newActivity)
             (Measure.exportLastSession updatedApp oldActivity)
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (Measure.excusedLeft updatedApp.timeline env.time newActivity)
+        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time newActivity)
         ]
     )
 

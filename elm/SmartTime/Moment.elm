@@ -85,6 +85,12 @@ past (Moment time) duration =
 
 
 {-| Compare a `Moment` to another, the same way you can compare integers.
+
+Works just like a normal `compare`, returning their `Order` in time:
+If the first moment is later than the second, returns `GT`.
+If the first moment is earlier than the second, returns `LT`.
+If the moments define the same instant in time, returns `EQ`.
+
 -}
 compare (Moment time1) (Moment time2) =
     Basics.compare (Duration.inMs time1) (Duration.inMs time2)

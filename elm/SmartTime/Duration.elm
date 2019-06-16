@@ -286,7 +286,10 @@ difference (Duration int1) (Duration int2) =
 
 {-| How do these durations compare?
 
-Works just like a normal `compare`.
+Works just like a normal `compare`, returning an `Order`:
+If the first value is greater than the second, returns `GT`.
+If the first value is less than the second, returns `LT`.
+If the values are equal, returns `EQ`.
 
 -}
 compare : Duration -> Duration -> Order

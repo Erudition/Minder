@@ -1,7 +1,7 @@
 module Activity.Reminder exposing (Alarm, Intent, NotificationAction, Reminder, scheduleExcusedReminders)
 
 import SmartTime.Duration as Duration exposing (..)
-import SmartTime.Human.Duration as HumanDuration exposing (abbreviatedSpaced, breakdownHM)
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM)
 import SmartTime.Moment as Moment exposing (Moment, future)
 
 
@@ -32,46 +32,55 @@ type alias Alarm =
 
 {-| Calculate the interim reminders before the activity expires from being excused.
 -}
-scheduleExcusedReminders : Moment -> Duration -> List Reminder
-scheduleExcusedReminders now timeLeft =
+scheduleExcusedReminders : Moment -> Duration -> Duration -> List Reminder
+scheduleExcusedReminders now maxExcused timeLeft =
     let
         halfLeft =
-            Duration.scale timeLeft (1 / 2)
+            Duration.scale maxExcused (1 / 2)
 
         thirdLeft =
-            Duration.scale timeLeft (2 / 3)
+            Duration.scale maxExcused (2 / 3)
 
         quarterLeft =
-            Duration.scale timeLeft (3 / 4)
+            Duration.scale maxExcused (3 / 4)
 
         fifthLeft =
-            Duration.scale timeLeft (4 / 5)
+            Duration.scale maxExcused (4 / 5)
 
         write durLeft =
             abbreviatedSpaced <| breakdownHM durLeft
+
+        yetToPass reminder =
+            Moment.compare reminder.scheduledFor now == GT
     in
     if not (Duration.isZero timeLeft) then
-        [ { scheduledFor = future now halfLeft
-          , title = "Half Time!"
-          , subtitle = write halfLeft ++ " left"
-          , actions = []
-          }
-        , { scheduledFor = future now thirdLeft
-          , title = "Excused for " ++ write (difference timeLeft thirdLeft) ++ " more"
-          , subtitle = "Only one third left"
-          , actions = []
-          }
-        , { scheduledFor = future now quarterLeft
-          , title = "Excused for " ++ write (difference timeLeft quarterLeft) ++ " more"
-          , subtitle = "Only one quarter left"
-          , actions = []
-          }
-        , { scheduledFor = future now fifthLeft
-          , title = "Excused for " ++ write (difference timeLeft fifthLeft) ++ " more"
-          , subtitle = "Only one fifth left"
-          , actions = []
-          }
-        ]
+        List.filter yetToPass
+            [ { scheduledFor = future now halfLeft
+              , title = "Half Time!"
+              , subtitle = write halfLeft ++ " left"
+              , actions = []
+              }
+            , { scheduledFor = future now thirdLeft
+              , title = "Excused for " ++ write thirdLeft ++ " more"
+              , subtitle = "Only one third left"
+              , actions = []
+              }
+            , { scheduledFor = future now quarterLeft
+              , title = "Excused for " ++ write quarterLeft ++ " more"
+              , subtitle = "Only one quarter left"
+              , actions = []
+              }
+            , { scheduledFor = future now fifthLeft
+              , title = "Excused for " ++ write fifthLeft ++ " more"
+              , subtitle = "Only one fifth left"
+              , actions = []
+              }
+            , { scheduledFor = future now (HumanDuration.toDuration (Minutes 5))
+              , title = "Excused for " ++ write fifthLeft ++ " more"
+              , subtitle = "Only one fifth left"
+              , actions = []
+              }
+            ]
 
     else
         []
