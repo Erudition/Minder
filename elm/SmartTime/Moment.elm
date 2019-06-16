@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch(..), Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, zero)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import Task as Job
@@ -107,7 +107,7 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 -}
 fromJsTime : Float -> Moment
 fromJsTime floatMsUtc =
-    moment CoordinatedUniversal UnixEpoch (Duration.fromInt (round floatMsUtc))
+    moment CoordinatedUniversal unixEpoch (Duration.fromInt (round floatMsUtc))
 
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
@@ -134,7 +134,7 @@ If your time is still in Elm's native form, you want `fromElmTime` instead.
 -}
 fromElmInt : Int -> Moment
 fromElmInt intMsUtc =
-    moment CoordinatedUniversal UnixEpoch (Duration.fromInt intMsUtc)
+    moment CoordinatedUniversal unixEpoch (Duration.fromInt intMsUtc)
 
 
 {-| Turn a Unix time value into a Moment.
@@ -148,7 +148,7 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 -}
 fromUnixTime : Float -> Moment
 fromUnixTime float =
-    moment CoordinatedUniversal UnixEpoch (Duration.fromInt (round (float * 1000)))
+    moment CoordinatedUniversal unixEpoch (Duration.fromInt (round (float * 1000)))
 
 
 toUnixTime : Moment -> Float
@@ -240,7 +240,7 @@ Note: For some reason, some people unfamiliar with [any epoch other](https://www
 -}
 unixEpoch : Epoch
 unixEpoch =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| Okay, so the Unix epoch is 00:00:00 Thursday, 1 January 1970. But that's UTC, and the UTC used by Unix Time didn't exist until 1972! Wha??
@@ -260,7 +260,7 @@ That means that by using this as your `Epoch`, you can describe and reason about
 -}
 humanEraStart : Epoch
 humanEraStart =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| The moment <current-year> years ago. It's actually year 1 C.E. (common era), also called 1 A.D., not 0 A.D. (like [the video game](play0ad.com)) - and believe it or not, it directly follows year 1 B.C.E.! Why is there [no "year zero"](https://www.wikiwand.com/en/Year_zero)? Because Roman Numerals had no concept of "zero", let alone a symbol for it. But hey, imagine how many `IndexOutOfBounds` errors they would have avoided!
@@ -279,7 +279,7 @@ Some software that uses this epoch: Microsoft .NET, Go, REXX
 -}
 commonEraStart : Epoch
 commonEraStart =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| The year before `commonEraStart`, aka 1 B.C., aka the beginning of astronomical "year zero".
@@ -291,7 +291,7 @@ Some software that uses this epoch: MATLAB
 -}
 oneBCE : Epoch
 oneBCE =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| You can think of it as "the Windows Epoch": Jan 1, 1601.
@@ -303,7 +303,7 @@ Some software that uses this epoch: NTFS, COBOL, Win32/Win64
 -}
 windowsNT : Epoch
 windowsNT =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| November 17, 1858, 00:00:00 UT, the zero of the Modified Julian Day (MJD) equivalent to Julian day 2400000.5.
@@ -313,7 +313,7 @@ A epoch used in VMS, United States Naval Observatory, DVB SI 16-bit day stamps, 
 -}
 astronomy : Epoch
 astronomy =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| December 30, 1899, the epoch used in Google Sheets, LibreOffice Calc, Microsoft COM DATE, Object Pascal, etc. to maintain compatibility with Microsoft Excel. Excel used the same date in the form of January 0, 1900 in turn to maintain compatibility with the even older Lotus 1-2-3, the IBM PC's first killer app.
@@ -327,7 +327,7 @@ Oh, and there's another Epoch (not included) on the date December 31, 1899, used
 -}
 spreadsheets : Epoch
 spreadsheets =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| January 1, 1900: The epoch used by the Network Time Protocol, Mathematica, IBM CICS, RISC OS, VME, the Michigan Terminal System, and even Common Lisp!
@@ -337,7 +337,7 @@ Note: It may be tempting to think of this as "the beginning of the 20th Century"
 -}
 nineteen00 : Epoch
 nineteen00 =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| The first leap year of the 20th century, January 1, 1904, is the epoch used by classic Mac OS, and sometimes Excel.
@@ -347,14 +347,14 @@ Used in: LabVIEW, Apple Inc.'s classic Mac OS, JMP Scripting Language, Palm OS, 
 -}
 nineteen04 : Epoch
 nineteen04 =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| The start of 1980 is the `Epoch` used by FAT32, which is probably what your flash drive is formatted to, and other older file systems: IBM BIOS INT 1Ah, DOS, OS/2, FAT12, FAT16, FAT32, exFAT. Chose because the IBM PC with its BIOS as well as 86-DOS, MS-DOS and PC DOS with their FAT12 file system were developed and introduced between 1980 and 1981.
 -}
 oldFS : Epoch
 oldFS =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| The epoch used by Qualcomm BREW, GPS, and ATSC 32-bit time stamps.
@@ -364,7 +364,7 @@ GPS counts weeks for some reason, and a week is defined to start on Sunday, and 
 -}
 gpsEpoch : Epoch
 gpsEpoch =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| Y2K: January 1, 2000. Interfacing with Postgres? This one's for you.
@@ -375,7 +375,7 @@ The epoch used by AppleSingle, AppleDouble, PostgreSQL, ZigBee's UTCTime.
 -}
 y2k : Epoch
 y2k =
-    Moment 0
+    Moment (Duration.fromInt 0)
 
 
 {-| A few noteworthy timescales:
