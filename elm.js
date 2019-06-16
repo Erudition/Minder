@@ -11808,7 +11808,7 @@ var author$project$Activity$Switching$switchPopup = F4(
 			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
 				A2(author$project$Activity$Measure$sessions, timeline, old.id)));
-		return timeSpentString(timeSpentLastSession) + (' spent on ' + (author$project$Activity$Activity$getName(old) + ('\n\n' + (author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n\n' + ('Starting from ' + timeSpentString(
+		return timeSpentString(timeSpentLastSession) + (' spent on ' + (author$project$Activity$Activity$getName(old) + ('\n' + (author$project$Activity$Activity$getName(old) + (' ➤ ' + (author$project$Activity$Activity$getName(_new) + ('\n' + ('Starting from ' + timeSpentString(
 			A3(author$project$Activity$Measure$excusedUsage, timeline, env.time, _new))))))))));
 	});
 var author$project$External$Tasker$variableOut = _Platform_outgoingPort(
@@ -11923,46 +11923,61 @@ var author$project$SmartTime$Moment$future = F2(
 		return author$project$SmartTime$Moment$Moment(
 			A2(author$project$SmartTime$Duration$add, time, duration));
 	});
-var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
-	function (now, timeLeft) {
+var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
+	function (now, maxExcused, timeLeft) {
+		var yetToPass = function (reminder) {
+			return _Utils_eq(
+				A2(author$project$SmartTime$Moment$compare, reminder.scheduledFor, now),
+				elm$core$Basics$GT);
+		};
 		var write = function (durLeft) {
 			return author$project$SmartTime$Human$Duration$abbreviatedSpaced(
 				author$project$SmartTime$Human$Duration$breakdownHM(durLeft));
 		};
-		var thirdLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 2 / 3);
-		var quarterLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 3 / 4);
-		var halfLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
-		var fifthLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 4 / 5);
-		return (!author$project$SmartTime$Duration$isZero(timeLeft)) ? _List_fromArray(
-			[
-				{
-				actions: _List_Nil,
-				scheduledFor: A2(author$project$SmartTime$Moment$future, now, halfLeft),
-				subtitle: write(halfLeft) + ' left',
-				title: 'Half Time!'
-			},
-				{
-				actions: _List_Nil,
-				scheduledFor: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
-				subtitle: 'Only one third left',
-				title: 'Excused for ' + (write(
-					A2(author$project$SmartTime$Duration$difference, timeLeft, thirdLeft)) + ' more')
-			},
-				{
-				actions: _List_Nil,
-				scheduledFor: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
-				subtitle: 'Only one quarter left',
-				title: 'Excused for ' + (write(
-					A2(author$project$SmartTime$Duration$difference, timeLeft, quarterLeft)) + ' more')
-			},
-				{
-				actions: _List_Nil,
-				scheduledFor: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
-				subtitle: 'Only one fifth left',
-				title: 'Excused for ' + (write(
-					A2(author$project$SmartTime$Duration$difference, timeLeft, fifthLeft)) + ' more')
-			}
-			]) : _List_Nil;
+		var thirdLeft = A2(author$project$SmartTime$Duration$scale, maxExcused, 2 / 3);
+		var quarterLeft = A2(author$project$SmartTime$Duration$scale, maxExcused, 3 / 4);
+		var halfLeft = A2(author$project$SmartTime$Duration$scale, maxExcused, 1 / 2);
+		var fifthLeft = A2(author$project$SmartTime$Duration$scale, maxExcused, 4 / 5);
+		return (!author$project$SmartTime$Duration$isZero(timeLeft)) ? A2(
+			elm$core$List$filter,
+			yetToPass,
+			_List_fromArray(
+				[
+					{
+					actions: _List_Nil,
+					scheduledFor: A2(author$project$SmartTime$Moment$future, now, halfLeft),
+					subtitle: write(halfLeft) + ' left',
+					title: 'Half Time!'
+				},
+					{
+					actions: _List_Nil,
+					scheduledFor: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
+					subtitle: 'Only one third left',
+					title: 'Excused for ' + (write(thirdLeft) + ' more')
+				},
+					{
+					actions: _List_Nil,
+					scheduledFor: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
+					subtitle: 'Only one quarter left',
+					title: 'Excused for ' + (write(quarterLeft) + ' more')
+				},
+					{
+					actions: _List_Nil,
+					scheduledFor: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
+					subtitle: 'Only one fifth left',
+					title: 'Excused for ' + (write(fifthLeft) + ' more')
+				},
+					{
+					actions: _List_Nil,
+					scheduledFor: A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Human$Duration$toDuration(
+							author$project$SmartTime$Human$Duration$Minutes(5))),
+					subtitle: 'Only one fifth left',
+					title: 'Excused for ' + (write(fifthLeft) + ' more')
+				}
+				])) : _List_Nil;
 	});
 var author$project$External$Commands$compileList = function (reminderList) {
 	return elm$core$String$concat(
@@ -12029,9 +12044,11 @@ var author$project$Activity$Switching$switchActivity = F3(
 						A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivity)),
 						author$project$External$Commands$hideWindow,
 						author$project$External$Commands$scheduleNotify(
-						A2(
+						A3(
 							author$project$Activity$Reminder$scheduleExcusedReminders,
 							env.time,
+							author$project$SmartTime$Human$Duration$toDuration(
+								author$project$Activity$Activity$excusableFor(newActivity).b),
 							A3(author$project$Activity$Measure$excusedLeft, updatedApp.timeline, env.time, newActivity)))
 					])));
 	});
