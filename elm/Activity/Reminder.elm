@@ -76,8 +76,13 @@ scheduleExcusedReminders now maxExcused timeLeft =
               , actions = []
               }
             , { scheduledFor = future now (HumanDuration.toDuration (Minutes 5))
-              , title = "Excused for " ++ write fifthLeft ++ " more"
-              , subtitle = "Only one fifth left"
+              , title = "5 minutes left!"
+              , subtitle = "Can you get back on task now?"
+              , actions = []
+              }
+            , { scheduledFor = future now (HumanDuration.toDuration (Minutes 1))
+              , title = "1 minute left!"
+              , subtitle = "Stop now. You can come back to this later."
               , actions = []
               }
             ]

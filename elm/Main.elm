@@ -53,12 +53,9 @@ port setStorage : JsonAppDatabase -> Cmd msg
 
 
 log : String -> a -> a
-log string input =
-    input
-
-
-
---Debug.log string input
+log label valueToLog =
+    --Debug.log label valueToLog
+    valueToLog
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage

@@ -327,7 +327,7 @@ map func (Duration int) =
 
 {-| A zero-length duration.
 
-Perhaps you want to use a function that demands a `Duration` on something that returns a `Maybe Duration` - this would be a good fallback to use with `Maybe.withDefault`.
+Perhaps you want to use a function that demands a `Duration` on the result of a function that returns a `Maybe Duration` - this would be a good fallback to use with `Maybe.withDefault`.
 
 -}
 zero : Duration
