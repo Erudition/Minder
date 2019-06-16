@@ -218,9 +218,164 @@ fromSmartInt int =
     Moment (Duration.fromInt int)
 
 
-type Epoch
-    = UnixEpoch
-    | HumanEraStart
+
+-- WIBBLY WOBBLY TIMEY WIMEY
+
+
+{-| Remember how a `Moment` can be defined simply by a distance in time (`Duration`) from some fixed point? Well we call that fixed point an `Epoch` - some widely-agreed-upon stake in the ground, so we can all sensibly talk about moments in time in the same fram of reference.
+
+This library can transparently change between these frames of reference, but chances are this isn't something you'll need to worry about unless you're creating a `Moment` from scratch (via `moment`) or passing them in or out from other systems or libraries or languages.
+
+-}
+type alias Epoch =
+    Moment
+
+
+{-| The famous Unix Epoch is 00:00:00 Thursday, 1 January 1970. Unix-like systems (or POSIX systems - which is a lot of the world's infrastructure!) keep time relative to this moment, by counting the number of seconds (not miliseconds, like ElmTime) since then (albeit on a discontinuous UTC timescale).
+
+At 03:33:20 UTC on Wednesday, 18 May 2033, the Unix time value will equal 2000000000 seconds. See you at the party?
+
+Note: For some reason, some people unfamiliar with [any epoch other](https://www.wikiwand.com/en/Epoch_(computing)) than this one have misleadingly been calling Unix time "Epoch time". In reality, all timekeeping must be relative to some `Epoch`, and as you can see in this library, there's more than one possibility!
+
+-}
+unixEpoch : Epoch
+unixEpoch =
+    Moment 0
+
+
+{-| Okay, so the Unix epoch is 00:00:00 Thursday, 1 January 1970. But that's UTC, and the UTC used by Unix Time didn't exist until 1972! Wha??
+
+The present form of UTC, with leap seconds, is defined only from 1 January 1972 onwards. That's why this `Epoch` is here. Prior to that, since 1 January 1961 there was an older form of UTC in which not only were there occasional time steps, which were by non-integer numbers of seconds, but also the UTC second was slightly longer than the SI second, and periodically changed to continuously approximate the Earth's rotation! Prior to 1961 there was no UTC, and prior to 1958 there was no widespread atomic timekeeping.
+
+So, if you want your `Moment`s to always be precisely defined from system to system, use this Epoch, and you'll know that positive numbers avoid all of those problems. Any negative numbers should be understood to be an ambiguous and unspecified approximation.
+
+-}
+utcDefined : Epoch
+utcDefined =
+    future unixEpoch (Duration.fromInt 63072000000)
+
+
+{-| Take the current year, and stick a 1 in front of it (`2019 CE -> 12019 HE`). That's the current year H.E. - Human Era - a pretty decent approximation of how long human civilization has been around! Easy, right?
+That means that by using this as your `Epoch`, you can describe and reason about just about any event in human history _without resorting to negative numbers_! This library uses this epoch internally, so all of our `Moments` are positive.
+-}
+humanEraStart : Epoch
+humanEraStart =
+    Moment 0
+
+
+{-| The moment <current-year> years ago. It's actually year 1 C.E. (common era), also called 1 A.D., not 0 A.D. (like [the video game](play0ad.com)) - and believe it or not, it directly follows year 1 B.C.E.! Why is there [no "year zero"](https://www.wikiwand.com/en/Year_zero)? Because Roman Numerals had no concept of "zero", let alone a symbol for it. But hey, imagine how many `IndexOutOfBounds` errors they would have avoided!
+
+Fun fact: More time messiness - this is only an issue in the Gregorian calendar (year zero exists in all Buddhist and Hindu calendars), but just like the issue with leap seconds can cause errors when subtracting two moments to get the distance between them, the lack of year zero causes the same problem when subtracting two years (which contain that moment in time). For this reason astronomers force 1 BCE to be "year 0", and the years before that are simply _negative_. Purity and linearity is restored! Rest assured that this is what these libraries use, when applicable. (Unfortunately, this also means those years are off by one.)
+
+    "The year which historians call 585 B.C. is actually the year −584. The astronomical counting of the negative years is the only one suitable for arithmetical purpose." — Jean Meeus, Astronomical Algorithms
+
+Compatibility: ISO 8601:2004 has year zero (where it again coincides with the Gregorian year 1 BC), as it now uses astronomical year numbering (and previously ISO 8601:2000, but not ISO 8601:1988). However, years prior to 1583 (when the Gregorian calendar came out) are not automatically allowed by the standard. Instead "values in the range [0000] through [1582] shall only be used by mutual agreement of the partners in information interchange."
+
+Note that year zero (1BC) is a full year, NOT an instant in time - this epoch refers to the end of that year, or the moment year 1 CE began and 1 BCE ended.
+
+Some standards that use this Epoch: ISO 2014, RFC 3339, Rata Die
+Some software that uses this epoch: Microsoft .NET, Go, REXX
+
+-}
+commonEraStart : Epoch
+commonEraStart =
+    Moment 0
+
+
+{-| The year before `commonEraStart`, aka 1 B.C., aka the beginning of astronomical "year zero".
+
+Note that year zero is a full year, NOT an instant in time - this epoch refers to the beginning of that year. For the end of that yer, check out `commonEraStart`, which is probably what you want anyway.
+
+Some software that uses this epoch: MATLAB
+
+-}
+oneBCE : Epoch
+oneBCE =
+    Moment 0
+
+
+{-| You can think of it as "the Windows Epoch": Jan 1, 1601.
+
+Why 1601? 1601 was the first year of the 400-year Gregorian calendar cycle at the time Windows NT was made.
+
+Some software that uses this epoch: NTFS, COBOL, Win32/Win64
+
+-}
+windowsNT : Epoch
+windowsNT =
+    Moment 0
+
+
+{-| November 17, 1858, 00:00:00 UT, the zero of the Modified Julian Day (MJD) equivalent to Julian day 2400000.5.
+
+A epoch used in VMS, United States Naval Observatory, DVB SI 16-bit day stamps, and other astronomy-related computations.
+
+-}
+astronomy : Epoch
+astronomy =
+    Moment 0
+
+
+{-| December 30, 1899, the epoch used in Google Sheets, LibreOffice Calc, Microsoft COM DATE, Object Pascal, etc. to maintain compatibility with Microsoft Excel. Excel used the same date in the form of January 0, 1900 in turn to maintain compatibility with the even older Lotus 1-2-3, the IBM PC's first killer app.
+
+Ah, legacy. While logically January 0, 1900 is equivalent to December 31, 1899, those systems did not allow users to specify the latter date. Since 1900 is incorrectly treated as a leap year in these systems, January 0, 1900 actually corresponds to the historical date of December 30, 1899.
+
+Fun fact: Microsoft Excel also observes the fictional date of February 29, 1900 in order to maintain compatibility with older versions of Lotus 1-2-3. Lotus 1-2-3 observed the date due to an error; by the time the error was discovered, it was too late to fix it—"a change now would disrupt formulas which were written to accommodate this anomaly".
+
+Oh, and there's another Epoch (not included) on the date December 31, 1899, used by Dyalog APL and Microsoft C/C++ 7.0 - chosen so that (date mod 7) would produce 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, and 6=Saturday. Microsoft’s last version of non-Visual C/C++ used this, but was subsequently reverted.
+
+-}
+spreadsheets : Epoch
+spreadsheets =
+    Moment 0
+
+
+{-| January 1, 1900: The epoch used by the Network Time Protocol, Mathematica, IBM CICS, RISC OS, VME, the Michigan Terminal System, and even Common Lisp!
+
+Note: It may be tempting to think of this as "the beginning of the 20th Century", but that would actually be 1901.
+
+-}
+nineteen00 : Epoch
+nineteen00 =
+    Moment 0
+
+
+{-| The first leap year of the 20th century, January 1, 1904, is the epoch used by classic Mac OS, and sometimes Excel.
+
+Used in: LabVIEW, Apple Inc.'s classic Mac OS, JMP Scripting Language, Palm OS, MP4, Microsoft Excel (optionally), IGOR Pro
+
+-}
+nineteen04 : Epoch
+nineteen04 =
+    Moment 0
+
+
+{-| The start of 1980 is the `Epoch` used by FAT32, which is probably what your flash drive is formatted to, and other older file systems: IBM BIOS INT 1Ah, DOS, OS/2, FAT12, FAT16, FAT32, exFAT. Chose because the IBM PC with its BIOS as well as 86-DOS, MS-DOS and PC DOS with their FAT12 file system were developed and introduced between 1980 and 1981.
+-}
+oldFS : Epoch
+oldFS =
+    Moment 0
+
+
+{-| The epoch used by Qualcomm BREW, GPS, and ATSC 32-bit time stamps.
+
+GPS counts weeks for some reason, and a week is defined to start on Sunday, and since January 6 is the first Sunday of 1980, it is the first week.
+
+-}
+gpsEpoch : Epoch
+gpsEpoch =
+    Moment 0
+
+
+{-| Y2K: January 1, 2000. Interfacing with Postgres? This one's for you.
+
+The epoch used by AppleSingle, AppleDouble, PostgreSQL, ZigBee's UTCTime.
+(ZigBee is the open standard protocol used to control your smarthome!)
+
+-}
+y2k : Epoch
+y2k =
+    Moment 0
 
 
 {-| A few noteworthy timescales:
