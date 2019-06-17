@@ -6,6 +6,7 @@ import Activity.Reminder exposing (..)
 import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
+import External.Tasker as Tasker
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment exposing (..)
@@ -28,10 +29,10 @@ switchActivity activityId app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
-        , Commands.changeActivity
-            (getName newActivity)
-            (Measure.exportExcusedUsageSeconds app env.time newActivity)
-            (Measure.exportLastSession updatedApp oldActivity)
+        , Tasker.variableOut ( "ActivityTotalSec", Measure.exportExcusedUsageSeconds app env.time newActivity )
+        , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time newActivity) )
+        , Tasker.variableOut ( "ElmSelected", getName newActivity )
+        , Tasker.variableOut ( "PreviousActivityTotal", Measure.exportLastSession updatedApp oldActivity )
         , Commands.hideWindow
         , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time newActivity)
         ]
