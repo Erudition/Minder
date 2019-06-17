@@ -243,7 +243,7 @@ unixEpoch =
     Moment (Duration.fromInt 0)
 
 
-{-| Okay, so the Unix epoch is 00:00:00 Thursday, 1 January 1970. But that's UTC, and the UTC used by Unix Time didn't exist until 1972! Wha??
+{-| Okay, so the Unix epoch is 00:00:00 Thursday, 1 January 1970. But that's UTC, and the UTC we use didn't exist until 1972! Wha??
 
 The present form of UTC, with leap seconds, is defined only from 1 January 1972 onwards. That's why this `Epoch` is here. Prior to that, since 1 January 1961 there was an older form of UTC in which not only were there occasional time steps, which were by non-integer numbers of seconds, but also the UTC second was slightly longer than the SI second, and periodically changed to continuously approximate the Earth's rotation! Prior to 1961 there was no UTC, and prior to 1958 there was no widespread atomic timekeeping.
 
