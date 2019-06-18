@@ -3,6 +3,7 @@ module Activity.Measure exposing (excusedLeft, excusedUsage, exportExcusedUsageS
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
 import Environment exposing (..)
+import ID
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock exposing (Zone)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -119,13 +120,13 @@ justToday timeline ( now, zone ) =
     timelineLimit timeline now lastMidnight
 
 
-justTodayTotal : Timeline -> Environment -> Activity -> Duration
-justTodayTotal timeline env activity =
+justTodayTotal : Timeline -> Environment -> ActivityID -> Duration
+justTodayTotal timeline env activityID =
     let
         lastPeriod =
             justToday timeline ( env.time, env.timeZone )
     in
-    totalLive env.time lastPeriod activity.id
+    totalLive env.time lastPeriod activityID
 
 
 inHoursMinutes : Duration -> String
@@ -165,8 +166,8 @@ inHoursMinutes duration =
 
 {-| Total time used within the excused window.
 -}
-excusedUsage : Timeline -> Moment -> Activity -> Duration
-excusedUsage timeline now activity =
+excusedUsage : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
+excusedUsage timeline now ( activityID, activity ) =
     let
         lastPeriod =
             relevantTimeline timeline now (Tuple.second excusableLimit)
@@ -174,35 +175,35 @@ excusedUsage timeline now activity =
         excusableLimit =
             Activity.excusableFor activity
     in
-    totalLive now lastPeriod activity.id
+    totalLive now lastPeriod activityID
 
 
 {-| Total time NOT used within the excused window.
 -}
-excusedLeft : Timeline -> Moment -> Activity -> Duration
-excusedLeft timeline now activity =
+excusedLeft : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
+excusedLeft timeline now ( activityID, activity ) =
     let
         excusableLimit =
             toDuration (Tuple.first (Activity.excusableFor activity))
     in
-    Duration.difference excusableLimit (excusedUsage timeline now activity)
+    Duration.difference excusableLimit (excusedUsage timeline now ( activityID, activity ))
 
 
-exportExcusedUsageSeconds : AppData -> Moment -> Activity -> String
-exportExcusedUsageSeconds app now activity =
-    String.fromInt <| Duration.inSecondsRounded (excusedUsage app.timeline now activity)
+exportExcusedUsageSeconds : AppData -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedUsageSeconds app now ( activityID, activity ) =
+    String.fromInt <| Duration.inSecondsRounded (excusedUsage app.timeline now ( activityID, activity ))
 
 
-exportExcusedLeftSeconds : AppData -> Moment -> Activity -> String
-exportExcusedLeftSeconds app now activity =
-    String.fromInt <| Duration.inSecondsRounded (excusedLeft app.timeline now activity)
+exportExcusedLeftSeconds : AppData -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedLeftSeconds app now ( activityID, activity ) =
+    String.fromInt <| Duration.inSecondsRounded (excusedLeft app.timeline now ( activityID, activity ))
 
 
-exportLastSession : AppData -> Activity -> String
+exportLastSession : AppData -> ActivityID -> String
 exportLastSession app old =
     let
         timeSpent =
-            Maybe.withDefault Duration.zero (List.head (sessions app.timeline old.id))
+            Maybe.withDefault Duration.zero (List.head (sessions app.timeline old))
     in
     String.fromInt <| Duration.inMinutesRounded timeSpent
 

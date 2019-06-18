@@ -116,7 +116,7 @@ encodeCustomizations record =
 --         ]
 
 
-type alias  =
+type alias ActivityID =
     ID Activity
 
 
@@ -134,6 +134,11 @@ type alias  =
 dummy : ActivityID
 dummy =
     ID.tag 0
+
+
+dummyActivity : Activity
+dummyActivity =
+    defaults DillyDally
 
 
 type Switch
@@ -1139,16 +1144,16 @@ currentActivityID switchList =
     getId (latestSwitch switchList)
 
 
-currentActivity : StoredActivities -> Timeline -> Activity
+currentActivity : IntDict Activity -> Timeline -> Activity
 currentActivity activities switchList =
-    getActivity activities (currentActivityID switchList)
+    getActivity (currentActivityID switchList) activities
 
 
-getActivity : StoredActivities -> ActivityID -> Activity
-getActivity activities activityId =
+getActivity : ActivityID -> IntDict Activity -> Activity
+getActivity activityId activities =
     case IntDict.get (ID.read activityId) activities of
-        Just delta ->
-            withTemplate delta
+        Just activity ->
+            activity
 
         Nothing ->
             defaults DillyDally

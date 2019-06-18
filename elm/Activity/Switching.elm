@@ -7,6 +7,7 @@ import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
 import External.Tasker as Tasker
+import IntDict
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment exposing (..)
@@ -15,56 +16,59 @@ import Time.Extra as Time
 
 
 switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
-switchActivity activityId app env =
+switchActivity activityID app env =
     let
         updatedApp =
-            { app | timeline = Switch env.time activityId :: app.timeline }
+            { app | timeline = Switch env.time activityID :: app.timeline }
 
         newActivity =
-            getActivity (allActivities app.activities) activityId
+            Activity.getActivity activityID (allActivities app.activities)
 
         oldActivity =
+            Activity.getActivity oldActivityID (allActivities app.activities)
+
+        oldActivityID =
             currentActivityFromApp app
     in
     ( updatedApp
     , Cmd.batch
-        [ Commands.toast (switchPopup updatedApp.timeline env newActivity oldActivity)
-        , Tasker.variableOut ( "ActivityTotalSec", Measure.exportExcusedUsageSeconds app env.time newActivity )
-        , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time newActivity) )
+        [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
+        , Tasker.variableOut ( "ActivityTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+        , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
         , Tasker.variableOut ( "ElmSelected", getName newActivity )
-        , Tasker.variableOut ( "PreviousActivityTotal", Measure.exportLastSession updatedApp oldActivity )
+        , Tasker.variableOut ( "PreviousActivityTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time newActivity)
+        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
         ]
     )
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
-sameActivity activityId app env =
+sameActivity activityID app env =
     let
         activity =
-            currentActivityFromApp app
+            Activity.getActivity activityID (allActivities app.activities)
     in
     ( app
     , Cmd.batch
-        [ Commands.toast (switchPopup app.timeline env activity activity)
+        [ Commands.toast (switchPopup app.timeline env ( activityID, activity ) ( activityID, activity ))
         , Commands.changeActivity
             (getName activity)
-            (Measure.exportExcusedUsageSeconds app env.time activity)
-            (Measure.exportLastSession app activity)
+            (Measure.exportExcusedUsageSeconds app env.time ( activityID, activity ))
+            (Measure.exportLastSession app activityID)
         , Commands.hideWindow
         ]
     )
 
 
-switchPopup : Timeline -> Environment -> Activity -> Activity -> String
-switchPopup timeline env new old =
+switchPopup : Timeline -> Environment -> ( ActivityID, Activity ) -> ( ActivityID, Activity ) -> String
+switchPopup timeline env (( newID, new ) as newKV) ( oldID, old ) =
     let
         timeSpentString dur =
             singleLetterSpaced (breakdownMS dur)
 
         timeSpentLastSession =
-            Maybe.withDefault Duration.zero (List.head (Measure.sessions timeline old.id))
+            Maybe.withDefault Duration.zero (List.head (Measure.sessions timeline oldID))
     in
     timeSpentString timeSpentLastSession
         ++ " spent on "
@@ -75,12 +79,12 @@ switchPopup timeline env new old =
         ++ getName new
         ++ "\n"
         ++ "Starting from "
-        ++ timeSpentString (Measure.excusedUsage timeline env.time new)
+        ++ timeSpentString (Measure.excusedUsage timeline env.time newKV)
 
 
-currentActivityFromApp : AppData -> Activity
+currentActivityFromApp : AppData -> ActivityID
 currentActivityFromApp app =
-    currentActivity (allActivities app.activities) app.timeline
+    currentActivityID app.timeline
 
 
 scheduleReminders : Moment -> Duration -> List Reminder

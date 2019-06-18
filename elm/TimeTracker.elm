@@ -17,7 +17,9 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (..)
+import ID
 import IntDict
+import IntDictExtra as IntDict
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -87,7 +89,8 @@ viewActivities env app =
     section
         [ class "main" ]
         [ ul [ class "activity-list" ] <|
-            List.map (viewActivity app env) (Debug.log "filtered activity list" (List.filter Activity.showing (allActivities app.activities)))
+            IntDict.values <|
+                IntDict.map (\k v -> viewActivity app env ( ID.tag k, v )) (IntDict.filterValues Activity.showing (allActivities app.activities))
         ]
 
 
@@ -109,8 +112,8 @@ viewActivities env app =
 --     ( key, viewActivity app env activity )
 
 
-viewActivity : AppData -> Environment -> Activity -> Html Msg
-viewActivity app env activity =
+viewActivity : AppData -> Environment -> ( ActivityID, Activity ) -> Html Msg
+viewActivity app env ( activityID, activity ) =
     let
         describeSession sesh =
             Measure.inHoursMinutes sesh ++ "\n"
@@ -119,16 +122,16 @@ viewActivity app env activity =
         [ class "activity" ]
         [ button
             [ class "activity-button"
-            , classList [ ( "current", (Switching.currentActivityFromApp app).id == activity.id ) ]
-            , onClick (StartTracking activity.id)
-            , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activity.id))
+            , classList [ ( "current", Switching.currentActivityFromApp app == activityID ) ]
+            , onClick (StartTracking activityID)
+            , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activityID))
             ]
             [ viewIcon activity.icon
             , div []
-                [ text (writeActivityUsage app env activity)
+                [ text (writeActivityUsage app env ( activityID, activity ))
                 ]
             , div []
-                [ text (writeActivityToday app env activity)
+                [ text (writeActivityToday app env activityID)
                 ]
             , label
                 []
@@ -165,8 +168,8 @@ viewIcon icon =
             text ""
 
 
-writeActivityUsage : AppData -> Environment -> Activity -> String
-writeActivityUsage app env activity =
+writeActivityUsage : AppData -> Environment -> ( ActivityID, Activity ) -> String
+writeActivityUsage app env ( activityID, activity ) =
     let
         period =
             Tuple.second activity.maxTime
@@ -175,7 +178,7 @@ writeActivityUsage app env activity =
             relevantTimeline app.timeline env.time period
 
         total =
-            Measure.totalLive env.time lastPeriod activity.id
+            Measure.totalLive env.time lastPeriod activityID
 
         totalMinutes =
             Duration.inMinutesRounded total
@@ -187,9 +190,9 @@ writeActivityUsage app env activity =
         ""
 
 
-writeActivityToday : AppData -> Environment -> Activity -> String
-writeActivityToday app env activity =
-    Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activity)
+writeActivityToday : AppData -> Environment -> ActivityID -> String
+writeActivityToday app env activityID =
+    Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activityID)
 
 
 
@@ -234,8 +237,8 @@ urlTriggers app =
             List.concat <| List.map entriesPerActivity (IntDict.toList (allActivities app.activities))
 
         entriesPerActivity ( id, activity ) =
-            List.map (\nm -> ( nm, StartTracking id )) activity.names
-                ++ List.map (\nm -> ( String.toLower nm, StartTracking id )) activity.names
+            List.map (\nm -> ( nm, StartTracking (ID.tag id) )) activity.names
+                ++ List.map (\nm -> ( String.toLower nm, StartTracking (ID.tag id) )) activity.names
     in
     -- HELP TODO only the first one runs, if it fails the rest are ignored
     [ ( "start", Dict.fromList activitiesWithNames )
