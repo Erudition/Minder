@@ -20,7 +20,7 @@ import Time.Extra
     session: ...[Jog 2,     Walk 3,     Eat 1     ]
 
 -}
-allSessions : List Switch -> List ( ActivityId, Duration )
+allSessions : List Switch -> List ( ActivityID, Duration )
 allSessions switchList =
     let
         offsetList =
@@ -29,12 +29,12 @@ allSessions switchList =
     List.map2 session switchList offsetList
 
 
-session : Switch -> Switch -> ( ActivityId, Duration )
+session : Switch -> Switch -> ( ActivityID, Duration )
 session (Switch newer _) (Switch older activityId) =
     ( activityId, Moment.difference newer older )
 
 
-sessions : List Switch -> ActivityId -> List Duration
+sessions : List Switch -> ActivityID -> List Duration
 sessions switchList activityId =
     let
         all =
@@ -43,7 +43,7 @@ sessions switchList activityId =
     List.filterMap (isMatchingDuration activityId) all
 
 
-isMatchingDuration : ActivityId -> ( ActivityId, Duration ) -> Maybe Duration
+isMatchingDuration : ActivityID -> ( ActivityID, Duration ) -> Maybe Duration
 isMatchingDuration targetId ( itemId, dur ) =
     if itemId == targetId then
         Just dur
@@ -52,12 +52,12 @@ isMatchingDuration targetId ( itemId, dur ) =
         Nothing
 
 
-total : List Switch -> ActivityId -> Duration
+total : List Switch -> ActivityID -> Duration
 total switchList activityId =
     Duration.combine (sessions switchList activityId)
 
 
-totalLive : Moment -> List Switch -> ActivityId -> Duration
+totalLive : Moment -> List Switch -> ActivityID -> Duration
 totalLive now switchList activityId =
     let
         fakeSwitch =
@@ -72,7 +72,7 @@ This function takes two Moments (now and the point in history up to which we wan
 timelineLimit : Timeline -> Moment -> Moment -> Timeline
 timelineLimit timeline now pastLimit =
     let
-        switchActivityId (Switch _ id) =
+        switchActivityID (Switch _ id) =
             id
 
         recentEnough (Switch moment _) =
@@ -82,7 +82,7 @@ timelineLimit timeline now pastLimit =
             List.partition recentEnough timeline
 
         justMissedId =
-            Maybe.withDefault Activity.dummy <| Maybe.map switchActivityId (List.head fail)
+            Maybe.withDefault Activity.dummy <| Maybe.map switchActivityID (List.head fail)
 
         fakeEndSwitch =
             Switch pastLimit justMissedId

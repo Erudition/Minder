@@ -1,4 +1,4 @@
-module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, testMsg, update, urlTriggers, view)
+module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure exposing (..)
@@ -17,6 +17,7 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (..)
+import IntDict
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -43,11 +44,6 @@ import VirtualDom
 
 type ViewState
     = Normal
-
-
-testMsg : Msg
-testMsg =
-    StartTracking (Stock Activity.Template.FilmWatching)
 
 
 
@@ -91,7 +87,7 @@ viewActivities env app =
     section
         [ class "main" ]
         [ ul [ class "activity-list" ] <|
-            List.map (viewActivity app env) (List.filter Activity.showing (allActivities app.activities))
+            List.map (viewActivity app env) (Debug.log "filtered activity list" (List.filter Activity.showing (allActivities app.activities)))
         ]
 
 
@@ -104,7 +100,7 @@ viewActivities env app =
 --             Activity.getName activity ++ active
 --
 --         active =
---             if currentActivityId app.timeline == activity.id then
+--             if currentActivityID app.timeline == activity.id then
 --                 String.fromInt <| totalLive env.time app.timeline activity.id
 --
 --             else
@@ -207,7 +203,7 @@ writeActivityToday app env activity =
 
 type Msg
     = NoOp
-    | StartTracking ActivityId
+    | StartTracking ActivityID
 
 
 update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
@@ -222,7 +218,7 @@ update msg state app env =
         StartTracking activityId ->
             let
                 ( updatedApp, cmds ) =
-                    if activityId == (Switching.currentActivityFromApp app).id then
+                    if activityId == Switching.currentActivityFromApp app then
                         Switching.sameActivity activityId app env
 
                     else
@@ -235,11 +231,11 @@ urlTriggers : AppData -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
     let
         activitiesWithNames =
-            List.concat <| List.map entriesPerActivity (allActivities app.activities)
+            List.concat <| List.map entriesPerActivity (IntDict.toList (allActivities app.activities))
 
-        entriesPerActivity activity =
-            List.map (\n -> ( n, StartTracking activity.id )) activity.names
-                ++ List.map (\n -> ( String.toLower n, StartTracking activity.id )) activity.names
+        entriesPerActivity ( id, activity ) =
+            List.map (\nm -> ( nm, StartTracking id )) activity.names
+                ++ List.map (\nm -> ( String.toLower nm, StartTracking id )) activity.names
     in
     -- HELP TODO only the first one runs, if it fails the rest are ignored
     [ ( "start", Dict.fromList activitiesWithNames )

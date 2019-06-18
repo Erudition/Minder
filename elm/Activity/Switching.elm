@@ -14,7 +14,7 @@ import Time
 import Time.Extra as Time
 
 
-switchActivity : ActivityId -> AppData -> Environment -> ( AppData, Cmd msg )
+switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
 switchActivity activityId app env =
     let
         updatedApp =
@@ -39,7 +39,7 @@ switchActivity activityId app env =
     )
 
 
-sameActivity : ActivityId -> AppData -> Environment -> ( AppData, Cmd msg )
+sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
 sameActivity activityId app env =
     let
         activity =

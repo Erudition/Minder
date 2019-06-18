@@ -1,9 +1,10 @@
-module Activity.Activity exposing (Activity, ActivityId, Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityId, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
 import External.Commands as Commands exposing (..)
+import ID exposing (ID)
 import IntDict exposing (IntDict)
 import Ionicon
 import Ionicon.Android as Android
@@ -61,7 +62,7 @@ type alias Customizations =
     , maxTime : Maybe DurationPerPeriod
     , hidden : Maybe Bool
     , template : Template
-    , id : ActivityId
+    , id : ActivityID
     }
 
 
@@ -78,7 +79,7 @@ decodeCustomizations =
         |> ifPresent "maxTime" decodeDurationPerPeriod
         |> ifPresent "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
-        |> Pipeline.required "id" Decode.int
+        |> Pipeline.required "id" ID.decode
 
 
 encodeCustomizations : Customizations -> Encode.Value
@@ -86,7 +87,7 @@ encodeCustomizations record =
     Encode.object <|
         omitNothings
             [ normal ( "template", encodeTemplate record.template )
-            , normal ( "stock", Encode.int record.id )
+            , normal ( "stock", ID.encode record.id )
             , omittable ( "names", Encode.list Encode.string, record.names )
             , omittable ( "icon", encodeIcon, record.icon )
             , omittable ( "excusable", encodeExcusable, record.excusable )
@@ -115,8 +116,8 @@ encodeCustomizations record =
 --         ]
 
 
-type alias ActivityId =
-    Int
+type alias  =
+    ID Activity
 
 
 
@@ -130,23 +131,23 @@ type alias ActivityId =
 --             False
 
 
-dummy : ActivityId
+dummy : ActivityID
 dummy =
-    0
+    ID.tag 0
 
 
 type Switch
-    = Switch Moment ActivityId
+    = Switch Moment ActivityID
 
 
 decodeSwitch : Decoder Switch
 decodeSwitch =
-    subtype2 Switch "Time" decodeMoment "Activity" Decode.int
+    subtype2 Switch "Time" decodeMoment "Activity" ID.decode
 
 
 encodeSwitch : Switch -> Encode.Value
 encodeSwitch (Switch time activityId) =
-    Encode.object [ ( "Time", encodeMoment time ), ( "Activity", Encode.int activityId ) ]
+    Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
 
 
 type Evidence
@@ -1126,11 +1127,11 @@ type alias Timeline =
 
 latestSwitch : Timeline -> Switch
 latestSwitch timeline =
-    Maybe.withDefault (Switch Moment.zero 0) (List.head timeline)
+    Maybe.withDefault (Switch Moment.zero (ID.tag 0)) (List.head timeline)
 
 
-currentActivityId : Timeline -> ActivityId
-currentActivityId switchList =
+currentActivityID : Timeline -> ActivityID
+currentActivityID switchList =
     let
         getId (Switch _ activityId) =
             activityId
@@ -1140,12 +1141,12 @@ currentActivityId switchList =
 
 currentActivity : StoredActivities -> Timeline -> Activity
 currentActivity activities switchList =
-    getActivity activities (currentActivityId switchList)
+    getActivity activities (currentActivityID switchList)
 
 
-getActivity : StoredActivities -> ActivityId -> Activity
+getActivity : StoredActivities -> ActivityID -> Activity
 getActivity activities activityId =
-    case IntDict.get activityId activities of
+    case IntDict.get (ID.read activityId) activities of
         Just delta ->
             withTemplate delta
 
