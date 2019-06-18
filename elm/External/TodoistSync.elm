@@ -115,32 +115,33 @@ decodeResponse =
 handle : TodoistMsg -> AppData -> AppData
 handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
     case result of
-        Ok data ->
+        Ok { sync_token, full_sync, items, projects } ->
             let
-                withProjectKey project =
-                    ( project.id, project )
-
-                todoistProjectsWithKeys =
-                    List.map withProjectKey data.projects
+                fullProjects =
+                    List.map (\p -> updateProject (emptyProject p.id) p) projects
 
                 projectsDict =
-                    IntDict.fromList todoistProjectsWithKeys
+                    IntDict.fromList (List.map (\p -> ( p.id, p )) fullProjects)
 
                 timetrackParent =
-                    Maybe.withDefault 1 <| List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
+                    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
 
                 validActivityProjects =
-                    IntDict.filter (\_ p -> p.parentId == timetrackParent) projectsDict
+                    IntDict.filter (\_ p -> p.parentId == tokens.todoistParentProjectID) projectsDict
 
                 validActivityProjectNames =
                     IntDict.map (\k v -> v.name) validActivityProjects
             in
             { app
-                | tokens = { todoistSyncToken = data.sync_token }
+                | tokens =
+                    { tokens
+                        | todoistSyncToken = sync_token
+                        , todoistParentProjectID = Maybe.withDefault tokens.todoistParentProjectID timetrackParent
+                    }
                 , tasks =
                     IntDict.fromList <|
                         List.map (\t -> ( t.id, t )) <|
-                            List.map (itemToTask validActivityProjectNames app) data.items
+                            List.map (itemToTask validActivityProjectNames activities) items
             }
 
         Err err ->
@@ -277,8 +278,8 @@ encodeItem record =
         ]
 
 
-itemToTask : Item -> IntDict String -> Activity.StoredActivities -> Task
-itemToTask item validActivityProjectNames storedActivities =
+itemToTask : IntDict String -> Activity.StoredActivities -> Item -> Task
+itemToTask validActivityProjectNames storedActivities item =
     let
         base =
             newTask item.content item.id
@@ -286,8 +287,8 @@ itemToTask item validActivityProjectNames storedActivities =
         activities =
             Activity.allActivities storedActivities
 
-        matchingActivity projectName =
-            Maybe.withDefault 0 <| Maybe.map .id <| List.head (List.filter (nameMatch projectName) activities)
+        matchingActivityID projectName =
+            Maybe.withDefault 0 <| List.head <| IntDict.keys <| IntDict.filter (\_ v -> nameMatch projectName v) activities
 
         nameMatch projectName act =
             List.member projectName act.names
@@ -296,7 +297,7 @@ itemToTask item validActivityProjectNames storedActivities =
             IntDict.get item.project_id validActivityProjectNames
 
         activity =
-            Maybe.map matchingActivity lookupProjectName
+            Maybe.map matchingActivityID lookupProjectName
     in
     { base
         | completion =
@@ -365,6 +366,21 @@ type alias ProjectChanges =
     , isDeleted : Updateable Int
     , isArchived : Updateable Int
     , isFavorite : Updateable Int
+    }
+
+
+emptyProject : Int -> Project
+emptyProject id =
+    { id = id
+    , name = ""
+    , color = 0
+    , parentId = 0
+    , childOrder = 0
+    , collapsed = 0
+    , shared = False
+    , isDeleted = 0
+    , isArchived = 0
+    , isFavorite = 0
     }
 
 

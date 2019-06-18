@@ -1,4 +1,4 @@
-module Porting exposing (BoolAsInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolAsInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, ifPresent, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable)
+module Porting exposing (BoolAsInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolAsInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolAsInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, ifPresent, mapUpdateable, normal, omitNothings, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -320,6 +320,16 @@ applyChanges original change =
 
         ChangedTo new ->
             new
+
+
+mapUpdateable : (a -> b) -> Updateable a -> Updateable b
+mapUpdateable func up =
+    case up of
+        NoChange ->
+            NoChange
+
+        ChangedTo a ->
+            ChangedTo (func a)
 
 
 optionalIgnored : String -> Decoder a -> Decoder a
