@@ -55,6 +55,7 @@ sameActivity activityID app env =
         , Commands.changeActivity
             (getName activity)
             (Measure.exportExcusedUsageSeconds app env.time ( activityID, activity ))
+            (String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit activity))
             (Measure.exportLastSession app activityID)
         , Commands.hideWindow
         ]

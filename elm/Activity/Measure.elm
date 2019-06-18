@@ -1,4 +1,4 @@
-module Activity.Measure exposing (excusedLeft, excusedUsage, exportExcusedUsageSeconds, exportLastSession, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, exportLastSession, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
@@ -170,23 +170,22 @@ excusedUsage : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
 excusedUsage timeline now ( activityID, activity ) =
     let
         lastPeriod =
-            relevantTimeline timeline now (Tuple.second excusableLimit)
-
-        excusableLimit =
-            Activity.excusableFor activity
+            relevantTimeline timeline now (Tuple.first (Activity.excusableFor activity))
     in
     totalLive now lastPeriod activityID
+
+
+{-| Length of the the excused window.
+-}
+excusableLimit activity =
+    toDuration (Tuple.first (Activity.excusableFor activity))
 
 
 {-| Total time NOT used within the excused window.
 -}
 excusedLeft : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
 excusedLeft timeline now ( activityID, activity ) =
-    let
-        excusableLimit =
-            toDuration (Tuple.first (Activity.excusableFor activity))
-    in
-    Duration.difference excusableLimit (excusedUsage timeline now ( activityID, activity ))
+    Duration.difference (excusableLimit activity) (excusedUsage timeline now ( activityID, activity ))
 
 
 exportExcusedUsageSeconds : AppData -> Moment -> ( ActivityID, Activity ) -> String

@@ -50,11 +50,12 @@ toast message =
     flash message
 
 
-changeActivity newName newTotal oldTotal =
+changeActivity newName newTotal newMax oldTotal =
     Cmd.batch
-        [ variableOut ( "ActivityTotalSec", newTotal )
+        [ variableOut ( "ExcusedTotalSec", newTotal )
+        , variableOut ( "ExcusedMaxSec", newMax )
         , variableOut ( "ElmSelected", newName )
-        , variableOut ( "PreviousActivityTotal", oldTotal )
+        , variableOut ( "PreviousSessionTotal", oldTotal )
         ]
 
 
