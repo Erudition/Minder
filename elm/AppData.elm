@@ -33,7 +33,7 @@ fromScratch =
     { uid = 0
     , errors = []
     , tasks = IntDict.empty
-    , activities = []
+    , activities = IntDict.empty
     , timeline = []
     , tokens = emptyTokens
     }
@@ -45,7 +45,7 @@ decodeAppData =
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
         |> optional "tasks" (Porting.decodeIntDict decodeTask) IntDict.empty
-        |> optional "activities" Activity.decodeStoredActivities []
+        |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "tokens" decodeTokens emptyTokens
 
@@ -64,24 +64,27 @@ encodeAppData record =
 
 type alias Tokens =
     { todoistSyncToken : String
+    , todoistParentProjectID : Int
     }
 
 
 emptyTokens : Tokens
 emptyTokens =
-    Tokens "*"
+    Tokens "*" 1
 
 
 decodeTokens : Decoder Tokens
 decodeTokens =
     Pipeline.decode Tokens
-        |> required "todoistSyncToken" Decode.string
+        |> optional "todoistSyncToken" Decode.string "*"
+        |> required "todoistParentProjectID" Decode.int
 
 
 encodeTokens : Tokens -> Encode.Value
 encodeTokens record =
     Encode.object
         [ ( "todoistSyncToken", Encode.string record.todoistSyncToken )
+        , ( "todoistParentProjectID", Encode.int record.todoistParentProjectID )
         ]
 
 
