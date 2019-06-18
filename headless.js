@@ -11931,6 +11931,8 @@ var author$project$External$Commands$changeActivity = F4(
 			_List_fromArray(
 				[
 					author$project$External$Tasker$variableOut(
+					_Utils_Tuple2('OnTaskTotalSec', newTotal)),
+					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ExcusedTotalSec', newTotal)),
 					author$project$External$Tasker$variableOut(
 					_Utils_Tuple2('ExcusedMaxSec', newMax)),

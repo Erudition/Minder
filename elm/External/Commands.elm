@@ -52,7 +52,8 @@ toast message =
 
 changeActivity newName newTotal newMax oldTotal =
     Cmd.batch
-        [ variableOut ( "ExcusedTotalSec", newTotal )
+        [ variableOut ( "OnTaskTotalSec", newTotal )
+        , variableOut ( "ExcusedTotalSec", newTotal )
         , variableOut ( "ExcusedMaxSec", newMax )
         , variableOut ( "ElmSelected", newName )
         , variableOut ( "PreviousSessionTotal", oldTotal )
