@@ -12333,7 +12333,15 @@ var author$project$Activity$Switching$switchActivity = F3(
 							_Utils_Tuple2(oldActivityID, oldActivity))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'ActivityTotalSec',
+							'ExcusedTotalSec',
+							A3(
+								author$project$Activity$Measure$exportExcusedUsageSeconds,
+								app,
+								env.dt,
+								_Utils_Tuple2(activityID, newActivity)))),
+						author$project$External$Tasker$variableOut(
+						_Utils_Tuple2(
+							'OnTaskTotalSec',
 							A3(
 								author$project$Activity$Measure$exportExcusedUsageSeconds,
 								app,
@@ -12351,11 +12359,17 @@ var author$project$Activity$Switching$switchActivity = F3(
 										_Utils_Tuple2(activityID, newActivity)))))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
+							'ExcusedMaxSec',
+							elm$core$String$fromInt(
+								author$project$SmartTime$Duration$inSecondsRounded(
+									author$project$Activity$Measure$excusableLimit(newActivity))))),
+						author$project$External$Tasker$variableOut(
+						_Utils_Tuple2(
 							'ElmSelected',
 							author$project$Activity$Activity$getName(newActivity))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'PreviousActivityTotal',
+							'PreviousSessionTotal',
 							A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivityID))),
 						author$project$External$Commands$hideWindow,
 						author$project$External$Commands$scheduleNotify(

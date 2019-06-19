@@ -33,10 +33,12 @@ switchActivity activityID app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
-        , Tasker.variableOut ( "ActivityTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+        , Tasker.variableOut ( "ExcusedTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+        , Tasker.variableOut ( "OnTaskTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
+        , Tasker.variableOut ( "ExcusedMaxSec", String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit newActivity) )
         , Tasker.variableOut ( "ElmSelected", getName newActivity )
-        , Tasker.variableOut ( "PreviousActivityTotal", Measure.exportLastSession updatedApp oldActivityID )
+        , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
         , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
         ]

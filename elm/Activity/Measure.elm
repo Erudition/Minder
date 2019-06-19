@@ -177,6 +177,7 @@ excusedUsage timeline now ( activityID, activity ) =
 
 {-| Length of the the excused window.
 -}
+excusableLimit : Activity -> Duration
 excusableLimit activity =
     toDuration (Tuple.first (Activity.excusableFor activity))
 
