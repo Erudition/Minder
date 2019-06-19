@@ -497,9 +497,10 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            -- no page in particular
-            [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] ) ]
-                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
+            List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
+                ++ [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] )
+                   , ( "blowup", Dict.fromList [ ( "yes", SyncTodoist ) ] )
+                   ]
 
         --TODO only remove handled triggers
         removeTriggersFromUrl =
