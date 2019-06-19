@@ -127,7 +127,15 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
                     IntDict.filter (\_ p -> p.parentId == tokens.todoistParentProjectID) projectsDict
 
                 validActivityProjectNames =
-                    IntDict.map (\k v -> v.name) validActivityProjects
+                    Debug.log "valid activity projects" <| IntDict.map (\k v -> v.name) validActivityProjects
+
+                itemsInTimetrackToTasks =
+                    List.filterMap
+                        (timetrackItemsOnly validActivityProjectNames filledInActivities)
+                        items
+
+                filledInActivities =
+                    Activity.allActivities activities
             in
             { app
                 | tokens =
@@ -138,7 +146,7 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
                 , tasks =
                     IntDict.fromList <|
                         List.map (\t -> ( t.id, t )) <|
-                            List.map (itemToTask validActivityProjectNames activities) items
+                            itemsInTimetrackToTasks
             }
 
         Err err ->
@@ -157,6 +165,29 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
 
                 Http.BadBody string ->
                     saveError app string
+
+
+timetrackItemsOnly : IntDict String -> IntDict Activity.Activity -> Item -> Maybe Task
+timetrackItemsOnly validActivityProjectNames activities item =
+    let
+        matchingActivityID projectName =
+            Maybe.withDefault 0 <| List.head <| IntDict.keys <| IntDict.filter (\_ v -> nameMatch projectName v) activities
+
+        nameMatch projectName act =
+            List.member projectName act.names
+
+        lookupProjectName =
+            IntDict.get item.project_id validActivityProjectNames
+
+        activity =
+            Maybe.map matchingActivityID lookupProjectName
+    in
+    case activity of
+        Just act ->
+            itemToTask item act
+
+        Nothing ->
+            Nothing
 
 
 type TodoistMsg
@@ -275,26 +306,11 @@ encodeItem record =
         ]
 
 
-itemToTask : IntDict String -> Activity.StoredActivities -> Item -> Task
-itemToTask validActivityProjectNames storedActivities item =
+itemToTask : Activity.StoredActivities -> Activity.ActivityID -> Item -> Task
+itemToTask storedActivities activityID item =
     let
         base =
             newTask item.content item.id
-
-        activities =
-            Activity.allActivities storedActivities
-
-        matchingActivityID projectName =
-            Maybe.withDefault 0 <| List.head <| IntDict.keys <| IntDict.filter (\_ v -> nameMatch projectName v) activities
-
-        nameMatch projectName act =
-            List.member projectName act.names
-
-        lookupProjectName =
-            IntDict.get item.project_id validActivityProjectNames
-
-        activity =
-            Maybe.map matchingActivityID lookupProjectName
     in
     { base
         | completion =
@@ -304,7 +320,7 @@ itemToTask validActivityProjectNames storedActivities item =
             else
                 base.completion
         , tags = []
-        , activity = activity
+        , activity = Just activityID
     }
 
 
