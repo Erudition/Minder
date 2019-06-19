@@ -54,8 +54,8 @@ port setStorage : JsonAppDatabase -> Cmd msg
 
 log : String -> a -> a
 log label valueToLog =
-    --Debug.log label valueToLog
-    valueToLog
+    --    valueToLog
+    Debug.log label valueToLog
 
 
 {-| We want to `setStorage` on every update. This function adds the setStorage
@@ -364,7 +364,7 @@ update msg ({ viewState, appData, environment } as model) =
             justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.tokens.todoistSyncToken
 
         ( TodoistServerResponse response, _ ) ->
-            ( Model viewState (Todoist.handle response appData) environment, Cmd.none )
+            ( Model viewState (Todoist.handle (log "response:" response) appData) environment, Cmd.none )
 
         ( Link urlRequest, _ ) ->
             case urlRequest of
@@ -479,23 +479,27 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
         normalizedUrl =
             { url | path = "" }
 
+        -- Top level: run parser on parseList
         parsed =
             P.parse (P.oneOf parseList) normalizedUrl
 
+        -- Create list of Normal parsers from our query-only parsers
         parseList =
-            List.map P.query (timeTrackerTriggers ++ mainTriggers)
+            List.map P.query (List.map createQueryParsers allTriggers)
 
+        -- Turns all our "trigger" dicts into query-only (PQ) parsers
         createQueryParsers ( key, values ) =
             PQ.enum key values
 
-        mainTriggers =
-            [ PQ.enum "sync" <| Dict.fromList [ ( "todoist", SyncTodoist ) ] ]
+        -- Dig deep into all of our "urlTriggers" functions to wrap their Page-specific `Msg` with our Main `Msg`
+        wrapMsgs tagger ( key, dict ) =
+            ( key, Dict.map (\_ msg -> tagger msg) dict )
 
-        timeTrackerTriggers =
-            List.map (PQ.map (Maybe.map TimeTrackerMsg)) (List.map createQueryParsers (TimeTracker.urlTriggers appData))
-
-        taskTriggers =
-            []
+        -- Triggers (passed to PQ.enum) for each page. Add new page here
+        allTriggers =
+            -- no page in particular
+            [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] ) ]
+                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
 
         --TODO only remove handled triggers
         removeTriggersFromUrl =
