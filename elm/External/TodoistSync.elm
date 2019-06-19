@@ -76,7 +76,7 @@ type alias Response =
     { sync_token : String
     , full_sync : Bool
     , items : List Item
-    , projects : List ProjectChanges
+    , projects : List Project
     }
 
 
@@ -117,11 +117,8 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
     case result of
         Ok { sync_token, full_sync, items, projects } ->
             let
-                fullProjects =
-                    List.map (\p -> updateProject (emptyProject p.id) p) projects
-
                 projectsDict =
-                    IntDict.fromList (List.map (\p -> ( p.id, p )) fullProjects)
+                    IntDict.fromList (List.map (\p -> ( p.id, p )) projects)
 
                 timetrackParent =
                     List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
@@ -355,20 +352,6 @@ type alias Project =
     }
 
 
-type alias ProjectChanges =
-    { id : Int
-    , name : Updateable String
-    , color : Updateable Int
-    , parentId : Updateable Int
-    , childOrder : Updateable Int
-    , collapsed : Updateable Int
-    , shared : Updateable Bool
-    , isDeleted : Updateable Int
-    , isArchived : Updateable Int
-    , isFavorite : Updateable Int
-    }
-
-
 emptyProject : Int -> Project
 emptyProject id =
     { id = id
@@ -384,34 +367,19 @@ emptyProject id =
     }
 
 
-updateProject : Project -> ProjectChanges -> Project
-updateProject original changes =
-    { id = changes.id
-    , name = applyChanges original.name changes.name
-    , color = applyChanges original.color changes.color
-    , parentId = applyChanges original.parentId changes.parentId
-    , childOrder = applyChanges original.childOrder changes.childOrder
-    , collapsed = applyChanges original.collapsed changes.collapsed
-    , shared = applyChanges original.shared changes.shared
-    , isDeleted = applyChanges original.isDeleted changes.isDeleted
-    , isArchived = applyChanges original.isArchived changes.isArchived
-    , isFavorite = applyChanges original.isFavorite changes.isFavorite
-    }
-
-
-decodeProjectChanges : Decoder ProjectChanges
+decodeProjectChanges : Decoder Project
 decodeProjectChanges =
-    decode ProjectChanges
+    decode Project
         |> required "id" int
-        |> updateable "name" string
-        |> updateable "color" int
-        |> updateable "parent_id" int
-        |> updateable "child_order" int
-        |> updateable "collapsed" int
-        |> updateable "shared" bool
-        |> updateable "is_deleted" int
-        |> updateable "is_archived" int
-        |> updateable "is_favorite" int
+        |> required "name" string
+        |> required "color" int
+        |> required "parent_id" int
+        |> required "child_order" int
+        |> required "collapsed" int
+        |> required "shared" bool
+        |> required "is_deleted" int
+        |> required "is_archived" int
+        |> required "is_favorite" int
         |> optionalIgnored "legacy_parent_id"
         |> optionalIgnored "legacy_id"
         |> optionalIgnored "has_more_notes"
