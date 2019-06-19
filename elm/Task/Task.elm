@@ -1,6 +1,8 @@
 module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask)
 
+import Activity.Activity exposing (ActivityID)
 import Date
+import ID
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -29,7 +31,7 @@ type alias Task =
     , history : List HistoryEntry
     , parent : Maybe TaskId
     , tags : List TagId
-    , activity : Maybe Int
+    , activity : Maybe ActivityID
     , deadline : TaskMoment
     , plannedStart : TaskMoment
     , plannedFinish : TaskMoment
@@ -50,7 +52,7 @@ decodeTask =
         |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
         |> Pipeline.required "parent" (Decode.nullable Decode.int)
         |> Pipeline.required "tags" (Decode.list Decode.int)
-        |> Pipeline.required "activity" (Decode.nullable Decode.int)
+        |> Pipeline.required "activity" (Decode.nullable ID.decode)
         |> Pipeline.required "deadline" decodeTaskMoment
         |> Pipeline.required "plannedStart" decodeTaskMoment
         |> Pipeline.required "plannedFinish" decodeTaskMoment
@@ -70,7 +72,7 @@ encodeTask record =
         , ( "history", Encode.list encodeHistoryEntry record.history )
         , ( "parent", Encode2.maybe Encode.int record.parent )
         , ( "tags", Encode.list Encode.int record.tags )
-        , ( "activity", Encode2.maybe Encode.int record.activity )
+        , ( "activity", Encode2.maybe ID.encode record.activity )
         , ( "deadline", encodeTaskMoment record.deadline )
         , ( "plannedStart", encodeTaskMoment record.plannedStart )
         , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
@@ -90,7 +92,7 @@ newTask description id =
     , minEffort = Duration.zero
     , history = []
     , tags = []
-    , activity = Just 0
+    , activity = Nothing
     , deadline = Unset
     , plannedStart = Unset
     , plannedFinish = Unset
