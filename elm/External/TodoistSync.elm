@@ -1,10 +1,12 @@
 module External.TodoistSync exposing (Item, Project, TodoistMsg, handle, sync)
 
-import Activity.Activity as Activity
+import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, saveError)
 import Dict exposing (Dict)
 import Http
+import ID
 import IntDict exposing (IntDict)
+import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Decode.Extra exposing (fromResult)
@@ -20,8 +22,11 @@ import Url.Builder
 syncUrl : Token -> Url.Url
 syncUrl incrementalSyncToken =
     let
-        resources =
+        allResources =
             """[%22all%22]"""
+
+        someResources =
+            """[%22items%22,%22projects%22]"""
 
         devSecret =
             "0bdc5149510737ab941485bace8135c60e2d812b"
@@ -31,7 +36,7 @@ syncUrl incrementalSyncToken =
                 List.intersperse "&" <|
                     [ "token=" ++ devSecret
                     , "sync_token=" ++ incrementalSyncToken
-                    , "resource_types=" ++ resources
+                    , "resource_types=" ++ someResources
                     ]
     in
     { protocol = Url.Https
@@ -113,7 +118,7 @@ decodeResponse =
 
 
 handle : TodoistMsg -> AppData -> AppData
-handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
+handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
     case result of
         Ok { sync_token, full_sync, items, projects } ->
             let
@@ -124,29 +129,32 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
                     List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
 
                 validActivityProjects =
-                    IntDict.filter (\_ p -> p.parentId == tokens.todoistParentProjectID) projectsDict
+                    IntDict.filter (\_ p -> p.parentId == todoist.parentProjectID) projectsDict
 
-                validActivityProjectNames =
-                    Debug.log "valid activity projects" <| IntDict.map (\k v -> v.name) validActivityProjects
+                activityLookupTable =
+                    findActivityProjectIDs validActivityProjects filledInActivities
 
                 itemsInTimetrackToTasks =
                     List.filterMap
-                        (timetrackItemsOnly validActivityProjectNames filledInActivities)
+                        (timetrackItemToTask activityLookupTable)
                         items
 
                 filledInActivities =
                     Activity.allActivities activities
-            in
-            { app
-                | tokens =
-                    { tokens
-                        | todoistSyncToken = sync_token
-                        , todoistParentProjectID = Maybe.withDefault tokens.todoistParentProjectID timetrackParent
-                    }
-                , tasks =
+
+                generatedTasks =
                     IntDict.fromList <|
                         List.map (\t -> ( t.id, t )) <|
                             itemsInTimetrackToTasks
+            in
+            { app
+                | todoist =
+                    { syncToken = sync_token
+                    , parentProjectID = Maybe.withDefault todoist.parentProjectID timetrackParent
+                    , activityProjectIDs = IntDict.union activityLookupTable todoist.activityProjectIDs
+                    }
+                , tasks =
+                    IntDict.union generatedTasks tasks
             }
 
         Err err ->
@@ -167,24 +175,48 @@ handle (SyncResponded result) ({ tasks, activities, tokens } as app) =
                     saveError app string
 
 
-timetrackItemsOnly : IntDict String -> IntDict Activity.Activity -> Item -> Maybe Task
-timetrackItemsOnly validActivityProjectNames activities item =
+{-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
+-}
+findActivityProjectIDs : IntDict Project -> IntDict Activity -> IntDict ActivityID
+findActivityProjectIDs projects activities =
+    -- phew! this was a hard one conceptually :) Looks clean though!
     let
-        matchingActivityID projectName =
-            Maybe.withDefault 0 <| List.head <| IntDict.keys <| IntDict.filter (\_ v -> nameMatch projectName v) activities
+        -- The only part of our activities we care about here is the name field, so we reduce the activities to just their name list
+        activityNamesDict =
+            IntDict.mapValues .names activities
 
-        nameMatch projectName act =
-            List.member projectName act.names
+        -- Our IntDict's (Keys, Values) are (activityID, nameList). This function gets mapped to our dictionary to check for matches. what was once a dictionary of names is now a dictionary of Maybe ActivityIDs.
+        matchToID nameToTest activityID nameList =
+            if List.member nameToTest nameList then
+                -- Wrap values we want to keep
+                Just (ID.tag activityID)
 
-        lookupProjectName =
-            IntDict.get item.project_id validActivityProjectNames
+            else
+                -- No match, will be removed from the dict
+                Nothing
 
-        activity =
-            Maybe.map matchingActivityID lookupProjectName
+        -- Try a given name with matchToID, filter out the nothings, which should either be all of them, or all but one.
+        activityNameMatches nameToTest =
+            IntDict.filterMap (matchToID nameToTest) activityNamesDict
+
+        -- Convert the matches dict to a list and then to a single ActivityID, maybe.
+        -- If for some reason there's multiple matches, choose the first.
+        -- If none matched, returns nothing (List.head)
+        pickFirstMatch nameToTest =
+            List.head <| IntDict.values (activityNameMatches nameToTest)
     in
-    case activity of
+    -- For all projects, take the name and check it against the activityID dict
+    IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
+
+
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe Task
+timetrackItemToTask lookup item =
+    -- Equivalent to the one-liner:
+    --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
+    -- Just sayin'.
+    case IntDict.get item.project_id lookup of
         Just act ->
-            itemToTask item act
+            Just (itemToTask act item)
 
         Nothing ->
             Nothing
@@ -306,8 +338,8 @@ encodeItem record =
         ]
 
 
-itemToTask : Activity.StoredActivities -> Activity.ActivityID -> Item -> Task
-itemToTask storedActivities activityID item =
+itemToTask : Activity.ActivityID -> Item -> Task
+itemToTask activityID item =
     let
         base =
             newTask item.content item.id
