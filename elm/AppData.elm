@@ -1,6 +1,7 @@
 module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
+import ID
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -24,7 +25,7 @@ type alias AppData =
     , tasks : IntDict Task
     , activities : StoredActivities
     , timeline : Timeline
-    , tokens : Tokens
+    , todoist : TodoistCache
     }
 
 
@@ -35,7 +36,7 @@ fromScratch =
     , tasks = IntDict.empty
     , activities = IntDict.empty
     , timeline = []
-    , tokens = emptyTokens
+    , todoist = emptyTodoistCache
     }
 
 
@@ -47,7 +48,7 @@ decodeAppData =
         |> optional "tasks" (Porting.decodeIntDict decodeTask) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
-        |> optional "tokens" decodeTokens emptyTokens
+        |> optional "todoist" decodeTodoistCache emptyTodoistCache
 
 
 encodeAppData : AppData -> Encode.Value
@@ -58,33 +59,36 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
-        , ( "tokens", encodeTokens record.tokens )
+        , ( "todoist", encodeTodoistCache record.todoist )
         ]
 
 
-type alias Tokens =
-    { todoistSyncToken : String
-    , todoistParentProjectID : Int
+type alias TodoistCache =
+    { syncToken : String
+    , parentProjectID : Int
+    , activityProjectIDs : IntDict ActivityID
     }
 
 
-emptyTokens : Tokens
-emptyTokens =
-    Tokens "*" 1
+emptyTodoistCache : TodoistCache
+emptyTodoistCache =
+    TodoistCache "*" 1 IntDict.empty
 
 
-decodeTokens : Decoder Tokens
-decodeTokens =
-    Pipeline.decode Tokens
-        |> optional "todoistSyncToken" Decode.string "*"
-        |> required "todoistParentProjectID" Decode.int
+decodeTodoistCache : Decoder TodoistCache
+decodeTodoistCache =
+    Pipeline.decode TodoistCache
+        |> optional "syncToken" Decode.string "*"
+        |> required "parentProjectID" Decode.int
+        |> required "activityProjectIDs" (Porting.decodeIntDict ID.decode)
 
 
-encodeTokens : Tokens -> Encode.Value
-encodeTokens record =
+encodeTodoistCache : TodoistCache -> Encode.Value
+encodeTodoistCache record =
     Encode.object
-        [ ( "todoistSyncToken", Encode.string record.todoistSyncToken )
-        , ( "todoistParentProjectID", Encode.int record.todoistParentProjectID )
+        [ ( "syncToken", Encode.string record.syncToken )
+        , ( "parentProjectID", Encode.int record.parentProjectID )
+        , ( "activityProjectIDs", Porting.encodeIntDict ID.encode record.activityProjectIDs )
         ]
 
 

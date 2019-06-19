@@ -361,7 +361,7 @@ update msg ({ viewState, appData, environment } as model) =
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
         ( SyncTodoist, _ ) ->
-            justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.tokens.todoistSyncToken
+            justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.todoist.syncToken
 
         ( TodoistServerResponse response, _ ) ->
             ( Model viewState (Todoist.handle (log "response:" response) appData) environment, Cmd.none )
