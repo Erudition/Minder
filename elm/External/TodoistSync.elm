@@ -12,7 +12,11 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Decode.Extra exposing (fromResult)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode2
+import List.Extra as List
+import List.Nonempty exposing (Nonempty)
+import Maybe.Extra as Maybe
 import Porting exposing (..)
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import Task.Progress
 import Task.Task exposing (Task, newTask)
 import Url
@@ -125,11 +129,14 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                 projectsDict =
                     IntDict.fromList (List.map (\p -> ( p.id, p )) projects)
 
-                timetrackParent =
+                updatedTimetrackParent =
                     List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
 
+                timetrackParent =
+                    Maybe.withDefault todoist.parentProjectID updatedTimetrackParent
+
                 validActivityProjects =
-                    IntDict.filter (\_ p -> p.parentId == todoist.parentProjectID) projectsDict
+                    IntDict.filter (\_ p -> p.parentId == timetrackParent) projectsDict
 
                 activityLookupTable =
                     findActivityProjectIDs validActivityProjects filledInActivities
@@ -150,7 +157,7 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
             { app
                 | todoist =
                     { syncToken = sync_token
-                    , parentProjectID = Maybe.withDefault todoist.parentProjectID timetrackParent
+                    , parentProjectID = timetrackParent
                     , activityProjectIDs = IntDict.union activityLookupTable todoist.activityProjectIDs
                     }
                 , tasks =
@@ -342,7 +349,10 @@ itemToTask : Activity.ActivityID -> Item -> Task
 itemToTask activityID item =
     let
         base =
-            newTask item.content item.id
+            newTask newName item.id
+
+        ( newName, ( minDur, maxDur ) ) =
+            extractTiming item.content
     in
     { base
         | completion =
@@ -354,6 +364,68 @@ itemToTask activityID item =
         , tags = []
         , activity = Just activityID
     }
+
+
+extractTiming : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )
+extractTiming name =
+    let
+        -- hehe, this should be fun
+        lastWord =
+            List.last (String.words name)
+
+        -- All aboard the Maybe Train!
+        -- result =
+        --     List.foldl Maybe.andThen lastWord maybeTrain
+        -- maybeTrain =
+        --     [ checkParens, numberSegments, valueSegments ]
+        checkParens chunk =
+            if String.startsWith "(" chunk && String.endsWith ")" chunk then
+                Just (String.slice 1 -1 chunk)
+
+            else
+                Nothing
+
+        checkMinutesLabel chunk =
+            let
+                chunks =
+                    segments chunk
+            in
+            if List.any (String.endsWith "m") chunks then
+                Just (List.map (String.replace "m" "") chunks)
+
+            else if List.any (String.endsWith "min") chunks then
+                Just (List.map (String.replace "min" "") chunks)
+
+            else
+                Nothing
+
+        segments chunk =
+            String.split "-" chunk
+
+        checkNumberSegments chunks =
+            if List.all (String.all Char.isDigit) chunks then
+                Just chunks
+
+            else
+                Nothing
+
+        startsWithNumber chunk =
+            Maybe.withDefault False <|
+                Maybe.map Char.isDigit <|
+                    Maybe.map Tuple.first <|
+                        String.uncons chunk
+
+        valueSegments chunks =
+            List.Nonempty.fromList <| chunks
+
+        maybeChain =
+            lastWord
+                |> Maybe.andThen checkParens
+                |> Maybe.andThen checkMinutesLabel
+                |> Maybe.andThen checkNumberSegments
+                |> Maybe.andThen valueSegments
+    in
+    ( name, ( Nothing, Nothing ) )
 
 
 type Priority
@@ -421,7 +493,7 @@ decodeProjectChanges =
         |> required "id" int
         |> required "name" string
         |> required "color" int
-        |> required "parent_id" int
+        |> optional "parent_id" int 0
         |> required "child_order" int
         |> required "collapsed" int
         |> required "shared" bool
