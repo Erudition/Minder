@@ -12746,6 +12746,10 @@ var author$project$Main$handleUrlTriggers = F2(
 			return A2(elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
+			A2(
+				elm$core$List$map,
+				wrapMsgs(author$project$Main$TimeTrackerMsg),
+				author$project$TimeTracker$urlTriggers(appData)),
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
@@ -12754,12 +12758,15 @@ var author$project$Main$handleUrlTriggers = F2(
 						_List_fromArray(
 							[
 								_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
+							]))),
+					_Utils_Tuple2(
+					'blowup',
+					elm$core$Dict$fromList(
+						_List_fromArray(
+							[
+								_Utils_Tuple2('yes', author$project$Main$SyncTodoist)
 							])))
-				]),
-			A2(
-				elm$core$List$map,
-				wrapMsgs(author$project$Main$TimeTrackerMsg),
-				author$project$TimeTracker$urlTriggers(appData)));
+				]));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
