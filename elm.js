@@ -9140,9 +9140,6 @@ var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$j
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
 };
-var author$project$External$TodoistSync$emptyProject = function (id) {
-	return {childOrder: 0, collapsed: 0, color: 0, id: id, isArchived: 0, isDeleted: 0, isFavorite: 0, name: '', parentId: 0, shared: false};
-};
 var author$project$Activity$Activity$defaults = function (startWith) {
 	switch (startWith.$) {
 		case 'DillyDally':
@@ -10509,30 +10506,6 @@ var author$project$External$TodoistSync$itemToTask = F3(
 				tags: _List_Nil
 			});
 	});
-var author$project$Porting$applyChanges = F2(
-	function (original, change) {
-		if (change.$ === 'NoChange') {
-			return original;
-		} else {
-			var _new = change.a;
-			return _new;
-		}
-	});
-var author$project$External$TodoistSync$updateProject = F2(
-	function (original, changes) {
-		return {
-			childOrder: A2(author$project$Porting$applyChanges, original.childOrder, changes.childOrder),
-			collapsed: A2(author$project$Porting$applyChanges, original.collapsed, changes.collapsed),
-			color: A2(author$project$Porting$applyChanges, original.color, changes.color),
-			id: changes.id,
-			isArchived: A2(author$project$Porting$applyChanges, original.isArchived, changes.isArchived),
-			isDeleted: A2(author$project$Porting$applyChanges, original.isDeleted, changes.isDeleted),
-			isFavorite: A2(author$project$Porting$applyChanges, original.isFavorite, changes.isFavorite),
-			name: A2(author$project$Porting$applyChanges, original.name, changes.name),
-			parentId: A2(author$project$Porting$applyChanges, original.parentId, changes.parentId),
-			shared: A2(author$project$Porting$applyChanges, original.shared, changes.shared)
-		};
-	});
 var author$project$External$TodoistSync$handle = F2(
 	function (_n0, app) {
 		var result = _n0.a;
@@ -10544,22 +10517,13 @@ var author$project$External$TodoistSync$handle = F2(
 			var full_sync = result.a.full_sync;
 			var items = result.a.items;
 			var projects = result.a.projects;
-			var fullProjects = A2(
-				elm$core$List$map,
-				function (p) {
-					return A2(
-						author$project$External$TodoistSync$updateProject,
-						author$project$External$TodoistSync$emptyProject(p.id),
-						p);
-				},
-				projects);
 			var projectsDict = elm_community$intdict$IntDict$fromList(
 				A2(
 					elm$core$List$map,
 					function (p) {
 						return _Utils_Tuple2(p.id, p);
 					},
-					fullProjects));
+					projects));
 			var timetrackParent = elm$core$List$head(
 				elm_community$intdict$IntDict$keys(
 					A2(
@@ -10870,7 +10834,7 @@ var author$project$External$TodoistSync$decodeItem = A2(
 																											'id',
 																											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 																											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item))))))))))))))))))))))))))));
-var author$project$External$TodoistSync$ProjectChanges = function (id) {
+var author$project$External$TodoistSync$Project = function (id) {
 	return function (name) {
 		return function (color) {
 			return function (parentId) {
@@ -10891,15 +10855,6 @@ var author$project$External$TodoistSync$ProjectChanges = function (id) {
 		};
 	};
 };
-var author$project$Porting$ChangedTo = function (a) {
-	return {$: 'ChangedTo', a: a};
-};
-var author$project$Porting$NoChange = {$: 'NoChange'};
-var author$project$Porting$updateable = F3(
-	function (key, valDecoder, decoder) {
-		var wrappedValDecoder = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, author$project$Porting$ChangedTo, valDecoder);
-		return A4(zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional, key, wrappedValDecoder, author$project$Porting$NoChange, decoder);
-	});
 var author$project$External$TodoistSync$decodeProjectChanges = A2(
 	author$project$Porting$optionalIgnored,
 	'inbox_project',
@@ -10913,46 +10868,46 @@ var author$project$External$TodoistSync$decodeProjectChanges = A2(
 				author$project$Porting$optionalIgnored,
 				'legacy_parent_id',
 				A3(
-					author$project$Porting$updateable,
+					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 					'is_favorite',
 					zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 					A3(
-						author$project$Porting$updateable,
+						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 						'is_archived',
 						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 						A3(
-							author$project$Porting$updateable,
+							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 							'is_deleted',
 							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 							A3(
-								author$project$Porting$updateable,
+								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 								'shared',
 								zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 								A3(
-									author$project$Porting$updateable,
+									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 									'collapsed',
 									zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 									A3(
-										author$project$Porting$updateable,
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 										'child_order',
 										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 										A3(
-											author$project$Porting$updateable,
+											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 											'parent_id',
 											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 											A3(
-												author$project$Porting$updateable,
+												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 												'color',
 												zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 												A3(
-													author$project$Porting$updateable,
+													zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 													'name',
 													zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 													A3(
 														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 														'id',
 														zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$ProjectChanges)))))))))))))));
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Project)))))))))))))));
 var author$project$External$TodoistSync$decodeResponse = A2(
 	author$project$Porting$optionalIgnored,
 	'tooltips',
@@ -11462,6 +11417,11 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 'TodoistServerResponse', a: a};
 };
+var elm$core$Debug$log = _Debug_log;
+var author$project$Main$log = F2(
+	function (label, valueToLog) {
+		return A2(elm$core$Debug$log, label, valueToLog);
+	});
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -12488,6 +12448,25 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 var elm$browser$Browser$Navigation$load = _Browser_load;
 var elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var elm$browser$Browser$Navigation$replaceUrl = _Browser_replaceUrl;
+var elm$core$Dict$map = F2(
+	function (func, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return elm$core$Dict$RBEmpty_elm_builtin;
+		} else {
+			var color = dict.a;
+			var key = dict.b;
+			var value = dict.c;
+			var left = dict.d;
+			var right = dict.e;
+			return A5(
+				elm$core$Dict$RBNode_elm_builtin,
+				color,
+				key,
+				A2(func, key, value),
+				A2(elm$core$Dict$map, func, left),
+				A2(elm$core$Dict$map, func, right));
+		}
+	});
 var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
 	var queryParser = _n0.a;
@@ -12539,21 +12518,25 @@ var elm$url$Url$Parser$Query$enum = F2(
 				}
 			});
 	});
-var elm$url$Url$Parser$Query$map = F2(
-	function (func, _n0) {
-		var a = _n0.a;
-		return elm$url$Url$Parser$Internal$Parser(
-			function (dict) {
-				return func(
-					a(dict));
-			});
-	});
 var author$project$Main$handleUrlTriggers = F2(
 	function (rawUrl, model) {
 		var appData = model.appData;
 		var environment = model.environment;
+		var wrapMsgs = F2(
+			function (tagger, _n18) {
+				var key = _n18.a;
+				var dict = _n18.b;
+				return _Utils_Tuple2(
+					key,
+					A2(
+						elm$core$Dict$map,
+						F2(
+							function (_n17, msg) {
+								return tagger(msg);
+							}),
+						dict));
+			});
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
-		var taskTriggers = _List_Nil;
 		var removeTriggersFromUrl = function () {
 			var _n16 = environment.navkey;
 			if (_n16.$ === 'Just') {
@@ -12572,34 +12555,30 @@ var author$project$Main$handleUrlTriggers = F2(
 		var normalizedUrl = _Utils_update(
 			url,
 			{path: ''});
-		var mainTriggers = _List_fromArray(
-			[
-				A2(
-				elm$url$Url$Parser$Query$enum,
-				'sync',
-				elm$core$Dict$fromList(
-					_List_fromArray(
-						[
-							_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
-						])))
-			]);
 		var createQueryParsers = function (_n15) {
 			var key = _n15.a;
 			var values = _n15.b;
 			return A2(elm$url$Url$Parser$Query$enum, key, values);
 		};
-		var timeTrackerTriggers = A2(
-			elm$core$List$map,
-			elm$url$Url$Parser$Query$map(
-				elm$core$Maybe$map(author$project$Main$TimeTrackerMsg)),
+		var allTriggers = _Utils_ap(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'sync',
+					elm$core$Dict$fromList(
+						_List_fromArray(
+							[
+								_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
+							])))
+				]),
 			A2(
 				elm$core$List$map,
-				createQueryParsers,
+				wrapMsgs(author$project$Main$TimeTrackerMsg),
 				author$project$TimeTracker$urlTriggers(appData)));
 		var parseList = A2(
 			elm$core$List$map,
 			elm$url$Url$Parser$query,
-			_Utils_ap(timeTrackerTriggers, mainTriggers));
+			A2(elm$core$List$map, createQueryParsers, allTriggers));
 		var parsed = A2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
@@ -12700,7 +12679,10 @@ var author$project$Main$update = F2(
 						A3(
 							author$project$Main$Model,
 							viewState,
-							A2(author$project$External$TodoistSync$handle, response, appData),
+							A2(
+								author$project$External$TodoistSync$handle,
+								A2(author$project$Main$log, 'response:', response),
+								appData),
 							environment),
 						elm$core$Platform$Cmd$none);
 				case 'Link':
