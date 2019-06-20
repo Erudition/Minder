@@ -15,6 +15,7 @@ import Json.Encode.Extra as Encode2
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
+import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import Task.Progress
@@ -191,6 +192,7 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                     handleError string
 
 
+describeSuccess : Response -> String
 describeSuccess success =
     if success.full_sync then
         "Did FULL Todoist sync: "
@@ -377,7 +379,12 @@ itemToTask activityID item =
             newTask newName item.id
 
         ( newName, ( minDur, maxDur ) ) =
-            extractTiming item.content
+            extractTiming2 item.content
+
+        ( finalMin, finalMax ) =
+            ( Maybe.map HumanDuration.toDuration minDur
+            , Maybe.map HumanDuration.toDuration maxDur
+            )
     in
     { base
         | completion =
@@ -388,6 +395,8 @@ itemToTask activityID item =
                 base.completion
         , tags = []
         , activity = Just activityID
+        , minEffort = Maybe.withDefault base.minEffort finalMin
+        , maxEffort = Maybe.withDefault base.maxEffort finalMax
     }
 
 
@@ -451,6 +460,49 @@ extractTiming name =
                 |> Maybe.andThen valueSegments
     in
     ( name, ( Nothing, Nothing ) )
+
+
+extractTiming2 : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )
+extractTiming2 input =
+    let
+        chunk start =
+            String.dropLeft start input
+
+        withoutChunk chunkStart =
+            String.dropRight (String.length (chunk chunkStart)) (chunk chunkStart)
+
+        default =
+            ( input, ( Nothing, Nothing ) )
+    in
+    case List.last (String.indexes "(" input) of
+        Nothing ->
+            default
+
+        Just chunkStart ->
+            case Parser.run timing (chunk chunkStart) of
+                Err _ ->
+                    default
+
+                Ok ( num1, num2 ) ->
+                    ( withoutChunk chunkStart
+                    , ( Just (HumanDuration.Minutes num1), Just (HumanDuration.Minutes num2) )
+                    )
+
+
+timing : Parser ( Int, Int )
+timing =
+    Parser.succeed Tuple.pair
+        |. symbol "("
+        |. spaces
+        |= Parser.int
+        -- TODO allow "m" after this one too
+        |. symbol "-"
+        |= Parser.int
+        -- TODO allow float
+        |. symbol "m"
+        -- TODO allow "min" also
+        |. spaces
+        |. symbol ")"
 
 
 type Priority

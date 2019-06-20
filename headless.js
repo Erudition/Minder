@@ -2368,6 +2368,136 @@ function _Url_percentDecode(string)
 }
 
 
+
+// STRINGS
+
+
+var _Parser_isSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var smallLength = smallString.length;
+	var isGood = offset + smallLength <= bigString.length;
+
+	for (var i = 0; isGood && i < smallLength; )
+	{
+		var code = bigString.charCodeAt(offset);
+		isGood =
+			smallString[i++] === bigString[offset++]
+			&& (
+				code === 0x000A /* \n */
+					? ( row++, col=1 )
+					: ( col++, (code & 0xF800) === 0xD800 ? smallString[i++] === bigString[offset++] : 1 )
+			)
+	}
+
+	return _Utils_Tuple3(isGood ? offset : -1, row, col);
+});
+
+
+
+// CHARS
+
+
+var _Parser_isSubChar = F3(function(predicate, offset, string)
+{
+	return (
+		string.length <= offset
+			? -1
+			:
+		(string.charCodeAt(offset) & 0xF800) === 0xD800
+			? (predicate(_Utils_chr(string.substr(offset, 2))) ? offset + 2 : -1)
+			:
+		(predicate(_Utils_chr(string[offset]))
+			? ((string[offset] === '\n') ? -2 : (offset + 1))
+			: -1
+		)
+	);
+});
+
+
+var _Parser_isAsciiCode = F3(function(code, offset, string)
+{
+	return string.charCodeAt(offset) === code;
+});
+
+
+
+// NUMBERS
+
+
+var _Parser_chompBase10 = F2(function(offset, string)
+{
+	for (; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (code < 0x30 || 0x39 < code)
+		{
+			return offset;
+		}
+	}
+	return offset;
+});
+
+
+var _Parser_consumeBase = F3(function(base, offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var digit = string.charCodeAt(offset) - 0x30;
+		if (digit < 0 || base <= digit) break;
+		total = base * total + digit;
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+var _Parser_consumeBase16 = F2(function(offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (0x30 <= code && code <= 0x39)
+		{
+			total = 16 * total + code - 0x30;
+		}
+		else if (0x41 <= code && code <= 0x46)
+		{
+			total = 16 * total + code - 55;
+		}
+		else if (0x61 <= code && code <= 0x66)
+		{
+			total = 16 * total + code - 87;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+
+// FIND STRING
+
+
+var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var newOffset = bigString.indexOf(smallString, offset);
+	var target = newOffset < 0 ? bigString.length : newOffset + smallString.length;
+
+	while (offset < target)
+	{
+		var code = bigString.charCodeAt(offset++);
+		code === 0x000A /* \n */
+			? ( col=1, row++ )
+			: ( col++, (code & 0xF800) === 0xD800 && offset++ )
+	}
+
+	return _Utils_Tuple3(newOffset, row, col);
+});
+
+
+
 // SEND REQUEST
 
 var _Http_toTask = F3(function(router, toTask, request)
@@ -10316,32 +10446,415 @@ var author$project$External$TodoistSync$findActivityProjectIDs = F2(
 				}),
 			projects);
 	});
-var elm$core$Basics$not = _Basics_not;
-var elm$core$List$all = F2(
-	function (isOkay, list) {
-		return !A2(
-			elm$core$List$any,
-			A2(elm$core$Basics$composeL, elm$core$Basics$not, isOkay),
-			list);
+var elm$parser$Parser$Advanced$Bad = F2(
+	function (a, b) {
+		return {$: 1, a: a, b: b};
 	});
-var elm$core$Maybe$andThen = F2(
-	function (callback, maybeValue) {
-		if (!maybeValue.$) {
-			var value = maybeValue.a;
-			return callback(value);
+var elm$parser$Parser$Advanced$Good = F3(
+	function (a, b, c) {
+		return {$: 0, a: a, b: b, c: c};
+	});
+var elm$parser$Parser$Advanced$Parser = elm$core$Basics$identity;
+var elm$parser$Parser$Advanced$map2 = F3(
+	function (func, _n0, _n1) {
+		var parseA = _n0;
+		var parseB = _n1;
+		return function (s0) {
+			var _n2 = parseA(s0);
+			if (_n2.$ === 1) {
+				var p = _n2.a;
+				var x = _n2.b;
+				return A2(elm$parser$Parser$Advanced$Bad, p, x);
+			} else {
+				var p1 = _n2.a;
+				var a = _n2.b;
+				var s1 = _n2.c;
+				var _n3 = parseB(s1);
+				if (_n3.$ === 1) {
+					var p2 = _n3.a;
+					var x = _n3.b;
+					return A2(elm$parser$Parser$Advanced$Bad, p1 || p2, x);
+				} else {
+					var p2 = _n3.a;
+					var b = _n3.b;
+					var s2 = _n3.c;
+					return A3(
+						elm$parser$Parser$Advanced$Good,
+						p1 || p2,
+						A2(func, a, b),
+						s2);
+				}
+			}
+		};
+	});
+var elm$parser$Parser$Advanced$ignorer = F2(
+	function (keepParser, ignoreParser) {
+		return A3(elm$parser$Parser$Advanced$map2, elm$core$Basics$always, keepParser, ignoreParser);
+	});
+var elm$parser$Parser$ignorer = elm$parser$Parser$Advanced$ignorer;
+var elm$parser$Parser$ExpectingInt = {$: 1};
+var elm$parser$Parser$Advanced$consumeBase = _Parser_consumeBase;
+var elm$parser$Parser$Advanced$consumeBase16 = _Parser_consumeBase16;
+var elm$core$String$toFloat = _String_toFloat;
+var elm$parser$Parser$Advanced$bumpOffset = F2(
+	function (newOffset, s) {
+		return {ct: s.ct + (newOffset - s.l), r: s.r, cK: s.cK, l: newOffset, dh: s.dh, k: s.k};
+	});
+var elm$parser$Parser$Advanced$chompBase10 = _Parser_chompBase10;
+var elm$parser$Parser$Advanced$isAsciiCode = _Parser_isAsciiCode;
+var elm$parser$Parser$Advanced$consumeExp = F2(
+	function (offset, src) {
+		if (A3(elm$parser$Parser$Advanced$isAsciiCode, 101, offset, src) || A3(elm$parser$Parser$Advanced$isAsciiCode, 69, offset, src)) {
+			var eOffset = offset + 1;
+			var expOffset = (A3(elm$parser$Parser$Advanced$isAsciiCode, 43, eOffset, src) || A3(elm$parser$Parser$Advanced$isAsciiCode, 45, eOffset, src)) ? (eOffset + 1) : eOffset;
+			var newOffset = A2(elm$parser$Parser$Advanced$chompBase10, expOffset, src);
+			return _Utils_eq(expOffset, newOffset) ? (-newOffset) : newOffset;
 		} else {
-			return elm$core$Maybe$Nothing;
+			return offset;
 		}
 	});
-var elm$core$String$endsWith = _String_endsWith;
-var elm$core$String$replace = F3(
-	function (before, after, string) {
-		return A2(
-			elm$core$String$join,
-			after,
-			A2(elm$core$String$split, before, string));
+var elm$parser$Parser$Advanced$consumeDotAndExp = F2(
+	function (offset, src) {
+		return A3(elm$parser$Parser$Advanced$isAsciiCode, 46, offset, src) ? A2(
+			elm$parser$Parser$Advanced$consumeExp,
+			A2(elm$parser$Parser$Advanced$chompBase10, offset + 1, src),
+			src) : A2(elm$parser$Parser$Advanced$consumeExp, offset, src);
 	});
-var elm$core$String$words = _String_words;
+var elm$parser$Parser$Advanced$AddRight = F2(
+	function (a, b) {
+		return {$: 1, a: a, b: b};
+	});
+var elm$parser$Parser$Advanced$DeadEnd = F4(
+	function (row, col, problem, contextStack) {
+		return {ct: col, dL: contextStack, c7: problem, dh: row};
+	});
+var elm$parser$Parser$Advanced$Empty = {$: 0};
+var elm$parser$Parser$Advanced$fromState = F2(
+	function (s, x) {
+		return A2(
+			elm$parser$Parser$Advanced$AddRight,
+			elm$parser$Parser$Advanced$Empty,
+			A4(elm$parser$Parser$Advanced$DeadEnd, s.dh, s.ct, x, s.r));
+	});
+var elm$parser$Parser$Advanced$finalizeInt = F5(
+	function (invalid, handler, startOffset, _n0, s) {
+		var endOffset = _n0.a;
+		var n = _n0.b;
+		if (handler.$ === 1) {
+			var x = handler.a;
+			return A2(
+				elm$parser$Parser$Advanced$Bad,
+				true,
+				A2(elm$parser$Parser$Advanced$fromState, s, x));
+		} else {
+			var toValue = handler.a;
+			return _Utils_eq(startOffset, endOffset) ? A2(
+				elm$parser$Parser$Advanced$Bad,
+				_Utils_cmp(s.l, startOffset) < 0,
+				A2(elm$parser$Parser$Advanced$fromState, s, invalid)) : A3(
+				elm$parser$Parser$Advanced$Good,
+				true,
+				toValue(n),
+				A2(elm$parser$Parser$Advanced$bumpOffset, endOffset, s));
+		}
+	});
+var elm$parser$Parser$Advanced$fromInfo = F4(
+	function (row, col, x, context) {
+		return A2(
+			elm$parser$Parser$Advanced$AddRight,
+			elm$parser$Parser$Advanced$Empty,
+			A4(elm$parser$Parser$Advanced$DeadEnd, row, col, x, context));
+	});
+var elm$parser$Parser$Advanced$finalizeFloat = F6(
+	function (invalid, expecting, intSettings, floatSettings, intPair, s) {
+		var intOffset = intPair.a;
+		var floatOffset = A2(elm$parser$Parser$Advanced$consumeDotAndExp, intOffset, s.k);
+		if (floatOffset < 0) {
+			return A2(
+				elm$parser$Parser$Advanced$Bad,
+				true,
+				A4(elm$parser$Parser$Advanced$fromInfo, s.dh, s.ct - (floatOffset + s.l), invalid, s.r));
+		} else {
+			if (_Utils_eq(s.l, floatOffset)) {
+				return A2(
+					elm$parser$Parser$Advanced$Bad,
+					false,
+					A2(elm$parser$Parser$Advanced$fromState, s, expecting));
+			} else {
+				if (_Utils_eq(intOffset, floatOffset)) {
+					return A5(elm$parser$Parser$Advanced$finalizeInt, invalid, intSettings, s.l, intPair, s);
+				} else {
+					if (floatSettings.$ === 1) {
+						var x = floatSettings.a;
+						return A2(
+							elm$parser$Parser$Advanced$Bad,
+							true,
+							A2(elm$parser$Parser$Advanced$fromState, s, invalid));
+					} else {
+						var toValue = floatSettings.a;
+						var _n1 = elm$core$String$toFloat(
+							A3(elm$core$String$slice, s.l, floatOffset, s.k));
+						if (_n1.$ === 1) {
+							return A2(
+								elm$parser$Parser$Advanced$Bad,
+								true,
+								A2(elm$parser$Parser$Advanced$fromState, s, invalid));
+						} else {
+							var n = _n1.a;
+							return A3(
+								elm$parser$Parser$Advanced$Good,
+								true,
+								toValue(n),
+								A2(elm$parser$Parser$Advanced$bumpOffset, floatOffset, s));
+						}
+					}
+				}
+			}
+		}
+	});
+var elm$parser$Parser$Advanced$number = function (c) {
+	return function (s) {
+		if (A3(elm$parser$Parser$Advanced$isAsciiCode, 48, s.l, s.k)) {
+			var zeroOffset = s.l + 1;
+			var baseOffset = zeroOffset + 1;
+			return A3(elm$parser$Parser$Advanced$isAsciiCode, 120, zeroOffset, s.k) ? A5(
+				elm$parser$Parser$Advanced$finalizeInt,
+				c.dZ,
+				c.cF,
+				baseOffset,
+				A2(elm$parser$Parser$Advanced$consumeBase16, baseOffset, s.k),
+				s) : (A3(elm$parser$Parser$Advanced$isAsciiCode, 111, zeroOffset, s.k) ? A5(
+				elm$parser$Parser$Advanced$finalizeInt,
+				c.dZ,
+				c.c1,
+				baseOffset,
+				A3(elm$parser$Parser$Advanced$consumeBase, 8, baseOffset, s.k),
+				s) : (A3(elm$parser$Parser$Advanced$isAsciiCode, 98, zeroOffset, s.k) ? A5(
+				elm$parser$Parser$Advanced$finalizeInt,
+				c.dZ,
+				c.ck,
+				baseOffset,
+				A3(elm$parser$Parser$Advanced$consumeBase, 2, baseOffset, s.k),
+				s) : A6(
+				elm$parser$Parser$Advanced$finalizeFloat,
+				c.dZ,
+				c.cC,
+				c.cN,
+				c.cE,
+				_Utils_Tuple2(zeroOffset, 0),
+				s)));
+		} else {
+			return A6(
+				elm$parser$Parser$Advanced$finalizeFloat,
+				c.dZ,
+				c.cC,
+				c.cN,
+				c.cE,
+				A3(elm$parser$Parser$Advanced$consumeBase, 10, s.l, s.k),
+				s);
+		}
+	};
+};
+var elm$parser$Parser$Advanced$int = F2(
+	function (expecting, invalid) {
+		return elm$parser$Parser$Advanced$number(
+			{
+				ck: elm$core$Result$Err(invalid),
+				cC: expecting,
+				cE: elm$core$Result$Err(invalid),
+				cF: elm$core$Result$Err(invalid),
+				cN: elm$core$Result$Ok(elm$core$Basics$identity),
+				dZ: invalid,
+				c1: elm$core$Result$Err(invalid)
+			});
+	});
+var elm$parser$Parser$int = A2(elm$parser$Parser$Advanced$int, elm$parser$Parser$ExpectingInt, elm$parser$Parser$ExpectingInt);
+var elm$parser$Parser$Advanced$keeper = F2(
+	function (parseFunc, parseArg) {
+		return A3(elm$parser$Parser$Advanced$map2, elm$core$Basics$apL, parseFunc, parseArg);
+	});
+var elm$parser$Parser$keeper = elm$parser$Parser$Advanced$keeper;
+var elm$parser$Parser$Advanced$isSubChar = _Parser_isSubChar;
+var elm$parser$Parser$Advanced$chompWhileHelp = F5(
+	function (isGood, offset, row, col, s0) {
+		chompWhileHelp:
+		while (true) {
+			var newOffset = A3(elm$parser$Parser$Advanced$isSubChar, isGood, offset, s0.k);
+			if (_Utils_eq(newOffset, -1)) {
+				return A3(
+					elm$parser$Parser$Advanced$Good,
+					_Utils_cmp(s0.l, offset) < 0,
+					0,
+					{ct: col, r: s0.r, cK: s0.cK, l: offset, dh: row, k: s0.k});
+			} else {
+				if (_Utils_eq(newOffset, -2)) {
+					var $temp$isGood = isGood,
+						$temp$offset = offset + 1,
+						$temp$row = row + 1,
+						$temp$col = 1,
+						$temp$s0 = s0;
+					isGood = $temp$isGood;
+					offset = $temp$offset;
+					row = $temp$row;
+					col = $temp$col;
+					s0 = $temp$s0;
+					continue chompWhileHelp;
+				} else {
+					var $temp$isGood = isGood,
+						$temp$offset = newOffset,
+						$temp$row = row,
+						$temp$col = col + 1,
+						$temp$s0 = s0;
+					isGood = $temp$isGood;
+					offset = $temp$offset;
+					row = $temp$row;
+					col = $temp$col;
+					s0 = $temp$s0;
+					continue chompWhileHelp;
+				}
+			}
+		}
+	});
+var elm$parser$Parser$Advanced$chompWhile = function (isGood) {
+	return function (s) {
+		return A5(elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.l, s.dh, s.ct, s);
+	};
+};
+var elm$parser$Parser$Advanced$spaces = elm$parser$Parser$Advanced$chompWhile(
+	function (c) {
+		return (c === ' ') || ((c === '\n') || (c === '\r'));
+	});
+var elm$parser$Parser$spaces = elm$parser$Parser$Advanced$spaces;
+var elm$parser$Parser$Advanced$succeed = function (a) {
+	return function (s) {
+		return A3(elm$parser$Parser$Advanced$Good, false, a, s);
+	};
+};
+var elm$parser$Parser$succeed = elm$parser$Parser$Advanced$succeed;
+var elm$parser$Parser$ExpectingSymbol = function (a) {
+	return {$: 8, a: a};
+};
+var elm$parser$Parser$Advanced$Token = F2(
+	function (a, b) {
+		return {$: 0, a: a, b: b};
+	});
+var elm$core$Basics$not = _Basics_not;
+var elm$parser$Parser$Advanced$isSubString = _Parser_isSubString;
+var elm$parser$Parser$Advanced$token = function (_n0) {
+	var str = _n0.a;
+	var expecting = _n0.b;
+	var progress = !elm$core$String$isEmpty(str);
+	return function (s) {
+		var _n1 = A5(elm$parser$Parser$Advanced$isSubString, str, s.l, s.dh, s.ct, s.k);
+		var newOffset = _n1.a;
+		var newRow = _n1.b;
+		var newCol = _n1.c;
+		return _Utils_eq(newOffset, -1) ? A2(
+			elm$parser$Parser$Advanced$Bad,
+			false,
+			A2(elm$parser$Parser$Advanced$fromState, s, expecting)) : A3(
+			elm$parser$Parser$Advanced$Good,
+			progress,
+			0,
+			{ct: newCol, r: s.r, cK: s.cK, l: newOffset, dh: newRow, k: s.k});
+	};
+};
+var elm$parser$Parser$Advanced$symbol = elm$parser$Parser$Advanced$token;
+var elm$parser$Parser$symbol = function (str) {
+	return elm$parser$Parser$Advanced$symbol(
+		A2(
+			elm$parser$Parser$Advanced$Token,
+			str,
+			elm$parser$Parser$ExpectingSymbol(str)));
+};
+var author$project$External$TodoistSync$timing = A2(
+	elm$parser$Parser$keeper,
+	A2(
+		elm$parser$Parser$keeper,
+		A2(
+			elm$parser$Parser$ignorer,
+			A2(
+				elm$parser$Parser$ignorer,
+				elm$parser$Parser$succeed(elm$core$Tuple$pair),
+				elm$parser$Parser$symbol('(')),
+			elm$parser$Parser$spaces),
+		A2(
+			elm$parser$Parser$ignorer,
+			elm$parser$Parser$int,
+			elm$parser$Parser$symbol('-'))),
+	A2(
+		elm$parser$Parser$ignorer,
+		A2(
+			elm$parser$Parser$ignorer,
+			A2(
+				elm$parser$Parser$ignorer,
+				elm$parser$Parser$int,
+				elm$parser$Parser$symbol('m')),
+			elm$parser$Parser$spaces),
+		elm$parser$Parser$symbol(')')));
+var elm$core$String$dropRight = F2(
+	function (n, string) {
+		return (n < 1) ? string : A3(elm$core$String$slice, 0, -n, string);
+	});
+var elm$parser$Parser$DeadEnd = F3(
+	function (row, col, problem) {
+		return {ct: col, c7: problem, dh: row};
+	});
+var elm$parser$Parser$problemToDeadEnd = function (p) {
+	return A3(elm$parser$Parser$DeadEnd, p.dh, p.ct, p.c7);
+};
+var elm$parser$Parser$Advanced$bagToList = F2(
+	function (bag, list) {
+		bagToList:
+		while (true) {
+			switch (bag.$) {
+				case 0:
+					return list;
+				case 1:
+					var bag1 = bag.a;
+					var x = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2(elm$core$List$cons, x, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+				default:
+					var bag1 = bag.a;
+					var bag2 = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2(elm$parser$Parser$Advanced$bagToList, bag2, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+			}
+		}
+	});
+var elm$parser$Parser$Advanced$run = F2(
+	function (_n0, src) {
+		var parse = _n0;
+		var _n1 = parse(
+			{ct: 1, r: _List_Nil, cK: 1, l: 0, dh: 1, k: src});
+		if (!_n1.$) {
+			var value = _n1.b;
+			return elm$core$Result$Ok(value);
+		} else {
+			var bag = _n1.b;
+			return elm$core$Result$Err(
+				A2(elm$parser$Parser$Advanced$bagToList, bag, _List_Nil));
+		}
+	});
+var elm$parser$Parser$run = F2(
+	function (parser, source) {
+		var _n0 = A2(elm$parser$Parser$Advanced$run, parser, source);
+		if (!_n0.$) {
+			var a = _n0.a;
+			return elm$core$Result$Ok(a);
+		} else {
+			var problems = _n0.a;
+			return elm$core$Result$Err(
+				A2(elm$core$List$map, elm$parser$Parser$problemToDeadEnd, problems));
+		}
+	});
 var elm_community$list_extra$List$Extra$last = function (items) {
 	last:
 	while (true) {
@@ -10360,78 +10873,45 @@ var elm_community$list_extra$List$Extra$last = function (items) {
 		}
 	}
 };
-var mgold$elm_nonempty_list$List$Nonempty$fromList = function (ys) {
-	if (ys.b) {
-		var x = ys.a;
-		var xs = ys.b;
-		return elm$core$Maybe$Just(
-			A2(mgold$elm_nonempty_list$List$Nonempty$Nonempty, x, xs));
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
-};
-var author$project$External$TodoistSync$extractTiming = function (name) {
-	var valueSegments = function (chunks) {
-		return mgold$elm_nonempty_list$List$Nonempty$fromList(chunks);
-	};
-	var startsWithNumber = function (chunk) {
-		return A2(
-			elm$core$Maybe$withDefault,
-			false,
-			A2(
-				elm$core$Maybe$map,
-				elm$core$Char$isDigit,
-				A2(
-					elm$core$Maybe$map,
-					elm$core$Tuple$first,
-					elm$core$String$uncons(chunk))));
-	};
-	var segments = function (chunk) {
-		return A2(elm$core$String$split, '-', chunk);
-	};
-	var lastWord = elm_community$list_extra$List$Extra$last(
-		elm$core$String$words(name));
-	var checkParens = function (chunk) {
-		return (A2(elm$core$String$startsWith, '(', chunk) && A2(elm$core$String$endsWith, ')', chunk)) ? elm$core$Maybe$Just(
-			A3(elm$core$String$slice, 1, -1, chunk)) : elm$core$Maybe$Nothing;
-	};
-	var checkNumberSegments = function (chunks) {
-		return A2(
-			elm$core$List$all,
-			elm$core$String$all(elm$core$Char$isDigit),
-			chunks) ? elm$core$Maybe$Just(chunks) : elm$core$Maybe$Nothing;
-	};
-	var checkMinutesLabel = function (chunk) {
-		var chunks = segments(chunk);
-		return A2(
-			elm$core$List$any,
-			elm$core$String$endsWith('m'),
-			chunks) ? elm$core$Maybe$Just(
-			A2(
-				elm$core$List$map,
-				A2(elm$core$String$replace, 'm', ''),
-				chunks)) : (A2(
-			elm$core$List$any,
-			elm$core$String$endsWith('min'),
-			chunks) ? elm$core$Maybe$Just(
-			A2(
-				elm$core$List$map,
-				A2(elm$core$String$replace, 'min', ''),
-				chunks)) : elm$core$Maybe$Nothing);
-	};
-	var maybeChain = A2(
-		elm$core$Maybe$andThen,
-		valueSegments,
-		A2(
-			elm$core$Maybe$andThen,
-			checkNumberSegments,
-			A2(
-				elm$core$Maybe$andThen,
-				checkMinutesLabel,
-				A2(elm$core$Maybe$andThen, checkParens, lastWord))));
-	return _Utils_Tuple2(
-		name,
+var author$project$External$TodoistSync$extractTiming2 = function (input) {
+	var _default = _Utils_Tuple2(
+		input,
 		_Utils_Tuple2(elm$core$Maybe$Nothing, elm$core$Maybe$Nothing));
+	var chunk = function (start) {
+		return A2(elm$core$String$dropLeft, start, input);
+	};
+	var withoutChunk = function (chunkStart) {
+		return A2(
+			elm$core$String$dropRight,
+			elm$core$String$length(
+				chunk(chunkStart)),
+			chunk(chunkStart));
+	};
+	var _n0 = elm_community$list_extra$List$Extra$last(
+		A2(elm$core$String$indexes, '(', input));
+	if (_n0.$ === 1) {
+		return _default;
+	} else {
+		var chunkStart = _n0.a;
+		var _n1 = A2(
+			elm$parser$Parser$run,
+			author$project$External$TodoistSync$timing,
+			chunk(chunkStart));
+		if (_n1.$ === 1) {
+			return _default;
+		} else {
+			var _n2 = _n1.a;
+			var num1 = _n2.a;
+			var num2 = _n2.b;
+			return _Utils_Tuple2(
+				withoutChunk(chunkStart),
+				_Utils_Tuple2(
+					elm$core$Maybe$Just(
+						author$project$SmartTime$Human$Duration$Minutes(num1)),
+					elm$core$Maybe$Just(
+						author$project$SmartTime$Human$Duration$Minutes(num2))));
+		}
+	}
 };
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
@@ -10481,17 +10961,24 @@ var author$project$Task$Task$newTask = F2(
 	});
 var author$project$External$TodoistSync$itemToTask = F2(
 	function (activityID, item) {
-		var _n0 = author$project$External$TodoistSync$extractTiming(item.bC);
+		var _n0 = author$project$External$TodoistSync$extractTiming2(item.bC);
 		var newName = _n0.a;
 		var _n1 = _n0.b;
 		var minDur = _n1.a;
 		var maxDur = _n1.b;
 		var base = A2(author$project$Task$Task$newTask, newName, item.cH);
+		var _n2 = _Utils_Tuple2(
+			A2(elm$core$Maybe$map, author$project$SmartTime$Human$Duration$toDuration, minDur),
+			A2(elm$core$Maybe$map, author$project$SmartTime$Human$Duration$toDuration, maxDur));
+		var finalMin = _n2.a;
+		var finalMax = _n2.b;
 		return _Utils_update(
 			base,
 			{
 				dD: elm$core$Maybe$Just(activityID),
 				bB: item.by ? author$project$Task$Progress$maximize(base.bB) : base.bB,
+				cW: A2(elm$core$Maybe$withDefault, base.cW, finalMax),
+				cY: A2(elm$core$Maybe$withDefault, base.cY, finalMin),
 				ei: _List_Nil
 			});
 	});
