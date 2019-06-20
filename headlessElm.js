@@ -12543,24 +12543,24 @@ var author$project$Main$handleUrlTriggers = F2(
 		var appData = model.dH;
 		var environment = model.dP;
 		var wrapMsgs = F2(
-			function (tagger, _n18) {
-				var key = _n18.a;
-				var dict = _n18.b;
+			function (tagger, _n22) {
+				var key = _n22.a;
+				var dict = _n22.b;
 				return _Utils_Tuple2(
 					key,
 					A2(
 						elm$core$Dict$map,
 						F2(
-							function (_n17, msg) {
+							function (_n21, msg) {
 								return tagger(msg);
 							}),
 						dict));
 			});
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
 		var removeTriggersFromUrl = function () {
-			var _n16 = environment.c0;
-			if (!_n16.$) {
-				var navkey = _n16.a;
+			var _n20 = environment.c0;
+			if (!_n20.$) {
+				var navkey = _n20.a;
 				return A2(
 					elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -12575,9 +12575,42 @@ var author$project$Main$handleUrlTriggers = F2(
 		var normalizedUrl = _Utils_update(
 			url,
 			{d4: ''});
-		var createQueryParsers = function (_n15) {
-			var key = _n15.a;
-			var values = _n15.b;
+		var fancyRecursiveParse = function (checkList) {
+			fancyRecursiveParse:
+			while (true) {
+				if (checkList.b) {
+					var _n9 = checkList.a;
+					var triggerName = _n9.a;
+					var triggerValues = _n9.b;
+					var rest = checkList.b;
+					var _n10 = A2(
+						elm$url$Url$Parser$parse,
+						elm$url$Url$Parser$query(
+							A2(elm$url$Url$Parser$Query$enum, triggerName, triggerValues)),
+						normalizedUrl);
+					if (_n10.$ === 1) {
+						var $temp$checkList = rest;
+						checkList = $temp$checkList;
+						continue fancyRecursiveParse;
+					} else {
+						if (_n10.a.$ === 1) {
+							var _n11 = _n10.a;
+							var $temp$checkList = rest;
+							checkList = $temp$checkList;
+							continue fancyRecursiveParse;
+						} else {
+							var match = _n10.a;
+							return elm$core$Maybe$Just(match);
+						}
+					}
+				} else {
+					return elm$core$Maybe$Nothing;
+				}
+			}
+		};
+		var createQueryParsers = function (_n19) {
+			var key = _n19.a;
+			var values = _n19.b;
 			return A2(elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
@@ -12610,22 +12643,23 @@ var author$project$Main$handleUrlTriggers = F2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
 			normalizedUrl);
-		if (!parsed.$) {
-			var parsedUrlSuccessfully = parsed.a;
-			var _n9 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d8);
-			if (!_n9.a.$) {
-				if (!_n9.b.$) {
-					var triggerMsg = _n9.a.a;
-					var _n10 = A2(author$project$Main$update, triggerMsg, model);
-					var newModel = _n10.a;
-					var newCmd = _n10.b;
+		var _n12 = fancyRecursiveParse(allTriggers);
+		if (!_n12.$) {
+			var parsedUrlSuccessfully = _n12.a;
+			var _n13 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d8);
+			if (!_n13.a.$) {
+				if (!_n13.b.$) {
+					var triggerMsg = _n13.a.a;
+					var _n14 = A2(author$project$Main$update, triggerMsg, model);
+					var newModel = _n14.a;
+					var newCmd = _n14.b;
 					var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[newCmd, removeTriggersFromUrl]));
 					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 				} else {
-					var triggerMsg = _n9.a.a;
-					var _n12 = _n9.b;
+					var triggerMsg = _n13.a.a;
+					var _n16 = _n13.b;
 					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -12636,9 +12670,9 @@ var author$project$Main$handleUrlTriggers = F2(
 						author$project$External$Commands$toast(problemText));
 				}
 			} else {
-				if (!_n9.b.$) {
-					var _n11 = _n9.a;
-					var query = _n9.b.a;
+				if (!_n13.b.$) {
+					var _n15 = _n13.a;
+					var query = _n13.b.a;
 					var problemText = 'Handle URL Triggers: none of  ' + (elm$core$String$fromInt(
 						elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
 					return _Utils_Tuple2(
@@ -12649,8 +12683,8 @@ var author$project$Main$handleUrlTriggers = F2(
 							}),
 						author$project$External$Commands$toast(problemText));
 				} else {
-					var _n13 = _n9.a;
-					var _n14 = _n9.b;
+					var _n17 = _n13.a;
+					var _n18 = _n13.b;
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 				}
 			}

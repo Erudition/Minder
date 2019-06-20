@@ -479,6 +479,26 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
         normalizedUrl =
             { url | path = "" }
 
+        fancyRecursiveParse checkList =
+            case checkList of
+                -- Pull off the first of the list and work on that alone
+                ( triggerName, triggerValues ) :: rest ->
+                    case P.parse (P.query (PQ.enum triggerName triggerValues)) normalizedUrl of
+                        Nothing ->
+                            fancyRecursiveParse rest
+
+                        Just Nothing ->
+                            -- no match, start over with shorter parser list
+                            fancyRecursiveParse rest
+
+                        Just match ->
+                            -- Found a match? Stop here!
+                            Just match
+
+                -- No more of the list left
+                [] ->
+                    Nothing
+
         -- Top level: run parser on parseList
         parsed =
             P.parse (P.oneOf parseList) normalizedUrl
@@ -512,7 +532,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                 Nothing ->
                     Cmd.none
     in
-    case parsed of
+    case fancyRecursiveParse allTriggers of
         Just parsedUrlSuccessfully ->
             case ( parsedUrlSuccessfully, normalizedUrl.query ) of
                 ( Just triggerMsg, Just _ ) ->
