@@ -52,9 +52,23 @@ function taskerTry (func) {
     }
 }
 
+var storagefilename = "Minder/personal-data.json"
+
 function taskerReadAppData () {
     try {
-        return readFile("Minder/personal-data.json");
+        return readFile(storagefilename);
+        //return getGlobalVar("ElmAppData");
+    } catch (e) {
+        //logflash("Failed to read file " + file);
+        let oldData = getGlobalVar("ElmAppData");
+        taskerWriteAppData(oldData);
+        return oldData;
+    }
+}
+
+function taskerWriteAppData (data) {
+    try {
+        writeFile(storagefilename,data,false)
         //return getGlobalVar("ElmAppData");
     } catch (e) {
         //logflash("Failed to read file " + file);
@@ -98,7 +112,7 @@ app.ports.variableOut.subscribe(function(data) {
 app.ports.setStorage.subscribe(function(state) {
     //taskerOut("ElmAppData", state);
     //logflash("Storage set!");
-    taskerTry(() => {writeFile("Minder/personal-data.json",state,false)});
+    taskerTry(() => {});
 });
 
 
