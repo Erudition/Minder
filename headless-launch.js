@@ -119,4 +119,4 @@ app.ports.exit.subscribe(function(data) {
 //     app.ports.headlessMsg.send(taskerUrl);
 // }
 
-taskerOut("ElmScriptVersion", "69");
+taskerOut("ElmScriptVersion", "70");
