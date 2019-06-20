@@ -37,6 +37,7 @@ type alias Task =
     , plannedFinish : TaskMoment
     , relevanceStarts : TaskMoment
     , relevanceEnds : TaskMoment
+    , importance : Int
     }
 
 
@@ -58,6 +59,7 @@ decodeTask =
         |> Pipeline.required "plannedFinish" decodeTaskMoment
         |> Pipeline.required "relevanceStarts" decodeTaskMoment
         |> Pipeline.required "relevanceEnds" decodeTaskMoment
+        |> Pipeline.required "importance" Decode.int
 
 
 encodeTask : Task -> Encode.Value
@@ -78,6 +80,7 @@ encodeTask record =
         , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
         , ( "relevanceStarts", encodeTaskMoment record.relevanceStarts )
         , ( "relevanceEnds", encodeTaskMoment record.relevanceEnds )
+        , ( "importance", Encode.int <| record.id )
         ]
 
 
@@ -98,6 +101,7 @@ newTask description id =
     , plannedFinish = Unset
     , relevanceStarts = Unset
     , relevanceEnds = Unset
+    , importance = 0
     }
 
 

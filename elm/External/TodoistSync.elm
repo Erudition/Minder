@@ -397,6 +397,7 @@ itemToTask activityID item =
         , activity = Just activityID
         , minEffort = Maybe.withDefault base.minEffort finalMin
         , maxEffort = Maybe.withDefault base.maxEffort finalMax
+        , importance = item.priority
     }
 
 
