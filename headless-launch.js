@@ -108,10 +108,10 @@ app.ports.variableOut.subscribe(function(data) {
 
 
 
-app.ports.setStorage.subscribe(function(state) {
+app.ports.setStorage.subscribe(function(data) {
     //taskerOut("ElmAppData", state);
     //logflash("Storage set!");
-    taskerTry(() => {});
+    taskerWriteAppData(data);
 });
 
 
