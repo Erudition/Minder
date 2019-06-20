@@ -60,9 +60,8 @@ function taskerReadAppData () {
         //return getGlobalVar("ElmAppData");
     } catch (e) {
         //logflash("Failed to read file " + file);
-        let oldData = getGlobalVar("ElmAppData");
-        taskerWriteAppData(oldData);
-        return oldData;
+        taskerWriteAppData("");
+        return ' ';
     }
 }
 
