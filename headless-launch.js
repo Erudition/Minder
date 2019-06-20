@@ -54,8 +54,8 @@ function taskerTry (func) {
 
 function taskerReadAppData () {
     try {
-        //return readFile("docket.dat");
-        return getGlobalVar("ElmAppData");
+        return readFile("Minder/personal-data.json");
+        //return getGlobalVar("ElmAppData");
     } catch (e) {
         //logflash("Failed to read file " + file);
         return ' ';
@@ -96,9 +96,9 @@ app.ports.variableOut.subscribe(function(data) {
 
 
 app.ports.setStorage.subscribe(function(state) {
-    taskerOut("ElmAppData", state);
+    //taskerOut("ElmAppData", state);
     //logflash("Storage set!");
-    //taskerTry(() => {writeFile("docket.dat",state,false)});
+    taskerTry(() => {writeFile("Minder/personal-data.json",state,false)});
 });
 
 
