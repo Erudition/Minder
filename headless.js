@@ -784,11 +784,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.b0.aW === region.cz.aW)
+	if (region.b1.aX === region.cA.aX)
 	{
-		return 'on line ' + region.b0.aW;
+		return 'on line ' + region.b1.aX;
 	}
-	return 'on lines ' + region.b0.aW + ' through ' + region.cz.aW;
+	return 'on lines ' + region.b1.aX + ' through ' + region.cA.aX;
 }
 
 
@@ -2392,8 +2392,8 @@ var _Http_toTask = F3(function(router, toTask, request)
 
 		_Http_configureRequest(xhr, request);
 
-		request.a8.a && xhr.setRequestHeader('Content-Type', request.a8.a);
-		xhr.send(request.a8.b);
+		request.ba.a && xhr.setRequestHeader('Content-Type', request.ba.a);
+		xhr.send(request.ba.b);
 
 		return function() { xhr.c = true; xhr.abort(); };
 	});
@@ -2530,14 +2530,14 @@ function _Http_track(router, xhr, tracker)
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Sending({
 			ef: event.loaded,
-			b$: event.total
+			b0: event.total
 		}))));
 	});
 	xhr.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2(elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, elm$http$Http$Receiving({
 			d9: event.loaded,
-			b$: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
+			b0: event.lengthComputable ? elm$core$Maybe$Just(event.total) : elm$core$Maybe$Nothing
 		}))));
 	});
 }
@@ -2889,8 +2889,8 @@ var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
 		X: func(record.X),
-		b1: record.b1,
-		bV: record.bV
+		b2: record.b2,
+		bX: record.bX
 	}
 });
 
@@ -3159,10 +3159,10 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 
 		var value = result.a;
 		var message = !tag ? value : tag < 3 ? value.a : value.X;
-		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.b1;
+		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.b2;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
-			(tag == 2 ? value.b : tag == 3 && value.bV) && event.preventDefault(),
+			(tag == 2 ? value.b : tag == 3 && value.bX) && event.preventDefault(),
 			eventNode
 		);
 		var tagger;
@@ -4152,7 +4152,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 		impl.ek,
 		impl.eh,
 		function(sendToApp, initialModel) {
-			var divertHrefToApp = impl.a0 && impl.a0(sendToApp)
+			var divertHrefToApp = impl.a2 && impl.a2(sendToApp)
 			var view = impl.en;
 			var title = _VirtualDom_doc.title;
 			var bodyNode = _VirtualDom_doc.body;
@@ -4161,7 +4161,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 			{
 				_VirtualDom_divertHrefToApp = divertHrefToApp;
 				var doc = view(model);
-				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.a8);
+				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.ba);
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
@@ -4227,7 +4227,7 @@ function _Browser_application(impl)
 	var key = function() { key.a(onUrlChange(_Browser_getUrl())); };
 
 	return _Browser_document({
-		a0: function(sendToApp)
+		a2: function(sendToApp)
 		{
 			key.a = sendToApp;
 			_Browser_window.addEventListener('popstate', key);
@@ -4418,8 +4418,8 @@ function _Browser_getViewport()
 	return {
 		di: _Browser_getScene(),
 		dz: {
-			bs: _Browser_window.pageXOffset,
-			bt: _Browser_window.pageYOffset,
+			bu: _Browser_window.pageXOffset,
+			bv: _Browser_window.pageYOffset,
 			aQ: _Browser_doc.documentElement.clientWidth,
 			aC: _Browser_doc.documentElement.clientHeight
 		}
@@ -4460,8 +4460,8 @@ function _Browser_getViewportOf(id)
 				aC: node.scrollHeight
 			},
 			dz: {
-				bs: node.scrollLeft,
-				bt: node.scrollTop,
+				bu: node.scrollLeft,
+				bv: node.scrollTop,
 				aQ: node.clientWidth,
 				aC: node.clientHeight
 			}
@@ -4495,14 +4495,14 @@ function _Browser_getElement(id)
 		return {
 			di: _Browser_getScene(),
 			dz: {
-				bs: x,
-				bt: y,
+				bu: x,
+				bv: y,
 				aQ: _Browser_doc.documentElement.clientWidth,
 				aC: _Browser_doc.documentElement.clientHeight
 			},
 			dO: {
-				bs: x + rect.left,
-				bt: y + rect.top,
+				bu: x + rect.left,
+				bv: y + rect.top,
 				aQ: rect.width,
 				aC: rect.height
 			}
@@ -5226,12 +5226,12 @@ var author$project$Headless$headlessSubscriptions = function (model) {
 };
 var author$project$AppData$TodoistCache = F3(
 	function (syncToken, parentProjectID, activityProjectIDs) {
-		return {cb: activityProjectIDs, c2: parentProjectID, dq: syncToken};
+		return {cc: activityProjectIDs, c2: parentProjectID, dq: syncToken};
 	});
 var elm_community$intdict$IntDict$Empty = {$: 0};
 var elm_community$intdict$IntDict$empty = elm_community$intdict$IntDict$Empty;
 var author$project$AppData$emptyTodoistCache = A3(author$project$AppData$TodoistCache, '*', 1, elm_community$intdict$IntDict$empty);
-var author$project$AppData$fromScratch = {bu: elm_community$intdict$IntDict$empty, ad: _List_Nil, b3: elm_community$intdict$IntDict$empty, b5: _List_Nil, b6: author$project$AppData$emptyTodoistCache, b7: 0};
+var author$project$AppData$fromScratch = {bw: elm_community$intdict$IntDict$empty, ad: _List_Nil, b4: elm_community$intdict$IntDict$empty, b6: _List_Nil, b7: author$project$AppData$emptyTodoistCache, b8: 0};
 var author$project$AppData$saveError = F2(
 	function (appData, error) {
 		return _Utils_update(
@@ -5897,11 +5897,11 @@ var author$project$SmartTime$Duration$breakdown = function (duration) {
 	var withoutMinutes = withoutHours - (minutes * 60000);
 	var seconds = (withoutMinutes / 1000) | 0;
 	var withoutSeconds = withoutMinutes - (seconds * 1000);
-	return {cx: days, cG: hours, cX: withoutSeconds, cZ: minutes, dj: seconds};
+	return {cy: days, cG: hours, cX: withoutSeconds, cZ: minutes, dj: seconds};
 };
 var author$project$SmartTime$Human$Duration$breakdownDHMSM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var days = _n0.cx;
+	var days = _n0.cy;
 	var hours = _n0.cG;
 	var minutes = _n0.cZ;
 	var seconds = _n0.dj;
@@ -6721,7 +6721,7 @@ var elm_community$intdict$IntDict$size = function (dict) {
 			return 1;
 		default:
 			var i = dict.a;
-			return i.b$;
+			return i.b0;
 	}
 };
 var elm_community$intdict$IntDict$inner = F3(
@@ -6740,7 +6740,7 @@ var elm_community$intdict$IntDict$inner = F3(
 						o: l,
 						s: p,
 						p: r,
-						b$: elm_community$intdict$IntDict$size(l) + elm_community$intdict$IntDict$size(r)
+						b0: elm_community$intdict$IntDict$size(l) + elm_community$intdict$IntDict$size(r)
 					});
 			}
 		}
@@ -6895,7 +6895,7 @@ var author$project$Task$TaskMoment$decodeMoment = A2(zwilias$json_decode_explora
 var author$project$Activity$Activity$decodeSwitch = A5(author$project$Porting$subtype2, author$project$Activity$Activity$Switch, 'Time', author$project$Task$TaskMoment$decodeMoment, 'Activity', author$project$ID$decode);
 var author$project$AppData$AppData = F6(
 	function (uid, errors, tasks, activities, timeline, todoist) {
-		return {bu: activities, ad: errors, b3: tasks, b5: timeline, b6: todoist, b7: uid};
+		return {bw: activities, ad: errors, b4: tasks, b6: timeline, b7: todoist, b8: uid};
 	});
 var author$project$Porting$decodeIntDict = function (valueDecoder) {
 	return A2(
@@ -6953,7 +6953,7 @@ var author$project$Task$Task$Task = function (title) {
 												return function (plannedFinish) {
 													return function (relevanceStarts) {
 														return function (relevanceEnds) {
-															return {dD: activity, bz: completion, bC: deadline, bF: history, cH: id, cW: maxEffort, cY: minEffort, bS: parent, bT: plannedFinish, bU: plannedStart, a_: predictedEffort, bY: relevanceEnds, bZ: relevanceStarts, ei: tags, ao: title};
+															return {dD: activity, bB: completion, bE: deadline, bI: history, cH: id, cW: maxEffort, cY: minEffort, bU: parent, bV: plannedFinish, bW: plannedStart, a$: predictedEffort, bZ: relevanceEnds, b_: relevanceStarts, ei: tags, ao: title};
 														};
 													};
 												};
@@ -7031,7 +7031,7 @@ var elm$time$Time$toAdjustedMinutesHelp = F3(
 			} else {
 				var era = eras.a;
 				var olderEras = eras.b;
-				if (_Utils_cmp(era.b0, posixMinutes) < 0) {
+				if (_Utils_cmp(era.b1, posixMinutes) < 0) {
 					return posixMinutes + era.l;
 				} else {
 					var $temp$defaultOffset = defaultOffset,
@@ -7069,7 +7069,7 @@ var elm$time$Time$toCivil = function (minutes) {
 	var month = mp + ((mp < 10) ? 3 : (-9));
 	var year = yearOfEra + (era * 400);
 	return {
-		cv: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
+		cw: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
 		c_: month,
 		dC: year + ((month <= 2) ? 1 : 0)
 	};
@@ -7077,7 +7077,7 @@ var elm$time$Time$toCivil = function (minutes) {
 var elm$time$Time$toDay = F2(
 	function (zone, time) {
 		return elm$time$Time$toCivil(
-			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cv;
+			A2(elm$time$Time$toAdjustedMinutes, zone, time)).cw;
 	});
 var elm$core$Basics$modBy = _Basics_modBy;
 var elm$time$Time$toHour = F2(
@@ -7165,12 +7165,12 @@ var elm$time$Time$toYear = F2(
 var justinmimbs$time_extra$Time$Extra$posixToParts = F2(
 	function (zone, posix) {
 		return {
-			cv: A2(elm$time$Time$toDay, zone, posix),
-			bd: A2(elm$time$Time$toHour, zone, posix),
-			bM: A2(elm$time$Time$toMillis, zone, posix),
-			bg: A2(elm$time$Time$toMinute, zone, posix),
+			cw: A2(elm$time$Time$toDay, zone, posix),
+			bf: A2(elm$time$Time$toHour, zone, posix),
+			bO: A2(elm$time$Time$toMillis, zone, posix),
+			bi: A2(elm$time$Time$toMinute, zone, posix),
 			c_: A2(elm$time$Time$toMonth, zone, posix),
-			bp: A2(elm$time$Time$toSecond, zone, posix),
+			br: A2(elm$time$Time$toSecond, zone, posix),
 			dC: A2(elm$time$Time$toYear, zone, posix)
 		};
 	});
@@ -7615,7 +7615,7 @@ var author$project$Main$TimeTracker = function (a) {
 };
 var author$project$Main$ViewState = F2(
 	function (primaryView, uid) {
-		return {a$: primaryView, b7: uid};
+		return {a0: primaryView, b8: uid};
 	});
 var author$project$TimeTracker$Normal = 0;
 var author$project$TimeTracker$defaultView = 0;
@@ -7627,7 +7627,7 @@ var author$project$Main$TaskList = function (a) {
 	return {$: 0, a: a};
 };
 var author$project$Main$screenToViewState = function (screen) {
-	return {a$: screen, b7: 0};
+	return {a0: screen, b8: 0};
 };
 var author$project$TaskList$IncompleteTasksOnly = 1;
 var author$project$TaskList$Normal = F3(
@@ -8374,7 +8374,7 @@ var author$project$Main$buildModel = F3(
 		return {
 			dH: appData,
 			dP: author$project$Environment$preInit(maybeKey),
-			a5: author$project$Main$viewUrl(url)
+			a7: author$project$Main$viewUrl(url)
 		};
 	});
 var author$project$Main$Tick = function (a) {
@@ -8746,7 +8746,7 @@ var author$project$AppData$encodeTodoistCache = function (record) {
 				elm$json$Json$Encode$int(record.c2)),
 				_Utils_Tuple2(
 				'activityProjectIDs',
-				A2(author$project$Porting$encodeIntDict, author$project$ID$encode, record.cb))
+				A2(author$project$Porting$encodeIntDict, author$project$ID$encode, record.cc))
 			]));
 };
 var author$project$Porting$encodeDuration = function (dur) {
@@ -8794,25 +8794,25 @@ var author$project$Task$Task$encodeTask = function (record) {
 				elm$json$Json$Encode$string(record.ao)),
 				_Utils_Tuple2(
 				'completion',
-				author$project$Task$Progress$encodeProgress(record.bz)),
+				author$project$Task$Progress$encodeProgress(record.bB)),
 				_Utils_Tuple2(
 				'id',
 				elm$json$Json$Encode$int(record.cH)),
 				_Utils_Tuple2(
 				'minEffort',
-				author$project$Porting$encodeDuration(record.a_)),
+				author$project$Porting$encodeDuration(record.a$)),
 				_Utils_Tuple2(
 				'predictedEffort',
-				author$project$Porting$encodeDuration(record.a_)),
+				author$project$Porting$encodeDuration(record.a$)),
 				_Utils_Tuple2(
 				'maxEffort',
-				author$project$Porting$encodeDuration(record.a_)),
+				author$project$Porting$encodeDuration(record.a$)),
 				_Utils_Tuple2(
 				'history',
-				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.bF)),
+				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.bI)),
 				_Utils_Tuple2(
 				'parent',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.bS)),
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.bU)),
 				_Utils_Tuple2(
 				'tags',
 				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.ei)),
@@ -8821,19 +8821,19 @@ var author$project$Task$Task$encodeTask = function (record) {
 				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$ID$encode, record.dD)),
 				_Utils_Tuple2(
 				'deadline',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bC)),
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bE)),
 				_Utils_Tuple2(
 				'plannedStart',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bU)),
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bW)),
 				_Utils_Tuple2(
 				'plannedFinish',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bT)),
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bV)),
 				_Utils_Tuple2(
 				'relevanceStarts',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bZ)),
+				author$project$Task$TaskMoment$encodeTaskMoment(record.b_)),
 				_Utils_Tuple2(
 				'relevanceEnds',
-				author$project$Task$TaskMoment$encodeTaskMoment(record.bY))
+				author$project$Task$TaskMoment$encodeTaskMoment(record.bZ))
 			]));
 };
 var elm$core$List$takeReverse = F3(
@@ -8968,13 +8968,13 @@ var author$project$AppData$encodeAppData = function (record) {
 			[
 				_Utils_Tuple2(
 				'tasks',
-				A2(author$project$Porting$encodeIntDict, author$project$Task$Task$encodeTask, record.b3)),
+				A2(author$project$Porting$encodeIntDict, author$project$Task$Task$encodeTask, record.b4)),
 				_Utils_Tuple2(
 				'activities',
-				author$project$Activity$Activity$encodeStoredActivities(record.bu)),
+				author$project$Activity$Activity$encodeStoredActivities(record.bw)),
 				_Utils_Tuple2(
 				'uid',
-				elm$json$Json$Encode$int(record.b7)),
+				elm$json$Json$Encode$int(record.b8)),
 				_Utils_Tuple2(
 				'errors',
 				A2(
@@ -8983,10 +8983,10 @@ var author$project$AppData$encodeAppData = function (record) {
 					A2(elm$core$List$take, 100, record.ad))),
 				_Utils_Tuple2(
 				'timeline',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.b5)),
+				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.b6)),
 				_Utils_Tuple2(
 				'todoist',
-				author$project$AppData$encodeTodoistCache(record.b6))
+				author$project$AppData$encodeTodoistCache(record.b7))
 			]));
 };
 var author$project$Main$appDataToJson = function (appData) {
@@ -10185,6 +10185,13 @@ var author$project$Activity$Activity$allActivities = function (stored) {
 		stored);
 	return A2(elm_community$intdict$IntDict$union, customized, stock);
 };
+var author$project$External$TodoistSync$describeSuccess = function (success) {
+	return success.bH ? ('Did FULL Todoist sync: ' + (elm$core$String$fromInt(
+		elm$core$List$length(success.aV)) + (' items, ' + (elm$core$String$fromInt(
+		elm$core$List$length(success.a1)) + 'projects retrieved!')))) : ('Incremental Todoist sync complete: Updated ' + (elm$core$String$fromInt(
+		elm$core$List$length(success.aV)) + (' items and ' + (elm$core$String$fromInt(
+		elm$core$List$length(success.a1)) + 'projects.'))));
+};
 var author$project$ID$tag = function (_int) {
 	return _int;
 };
@@ -10305,7 +10312,7 @@ var author$project$External$TodoistSync$findActivityProjectIDs = F2(
 			author$project$IntDictExtra$filterMap,
 			F2(
 				function (i, p) {
-					return pickFirstMatch(p.aX);
+					return pickFirstMatch(p.aY);
 				}),
 			projects);
 	});
@@ -10456,25 +10463,25 @@ var author$project$Task$Task$newTask = F2(
 	function (description, id) {
 		return {
 			dD: elm$core$Maybe$Nothing,
-			bz: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
-			bC: author$project$Task$TaskMoment$Unset,
-			bF: _List_Nil,
+			bB: _Utils_Tuple2(0, author$project$Task$Progress$Percent),
+			bE: author$project$Task$TaskMoment$Unset,
+			bI: _List_Nil,
 			cH: id,
 			cW: author$project$SmartTime$Duration$zero,
 			cY: author$project$SmartTime$Duration$zero,
-			bS: elm$core$Maybe$Nothing,
-			bT: author$project$Task$TaskMoment$Unset,
-			bU: author$project$Task$TaskMoment$Unset,
-			a_: author$project$SmartTime$Duration$zero,
-			bY: author$project$Task$TaskMoment$Unset,
+			bU: elm$core$Maybe$Nothing,
+			bV: author$project$Task$TaskMoment$Unset,
+			bW: author$project$Task$TaskMoment$Unset,
+			a$: author$project$SmartTime$Duration$zero,
 			bZ: author$project$Task$TaskMoment$Unset,
+			b_: author$project$Task$TaskMoment$Unset,
 			ei: _List_Nil,
 			ao: description
 		};
 	});
 var author$project$External$TodoistSync$itemToTask = F2(
 	function (activityID, item) {
-		var _n0 = author$project$External$TodoistSync$extractTiming(item.bA);
+		var _n0 = author$project$External$TodoistSync$extractTiming(item.bC);
 		var newName = _n0.a;
 		var _n1 = _n0.b;
 		var minDur = _n1.a;
@@ -10484,7 +10491,7 @@ var author$project$External$TodoistSync$itemToTask = F2(
 			base,
 			{
 				dD: elm$core$Maybe$Just(activityID),
-				bz: item.bw ? author$project$Task$Progress$maximize(base.bz) : base.bz,
+				bB: item.by ? author$project$Task$Progress$maximize(base.bB) : base.bB,
 				ei: _List_Nil
 			});
 	});
@@ -10522,7 +10529,7 @@ var elm_community$intdict$IntDict$get = F2(
 	});
 var author$project$External$TodoistSync$timetrackItemToTask = F2(
 	function (lookup, item) {
-		var _n0 = A2(elm_community$intdict$IntDict$get, item.bW, lookup);
+		var _n0 = A2(elm_community$intdict$IntDict$get, item.bY, lookup);
 		if (!_n0.$) {
 			var act = _n0.a;
 			return elm$core$Maybe$Just(
@@ -10552,14 +10559,17 @@ var elm_community$intdict$IntDict$keys = function (dict) {
 var author$project$External$TodoistSync$handle = F2(
 	function (_n0, app) {
 		var result = _n0;
-		var tasks = app.b3;
-		var activities = app.bu;
-		var todoist = app.b6;
+		var tasks = app.b4;
+		var activities = app.bw;
+		var todoist = app.b7;
 		if (!result.$) {
-			var sync_token = result.a.b2;
-			var full_sync = result.a.cE;
-			var items = result.a.bJ;
-			var projects = result.a.bX;
+			var success = result.a;
+			var filledInActivities = author$project$Activity$Activity$allActivities(activities);
+			var _n2 = success;
+			var sync_token = _n2.b3;
+			var full_sync = _n2.bH;
+			var items = _n2.aV;
+			var projects = _n2.a1;
 			var projectsDict = elm_community$intdict$IntDict$fromList(
 				A2(
 					elm$core$List$map,
@@ -10572,19 +10582,18 @@ var author$project$External$TodoistSync$handle = F2(
 					A2(
 						elm_community$intdict$IntDict$filter,
 						F2(
-							function (_n3, p) {
-								return p.aX === 'Timetrack';
+							function (_n4, p) {
+								return p.aY === 'Timetrack';
 							}),
 						projectsDict)));
 			var timetrackParent = A2(elm$core$Maybe$withDefault, todoist.c2, updatedTimetrackParent);
 			var validActivityProjects = A2(
 				elm_community$intdict$IntDict$filter,
 				F2(
-					function (_n2, p) {
-						return _Utils_eq(p.bl, timetrackParent);
+					function (_n3, p) {
+						return _Utils_eq(p.bn, timetrackParent);
 					}),
 				projectsDict);
-			var filledInActivities = author$project$Activity$Activity$allActivities(activities);
 			var activityLookupTable = A2(author$project$External$TodoistSync$findActivityProjectIDs, validActivityProjects, filledInActivities);
 			var itemsInTimetrackToTasks = A2(
 				elm$core$List$filterMap,
@@ -10597,42 +10606,47 @@ var author$project$External$TodoistSync$handle = F2(
 						return _Utils_Tuple2(t.cH, t);
 					},
 					itemsInTimetrackToTasks));
-			return _Utils_update(
-				app,
-				{
-					b3: A2(elm_community$intdict$IntDict$union, generatedTasks, tasks),
-					b6: {
-						cb: A2(elm_community$intdict$IntDict$union, activityLookupTable, todoist.cb),
-						c2: timetrackParent,
-						dq: sync_token
-					}
-				});
+			return _Utils_Tuple2(
+				_Utils_update(
+					app,
+					{
+						b4: A2(elm_community$intdict$IntDict$union, generatedTasks, tasks),
+						b7: {
+							cc: A2(elm_community$intdict$IntDict$union, activityLookupTable, todoist.cc),
+							c2: timetrackParent,
+							dq: sync_token
+						}
+					}),
+				author$project$External$TodoistSync$describeSuccess(success));
 		} else {
 			var err = result.a;
+			var handleError = function (description) {
+				return _Utils_Tuple2(
+					A2(author$project$AppData$saveError, app, description),
+					description);
+			};
 			switch (err.$) {
 				case 0:
 					var msg = err.a;
-					return A2(author$project$AppData$saveError, app, msg);
+					return handleError(msg);
 				case 1:
-					return A2(author$project$AppData$saveError, app, 'Timeout?');
+					return handleError('Timeout?');
 				case 2:
-					return A2(author$project$AppData$saveError, app, 'Network Error');
+					return handleError('Network Error');
 				case 3:
 					var status = err.a;
-					return A2(
-						author$project$AppData$saveError,
-						app,
+					return handleError(
 						'Got Error code' + elm$core$String$fromInt(status));
 				default:
 					var string = err.a;
-					return A2(author$project$AppData$saveError, app, string);
+					return handleError(string);
 			}
 		}
 	});
 var author$project$External$TodoistSync$SyncResponded = elm$core$Basics$identity;
 var author$project$External$TodoistSync$Response = F4(
 	function (sync_token, full_sync, items, projects) {
-		return {cE: full_sync, bJ: items, bX: projects, b2: sync_token};
+		return {bH: full_sync, aV: items, a1: projects, b3: sync_token};
 	});
 var author$project$External$TodoistSync$Item = function (id) {
 	return function (user_id) {
@@ -10654,7 +10668,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 																	return function (is_deleted) {
 																		return function (is_archived) {
 																			return function (date_added) {
-																				return {cf: assigned_by_uid, bw: checked, cq: child_order, cr: children, aT: collapsed, bA: content, cu: date_added, cw: day_order, cy: due, cH: id, cJ: in_history, cK: indent, cP: is_archived, cQ: is_deleted, cU: labels, c3: parent_id, c6: priority, bW: project_id, dg: responsible_uid, dy: user_id};
+																				return {cg: assigned_by_uid, by: checked, cr: child_order, cs: children, aT: collapsed, bC: content, cv: date_added, cx: day_order, cz: due, cH: id, cJ: in_history, cK: indent, cP: is_archived, cQ: is_deleted, cU: labels, c3: parent_id, c6: priority, bY: project_id, dg: responsible_uid, dy: user_id};
 																			};
 																		};
 																	};
@@ -10677,7 +10691,7 @@ var author$project$External$TodoistSync$Item = function (id) {
 };
 var author$project$External$TodoistSync$Due = F5(
 	function (date, timezone, string, lang, isRecurring) {
-		return {ct: date, cO: isRecurring, cV: lang, $7: string, du: timezone};
+		return {cu: date, cO: isRecurring, cV: lang, $7: string, du: timezone};
 	});
 var author$project$External$TodoistSync$decodeDue = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
@@ -10875,7 +10889,7 @@ var author$project$External$TodoistSync$Project = function (id) {
 							return function (isDeleted) {
 								return function (isArchived) {
 									return function (isFavorite) {
-										return {bx: childOrder, aT: collapsed, by: color, cH: id, bG: isArchived, bH: isDeleted, bI: isFavorite, aX: name, bl: parentId, b_: shared};
+										return {bz: childOrder, aT: collapsed, bA: color, cH: id, bJ: isArchived, bK: isDeleted, bL: isFavorite, aY: name, bn: parentId, b$: shared};
 									};
 								};
 							};
@@ -11390,7 +11404,7 @@ var elm$http$Http$cmdMap = F2(
 			return elm$http$Http$Request(
 				{
 					ar: r.ar,
-					a8: r.a8,
+					ba: r.ba,
 					dQ: A2(_Http_mapExpect, func, r.dQ),
 					D: r.D,
 					G: r.G,
@@ -11419,11 +11433,11 @@ var elm$http$Http$subscription = _Platform_leaf('Http');
 var elm$http$Http$request = function (r) {
 	return elm$http$Http$command(
 		elm$http$Http$Request(
-			{ar: false, a8: r.a8, dQ: r.dQ, D: r.D, G: r.G, H: r.H, J: r.J, em: r.em}));
+			{ar: false, ba: r.ba, dQ: r.dQ, D: r.D, G: r.G, H: r.H, J: r.J, em: r.em}));
 };
 var elm$http$Http$get = function (r) {
 	return elm$http$Http$request(
-		{a8: elm$http$Http$emptyBody, dQ: r.dQ, D: _List_Nil, G: 'GET', H: elm$core$Maybe$Nothing, J: elm$core$Maybe$Nothing, em: r.em});
+		{ba: elm$http$Http$emptyBody, dQ: r.dQ, D: _List_Nil, G: 'GET', H: elm$core$Maybe$Nothing, J: elm$core$Maybe$Nothing, em: r.em});
 };
 var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
 	return elm$http$Http$get(
@@ -11438,7 +11452,7 @@ var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
 };
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
-		return {dH: appData, dP: environment, a5: viewState};
+		return {dH: appData, dP: environment, a7: viewState};
 	});
 var author$project$Main$SyncTodoist = {$: 5};
 var author$project$Main$TaskListMsg = function (a) {
@@ -11450,10 +11464,6 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 6, a: a};
 };
-var author$project$Main$log = F2(
-	function (label, valueToLog) {
-		return valueToLog;
-	});
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -11466,7 +11476,7 @@ var author$project$Task$Progress$isMax = function (progress) {
 var author$project$Task$Task$completed = function (task) {
 	return author$project$Task$Progress$isMax(
 		function ($) {
-			return $.bz;
+			return $.bB;
 		}(task));
 };
 var author$project$TaskList$NoOp = {$: 9};
@@ -11596,14 +11606,14 @@ var author$project$TaskList$update = F4(
 						_Utils_update(
 							app,
 							{
-								b3: A3(
+								b4: A3(
 									elm_community$intdict$IntDict$insert,
 									author$project$SmartTime$Moment$toSmartInt(env.dt),
 									A2(
 										author$project$Task$Task$newTask,
 										newTaskTitle,
 										author$project$SmartTime$Moment$toSmartInt(env.dt)),
-									app.b3)
+									app.b4)
 							}),
 						elm$core$Platform$Cmd$none);
 				}
@@ -11631,11 +11641,11 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b3: A3(
+							b4: A3(
 								elm_community$intdict$IntDict$update,
 								id,
 								elm$core$Maybe$map(updateTask),
-								app.b3)
+								app.b4)
 						}),
 					A2(
 						elm$core$Task$attempt,
@@ -11656,11 +11666,11 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b3: A3(
+							b4: A3(
 								elm_community$intdict$IntDict$update,
 								id,
 								elm$core$Maybe$map(updateTask),
-								app.b3)
+								app.b4)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 7:
@@ -11670,18 +11680,18 @@ var author$project$TaskList$update = F4(
 				var updateTask = function (t) {
 					return _Utils_update(
 						t,
-						{bC: date});
+						{bE: date});
 				};
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
 						app,
 						{
-							b3: A3(
+							b4: A3(
 								elm_community$intdict$IntDict$update,
 								id,
 								elm$core$Maybe$map(updateTask),
-								app.b3)
+								app.b4)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 3:
@@ -11691,7 +11701,7 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b3: A2(elm_community$intdict$IntDict$remove, id, app.b3)
+							b4: A2(elm_community$intdict$IntDict$remove, id, app.b4)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 4:
@@ -11700,13 +11710,13 @@ var author$project$TaskList$update = F4(
 					_Utils_update(
 						app,
 						{
-							b3: A2(
+							b4: A2(
 								elm_community$intdict$IntDict$filter,
 								F2(
 									function (_n4, t) {
 										return !author$project$Task$Task$completed(t);
 									}),
-								app.b3)
+								app.b4)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 5:
@@ -11715,18 +11725,18 @@ var author$project$TaskList$update = F4(
 				var updateTask = function (t) {
 					return _Utils_update(
 						t,
-						{bz: new_completion});
+						{bB: new_completion});
 				};
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
 						app,
 						{
-							b3: A3(
+							b4: A3(
 								elm_community$intdict$IntDict$update,
 								id,
 								elm$core$Maybe$map(updateTask),
-								app.b3)
+								app.b4)
 						}),
 					elm$core$Platform$Cmd$none);
 			case 6:
@@ -11755,7 +11765,7 @@ var author$project$Activity$Activity$currentActivityID = function (switchList) {
 		author$project$Activity$Activity$latestSwitch(switchList));
 };
 var author$project$Activity$Switching$currentActivityFromApp = function (app) {
-	return author$project$Activity$Activity$currentActivityID(app.b5);
+	return author$project$Activity$Activity$currentActivityID(app.b6);
 };
 var author$project$ID$read = function (_n0) {
 	var _int = _n0;
@@ -11984,7 +11994,7 @@ var author$project$Activity$Measure$exportExcusedUsageSeconds = F3(
 			author$project$SmartTime$Duration$inSecondsRounded(
 				A3(
 					author$project$Activity$Measure$excusedUsage,
-					app.b5,
+					app.b6,
 					now,
 					_Utils_Tuple2(activityID, activity))));
 	});
@@ -11998,7 +12008,7 @@ var author$project$Activity$Measure$exportLastSession = F2(
 			elm$core$Maybe$withDefault,
 			author$project$SmartTime$Duration$zero,
 			elm$core$List$head(
-				A2(author$project$Activity$Measure$sessions, app.b5, old)));
+				A2(author$project$Activity$Measure$sessions, app.b6, old)));
 		return elm$core$String$fromInt(
 			author$project$SmartTime$Duration$inMinutesRounded(timeSpent));
 	});
@@ -12098,7 +12108,7 @@ var author$project$Activity$Switching$sameActivity = F3(
 		var activity = A2(
 			author$project$Activity$Activity$getActivity,
 			activityID,
-			author$project$Activity$Activity$allActivities(app.bu));
+			author$project$Activity$Activity$allActivities(app.bw));
 		return _Utils_Tuple2(
 			app,
 			elm$core$Platform$Cmd$batch(
@@ -12107,7 +12117,7 @@ var author$project$Activity$Switching$sameActivity = F3(
 						author$project$External$Commands$toast(
 						A4(
 							author$project$Activity$Switching$switchPopup,
-							app.b5,
+							app.b6,
 							env,
 							_Utils_Tuple2(activityID, activity),
 							_Utils_Tuple2(activityID, activity))),
@@ -12305,20 +12315,20 @@ var author$project$Activity$Switching$switchActivity = F3(
 		var updatedApp = _Utils_update(
 			app,
 			{
-				b5: A2(
+				b6: A2(
 					elm$core$List$cons,
 					A2(author$project$Activity$Activity$Switch, env.dt, activityID),
-					app.b5)
+					app.b6)
 			});
 		var oldActivityID = author$project$Activity$Switching$currentActivityFromApp(app);
 		var oldActivity = A2(
 			author$project$Activity$Activity$getActivity,
 			oldActivityID,
-			author$project$Activity$Activity$allActivities(app.bu));
+			author$project$Activity$Activity$allActivities(app.bw));
 		var newActivity = A2(
 			author$project$Activity$Activity$getActivity,
 			activityID,
-			author$project$Activity$Activity$allActivities(app.bu));
+			author$project$Activity$Activity$allActivities(app.bw));
 		return _Utils_Tuple2(
 			updatedApp,
 			elm$core$Platform$Cmd$batch(
@@ -12327,7 +12337,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 						author$project$External$Commands$toast(
 						A4(
 							author$project$Activity$Switching$switchPopup,
-							updatedApp.b5,
+							updatedApp.b6,
 							env,
 							_Utils_Tuple2(activityID, newActivity),
 							_Utils_Tuple2(oldActivityID, oldActivity))),
@@ -12354,7 +12364,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 								author$project$SmartTime$Duration$inMinutesRounded(
 									A3(
 										author$project$Activity$Measure$excusedUsage,
-										app.b5,
+										app.b6,
 										env.dt,
 										_Utils_Tuple2(activityID, newActivity)))))),
 						author$project$External$Tasker$variableOut(
@@ -12380,7 +12390,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 								author$project$Activity$Activity$excusableFor(newActivity).b),
 							A3(
 								author$project$Activity$Measure$excusedLeft,
-								updatedApp.b5,
+								updatedApp.b6,
 								env.dt,
 								_Utils_Tuple2(activityID, newActivity))))
 					])));
@@ -12445,7 +12455,7 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 			elm$core$List$map,
 			entriesPerActivity,
 			elm_community$intdict$IntDict$toList(
-				author$project$Activity$Activity$allActivities(app.bu))));
+				author$project$Activity$Activity$allActivities(app.bw))));
 	return _List_fromArray(
 		[
 			_Utils_Tuple2(
@@ -12543,24 +12553,24 @@ var author$project$Main$handleUrlTriggers = F2(
 		var appData = model.dH;
 		var environment = model.dP;
 		var wrapMsgs = F2(
-			function (tagger, _n22) {
-				var key = _n22.a;
-				var dict = _n22.b;
+			function (tagger, _n23) {
+				var key = _n23.a;
+				var dict = _n23.b;
 				return _Utils_Tuple2(
 					key,
 					A2(
 						elm$core$Dict$map,
 						F2(
-							function (_n21, msg) {
+							function (_n22, msg) {
 								return tagger(msg);
 							}),
 						dict));
 			});
 		var url = author$project$Main$bypassFakeFragment(rawUrl);
 		var removeTriggersFromUrl = function () {
-			var _n20 = environment.c0;
-			if (!_n20.$) {
-				var navkey = _n20.a;
+			var _n21 = environment.c0;
+			if (!_n21.$) {
+				var navkey = _n21.a;
 				return A2(
 					elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -12579,27 +12589,27 @@ var author$project$Main$handleUrlTriggers = F2(
 			fancyRecursiveParse:
 			while (true) {
 				if (checkList.b) {
-					var _n9 = checkList.a;
-					var triggerName = _n9.a;
-					var triggerValues = _n9.b;
+					var _n10 = checkList.a;
+					var triggerName = _n10.a;
+					var triggerValues = _n10.b;
 					var rest = checkList.b;
-					var _n10 = A2(
+					var _n11 = A2(
 						elm$url$Url$Parser$parse,
 						elm$url$Url$Parser$query(
 							A2(elm$url$Url$Parser$Query$enum, triggerName, triggerValues)),
 						normalizedUrl);
-					if (_n10.$ === 1) {
+					if (_n11.$ === 1) {
 						var $temp$checkList = rest;
 						checkList = $temp$checkList;
 						continue fancyRecursiveParse;
 					} else {
-						if (_n10.a.$ === 1) {
-							var _n11 = _n10.a;
+						if (_n11.a.$ === 1) {
+							var _n12 = _n11.a;
 							var $temp$checkList = rest;
 							checkList = $temp$checkList;
 							continue fancyRecursiveParse;
 						} else {
-							var match = _n10.a;
+							var match = _n11.a;
 							return elm$core$Maybe$Just(match);
 						}
 					}
@@ -12608,9 +12618,9 @@ var author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		};
-		var createQueryParsers = function (_n19) {
-			var key = _n19.a;
-			var values = _n19.b;
+		var createQueryParsers = function (_n20) {
+			var key = _n20.a;
+			var values = _n20.b;
 			return A2(elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
@@ -12643,23 +12653,23 @@ var author$project$Main$handleUrlTriggers = F2(
 			elm$url$Url$Parser$parse,
 			elm$url$Url$Parser$oneOf(parseList),
 			normalizedUrl);
-		var _n12 = fancyRecursiveParse(allTriggers);
-		if (!_n12.$) {
-			var parsedUrlSuccessfully = _n12.a;
-			var _n13 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d8);
-			if (!_n13.a.$) {
-				if (!_n13.b.$) {
-					var triggerMsg = _n13.a.a;
-					var _n14 = A2(author$project$Main$update, triggerMsg, model);
-					var newModel = _n14.a;
-					var newCmd = _n14.b;
+		var _n13 = fancyRecursiveParse(allTriggers);
+		if (!_n13.$) {
+			var parsedUrlSuccessfully = _n13.a;
+			var _n14 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.d8);
+			if (!_n14.a.$) {
+				if (!_n14.b.$) {
+					var triggerMsg = _n14.a.a;
+					var _n15 = A2(author$project$Main$update, triggerMsg, model);
+					var newModel = _n15.a;
+					var newCmd = _n15.b;
 					var newCmdWithUrlCleaner = elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[newCmd, removeTriggersFromUrl]));
 					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 				} else {
-					var triggerMsg = _n13.a.a;
-					var _n16 = _n13.b;
+					var triggerMsg = _n14.a.a;
+					var _n17 = _n14.b;
 					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -12670,9 +12680,9 @@ var author$project$Main$handleUrlTriggers = F2(
 						author$project$External$Commands$toast(problemText));
 				}
 			} else {
-				if (!_n13.b.$) {
-					var _n15 = _n13.a;
-					var query = _n13.b.a;
+				if (!_n14.b.$) {
+					var _n16 = _n14.a;
+					var query = _n14.b.a;
 					var problemText = 'Handle URL Triggers: none of  ' + (elm$core$String$fromInt(
 						elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
 					return _Utils_Tuple2(
@@ -12683,8 +12693,8 @@ var author$project$Main$handleUrlTriggers = F2(
 							}),
 						author$project$External$Commands$toast(problemText));
 				} else {
-					var _n17 = _n13.a;
-					var _n18 = _n13.b;
+					var _n18 = _n14.a;
+					var _n19 = _n14.b;
 					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 				}
 			}
@@ -12701,7 +12711,7 @@ var author$project$Main$handleUrlTriggers = F2(
 	});
 var author$project$Main$update = F2(
 	function (msg, model) {
-		var viewState = model.a5;
+		var viewState = model.a7;
 		var appData = model.dH;
 		var environment = model.dP;
 		var justSetEnv = function (newEnv) {
@@ -12712,7 +12722,7 @@ var author$project$Main$update = F2(
 		var justRunCommand = function (command) {
 			return _Utils_Tuple2(model, command);
 		};
-		var _n0 = _Utils_Tuple2(msg, viewState.a$);
+		var _n0 = _Utils_Tuple2(msg, viewState.a0);
 		_n0$7:
 		while (true) {
 			switch (_n0.a.$) {
@@ -12733,26 +12743,22 @@ var author$project$Main$update = F2(
 						A2(
 							elm$core$Platform$Cmd$map,
 							author$project$Main$TodoistServerResponse,
-							author$project$External$TodoistSync$sync(appData.b6.dq)));
+							author$project$External$TodoistSync$sync(appData.b7.dq)));
 				case 6:
 					var response = _n0.a.a;
+					var _n3 = A2(author$project$External$TodoistSync$handle, response, appData);
+					var newAppData = _n3.a;
+					var whatHappened = _n3.b;
 					return _Utils_Tuple2(
-						A3(
-							author$project$Main$Model,
-							viewState,
-							A2(
-								author$project$External$TodoistSync$handle,
-								A2(author$project$Main$log, 'response:', response),
-								appData),
-							environment),
-						elm$core$Platform$Cmd$none);
+						A3(author$project$Main$Model, viewState, newAppData, environment),
+						author$project$External$Commands$toast(whatHappened));
 				case 7:
 					var urlRequest = _n0.a.a;
 					if (!urlRequest.$) {
 						var url = urlRequest.a;
-						var _n4 = environment.c0;
-						if (!_n4.$) {
-							var navkey = _n4.a;
+						var _n5 = environment.c0;
+						if (!_n5.$) {
+							var navkey = _n5.a;
 							return justRunCommand(
 								A2(
 									elm$browser$Browser$Navigation$pushUrl,
@@ -12768,24 +12774,24 @@ var author$project$Main$update = F2(
 					}
 				case 8:
 					var url = _n0.a.a;
-					var _n5 = A2(author$project$Main$handleUrlTriggers, url, model);
-					var modelAfter = _n5.a;
-					var effectsAfter = _n5.b;
+					var _n6 = A2(author$project$Main$handleUrlTriggers, url, model);
+					var modelAfter = _n6.a;
+					var effectsAfter = _n6.b;
 					return _Utils_Tuple2(
 						_Utils_update(
 							modelAfter,
 							{
-								a5: author$project$Main$viewUrl(url)
+								a7: author$project$Main$viewUrl(url)
 							}),
 						effectsAfter);
 				case 9:
 					if (!_n0.b.$) {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n6 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n6.a;
-						var newApp = _n6.b;
-						var newCommand = _n6.c;
+						var _n7 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+						var newState = _n7.a;
+						var newApp = _n7.b;
+						var newCommand = _n7.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
@@ -12803,10 +12809,10 @@ var author$project$Main$update = F2(
 					if (_n0.b.$ === 1) {
 						var subMsg = _n0.a.a;
 						var subViewState = _n0.b.a;
-						var _n7 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n7.a;
-						var newApp = _n7.b;
-						var newCommand = _n7.c;
+						var _n8 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+						var newState = _n8.a;
+						var newApp = _n8.b;
+						var newCommand = _n8.c;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
