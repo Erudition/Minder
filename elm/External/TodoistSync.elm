@@ -1,4 +1,4 @@
-module External.TodoistSync exposing (Item, Project, TodoistMsg, handle, sync)
+module External.TodoistSync exposing (Item, Project, TodoistMsg(..), handle, sync)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, saveError)
@@ -121,11 +121,14 @@ decodeResponse =
         |> optionalIgnored "tooltips"
 
 
-handle : TodoistMsg -> AppData -> AppData
+handle : TodoistMsg -> AppData -> ( AppData, String )
 handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
     case result of
-        Ok { sync_token, full_sync, items, projects } ->
+        Ok success ->
             let
+                { sync_token, full_sync, items, projects } =
+                    success
+
                 projectsDict =
                     IntDict.fromList (List.map (\p -> ( p.id, p )) projects)
 
@@ -154,7 +157,7 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                         List.map (\t -> ( t.id, t )) <|
                             itemsInTimetrackToTasks
             in
-            { app
+            ( { app
                 | todoist =
                     { syncToken = sync_token
                     , parentProjectID = timetrackParent
@@ -162,24 +165,46 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                     }
                 , tasks =
                     IntDict.union generatedTasks tasks
-            }
+              }
+            , describeSuccess success
+            )
 
         Err err ->
+            let
+                handleError description =
+                    ( saveError app description, description )
+            in
             case err of
                 Http.BadUrl msg ->
-                    saveError app msg
+                    handleError msg
 
                 Http.Timeout ->
-                    saveError app "Timeout?"
+                    handleError "Timeout?"
 
                 Http.NetworkError ->
-                    saveError app "Network Error"
+                    handleError "Network Error"
 
                 Http.BadStatus status ->
-                    saveError app <| "Got Error code" ++ String.fromInt status
+                    handleError <| "Got Error code" ++ String.fromInt status
 
                 Http.BadBody string ->
-                    saveError app string
+                    handleError string
+
+
+describeSuccess success =
+    if success.full_sync then
+        "Did FULL Todoist sync: "
+            ++ String.fromInt (List.length success.items)
+            ++ " items, "
+            ++ String.fromInt (List.length success.projects)
+            ++ "projects retrieved!"
+
+    else
+        "Incremental Todoist sync complete: Updated "
+            ++ String.fromInt (List.length success.items)
+            ++ " items and "
+            ++ String.fromInt (List.length success.projects)
+            ++ "projects."
 
 
 {-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
