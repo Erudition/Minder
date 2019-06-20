@@ -397,8 +397,13 @@ itemToTask activityID item =
         , activity = Just activityID
         , minEffort = Maybe.withDefault base.minEffort finalMin
         , maxEffort = Maybe.withDefault base.maxEffort finalMax
-        , importance = item.priority
+        , importance = priorityToImportance item.priority
     }
+
+
+priorityToImportance : Priority -> Int
+priorityToImportance (Priority int) =
+    0 - int
 
 
 extractTiming : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )
