@@ -65,19 +65,19 @@ toDuration : HumanDuration -> Duration
 toDuration humanDuration =
     case humanDuration of
         Days days ->
-            fromInt (days * 86400000)
+            scale aDay (toFloat days)
 
         Hours hours ->
-            fromInt (hours * 3600000)
+            scale anHour (toFloat hours)
 
         Minutes minutes ->
-            fromInt (minutes * 60000)
+            scale aMinute (toFloat minutes)
 
         Seconds seconds ->
-            fromInt (seconds * 1000)
+            scale aSecond (toFloat seconds)
 
         Milliseconds milliseconds ->
-            fromInt milliseconds
+            scale aMillisecond (toFloat milliseconds)
 
 
 {-| Make your own `Duration` constant by combining several units.

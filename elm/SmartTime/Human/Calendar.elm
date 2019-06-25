@@ -1,6 +1,7 @@
 module SmartTime.Human.Date exposing (Date(..), Day(..), InternalDate, Month, RawDate, Year(..), compare, compareDays, compareMonths, compareYears, dayFromInt, dayToInt, decrementDay, decrementMonth, decrementYear, fromPosix, fromRawDay, fromRawParts, fromYearMonthDay, fromZonedPosix, getDateRange, getDateRange_, getDatesInMonth, getDay, getDayDiff, getFollowingMonths, getMonth, getPrecedingMonths, getWeekday, getYear, incrementDay, incrementMonth, incrementYear, isLeapYear, lastDayOf, millisInADay, millisInYear, millisSinceEpoch, millisSinceStartOfTheMonth, millisSinceStartOfTheYear, monthToInt, months, rollMonthBackwards, rollMonthForward, setDay, setMonth, setYear, sort, toMillis, toPosix, yearFromInt, yearToInt)
 
 import Array exposing (Array)
+import Date exposing (Day(..), Month(..))
 import SmartTime.Human.Clock as Clock exposing (Clock)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
@@ -141,6 +142,9 @@ type alias RawDate =
 -- Creating a `Date`
 
 
+humanize : Moment -> Zone -> ( CalendarDate, Clock )
+
+
 {-| Construct a [Date](Calendar#Date) from a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix) time.
 You can construct a `Posix` time from milliseconds using the [millisToPosix](https://package.elm-lang.org/packages/elm/time/latest/Time#millisToPosix)
 function located in the [elm/time](https://package.elm-lang.org/packages/elm/time/latest/) package.
@@ -160,13 +164,7 @@ they will result in the same milliseconds. It is recommended using the [fromPosi
 module if you need to preserve both `Date` and `Time`.
 
 -}
-fromPosix : ElmTime.Posix -> Date
-fromPosix posix =
-    Date
-        { year = Year (ElmTime.toYear ElmTime.utc posix)
-        , month = ElmTime.toMonth ElmTime.utc posix
-        , day = Day (ElmTime.toDay ElmTime.utc posix)
-        }
+fromMoment : Moment -> CalendarDate
 
 
 {-| Constructs a [Date](Calendar#Date) from a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix) time and
@@ -1252,3 +1250,446 @@ months =
 millisInADay : Int
 millisInADay =
     1000 * 60 * 60 * 24
+
+
+{-| -}
+isLeapYear : Int -> Bool
+isLeapYear y =
+    y % 4 == 0 && y % 100 /= 0 || y % 400 == 0
+
+
+{-|
+
+    daysInMonth 2000 Feb -- 29
+
+    daysInMonth 2001 Feb -- 28
+
+-}
+daysInMonth : Int -> Month -> Int
+daysInMonth y m =
+    case m of
+        Jan ->
+            31
+
+        Feb ->
+            if isLeapYear y then
+                29
+
+            else
+                28
+
+        Mar ->
+            31
+
+        Apr ->
+            30
+
+        May ->
+            31
+
+        Jun ->
+            30
+
+        Jul ->
+            31
+
+        Aug ->
+            31
+
+        Sep ->
+            30
+
+        Oct ->
+            31
+
+        Nov ->
+            30
+
+        Dec ->
+            31
+
+
+{-|
+
+    daysBeforeMonth 2000 Mar -- 60
+
+    daysBeforeMonth 2001 Mar -- 59
+
+-}
+daysBeforeMonth : Int -> Month -> Int
+daysBeforeMonth y m =
+    let
+        leapDays =
+            if isLeapYear y then
+                1
+
+            else
+                0
+    in
+    case m of
+        Jan ->
+            0
+
+        Feb ->
+            31
+
+        Mar ->
+            59 + leapDays
+
+        Apr ->
+            90 + leapDays
+
+        May ->
+            120 + leapDays
+
+        Jun ->
+            151 + leapDays
+
+        Jul ->
+            181 + leapDays
+
+        Aug ->
+            212 + leapDays
+
+        Sep ->
+            243 + leapDays
+
+        Oct ->
+            273 + leapDays
+
+        Nov ->
+            304 + leapDays
+
+        Dec ->
+            334 + leapDays
+
+
+{-|
+
+    monthToNumber Jan -- 1
+
+-}
+monthToNumber : Month -> Int
+monthToNumber m =
+    case m of
+        Jan ->
+            1
+
+        Feb ->
+            2
+
+        Mar ->
+            3
+
+        Apr ->
+            4
+
+        May ->
+            5
+
+        Jun ->
+            6
+
+        Jul ->
+            7
+
+        Aug ->
+            8
+
+        Sep ->
+            9
+
+        Oct ->
+            10
+
+        Nov ->
+            11
+
+        Dec ->
+            12
+
+
+{-|
+
+    numberToMonth 1 -- Jan
+
+-}
+numberToMonth : Int -> Month
+numberToMonth n =
+    case max 1 n of
+        1 ->
+            Jan
+
+        2 ->
+            Feb
+
+        3 ->
+            Mar
+
+        4 ->
+            Apr
+
+        5 ->
+            May
+
+        6 ->
+            Jun
+
+        7 ->
+            Jul
+
+        8 ->
+            Aug
+
+        9 ->
+            Sep
+
+        10 ->
+            Oct
+
+        11 ->
+            Nov
+
+        _ ->
+            Dec
+
+
+{-|
+
+    weekdayToNumber Mon -- 1
+
+-}
+weekdayToNumber : Day -> Int
+weekdayToNumber d =
+    case d of
+        Mon ->
+            1
+
+        Tue ->
+            2
+
+        Wed ->
+            3
+
+        Thu ->
+            4
+
+        Fri ->
+            5
+
+        Sat ->
+            6
+
+        Sun ->
+            7
+
+
+{-|
+
+    numberToWeekday 1 -- Mon
+
+-}
+numberToWeekday : Int -> Day
+numberToWeekday n =
+    case max 1 n of
+        1 ->
+            Mon
+
+        2 ->
+            Tue
+
+        3 ->
+            Wed
+
+        4 ->
+            Thu
+
+        5 ->
+            Fri
+
+        6 ->
+            Sat
+
+        _ ->
+            Sun
+
+
+type alias RataDie =
+    Int
+
+
+
+-- calculations
+
+
+year : RataDie -> Int
+year rd =
+    let
+        ( n400, r400 ) =
+            -- 400 * 365 + 97
+            divideInt rd 146097
+
+        ( n100, r100 ) =
+            -- 100 * 365 + 24
+            divideInt r400 36524
+
+        ( n4, r4 ) =
+            -- 4 * 365 + 1
+            divideInt r100 1461
+
+        ( n1, r1 ) =
+            divideInt r4 365
+
+        n =
+            if r1 == 0 then
+                0
+
+            else
+                1
+    in
+    n400 * 400 + n100 * 100 + n4 * 4 + n1 + n
+
+
+{-| integer division, returning (Quotient, Remainder)
+-}
+divideInt : Int -> Int -> ( Int, Int )
+divideInt a b =
+    ( a // b, rem a b )
+
+
+weekdayNumber : RataDie -> Int
+weekdayNumber rd =
+    case rd % 7 of
+        0 ->
+            7
+
+        n ->
+            n
+
+
+daysBeforeYear : Int -> Int
+daysBeforeYear y1 =
+    let
+        y =
+            y1 - 1
+
+        leapYears =
+            (y // 4) - (y // 100) + (y // 400)
+    in
+    365 * y + leapYears
+
+
+daysBeforeWeekYear : Int -> Int
+daysBeforeWeekYear y =
+    let
+        jan4 =
+            daysBeforeYear y + 4
+    in
+    jan4 - weekdayNumber jan4
+
+
+is53WeekYear : Int -> Bool
+is53WeekYear y =
+    let
+        wdnJan1 =
+            daysBeforeYear y + 1 |> weekdayNumber
+    in
+    -- any year starting on Thursday and any leap year starting on Wednesday
+    wdnJan1 == 4 || (wdnJan1 == 3 && isLeapYear y)
+
+
+weekYear : RataDie -> Int
+weekYear rd =
+    -- `year <thursday of this week>`
+    year (rd + (4 - weekdayNumber rd))
+
+
+weekNumber : RataDie -> Int
+weekNumber rd =
+    let
+        week1Day1 =
+            daysBeforeWeekYear (weekYear rd) + 1
+    in
+    (rd - week1Day1) // 7 + 1
+
+
+
+-- constructors, strict
+
+
+fromOrdinalParts : Int -> Int -> Result String RataDie
+fromOrdinalParts y od =
+    if
+        (od |> isBetween 1 365)
+            || (od == 366 && isLeapYear y)
+    then
+        Ok <| daysBeforeYear y + od
+
+    else
+        Err <| "Invalid ordinal date (" ++ toString y ++ ", " ++ toString od ++ ")"
+
+
+fromCalendarParts : Int -> Int -> Int -> Result String RataDie
+fromCalendarParts y mn d =
+    if
+        (mn |> isBetween 1 12)
+            && (d |> isBetween 1 (daysInMonth y (mn |> numberToMonth)))
+    then
+        Ok <| daysBeforeYear y + daysBeforeMonth y (mn |> numberToMonth) + d
+
+    else
+        Err <| "Invalid calendar date (" ++ toString y ++ ", " ++ toString mn ++ ", " ++ toString d ++ ")"
+
+
+fromWeekParts : Int -> Int -> Int -> Result String RataDie
+fromWeekParts wy wn wdn =
+    if
+        (wdn |> isBetween 1 7)
+            && ((wn |> isBetween 1 52)
+                    || (wn == 53 && is53WeekYear wy)
+               )
+    then
+        Ok <| daysBeforeWeekYear wy + (wn - 1) * 7 + wdn
+
+    else
+        Err <| "Invalid week date (" ++ toString wy ++ ", " ++ toString wn ++ ", " ++ toString wdn ++ ")"
+
+
+isBetween : Int -> Int -> Int -> Bool
+isBetween a b x =
+    a <= x && x <= b
+
+
+
+-- constructors, clamping
+
+
+fromOrdinalDate : Int -> Int -> RataDie
+fromOrdinalDate y od =
+    let
+        daysInY =
+            if isLeapYear y then
+                366
+
+            else
+                365
+    in
+    daysBeforeYear y + (od |> clamp 1 daysInY)
+
+
+fromCalendarDate : Int -> Month -> Int -> RataDie
+fromCalendarDate y m d =
+    daysBeforeYear y + daysBeforeMonth y m + (d |> clamp 1 (daysInMonth y m))
+
+
+fromWeekDate : Int -> Int -> Day -> RataDie
+fromWeekDate wy wn wd =
+    let
+        weeksInWY =
+            if is53WeekYear wy then
+                53
+
+            else
+                52
+    in
+    daysBeforeWeekYear wy + ((wn |> clamp 1 weeksInWY) - 1) * 7 + (wd |> weekdayToNumber)
