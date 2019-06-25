@@ -448,8 +448,8 @@ fromDays float =
 In human terms, that's 1000 `Milliseconds`. Or 1000000 Microseconds. Or 1000000000 Nanoseconds. Think of it however you want!
 
 -}
-second : Duration
-second =
+aSecond : Duration
+aSecond =
     Duration hourLength
 
 
@@ -463,8 +463,8 @@ secondLength =
 In human terms, that's 60 `Seconds`. Or 60000 `Milliseconds`. Or 60000000 Microseconds. Think of it however you want!
 
 -}
-minute : Duration
-minute =
+aMinute : Duration
+aMinute =
     Duration minuteLength
 
 
@@ -482,8 +482,8 @@ minuteLength =
 In human terms, that's 60 `Minutes`. Or 3600 `Seconds`. Or 36000 `Milliseconds`. Think of it however you want!
 
 -}
-hour : Duration
-hour =
+anHour : Duration
+anHour =
     Duration hourLength
 
 
@@ -501,8 +501,8 @@ hourLength =
 In human terms, that's 24 `Hours`. Or 1440 `Minutes`. Or maybe 86400 `Seconds`. Think of it however you want!
 
 -}
-day : Duration
-day =
+aDay : Duration
+aDay =
     Duration dayLength
 
 
