@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, add, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, map, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, map, scale, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -443,6 +443,21 @@ fromDays float =
 -- CONSTANTS
 
 
+{-| The constant `Duration` of a millisecond.
+
+In human terms, that's 1000 Microseconds. Or 1000000 Nanoseconds. Or 1000000000 Picoseconds. Think of it however you want!
+
+-}
+aMillisecond : Duration
+aMillisecond =
+    Duration millisecondLength
+
+
+millisecondLength : number
+millisecondLength =
+    1
+
+
 {-| The constant `Duration` of a second.
 
 In human terms, that's 1000 `Milliseconds`. Or 1000000 Microseconds. Or 1000000000 Nanoseconds. Think of it however you want!
@@ -450,12 +465,12 @@ In human terms, that's 1000 `Milliseconds`. Or 1000000 Microseconds. Or 10000000
 -}
 aSecond : Duration
 aSecond =
-    Duration hourLength
+    Duration secondLength
 
 
 secondLength : number
 secondLength =
-    1000
+    1000 * millisecondLength
 
 
 {-| The constant `Duration` of a minute.
