@@ -82,7 +82,7 @@ view state app env =
                 [ section
                     [ class "todoapp" ]
                     [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) (List.reverse <| IntDict.values app.tasks)
+                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) (prioritize <| IntDict.values app.tasks)
                     , lazy2 viewControls filters (IntDict.values app.tasks)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]

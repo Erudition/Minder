@@ -1,4 +1,4 @@
-module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask)
+module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask, prioritize)
 
 import Activity.Activity exposing (ActivityID)
 import Date
@@ -195,3 +195,12 @@ type alias ProjectId =
 completed : Task -> Bool
 completed task =
     isMax (.completion task)
+
+
+prioritize : List Task -> List Task
+prioritize taskList =
+    let
+        priorityAlgorithm task =
+            (toFloat task.importance * 10) + Duration.inMinutes task.maxEffort
+    in
+    List.sortBy priorityAlgorithm taskList
