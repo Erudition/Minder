@@ -77,24 +77,40 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 
 {-| A full ([Gregorian](https://en.wikipedia.org/wiki/Gregorian_calendar)) calendar date.
+
+Unlike other Date libraries, the date is internally stored in its most efficient form - a single `Int`.
+
+Since we can't use the type system to rule out invalid years, this type is built to handle any date you throw at it - even dates before the Gregorian calendar was introduced! (Such dates are actually said to be on the "propleptic" Gregorian Calendar, produced by extending the Gregorian formula backwards from 1582.) Before that most places used the "Julian calendar" instead - and if you're some sort of historian working with Elm who wants Julian support, let me know and I'll be happy to add it!
+
+Note that the ISO standard says you should only use proleptic dates "with prior agreement with your information interchange partners". That said, if you're both using this library, everything will just work!
+
+Nomenclature: We could have called this type "Day", but "Tuesday" could be called a "day", and so could "a 24-hour period", and so could the "3rd" in "March 3rd, 2023". This name avoids that ambiguity. We could also have called this "Date", but in many programming contexts this implies a type of data that specifies more than just a calendar day (i.e. a "DateTime" or a `Moment` in reality), such as how you can get the current time in JS with `new Date()` or how the unix command to get the unix time is `date`. [Another Elm library](https://package.elm-lang.org/packages/justinmimbs/elm-date-extra/3.0.0/Date-Extra) even combines this with a timezone! This name avoids any such implication.
+
 -}
-type Date
-    = Date InternalDate
+type CalendarDate
+    = CalendarDate Int
 
 
 {-| The internal representation of Date and its constituent parts.
 -}
-type alias InternalDate =
+type alias CalendarDateParts =
     { year : Year
     , month : Month
     , day : Day
     }
 
 
-{-| A calendar year.
+{-| A year on the Gregorian Calendar.
+
+Again, since we can't use the type system to limit the Int you give, this library does the next best thing - it works for any year! Yes, even negative ones!
+
+What do negative years mean? Just what you'd think - the years B.C.E., or before the Common Era. Hey, who knows, maybe you're an archeologist working with Elm! Two thousand years before 2010 CE (aka 2010 "A.D."), was year 10 CE. Twenty years before that was year 11 BCE.
+
+Yes, that's eleven, not ten, because this whole system was invented long before "zero" was even invented. So the year before 1 AD/BCE is simply 1 BC(E). That makes off-by-one errors for all years below one (it seems the array-index-vs-array-length confusion was not our first foray into off-by-one!), throwing off calculations. Don't worry, we don't do any of that silliness here - there is a proper year zero, just like in ISO8601. "Year zero" is just the one before year 1, so 1 BCE. Do note that this means the year `-0001` is actually 2 BCE, and so on.
+
 -}
-type Year
-    = Year Int
+type alias Year =
+    Int
 
 
 {-| A calendar month.
@@ -103,10 +119,13 @@ type alias Month =
     ElmTime.Month
 
 
-{-| A calendar day.
+{-| The number that marks a day in a month - an integer from 1 to 31 (or sometimes 29 or 30 or even 28).
+
+Nomenclature: We could have called this type "Day", but "Tuesday" could also be called a "day", and so could "a 24-hour period", and so could "2020 December 25th". This name avoids that ambiguity.
+
 -}
-type Day
-    = Day Int
+type DayOfMonth
+    = DayOfMonth Int
 
 
 {-| The raw representation of a date.
