@@ -48,6 +48,11 @@ type alias DurationBreakdown =
 
 
 {-| Break a duration down into {days, hours, minutes, seconds, milliseconds}.
+
+In total, these parts describe the duration in human units. If you want to do more manipulation with human units, check out the `HumanDuration` type.
+
+If you want the entire duration expressed in one of these units, see the `inMinutes`, `inHours`, etc. family of functions.
+
 -}
 breakdown : Duration -> DurationBreakdown
 breakdown duration =
@@ -56,28 +61,28 @@ breakdown duration =
             inMs duration
 
         days =
-            all // 86400000
+            all // dayLength
 
         withoutDays =
-            all - (days * 86400000)
+            all - (days * dayLength)
 
         hours =
-            withoutDays // 3600000
+            withoutDays // hourLength
 
         withoutHours =
-            withoutDays - (hours * 3600000)
+            withoutDays - (hours * hourLength)
 
         minutes =
-            withoutHours // 60000
+            withoutHours // minuteLength
 
         withoutMinutes =
-            withoutHours - (minutes * 60000)
+            withoutHours - (minutes * minuteLength)
 
         seconds =
-            withoutMinutes // 1000
+            withoutMinutes // secondLength
 
         withoutSeconds =
-            withoutMinutes - (seconds * 1000)
+            withoutMinutes - (seconds * secondLength)
     in
     { days = days
     , hours = hours
@@ -120,7 +125,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inSeconds : Duration -> Float
 inSeconds duration =
-    toFloat (inMs duration) / 1000
+    toFloat (inMs duration) / secondLength
 
 
 {-| Measure a given `Duration` in whole `Seconds`.
@@ -130,7 +135,7 @@ As these are _whole_ seconds, anything less than a second is discarded (even 0.9
 -}
 inWholeSeconds : Duration -> Int
 inWholeSeconds duration =
-    inMs duration // 1000
+    inMs duration // secondLength
 
 
 {-| Approximate a given `Duration` in an integer number of `Seconds`.
@@ -140,7 +145,7 @@ This is more accurate than `inWholeSeconds` 50% of the time, but if displayed to
 -}
 inSecondsRounded : Duration -> Int
 inSecondsRounded duration =
-    round (toFloat (inMs duration) / 1000)
+    round (toFloat (inMs duration) / secondLength)
 
 
 
@@ -158,7 +163,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inMinutes : Duration -> Float
 inMinutes duration =
-    toFloat (inMs duration) / 60000
+    toFloat (inMs duration) / minuteLength
 
 
 {-| Measure a given `Duration` in whole `Minutes`.
@@ -168,7 +173,7 @@ As these are _whole_ minutes, anything less than a minute is discarded (even 0.9
 -}
 inWholeMinutes : Duration -> Int
 inWholeMinutes duration =
-    inMs duration // 60000
+    inMs duration // minuteLength
 
 
 {-| Approximate a given `Duration` in an integer number of `Minutes`.
@@ -178,7 +183,7 @@ This is more accurate (by 1) than `inWholeMinutes` 50% of the time, but if displ
 -}
 inMinutesRounded : Duration -> Int
 inMinutesRounded duration =
-    round (toFloat (inMs duration) / 60000)
+    round (toFloat (inMs duration) / minuteLength)
 
 
 
@@ -194,7 +199,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inHours : Duration -> Float
 inHours duration =
-    toFloat (inMs duration) / 3600000
+    toFloat (inMs duration) / hourLength
 
 
 {-| Measure a given `Duration` in whole `Hours`.
@@ -204,7 +209,7 @@ As these are _whole_ hours, anything less than an hour is discarded (even 0.999 
 -}
 inWholeHours : Duration -> Int
 inWholeHours duration =
-    inMs duration // 3600000
+    inMs duration // hourLength
 
 
 {-| Approximate a given `Duration` in an integer number of `Hours`.
@@ -214,7 +219,7 @@ This is more accurate (by 1) than `inWholeHours` 50% of the time, but if display
 -}
 inHoursRounded : Duration -> Int
 inHoursRounded duration =
-    round (toFloat (inMs duration) / 3600000)
+    round (toFloat (inMs duration) / hourLength)
 
 
 
@@ -230,7 +235,7 @@ If you are displaying this value to the user, you may want to use it with `trunc
 -}
 inDays : Duration -> Float
 inDays duration =
-    toFloat (inMs duration) / 86400000
+    toFloat (inMs duration) / dayLength
 
 
 {-| Measure a given `Duration` in whole `Days`.
@@ -240,7 +245,7 @@ As these are _whole_ Days, anything less than an hour is discarded (even 0.999 o
 -}
 inWholeDays : Duration -> Int
 inWholeDays duration =
-    inMs duration // 86400000
+    inMs duration // dayLength
 
 
 {-| Approximate a given `Duration` in an integer number of `Days`.
@@ -250,7 +255,40 @@ This is more accurate (by 1) than `inWholeDays` 50% of the time, but if displaye
 -}
 inDaysRounded : Duration -> Int
 inDaysRounded duration =
-    round (toFloat (inMs duration) / 86400000)
+    round (toFloat (inMs duration) / dayLength)
+
+
+
+-- Weeks
+
+
+{-| Measure a given `Duration` in days, then divide by seven.
+-}
+inWeeks : Duration -> Float
+inWeeks duration =
+    inDays duration / 7
+
+
+
+-- AverageMonths
+
+
+{-| Approximately measure a given `Duration` in Months, using a typical month of 30.44 days.
+-}
+inAvgMonths : Duration -> Float
+inAvgMonths duration =
+    toFloat (inMs duration) / 2629743000
+
+
+
+-- AverageMonths
+
+
+{-| Approximately measure a given `Duration` in Years, using a typical year of 365.24 days.
+-}
+inAvgYears : Duration -> Float
+inAvgYears duration =
+    toFloat (inMs duration) / 31556926000
 
 
 
@@ -366,7 +404,7 @@ Useful if you want your users to specify durations in terms of larger units that
 -}
 fromSeconds : Float -> Duration
 fromSeconds float =
-    Duration (round (float * 1000))
+    Duration (round (float * secondLength))
 
 
 {-| Create a duration from a custom floating-point number of minutes, with half-millisecond-accuracy.
@@ -376,7 +414,7 @@ Useful if you want your users to specify durations in terms of larger units that
 -}
 fromMinutes : Float -> Duration
 fromMinutes float =
-    Duration (round (float * 60000))
+    Duration (round (float * minuteLength))
 
 
 {-| Create a duration from a custom floating-point number of minutes, with half-millisecond-accuracy.
@@ -388,7 +426,7 @@ For example, maybe you're dealing with the hours worked by employees. You want t
 -}
 fromHours : Float -> Duration
 fromHours float =
-    Duration (round (float * 3600000))
+    Duration (round (float * hourLength))
 
 
 {-| Create a duration from a custom floating-point number of days, with half-millisecond-accuracy.
@@ -398,4 +436,80 @@ Useful if you want your users to specify durations in terms of larger units that
 -}
 fromDays : Float -> Duration
 fromDays float =
-    Duration (round (float * 86400000))
+    Duration (round (float * dayLength))
+
+
+
+-- CONSTANTS
+
+
+{-| The constant `Duration` of a second.
+
+In human terms, that's 1000 `Milliseconds`. Or 1000000 Microseconds. Or 1000000000 Nanoseconds. Think of it however you want!
+
+-}
+second : Duration
+second =
+    Duration hourLength
+
+
+secondLength : number
+secondLength =
+    1000
+
+
+{-| The constant `Duration` of a minute.
+
+In human terms, that's 60 `Seconds`. Or 60000 `Milliseconds`. Or 60000000 Microseconds. Think of it however you want!
+
+-}
+minute : Duration
+minute =
+    Duration minuteLength
+
+
+minuteLength : number
+minuteLength =
+    60 * secondLength
+
+
+
+-- 60 000
+
+
+{-| The constant `Duration` of an hour.
+
+In human terms, that's 60 `Minutes`. Or 3600 `Seconds`. Or 36000 `Milliseconds`. Think of it however you want!
+
+-}
+hour : Duration
+hour =
+    Duration hourLength
+
+
+hourLength : number
+hourLength =
+    60 * minuteLength
+
+
+
+-- 3 600 000
+
+
+{-| The constant `Duration` of a day.
+
+In human terms, that's 24 `Hours`. Or 1440 `Minutes`. Or maybe 86400 `Seconds`. Think of it however you want!
+
+-}
+day : Duration
+day =
+    Duration dayLength
+
+
+dayLength : number
+dayLength =
+    24 * hourLength
+
+
+
+-- 86 400 000
