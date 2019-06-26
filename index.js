@@ -1,14 +1,17 @@
 const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
 
 
-//var storedState = localStorage.getItem('docket-v0.1-data');
-Storage.get({ key: 'docket-v0.1-data' }).then((output) => {startElm(output.value)});
 
-//var startingState = storedState ? JSON.parse(storedState) : null;
-function startElm(storedState)  {
-    var startingState = storedState ? storedState : null;
-    var app = Elm.Main.init({ flags: startingState });
+var inTasker = ( global( 'sdk' ) > 0 );
+if (inTasker) {
+    startElm(taskerReadAppData());
 
+    app.ports.setStorage.subscribe(function(data) {
+        taskerWriteAppData(data);
+    });
+
+} else {    //// NOT IN TASKER:
+    Storage.get({ key: 'docket-v0.1-data' }).then((output) => {startElm(output.value)});
 
     app.ports.setStorage.subscribe(function(state) {
         //localStorage.setItem('docket-v0.1-data', state);
@@ -18,6 +21,67 @@ function startElm(storedState)  {
          value: state
         });
     });//was JSON.stringify(state)
+
+    SplashScreen.hide().catch((err) => {
+        console.log("No splash screen to hide");
+    });
+
+
+    const setItem = Storage.set({
+     key: 'pet',
+     value: 'dog'
+    });
+    console.log('Set item: ', setItem);
+
+    const value = Storage.get({ key: 'pet' });
+      console.log('Got item: ', value);
+
+     toast = Toast.show({
+       text: 'Hello! not async'
+     });
+      console.log('Toasted: ', toast);
+
+      //was await
+      var ret = App.canOpenUrl({ url: 'app.docket' });
+      console.log('Can open url: ', ret.value);
+
+      //ret = await CapApp.openUrl({ url: 'app.docket://page?id=ionicframework' });
+      //console.log('Open url response: ', ret);
+
+      //was await
+      ret2 =  App.getLaunchUrl();
+      if(ret2 && ret2.url) {
+        console.log('App opened with URL: ' + ret2.url);
+      }
+      console.log('Launch url: ', ret2);
+
+
+      const show = async () => {
+        await Toast.show({
+          text: 'Hello async!'
+        });
+      }
+
+      show();
+      // CapApp.addListener('appUrlOpen', (data: any) => {
+      //   console.log('App opened with URL: ' +  data.url);
+      // });
+
+      // CapApp.addListener('appRestoredResult', (data: any) => {
+      //   console.log('Restored state:', data);
+      // });
+
+
+}
+
+
+//var startingState = storedState ? JSON.parse(storedState) : null;
+function startElm(storedState)  {
+    var startingState = storedState ? storedState : null;
+    var app = Elm.Main.init({ flags: startingState });
+}
+
+
 
 
 
@@ -59,48 +123,29 @@ function startElm(storedState)  {
 
 
 
-    SplashScreen.hide().catch((err) => {
-        console.log("No splash screen to hide");
-    });
-}
 
 
 
-LocalNotifications.schedule({
-  notifications: [
-    {
-      title: "Title",
-      body: "Body",
-      id: 1,
-      schedule: { at: new Date(Date.now() + 1000 * 5) },
-      sound: null,
-      attachments: null,
-      actionTypeId: "",
-      extra: null
-    }
-  ]
-});
+
+//WORKS
+// LocalNotifications.schedule({
+//   notifications: [
+//     {
+//       title: "Title",
+//       body: "Body",
+//       id: 1,
+//       schedule: { at: new Date(Date.now() + 1000 * 5) },
+//       sound: null,
+//       attachments: null,
+//       actionTypeId: "",
+//       extra: null
+//     }
+//   ]
+// });
 
 
-// const setItem =  () => {
-//    Storage.set({
-//     key: 'pet',
-//     value: 'dog'
-//   });
-// }
-const setItem = Storage.set({
- key: 'pet',
- value: 'dog'
-});
-console.log('Set item: ', setItem);
 
-const value = Storage.get({ key: 'pet' });
-  console.log('Got item: ', value);
 
- toast = Toast.show({
-   text: 'Hello! not async'
- });
-  console.log('Toasted: ', toast);
 
 
 // Clipboard.write({
@@ -139,32 +184,98 @@ const value = Storage.get({ key: 'pet' });
 //   app.ports.pluginError.send(state.isActive);
 // });
 
-//was await
-var ret = App.canOpenUrl({ url: 'app.docket' });
-console.log('Can open url: ', ret.value);
 
-//ret = await CapApp.openUrl({ url: 'app.docket://page?id=ionicframework' });
-//console.log('Open url response: ', ret);
 
-//was await
-ret2 =  App.getLaunchUrl();
-if(ret2 && ret2.url) {
-  console.log('App opened with URL: ' + ret2.url);
+
+
+
+
+//// pasted from headless
+
+
+
+
+
+//my helper functions:
+
+function getGlobalVar (name) {
+    try {
+        let g = tk.global(name);
+        if (typeof g !== 'undefined')
+            return g;
+        else {
+            logflash(`Failed to get global: ${name} because it was undefined`);
+            return null;
+        }
+    } catch (e) {
+        //logflash(`Failed to get global: ${name} because ${e}`);
+        return null;
+    }
 }
-console.log('Launch url: ', ret2);
 
-
-const show = async () => {
-  await Toast.show({
-    text: 'Hello async!'
-  });
+function getLocalUrl () {
+    if (typeof elmurl !== 'undefined')
+        return elmurl;
+    else
+        logflash(`Failed to get local url because it was undefined`);
+        return null;
 }
 
-show();
-// CapApp.addListener('appUrlOpen', (data: any) => {
-//   console.log('App opened with URL: ' +  data.url);
-// });
+function taskerOut (name, value) {
+    try {
+        if (name.toLower == name)
+          tk.setLocal(name, value);
+        else
+          tk.setGlobal(name, value);
+    } catch (e) {
+        logflash("Setting " +name+ " to " +value+ " if tasker was here");
+    }
+}
 
-// CapApp.addListener('appRestoredResult', (data: any) => {
-//   console.log('Restored state:', data);
-// });
+function logflash(msg) {
+    try {
+        tk.flash(msg);
+    } catch (e) {
+        console.log(msg);
+    }
+}
+
+function taskerTry (func) {
+    try {
+        return func();
+    } catch (e) {
+        //logflash("Tried " + func);
+        return null;
+    }
+}
+
+var storagefilename = "Minder/personal-data.json"
+
+function taskerReadAppData () {
+    try {
+        return tk.readFile(storagefilename);
+        //return getGlobalVar("ElmAppData");
+    } catch (e) {
+        //logflash("Failed to read file " + file);
+        taskerWriteAppData("");
+        return '';
+    }
+}
+
+function taskerWriteAppData (data) {
+    try {
+        tk.writeFile(storagefilename,data,false)
+        //return getGlobalVar("ElmAppData");
+    } catch (e) {
+        //logflash("Failed to read file " + file);
+        return ' ';
+    }
+}
+
+function taskerExit () {
+    try {
+        tk.exit();
+    } catch (e) {
+        logflash("Tried to exit");
+    }
+}
