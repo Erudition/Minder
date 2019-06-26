@@ -6369,7 +6369,8 @@ var author$project$SmartTime$Duration$inMs = function (_n0) {
 	var _int = _n0.a;
 	return _int;
 };
-var author$project$SmartTime$Duration$secondLength = 1000;
+var author$project$SmartTime$Duration$millisecondLength = 1;
+var author$project$SmartTime$Duration$secondLength = 1000 * author$project$SmartTime$Duration$millisecondLength;
 var author$project$SmartTime$Duration$minuteLength = 60 * author$project$SmartTime$Duration$secondLength;
 var author$project$SmartTime$Duration$hourLength = 60 * author$project$SmartTime$Duration$minuteLength;
 var author$project$SmartTime$Duration$inWholeHours = function (duration) {
@@ -9078,23 +9079,34 @@ var author$project$Activity$Activity$encodeCategory = function (v) {
 			return elm$json$Json$Encode$string('Communication');
 	}
 };
+var author$project$SmartTime$Duration$aDay = author$project$SmartTime$Duration$Duration(author$project$SmartTime$Duration$dayLength);
+var author$project$SmartTime$Duration$aMillisecond = author$project$SmartTime$Duration$Duration(author$project$SmartTime$Duration$millisecondLength);
+var author$project$SmartTime$Duration$aMinute = author$project$SmartTime$Duration$Duration(author$project$SmartTime$Duration$minuteLength);
+var author$project$SmartTime$Duration$aSecond = author$project$SmartTime$Duration$Duration(author$project$SmartTime$Duration$secondLength);
+var author$project$SmartTime$Duration$anHour = author$project$SmartTime$Duration$Duration(author$project$SmartTime$Duration$hourLength);
+var author$project$SmartTime$Duration$scale = F2(
+	function (_n0, scalar) {
+		var dur = _n0.a;
+		return author$project$SmartTime$Duration$Duration(
+			elm$core$Basics$round(dur * scalar));
+	});
 var author$project$SmartTime$Human$Duration$toDuration = function (humanDuration) {
 	switch (humanDuration.$) {
 		case 'Days':
 			var days = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(days * 86400000);
+			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aDay, days);
 		case 'Hours':
 			var hours = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(hours * 3600000);
+			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$anHour, hours);
 		case 'Minutes':
 			var minutes = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(minutes * 60000);
+			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aMinute, minutes);
 		case 'Seconds':
 			var seconds = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(seconds * 1000);
+			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aSecond, seconds);
 		default:
 			var milliseconds = humanDuration.a;
-			return author$project$SmartTime$Duration$fromInt(milliseconds);
+			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aMillisecond, milliseconds);
 	}
 };
 var elm$json$Json$Encode$int = _Json_wrap;
@@ -16576,12 +16588,6 @@ var author$project$SmartTime$Duration$isZero = function (_n0) {
 	var _int = _n0.a;
 	return !_int;
 };
-var author$project$SmartTime$Duration$scale = F2(
-	function (_n0, scalar) {
-		var dur = _n0.a;
-		return author$project$SmartTime$Duration$Duration(
-			elm$core$Basics$round(dur * scalar));
-	});
 var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
 	switch (unit.$) {
 		case 'Milliseconds':
