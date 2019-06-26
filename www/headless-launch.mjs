@@ -17,9 +17,8 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 //taskerTry(() => {writeFile("docket.dat","",true)});
 
 var app = Elm.Headless.init(
-    { flags: [taskerUrl, taskerReadAppData()] });
+    { flags: [taskerUrl, tk.readFile(storagefilename)] });
 
-//logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
 
 // SUBSCRIPTIONS --------------------------------------------------------
 
