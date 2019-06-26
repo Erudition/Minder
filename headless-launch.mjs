@@ -8,18 +8,20 @@ try {
 }
 
 
+
 var storagefilename = "Minder/personal-data.json"
 
+
+
+var taskerUrl = tk.local("elmurl");
+var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
+
 var Elm = this.Elm; //trick I discovered to bypass importing
-
-var taskerUrl = getLocalUrl();
-var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=configure";
-
 
 // touch file in case it's not There
 //taskerTry(() => {writeFile("docket.dat","",true)});
 
-var app = this.Elm.Headless.init(
+var app = Elm.Headless.init(
     { flags: [taskerUrl, taskerReadAppData()] });
 
 //logflash(`Running Elm! \n Url: ${taskerUrl} \n Data: ${taskerReadAppData()}`);
