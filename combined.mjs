@@ -13518,14 +13518,9 @@ _Platform_export({'Headless':{'init':author$project$Headless$main(
 								A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, elm$json$Json$Decode$string)
 							]))));
 		},
-		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)}});}(this));// Check for Tasker on Android
-import * as taskerFillers from "./tasker-fillers.mjs";
-try {
-    var inTasker = ( tk.global( 'sdk' ) > 0 );
-} catch (e) {
-    var tk = taskerFillers;
-    var inTasker = false;
-}
+		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)}});}(this));// For node
+import * as tk from "./tasker-fillers.mjs";
+
 
 
 
