@@ -1,11 +1,6 @@
-// Check for Tasker on Android
-import * as taskerFillers from "./tasker-fillers.mjs";
-try {
-    var inTasker = ( tk.global( 'sdk' ) > 0 );
-} catch (e) {
-    var tk = taskerFillers;
-    var inTasker = false;
-}
+// For node
+//import * as tk from "./tasker-fillers.mjs";
+
 
 
 
