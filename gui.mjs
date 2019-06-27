@@ -34,7 +34,9 @@ if (inTasker) {
 
 
 function elmStartedWithTasker(app) {
+    
     tk.flash("Welcome to Tasker in the GUI!")
+
     // SET STORAGE
     app.ports.setStorage.subscribe(function(data) {
         tk.writeFile(storagefilename,data,false)
