@@ -2,7 +2,7 @@
 //import * as tk from "./tasker-fillers.mjs";
 
 
-
+flash("running!");
 
 var storagefilename = "Minder/personal-data.json"
 
