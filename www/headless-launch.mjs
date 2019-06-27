@@ -19,7 +19,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 var app = Elm.Headless.init(
     { flags: [taskerUrl, tk.readFile(storagefilename)] });
 
-flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
+// flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
 
 // SUBSCRIPTIONS --------------------------------------------------------
 
@@ -45,5 +45,6 @@ app.ports.variableOut.subscribe(function(data) {
 
 // TASKER STOP EXECUTING
 app.ports.exit.subscribe(function(data) {
-      setTimeout(50, tk.exit());
+    tk.flash("Goodbye!");
+    setTimeout(500, () => {tk.exit()});
 });
