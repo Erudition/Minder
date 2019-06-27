@@ -34,7 +34,7 @@ if (inTasker) {
 
 
 function elmStartedWithTasker(app) {
-    
+
     tk.flash("Welcome to Tasker in the GUI!")
 
     // SET STORAGE
@@ -59,7 +59,7 @@ function elmStartedWithTasker(app) {
 
     // TASKER STOP EXECUTING
     app.ports.exit.subscribe(function(data) {
-          tk.exit()
+          setTimeout(10, tk.exit());
     });
 
 }
