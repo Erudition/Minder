@@ -11,7 +11,7 @@ var storagefilename = "Minder/personal-data.json";
 var taskerUrl = tk.local("elmurl");
 var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
 
-var Elm = global.Elm; //trick I discovered to bypass importing
+//var Elm = this.Elm; //trick I discovered to bypass importing
 
 // touch file in case it's not There
 //taskerTry(() => {writeFile("docket.dat","",true)});
