@@ -44,7 +44,7 @@ app.ports.variableOut.subscribe(function(data) {
 });
 
 // TASKER STOP EXECUTING
-app.ports.exit.subscribe(function(data) {
+app.ports.exit.subscribe(function() {
     // Must be in this exact form for some reason:
     setTimeout(() => tk.exit(), 10);
 });
