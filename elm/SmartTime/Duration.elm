@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, map, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, scale, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -355,12 +355,13 @@ scale (Duration dur) scalar =
     Duration <| round (toFloat dur * scalar)
 
 
-{-| Map onto a duration any function that deals with `Int`s.
-If for some reason the functions provided in this library aren't enough, this is your guy!
--}
-map : (Int -> Int) -> Duration -> Duration
-map func (Duration int) =
-    Duration (func int)
+
+-- {-| Map onto a duration any function that deals with `Int`s.
+-- If for some reason the functions provided in this library aren't enough, this is your guy!
+-- -}
+-- map : (Int -> Int) -> Duration -> Duration
+-- map func (Duration int) =
+--     Duration (func int)
 
 
 {-| A zero-length duration.

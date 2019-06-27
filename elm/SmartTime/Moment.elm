@@ -1,6 +1,6 @@
 module SmartTime.Moment exposing (ElmTime, Epoch, Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, zero)
 
-import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job
 import Time as ElmTime
 
@@ -40,17 +40,38 @@ every interval tagger =
         convertedTagger elmTime =
             tagger (fromElmTime elmTime)
     in
-    ElmTime.every (toFloat <| Duration.inMs interval) convertedTagger
+    ElmTime.every (toFloat <| inMs interval) convertedTagger
 
 
 {-| Create a Moment. A Moment is an `Epoch` and some `Duration` -- the amount of time since that Epoch -- which gives us a globally fixed point in time. You can shift this moment forward or backward by adding other `Duration` values to it.
 -}
 moment : TimeScale -> Epoch -> Duration -> Moment
-moment scale epoch duration =
-    case ( scale, epoch ) of
-        ( _, _ ) ->
-            --TODO
-            Moment (Duration.map linearFromUTC duration)
+moment timeScale epoch duration =
+    let
+        input =
+            inMs duration
+
+        create ms =
+            Moment (Duration.fromInt (epochOffset epoch ms))
+    in
+    case timeScale of
+        TAI ->
+            create input
+
+        UTC ->
+            create (linearFromUTC input)
+
+        GPS ->
+            create (input + 1900)
+
+        TT ->
+            -- TODO what about retroactively
+            create (input - 32184)
+
+
+epochOffset : Epoch -> Int -> Int
+epochOffset (Moment epochDur) int =
+    0
 
 
 linearFromUTC : number -> number
@@ -64,7 +85,7 @@ utcFromLinear num =
 
 
 {-| Shift a `Moment` into its future by some amount of time (`Duration`).
-Obviously it doesn't make much sense to "add" a `Moment` to another `Moment`, but you often want to add some time to one.
+Obviously it doesn't make much sense to "add" a `Moment` to another `Moment`, but you often want to add some time to one!
 
 Rather than dealing with negative durations, look to `past` for shifting into the past.
 
@@ -107,7 +128,7 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 -}
 fromJsTime : Float -> Moment
 fromJsTime floatMsUtc =
-    moment CoordinatedUniversal unixEpoch (Duration.fromInt (round floatMsUtc))
+    moment UTC unixEpoch (Duration.fromInt (round floatMsUtc))
 
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
@@ -134,7 +155,7 @@ If your time is still in Elm's native form, you want `fromElmTime` instead.
 -}
 fromElmInt : Int -> Moment
 fromElmInt intMsUtc =
-    moment CoordinatedUniversal unixEpoch (Duration.fromInt intMsUtc)
+    moment UTC unixEpoch (Duration.fromInt intMsUtc)
 
 
 {-| Turn a Unix time value into a Moment.
@@ -148,7 +169,7 @@ But how do Unix-like systems represent fractions of a second? With the numbers a
 -}
 fromUnixTime : Float -> Moment
 fromUnixTime float =
-    moment CoordinatedUniversal unixEpoch (Duration.fromInt (round (float * 1000)))
+    moment UTC unixEpoch (Duration.fromInt (round (float * 1000)))
 
 
 toUnixTime : Moment -> Float
@@ -284,6 +305,8 @@ commonEraStart =
 
 {-| The year before `commonEraStart`, aka 1 B.C., aka the beginning of astronomical "year zero".
 
+Technically, it was a leap year.
+
 Note that year zero is a full year, NOT an instant in time - this epoch refers to the beginning of that year. For the end of that yer, check out `commonEraStart`, which is probably what you want anyway.
 
 Some software that uses this epoch: MATLAB
@@ -378,6 +401,27 @@ y2k =
     Moment (Duration.fromInt 0)
 
 
+{-| The day the Gregorian calendar begins: October 15, 1582.
+It was invented by Aloysius Lilius and thus the number of days since then is called the ["Lilian Date"](https://www.wikiwand.com/en/Lilian_date). So this day is Lilian Day 1.
+
+This might also be useful for knowing when you should start considering a `Moment` in other calendars - before this date, no one actually used Gregorian!
+
+-}
+gregorianStart : Epoch
+gregorianStart =
+    Moment (Duration.fromInt 0)
+
+
+{-| The Julian Day Number (JDN) is the integer assigned to a whole solar day in the Julian day count starting from noon Universal time, with Julian day number 0 assigned to the day starting at noon on Monday, January 1, 4713 BC, proleptic Julian calendar (November 24, 4714 BC, in the proleptic Gregorian calendar), a date at which three multi-year cycles started (which are: Indiction, Solar, and Lunar cycles) and which preceded any dates in recorded history!
+
+Not to be confused with Dates in the Julian Calendar.
+
+-}
+julian : Epoch
+julian =
+    Moment (Duration.fromInt 0)
+
+
 {-| A few noteworthy timescales:
 
   - UT0: An old Universal Time based on looking at things in the sky from labs. The biggest shortcoming is failing to account for the fact that the earth's poles move, but hey, it was early.
@@ -392,10 +436,10 @@ y2k =
 
 -}
 type TimeScale
-    = CoordinatedUniversal
-    | InternationalAtomic
+    = UTC
+    | TAI
     | GPS
-    | Terrestrial
+    | TT
 
 
 {-| Represents the beginning of the year 0 HE.
