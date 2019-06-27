@@ -2,7 +2,7 @@
 //import * as tk from "./tasker-fillers.mjs";
 
 var storagefilename = "Minder/personal-data.json";
-flash("running! 2 data: " + tk.readFile(storagefilename));
+
 
 
 
@@ -19,6 +19,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 var app = Elm.Headless.init(
     { flags: [taskerUrl, tk.readFile(storagefilename)] });
 
+flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
 
 // SUBSCRIPTIONS --------------------------------------------------------
 
