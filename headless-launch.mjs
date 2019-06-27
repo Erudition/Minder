@@ -45,5 +45,5 @@ app.ports.variableOut.subscribe(function(data) {
 
 // TASKER STOP EXECUTING
 app.ports.exit.subscribe(function(data) {
-      setTimeout(10, tk.exit());
+      setTimeout(50, tk.exit());
 });
