@@ -59,7 +59,8 @@ function elmStartedWithTasker(app) {
 
     // TASKER STOP EXECUTING
     app.ports.exit.subscribe(function(data) {
-          setTimeout(10, tk.exit());
+        // Must be in this exact form for some reason:
+        setTimeout(() => tk.exit(), 10);
     });
 
 }
