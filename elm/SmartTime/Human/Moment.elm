@@ -1,78 +1,49 @@
-module SmartTime.Human.Moment exposing (DateSpec(..), DateTime(..), DayPeriod(..), FormatStyle(..), InternalDateTime, Interval(..), OffsetSpec(..), TimeSpec(..), add, calendarDate, ceiling, clamp, compare, compareDates, compareTime, dateFromMatches, dayPeriod, daysSincePreviousWeekday, decrementDay, decrementHours, decrementMilliseconds, decrementMinutes, decrementMonth, decrementSeconds, decrementYear, diff, equal, equalBy, floor, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromCalendarDate, fromDateAndTime, fromIsoString, fromMatches, fromParts, fromPosix, fromRataDie, fromRawParts, fromSpec, fromUnixTime, fromZonedPosix, getDate, getDateRange, getDatesInMonth, getDay, getDayDiff, getHours, getMilliseconds, getMinutes, getMonth, getSeconds, getTime, getTimezoneOffset, getWeekday, getYear, hour12, incrementDay, incrementHours, incrementMilliseconds, incrementMinutes, incrementMonth, incrementSeconds, incrementYear, isBetween, isLeapYear, isoDateRegex, local, matchToInt, midnight, monthNumber, monthToName, monthToQuarter, msFromTimeParts, offset, offsetFromMatches, offsetFromUtc, ordinalDate, ordinalDay, ordinalSuffix, patternMatches, quarter, quarterToMonth, range, rangeHelp, rollDayBackwards, rollDayForward, setDate, setDay, setHours, setMilliseconds, setMinutes, setMonth, setSeconds, setTime, setYear, sort, time, timeFromMatches, toFormattedString, toFormattedString_, toIsoString, toMillis, toMonths, toPosix, toRataDie, toUtcFormattedString, toUtcIsoString, unixTimeFromRataDie, utc, weekDate, weekNumber, weekYear, weekdayNumber, weekdayToName, withOrdinalSuffix)
+module SmartTime.Human.Moment exposing (DateTime(..), DayPeriod(..), FormatStyle(..), InternalDateTime, Interval(..), OffsetSpec(..), add, ceiling, clamp, compare, compareDates, compareTime, dateFromMatches, dayPeriod, daysSincePreviousWeekday, decrementDay, decrementHours, decrementMilliseconds, decrementMinutes, decrementMonth, decrementSeconds, decrementYear, diff, equal, equalBy, floor, format, formatStyleFromLength, formatTimeOffset, fromCalendarDate, fromDateAndTime, fromIsoString, fromMatches, fromParts, fromPosix, fromRataDie, fromRawParts, fromSpec, fromUnixTime, fromZonedPosix, getDate, getDateRange, getDatesInMonth, getDay, getDayDiff, getHours, getMilliseconds, getMinutes, getMonth, getSeconds, getTime, getTimezoneOffset, getWeekday, getYear, hour12, incrementDay, incrementHours, incrementMilliseconds, incrementMinutes, incrementMonth, incrementSeconds, incrementYear, isBetween, isLeapYear, isoDateRegex, local, matchToInt, offset, offsetFromMatches, ordinalSuffix, patternMatches, range, rangeHelp, rollDayBackwards, rollDayForward, setDate, setDay, setHours, setMilliseconds, setMinutes, setMonth, setSeconds, setTime, setYear, sort, timeFromMatches, toFormattedString, toFormattedString_, toIsoString, toMillis, toMonths, toPosix, toRataDie, toUtcFormattedString, toUtcIsoString, utc, withOrdinalSuffix)
 
-import Regex exposing (HowMany(All, AtMost), Regex, regex)
+{-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
+
+The human version of a `Moment` could be a type called a `DateTime`, which would be a Date and Time combined in some way:
+
+    type DateTime = (CalendarDate, TimeOfDay)
+
+While you can define such a type if you really want to, this module **does not expose such a type**. Why? Because, as the `Time`-renovations of Elm 0.19 set out to encourage, you should **never store human time in your model**. Or in your database, for that matter. Human time is only for the _users_ to see and interact with -- i.e. your `view` function -- it's simply not good for machines to interact with, especially between different systems. It's just too messy! As you read the docs, you will learn why.
+
+So, this library opts for a really great `Moment` type instead! It's pure and simple, you can move it around in a perfectly linear fashion, and not a single one of those helper functions requires you to lug a `Zone` around everywhere. Nice! Check it out in the `Moment` module.
+
+Nevertheless, humans don't think in terms of `Moment`s, they like to push them around based on calendars and clocks. Unfortunately, they also prefer to forget that not only are these systems erratic, and subject to the whim of politicians, but they also apply only to their particular vertical slice of the globe. So, when requiring a `Zone` is unavoidable, the feature is included here, in the "human moment" library.
+
+Are there exceptions? Yes! Like the special cases detailed in the `Clock` and `Calendar` modules, there can be a situation where it makes sense to handle human time alone, without any universal relevance or the context of a `Zone`. For example, for a "daily checklist" app it may make sense to store the due dates of tasks in human time:
+
+    - [] Wake up (08:00)
+    - [] Do Yoga (08:15)
+    - [] Eat Breakfast (08:45)
+    - ...
+    - [] Eat Dinner (18:00)
+    - [] Floss (22:00)
+    - [] Go to bed (23:00)
+
+Unlike meetings and appointments, these data really don't need to be in a fixed time zone. Sure you could store them all with respect to the zone they were created in. But what if the user crosses a few zones one day? Should they be expected to manually change all of their due-times? You could detect the zone change by comparing the current zone to the original, and compensating for the difference. But that means storing `Zones` with your data. **You should never need to do that!** So does this mean we resort to our `DateTime` type, then?
+
+Nope! There is a better way! Check this out:
+
+    type ScheduledMoment
+        = Fixed Moment
+        | Floating Moment
+
+Then, when changing a fixed time, we do the usual: use the local zone to display the localized interface to the user, and then use the zone again to convert the given time back to Universal. But when reading the `Floating` moments, what if you skipped that first step? By short-cicuiting the zone-shifting, you effectively pretend that the UTC time is already local. So no matter where you are, that `Moment` still shows up as 9 o'clock! This clever trick allows us to once again avoid storing human time.
+
+-}
+
+import Regex exposing (HowMany(..), Regex, regex)
 import SmartTime.Duration
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (Clock)
+import Time as ElmTime exposing (Zone)
 
 
-humanize : Moment -> Zone -> ( CalendarDate, Clock )
-
-
-
--- Create
-
-
-unixTimeFromRataDie : RataDie -> Int
-unixTimeFromRataDie rd =
-    (rd - 719163) * msPerDay
-
-
-msFromTimeParts : Int -> Int -> Int -> Int -> Int
-msFromTimeParts hh mm ss ms =
-    msPerHour * hh + msPerMinute * mm + msPerSecond * ss + ms
-
-
-{-| Represents a day.
--}
-type DateSpec
-    = DateMS Int
-
-
-{-| Create a `DateSpec` from calendar-date parts (year, month, day).
--}
-calendarDate : Int -> Month -> Int -> DateSpec
-calendarDate y m d =
-    DateMS <| unixTimeFromRataDie (RataDie.fromCalendarDate y m d)
-
-
-{-| Create a `DateSpec` from ordinal-date parts (year, ordinalDay).
--}
-ordinalDate : Int -> Int -> DateSpec
-ordinalDate y od =
-    DateMS <| unixTimeFromRataDie (RataDie.fromOrdinalDate y od)
-
-
-{-| Create a `DateSpec` from week-date parts (weekYear, weekNumber, weekday).
--}
-weekDate : Int -> Int -> Day -> DateSpec
-weekDate wy wn wd =
-    DateMS <| unixTimeFromRataDie (RataDie.fromWeekDate wy wn wd)
-
-
-{-| Represents a time of day.
--}
-type TimeSpec
-    = TimeMS Int
-
-
-{-| Convenience value for `time 0 0 0 0`.
--}
-midnight : TimeSpec
-midnight =
-    TimeMS 0
-
-
-{-| Create a `TimeSpec` from time parts (hour, minute, second, millisecond).
--}
-time : Int -> Int -> Int -> Int -> TimeSpec
-time hh mm ss ms =
-    TimeMS <|
-        msFromTimeParts
-            (hh |> Basics.clamp 0 23)
-            (mm |> Basics.clamp 0 59)
-            (ss |> Basics.clamp 0 59)
-            (ms |> Basics.clamp 0 999)
+humanize : Moment -> Zone -> ( CalendarDate, TimeOfDay )
+humanize moment zone =
+    ( CalendarDate 0, Clock.midnight )
 
 
 {-| Represents a time offset from UTC.
@@ -369,168 +340,6 @@ fromIsoString s =
         |> Result.fromMaybe "Invalid ISO 8601 format"
         |> Result.andThen (.submatches >> fromMatches)
         |> Result.mapError ((++) ("Failed to create a Date from string '" ++ s ++ "': "))
-
-
-
---------------------------------------------------------------------------------
--- Extract
-
-
-monthToQuarter : Month -> Int
-monthToQuarter m =
-    (monthToNumber m + 2) // 3
-
-
-quarterToMonth : Int -> Month
-quarterToMonth q =
-    q * 3 - 2 |> numberToMonth
-
-
-{-| Extract the month number of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 6.
--}
-monthNumber : Date -> Int
-monthNumber =
-    month >> monthToNumber
-
-
-{-| Extract the quarter of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 2.
--}
-quarter : Date -> Int
-quarter =
-    month >> monthToQuarter
-
-
-{-| Extract the ordinal day of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 174.
--}
-ordinalDay : Date -> Int
-ordinalDay date =
-    daysBeforeMonth (year date) (month date) + day date
-
-
-{-| Extract the fractional day of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the float 0.4895833333333333.
--}
-fractionalDay : Date -> Float
-fractionalDay date =
-    let
-        timeOfDayMS =
-            msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
-    in
-    toFloat timeOfDayMS / toFloat msPerDay
-
-
-{-| Extract the weekday number (beginning at 1 for Monday) of a date. Given
-the date 23 June 1990 at 11:45 a.m. this returns the integer 6.
--}
-weekdayNumber : Date -> Int
-weekdayNumber =
-    dayOfWeek >> weekdayToNumber
-
-
-{-| Extract the week number of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 25.
--}
-weekNumber : Date -> Int
-weekNumber =
-    toRataDie >> RataDie.weekNumber
-
-
-{-| Extract the week-numbering year of a date. Given the date 23 June
-1990 at 11:45 a.m. this returns the integer 1990.
--}
-weekYear : Date -> Int
-weekYear =
-    toRataDie >> RataDie.weekYear
-
-
-{-| Extract the local offset from UTC time, in minutes, of a date. Given a date
-with a local offset of UTC-05:00 this returns the integer -300.
--}
-offsetFromUtc : Date -> Int
-offsetFromUtc date =
-    let
-        localTime =
-            unixTimeFromRataDie (RataDie.fromCalendarDate (year date) (month date) (day date))
-                + msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
-                |> toFloat
-
-        utcTime =
-            date |> toTime
-    in
-    Basics.floor (localTime - utcTime) // msPerMinute
-
-
-
---------------------------------------------------------------------------------
--- Format
-
-
-monthToName : Month -> String
-monthToName m =
-    case m of
-        Jan ->
-            "January"
-
-        Feb ->
-            "February"
-
-        Mar ->
-            "March"
-
-        Apr ->
-            "April"
-
-        May ->
-            "May"
-
-        Jun ->
-            "June"
-
-        Jul ->
-            "July"
-
-        Aug ->
-            "August"
-
-        Sep ->
-            "September"
-
-        Oct ->
-            "October"
-
-        Nov ->
-            "November"
-
-        Dec ->
-            "December"
-
-
-weekdayToName : Day -> String
-weekdayToName d =
-    case d of
-        Mon ->
-            "Monday"
-
-        Tue ->
-            "Tuesday"
-
-        Wed ->
-            "Wednesday"
-
-        Thu ->
-            "Thursday"
-
-        Fri ->
-            "Friday"
-
-        Sat ->
-            "Saturday"
-
-        Sun ->
-            "Sunday"
 
 
 hour12 : Date -> Int

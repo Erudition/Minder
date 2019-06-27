@@ -418,7 +418,7 @@ fromMinutes float =
     Duration (round (float * minuteLength))
 
 
-{-| Create a duration from a custom floating-point number of minutes, with half-millisecond-accuracy.
+{-| Create a duration from a custom floating-point number of hours, with half-millisecond-accuracy.
 
 Useful if you want your users to specify durations in terms of larger units that can have decimals, rather than smaller units or multiple sizes of units.
 
