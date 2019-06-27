@@ -19,7 +19,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 var app = Elm.Headless.init(
     { flags: [taskerUrl, tk.readFile(storagefilename)] });
 
-//flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
+flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
 
 // SUBSCRIPTIONS --------------------------------------------------------
 
