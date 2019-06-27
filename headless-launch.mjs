@@ -1,5 +1,5 @@
 // For node
-//import * as tk from "./tasker-fillers.mjs";
+import * as tk from "./tasker-fillers.mjs";
 
 var storagefilename = "Minder/personal-data.json";
 
@@ -11,7 +11,7 @@ var storagefilename = "Minder/personal-data.json";
 var taskerUrl = tk.local("elmurl");
 var taskerUrl = (taskerUrl != null) ? taskerUrl : "http://docket.com/?start=nothing";
 
-var Elm = this.Elm; //trick I discovered to bypass importing
+var Elm = global.Elm; //trick I discovered to bypass importing
 
 // touch file in case it's not There
 //taskerTry(() => {writeFile("docket.dat","",true)});
@@ -19,7 +19,7 @@ var Elm = this.Elm; //trick I discovered to bypass importing
 var app = Elm.Headless.init(
     { flags: [taskerUrl, tk.readFile(storagefilename)] });
 
-flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
+//flash("running! 3 url: " + taskerUrl + " Elm: " + Elm );
 
 // SUBSCRIPTIONS --------------------------------------------------------
 
