@@ -65,6 +65,7 @@ function elmStartedWithTasker(app) {
 
 function elmStartedWithoutTasker(app) {
 
+    tk.flash("Tasker does not appear to be here!")
     // hide the splash screen
     SplashScreen.hide().catch((err) => {
         console.log("No Capacitor splash screen to hide.");
