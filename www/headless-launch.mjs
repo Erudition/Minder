@@ -1,8 +1,8 @@
 // For node
 //import * as tk from "./tasker-fillers.mjs";
 
-var storagefilename = "Minder/personal-data.json"
-flash("running! 2" + tk.readFile(storagefilename));
+var storagefilename = "Minder/personal-data.json";
+flash("running! 2 data: " + tk.readFile(storagefilename));
 
 
 
