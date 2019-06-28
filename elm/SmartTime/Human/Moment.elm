@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), InternalMoment, Interval(..), Moment(..), OffsetSpec(..), add, ceiling, clamp, compare, compareDates, compareTime, dateFromMatches, dayPeriod, daysSincePreviousWeekday, decrementDay, decrementHours, decrementMilliseconds, decrementMinutes, decrementMonth, decrementSeconds, decrementYear, diff, equal, equalBy, floor, format, formatStyleFromLength, formatTimeOffset, fromCalendarDate, fromDateAndTime, fromIsoString, fromMatches, fromParts, fromPosix, fromRataDie, fromRawParts, fromSpec, fromUnixTime, fromZonedPosix, getDate, getDateRange, getDatesInMonth, getDay, getDayDiff, getHours, getMilliseconds, getMinutes, getMonth, getSeconds, getTime, getTimezoneOffset, getWeekday, getYear, hour12, incrementDay, incrementHours, incrementMilliseconds, incrementMinutes, incrementMonth, incrementSeconds, incrementYear, isBetween, isLeapYear, isoDateRegex, local, matchToInt, offset, offsetFromMatches, ordinalSuffix, patternMatches, range, rangeHelp, rollDayBackwards, rollDayForward, setDate, setDay, setHours, setMilliseconds, setMinutes, setMonth, setSeconds, setTime, setYear, sort, timeFromMatches, toFormattedString, toFormattedString_, toIsoString, toMillis, toMonths, toPosix, toRataDie, toUtcFormattedString, toUtcIsoString, utc, withOrdinalSuffix)
+module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), Zone, dayPeriod, decrementMonth, decrementYear, extractTime, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromDateAndTime, fromDateAtMidnight, fromParts, getDay, getHours, getMilliseconds, getMinutes, getMonth, getSeconds, getYear, humanize, incrementMonth, incrementYear, mapDate, mapTime, ordinalSuffix, patternMatches, setDate, setTime, toFormattedString, toFormattedString_, toIsoString, toUtcFormattedString, toUtcIsoString, utc, withOrdinalSuffix)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -42,35 +42,56 @@ import SmartTime.Moment as Moment exposing (Moment)
 import Time as ElmTime exposing (Zone)
 
 
-{-| Represents a time offset from UTC.
--}
-type OffsetSpec
-    = Offset Int
-    | Local
+type alias Zone =
+    ElmTime.Zone
 
 
-{-| Use UTC (i.e. no offset).
--}
-utc : OffsetSpec
 utc =
-    Offset 0
+    ElmTime.utc
 
 
-{-| Use a specific offset from UTC, given in minutes.
+{-| Get the `Zone` where the user is!
 -}
-offset : Int -> OffsetSpec
-offset =
-    Offset
+localZone : Job.Task x Moment
+localZone =
+    Job.map fromElmTime ElmTime.here
 
 
-{-| Use the local offset.
+{-| Get the `Zone` where the user is!
 -}
-local : OffsetSpec
-local =
-    Local
+today : Job.Task x CalendarDate
+today =
+    Job.map (fromElmTime << extractDate) ElmTime.here
 
 
 
+--
+-- {-| Represents a time offset from UTC.
+-- -}
+-- type OffsetSpec
+--     = Offset Int
+--     | Local
+--
+--
+-- {-| Use UTC (i.e. no offset).
+-- -}
+-- utc : OffsetSpec
+-- utc =
+--     Offset 0
+--
+--
+-- {-| Use a specific offset from UTC, given in minutes.
+-- -}
+-- offset : Int -> OffsetSpec
+-- offset =
+--     Offset
+--
+--
+-- {-| Use the local offset.
+-- -}
+-- local : OffsetSpec
+-- local =
+--     Local
 -- {-| Create a `Date` from a specified day, time of day, and time offset.
 -- Date.fromSpec
 -- (calendarDate 2000 Jan 1)
@@ -164,6 +185,36 @@ fromDateAtMidnight calendarDate zone =
     Debug.todo "date with midnight"
 
 
+mapDate : (CalendarDate -> CalendarDate) -> Moment -> Moment
+mapDate function moment =
+    -- let
+    --     ( time, date ) =
+    --         humanize moment utc
+    -- in
+    -- fromDateAndTime (function date) time
+    Debug.todo "do we need this?"
+
+
+mapTime : (TimeOfDay -> TimeOfDay) -> Moment -> Moment
+mapTime function moment =
+    -- let
+    --     ( time, date ) =
+    --         humanize moment
+    -- in
+    -- fromDateAndTime date (function time)
+    Debug.todo "do we need this?"
+
+
+extractTime : Zone -> Moment -> TimeOfDay
+extractTime zone moment =
+    Debug.todo "clock from moment"
+
+
+extractDate : Zone -> Moment -> CalendarDate
+extractDate zone moment =
+    Debug.todo "date from moment"
+
+
 
 -- --------------------------------------------------------------------------------
 -- -- Parse ISO 8601
@@ -245,13 +296,13 @@ fromDateAtMidnight calendarDate zone =
 --                     ( 0.0, 0.0, 0.0 )
 --     in
 --     if hh >= 24 then
---         Err <| "Invalid time (hours = " ++ toString hh ++ ")"
+--         Err <| "Invalid time (hours = " ++ String.fromInt hh ++ ")"
 --
 --     else if mm >= 60 then
---         Err <| "Invalid time (minutes = " ++ toString mm ++ ")"
+--         Err <| "Invalid time (minutes = " ++ String.fromInt mm ++ ")"
 --
 --     else if ss >= 60 then
---         Err <| "Invalid time (seconds = " ++ toString ss ++ ")"
+--         Err <| "Invalid time (seconds = " ++ String.fromInt ss ++ ")"
 --
 --     else
 --         Ok <| TimeMS (hh * toFloat msPerHour + mm * toFloat msPerMinute + ss * toFloat msPerSecond |> round)
@@ -272,10 +323,10 @@ fromDateAtMidnight calendarDate zone =
 --                     tzMM |> matchToInt 0
 --             in
 --             if hh > 23 then
---                 Err <| "Invalid offset (hours = " ++ toString hh ++ ")"
+--                 Err <| "Invalid offset (hours = " ++ String.fromInt hh ++ ")"
 --
 --             else if mm > 59 then
---                 Err <| "Invalid offset (minutes = " ++ toString mm ++ ")"
+--                 Err <| "Invalid offset (minutes = " ++ String.fromInt mm ++ ")"
 --
 --             else if sign == "+" then
 --                 Ok <| offset (hh * 60 + mm)
@@ -348,7 +399,7 @@ dayPeriod moment =
     else if not (Clock.isPM time) then
         AM
 
-    else if Clock.isNoon then
+    else if Clock.isNoon time then
         Noon
 
     else
@@ -366,7 +417,7 @@ formatTimeOffset separator minutesIsOptional givenOffset =
                 "-"
 
         hh =
-            abs offset // 60 |> String.fromInt |> String.padLeft 2 '0'
+            abs givenOffset // 60 |> String.fromInt |> String.padLeft 2 '0'
 
         mm =
             abs (modBy 60 givenOffset) |> String.fromInt |> String.padLeft 2 '0'
@@ -422,7 +473,7 @@ may contain '' inside, representing an escaped single-quote).
 -}
 patternMatches : Regex
 patternMatches =
-    Regex.fromString "([yYQMwdDEeabhHmsSXx])\\1*|'(?:[^']|'')*?'(?!')"
+    Maybe.withDefault Regex.never (Regex.fromString "([yYQMwdDEeabhHmsSXx])\\1*|'(?:[^']|'')*?'(?!')")
 
 
 type FormatStyle
@@ -460,295 +511,296 @@ formatStyleFromLength length =
 
 format : Bool -> Moment -> String -> String
 format asUtc date match =
-    let
-        char =
-            String.left 1 match
-
-        length =
-            String.length match
-    in
-    case char of
-        "y" ->
-            case length of
-                2 ->
-                    date |> year |> toString |> String.padLeft length '0' |> String.right 2
-
-                _ ->
-                    date |> year |> toString |> String.padLeft length '0'
-
-        "Y" ->
-            case length of
-                2 ->
-                    date |> weekYear |> toString |> String.padLeft length '0' |> String.right 2
-
-                _ ->
-                    date |> weekYear |> toString |> String.padLeft length '0'
-
-        "Q" ->
-            case length of
-                1 ->
-                    date |> quarter |> toString
-
-                2 ->
-                    date |> quarter |> toString
-
-                3 ->
-                    date |> quarter |> toString |> (++) "Q"
-
-                4 ->
-                    date |> quarter |> withOrdinalSuffix
-
-                5 ->
-                    date |> quarter |> toString
-
-                _ ->
-                    ""
-
-        "M" ->
-            case length of
-                1 ->
-                    date |> monthNumber |> toString
-
-                2 ->
-                    date |> monthNumber |> toString |> String.padLeft 2 '0'
-
-                3 ->
-                    date |> month |> monthToName |> String.left 3
-
-                4 ->
-                    date |> month |> monthToName
-
-                5 ->
-                    date |> month |> monthToName |> String.left 1
-
-                _ ->
-                    ""
-
-        "w" ->
-            case length of
-                1 ->
-                    date |> weekNumber |> toString
-
-                2 ->
-                    date |> weekNumber |> toString |> String.padLeft 2 '0'
-
-                _ ->
-                    ""
-
-        "d" ->
-            case length of
-                1 ->
-                    date |> day |> toString
-
-                2 ->
-                    date |> day |> toString |> String.padLeft 2 '0'
-
-                3 ->
-                    date |> day |> withOrdinalSuffix
-
-                -- non-standard
-                _ ->
-                    ""
-
-        "D" ->
-            case length of
-                1 ->
-                    date |> ordinalDay |> toString
-
-                2 ->
-                    date |> ordinalDay |> toString |> String.padLeft 2 '0'
-
-                3 ->
-                    date |> ordinalDay |> toString |> String.padLeft 3 '0'
-
-                _ ->
-                    ""
-
-        "E" ->
-            case formatStyleFromLength length of
-                Abbreviated ->
-                    date |> dayOfWeek |> weekdayToName |> String.left 3
-
-                Full ->
-                    date |> dayOfWeek |> weekdayToName
-
-                Narrow ->
-                    date |> dayOfWeek |> weekdayToName |> String.left 1
-
-                Short ->
-                    date |> dayOfWeek |> weekdayToName |> String.left 2
-
-                Invalid ->
-                    ""
-
-        "e" ->
-            case length of
-                1 ->
-                    date |> weekdayNumber |> toString
-
-                2 ->
-                    date |> weekdayNumber |> toString
-
-                _ ->
-                    format asUtc date (String.toUpper match)
-
-        "a" ->
-            let
-                p =
-                    date |> dayPeriod
-
-                m =
-                    if p == Midnight || p == AM then
-                        "A"
-
-                    else
-                        "P"
-            in
-            case formatStyleFromLength length of
-                Abbreviated ->
-                    m ++ "M"
-
-                Full ->
-                    m ++ ".M."
-
-                Narrow ->
-                    m
-
-                _ ->
-                    ""
-
-        "b" ->
-            case formatStyleFromLength length of
-                Abbreviated ->
-                    case date |> dayPeriod of
-                        Midnight ->
-                            "mid."
-
-                        AM ->
-                            "am"
-
-                        Noon ->
-                            "noon"
-
-                        PM ->
-                            "pm"
-
-                Full ->
-                    case date |> dayPeriod of
-                        Midnight ->
-                            "midnight"
-
-                        AM ->
-                            "a.m."
-
-                        Noon ->
-                            "noon"
-
-                        PM ->
-                            "p.m."
-
-                Narrow ->
-                    case date |> dayPeriod of
-                        Midnight ->
-                            "md"
-
-                        AM ->
-                            "a"
-
-                        Noon ->
-                            "nn"
-
-                        PM ->
-                            "p"
-
-                _ ->
-                    ""
-
-        "h" ->
-            case length of
-                1 ->
-                    date |> hour12 |> toString
-
-                2 ->
-                    date |> hour12 |> toString |> String.padLeft 2 '0'
-
-                _ ->
-                    ""
-
-        "H" ->
-            case length of
-                1 ->
-                    date |> hour |> toString
-
-                2 ->
-                    date |> hour |> toString |> String.padLeft 2 '0'
-
-                _ ->
-                    ""
-
-        "m" ->
-            case length of
-                1 ->
-                    date |> minute |> toString
-
-                2 ->
-                    date |> minute |> toString |> String.padLeft 2 '0'
-
-                _ ->
-                    ""
-
-        "s" ->
-            case length of
-                1 ->
-                    date |> second |> toString
-
-                2 ->
-                    date |> second |> toString |> String.padLeft 2 '0'
-
-                _ ->
-                    ""
-
-        "S" ->
-            date |> millisecond |> toString |> String.padLeft 3 '0' |> String.left length |> String.padRight length '0'
-
-        "X" ->
-            if length < 4 && (asUtc || offsetFromUtc date == 0) then
-                "Z"
-
-            else
-                format asUtc date (String.toLower match)
-
-        "x" ->
-            let
-                offset =
-                    if asUtc then
-                        0
-
-                    else
-                        offsetFromUtc date
-            in
-            case length of
-                1 ->
-                    formatTimeOffset "" True offset
-
-                2 ->
-                    formatTimeOffset "" False offset
-
-                3 ->
-                    formatTimeOffset ":" False offset
-
-                _ ->
-                    ""
-
-        "'" ->
-            if match == "''" then
-                "'"
-
-            else
-                String.slice 1 -1 match |> Regex.replace All (regex "''") (\_ -> "'")
-
-        _ ->
-            ""
+    -- let
+    --     char =
+    --         String.left 1 match
+    --
+    --     length =
+    --         String.length match
+    -- in
+    -- case char of
+    --     "y" ->
+    --         case length of
+    --             2 ->
+    --                 date |> year |> String.fromInt |> String.padLeft length '0' |> String.right 2
+    --
+    --             _ ->
+    --                 date |> year |> String.fromInt |> String.padLeft length '0'
+    --
+    --     "Y" ->
+    --         case length of
+    --             2 ->
+    --                 date |> weekYear |> String.fromInt |> String.padLeft length '0' |> String.right 2
+    --
+    --             _ ->
+    --                 date |> weekYear |> String.fromInt |> String.padLeft length '0'
+    --
+    --     "Q" ->
+    --         case length of
+    --             1 ->
+    --                 date |> quarter |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> quarter |> String.fromInt
+    --
+    --             3 ->
+    --                 date |> quarter |> String.fromInt |> (++) "Q"
+    --
+    --             4 ->
+    --                 date |> quarter |> withOrdinalSuffix
+    --
+    --             5 ->
+    --                 date |> quarter |> String.fromInt
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "M" ->
+    --         case length of
+    --             1 ->
+    --                 date |> monthNumber |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> monthNumber |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             3 ->
+    --                 date |> month |> monthToName |> String.left 3
+    --
+    --             4 ->
+    --                 date |> month |> monthToName
+    --
+    --             5 ->
+    --                 date |> month |> monthToName |> String.left 1
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "w" ->
+    --         case length of
+    --             1 ->
+    --                 date |> weekNumber |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> weekNumber |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "d" ->
+    --         case length of
+    --             1 ->
+    --                 date |> day |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> day |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             3 ->
+    --                 date |> day |> withOrdinalSuffix
+    --
+    --             -- non-standard
+    --             _ ->
+    --                 ""
+    --
+    --     "D" ->
+    --         case length of
+    --             1 ->
+    --                 date |> ordinalDay |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> ordinalDay |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             3 ->
+    --                 date |> ordinalDay |> String.fromInt |> String.padLeft 3 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "E" ->
+    --         case formatStyleFromLength length of
+    --             Abbreviated ->
+    --                 date |> dayOfWeek |> weekdayToName |> String.left 3
+    --
+    --             Full ->
+    --                 date |> dayOfWeek |> weekdayToName
+    --
+    --             Narrow ->
+    --                 date |> dayOfWeek |> weekdayToName |> String.left 1
+    --
+    --             Short ->
+    --                 date |> dayOfWeek |> weekdayToName |> String.left 2
+    --
+    --             Invalid ->
+    --                 ""
+    --
+    --     "e" ->
+    --         case length of
+    --             1 ->
+    --                 date |> weekdayNumber |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> weekdayNumber |> String.fromInt
+    --
+    --             _ ->
+    --                 format asUtc date (String.toUpper match)
+    --
+    --     "a" ->
+    --         let
+    --             p =
+    --                 date |> dayPeriod
+    --
+    --             m =
+    --                 if p == Midnight || p == AM then
+    --                     "A"
+    --
+    --                 else
+    --                     "P"
+    --         in
+    --         case formatStyleFromLength length of
+    --             Abbreviated ->
+    --                 m ++ "M"
+    --
+    --             Full ->
+    --                 m ++ ".M."
+    --
+    --             Narrow ->
+    --                 m
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "b" ->
+    --         case formatStyleFromLength length of
+    --             Abbreviated ->
+    --                 case date |> dayPeriod of
+    --                     Midnight ->
+    --                         "mid."
+    --
+    --                     AM ->
+    --                         "am"
+    --
+    --                     Noon ->
+    --                         "noon"
+    --
+    --                     PM ->
+    --                         "pm"
+    --
+    --             Full ->
+    --                 case date |> dayPeriod of
+    --                     Midnight ->
+    --                         "midnight"
+    --
+    --                     AM ->
+    --                         "a.m."
+    --
+    --                     Noon ->
+    --                         "noon"
+    --
+    --                     PM ->
+    --                         "p.m."
+    --
+    --             Narrow ->
+    --                 case date |> dayPeriod of
+    --                     Midnight ->
+    --                         "md"
+    --
+    --                     AM ->
+    --                         "a"
+    --
+    --                     Noon ->
+    --                         "nn"
+    --
+    --                     PM ->
+    --                         "p"
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "h" ->
+    --         case length of
+    --             1 ->
+    --                 date |> hour12 |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> hour12 |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "H" ->
+    --         case length of
+    --             1 ->
+    --                 date |> hour |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> hour |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "m" ->
+    --         case length of
+    --             1 ->
+    --                 date |> minute |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> minute |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "s" ->
+    --         case length of
+    --             1 ->
+    --                 date |> second |> String.fromInt
+    --
+    --             2 ->
+    --                 date |> second |> String.fromInt |> String.padLeft 2 '0'
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "S" ->
+    --         date |> millisecond |> String.fromInt |> String.padLeft 3 '0' |> String.left length |> String.padRight length '0'
+    --
+    --     "X" ->
+    --         if length < 4 && (asUtc || offsetFromUtc date == 0) then
+    --             "Z"
+    --
+    --         else
+    --             format asUtc date (String.toLower match)
+    --
+    --     "x" ->
+    --         let
+    --             offset =
+    --                 if asUtc then
+    --                     0
+    --
+    --                 else
+    --                     offsetFromUtc date
+    --         in
+    --         case length of
+    --             1 ->
+    --                 formatTimeOffset "" True offset
+    --
+    --             2 ->
+    --                 formatTimeOffset "" False offset
+    --
+    --             3 ->
+    --                 formatTimeOffset ":" False offset
+    --
+    --             _ ->
+    --                 ""
+    --
+    --     "'" ->
+    --         if match == "''" then
+    --             "'"
+    --
+    --         else
+    --             String.slice 1 -1 match |> Regex.replace All (regex "''") (\_ -> "'")
+    --
+    --     _ ->
+    --         ""
+    Debug.todo "format"
 
 
 toFormattedString_ : Bool -> String -> Moment -> String
@@ -759,7 +811,7 @@ toFormattedString_ asUtc pattern moment =
                 Calendar.fromMoment <| thing
 
             else
-                moment
+                Debug.todo "moment"
 
         thing =
             -- was: Date.toTime moment - (offsetFromUtc date * msPerMinute |> toFloat)
@@ -809,7 +861,7 @@ Date.toFormattedString
 (Date.fromParts 2007 Mar 15 13 45 56 67)
 -- "March 15th, 2007"
 -}
-toFormattedString : String -> CalendarDate -> String
+toFormattedString : String -> Moment -> String
 toFormattedString =
     toFormattedString_ False
 
@@ -817,7 +869,7 @@ toFormattedString =
 {-| Convert a date to a string just like `toFormattedString`, but using the UTC
 representation instead of the local representation of the date.
 -}
-toUtcFormattedString : String -> CalendarDate -> String
+toUtcFormattedString : String -> Moment -> String
 toUtcFormattedString =
     toFormattedString_ True
 
@@ -829,7 +881,7 @@ Date.toIsoString
 -- "2007-03-15T13:45:56.067-04:00"
 -- (example has a local offset of UTC-04:00)
 -}
-toIsoString : CalendarDate -> String
+toIsoString : Moment -> String
 toIsoString =
     toFormattedString_ False "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"
 
@@ -841,7 +893,7 @@ Date.toUtcIsoString
 -- "2007-03-15T17:45:56.067Z"
 -- (example has a local offset of UTC-04:00)
 -}
-toUtcIsoString : CalendarDate -> String
+toUtcIsoString : Moment -> String
 toUtcIsoString =
     toFormattedString_ True "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
 
@@ -885,7 +937,8 @@ But if you really only need the Date or the Time, consider just using the `fromM
 -}
 humanize : Moment -> Zone -> ( CalendarDate, TimeOfDay )
 humanize moment zone =
-    ( Calendar.fromMoment moment zone, Clock.fromMoment moment zone )
+    -- ( Calendar.fromMoment moment zone, Clock.fromMoment moment zone )
+    Debug.todo "humanize"
 
 
 {-| Extract the `Year` part of a `Moment` as an Int.
@@ -894,7 +947,7 @@ humanize moment zone =
     getYear dateTime -- 2019 : Int
 
 -}
-getYear : Moment -> Int
+getYear : Moment -> Calendar.Year
 getYear =
     Calendar.year << Calendar.fromMoment
 
@@ -916,7 +969,7 @@ getMonth =
     getDay dateTime -- 25 : Int
 
 -}
-getDay : Moment -> Int
+getDay : Moment -> Calendar.DayOfMonth
 getDay =
     Calendar.dayOfMonth << Calendar.fromMoment
 
@@ -940,7 +993,7 @@ getHours =
 -}
 getMinutes : Moment -> Int
 getMinutes =
-    Clock.minute << Clock.fromMoment
+    Clock.minute << extractTime zone
 
 
 {-| Extract the `Second` part of `DateTime` as an Int.
@@ -951,7 +1004,7 @@ getMinutes =
 -}
 getSeconds : Moment -> Int
 getSeconds =
-    Clock.second << Clock.fromMoment
+    Clock.second << extractTime utc
 
 
 {-| Extract the `Millisecond` part of `DateTime` as an Int.
@@ -962,7 +1015,7 @@ getSeconds =
 -}
 getMilliseconds : Moment -> Int
 getMilliseconds =
-    Clock.milliseconds << Clock.fromMoment
+    Clock.milliseconds << extractTime utc
 
 
 
@@ -1013,7 +1066,7 @@ of the given `Month` and `Year` combination.
 -}
 incrementYear : Moment -> Moment
 incrementYear moment =
-    Calendar.incrementYear (Calendar.fromMoment moment)
+    Debug.todo "do we need this?"
 
 
 {-| Increments the `Month` in a given [Moment](Moment#Moment). It will also roll over to the next year where applicable.
@@ -1036,7 +1089,7 @@ valid day of the given `Month` and `Year` combination.
 -}
 incrementMonth : Moment -> Moment
 incrementMonth moment =
-    Calendar.decrementMonth (Calendar.fromMoment moment)
+    Debug.todo "do we need this?"
 
 
 
@@ -1060,7 +1113,7 @@ of the given `Month` and `Year` combination.
 -}
 decrementYear : Moment -> Moment
 decrementYear moment =
-    Calendar.decrementYear (Calendar.fromMoment moment)
+    Debug.todo "do we need this?"
 
 
 {-| Decrements the `Month` in a given [Moment](Moment#Moment). It will also roll backwards to the previous year where applicable.
@@ -1085,7 +1138,7 @@ of this scenario we fall back to the last valid day of the given `Month` and `Ye
 -}
 decrementMonth : Moment -> Moment
 decrementMonth moment =
-    Calendar.decrementMonth (Calendar.fromMoment moment)
+    mapDate Calendar.decrementMonth moment
 
 
 
