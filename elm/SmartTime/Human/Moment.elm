@@ -35,10 +35,10 @@ Then, when changing a fixed time, we do the usual: use the local zone to display
 -}
 
 import Regex exposing (Regex)
-import SmartTime.Duration
-import SmartTime.Human.Calendar exposing (CalendarDate)
-import SmartTime.Human.Clock exposing (TimeOfDay)
-import SmartTime.Moment exposing (Moment)
+import SmartTime.Duration as Duration
+import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
+import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
+import SmartTime.Moment as Moment exposing (Moment)
 import Time as ElmTime exposing (Zone)
 
 
@@ -70,70 +70,66 @@ local =
     Local
 
 
-{-| Create a `Date` from a specified day, time of day, and time offset.
-Date.fromSpec
-(calendarDate 2000 Jan 1)
-(time 20 0 0 0)
-local
--- <1 January 2000, 20:00, local time>
-Date.fromSpec
-(weekDate 2009 1 Mon)
-midnight
-utc
--- <29 December 2008, UTC>
-Date.fromSpec
-(ordinalDate 2016 218)
-(time 20 0 0 0)
-(offset -180)
--- <5 August 2016, 23:00, UTC>
-When a `Date` is created with a specified time offset (e.g. `offset -180`),
-its extractions still reflect the current machine's local time, and
-`Date.toTime` still reflects its UTC time.
--}
-fromSpec : DateSpec -> TimeSpec -> OffsetSpec -> Date
-fromSpec (DateMS dateMS) (TimeMS timeMS) offsetSpec =
-    case offsetSpec of
-        Offset offset ->
-            fromUnixTime (dateMS + timeMS - offset * msPerMinute)
 
-        Local ->
-            -- find the local offset
-            let
-                unixTime =
-                    dateMS + timeMS
-
-                offset0 =
-                    offsetFromUtc (fromUnixTime unixTime)
-
-                date1 =
-                    fromUnixTime (unixTime - offset0 * msPerMinute)
-
-                offset1 =
-                    offsetFromUtc date1
-            in
-            if offset0 == offset1 then
-                date1
-
-            else
-                -- local offset has changed within `offset0` time period (e.g. DST switch)
-                let
-                    date2 =
-                        fromUnixTime (unixTime - offset1 * msPerMinute)
-
-                    offset2 =
-                        offsetFromUtc date2
-                in
-                if offset1 == offset2 then
-                    date2
-
-                else
-                    -- `unixTime` is within the lost hour of a local switch
-                    date1
-
-
-fromUnixTime : Int -> Date
-fromUnixTime =
-    toFloat >> fromTime
+-- {-| Create a `Date` from a specified day, time of day, and time offset.
+-- Date.fromSpec
+-- (calendarDate 2000 Jan 1)
+-- (time 20 0 0 0)
+-- local
+-- -- <1 January 2000, 20:00, local time>
+-- Date.fromSpec
+-- (weekDate 2009 1 Mon)
+-- midnight
+-- utc
+-- -- <29 December 2008, UTC>
+-- Date.fromSpec
+-- (ordinalDate 2016 218)
+-- (time 20 0 0 0)
+-- (offset -180)
+-- -- <5 August 2016, 23:00, UTC>
+-- When a `Date` is created with a specified time offset (e.g. `offset -180`),
+-- its extractions still reflect the current machine's local time, and
+-- `Date.toTime` still reflects its UTC time.
+-- -}
+-- fromSpec : DateSpec -> TimeSpec -> OffsetSpec -> Date
+-- fromSpec (DateMS dateMS) (TimeMS timeMS) offsetSpec =
+--     case offsetSpec of
+--         Offset offset ->
+--             fromUnixTime (dateMS + timeMS - offset * msPerMinute)
+--
+--         Local ->
+--             -- find the local offset
+--             let
+--                 unixTime =
+--                     dateMS + timeMS
+--
+--                 offset0 =
+--                     offsetFromUtc (fromUnixTime unixTime)
+--
+--                 date1 =
+--                     fromUnixTime (unixTime - offset0 * msPerMinute)
+--
+--                 offset1 =
+--                     offsetFromUtc date1
+--             in
+--             if offset0 == offset1 then
+--                 date1
+--
+--             else
+--                 -- local offset has changed within `offset0` time period (e.g. DST switch)
+--                 let
+--                     date2 =
+--                         fromUnixTime (unixTime - offset1 * msPerMinute)
+--
+--                     offset2 =
+--                         offsetFromUtc date2
+--                 in
+--                 if offset1 == offset2 then
+--                     date2
+--
+--                 else
+--                     -- `unixTime` is within the lost hour of a local switch
+--                     date1
 
 
 {-| Create a `Date` from the following parts, given in local time:
@@ -158,184 +154,179 @@ Date.fromParts 2001 Feb 29 24 60 60 1000
 -- <28 February 2001, 23:59:59.999>
 
 -}
-fromParts : Int -> Month -> Int -> Int -> Int -> Int -> Int -> Date
+fromParts : Int -> Calendar.Month -> Int -> Int -> Int -> Int -> Int -> Moment
 fromParts y m d hh mm ss ms =
-    fromSpec (calendarDate y m d) (time hh mm ss ms) local
+    Debug.todo "Is this a good idea?"
 
 
-{-| Convenience function for creating a `Date` from only the year, month, and
-day parts. As with `fromParts`, the day is clamped within the range of days in
-the given month.
-Date.fromCalendarDate 2001 Feb 29
--- <28 February 2001>
--}
-fromCalendarDate : Int -> Month -> Int -> Date
-fromCalendarDate y m d =
-    fromSpec (calendarDate y m d) midnight local
+fromDateAtMidnight : CalendarDate -> Zone -> Moment
+fromDateAtMidnight calendarDate zone =
+    Debug.todo "date with midnight"
 
 
 
---------------------------------------------------------------------------------
--- Parse ISO 8601
-
-
-isoDateRegex : Regex
-isoDateRegex =
-    let
-        year =
-            --yyyy
-            --1
-            "(\\d{4})"
-
-        cal =
-            --      mm            dd
-            --2     3             4
-            "(\\-)?(\\d{2})(?:\\2(\\d{2}))?"
-
-        week =
-            --       ww            d
-            --5      6             7
-            "(\\-)?W(\\d{2})(?:\\5(\\d))?"
-
-        ord =
-            --    ddd
-            --    8
-            "\\-?(\\d{3})"
-
-        time =
-            -- hh               mm             ss          .f              Z      +/-      hh             mm
-            -- 9          10    11             12          13              14     15       16             17
-            "T(\\d{2})(?:(\\:)?(\\d{2})(?:\\10(\\d{2}))?)?([\\.,]\\d+)?(?:(Z)|(?:([+−\\-])(\\d{2})(?:\\:?(\\d{2}))?))?"
-    in
-    regex <| "^" ++ year ++ "(?:" ++ cal ++ "|" ++ week ++ "|" ++ ord ++ ")?" ++ "(?:" ++ time ++ ")?$"
-
-
-matchToInt : Int -> Maybe String -> Int
-matchToInt default =
-    Maybe.andThen (String.toInt >> Result.toMaybe) >> Maybe.withDefault default
-
-
-dateFromMatches : String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String DateSpec
-dateFromMatches yyyy calMM calDD weekWW weekD ordDDD =
-    Result.map (DateMS << unixTimeFromRataDie)
-        (let
-            y =
-                yyyy |> String.toInt |> Result.withDefault 1
-         in
-         case ( calMM, weekWW ) of
-            ( Just _, Nothing ) ->
-                RataDie.fromCalendarParts y (calMM |> matchToInt 1) (calDD |> matchToInt 1)
-
-            ( Nothing, Just _ ) ->
-                RataDie.fromWeekParts y (weekWW |> matchToInt 1) (weekD |> matchToInt 1)
-
-            _ ->
-                RataDie.fromOrdinalParts y (ordDDD |> matchToInt 1)
-        )
-
-
-timeFromMatches : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String TimeSpec
-timeFromMatches timeHH timeMM timeSS timeF =
-    let
-        fractional =
-            timeF |> Maybe.andThen (Regex.replace All (regex ",") (\_ -> ".") >> String.toFloat >> Result.toMaybe) |> Maybe.withDefault 0.0
-
-        ( hh, mm, ss ) =
-            case [ timeHH, timeMM, timeSS ] |> List.map (Maybe.andThen (String.toFloat >> Result.toMaybe)) of
-                [ Just hh, Just mm, Just ss ] ->
-                    ( hh, mm, ss + fractional )
-
-                [ Just hh, Just mm, Nothing ] ->
-                    ( hh, mm + fractional, 0.0 )
-
-                [ Just hh, Nothing, Nothing ] ->
-                    ( hh + fractional, 0.0, 0.0 )
-
-                _ ->
-                    ( 0.0, 0.0, 0.0 )
-    in
-    if hh >= 24 then
-        Err <| "Invalid time (hours = " ++ toString hh ++ ")"
-
-    else if mm >= 60 then
-        Err <| "Invalid time (minutes = " ++ toString mm ++ ")"
-
-    else if ss >= 60 then
-        Err <| "Invalid time (seconds = " ++ toString ss ++ ")"
-
-    else
-        Ok <| TimeMS (hh * toFloat msPerHour + mm * toFloat msPerMinute + ss * toFloat msPerSecond |> round)
-
-
-offsetFromMatches : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String OffsetSpec
-offsetFromMatches tzZ tzSign tzHH tzMM =
-    case ( tzZ, tzSign ) of
-        ( Just "Z", Nothing ) ->
-            Ok utc
-
-        ( Nothing, Just sign ) ->
-            let
-                hh =
-                    tzHH |> matchToInt 0
-
-                mm =
-                    tzMM |> matchToInt 0
-            in
-            if hh > 23 then
-                Err <| "Invalid offset (hours = " ++ toString hh ++ ")"
-
-            else if mm > 59 then
-                Err <| "Invalid offset (minutes = " ++ toString mm ++ ")"
-
-            else if sign == "+" then
-                Ok <| offset (hh * 60 + mm)
-
-            else
-                Ok <| offset (hh * -60 - mm)
-
-        _ ->
-            Ok local
-
-
-fromMatches : List (Maybe String) -> Result String Date
-fromMatches matches =
-    case matches of
-        [ Just yyyy, _, calMM, calDD, _, weekWW, weekD, ordDDD, timeHH, _, timeMM, timeSS, timeF, tzZ, tzSign, tzHH, tzMM ] ->
-            Result.map3
-                fromSpec
-                (dateFromMatches yyyy calMM calDD weekWW weekD ordDDD)
-                (timeFromMatches timeHH timeMM timeSS timeF)
-                (offsetFromMatches tzZ tzSign tzHH tzMM)
-
-        _ ->
-            Err "Unexpected matches"
-
-
-{-| Attempt to create a `Date` from a string representing a date/time in
-[ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
-Date.fromIsoString "2000-01-01T00:00:00.000Z"
--- Ok <1 January 2000, UTC>
-Date.fromIsoString "2000-01-01"
--- Ok <1 January 2000, local time>
-Date.fromIsoString "1/1/2000"
--- Err "Invalid ISO 8601 format"
-The given string must represent a valid date/time; unlike the `fromParts`
-constructor, any out-of-range parts will fail to produce a `Date`.
-Date.fromIsoString "2001-02-29"
--- Err "Invalid calendar date"
-When a `Date` is created with a specified time offset (e.g. `"-03:00"`), its
-extractions still reflect the current machine's local time, and `Date.toTime`
-still reflects its UTC time.
-Date.fromIsoString "2000-01-01T20:00-03:00"
--- Ok <1 January 2000, 23:00, UTC>
--}
-fromIsoString : String -> Result String Date
-fromIsoString s =
-    Regex.find (AtMost 1) isoDateRegex s
-        |> List.head
-        |> Result.fromMaybe "Invalid ISO 8601 format"
-        |> Result.andThen (.submatches >> fromMatches)
-        |> Result.mapError ((++) ("Failed to create a Date from string '" ++ s ++ "': "))
+-- --------------------------------------------------------------------------------
+-- -- Parse ISO 8601
+--
+--
+-- isoDateRegex : Regex
+-- isoDateRegex =
+--     let
+--         year =
+--             --yyyy
+--             --1
+--             "(\\d{4})"
+--
+--         cal =
+--             --      mm            dd
+--             --2     3             4
+--             "(\\-)?(\\d{2})(?:\\2(\\d{2}))?"
+--
+--         week =
+--             --       ww            d
+--             --5      6             7
+--             "(\\-)?W(\\d{2})(?:\\5(\\d))?"
+--
+--         ord =
+--             --    ddd
+--             --    8
+--             "\\-?(\\d{3})"
+--
+--         time =
+--             -- hh               mm             ss          .f              Z      +/-      hh             mm
+--             -- 9          10    11             12          13              14     15       16             17
+--             "T(\\d{2})(?:(\\:)?(\\d{2})(?:\\10(\\d{2}))?)?([\\.,]\\d+)?(?:(Z)|(?:([+−\\-])(\\d{2})(?:\\:?(\\d{2}))?))?"
+--     in
+--     Regex.fromString <| "^" ++ year ++ "(?:" ++ cal ++ "|" ++ week ++ "|" ++ ord ++ ")?" ++ "(?:" ++ time ++ ")?$"
+--
+--
+-- matchToInt : Int -> Maybe String -> Int
+-- matchToInt default =
+--     Maybe.andThen (String.toInt >> Result.toMaybe) >> Maybe.withDefault default
+--
+--
+-- dateFromMatches : String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String CalendarDate
+-- dateFromMatches yyyy calMM calDD weekWW weekD ordDDD =
+--     Result.map Moment.fromUnixTime
+--         (let
+--             y =
+--                 yyyy |> String.toInt |> Result.withDefault 1
+--          in
+--          case ( calMM, weekWW ) of
+--             ( Just _, Nothing ) ->
+--                 Calendar.fromRawParts y (calMM |> matchToInt 1) (calDD |> matchToInt 1)
+--
+--             ( Nothing, Just _ ) ->
+--                 Calendar.fromWeekParts y (weekWW |> matchToInt 1) (weekD |> matchToInt 1)
+--
+--             _ ->
+--                 Calendar.fromOrdinalParts y (ordDDD |> matchToInt 1)
+--         )
+--
+--
+-- timeFromMatches : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String Clock.TimeOfDay
+-- timeFromMatches timeHH timeMM timeSS timeF =
+--     let
+--         fractional =
+--             timeF |> Maybe.andThen (Regex.replace Regex.All (regex ",") (\_ -> ".") >> String.toFloat >> Result.toMaybe) |> Maybe.withDefault 0.0
+--
+--         ( hh, mm, ss ) =
+--             case [ timeHH, timeMM, timeSS ] |> List.map (Maybe.andThen (String.toFloat >> Result.toMaybe)) of
+--                 [ Just hh, Just mm, Just ss ] ->
+--                     ( hh, mm, ss + fractional )
+--
+--                 [ Just hh, Just mm, Nothing ] ->
+--                     ( hh, mm + fractional, 0.0 )
+--
+--                 [ Just hh, Nothing, Nothing ] ->
+--                     ( hh + fractional, 0.0, 0.0 )
+--
+--                 _ ->
+--                     ( 0.0, 0.0, 0.0 )
+--     in
+--     if hh >= 24 then
+--         Err <| "Invalid time (hours = " ++ toString hh ++ ")"
+--
+--     else if mm >= 60 then
+--         Err <| "Invalid time (minutes = " ++ toString mm ++ ")"
+--
+--     else if ss >= 60 then
+--         Err <| "Invalid time (seconds = " ++ toString ss ++ ")"
+--
+--     else
+--         Ok <| TimeMS (hh * toFloat msPerHour + mm * toFloat msPerMinute + ss * toFloat msPerSecond |> round)
+--
+--
+-- offsetFromMatches : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Result String OffsetSpec
+-- offsetFromMatches tzZ tzSign tzHH tzMM =
+--     case ( tzZ, tzSign ) of
+--         ( Just "Z", Nothing ) ->
+--             Ok utc
+--
+--         ( Nothing, Just sign ) ->
+--             let
+--                 hh =
+--                     tzHH |> matchToInt 0
+--
+--                 mm =
+--                     tzMM |> matchToInt 0
+--             in
+--             if hh > 23 then
+--                 Err <| "Invalid offset (hours = " ++ toString hh ++ ")"
+--
+--             else if mm > 59 then
+--                 Err <| "Invalid offset (minutes = " ++ toString mm ++ ")"
+--
+--             else if sign == "+" then
+--                 Ok <| offset (hh * 60 + mm)
+--
+--             else
+--                 Ok <| offset (hh * -60 - mm)
+--
+--         _ ->
+--             Ok local
+--
+--
+-- fromMatches : List (Maybe String) -> Result String Date
+-- fromMatches matches =
+--     case matches of
+--         [ Just yyyy, _, calMM, calDD, _, weekWW, weekD, ordDDD, timeHH, _, timeMM, timeSS, timeF, tzZ, tzSign, tzHH, tzMM ] ->
+--             Result.map3
+--                 fromSpec
+--                 (dateFromMatches yyyy calMM calDD weekWW weekD ordDDD)
+--                 (timeFromMatches timeHH timeMM timeSS timeF)
+--                 (offsetFromMatches tzZ tzSign tzHH tzMM)
+--
+--         _ ->
+--             Err "Unexpected matches"
+--
+--
+-- {-| Attempt to create a `Date` from a string representing a date/time in
+-- [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
+-- Date.fromIsoString "2000-01-01T00:00:00.000Z"
+-- -- Ok <1 January 2000, UTC>
+-- Date.fromIsoString "2000-01-01"
+-- -- Ok <1 January 2000, local time>
+-- Date.fromIsoString "1/1/2000"
+-- -- Err "Invalid ISO 8601 format"
+-- The given string must represent a valid date/time; unlike the `fromParts`
+-- constructor, any out-of-range parts will fail to produce a `Date`.
+-- Date.fromIsoString "2001-02-29"
+-- -- Err "Invalid calendar date"
+-- When a `Date` is created with a specified time offset (e.g. `"-03:00"`), its
+-- extractions still reflect the current machine's local time, and `Date.toTime`
+-- still reflects its UTC time.
+-- Date.fromIsoString "2000-01-01T20:00-03:00"
+-- -- Ok <1 January 2000, 23:00, UTC>
+-- -}
+-- fromIsoString : String -> Result String Date
+-- fromIsoString s =
+--     Regex.find (AtMost 1) isoDateRegex s
+--         |> List.head
+--         |> Result.fromMaybe "Invalid ISO 8601 format"
+--         |> Result.andThen (.submatches >> fromMatches)
+--         |> Result.mapError ((++) ("Failed to create a Date from string '" ++ s ++ "': "))
+--
 
 
 type DayPeriod
@@ -345,22 +336,19 @@ type DayPeriod
     | PM
 
 
-dayPeriod : Date -> DayPeriod
-dayPeriod date =
+dayPeriod : Moment -> DayPeriod
+dayPeriod moment =
     let
-        hh =
-            hour date
-
-        onTheHour =
-            minute date == 0 && second date == 0 && millisecond date == 0
+        time =
+            Clock.fromMoment moment
     in
-    if hh == 0 && onTheHour then
+    if Clock.isMidnight time then
         Midnight
 
-    else if hh < 12 then
+    else if not (Clock.isPM time) then
         AM
 
-    else if hh == 12 && onTheHour then
+    else if Clock.isNoon then
         Noon
 
     else
@@ -368,20 +356,20 @@ dayPeriod date =
 
 
 formatTimeOffset : String -> Bool -> Int -> String
-formatTimeOffset separator minutesIsOptional offset =
+formatTimeOffset separator minutesIsOptional givenOffset =
     let
         sign =
-            if offset >= 0 then
+            if givenOffset >= 0 then
                 "+"
 
             else
                 "-"
 
         hh =
-            abs offset // 60 |> toString |> String.padLeft 2 '0'
+            abs offset // 60 |> String.fromInt |> String.padLeft 2 '0'
 
         mm =
-            abs offset % 60 |> toString |> String.padLeft 2 '0'
+            abs (modBy 60 givenOffset) |> String.fromInt |> String.padLeft 2 '0'
     in
     if minutesIsOptional && mm == "00" then
         sign ++ hh
@@ -395,7 +383,7 @@ ordinalSuffix n =
     let
         -- use 2-digit number
         nn =
-            n % 100
+            modBy 100 n
     in
     case
         min
@@ -403,7 +391,7 @@ ordinalSuffix n =
                 nn
 
              else
-                nn % 10
+                modBy 10 nn
             )
             4
     of
@@ -422,7 +410,7 @@ ordinalSuffix n =
 
 withOrdinalSuffix : Int -> String
 withOrdinalSuffix n =
-    toString n ++ ordinalSuffix n
+    String.fromInt n ++ ordinalSuffix n
 
 
 
@@ -434,7 +422,7 @@ may contain '' inside, representing an escaped single-quote).
 -}
 patternMatches : Regex
 patternMatches =
-    regex "([yYQMwdDEeabhHmsSXx])\\1*|'(?:[^']|'')*?'(?!')"
+    Regex.fromString "([yYQMwdDEeabhHmsSXx])\\1*|'(?:[^']|'')*?'(?!')"
 
 
 type FormatStyle
@@ -470,7 +458,7 @@ formatStyleFromLength length =
             Invalid
 
 
-format : Bool -> Date -> String -> String
+format : Bool -> Moment -> String -> String
 format asUtc date match =
     let
         char =
@@ -763,17 +751,22 @@ format asUtc date match =
             ""
 
 
-toFormattedString_ : Bool -> String -> Date -> String
-toFormattedString_ asUtc pattern date =
+toFormattedString_ : Bool -> String -> Moment -> String
+toFormattedString_ asUtc pattern moment =
     let
         date_ =
             if asUtc then
-                Date.fromTime <| Date.toTime date - (offsetFromUtc date * msPerMinute |> toFloat)
+                Calendar.fromMoment <| thing
 
             else
-                date
+                moment
+
+        thing =
+            -- was: Date.toTime moment - (offsetFromUtc date * msPerMinute |> toFloat)
+            Debug.todo "fix this"
     in
-    Regex.replace All patternMatches (.match >> format asUtc date_) pattern
+    -- Regex.replace All patternMatches (.match >> format asUtc date_) pattern
+    Debug.todo "format string"
 
 
 {-| Convert a date to a string using a pattern as a template.
@@ -816,7 +809,7 @@ Date.toFormattedString
 (Date.fromParts 2007 Mar 15 13 45 56 67)
 -- "March 15th, 2007"
 -}
-toFormattedString : String -> Date -> String
+toFormattedString : String -> CalendarDate -> String
 toFormattedString =
     toFormattedString_ False
 
@@ -824,7 +817,7 @@ toFormattedString =
 {-| Convert a date to a string just like `toFormattedString`, but using the UTC
 representation instead of the local representation of the date.
 -}
-toUtcFormattedString : String -> Date -> String
+toUtcFormattedString : String -> CalendarDate -> String
 toUtcFormattedString =
     toFormattedString_ True
 
@@ -836,7 +829,7 @@ Date.toIsoString
 -- "2007-03-15T13:45:56.067-04:00"
 -- (example has a local offset of UTC-04:00)
 -}
-toIsoString : Date -> String
+toIsoString : CalendarDate -> String
 toIsoString =
     toFormattedString_ False "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"
 
@@ -848,7 +841,7 @@ Date.toUtcIsoString
 -- "2007-03-15T17:45:56.067Z"
 -- (example has a local offset of UTC-04:00)
 -}
-toUtcIsoString : Date -> String
+toUtcIsoString : CalendarDate -> String
 toUtcIsoString =
     toFormattedString_ True "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
 
@@ -868,7 +861,7 @@ toUtcIsoString =
 -}
 fromDateAndTime : CalendarDate -> TimeOfDay -> Moment
 fromDateAndTime date time =
-    todo "from Date Time"
+    Debug.todo "from Date Time"
 
 
 
@@ -912,7 +905,7 @@ getYear =
     getMonth dateTime -- Dec : Time.Month
 
 -}
-getMonth : Moment -> Time.Month
+getMonth : Moment -> Calendar.Month
 getMonth =
     Calendar.month << Calendar.fromMoment
 
@@ -925,7 +918,7 @@ getMonth =
 -}
 getDay : Moment -> Int
 getDay =
-    Calendar.day << Calendar.fromMoment
+    Calendar.dayOfMonth << Calendar.fromMoment
 
 
 {-| Extract the `Hour` part of `Moment` as an Int.
@@ -936,7 +929,7 @@ getDay =
 -}
 getHours : Moment -> Int
 getHours =
-    Clock.getHours << Clock.fromMoment
+    Clock.hour << Clock.fromMoment
 
 
 {-| Extract the `Minute` part of `Moment` as an Int.
@@ -945,9 +938,9 @@ getHours =
     getMinutes dateTime -- 45 : Int
 
 -}
-getMinutes : DateTime -> Int
+getMinutes : Moment -> Int
 getMinutes =
-    Clock.getMinutes << Clock.fromMoment
+    Clock.minute << Clock.fromMoment
 
 
 {-| Extract the `Second` part of `DateTime` as an Int.
@@ -956,9 +949,9 @@ getMinutes =
     getSeconds dateTime -- 30 : Int
 
 -}
-getSeconds : DateTime -> Int
+getSeconds : Moment -> Int
 getSeconds =
-    Clock.getSeconds << Clock.fromMoment
+    Clock.second << Clock.fromMoment
 
 
 {-| Extract the `Millisecond` part of `DateTime` as an Int.
@@ -967,9 +960,9 @@ getSeconds =
     getMilliseconds dateTime -- 0 : Int
 
 -}
-getMilliseconds : DateTime -> Int
+getMilliseconds : Moment -> Int
 getMilliseconds =
-    Clock.getMilliseconds << Clock.fromMoment
+    Clock.milliseconds << Clock.fromMoment
 
 
 
@@ -985,7 +978,7 @@ getMilliseconds =
 -}
 setDate : CalendarDate -> Zone -> Moment -> Moment
 setDate date zone moment =
-    todo "setDate"
+    Debug.todo "setDate"
 
 
 {-| Sets the `Time` part of a [DateTime#DateTime].
@@ -996,7 +989,7 @@ setDate date zone moment =
 -}
 setTime : TimeOfDay -> Zone -> Moment -> Moment
 setTime time zone moment =
-    todo "setTime"
+    Debug.todo "setTime"
 
 
 
@@ -1019,11 +1012,8 @@ of the given `Month` and `Year` combination.
 
 -}
 incrementYear : Moment -> Moment
-incrementYear (Moment { date, time }) =
-    Moment
-        { date = Calendar.incrementYear date
-        , time = time
-        }
+incrementYear moment =
+    Calendar.incrementYear (Calendar.fromMoment moment)
 
 
 {-| Increments the `Month` in a given [Moment](Moment#Moment). It will also roll over to the next year where applicable.
@@ -1045,11 +1035,8 @@ valid day of the given `Month` and `Year` combination.
 
 -}
 incrementMonth : Moment -> Moment
-incrementMonth (Moment { date, time }) =
-    Moment
-        { date = Calendar.incrementMonth date
-        , time = time
-        }
+incrementMonth moment =
+    Calendar.decrementMonth (Calendar.fromMoment moment)
 
 
 
@@ -1105,49 +1092,14 @@ decrementMonth moment =
 -- Utilities
 
 
-{-| Returns the Timezone Offset in Milliseconds. This function can be
-used in order to form a `Moment` that actually matches each users local `Moment`.
-
-
-    dateTime =
-        Moment.fromPosix posix
-
-    offset =
-        Moment.getTimezoneOffset zone posix
-
-    zonedMoment =
-        Moment.fromPosix (posix + offset)
-
-    -- zone == GMT+1100
-    -- posix == 1554660000000 -- 2019-04-07 18:00:00 UTC
-    -- dateTime == 2019-04-07 18:00:00 UTC
-    -- zonedMoment == 2019-04-08 05:00:00 GMT+1100
-
-_The above example shows the difference between getting a `Moment` in **UTC** and in **GMT+1100.**_
-
-**Note:** Timezones ( and local times ) should only be used for date representation purposes and never
-for storing or modeling. If you use getTimezoneOffset for constructing a _**local today**_ `Moment`,
-remember to convert it back to UTC when storing it in a database.
-
--}
-getTimezoneOffset : Time.Zone -> Time.Posix -> Int
-getTimezoneOffset zone posix =
-    let
-        ( dateTime, zonedDateTime ) =
-            ( fromPosix posix
-            , fromZonedPosix zone posix
-            )
-    in
-    toMillis zonedDateTime - toMillis dateTime
-
-
 {-| Extract the fractional day of a date. Given the date 23 June 1990 at
 11:45 a.m. this returns the float 0.4895833333333333.
 -}
 fractionalDay : CalendarDate -> Float
 fractionalDay date =
-    let
-        timeOfDayMS =
-            msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
-    in
-    toFloat timeOfDayMS / toFloat msPerDay
+    -- let
+    --     timeOfDayMS =
+    --         msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
+    -- in
+    -- toFloat timeOfDayMS / toFloat msPerDay
+    Debug.todo "fractionalDay"

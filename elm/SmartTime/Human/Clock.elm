@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, noon, second, secondFractional, totalSeconds)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, backward, clock, compare, forward, fromMoment, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, noon, second, secondFractional, totalSeconds)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), dur)
@@ -9,6 +9,11 @@ import Time as ElmTime exposing (toHour, toMillis, toMinute, toSecond)
 
 type alias TimeOfDay =
     Duration
+
+
+fromMoment : Moment -> TimeOfDay
+fromMoment moment =
+    Debug.todo "clock from moment"
 
 
 

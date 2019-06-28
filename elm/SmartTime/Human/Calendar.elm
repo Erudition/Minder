@@ -11,7 +11,7 @@ module SmartTime.Human.Calendar exposing
     , months, millisInADay
     , Year(..), Month(..), DayOfMonth(..)
     , millisSinceEpoch, millisSinceStartOfTheYear, millisSinceStartOfTheMonth
-    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), ceiling, clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, floor, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, rollMonthForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, rollMonthForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -177,7 +177,7 @@ fromParts calendarParts =
 
 fromRawParts : Int -> Month -> Int -> CalendarDate
 fromRawParts y m d =
-    CalendarDate <| daysBeforeYear (Year y) + daysBeforeMonth (Year y) m + (d |> clamp 1 (daysInMonth (Year y) m))
+    CalendarDate <| daysBeforeYear (Year y) + daysBeforeMonth (Year y) m + (d |> Basics.clamp 1 (daysInMonth (Year y) m))
 
 
 {-| A year on the Gregorian Calendar.
@@ -1624,7 +1624,7 @@ fromOrdinalDate givenYear od =
             else
                 365
     in
-    CalendarDate (daysBeforeYear givenYear + (od |> clamp 1 daysInY))
+    CalendarDate (daysBeforeYear givenYear + (od |> Basics.clamp 1 daysInY))
 
 
 fromWeekDate : WeekBasedYear -> Int -> DayOfWeek -> CalendarDate
@@ -1640,7 +1640,7 @@ fromWeekDate givenWBY wn wd =
             else
                 52
     in
-    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> clamp 1 weeksInWY) - 1) * 7 + (wd |> dayOfWeekToInt)
+    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> Basics.clamp 1 weeksInWY) - 1) * 7 + (wd |> dayOfWeekToInt)
 
 
 
@@ -1826,8 +1826,8 @@ fromRataDie =
 {-| Test the equality of two dates.
 -}
 equal : CalendarDate -> CalendarDate -> Bool
-equal a b =
-    toTime a == toTime b
+equal (CalendarDate a) (CalendarDate b) =
+    a == b
 
 
 {-| Compare two dates. This can be used as the compare function for
@@ -1839,11 +1839,11 @@ compare (CalendarDate a) (CalendarDate b) =
 
 
 {-| Test if a date is within a given range, inclusive of the range values. The
-expression `CalendarDate.isBetween min max x` tests if `x` is between `min` and `max`.
+expression `Calendar.isBetween min max x` tests if `x` is between `min` and `max`.
 -}
 isBetween : CalendarDate -> CalendarDate -> CalendarDate -> Bool
-isBetween a b x =
-    toTime a <= toTime x && toTime x <= toTime b
+isBetween (CalendarDate a) (CalendarDate b) (CalendarDate x) =
+    a <= x && x <= b
 
 
 {-| Clamp a date within a given range. The expression `Calendar.clamp min max x`
@@ -1851,22 +1851,22 @@ returns one of `min`, `max`, or `x`, ensuring the returned date is not before
 `min` and not after `max`.
 -}
 clamp : CalendarDate -> CalendarDate -> CalendarDate -> CalendarDate
-clamp minimum maximum date =
-    if toTime date < toTime minimum then
-        minimum
+clamp (CalendarDate minimum) (CalendarDate maximum) (CalendarDate compareTo) =
+    if compareTo < minimum then
+        CalendarDate minimum
 
-    else if toTime date > toTime maximum then
-        maximum
+    else if compareTo > maximum then
+        CalendarDate maximum
 
     else
-        date
+        CalendarDate compareTo
 
 
 {-| Get the exact `Duration` between two dates, which is the same regardless of time zone.
 -}
 timeBetween : CalendarDate -> CalendarDate -> Duration
 timeBetween calendarDate calendarDate2 =
-    Duration.fromDays <| subtract calendarDate calendarDate2
+    Duration.fromDays <| toFloat (subtract calendarDate calendarDate2)
 
 
 
@@ -1909,7 +1909,7 @@ withinSameMonth date1 date2 =
 
 withinSameWeek : CalendarDate -> CalendarDate -> Bool
 withinSameWeek date1 date2 =
-    weekNumber date1 == weekNumber date2 && weekYear date1 == weekYear date2
+    weekNumber date1 == weekNumber date2 && weekBasedYear date1 == weekBasedYear date2
 
 
 
@@ -1926,15 +1926,19 @@ Calendar.add Month 1 (Calendar.fromParts 2000 Jan 31 0 0 0 0)
 -- <29 February 2000>
 -}
 shiftMonth : Int -> CalendarDate -> CalendarDate
-shiftMonth n date =
+shiftMonth shiftBy date =
     let
-        ( y, mn, d, hh, mm, ss, ms ) =
-            ( year date, monthNumber date, day date, hour date, minute date, second date, millisecond date )
+        (Year yearInt) =
+            year date
 
         wholeMonths =
-            12 * (y - 1) + mn - 1 + n
+            12 * (yearInt - 1) + monthNumber date - 1 + shiftBy
     in
-    fromParts (wholeMonths // 12 + 1) (wholeMonths % 12 + 1 |> numberToMonth) d hh mm ss ms
+    fromParts
+        { year = Year (wholeMonths // 12 + 1)
+        , month = modBy 12 wholeMonths + 1 |> numberToMonth
+        , day = dayOfMonth date
+        }
 
 
 shiftYear : Int -> CalendarDate -> CalendarDate
@@ -1948,7 +1952,7 @@ shiftQuarter n date =
 
 
 
--- shiftWeek unnecessary because you can just add `Days 7`
+-- NOTE shiftWeek unnecessary because you can just add `Days 7`
 
 
 {-| The number of whole months between date and 0001-01-01 plus fraction
@@ -1957,13 +1961,14 @@ representing the current month. Only used for diffing months.
 toMonths : CalendarDate -> Float
 toMonths date =
     let
-        ( y, m, d ) =
-            ( year date, month date, dayOfMonth date )
+        ( DayOfMonth dayInt, Year yearInt ) =
+            ( dayOfMonth date, year date )
 
         wholeMonths =
-            12 * (y - 1) + monthToNumber m - 1
+            12 * (yearInt - 1) + monthToNumber (month date) - 1
     in
-    toFloat wholeMonths + (toFloat d / 100) + (fractionalDay date / 100)
+    -- TODO why was it: toFloat wholeMonths + (toFloat d / 100) + (fractionalDay date / 100)
+    toFloat wholeMonths + (toFloat dayInt / 100)
 
 
 {-| Find the difference, as a number of whole intervals, between two dates.
@@ -1980,17 +1985,17 @@ Calendar.diff Month
 
 
 monthBoundariesBetween : CalendarDate -> CalendarDate -> Int
-monthBoundariesBetween =
+monthBoundariesBetween date1 date2 =
     toMonths date2 - toMonths date1 |> truncate
 
 
 yearBoundariesBetween : CalendarDate -> CalendarDate -> Int
-yearBoundariesBetween =
+yearBoundariesBetween date1 date2 =
     monthBoundariesBetween date1 date2 // 12
 
 
 quarterBoundariesBetween : CalendarDate -> CalendarDate -> Int
-quarterBoundariesBetween =
+quarterBoundariesBetween date1 date2 =
     monthBoundariesBetween date1 date2 // 3
 
 
@@ -1999,19 +2004,19 @@ quarterBoundariesBetween =
 ...But it's really just an alias for `countSpecificDOWBetween Sunday`, so if you want your weeks to start on `Monday`, feel free to switch to `countSpecificDOWBetween Monday`.
 
 -}
-weekBoundariesBetween =
-    diff Day date1 date2 // 7
-
-
-
--- wrong!?
+weekBoundariesBetween date1 date2 =
+    -- wrong!? this is the number of weeks between!
+    -- diff Day date1 date2 // 7
+    countSpecificDOWBetween Sun date1 date2
 
 
 {-| How many Tuesdays are between two dates? How about thursdays?
 This can figure that out for you. You specify the DayOfWeek, it adds them up.
 -}
-countSpecificDOWBetween =
-    diff Day (floor weekday date1) (floor weekday date2) // 7
+countSpecificDOWBetween : DayOfWeek -> CalendarDate -> CalendarDate -> Int
+countSpecificDOWBetween dow date1 date2 =
+    -- diff Day (floor weekday date1) (floor weekday date2) // 7
+    todo "count"
 
 
 
@@ -2021,81 +2026,82 @@ countSpecificDOWBetween =
 
 daysSincePreviousWeekday : DayOfWeek -> CalendarDate -> Int
 daysSincePreviousWeekday wd date =
-    (weekdayNumber date + 7 - weekdayToNumber wd) % 7
+    modBy 7 (weekdayNumber date + 7 - dayOfWeekToInt wd)
 
 
-{-| Round down a date to the beginning of the closest interval. The resulting
-date will be less than or equal to the one provided.
-Calendar.floor Hour
-(Calendar.fromParts 1999 Dec 31 23 59 59 999)
--- <31 December 1999, 23:00>
--}
-floor : CalendarUnit -> CalendarDate -> CalendarDate
-floor interval date =
-    case interval of
-        Millisecond ->
-            date
 
-        Second ->
-            fromParts (year date) (month date) (day date) (hour date) (minute date) (second date) 0
-
-        Minute ->
-            fromParts (year date) (month date) (day date) (hour date) (minute date) 0 0
-
-        Hour ->
-            fromParts (year date) (month date) (day date) (hour date) 0 0 0
-
-        Day ->
-            fromCalendarDate (year date) (month date) (day date)
-
-        Month ->
-            fromCalendarDate (year date) (month date) 1
-
-        Year ->
-            fromCalendarDate (year date) Jan 1
-
-        Quarter ->
-            fromCalendarDate (year date) (date |> quarter |> quarterToMonth) 1
-
-        Week ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Mon date)
-
-        Monday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Mon date)
-
-        Tuesday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Tue date)
-
-        Wednesday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Wed date)
-
-        Thursday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Thu date)
-
-        Friday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Fri date)
-
-        Saturday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Sat date)
-
-        Sunday ->
-            fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Sun date)
-
-
-{-| Round up a date to the beginning of the closest interval. The resulting
-date will be greater than or equal to the one provided.
-Calendar.ceiling Monday
-(Calendar.fromParts 1999 Dec 31 23 59 59 999)
--- <3 January 2000>
--}
-ceiling : CalendarUnit -> CalendarDate -> CalendarDate
-ceiling interval date =
-    let
-        floored =
-            date |> floor interval
-    in
-    if toTime date == toTime floored then
-        date
-
-    else
-        floored |> add interval 1
+-- {-| Round down a date to the beginning of the closest interval. The resulting
+-- date will be less than or equal to the one provided.
+-- Calendar.floor Hour
+-- (Calendar.fromParts 1999 Dec 31 23 59 59 999)
+-- -- <31 December 1999, 23:00>
+-- -}
+-- floor : CalendarUnit -> CalendarDate -> CalendarDate
+-- floor interval date =
+--     case interval of
+--         Millisecond ->
+--             date
+--
+--         Second ->
+--             fromParts (year date) (month date) (day date) (hour date) (minute date) (second date) 0
+--
+--         Minute ->
+--             fromParts (year date) (month date) (day date) (hour date) (minute date) 0 0
+--
+--         Hour ->
+--             fromParts (year date) (month date) (day date) (hour date) 0 0 0
+--
+--         Day ->
+--             fromCalendarDate (year date) (month date) (day date)
+--
+--         Month ->
+--             fromCalendarDate (year date) (month date) 1
+--
+--         Year ->
+--             fromCalendarDate (year date) Jan 1
+--
+--         Quarter ->
+--             fromCalendarDate (year date) (date |> quarter |> quarterToMonth) 1
+--
+--         Week ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Mon date)
+--
+--         Monday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Mon date)
+--
+--         Tuesday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Tue date)
+--
+--         Wednesday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Wed date)
+--
+--         Thursday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Thu date)
+--
+--         Friday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Fri date)
+--
+--         Saturday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Sat date)
+--
+--         Sunday ->
+--             fromRataDie ((date |> toRataDie) - daysSincePreviousWeekday Sun date)
+--
+--
+-- {-| Round up a date to the beginning of the closest interval. The resulting
+-- date will be greater than or equal to the one provided.
+-- Calendar.ceiling Monday
+-- (Calendar.fromParts 1999 Dec 31 23 59 59 999)
+-- -- <3 January 2000>
+-- -}
+-- ceiling : CalendarUnit -> CalendarDate -> CalendarDate
+-- ceiling interval date =
+--     let
+--         floored =
+--             date |> floor interval
+--     in
+--     if toTime date == toTime floored then
+--         date
+--
+--     else
+--         floored |> add interval 1
