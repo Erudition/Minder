@@ -14,8 +14,9 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
-import SmartTime.Human.Clock as Clock exposing (Zone)
+import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Duration exposing (HumanDuration(..))
+import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)

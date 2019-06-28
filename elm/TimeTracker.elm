@@ -27,8 +27,9 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (..)
-import SmartTime.Human.Clock as Clock exposing (Clock, toClock)
+import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
+import SmartTime.Human.Moment as HumanMoment
 import Task as Job
 import Time
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
@@ -145,9 +146,9 @@ writeTime : Environment -> String
 writeTime env =
     let
         nowClock =
-            toClock env.timeZone env.time
+            HumanMoment.extractTime env.timeZone env.time
     in
-    String.fromInt nowClock.hour ++ ":" ++ String.fromInt nowClock.minute
+    String.fromInt (Clock.hour nowClock) ++ ":" ++ String.fromInt (Clock.minute nowClock)
 
 
 viewIcon : Activity.Icon -> Html Msg

@@ -4,7 +4,7 @@ module Environment exposing (Environment, preInit)
 
 import Browser.Navigation as Nav exposing (..)
 import SmartTime.Human.Clock
-import SmartTime.Human.Moment exposing (Zone)
+import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
 
 

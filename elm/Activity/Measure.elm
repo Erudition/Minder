@@ -5,8 +5,8 @@ import AppData exposing (AppData)
 import Environment exposing (..)
 import ID
 import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Clock as Clock exposing (Zone)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
+import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (..)
 import Time.Distance exposing (..)
 import Time.Extra
