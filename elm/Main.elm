@@ -149,7 +149,7 @@ init maybeJson url maybeKey =
             updateWithTime (NewUrl url) startingModel
 
         effects =
-            [ Job.perform identity (Job.map2 SetZoneAndTime Clock.localZone Moment.now) -- reduces initial calls to update
+            [ Job.perform identity (Job.map2 SetZoneAndTime HumanMoment.localZone HumanMoment.now) -- reduces initial calls to update
             , firstEffects
             ]
     in
