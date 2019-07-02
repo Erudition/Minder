@@ -11,7 +11,7 @@ module SmartTime.Human.Calendar exposing
     , months, millisInADay
     , Year(..), Month(..), DayOfMonth(..)
     , millisSinceEpoch, millisSinceStartOfTheYear, millisSinceStartOfTheMonth
-    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, rollMonthForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -143,7 +143,11 @@ Nomenclature: We could have called this type "Day", but "Tuesday" could be calle
 
 -}
 type CalendarDate
-    = CalendarDate Int
+    = CalendarDate RataDie
+
+
+type alias RataDie =
+    Int
 
 
 type DayOfWeek
@@ -163,11 +167,6 @@ type alias CalendarParts =
     , month : Month
     , day : DayOfMonth
     }
-
-
-toParts : CalendarDate -> CalendarParts
-toParts date =
-    { year = year date, month = month date, day = dayOfMonth date }
 
 
 fromParts : CalendarParts -> CalendarDate
@@ -412,6 +411,63 @@ dayToInt (DayOfMonth day) =
     day
 
 
+{-| -}
+toOrdinalDate : CalendarDate -> { year : Year, ordinalDay : OrdinalDay }
+toOrdinalDate (CalendarDate rd) =
+    let
+        givenYear =
+            year (CalendarDate rd)
+    in
+    { year = givenYear
+    , ordinalDay = rd - daysBeforeYear givenYear
+    }
+
+
+{-| -}
+toParts : CalendarDate -> CalendarParts
+toParts (CalendarDate rd) =
+    let
+        date =
+            CalendarDate rd |> toOrdinalDate
+    in
+    calcDate date.year Jan date.ordinalDay
+
+
+{-| Recursively adds up months to get to the date number.
+-}
+calcDate : Year -> Month -> OrdinalDay -> CalendarParts
+calcDate givenYear givenMonth dayCounter =
+    let
+        monthSize =
+            daysInMonth givenYear givenMonth
+
+        monthsLeftToGo =
+            -- was `monthAsNumber < 12`
+            givenMonth /= Dec
+
+        monthOverFlow =
+            -- if the day count fits in the month, this must be the month!
+            -- otherwise, it's a later month
+            dayCounter > monthSize
+    in
+    if monthsLeftToGo && monthOverFlow then
+        let
+            nextMonthToCheck =
+                -- was `monthAsNumber + 1 |> numberToMonth`
+                nextMonth givenMonth
+
+            remainingDaysToCount =
+                dayCounter - monthSize
+        in
+        calcDate givenYear nextMonthToCheck remainingDaysToCount
+
+    else
+        { year = givenYear
+        , month = givenMonth
+        , day = DayOfMonth dayCounter
+        }
+
+
 
 -- Accessors
 
@@ -566,7 +622,7 @@ incrementMonth : CalendarDate -> CalendarDate
 incrementMonth givenDate =
     let
         updatedMonth =
-            rollMonthForward (month givenDate)
+            nextMonth (month givenDate)
 
         updatedYear =
             case updatedMonth of
@@ -596,13 +652,13 @@ incrementMonth givenDate =
 
 {-| Gets next month from the given month.
 
-    rollMonthForward Dec -- Jan : Month
+    nextMonth Dec -- Jan : Month
 
-    rollMonthForward Nov -- Dec : Month
+    nextMonth Nov -- Dec : Month
 
 -}
-rollMonthForward : Month -> Month
-rollMonthForward givenMonth =
+nextMonth : Month -> Month
+nextMonth givenMonth =
     case givenMonth of
         Jan ->
             Feb
@@ -1464,6 +1520,16 @@ year (CalendarDate rd) =
                 1
     in
     Year <| n400 * 400 + n100 * 100 + n4 * 4 + n1 + n
+
+
+firstOfYear : Year -> CalendarDate
+firstOfYear givenYear =
+    CalendarDate <| daysBeforeYear givenYear + 1
+
+
+firstOfMonth : Year -> Month -> CalendarDate
+firstOfMonth givenYear givenMonth =
+    CalendarDate <| daysBeforeYear givenYear + daysBeforeMonth givenYear givenMonth + 1
 
 
 {-| integer division, returning (Quotient, Remainder)

@@ -39,6 +39,7 @@ import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Moment as Moment exposing (Moment)
+import Task as Job
 import Time as ElmTime exposing (Zone)
 
 
@@ -54,14 +55,14 @@ utc =
 -}
 localZone : Job.Task x Moment
 localZone =
-    Job.map fromElmTime ElmTime.here
+    Job.map Moment.fromElmTime ElmTime.here
 
 
-{-| Get the `Zone` where the user is!
+{-| Get just the date where the user is. Useful if you are working only with dates.
 -}
 today : Job.Task x CalendarDate
 today =
-    Job.map (fromElmTime << extractDate) ElmTime.here
+    Job.map (Moment.fromElmTime << extractDate) ElmTime.here
 
 
 
@@ -175,34 +176,9 @@ Date.fromParts 2001 Feb 29 24 60 60 1000
 -- <28 February 2001, 23:59:59.999>
 
 -}
-fromParts : Int -> Calendar.Month -> Int -> Int -> Int -> Int -> Int -> Moment
-fromParts y m d hh mm ss ms =
-    Debug.todo "Is this a good idea?"
-
-
 fromDateAtMidnight : CalendarDate -> Zone -> Moment
 fromDateAtMidnight calendarDate zone =
     Debug.todo "date with midnight"
-
-
-mapDate : (CalendarDate -> CalendarDate) -> Moment -> Moment
-mapDate function moment =
-    -- let
-    --     ( time, date ) =
-    --         humanize moment utc
-    -- in
-    -- fromDateAndTime (function date) time
-    Debug.todo "do we need this?"
-
-
-mapTime : (TimeOfDay -> TimeOfDay) -> Moment -> Moment
-mapTime function moment =
-    -- let
-    --     ( time, date ) =
-    --         humanize moment
-    -- in
-    -- fromDateAndTime date (function time)
-    Debug.todo "do we need this?"
 
 
 extractTime : Zone -> Moment -> TimeOfDay
@@ -391,7 +367,7 @@ dayPeriod : Moment -> DayPeriod
 dayPeriod moment =
     let
         time =
-            Clock.fromMoment moment
+            extractTime Zone Moment moment
     in
     if Clock.isMidnight time then
         Midnight
@@ -941,59 +917,8 @@ humanize moment zone =
     Debug.todo "humanize"
 
 
-{-| Extract the `Year` part of a `Moment` as an Int.
 
-    -- dateTime == 25 Dec 2019 16:45:30.000
-    getYear dateTime -- 2019 : Int
-
--}
-getYear : Moment -> Calendar.Year
-getYear =
-    Calendar.year << Calendar.fromMoment
-
-
-{-| Extract the `Month` part of a `Moment` as a [Month](https://package.elm-lang.org/packages/elm/time/latest/Time#Month).
-
-    -- dateTime == 25 Dec 2019 16:45:30.000
-    getMonth dateTime -- Dec : Time.Month
-
--}
-getMonth : Moment -> Calendar.Month
-getMonth =
-    Calendar.month << Calendar.fromMoment
-
-
-{-| Extract the `Day` part of `Moment` as an Int.
-
-    -- dateTime == 25 Dec 2019 16:45:30.000
-    getDay dateTime -- 25 : Int
-
--}
-getDay : Moment -> Calendar.DayOfMonth
-getDay =
-    Calendar.dayOfMonth << Calendar.fromMoment
-
-
-{-| Extract the `Hour` part of `Moment` as an Int.
-
-    -- dateTime == 25 Dec 2019 16:45:30.000
-    getHours dateTime -- 16 : Int
-
--}
-getHours : Moment -> Int
-getHours =
-    Clock.hour << Clock.fromMoment
-
-
-{-| Extract the `Minute` part of `Moment` as an Int.
-
-    -- dateTime == 25 Dec 2019 16:45:30.000
-    getMinutes dateTime -- 45 : Int
-
--}
-getMinutes : Moment -> Int
-getMinutes =
-    Clock.minute << extractTime zone
+-- NO ZONE REQUIRED
 
 
 {-| Extract the `Second` part of `DateTime` as an Int.
@@ -1043,102 +968,6 @@ setDate date zone moment =
 setTime : TimeOfDay -> Zone -> Moment -> Moment
 setTime time zone moment =
     Debug.todo "setTime"
-
-
-
--- Increment values
-
-
-{-| Increments the `Year` in a given [Moment](Moment#Moment) while preserving the `Month`, and `Day` parts.
-_The [Time](Clock#Time) related parts will remain the same._
-
-    -- dateTime  == 31 Jan 2019 15:30:45.100
-    incrementYear dateTime -- 31 Jan 2020 15:30:45.100 : Moment
-
-    -- dateTime2 == 29 Feb 2020 15:30:45.100
-    incrementYear dateTime2 -- 28 Feb 2021 15:30:45.100 : Moment
-
-**Note:** In the first example, incrementing the `Year` causes no changes in the `Month` and `Day` parts.
-On the second example we see that the `Day` part is different than the input. This is because the resulting date in the `Moment`
-would be an invalid date ( _**29th of February 2021**_ ). As a result of this scenario we fall back to the last valid day
-of the given `Month` and `Year` combination.
-
--}
-incrementYear : Moment -> Moment
-incrementYear moment =
-    Debug.todo "do we need this?"
-
-
-{-| Increments the `Month` in a given [Moment](Moment#Moment). It will also roll over to the next year where applicable.
-_The [Time](Clock#Time) related parts will remain the same._
-
-    -- dateTime  == 15 Sep 2019 15:30:45.100
-    incrementMonth dateTime -- 15 Oct 2019 15:30:45.100 : Moment
-
-    -- dateTime2 == 15 Dec 2019 15:30:45.100
-    incrementMonth dateTime2 -- 15 Jan 2020 15:30:45.100 : Moment
-
-    -- dateTime3 == 30 Jan 2019 15:30:45.100
-    incrementMonth dateTime3 -- 28 Feb 2019 15:30:45.100 : Moment
-
-**Note:** In the first example, incrementing the `Month` causes no changes in the `Year` and `Day` parts while on the second
-example it rolls forward the 'Year'. On the last example we see that the `Day` part is different than the input. This is because
-the resulting date would be an invalid one ( _**31st of February 2019**_ ). As a result of this scenario we fall back to the last
-valid day of the given `Month` and `Year` combination.
-
--}
-incrementMonth : Moment -> Moment
-incrementMonth moment =
-    Debug.todo "do we need this?"
-
-
-
--- Decrement values
-
-
-{-| Decrements the `Year` in a given [Moment](Moment#Moment) while preserving the `Month` and `Day`.
-_The [Time](Clock#Time) related parts will remain the same._
-
-    -- dateTime  == 31 Jan 2019 15:30:45.100
-    decrementYear dateTime -- 31 Jan 2018 15:30:45.100 : Moment
-
-    -- dateTime2 == 29 Feb 2020 15:30:45.100
-    decrementYear dateTime2 -- 28 Feb 2019 15:30:45.100 : Moment
-
-**Note:** In the first example, decrementing the `Year` causes no changes in the `Month` and `Day` parts.
-On the second example we see that the `Day` part is different than the input. This is because the resulting date in the `Moment`
-would be an invalid date ( _**29th of February 2019**_ ). As a result of this scenario we fall back to the last valid day
-of the given `Month` and `Year` combination.
-
--}
-decrementYear : Moment -> Moment
-decrementYear moment =
-    Debug.todo "do we need this?"
-
-
-{-| Decrements the `Month` in a given [Moment](Moment#Moment). It will also roll backwards to the previous year where applicable.
-_The [Time](Clock#Time) related parts will remain the same._
-
-    -- dateTime  == 15 Sep 2019 15:30:45.100
-    decrementMonth dateTime -- 15 Aug 2019 15:30:45.100 : Moment
-
-    -- dateTime2 == 15 Jan 2020 15:30:45.100
-    decrementMonth dateTime2 -- 15 Dec 2019 15:30:45.100 : Moment
-
-    -- dateTime3 == 31 Dec 2019 15:30:45.100
-    decrementMonth dateTime3 -- 30 Nov 2019 15:30:45.100 : Moment
-
-**Note:** In the first example, decrementing the `Month` causes no changes in the `Year` and `Day` parts while
-on the second example it rolls backwards the `Year`. On the last example we see that the `Day` part is different
-than the input. This is because the resulting date would be an invalid one ( _**31st of November 2019**_ ). As a result
-of this scenario we fall back to the last valid day of the given `Month` and `Year` combination.
-
--- PTA: need decrement Day? just add a `Days 1` duration!
-
--}
-decrementMonth : Moment -> Moment
-decrementMonth moment =
-    mapDate Calendar.decrementMonth moment
 
 
 
