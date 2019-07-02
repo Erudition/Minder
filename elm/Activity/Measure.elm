@@ -94,7 +94,7 @@ timelineLimit timeline now pastLimit =
 {-| Given a HumanDuration, how far back in time would it reach?
 This returns that Moment in history.
 
-For fixed distances, that's easy, but variable intervals could be far back or just a millisecond ago.
+For fixed distances, that's easy -- but variable intervals could be far back or just a millisecond ago.
 
 -}
 lookBack : Moment -> HumanDuration -> Moment

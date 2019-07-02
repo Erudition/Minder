@@ -11,7 +11,7 @@ module SmartTime.Human.Calendar exposing
     , months, millisInADay
     , Year(..), Month(..), DayOfMonth(..)
     , millisSinceEpoch, millisSinceStartOfTheYear, millisSinceStartOfTheMonth
-    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePrevious, difference, divideInt, equal, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -409,7 +409,7 @@ toParts (CalendarDate rd) =
     calcDate date.year Jan date.ordinalDay
 
 
-{-| Recursively adds up months to get to the date number.
+{-| Recursively adds up months to get to the given date number.
 -}
 calcDate : Year -> Month -> OrdinalDay -> CalendarParts
 calcDate givenYear givenMonth dayCounter =
@@ -2056,8 +2056,7 @@ This can figure that out for you. You specify the DayOfWeek, it adds them up.
 -}
 countSpecificDOWBetween : DayOfWeek -> CalendarDate -> CalendarDate -> Int
 countSpecificDOWBetween dow date1 date2 =
-    -- diff Day (floor weekday date1) (floor weekday date2) // 7
-    todo "count"
+    difference (toPrevious dow date1) (toPrevious dow date2) // 7
 
 
 
@@ -2065,13 +2064,44 @@ countSpecificDOWBetween dow date1 date2 =
 -- Round
 
 
-daysSincePreviousWeekday : DayOfWeek -> CalendarDate -> Int
-daysSincePreviousWeekday wd givenDate =
+{-| How many days since last Tuesday?
+
+    daysSincePrevious Tue today
+    -- == 3
+
+Returns the number of days since the last time it was the given `dayOfWeek`, from the standpoint of the given date.
+
+-}
+daysSincePrevious : DayOfWeek -> CalendarDate -> Int
+daysSincePrevious givenDoW givenDate =
     let
         dayOfWeekAsInt =
             dayOfWeekToInt (dayOfWeek givenDate)
     in
-    modBy 7 (dayOfWeekAsInt + 7 - dayOfWeekToInt wd)
+    modBy 7 (dayOfWeekAsInt + 7 - dayOfWeekToInt givenDoW)
+
+
+{-| Slide a date back to the given `DayOfWeek`.
+-}
+toPrevious : DayOfWeek -> CalendarDate -> CalendarDate
+toPrevious givenDoW givenDate =
+    let
+        (CalendarDate givenDateRD) =
+            givenDate
+    in
+    CalendarDate (givenDateRD - daysSincePrevious givenDoW givenDate)
+
+
+{-| Slide a date forward to the given `DayOfWeek`.
+-}
+toNext : DayOfWeek -> CalendarDate -> CalendarDate
+toNext givenDoW givenDate =
+    let
+        (CalendarDate givenDateRD) =
+            givenDate
+    in
+    -- Don't call it cheating!
+    toPrevious givenDoW (CalendarDate (givenDateRD + 7))
 
 
 
