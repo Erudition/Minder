@@ -34,14 +34,12 @@ Then, when changing a fixed time, we do the usual: use the local zone to display
 
 -}
 
-import Date exposing (Month(..))
-import Date.Extra as Date
 import Regex exposing (Regex)
-import SmartTime.Duration as Duration
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
-import SmartTime.Moment exposing (Moment, commonEraStart)
+import SmartTime.Moment as Moment exposing (Moment, commonEraStart)
 import Task as Job
 import Time as ElmTime exposing (Zone)
 
@@ -182,20 +180,6 @@ Date.fromParts 2001 Feb 29 24 60 60 1000
 fromDateAtMidnight : CalendarDate -> Zone -> Moment
 fromDateAtMidnight calendarDate zone =
     Debug.todo "date with midnight"
-
-
-extractTime : Zone -> Moment -> TimeOfDay
-extractTime zone moment =
-    Debug.todo "clock from moment"
-
-
-extractDate : Zone -> Moment -> CalendarDate
-extractDate zone moment =
-    let
-        ( date, _ ) =
-            humanize zone moment
-    in
-    date
 
 
 
@@ -788,19 +772,19 @@ format asUtc date match =
 
 toFormattedString_ : Bool -> String -> Moment -> String
 toFormattedString_ asUtc pattern moment =
-    let
-        date_ =
-            if asUtc then
-                Calendar.fromMoment <| thing
-
-            else
-                Debug.todo "moment"
-
-        thing =
-            -- was: Date.toTime moment - (offsetFromUtc date * msPerMinute |> toFloat)
-            Debug.todo "fix this"
-    in
-    -- Regex.replace All patternMatches (.match >> format asUtc date_) pattern
+    -- let
+    --     date_ =
+    --         if asUtc then
+    --             extractDate zone <| thing
+    --
+    --         else
+    --             Debug.todo "moment"
+    --
+    --     thing =
+    --         -- was: Date.toTime moment - (offsetFromUtc date * msPerMinute |> toFloat)
+    --         Debug.todo "fix this"
+    -- in
+    -- -- Regex.replace All patternMatches (.match >> format asUtc date_) pattern
     Debug.todo "format string"
 
 
@@ -918,16 +902,42 @@ Feel free to ditch the part you don't need:
 But if you really only need the Date or the Time, consider just using the `fromMoment` functions in `Clock` or `Calendar`, respectively.
 
 -}
-humanize : Moment -> Zone -> ( CalendarDate, TimeOfDay )
-humanize moment zone =
+humanize : Zone -> Moment -> ( CalendarDate, TimeOfDay )
+humanize zone moment =
     let
-        days =
-            Moment.toSmartInt moment // Duration.dayLength
+        localMomentDur =
+            localize zone moment
 
-        remains =
-            remains
+        daysSinceEpoch =
+            Duration.inWholeDays localMomentDur
+
+        remaining =
+            Duration.subtract localMomentDur (Duration.fromDays (toFloat daysSinceEpoch))
     in
-    ( Calendar.fromRataDie (Moment.toDuration moment TAI commonEraStart), Duration.fromInt remains )
+    ( Calendar.fromRataDie daysSinceEpoch, remaining )
+
+
+extractDate : Zone -> Moment -> CalendarDate
+extractDate zone moment =
+    Tuple.first (humanize zone moment)
+
+
+extractTime : Zone -> Moment -> TimeOfDay
+extractTime zone moment =
+    Tuple.second (humanize zone moment)
+
+
+localize : Zone -> Moment -> Duration
+localize zone moment =
+    let
+        momentAsDur =
+            Moment.toDuration moment Moment.TAI commonEraStart
+
+        zoneOffset =
+            -- TODO use `zone`
+            0
+    in
+    Duration.add momentAsDur (Duration.fromMinutes zoneOffset)
 
 
 

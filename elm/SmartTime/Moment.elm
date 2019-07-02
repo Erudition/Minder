@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment, TimeScale(..), compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, linearFromUTC, moment, now, past, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, since, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
 
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job

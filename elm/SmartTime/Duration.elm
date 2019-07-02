@@ -355,6 +355,16 @@ scale (Duration dur) scalar =
     Duration <| round (toFloat dur * scalar)
 
 
+{-| How many of the second duration can fit into the first?
+
+If you're dividing by a standard unit (Hour, Day, Week) you might as well just use the respective `inHours`, `inDays`, `inWeeks`, etc. instead.
+
+-}
+divide : Duration -> Duration -> Int
+divide (Duration durBig) (Duration durSmall) =
+    durBig // durSmall
+
+
 
 -- {-| Map onto a duration any function that deals with `Int`s.
 -- If for some reason the functions provided in this library aren't enough, this is your guy!

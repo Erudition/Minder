@@ -235,7 +235,7 @@ decodeDurationPerPeriod =
 
 encodeHumanDuration : HumanDuration -> Encode.Value
 encodeHumanDuration humanDuration =
-    Encode.int <| Duration.inMs (toDuration humanDuration)
+    Encode.int <| Duration.inMs (dur humanDuration)
 
 
 decodeHumanDuration : Decode.Decoder HumanDuration

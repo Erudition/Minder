@@ -99,7 +99,7 @@ For fixed distances, that's easy, but variable intervals could be far back or ju
 -}
 lookBack : Moment -> HumanDuration -> Moment
 lookBack present humanDuration =
-    Moment.past present (toDuration humanDuration)
+    Moment.past present (dur humanDuration)
 
 
 relevantTimeline : Timeline -> Moment -> HumanDuration -> Timeline
@@ -179,7 +179,7 @@ excusedUsage timeline now ( activityID, activity ) =
 -}
 excusableLimit : Activity -> Duration
 excusableLimit activity =
-    toDuration (Tuple.first (Activity.excusableFor activity))
+    dur (Tuple.first (Activity.excusableFor activity))
 
 
 {-| Total time NOT used within the excused window.
