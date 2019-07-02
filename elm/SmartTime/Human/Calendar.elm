@@ -479,8 +479,8 @@ calcDate givenYear givenMonth dayCounter =
 
 -}
 month : CalendarDate -> Month
-month date =
-    todo "get month"
+month =
+    toParts >> .month
 
 
 {-| Extract the `DayOfMonth` part of a [Date](Calendar#Date).

@@ -15,7 +15,7 @@ import Html.Styled.Events exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import SmartTime.Human.Clock as Clock
-import SmartTime.Human.Duration exposing (HumanDuration(..))
+import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
@@ -45,7 +45,7 @@ subscriptions ({ appData, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          Clock.every (Minutes 1) (Tock NoOp)
+          Moment.every (dur (Minutes 1)) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         ]
 
@@ -149,7 +149,7 @@ init maybeJson url maybeKey =
             updateWithTime (NewUrl url) startingModel
 
         effects =
-            [ Job.perform identity (Job.map2 SetZoneAndTime HumanMoment.localZone HumanMoment.now) -- reduces initial calls to update
+            [ Job.perform identity (Job.map2 SetZoneAndTime HumanMoment.localZone Moment.now) -- reduces initial calls to update
             , firstEffects
             ]
     in

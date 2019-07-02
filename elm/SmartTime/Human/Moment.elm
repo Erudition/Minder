@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), Zone, dayPeriod, decrementMonth, decrementYear, extractTime, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromDateAndTime, fromDateAtMidnight, fromParts, getDay, getHours, getMilliseconds, getMinutes, getMonth, getSeconds, getYear, humanize, incrementMonth, incrementYear, mapDate, mapTime, ordinalSuffix, patternMatches, setDate, setTime, toFormattedString, toFormattedString_, toIsoString, toUtcFormattedString, toUtcIsoString, utc, withOrdinalSuffix)
+module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), Zone, dayPeriod, extractDate, extractTime, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromDateAndTime, fromDateAtMidnight, getMilliseconds, getSeconds, humanize, localZone, ordinalSuffix, patternMatches, setDate, setTime, toFormattedString, toFormattedString_, toIsoString, toUtcFormattedString, toUtcIsoString, today, utc, withOrdinalSuffix)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -38,6 +38,7 @@ import Regex exposing (Regex)
 import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Time as ElmTime exposing (Zone)
@@ -53,16 +54,16 @@ utc =
 
 {-| Get the `Zone` where the user is!
 -}
-localZone : Job.Task x Moment
+localZone : Job.Task x Zone
 localZone =
-    Job.map Moment.fromElmTime ElmTime.here
+    ElmTime.here
 
 
 {-| Get just the date where the user is. Useful if you are working only with dates.
 -}
 today : Job.Task x CalendarDate
 today =
-    Job.map (Moment.fromElmTime << extractDate) ElmTime.here
+    Job.map2 extractDate localZone Moment.now
 
 
 
@@ -363,11 +364,11 @@ type DayPeriod
     | PM
 
 
-dayPeriod : Moment -> DayPeriod
-dayPeriod moment =
+dayPeriod : Zone -> Moment -> DayPeriod
+dayPeriod zone moment =
     let
         time =
-            extractTime Zone Moment moment
+            extractTime zone moment
     in
     if Clock.isMidnight time then
         Midnight
