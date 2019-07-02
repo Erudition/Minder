@@ -9109,11 +9109,12 @@ var author$project$SmartTime$Human$Duration$toDuration = function (humanDuration
 			return A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aMillisecond, milliseconds);
 	}
 };
+var author$project$SmartTime$Human$Duration$dur = author$project$SmartTime$Human$Duration$toDuration;
 var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Activity$Activity$encodeHumanDuration = function (humanDuration) {
 	return elm$json$Json$Encode$int(
 		author$project$SmartTime$Duration$inMs(
-			author$project$SmartTime$Human$Duration$toDuration(humanDuration)));
+			author$project$SmartTime$Human$Duration$dur(humanDuration)));
 };
 var author$project$Porting$homogeneousTuple2AsArray = F2(
 	function (encoder, _n0) {
@@ -16234,7 +16235,7 @@ var author$project$Activity$Activity$excusableFor = function (activity) {
 	}
 };
 var author$project$Activity$Measure$excusableLimit = function (activity) {
-	return author$project$SmartTime$Human$Duration$toDuration(
+	return author$project$SmartTime$Human$Duration$dur(
 		author$project$Activity$Activity$excusableFor(activity).a);
 };
 var author$project$SmartTime$Duration$subtract = F2(
@@ -16254,7 +16255,7 @@ var author$project$Activity$Measure$lookBack = F2(
 		return A2(
 			author$project$SmartTime$Moment$past,
 			present,
-			author$project$SmartTime$Human$Duration$toDuration(humanDuration));
+			author$project$SmartTime$Human$Duration$dur(humanDuration));
 	});
 var author$project$Activity$Activity$dummy = author$project$ID$tag(0);
 var author$project$SmartTime$Moment$compare = F2(
@@ -17413,7 +17414,6 @@ var author$project$Main$initGraphical = F3(
 			elm$core$Maybe$Just(key));
 	});
 var author$project$Main$NoOp = {$: 'NoOp'};
-var author$project$SmartTime$Human$Duration$dur = author$project$SmartTime$Human$Duration$toDuration;
 var elm$time$Time$Every = F2(
 	function (a, b) {
 		return {$: 'Every', a: a, b: b};
