@@ -34,12 +34,14 @@ Then, when changing a fixed time, we do the usual: use the local zone to display
 
 -}
 
+import Date exposing (Month(..))
+import Date.Extra as Date
 import Regex exposing (Regex)
 import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
-import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.Moment exposing (Moment, commonEraStart)
 import Task as Job
 import Time as ElmTime exposing (Zone)
 
@@ -189,7 +191,11 @@ extractTime zone moment =
 
 extractDate : Zone -> Moment -> CalendarDate
 extractDate zone moment =
-    Debug.todo "date from moment"
+    let
+        ( date, _ ) =
+            humanize zone moment
+    in
+    date
 
 
 
@@ -914,8 +920,14 @@ But if you really only need the Date or the Time, consider just using the `fromM
 -}
 humanize : Moment -> Zone -> ( CalendarDate, TimeOfDay )
 humanize moment zone =
-    -- ( Calendar.fromMoment moment zone, Clock.fromMoment moment zone )
-    Debug.todo "humanize"
+    let
+        days =
+            Moment.toSmartInt moment // Duration.dayLength
+
+        remains =
+            remains
+    in
+    ( Calendar.fromRataDie (Moment.toDuration moment TAI commonEraStart), Duration.fromInt remains )
 
 
 

@@ -11,7 +11,7 @@ module SmartTime.Human.Calendar exposing
     , months, millisInADay
     , Year(..), Month(..), DayOfMonth(..)
     , millisSinceEpoch, millisSinceStartOfTheYear, millisSinceStartOfTheMonth
-    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePreviousWeekday, difference, divideInt, equal, fromInts, fromMoment, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -220,30 +220,6 @@ type DayOfMonth
 
 
 -- Creating a `Date`
-
-
-{-| Construct a [Date](Calendar#Date) from a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix) time.
-You can construct a `Posix` time from milliseconds using the [millisToPosix](https://package.elm-lang.org/packages/elm/time/latest/Time#millisToPosix)
-function located in the [elm/time](https://package.elm-lang.org/packages/elm/time/latest/) package.
-
-    fromPosix (Time.millisToPosix 0)
-    -- Date { day = DayOfMonth 1, month = Jan, year = Year 1970 } : Date
-
-    fromPosix (Time.millisToPosix 1566795954000)
-    -- Date { day = DayOfMonth 26, month = Aug, year = Year 2019 } : Date
-
-    fromPosix (Time.millisToPosix 1566777600000)
-    -- Date { day = DayOfMonth 26, month = Aug, year = Year 2019 } : Date
-
-Notice that in the second and third examples the timestamps that are used are different but the resulting [Dates](Calendar#Date) are identical.
-This is because the [Calendar](Calendar#) module doesn't have any knowledge of `Time` which means that if we attempt to convert both of these dates back [toMillis](Calendar#toMillis)
-they will result in the same milliseconds. It is recommended using the [fromPosix](DateTime#fromPosix) function provided in the [DateTime](DateTime#)
-module if you need to preserve both `Date` and `Time`.
-
--}
-fromMoment : Moment -> CalendarDate
-fromMoment moment =
-    todo "fromMoment"
 
 
 {-| Attempt to create a `Date` from its constituent Year and Month by using its raw day.
@@ -492,8 +468,8 @@ month =
 
 -}
 dayOfMonth : CalendarDate -> DayOfMonth
-dayOfMonth date =
-    todo "get DayOfMonth"
+dayOfMonth =
+    toParts >> .day
 
 
 {-| Returns the weekday of a specific [CalendarDate](Calendar#CalendarDate).
@@ -503,8 +479,17 @@ dayOfMonth date =
 
 -}
 dayOfWeek : CalendarDate -> DayOfWeek
-dayOfWeek date =
-    todo "get DayOfWeek"
+dayOfWeek (CalendarDate rd) =
+    let
+        dayNum =
+            case modBy rd 7 of
+                0 ->
+                    7
+
+                n ->
+                    n
+    in
+    numberToDayOfWeek dayNum
 
 
 
@@ -1539,19 +1524,6 @@ divideInt a b =
     ( a // b, remainderBy a b )
 
 
-{-| Extract the weekday number (beginning at 1 for Monday) of a date. Given
-the date 23 June 1990 at 11:45 a.m. this returns the integer 6.
--}
-weekdayNumber : CalendarDate -> Int
-weekdayNumber (CalendarDate rd) =
-    case modBy rd 7 of
-        0 ->
-            7
-
-        n ->
-            n
-
-
 daysBeforeYear : Year -> Int
 daysBeforeYear (Year givenYearInt) =
     let
@@ -1569,21 +1541,21 @@ daysBeforeWeekBasedYear (WeekBasedYear wby) =
     let
         jan4 =
             daysBeforeYear (Year wby) + 4
+
+        dayOfWeekAsInt date =
+            dayOfWeekToInt (dayOfWeek date)
     in
-    jan4 - weekdayNumber (CalendarDate jan4)
+    jan4 - dayOfWeekAsInt (CalendarDate jan4)
 
 
-is53WeekYear : Int -> Bool
-is53WeekYear y =
+is53WeekYear : Year -> Bool
+is53WeekYear givenYear =
     let
-        whatIsThis =
-            daysBeforeYear (Year y) + 1
-
-        wdnJan1 =
-            weekdayNumber (CalendarDate whatIsThis)
+        jan1 =
+            dayOfWeek (firstOfYear givenYear)
     in
     -- any year starting on Thursday and any leap year starting on Wednesday
-    wdnJan1 == 4 || (wdnJan1 == 3 && isLeapYear (Year y))
+    jan1 == Thu || (jan1 == Wed && isLeapYear givenYear)
 
 
 type WeekBasedYear
@@ -1594,14 +1566,17 @@ type WeekBasedYear
 1990 at 11:45 a.m. this returns the integer 1990.
 -}
 weekBasedYear : CalendarDate -> WeekBasedYear
-weekBasedYear date =
+weekBasedYear givenDate =
     let
         (CalendarDate rd) =
-            date
+            givenDate
+
+        dayOfWeekAsInt =
+            dayOfWeekToInt (dayOfWeek givenDate)
 
         (Year actuallyWeekBasedYear) =
             -- `year <thursday of this week>`
-            year (CalendarDate (rd + (4 - weekdayNumber date)))
+            year (CalendarDate (rd + (4 - dayOfWeekAsInt)))
     in
     WeekBasedYear actuallyWeekBasedYear
 
@@ -1662,7 +1637,7 @@ fromWeekParts givenWBY wn wdn =
     if
         (wdn |> intIsBetween 1 7)
             && ((wn |> intIsBetween 1 52)
-                    || (wn == 53 && is53WeekYear wby)
+                    || (wn == 53 && is53WeekYear (Year wby))
                )
     then
         Ok <| CalendarDate <| daysBeforeWeekBasedYear givenWBY + (wn - 1) * 7 + wdn
@@ -1700,7 +1675,7 @@ fromWeekDate givenWBY wn wd =
             givenWBY
 
         weeksInWY =
-            if is53WeekYear wy then
+            if is53WeekYear (Year wy) then
                 53
 
             else
@@ -2091,8 +2066,12 @@ countSpecificDOWBetween dow date1 date2 =
 
 
 daysSincePreviousWeekday : DayOfWeek -> CalendarDate -> Int
-daysSincePreviousWeekday wd date =
-    modBy 7 (weekdayNumber date + 7 - dayOfWeekToInt wd)
+daysSincePreviousWeekday wd givenDate =
+    let
+        dayOfWeekAsInt =
+            dayOfWeekToInt (dayOfWeek givenDate)
+    in
+    modBy 7 (dayOfWeekAsInt + 7 - dayOfWeekToInt wd)
 
 
 
