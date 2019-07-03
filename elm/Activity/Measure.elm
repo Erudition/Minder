@@ -77,7 +77,7 @@ timelineLimit timeline now pastLimit =
             id
 
         recentEnough (Switch moment _) =
-            Moment.compare moment pastLimit == GT
+            Moment.compare moment pastLimit == Later
 
         ( pass, fail ) =
             List.partition recentEnough timeline
@@ -110,14 +110,13 @@ relevantTimeline timeline now duration =
 justToday : Timeline -> ( Moment, Zone ) -> Timeline
 justToday timeline ( now, zone ) =
     let
-        lastMidnight =
-            fromElmTime <| Time.Extra.floor Time.Extra.Day zone (toElmTime now)
+        threeAM =
+            Duration.fromHours 3
 
-        -- TODO: what if between midnight and 3am
-        -- last3am =
-        --     Time.Extra.add Time.Extra.Hour 3 zone lastMidnight
+        last3am =
+            HumanMoment.clockTurnBack threeAM zone now
     in
-    timelineLimit timeline now lastMidnight
+    timelineLimit timeline now last3am
 
 
 justTodayTotal : Timeline -> Environment -> ActivityID -> Duration

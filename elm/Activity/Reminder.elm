@@ -51,7 +51,7 @@ scheduleExcusedReminders now maxExcused timeLeft =
             abbreviatedSpaced <| breakdownHM durLeft
 
         yetToPass reminder =
-            Moment.compare reminder.scheduledFor now == GT
+            Moment.compare reminder.scheduledFor now == Moment.Later
     in
     if not (Duration.isZero timeLeft) then
         List.filter yetToPass
