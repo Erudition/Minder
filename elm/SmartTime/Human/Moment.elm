@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), Zone, dayPeriod, extractDate, extractTime, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromDateAndTime, fromDateAtMidnight, getMilliseconds, getSeconds, humanize, localZone, ordinalSuffix, patternMatches, setDate, setTime, toFormattedString, toFormattedString_, toIsoString, toUtcFormattedString, toUtcIsoString, today, utc, withOrdinalSuffix)
+module SmartTime.Human.Moment exposing (DayPeriod(..), FormatStyle(..), Zone, clockTurnBack, clockTurnForward, dayPeriod, extractDate, extractTime, format, formatStyleFromLength, formatTimeOffset, fractionalDay, fromDateAndTime, fromDateAtMidnight, getMilliseconds, getOffsetMinutes, getSeconds, humanize, importElmMonth, localZone, localize, makeZone, ordinalSuffix, patternMatches, setDate, setTime, toFormattedString, toFormattedString_, toIsoString, toUtcFormattedString, toUtcIsoString, today, utc, withOrdinalSuffix)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -39,24 +39,47 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
-import SmartTime.Moment as Moment exposing (Moment, commonEraStart)
+import SmartTime.Moment as Moment exposing (ElmTime, Moment, commonEraStart)
 import Task as Job
-import Time as ElmTime exposing (Zone)
+import Time as ElmTime
+import Time.Extra exposing (Parts, partsToPosix, toOffset)
 
 
+{-| -}
 type alias Zone =
-    ElmTime.Zone
+    -- can't use Elm zones because they're not exposed to us
+    { defaultOffset : Duration
+    , name : String
+    , history : List ( Moment, Duration )
+    }
 
 
+utc : Zone
 utc =
-    ElmTime.utc
+    { defaultOffset = Duration.fromMinutes 0, name = "Universal", history = [] }
 
 
 {-| Get the `Zone` where the user is!
 -}
 localZone : Job.Task x Zone
 localZone =
-    ElmTime.here
+    Job.map3 makeZone ElmTime.getZoneName ElmTime.here ElmTime.now
+
+
+makeZone : ElmTime.ZoneName -> ElmTime.Zone -> ElmTime -> Zone
+makeZone elmZoneName elmZone now =
+    case elmZoneName of
+        ElmTime.Name zoneName ->
+            { defaultOffset = Duration.fromMinutes (toFloat (getOffsetMinutes elmZone now))
+            , name = zoneName
+            , history = [] -- should be supported one day
+            }
+
+        ElmTime.Offset offsetMinutes ->
+            { defaultOffset = Duration.fromMinutes (toFloat offsetMinutes)
+            , name = "Unsupported"
+            , history = []
+            }
 
 
 {-| Get just the date where the user is. Useful if you are working only with dates.
@@ -66,93 +89,117 @@ today =
     Job.map2 extractDate localZone Moment.now
 
 
+{-| What is the offset from UTC, in minutes, for this `Zone` at this
+`Posix` time?
+import Time exposing (Month(..))
+import Time.Extra exposing (Parts, partsToPosix, toOffset)
+toOffset nyc
+(partsToPosix nyc (Parts 2018 Sep 26 10 30 0 0))
+== -240
+-- assuming `nyc` is a `Zone` for America/New\_York
+**Note:** It's possible to verify the example above by using time zone data
+from the package [justinmimbs/timezone-data][tzdata] to define `nyc`:
+import TimeZone
+nyc =
+TimeZone.america\__new_york ()
+[tzdata]: <https://package.elm-lang.org/packages/justinmimbs/timezone-data/latest/>
+-}
+getOffsetMinutes : ElmTime.Zone -> ElmTime -> Int
+getOffsetMinutes zone elmTime =
+    let
+        zonedDate =
+            Calendar.fromRawParts (ElmTime.toYear zone elmTime) (importElmMonth (ElmTime.toMonth zone elmTime)) (ElmTime.toDay zone elmTime)
 
+        zonedTime =
+            Clock.clock (ElmTime.toHour zone elmTime) (ElmTime.toMinute zone elmTime) (ElmTime.toSecond zone elmTime) (ElmTime.toMillis zone elmTime)
+
+        combinedMoment =
+            fromDateAndTime zonedDate zonedTime
+
+        localMillis =
+            ElmTime.posixToMillis (Moment.toElmTime combinedMoment)
+
+        utcMillis =
+            ElmTime.posixToMillis elmTime
+    in
+    (localMillis - utcMillis) // 60000
+
+
+importElmMonth : ElmTime.Month -> Calendar.Month
+importElmMonth elmMonth =
+    case elmMonth of
+        ElmTime.Jan ->
+            Calendar.Jan
+
+        ElmTime.Feb ->
+            Calendar.Feb
+
+        ElmTime.Mar ->
+            Calendar.Mar
+
+        ElmTime.Apr ->
+            Calendar.Apr
+
+        ElmTime.May ->
+            Calendar.May
+
+        ElmTime.Jun ->
+            Calendar.Jun
+
+        ElmTime.Jul ->
+            Calendar.Jul
+
+        ElmTime.Aug ->
+            Calendar.Aug
+
+        ElmTime.Sep ->
+            Calendar.Sep
+
+        ElmTime.Oct ->
+            Calendar.Oct
+
+        ElmTime.Nov ->
+            Calendar.Nov
+
+        ElmTime.Dec ->
+            Calendar.Dec
+
+
+
+-- posixFromDateTime : Zone -> Date -> Int -> Posix
+-- posixFromDateTime zone date time =
+--     -- find the local offset
+--     let
+--         millis =
+--             (date |> dateToMillis) + time
 --
--- {-| Represents a time offset from UTC.
--- -}
--- type OffsetSpec
---     = Offset Int
---     | Local
+--         offset0 =
+--             millis |> millisToPosix |> toOffset zone
 --
+--         posix1 =
+--             (millis - offset0 * 60000) |> millisToPosix
 --
--- {-| Use UTC (i.e. no offset).
--- -}
--- utc : OffsetSpec
--- utc =
---     Offset 0
+--         offset1 =
+--             posix1 |> toOffset zone
+--     in
+--     if offset0 == offset1 then
+--         posix1
 --
+--     else
+--         -- local offset has changed within `offset0` time period (e.g. DST switch)
+--         let
+--             posix2 =
+--                 (millis - offset1 * 60000) |> millisToPosix
 --
--- {-| Use a specific offset from UTC, given in minutes.
--- -}
--- offset : Int -> OffsetSpec
--- offset =
---     Offset
+--             offset2 =
+--                 posix2 |> toOffset zone
+--         in
+--         if offset1 == offset2 then
+--             posix2
 --
---
--- {-| Use the local offset.
--- -}
--- local : OffsetSpec
--- local =
---     Local
--- {-| Create a `Date` from a specified day, time of day, and time offset.
--- Date.fromSpec
--- (calendarDate 2000 Jan 1)
--- (time 20 0 0 0)
--- local
--- -- <1 January 2000, 20:00, local time>
--- Date.fromSpec
--- (weekDate 2009 1 Mon)
--- midnight
--- utc
--- -- <29 December 2008, UTC>
--- Date.fromSpec
--- (ordinalDate 2016 218)
--- (time 20 0 0 0)
--- (offset -180)
--- -- <5 August 2016, 23:00, UTC>
--- When a `Date` is created with a specified time offset (e.g. `offset -180`),
--- its extractions still reflect the current machine's local time, and
--- `Date.toTime` still reflects its UTC time.
--- -}
--- fromSpec : DateSpec -> TimeSpec -> OffsetSpec -> Date
--- fromSpec (DateMS dateMS) (TimeMS timeMS) offsetSpec =
---     case offsetSpec of
---         Offset offset ->
---             fromUnixTime (dateMS + timeMS - offset * msPerMinute)
---
---         Local ->
---             -- find the local offset
---             let
---                 unixTime =
---                     dateMS + timeMS
---
---                 offset0 =
---                     offsetFromUtc (fromUnixTime unixTime)
---
---                 date1 =
---                     fromUnixTime (unixTime - offset0 * msPerMinute)
---
---                 offset1 =
---                     offsetFromUtc date1
---             in
---             if offset0 == offset1 then
---                 date1
---
---             else
---                 -- local offset has changed within `offset0` time period (e.g. DST switch)
---                 let
---                     date2 =
---                         fromUnixTime (unixTime - offset1 * msPerMinute)
---
---                     offset2 =
---                         offsetFromUtc date2
---                 in
---                 if offset1 == offset2 then
---                     date2
---
---                 else
---                     -- `unixTime` is within the lost hour of a local switch
---                     date1
+--         else
+--             -- `millis` is within the lost hour of a local switch
+--             posix1
 
 
 {-| Create a `Date` from the following parts, given in local time:
@@ -991,6 +1038,34 @@ setDate date zone moment =
 setTime : TimeOfDay -> Zone -> Moment -> Moment
 setTime time zone moment =
     Debug.todo "setTime"
+
+
+clockTurnBack : TimeOfDay -> Zone -> Moment -> Moment
+clockTurnBack timeOfDay zone moment =
+    let
+        newMoment =
+            setTime timeOfDay zone moment
+    in
+    if Moment.compare newMoment moment == Moment.Earlier then
+        newMoment
+
+    else
+        -- if the new time is not earlier than the old one, force it to be
+        Moment.past newMoment Duration.aDay
+
+
+clockTurnForward : TimeOfDay -> Zone -> Moment -> Moment
+clockTurnForward timeOfDay zone moment =
+    let
+        newMoment =
+            setTime timeOfDay zone moment
+    in
+    if Moment.compare newMoment moment == Moment.Later then
+        newMoment
+
+    else
+        -- if the new time is not later than the old one, force it to be
+        Moment.future newMoment Duration.aDay
 
 
 
