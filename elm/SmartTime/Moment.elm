@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, since, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, since, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
 
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job
@@ -107,14 +107,36 @@ past (Moment time) duration =
 
 {-| Compare a `Moment` to another, the same way you can compare integers.
 
-Works just like a normal `compare`, returning their `Order` in time:
-If the first moment is later than the second, returns `GT`.
-If the first moment is earlier than the second, returns `LT`.
-If the moments define the same instant in time, returns `EQ`.
+Works just like a normal `compare`, returning their order in time.
+If the first moment is later than the second, returns `Later`.
+If the first moment is earlier than the second, returns `Earlier`.
+If the moments define the same instant in time, returns `Coincident`.
 
 -}
 compare (Moment time1) (Moment time2) =
-    Basics.compare (Duration.inMs time1) (Duration.inMs time2)
+    case Basics.compare (Duration.inMs time1) (Duration.inMs time2) of
+        GT ->
+            Later
+
+        LT ->
+            Earlier
+
+        EQ ->
+            Coincident
+
+
+{-| Result of comparing Moments with `compare`.
+Tip: If the first and second moments you're passing to `compare` are "moment1" and "moment2", fill the blank with the output you get (or are testing for) and then you can simply read it like this in your head:
+
+"moment1 is \_\_\_\_\_\_\_ than moment2"
+
+..so the first argument is `Later` than the second, or `Earlier` than it, or the same.
+
+-}
+type TimelineOrder
+    = Later
+    | Earlier
+    | Coincident
 
 
 difference (Moment time1) (Moment time2) =
