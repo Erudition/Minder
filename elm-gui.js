@@ -7009,8 +7009,192 @@ var justinmimbs$date$Date$fromRataDie = function (rd) {
 	return justinmimbs$date$Date$RD(rd);
 };
 var author$project$Task$TaskMoment$decodeDate = A2(zwilias$json_decode_exploration$Json$Decode$Exploration$map, justinmimbs$date$Date$fromRataDie, zwilias$json_decode_exploration$Json$Decode$Exploration$int);
-var author$project$SmartTime$Moment$utcFromLinear = function (num) {
-	return num;
+var author$project$SmartTime$Duration$add = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var author$project$SmartTime$Duration$fromMs = function (_float) {
+	return author$project$SmartTime$Duration$Duration(
+		elm$core$Basics$round(_float));
+};
+var author$project$SmartTime$Duration$fromSeconds = function (_float) {
+	return author$project$SmartTime$Duration$Duration(
+		elm$core$Basics$round(_float * author$project$SmartTime$Duration$secondLength));
+};
+var author$project$SmartTime$Duration$subtract = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return author$project$SmartTime$Duration$Duration(int1 - int2);
+	});
+var author$project$SmartTime$Moment$Earlier = {$: 'Earlier'};
+var author$project$SmartTime$Moment$TAI = {$: 'TAI'};
+var author$project$SmartTime$Moment$commonEraStart = author$project$SmartTime$Moment$Moment(
+	author$project$SmartTime$Duration$fromInt(0));
+var author$project$SmartTime$Moment$Coincident = {$: 'Coincident'};
+var author$project$SmartTime$Moment$Later = {$: 'Later'};
+var elm$core$Basics$compare = _Utils_compare;
+var author$project$SmartTime$Moment$compare = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		var _n2 = A2(
+			elm$core$Basics$compare,
+			author$project$SmartTime$Duration$inMs(time1),
+			author$project$SmartTime$Duration$inMs(time2));
+		switch (_n2.$) {
+			case 'GT':
+				return author$project$SmartTime$Moment$Later;
+			case 'LT':
+				return author$project$SmartTime$Moment$Earlier;
+			default:
+				return author$project$SmartTime$Moment$Coincident;
+		}
+	});
+var author$project$SmartTime$Moment$nineteen00 = author$project$SmartTime$Moment$Moment(
+	author$project$SmartTime$Duration$fromInt(0));
+var elm_community$list_extra$List$Extra$last = function (items) {
+	last:
+	while (true) {
+		if (!items.b) {
+			return elm$core$Maybe$Nothing;
+		} else {
+			if (!items.b.b) {
+				var x = items.a;
+				return elm$core$Maybe$Just(x);
+			} else {
+				var rest = items.b;
+				var $temp$items = rest;
+				items = $temp$items;
+				continue last;
+			}
+		}
+	}
+};
+var elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var elm_community$list_extra$List$Extra$takeWhileRight = function (p) {
+	var step = F2(
+		function (x, _n0) {
+			var xs = _n0.a;
+			var free = _n0.b;
+			return (p(x) && free) ? _Utils_Tuple2(
+				A2(elm$core$List$cons, x, xs),
+				true) : _Utils_Tuple2(xs, false);
+		});
+	return A2(
+		elm$core$Basics$composeL,
+		elm$core$Tuple$first,
+		A2(
+			elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, true)));
+};
+var author$project$SmartTime$Moment$linearFromUTC = function (momentAsDur) {
+	return A2(
+		author$project$SmartTime$Duration$subtract,
+		momentAsDur,
+		author$project$SmartTime$Moment$utcOffset(momentAsDur));
+};
+var author$project$SmartTime$Moment$moment = F3(
+	function (timeScale, _n2, inputDuration) {
+		var epochDur = _n2.a;
+		var input = A2(author$project$SmartTime$Duration$subtract, inputDuration, epochDur);
+		switch (timeScale.$) {
+			case 'TAI':
+				return author$project$SmartTime$Moment$Moment(input);
+			case 'UTC':
+				return author$project$SmartTime$Moment$Moment(
+					author$project$SmartTime$Moment$linearFromUTC(input));
+			case 'GPS':
+				return author$project$SmartTime$Moment$Moment(
+					A2(
+						author$project$SmartTime$Duration$add,
+						input,
+						author$project$SmartTime$Duration$fromSeconds(19)));
+			default:
+				return author$project$SmartTime$Moment$Moment(
+					A2(
+						author$project$SmartTime$Duration$add,
+						input,
+						author$project$SmartTime$Duration$fromMs(32184)));
+		}
+	});
+var author$project$SmartTime$Moment$utcOffset = function (rawUTCMomentAsDur) {
+	var ntpEpoch = author$project$SmartTime$Moment$nineteen00;
+	var leapSecondsTable = _List_fromArray(
+		[
+			_Utils_Tuple2(2272060800, 10),
+			_Utils_Tuple2(2287785600, 11),
+			_Utils_Tuple2(2303683200, 12),
+			_Utils_Tuple2(2335219200, 13),
+			_Utils_Tuple2(2366755200, 14),
+			_Utils_Tuple2(2398291200, 15),
+			_Utils_Tuple2(2429913600, 16),
+			_Utils_Tuple2(2461449600, 17),
+			_Utils_Tuple2(2492985600, 18),
+			_Utils_Tuple2(2524521600, 19),
+			_Utils_Tuple2(2571782400, 20),
+			_Utils_Tuple2(2603318400, 21),
+			_Utils_Tuple2(2634854400, 22),
+			_Utils_Tuple2(2698012800, 23),
+			_Utils_Tuple2(2776982400, 24),
+			_Utils_Tuple2(2840140800, 25),
+			_Utils_Tuple2(2871676800, 26),
+			_Utils_Tuple2(2918937600, 27),
+			_Utils_Tuple2(2950473600, 28),
+			_Utils_Tuple2(2982009600, 29),
+			_Utils_Tuple2(3029443200, 30),
+			_Utils_Tuple2(3076704000, 31),
+			_Utils_Tuple2(3124137600, 32),
+			_Utils_Tuple2(3345062400, 33),
+			_Utils_Tuple2(3439756800, 34),
+			_Utils_Tuple2(3550089600, 35),
+			_Utils_Tuple2(3644697600, 36),
+			_Utils_Tuple2(3692217600, 37)
+		]);
+	var fromNTPtime = function (num) {
+		return A3(
+			author$project$SmartTime$Moment$moment,
+			author$project$SmartTime$Moment$TAI,
+			ntpEpoch,
+			author$project$SmartTime$Duration$fromSeconds(num));
+	};
+	var fromTableItem = function (_n1) {
+		var ntpTime = _n1.a;
+		var leaps = _n1.b;
+		return _Utils_Tuple2(
+			fromNTPtime(ntpTime),
+			author$project$SmartTime$Duration$fromSeconds(leaps));
+	};
+	var leapSeconds = A2(elm$core$List$map, fromTableItem, leapSecondsTable);
+	var oldest = fromTableItem(
+		_Utils_Tuple2(2272060800, 10));
+	var fakeMoment = A3(author$project$SmartTime$Moment$moment, author$project$SmartTime$Moment$TAI, author$project$SmartTime$Moment$commonEraStart, rawUTCMomentAsDur);
+	var periodStartsEarlier = function (_n0) {
+		var periodStartMoment = _n0.a;
+		return _Utils_eq(
+			A2(author$project$SmartTime$Moment$compare, periodStartMoment, fakeMoment),
+			author$project$SmartTime$Moment$Earlier);
+	};
+	var goBackThroughTime = A2(elm_community$list_extra$List$Extra$takeWhileRight, periodStartsEarlier, leapSeconds);
+	var relevantPeriod = A2(
+		elm$core$Maybe$withDefault,
+		oldest,
+		elm_community$list_extra$List$Extra$last(goBackThroughTime));
+	var offsetAtThatTime = relevantPeriod.b;
+	return offsetAtThatTime;
+};
+var author$project$SmartTime$Moment$utcFromLinear = function (momentAsDur) {
+	return A2(
+		author$project$SmartTime$Duration$add,
+		momentAsDur,
+		author$project$SmartTime$Moment$utcOffset(momentAsDur));
 };
 var elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
@@ -7019,8 +7203,8 @@ var elm$time$Time$millisToPosix = elm$time$Time$Posix;
 var author$project$SmartTime$Moment$toElmTime = function (_n0) {
 	var dur = _n0.a;
 	return elm$time$Time$millisToPosix(
-		author$project$SmartTime$Moment$utcFromLinear(
-			author$project$SmartTime$Duration$inMs(dur)));
+		author$project$SmartTime$Duration$inMs(
+			author$project$SmartTime$Moment$utcFromLinear(dur)));
 };
 var elm$time$Time$Zone = F2(
 	function (a, b) {
@@ -7028,11 +7212,6 @@ var elm$time$Time$Zone = F2(
 	});
 var elm$time$Time$utc = A2(elm$time$Time$Zone, 0, _List_Nil);
 var author$project$Task$TaskMoment$zoneless = elm$time$Time$utc;
-var elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
 var elm$time$Time$flooredDiv = F2(
 	function (numerator, denominator) {
 		return elm$core$Basics$floor(numerator / denominator);
@@ -7949,7 +8128,6 @@ var elm$url$Url$Parser$preparePath = function (path) {
 };
 var elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var elm$core$Dict$empty = elm$core$Dict$RBEmpty_elm_builtin;
-var elm$core$Basics$compare = _Utils_compare;
 var elm$core$Dict$get = F2(
 	function (targetKey, dict) {
 		get:
@@ -10919,24 +11097,6 @@ var elm$parser$Parser$run = F2(
 				A2(elm$core$List$map, elm$parser$Parser$problemToDeadEnd, problems));
 		}
 	});
-var elm_community$list_extra$List$Extra$last = function (items) {
-	last:
-	while (true) {
-		if (!items.b) {
-			return elm$core$Maybe$Nothing;
-		} else {
-			if (!items.b.b) {
-				var x = items.a;
-				return elm$core$Maybe$Just(x);
-			} else {
-				var rest = items.b;
-				var $temp$items = rest;
-				items = $temp$items;
-				continue last;
-			}
-		}
-	}
-};
 var author$project$External$TodoistSync$extractTiming2 = function (input) {
 	var _default = _Utils_Tuple2(
 		input,
@@ -12383,12 +12543,6 @@ var author$project$Activity$Measure$excusableLimit = function (activity) {
 	return author$project$SmartTime$Human$Duration$dur(
 		author$project$Activity$Activity$excusableFor(activity).a);
 };
-var author$project$SmartTime$Duration$subtract = F2(
-	function (_n0, _n1) {
-		var int1 = _n0.a;
-		var int2 = _n1.a;
-		return author$project$SmartTime$Duration$Duration(int1 - int2);
-	});
 var author$project$SmartTime$Moment$past = F2(
 	function (_n0, duration) {
 		var time = _n0.a;
@@ -12403,26 +12557,6 @@ var author$project$Activity$Measure$lookBack = F2(
 			author$project$SmartTime$Human$Duration$dur(humanDuration));
 	});
 var author$project$Activity$Activity$dummy = author$project$ID$tag(0);
-var author$project$SmartTime$Moment$Later = {$: 'Later'};
-var author$project$SmartTime$Moment$Coincident = {$: 'Coincident'};
-var author$project$SmartTime$Moment$Earlier = {$: 'Earlier'};
-var author$project$SmartTime$Moment$compare = F2(
-	function (_n0, _n1) {
-		var time1 = _n0.a;
-		var time2 = _n1.a;
-		var _n2 = A2(
-			elm$core$Basics$compare,
-			author$project$SmartTime$Duration$inMs(time1),
-			author$project$SmartTime$Duration$inMs(time2));
-		switch (_n2.$) {
-			case 'GT':
-				return author$project$SmartTime$Moment$Later;
-			case 'LT':
-				return author$project$SmartTime$Moment$Earlier;
-			default:
-				return author$project$SmartTime$Moment$Coincident;
-		}
-	});
 var elm$core$List$partition = F2(
 	function (pred, list) {
 		var step = F2(
@@ -12540,12 +12674,6 @@ var author$project$Activity$Measure$sessions = F2(
 			elm$core$List$filterMap,
 			author$project$Activity$Measure$isMatchingDuration(activityId),
 			all);
-	});
-var author$project$SmartTime$Duration$add = F2(
-	function (_n0, _n1) {
-		var int1 = _n0.a;
-		var int2 = _n1.a;
-		return author$project$SmartTime$Duration$Duration(int1 + int2);
 	});
 var author$project$SmartTime$Duration$combine = function (durationList) {
 	return A3(
@@ -12871,10 +12999,10 @@ var author$project$External$Commands$compileList = function (reminderList) {
 var author$project$SmartTime$Duration$inSeconds = function (duration) {
 	return author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$secondLength;
 };
-var author$project$SmartTime$Moment$toUnixTime = function (_n0) {
-	var dur = _n0.a;
-	return author$project$SmartTime$Moment$utcFromLinear(
-		author$project$SmartTime$Duration$inSeconds(dur));
+var author$project$SmartTime$Moment$toUnixTime = function (givenMoment) {
+	var momentAsDur = givenMoment.a;
+	return author$project$SmartTime$Duration$inSeconds(
+		author$project$SmartTime$Moment$utcFromLinear(momentAsDur));
 };
 var elm$core$Basics$truncate = _Basics_truncate;
 var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
@@ -13442,34 +13570,6 @@ var author$project$Main$updateWithStorage = F2(
 					])));
 	});
 var author$project$SmartTime$Moment$UTC = {$: 'UTC'};
-var author$project$SmartTime$Moment$epochOffset = F2(
-	function (_n0, _int) {
-		var epochDur = _n0.a;
-		return 0;
-	});
-var author$project$SmartTime$Moment$linearFromUTC = function (num) {
-	return num;
-};
-var author$project$SmartTime$Moment$moment = F3(
-	function (timeScale, epoch, duration) {
-		var input = author$project$SmartTime$Duration$inMs(duration);
-		var create = function (ms) {
-			return author$project$SmartTime$Moment$Moment(
-				author$project$SmartTime$Duration$fromInt(
-					A2(author$project$SmartTime$Moment$epochOffset, epoch, ms)));
-		};
-		switch (timeScale.$) {
-			case 'TAI':
-				return create(input);
-			case 'UTC':
-				return create(
-					author$project$SmartTime$Moment$linearFromUTC(input));
-			case 'GPS':
-				return create(input + 1900);
-			default:
-				return create(input - 32184);
-		}
-	});
 var author$project$SmartTime$Moment$unixEpoch = author$project$SmartTime$Moment$Moment(
 	author$project$SmartTime$Duration$fromInt(0));
 var author$project$SmartTime$Moment$fromElmInt = function (intMsUtc) {
@@ -13694,9 +13794,6 @@ var author$project$SmartTime$Human$Moment$getOffset = F2(
 	function (referencePoint, zone) {
 		return A3(author$project$SmartTime$Human$Moment$searchRemainingZoneHistory, referencePoint, zone.defaultOffset, zone.history);
 	});
-var author$project$SmartTime$Moment$TAI = {$: 'TAI'};
-var author$project$SmartTime$Moment$commonEraStart = author$project$SmartTime$Moment$Moment(
-	author$project$SmartTime$Duration$fromInt(0));
 var author$project$SmartTime$Human$Moment$unlocalize = F2(
 	function (zone, localMomentDur) {
 		var toMoment = function (duration) {
@@ -18491,15 +18588,45 @@ var author$project$SmartTime$Duration$fromHours = function (_float) {
 	return author$project$SmartTime$Duration$Duration(
 		elm$core$Basics$round(_float * author$project$SmartTime$Duration$hourLength));
 };
-var elm$core$Debug$todo = _Debug_todo;
+var author$project$SmartTime$Duration$fromDays = function (_float) {
+	return author$project$SmartTime$Duration$Duration(
+		elm$core$Basics$round(_float * author$project$SmartTime$Duration$dayLength));
+};
+var author$project$SmartTime$Duration$inWholeDays = function (duration) {
+	return (author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$dayLength) | 0;
+};
+var author$project$SmartTime$Human$Calendar$fromRataDie = author$project$SmartTime$Human$Calendar$CalendarDate;
+var author$project$SmartTime$Moment$toDuration = F2(
+	function (_n0, _n1) {
+		var momentDur = _n0.a;
+		var epochDur = _n1.a;
+		return A2(author$project$SmartTime$Duration$subtract, momentDur, epochDur);
+	});
+var author$project$SmartTime$Human$Moment$localize = F2(
+	function (zone, moment) {
+		var momentAsDur = A2(author$project$SmartTime$Moment$toDuration, moment, author$project$SmartTime$Moment$commonEraStart);
+		return A2(
+			author$project$SmartTime$Duration$add,
+			momentAsDur,
+			A2(author$project$SmartTime$Human$Moment$getOffset, moment, zone));
+	});
+var author$project$SmartTime$Human$Moment$humanize = F2(
+	function (zone, moment) {
+		var localMomentDur = A2(author$project$SmartTime$Human$Moment$localize, zone, moment);
+		var daysSinceEpoch = author$project$SmartTime$Duration$inWholeDays(localMomentDur);
+		var remaining = A2(
+			author$project$SmartTime$Duration$subtract,
+			localMomentDur,
+			author$project$SmartTime$Duration$fromDays(daysSinceEpoch));
+		return _Utils_Tuple2(
+			author$project$SmartTime$Human$Calendar$fromRataDie(daysSinceEpoch),
+			remaining);
+	});
 var author$project$SmartTime$Human$Moment$setTime = F3(
-	function (time, zone, moment) {
-		return _Debug_todo(
-			'SmartTime.Human.Moment',
-			{
-				start: {line: 404, column: 5},
-				end: {line: 404, column: 15}
-			})('setTime');
+	function (newTime, zone, moment) {
+		var _n0 = A2(author$project$SmartTime$Human$Moment$humanize, zone, moment);
+		var oldDate = _n0.a;
+		return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, oldDate, newTime);
 	});
 var author$project$SmartTime$Human$Moment$clockTurnBack = F3(
 	function (timeOfDay, zone, moment) {
