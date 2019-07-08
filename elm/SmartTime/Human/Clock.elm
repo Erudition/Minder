@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, noon, second, secondFractional, totalSeconds)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), dur)
@@ -27,10 +27,19 @@ clock hh mm ss ms =
 
 
 {-| Represent the positions of all the hands of a clock... with a single `Int`!
+Returns the clock time as the number of seconds into the day.
 -}
-totalSeconds : TimeOfDay -> Int
-totalSeconds timeOfDay =
+secondsSinceMidnight : TimeOfDay -> Int
+secondsSinceMidnight timeOfDay =
     Duration.inSecondsRounded timeOfDay
+
+
+{-| Represent the time of day as a single `Int`! Returns the clock time as the number of milliseconds into the day.
+This is a great way to `encode` your `TimeOfDay` values!
+-}
+msSinceMidnight : TimeOfDay -> Int
+msSinceMidnight timeOfDay =
+    Duration.inMs timeOfDay
 
 
 

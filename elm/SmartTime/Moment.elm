@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, since, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
 
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job
@@ -205,21 +205,13 @@ toUnixTimeInt mo =
 
 
 {-| How far is this Moment from a particular `Epoch`?
+
+Note: This is _real_ duration, no leap seconds or other adjustments!
+
 -}
-since : Moment -> Epoch -> Duration
-since (Moment dur) epoch =
-    dur
-
-
-
--- TODO
-
-
-{-| Turn a Moment into a `Duration` since the given Epoch.
--}
-toDuration : Moment -> TimeScale -> Epoch -> Duration
-toDuration (Moment dur) timeScale epoch =
-    dur
+toDuration : Moment -> Epoch -> Duration
+toDuration (Moment momentDur) (Moment epochDur) =
+    Duration.subtract momentDur epochDur
 
 
 
