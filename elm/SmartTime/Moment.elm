@@ -1,5 +1,6 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, epochOffset, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
 
+import List.Extra
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job
 import Time as ElmTime
@@ -46,42 +47,109 @@ every interval tagger =
 {-| Create a Moment. A Moment is an `Epoch` and some `Duration` -- the amount of time since that Epoch -- which gives us a globally fixed point in time. You can shift this moment forward or backward by adding other `Duration` values to it.
 -}
 moment : TimeScale -> Epoch -> Duration -> Moment
-moment timeScale epoch duration =
+moment timeScale (Moment epochDur) inputDuration =
     let
         input =
-            inMs duration
-
-        create ms =
-            Moment (Duration.fromInt (epochOffset epoch ms))
+            --rebase Epoch
+            Duration.subtract inputDuration epochDur
     in
     case timeScale of
         TAI ->
-            create input
+            Moment input
 
         UTC ->
-            create (linearFromUTC input)
+            Moment (linearFromUTC input)
 
         GPS ->
-            create (input + 1900)
+            Moment (Duration.add input (Duration.fromSeconds 19))
 
         TT ->
             -- TODO what about retroactively
-            create (input - 32184)
+            Moment (Duration.add input (Duration.fromMs 32184))
 
 
-epochOffset : Epoch -> Int -> Int
-epochOffset (Moment epochDur) int =
-    0
+utcFromLinear : Duration -> Duration
+utcFromLinear momentAsDur =
+    Duration.add momentAsDur (utcOffset momentAsDur)
 
 
-linearFromUTC : number -> number
-linearFromUTC num =
-    num
+linearFromUTC : Duration -> Duration
+linearFromUTC momentAsDur =
+    Duration.subtract momentAsDur (utcOffset momentAsDur)
 
 
-utcFromLinear : number -> number
-utcFromLinear num =
-    num
+utcOffset : Duration -> Duration
+utcOffset rawUTCMomentAsDur =
+    -- Leap seconds: Run regex on this file:
+    -- https://www.ietf.org/timezones/data/leap-seconds.list
+    -- Replace: (\d+)\s(\d+)\s#(.*)
+    -- with: , ($1, $2) --$3
+    -- Last updated for the 2017 Leap second.
+    -- Please update when there is another one!
+    let
+        ntpEpoch =
+            nineteen00
+
+        fromNTPtime num =
+            moment TAI ntpEpoch (Duration.fromSeconds num)
+
+        fromTableItem ( ntpTime, leaps ) =
+            ( fromNTPtime ntpTime, Duration.fromSeconds leaps )
+
+        leapSeconds =
+            List.map fromTableItem leapSecondsTable
+
+        leapSecondsTable =
+            [ ( 2272060800, 10 ) -- 1 Jan 1972
+            , ( 2287785600, 11 ) -- 1 Jul 1972
+            , ( 2303683200, 12 ) -- 1 Jan 1973
+            , ( 2335219200, 13 ) -- 1 Jan 1974
+            , ( 2366755200, 14 ) -- 1 Jan 1975
+            , ( 2398291200, 15 ) -- 1 Jan 1976
+            , ( 2429913600, 16 ) -- 1 Jan 1977
+            , ( 2461449600, 17 ) -- 1 Jan 1978
+            , ( 2492985600, 18 ) -- 1 Jan 1979
+            , ( 2524521600, 19 ) -- 1 Jan 1980
+            , ( 2571782400, 20 ) -- 1 Jul 1981
+            , ( 2603318400, 21 ) -- 1 Jul 1982
+            , ( 2634854400, 22 ) -- 1 Jul 1983
+            , ( 2698012800, 23 ) -- 1 Jul 1985
+            , ( 2776982400, 24 ) -- 1 Jan 1988
+            , ( 2840140800, 25 ) -- 1 Jan 1990
+            , ( 2871676800, 26 ) -- 1 Jan 1991
+            , ( 2918937600, 27 ) -- 1 Jul 1992
+            , ( 2950473600, 28 ) -- 1 Jul 1993
+            , ( 2982009600, 29 ) -- 1 Jul 1994
+            , ( 3029443200, 30 ) -- 1 Jan 1996
+            , ( 3076704000, 31 ) -- 1 Jul 1997
+            , ( 3124137600, 32 ) -- 1 Jan 1999
+            , ( 3345062400, 33 ) -- 1 Jan 2006
+            , ( 3439756800, 34 ) -- 1 Jan 2009
+            , ( 3550089600, 35 ) -- 1 Jul 2012
+            , ( 3644697600, 36 ) -- 1 Jul 2015
+            , ( 3692217600, 37 ) -- 1 Jan 2017
+            ]
+
+        oldest =
+            fromTableItem ( 2272060800, 10 )
+
+        fakeMoment =
+            moment TAI commonEraStart rawUTCMomentAsDur
+
+        periodStartsEarlier ( periodStartMoment, _ ) =
+            compare periodStartMoment fakeMoment == Earlier
+
+        goBackThroughTime =
+            -- Assume modern times are more common, so start from bottom
+            List.Extra.takeWhileRight periodStartsEarlier leapSeconds
+
+        relevantPeriod =
+            Maybe.withDefault oldest (List.Extra.last goBackThroughTime)
+
+        offsetAtThatTime =
+            Tuple.second relevantPeriod
+    in
+    offsetAtThatTime
 
 
 {-| Shift a `Moment` into its future by some amount of time (`Duration`).
@@ -167,7 +235,7 @@ fromElmTime intMsUtc =
 
 toElmTime : Moment -> ElmTime
 toElmTime (Moment dur) =
-    ElmTime.millisToPosix <| utcFromLinear (Duration.inMs dur)
+    ElmTime.millisToPosix <| Duration.inMs (utcFromLinear dur)
 
 
 {-| Handy alias for `(moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
@@ -195,8 +263,8 @@ fromUnixTime float =
 
 
 toUnixTime : Moment -> Float
-toUnixTime (Moment dur) =
-    utcFromLinear (Duration.inSeconds dur)
+toUnixTime ((Moment momentAsDur) as givenMoment) =
+    Duration.inSeconds (utcFromLinear momentAsDur)
 
 
 toUnixTimeInt : Moment -> Int
@@ -206,16 +274,12 @@ toUnixTimeInt mo =
 
 {-| How far is this Moment from a particular `Epoch`?
 
-Note: This is _real_ duration, no leap seconds or other adjustments!
+Note: This always gives the _correct_ answer, the actual Duration of time since the Epoch. Many systems want a supposed "number of x since y" (like Unix time) but actually deal with fake "durations" that are not really the true count of x. To get a number that describes a `Moment`, check out `toInt`. Otherwise use the appropriate conversion function such as `toUnixTime`.
 
 -}
 toDuration : Moment -> Epoch -> Duration
 toDuration (Moment momentDur) (Moment epochDur) =
     Duration.subtract momentDur epochDur
-
-
-
---TODO
 
 
 {-| Turn a Moment into a raw Int so you can Encode it.
@@ -224,11 +288,8 @@ The Int will be the number of milliseconds since the chosen `Epoch`, with correc
 -}
 toInt : Moment -> TimeScale -> Epoch -> Int
 toInt (Moment dur) timeScale epoch =
+    -- TODO incorporate other params!
     Duration.inMs dur
-
-
-
---TODO
 
 
 {-| Turn a `Moment` into a raw `Int` so you can Encode it.

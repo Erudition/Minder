@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (Zone, clockTurnBack, clockTurnForward, extractDate, extractTime, fractionalDay, fromDate, fromDateAndTime, getMillisecond, getOffsetMinutes, getSecond, humanize, importElmMonth, localZone, localize, makeZone, setDate, setTime, today, utc)
+module SmartTime.Human.Moment exposing (Zone, clockTurnBack, clockTurnForward, extractDate, extractTime, fromDate, fromDateAndTime, getMillisecond, getOffsetMinutes, getSecond, humanize, importElmMonth, localZone, localize, makeZone, setDate, setTime, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -400,8 +400,12 @@ setDate newDate zone moment =
 
 -}
 setTime : TimeOfDay -> Zone -> Moment -> Moment
-setTime time zone moment =
-    Debug.todo "setTime"
+setTime newTime zone moment =
+    let
+        ( oldDate, _ ) =
+            humanize zone moment
+    in
+    fromDateAndTime zone oldDate newTime
 
 
 clockTurnBack : TimeOfDay -> Zone -> Moment -> Moment
@@ -430,20 +434,3 @@ clockTurnForward timeOfDay zone moment =
     else
         -- if the new time is not later than the old one, force it to be
         Moment.future newMoment Duration.aDay
-
-
-
--- Utilities
-
-
-{-| Extract the fractional day of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the float 0.4895833333333333.
--}
-fractionalDay : CalendarDate -> Float
-fractionalDay date =
-    -- let
-    --     timeOfDayMS =
-    --         msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
-    -- in
-    -- toFloat timeOfDayMS / toFloat msPerDay
-    Debug.todo "fractionalDay"

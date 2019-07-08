@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), dur)
@@ -40,6 +40,11 @@ This is a great way to `encode` your `TimeOfDay` values!
 msSinceMidnight : TimeOfDay -> Int
 msSinceMidnight timeOfDay =
     Duration.inMs timeOfDay
+
+
+asFractionOfDay : TimeOfDay -> Float
+asFractionOfDay time =
+    Duration.inDays time
 
 
 
