@@ -18991,61 +18991,7 @@ var author$project$Main$view = function (_n0) {
 var elm$browser$Browser$application = _Browser_application;
 var author$project$Main$main = elm$browser$Browser$application(
 	{init: author$project$Main$initGraphical, onUrlChange: author$project$Main$NewUrl, onUrlRequest: author$project$Main$Link, subscriptions: author$project$Main$subscriptions, update: author$project$Main$updateWithTime, view: author$project$Main$view});
-var author$project$Headless$headlessMsg = _Platform_incomingPort('headlessMsg', elm$json$Json$Decode$string);
-var author$project$Headless$fallbackUrl = {fragment: elm$core$Maybe$Nothing, host: 'headless.docket.com', path: '', port_: elm$core$Maybe$Nothing, protocol: elm$url$Url$Http, query: elm$core$Maybe$Nothing};
-var author$project$Headless$urlOrElse = function (urlAsString) {
-	return A2(
-		elm$core$Maybe$withDefault,
-		author$project$Headless$fallbackUrl,
-		elm$url$Url$fromString(urlAsString));
-};
-var author$project$Headless$headlessSubscriptions = function (model) {
-	var appData = model.appData;
-	var environment = model.environment;
-	return elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				author$project$Headless$headlessMsg(
-				function (s) {
-					return author$project$Main$NewUrl(
-						author$project$Headless$urlOrElse(s));
-				})
-			]));
-};
-var author$project$Headless$initHeadless = function (_n0) {
-	var urlAsString = _n0.a;
-	var maybeJson = _n0.b;
-	return A3(
-		author$project$Main$init,
-		maybeJson,
-		author$project$Headless$urlOrElse(urlAsString),
-		elm$core$Maybe$Nothing);
-};
-var elm$core$Platform$worker = _Platform_worker;
-var elm$json$Json$Decode$index = _Json_decodeIndex;
-var author$project$Headless$main = elm$core$Platform$worker(
-	{init: author$project$Headless$initHeadless, subscriptions: author$project$Headless$headlessSubscriptions, update: author$project$Main$updateWithTime});
-_Platform_export({'Headless':{'init':author$project$Headless$main(
-	A2(
-		elm$json$Json$Decode$andThen,
-		function (x0) {
-			return A2(
-				elm$json$Json$Decode$andThen,
-				function (x1) {
-					return elm$json$Json$Decode$succeed(
-						_Utils_Tuple2(x0, x1));
-				},
-				A2(
-					elm$json$Json$Decode$index,
-					1,
-					elm$json$Json$Decode$oneOf(
-						_List_fromArray(
-							[
-								elm$json$Json$Decode$null(elm$core$Maybe$Nothing),
-								A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, elm$json$Json$Decode$string)
-							]))));
-		},
-		A2(elm$json$Json$Decode$index, 0, elm$json$Json$Decode$string)))(0)},'Main':{'init':author$project$Main$main(
+_Platform_export({'Main':{'init':author$project$Main$main(
 	elm$json$Json$Decode$oneOf(
 		_List_fromArray(
 			[
