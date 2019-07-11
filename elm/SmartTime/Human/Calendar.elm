@@ -1,6 +1,6 @@
 module SmartTime.Human.Calendar exposing
-    ( CalendarParts
-    , fromRawParts, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
+    ( RawParts
+    , fromRawPartsForced, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
     , toMillis, yearToInt, monthToInt, dayToInt
     , year, month, dayOfMonth
     , setYear, setMonth, setDayOfMonth
@@ -26,12 +26,12 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 # Type definition
 
-@docs Date, CalendarParts
+@docs Date, RawParts
 
 
 # Creating values
 
-@docs fromPosix, fromRawParts, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
+@docs fromPosix, fromRawPartsForced, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
 
 
 # Conversions
@@ -127,8 +127,13 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 import Array exposing (Array)
 import Debug exposing (todo)
+import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import SmartTime.Duration as Duration exposing (Duration, subtract)
 import SmartTime.Moment as Moment exposing (Moment)
+
+
+
+-- Creating CalendarDate values
 
 
 {-| A full ([Gregorian](https://en.wikipedia.org/wiki/Gregorian_calendar)) calendar date.
@@ -144,82 +149,6 @@ Nomenclature: We could have called this type "Day", but "Tuesday" could be calle
 -}
 type CalendarDate
     = CalendarDate RataDie
-
-
-type alias RataDie =
-    Int
-
-
-type DayOfWeek
-    = Mon
-    | Tue
-    | Wed
-    | Thu
-    | Fri
-    | Sat
-    | Sun
-
-
-{-| The internal representation of Date and its constituent parts.
--}
-type alias CalendarParts =
-    { year : Year
-    , month : Month
-    , day : DayOfMonth
-    }
-
-
-fromParts : CalendarParts -> CalendarDate
-fromParts calendarParts =
-    todo "fromParts"
-
-
-fromRawParts : Int -> Month -> Int -> CalendarDate
-fromRawParts y m d =
-    CalendarDate <| daysBeforeYear (Year y) + daysBeforeMonth (Year y) m + (d |> Basics.clamp 1 (daysInMonth (Year y) m))
-
-
-{-| A year on the Gregorian Calendar.
-
-Again, since we can't use the type system to limit the Int you give, this library does the next best thing - it works for any year! Yes, even negative ones!
-
-What do negative years mean? Just what you'd think - the years B.C.E., or before the Common Era. Hey, who knows, maybe you're an archeologist working with Elm! Two thousand years before 2010 CE (aka 2010 "A.D."), was year 10 CE. Twenty years before that was year 11 BCE.
-
-Yes, that's eleven, not ten, because this whole system was invented long before "zero" was even invented. So the year before 1 AD/BCE is simply 1 BC(E). That makes off-by-one errors for all years below one (it seems the array-index-vs-array-length confusion was not our first foray into off-by-one!), throwing off calculations. Don't worry, we don't do any of that silliness here - there is a proper year zero, just like in ISO8601. "Year zero" is just the one before year 1, so 1 BCE. Do note that this means the year `-0001` is actually 2 BCE, and so on.
-
--}
-type Year
-    = Year Int
-
-
-{-| A calendar month.
--}
-type Month
-    = Jan
-    | Feb
-    | Mar
-    | Apr
-    | May
-    | Jun
-    | Jul
-    | Aug
-    | Sep
-    | Oct
-    | Nov
-    | Dec
-
-
-{-| The number that marks a day in a month - an integer from 1 to 31 (or sometimes 29 or 30 or even 28).
-
-Nomenclature: We could have called this type "Day", but "Tuesday" could also be called a "day", and so could "a 24-hour period", and so could "2020 December 25th". This name avoids that ambiguity.
-
--}
-type DayOfMonth
-    = DayOfMonth Int
-
-
-
--- Creating a `Date`
 
 
 {-| Attempt to create a `Date` from its constituent Year and Month by using its raw day.
@@ -259,7 +188,190 @@ fromYearMonthDay y m d =
             Nothing
 
         _ ->
-            Just (fromParts { year = y, month = m, day = d })
+            Just (fromRawPartsForced { year = y, month = m, day = d })
+
+
+{-| Takes the `Parts` of a `CalendarDate` as parameters, except they're all raw `Int`s so you don't have to wrap them yourself.
+
+The input is validated, and then the resulting date is validated. If both succeed, you get a `CalendarDate`!
+
+If not, you'll just get `Nothing`, and you won't be told why. So, only use this if you're in a hurry. For more control over failures, consider using `fromParts` instead.
+
+-}
+fromRawInts : Int -> Int -> Int -> Maybe CalendarDate
+fromRawInts yearInt monthInt dayInt =
+    let
+        givenYear =
+            Year yearInt
+
+        givenMonth =
+            numberToMonth monthInt
+
+        validMonthInt =
+            monthInt >= 1 && monthInt <= 12
+
+        validDayOfMonth =
+            -- is dayInt in bounds for this Year+Month combo?
+            dayInt <= daysInMonth givenYear givenMonth && dayInt > 0
+    in
+    if validDayOfMonth && validMonthInt then
+        CalendarDate <|
+            daysBeforeYear givenYear
+                + daysBeforeMonth givenYear givenMonth
+                + dayInt
+
+    else
+        Nothing
+
+
+{-| Take raw calendar parts like `fromRawInts`, and clamp the day so that you get a valid `CalendarDate` no matter what -- even if it's a poor approximation of the date you intended! Great for those who want to live on the edge, or just hate `Maybe`s, or just want to hardcode a known-valid date in a one-liner.
+
+The third `Int` (the `DayOfMonth`) will be clamped to the number of days in the Year&Month combination given.
+
+-}
+fromRawIntsForced : Int -> Int -> Int -> CalendarDate
+fromRawIntsForced yearInt monthInt dayInt =
+    let
+        givenYear =
+            Year yearInt
+
+        givenMonth =
+            numberToMonth monthInt
+    in
+    CalendarDate <|
+        daysBeforeYear givenYear
+            + daysBeforeMonth givenYear givenMonth
+            + (dayInt |> Basics.clamp 1 (daysInMonth givenYear givenMonth))
+
+
+fromString : String -> Result (List Parser.DeadEnd) (Maybe CalendarDate)
+fromString =
+    Parser.run (Parser.oneOf [ dashSeparated ])
+
+
+dashSeparated : Parser CalendarDate
+dashSeparated =
+    Parser.succeed fromRawPartsForced
+        |. spaces
+        |= parseYear
+        |. symbol "-"
+        |= parseMonth
+        |. symbol "-"
+        |= parseDayOfMonth
+
+
+parseDayOfMonth : Parser DayOfMonth
+parseDayOfMonth =
+    Parser.map DayOfMonth Parser.int
+
+
+parseMonth : Parser Month
+parseMonth =
+    let
+        checkYear : Int -> Parser Month
+        checkYear givenInt =
+            if givenInt >= 1 && givenInt <= 12 then
+                Parser.succeed (numberToMonth givenInt)
+
+            else
+                Parser.problem "a month number is from 1 to 12"
+    in
+    Parser.int
+        |> Parser.andThen checkYear
+
+
+parseYear : Parser Year
+parseYear =
+    let
+        checkSize : String -> Parser String
+        checkSize digits =
+            if String.length digits >= 4 then
+                Parser.succeed digits
+
+            else
+                Parser.problem "a year has at least 4 digits - pad with zeros"
+
+        toYearNum : String -> Parser Year
+        toYearNum digits =
+            case String.toInt digits of
+                Just num ->
+                    Parser.succeed (Year num)
+
+                Nothing ->
+                    Parser.problem "You should never see this error, as four verified digits should always form a valid int."
+    in
+    getChompedString (chompWhile Char.isDigit)
+        |> Parser.andThen checkSize
+        |> Parser.andThen toYearNum
+
+
+
+-- CALENDAR PARTS
+
+
+{-| A CalendarDate in convenient record-form, waiting to be validated.
+
+You can construct this yourself, and even validate parts of it early with functions like `intToDay`. But you need all three parts to know whether you have a valid date -- because something like "2000 Jan 31" is valid while "2000 Apr 31" is not, and "2000 Feb 29" is valid while "2001 Feb 29" is not. So when you're ready, pass this record into `fromParts` to get a real `CalendarDate`.
+
+-}
+type alias Parts =
+    { year : Year
+    , month : Month
+    , day : DayOfMonth
+    }
+
+
+
+-- YEARS
+
+
+{-| A year on the Gregorian Calendar.
+
+Again, since we can't use the type system to limit the Int you give, this library does the next best thing - it works for any year! Yes, even negative ones!
+
+What do negative years mean? Just what you'd think - the years B.C.E., or before the Common Era. Hey, who knows, maybe you're an archeologist working with Elm! Two thousand years before 2010 CE (aka 2010 "A.D."), was year 10 CE. Twenty years before that was year 11 BCE.
+
+Yes, that's eleven, not ten, because this whole system was invented long before "zero" was even invented. So the year before 1 AD/BCE is simply 1 BC(E). That makes off-by-one errors for all years below one (it seems the array-index-vs-array-length confusion was not our first foray into off-by-one!), throwing off calculations. Don't worry, we don't do any of that silliness here - there is a proper year zero, just like in ISO8601. "Year zero" is just the one before year 1, so 1 BCE. Do note that this means the year `-0001` is actually 2 BCE, and so on.
+
+-}
+type Year
+    = Year Int
+
+
+
+-- MONTHS
+
+
+{-| A calendar month.
+-}
+type Month
+    = Jan
+    | Feb
+    | Mar
+    | Apr
+    | May
+    | Jun
+    | Jul
+    | Aug
+    | Sep
+    | Oct
+    | Nov
+    | Dec
+
+
+
+-- THE MONTH'S DAYS
+
+
+{-| The number that marks a day in a month - an integer from 1 to 31.
+
+Of course, not all months have a full 31 days, so being wrapped in this type does not mean this `DayOfMonth` is valid!
+
+Nomenclature: We could have called this type "Day", but "Tuesday" could also be called a "day", and so could "a 24-hour period", and so could "2020 December 25th". This name avoids that ambiguity.
+
+-}
+type DayOfMonth
+    = DayOfMonth Int
 
 
 {-| Attempt to construct a 'DayOfMonth' from an Int value. Currently the validity
@@ -295,7 +407,7 @@ dayOfMonthFromInt givenYear givenMonth day =
 
 {-| Transforms a [Date](Calendar#Date) into milliseconds.
 
-    date = fromRawParts { day = 25, month = Dec, year = 2019 }
+    date = fromRawPartsForced { day = 25, month = Dec, year = 2019 }
     Maybe.map toMillis date -- Just 1577232000000 == 25 Dec 2019 00:00:00.000
 
     want = 1566795954000 -- 26 Aug 2019 05:05:54.000
@@ -387,6 +499,44 @@ dayToInt (DayOfMonth day) =
     day
 
 
+{-| Declare an `Int` as a `DayOfMonth`, or get `Nothing` if the number is greater than any month can hold (31).
+
+Note that this does not necessarily mean this is a valid day of a certain month! Half of the months have less than 31 days, and there's no way to know how many days February has without knowing the year. So you can't know if a `CalendarDate` is valid without all three parts! That's what fromRawParts is for.
+
+This function is useful if you want to move some of the error-handling logic for the `DayOfMonth` to the place where you receive the input ("fail fast"!) instead of the place where all three parts come together to be validated together.
+
+-}
+intToDay : Int -> Maybe DayOfMonth
+intToDay int =
+    if int >= 1 && int <= 31 then
+        Just (DayOfMonth int)
+
+    else
+        Nothing
+
+
+{-| Gives you a `DayOfMonth` no matter what - even if you pass in `72` or `-305` (clamping those to `DayOfMonth 31` and `DayOfMonth 1`, respectively).
+
+Obviously this is dangerous, as it will silently swallow out-of-bounds errors in you code, which is hard to debug! You should consider using `intToDay` instead. Or, wait until you have all three parts and use `fromParts`, which will give you a truly validated date. This function will not, because the validity of a `DayOfMonth` depends on both the `Month` and the `Year`.
+
+That said, if you're feeling confident that your `Int` is valid (especially if it's between 1 and 28), this is a great way to avoid dealing with `Maybe`. A great example is when you're hardcoding values:
+
+    var firstOfTheMonth =
+        intToDayForced 1
+
+-}
+intToDayForced : Int -> DayOfMonth
+intToDayForced int =
+    DayOfMonth (clamp 1 31 int)
+
+
+{-| Gives you a _valid_ `DayOfMonth` no matter what - which means you can't use 29, 30, or 31 (as a month may not have them). Otherwise, it's the same as `intToDayForced`.
+-}
+intToDayForcedValid : Int -> DayOfMonth
+intToDayForcedValid int =
+    DayOfMonth (clamp 1 28 int)
+
+
 {-| -}
 toOrdinalDate : CalendarDate -> { year : Year, ordinalDay : OrdinalDay }
 toOrdinalDate (CalendarDate rd) =
@@ -400,7 +550,7 @@ toOrdinalDate (CalendarDate rd) =
 
 
 {-| -}
-toParts : CalendarDate -> CalendarParts
+toParts : CalendarDate -> RawParts
 toParts (CalendarDate rd) =
     let
         date =
@@ -411,7 +561,7 @@ toParts (CalendarDate rd) =
 
 {-| Recursively adds up months to get to the given date number.
 -}
-calcDate : Year -> Month -> OrdinalDay -> CalendarParts
+calcDate : Year -> Month -> OrdinalDay -> RawParts
 calcDate givenYear givenMonth dayCounter =
     let
         monthSize =
@@ -438,10 +588,24 @@ calcDate givenYear givenMonth dayCounter =
         calcDate givenYear nextMonthToCheck remainingDaysToCount
 
     else
-        { year = givenYear
+        { year = yearToInt givenYear
         , month = givenMonth
-        , day = DayOfMonth dayCounter
+        , day = dayCounter
         }
+
+
+type alias RataDie =
+    Int
+
+
+type DayOfWeek
+    = Mon
+    | Tue
+    | Wed
+    | Thu
+    | Fri
+    | Sat
+    | Sun
 
 
 
@@ -1752,7 +1916,6 @@ ordinalDay givenDate =
 --     in
 --     Basics.floor (localTime - utcTime) // msPerMinute
 --------------------------------------------------------------------------------
--- Format
 
 
 monthToName : Month -> String
