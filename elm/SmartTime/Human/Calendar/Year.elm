@@ -1,4 +1,7 @@
-module SmartTime.Human.Calendar.Year exposing (compareYears, daysBeforeYear, firstOfYear, is53WeekYear, year)
+module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, isLeapYear, toInt)
+
+import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+
 
 {-| A year on the Gregorian Calendar.
 
@@ -9,8 +12,6 @@ What do negative years mean? Just what you'd think - the years B.C.E., or before
 Yes, that's eleven, not ten, because this whole system was invented long before "zero" was even invented. So the year before 1 AD/BCE is simply 1 BC(E). That makes off-by-one errors for all years below one (it seems the array-index-vs-array-length confusion was not our first foray into off-by-one!), throwing off calculations. Don't worry, we don't do any of that silliness here - there is a proper year zero, just like in ISO8601. "Year zero" is just the one before year 1, so 1 BCE. Do note that this means the year `-0001` is actually 2 BCE, and so on.
 
 -}
-
-
 type Year
     = Year Int
 
@@ -18,16 +19,68 @@ type Year
 {-| Extract the Int value of a 'Year'.
 
     -- date == 26 Aug 1992
-    yearToInt (year date) -- 1992 : Int
+    Year.toInt (year date) -- 1992 : Int
 
 -}
-yearToInt : Year -> Int
-yearToInt (Year givenYear) =
+toInt : Year -> Int
+toInt (Year givenYear) =
     givenYear
 
 
-daysBeforeYear : Year -> Int
-daysBeforeYear (Year givenYearInt) =
+isCommonEra : Year -> Bool
+isCommonEra (Year y) =
+    y >= 1
+
+
+isBeforeCommonEra : Year -> Bool
+isBeforeCommonEra (Year y) =
+    y <= 0
+
+
+toBCEYear : Year -> Int
+toBCEYear (Year negativeYear) =
+    negate negativeYear + 1
+
+
+fromBCEYear : Int -> Year
+fromBCEYear positiveYear =
+    Year (negate positiveYear - 1)
+
+
+toString : Year -> String
+toString ((Year yearInt) as year) =
+    if isBeforeCommonEra year then
+        String.fromInt yearInt
+
+    else
+        String.fromInt (toBCEYear year) ++ " BCE"
+
+
+toFormalString : Year -> String
+toFormalString ((Year yearInt) as year) =
+    if isBeforeCommonEra year then
+        String.fromInt yearInt ++ " CE"
+
+    else
+        String.fromInt (toBCEYear year) ++ " BCE"
+
+
+{-| Like `toFormalString`, but uses the Christian Era abbreviations instead.
+
+(Note: AD goes [before the year](https://www.grammar-monster.com/lessons/abbreviations_AD_BC_BCE_CE.htm).)
+
+-}
+toClassicFormalString : Year -> String
+toClassicFormalString ((Year yearInt) as year) =
+    if isBeforeCommonEra year then
+        "AD " ++ String.fromInt yearInt
+
+    else
+        String.fromInt (toBCEYear year) ++ " BC"
+
+
+daysBefore : Year -> Int
+daysBefore (Year givenYearInt) =
     let
         y =
             givenYearInt - 1
@@ -38,28 +91,18 @@ daysBeforeYear (Year givenYearInt) =
     365 * y + leapYears
 
 
-is53WeekYear : Year -> Bool
-is53WeekYear givenYear =
-    let
-        jan1 =
-            dayOfWeek (firstOfYear givenYear)
-    in
-    -- any year starting on Thursday and any leap year starting on Wednesday
-    jan1 == Thu || (jan1 == Wed && isLeapYear givenYear)
-
-
 {-| Compares two given `Years` and returns an Order.
 
-    compareYears (Year 2016) (Year 2017) -- LT : Order
+    Year.compare (Year 2016) (Year 2017) -- LT : Order
 
-    compareYears (Year 2017) (Year 2016) -- GT : Order
+    Year.compare (Year 2017) (Year 2016) -- GT : Order
 
-    compareYears (Year 2015) (Year 2015) -- EQ : Order
+    Year.compare (Year 2015) (Year 2015) -- EQ : Order
 
 -}
-compareYears : Year -> Year -> Order
-compareYears lhs rhs =
-    Basics.compare (yearToInt lhs) (yearToInt rhs)
+compare : Year -> Year -> Order
+compare lhs rhs =
+    Basics.compare (toInt lhs) (toInt rhs)
 
 
 {-| Checks if the `Year` part of the given [CalendarDate](Calendar#CalendarDate) is a leap year.
@@ -75,3 +118,28 @@ isLeapYear : Year -> Bool
 isLeapYear (Year int) =
     -- y % 4 == 0 && y % 100 /= 0 || y % 400 == 0
     (modBy 4 int == 0) && ((modBy 400 int == 0) || not (modBy 100 int == 0))
+
+
+parse4DigitYear : Parser Year
+parse4DigitYear =
+    let
+        checkSize : String -> Parser String
+        checkSize digits =
+            if String.length digits >= 4 then
+                Parser.succeed digits
+
+            else
+                Parser.problem "a year has at least 4 digits - pad with zeros"
+
+        toYearNum : String -> Parser Year
+        toYearNum digits =
+            case String.toInt digits of
+                Just num ->
+                    Parser.succeed (Year num)
+
+                Nothing ->
+                    Parser.problem "You should never see this error, as four verified digits should always form a valid int."
+    in
+    getChompedString (chompWhile Char.isDigit)
+        |> Parser.andThen checkSize
+        |> Parser.andThen toYearNum

@@ -1,6 +1,9 @@
-module SmartTime.Human.Calendar.Month exposing (Month(..), compareMonths, daysBeforeMonth, daysInMonth, firstOfMonth, getFollowingMonths, monthToNumber, months, numberToMonth, rollMonthBackwards)
+module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, rollBackwards, toInt, toName, toQuarter)
 
 import Array exposing (Array)
+import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import SmartTime.Human.Calendar.Year as Year exposing (Year)
+import SmartTime.Moment exposing (TimelineOrder(..))
 
 
 {-| A calendar month.
@@ -20,17 +23,15 @@ type Month
     | Dec
 
 
-{-| Convert a given [Month](https://package.elm-lang.org/packages/elm/time/latest/Time#Month) to an integer starting from 1.
+{-| Convert a given `Month` to an integer starting from 1.
 
     monthToInt Jan -- 1 : Int
 
     monthToInt Aug -- 8 : Int
 
-Note: Obviously this function can be implemented in a dozen different approaches but decided to keep it simple.
-
 -}
-monthToInt : Month -> Int
-monthToInt givenMonth =
+toInt : Month -> Int
+toInt givenMonth =
     case givenMonth of
         Jan ->
             1
@@ -76,8 +77,8 @@ monthToInt givenMonth =
     nextMonth Nov -- Dec : Month
 
 -}
-nextMonth : Month -> Month
-nextMonth givenMonth =
+next : Month -> Month
+next givenMonth =
     case givenMonth of
         Jan ->
             Feb
@@ -116,41 +117,66 @@ nextMonth givenMonth =
             Jan
 
 
-{-| Returns a list of all the `Months` in Calendar order.
+{-| An array of all the `Months` in Calendar order.
+
+`Array` is faster than `List` for almost every operation, especially those you'd likely want to use on Months.
+
 -}
 months : Array Month
 months =
-    Array.fromList
-        [ Jan
-        , Feb
-        , Mar
-        , Apr
-        , May
-        , Jun
-        , Jul
-        , Aug
-        , Sep
-        , Oct
-        , Nov
-        , Dec
-        ]
+    Array.fromList monthList
 
 
-{-|
+{-| A list of all the `Months` in Calendar order.
 
-    daysInMonth 2000 Feb -- 29
-
-    daysInMonth 2001 Feb -- 28
+For numerous intense operations involving this list, use the Array, `months`. It's faster.
 
 -}
-daysInMonth : Year -> Month -> Int
-daysInMonth givenYear m =
+monthList : List Month
+monthList =
+    [ Jan
+    , Feb
+    , Mar
+    , Apr
+    , May
+    , Jun
+    , Jul
+    , Aug
+    , Sep
+    , Oct
+    , Nov
+    , Dec
+    ]
+
+
+compare : Month -> Month -> TimelineOrder
+compare lhs rhs =
+    case Basics.compare (toInt lhs) (toInt rhs) of
+        GT ->
+            Later
+
+        LT ->
+            Earlier
+
+        EQ ->
+            Coincident
+
+
+{-| The number of days in the given `Month`.
+
+    Month.length (Year 2000) Feb -- 29
+
+    Month.length (Year 2001) Feb -- 28
+
+-}
+length : Year -> Month -> Int
+length givenYear m =
     case m of
         Jan ->
             31
 
         Feb ->
-            if isLeapYear givenYear then
+            if Year.isLeapYear givenYear then
                 29
 
             else
@@ -189,16 +215,16 @@ daysInMonth givenYear m =
 
 {-|
 
-    daysBeforeMonth 2000 Mar -- 60
+    Month.daysBefore 2000 Mar -- 60
 
-    daysBeforeMonth 2001 Mar -- 59
+    Month.daysBefore 2001 Mar -- 59
 
 -}
-daysBeforeMonth : Year -> Month -> Int
-daysBeforeMonth givenYear m =
+daysBefore : Year -> Month -> Int
+daysBefore givenYear m =
     let
         leapDays =
-            if isLeapYear givenYear then
+            if Year.isLeapYear givenYear then
                 1
 
             else
@@ -244,56 +270,11 @@ daysBeforeMonth givenYear m =
 
 {-|
 
-    monthToNumber Jan -- 1
+    Month.fromInt 1 -- Jan
 
 -}
-monthToNumber : Month -> Int
-monthToNumber m =
-    case m of
-        Jan ->
-            1
-
-        Feb ->
-            2
-
-        Mar ->
-            3
-
-        Apr ->
-            4
-
-        May ->
-            5
-
-        Jun ->
-            6
-
-        Jul ->
-            7
-
-        Aug ->
-            8
-
-        Sep ->
-            9
-
-        Oct ->
-            10
-
-        Nov ->
-            11
-
-        Dec ->
-            12
-
-
-{-|
-
-    numberToMonth 1 -- Jan
-
--}
-numberToMonth : Int -> Month
-numberToMonth n =
+fromInt : Int -> Month
+fromInt n =
     case max 1 n of
         1 ->
             Jan
@@ -330,6 +311,62 @@ numberToMonth n =
 
         _ ->
             Dec
+
+
+{-| A safer `fromInt` that doesn't swallow out-of-bounds input.
+
+    Month.fromIntSafe 12 -- Dec
+
+    Month.fromIntSafe 14 -- Nothing
+
+    Month.fromIntSafe 0 -- Nothing
+
+    Month.fromIntSafe -74 -- Nothing
+
+Perhaps you want to validate some user input or server response, failing on invalid data.
+
+-}
+fromIntSafe : Int -> Maybe Month
+fromIntSafe n =
+    case n of
+        1 ->
+            Just Jan
+
+        2 ->
+            Just Feb
+
+        3 ->
+            Just Mar
+
+        4 ->
+            Just Apr
+
+        5 ->
+            Just May
+
+        6 ->
+            Just Jun
+
+        7 ->
+            Just Jul
+
+        8 ->
+            Just Aug
+
+        9 ->
+            Just Sep
+
+        10 ->
+            Just Oct
+
+        11 ->
+            Just Nov
+
+        12 ->
+            Just Dec
+
+        _ ->
+            Nothing
 
 
 {-| Gets next month from the given month.
@@ -379,7 +416,7 @@ rollBackwards givenMonth =
             Nov
 
 
-{-| Compares two given `Months` and returns an Order.
+{-| Compares two given `Months` and returns a Basics.Order.
 
     compareMonths Jan Feb -- LT : Order
 
@@ -388,9 +425,9 @@ rollBackwards givenMonth =
     compareMonths Aug Aug --EQ : Order
 
 -}
-compare : Month -> Month -> Order
-compare lhs rhs =
-    Basics.compare (monthToInt lhs) (monthToInt rhs)
+compareBasic : Month -> Month -> Order
+compareBasic lhs rhs =
+    Basics.compare (toInt lhs) (toInt rhs)
 
 
 {-| Returns a list with all the following months in a Calendar Year based on the `Month` argument provided.
@@ -401,10 +438,10 @@ The resulting list **will not include** the given `Month`.
     getFollowingMonths Dec -- [] : List Month
 
 -}
-getFollowingMonths : Month -> List Month
-getFollowingMonths givenMonth =
+getMonthsAfter : Month -> List Month
+getMonthsAfter givenMonth =
     Array.toList <|
-        Array.slice (monthToInt givenMonth) 12 months
+        Array.slice (toInt givenMonth) 12 months
 
 
 {-| Returns a list with all the preceding months in a Calendar Year based on the `Month` argument provided.
@@ -415,13 +452,15 @@ The resulting list **will not include** the given `Month`.
     getPrecedingMonths Jan -- [] : List Month
 
 -}
-getPrecedingMonths : Month -> List Month
-getPrecedingMonths givenMonth =
+getMonthsBefore : Month -> List Month
+getMonthsBefore givenMonth =
     Array.toList <|
-        Array.slice 0 (monthToInt givenMonth - 1) months
+        Array.slice 0 (toInt givenMonth - 1) months
 
 
-{-| Get the last day of the given `Year` and `Month`.
+{-| Get the last day of the given `Month`.
+
+Of course, it could be a leap year, so you need to provide a `Year` as well:
 
     Month.lastDay (Year 2018) Dec -- 31 : Int
 
@@ -476,12 +515,12 @@ lastDay givenYear givenMonth =
 
 toQuarter : Month -> Int
 toQuarter m =
-    (monthToNumber m + 2) // 3
+    (toInt m + 2) // 3
 
 
 fromQuarter : Int -> Month
 fromQuarter q =
-    q * 3 - 2 |> numberToMonth
+    q * 3 - 2 |> fromInt
 
 
 toName : Month -> String
@@ -540,33 +579,6 @@ type DayOfMonth
     = DayOfMonth Int
 
 
-{-| Attempt to construct a 'DayOfMonth' from an Int value. Currently the validity
-of the day is based on the validity of the 'Date' object being created.
-This means that given a valid year & month we check for the 'Date' max valid day.
-Then the given Int needs to be greater than 0 and less than the max valid day
-for the given year && month combination.
-( 1 >= day >= maxValidDay )
-
-    dayOfMonthFromInt (Year 2018) Dec 25 -- Just (DayOfMonth 25) : Maybe DayOfMonth
-
-    dayOfMonthFromInt (Year 2020) Feb 29 -- Just (DayOfMonth 29) : Maybe DayOfMonth
-
-    dayOfMonthFromInt (Year 2019) Feb 29 -- Nothing : Maybe DayOfMonth
-
--}
-dayOfMonthFromInt : Year -> Month -> Int -> Maybe DayOfMonth
-dayOfMonthFromInt givenYear givenMonth day =
-    let
-        maxValidDay =
-            dayToInt (lastDayOf givenYear givenMonth)
-    in
-    if day > 0 && Basics.compare day maxValidDay /= GT then
-        Just (DayOfMonth day)
-
-    else
-        Nothing
-
-
 {-| Extract the Int part of a 'DayOfMonth'.
 
     -- date == 26 Aug 1992
@@ -616,6 +628,28 @@ intToAlwaysValidDay int =
     DayOfMonth (clamp 1 28 int)
 
 
+{-| Construct a `DayOfMonth` that's guaranteed valid for the given `Month` in the given `Year`. It is only guaranteed valid for this specific combination, however.
+
+    dayOfMonthFromInt (Year 2018) Dec 25 -- Just (DayOfMonth 25) : Maybe DayOfMonth
+
+    dayOfMonthFromInt (Year 2020) Feb 29 -- Just (DayOfMonth 29) : Maybe DayOfMonth
+
+    dayOfMonthFromInt (Year 2019) Feb 29 -- Nothing : Maybe DayOfMonth
+
+-}
+dayOfMonthValidFor : Year -> Month -> Int -> Maybe DayOfMonth
+dayOfMonthValidFor givenYear givenMonth day =
+    let
+        maxValidDay =
+            dayToInt (lastDay givenYear givenMonth)
+    in
+    if day > 0 && Basics.compare day maxValidDay /= GT then
+        Just (DayOfMonth day)
+
+    else
+        Nothing
+
+
 {-| Compares two given `Days` and returns an Order.
 
     compareDays (DayOfMonth 28) (DayOfMonth 29) -- LT : Order
@@ -628,3 +662,23 @@ intToAlwaysValidDay int =
 compareDays : DayOfMonth -> DayOfMonth -> Order
 compareDays lhs rhs =
     Basics.compare (dayToInt lhs) (dayToInt rhs)
+
+
+parseMonth : Parser Month
+parseMonth =
+    let
+        checkYear : Int -> Parser Month
+        checkYear givenInt =
+            if givenInt >= 1 && givenInt <= 12 then
+                Parser.succeed (fromInt givenInt)
+
+            else
+                Parser.problem "a month number is from 1 to 12"
+    in
+    Parser.int
+        |> Parser.andThen checkYear
+
+
+parseDayOfMonth : Parser DayOfMonth
+parseDayOfMonth =
+    Parser.map DayOfMonth Parser.int

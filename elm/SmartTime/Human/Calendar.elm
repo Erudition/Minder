@@ -1,17 +1,14 @@
 module SmartTime.Human.Calendar exposing
-    ( RawParts
-    , fromRawPartsForced, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
-    , toMillis, yearToInt, monthToInt, dayToInt
+    ( fromRawDay, fromYearMonthDay
+    , toMillis
     , year, month, dayOfMonth
     , setYear, setMonth, setDayOfMonth
     , incrementYear, incrementMonth, incrementDay
     , decrementYear, decrementMonth, decrementDay
-    , compare, compareYears, compareMonths, compareDays
-    , getDateRange, getDatesInMonth, subtract, getFollowingMonths, getPrecedingMonths, dayOfWeek, isLeapYear, lastDayOf, millisInYear, sort
-    , months, millisInADay
-    , Year(..), Month(..), DayOfMonth(..)
-    , millisSinceEpoch, millisSinceStartOfTheYear, millisSinceStartOfTheMonth
-    , CalendarDate(..), DayOfWeek(..), OrdinalDay, WeekBasedYear(..), clamp, countSpecificDOWBetween, dayOfWeekToInt, daysBeforeMonth, daysBeforeWeekBasedYear, daysBeforeYear, daysInMonth, daysSincePrevious, difference, divideInt, equal, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, monthToName, monthToNumber, monthToQuarter, nextMonth, numberToDayOfWeek, numberToMonth, ordinalDay, quarter, quarterBoundariesBetween, quarterToMonth, rollDayBackwards, rollDayForward, rollMonthBackwards, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toParts, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, weekdayToName, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , compare
+    , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
+    , millisInADay
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekBasedYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, dashSeparated, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromString, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, parseDayOfMonth, parseMonth, parseYear, quarter, quarterBoundariesBetween, rollDayBackwards, rollDayForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -36,7 +33,7 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 # Conversions
 
-@docs toPosix, toMillis, yearToInt, monthToInt, dayToInt
+@docs toPosix, toMillis, monthToInt, dayToInt
 
 
 # Accessors
@@ -61,12 +58,12 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 # Compare values
 
-@docs compare, compareYears, compareMonths, compareDays
+@docs compare
 
 
 # Utilities
 
-@docs getDateRange, getDatesInMonth, subtract, getFollowingMonths, getPrecedingMonths, dayOfWeek, isLeapYear, lastDayOf, millisInYear, sort
+@docs getDateRange, getDatesInMonth, subtract, getFollowingMonths, getPrecedingMonths, dayOfWeek, isLeapYear, Month.lastDay, millisInYear, sort
 
 
 # Constants
@@ -127,6 +124,9 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import SmartTime.Duration as Duration exposing (Duration, subtract)
+import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth, Month)
+import SmartTime.Human.Calendar.Week as Week exposing (DayOfWeek)
+import SmartTime.Human.Calendar.Year as Year exposing (Year)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -221,13 +221,13 @@ incrementMonth givenDate =
         updatedYear =
             case updatedMonth of
                 Jan ->
-                    Year (yearToInt (year givenDate) + 1)
+                    Year (Year.toInt (year givenDate) + 1)
 
                 _ ->
                     year givenDate
 
         lastDayOfUpdatedMonth =
-            lastDayOf updatedYear updatedMonth
+            Month.lastDay updatedYear updatedMonth
 
         updatedDay =
             case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
@@ -266,10 +266,10 @@ decrementYear : CalendarDate -> CalendarDate
 decrementYear givenDate =
     let
         updatedYear =
-            Year (yearToInt (year givenDate) - 1)
+            Year (Year.toInt (year givenDate) - 1)
 
         lastDayOfUpdatedMonth =
-            lastDayOf updatedYear (month givenDate)
+            Month.lastDay updatedYear (month givenDate)
 
         updatedDay =
             case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
@@ -312,13 +312,13 @@ decrementMonth givenDate =
         updatedYear =
             case updatedMonth of
                 Dec ->
-                    Year (yearToInt (year givenDate) - 1)
+                    Year (Year.toInt (year givenDate) - 1)
 
                 _ ->
                     year givenDate
 
         lastDayOfUpdatedMonth =
-            lastDayOf updatedYear updatedMonth
+            Month.lastDay updatedYear updatedMonth
 
         updatedDay =
             case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
@@ -384,7 +384,7 @@ fromYearMonthDay : Year -> Month -> DayOfMonth -> Maybe CalendarDate
 fromYearMonthDay y m d =
     let
         maxDay =
-            lastDayOf y m
+            Month.lastDay y m
     in
     case compareDays d maxDay of
         GT ->
@@ -419,8 +419,8 @@ fromRawInts yearInt monthInt dayInt =
     in
     if validDayOfMonth && validMonthInt then
         CalendarDate <|
-            daysBeforeYear givenYear
-                + daysBeforeMonth givenYear givenMonth
+            Year.daysBefore givenYear
+                + Month.daysBefore givenYear givenMonth
                 + dayInt
 
     else
@@ -442,74 +442,53 @@ fromRawIntsForced yearInt monthInt dayInt =
             numberToMonth monthInt
     in
     CalendarDate <|
-        daysBeforeYear givenYear
-            + daysBeforeMonth givenYear givenMonth
+        Year.daysBefore givenYear
+            + Month.daysBefore givenYear givenMonth
             + (dayInt |> Basics.clamp 1 (daysInMonth givenYear givenMonth))
 
 
-fromString : String -> Result (List Parser.DeadEnd) (Maybe CalendarDate)
-fromString =
+{-| Get a `CalendarDate` from a string like these:
+
+    "1994/12/27" -- Ok (December 27, 1994)
+
+    "1776-5-11"
+
+    "2013.09.11"
+
+    "34 2 20" -- Yes, that's the `Year 34` CE.
+
+As with the universal technical standard, the parts are in biggest-smallest order.
+
+The parser can fail, with a nice error message:
+
+-- Example
+
+Or the successfully parsed date may not actually exist:
+
+-- Example
+
+-}
+fromNumberString : String -> Result (List Parser.DeadEnd) CalendarDate
+fromNumberString =
     let
         parserResult =
-            Parser.run (Parser.oneOf [ dashSeparated ])
+            Parser.run (Parser.oneOf [ separated "/", separated "-", separated ".", separated " " ])
+
+        stringErrorResult =
+            Result.mapError Parser.deadEndsToString parserResult
     in
     parserResult |> Result.andThen (Result.fromMaybe "The parsed date was not valid.")
 
 
-dashSeparated : Parser (Maybe CalendarDate)
-dashSeparated =
+separatedYMD : String -> Parser (Maybe CalendarDate)
+separatedYMD separator =
     Parser.succeed (fromParts << Parts)
         |. spaces
-        |= parseYear
-        |. symbol "-"
-        |= parseMonth
-        |. symbol "-"
-        |= parseDayOfMonth
-
-
-parseDayOfMonth : Parser DayOfMonth
-parseDayOfMonth =
-    Parser.map DayOfMonth Parser.int
-
-
-parseMonth : Parser Month
-parseMonth =
-    let
-        checkYear : Int -> Parser Month
-        checkYear givenInt =
-            if givenInt >= 1 && givenInt <= 12 then
-                Parser.succeed (numberToMonth givenInt)
-
-            else
-                Parser.problem "a month number is from 1 to 12"
-    in
-    Parser.int
-        |> Parser.andThen checkYear
-
-
-parseYear : Parser Year
-parseYear =
-    let
-        checkSize : String -> Parser String
-        checkSize digits =
-            if String.length digits >= 4 then
-                Parser.succeed digits
-
-            else
-                Parser.problem "a year has at least 4 digits - pad with zeros"
-
-        toYearNum : String -> Parser Year
-        toYearNum digits =
-            case String.toInt digits of
-                Just num ->
-                    Parser.succeed (Year num)
-
-                Nothing ->
-                    Parser.problem "You should never see this error, as four verified digits should always form a valid int."
-    in
-    getChompedString (chompWhile Char.isDigit)
-        |> Parser.andThen checkSize
-        |> Parser.andThen toYearNum
+        |= Year.parse4DigitYear
+        |. symbol separator
+        |= Month.parseMonth
+        |. symbol separator
+        |= Month.parseDayOfMonth
 
 
 
@@ -572,7 +551,7 @@ calcDate givenYear givenMonth dayCounter =
         calcDate givenYear nextMonthToCheck remainingDaysToCount
 
     else
-        { year = yearToInt givenYear
+        { year = Year.toInt givenYear
         , month = givenMonth
         , day = dayCounter
         }
@@ -609,10 +588,10 @@ incrementYear givenDate =
             givenDate
 
         updatedYear =
-            Year (yearToInt (year givenDate) + 1)
+            Year (Year.toInt (year givenDate) + 1)
 
         lastDayOfUpdatedMonth =
-            lastDayOf updatedYear (month givenDate)
+            Month.lastDay updatedYear (month givenDate)
 
         updatedDay =
             case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
@@ -647,7 +626,7 @@ setYear givenYear date =
     -- date == 25 Dec 2019
     year date -- Year 2019 : Year
 
-    yearToInt (year date) -- 2019 : Int
+    Year.toInt (year date) -- 2019 : Int
 
 -}
 year : CalendarDate -> Year
@@ -680,7 +659,18 @@ year (CalendarDate rd) =
 
 firstOfYear : Year -> CalendarDate
 firstOfYear givenYear =
-    CalendarDate <| daysBeforeYear givenYear + 1
+    CalendarDate <| Year.daysBefore givenYear + 1
+
+
+is53WeekYear : Year -> Bool
+is53WeekYear givenYear =
+    -- Can't be in `Year` because of dependencies
+    let
+        jan1 =
+            dayOfWeek (firstOfYear givenYear)
+    in
+    -- any year starting on Thursday and any leap year starting on Wednesday
+    jan1 == Thu || (jan1 == Wed && isLeapYear givenYear)
 
 
 
@@ -737,9 +727,9 @@ setDayOfMonth day date =
     Debug.todo "setDayOfMonth"
 
 
-firstOfMonth : Year -> Month -> CalendarDate
-firstOfMonth givenYear givenMonth =
-    CalendarDate <| daysBeforeYear givenYear + daysBeforeMonth givenYear givenMonth + 1
+firstDayOfMonth : Year -> Month -> CalendarDate
+firstDayOfMonth givenYear givenMonth =
+    CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear givenMonth + 1
 
 
 
@@ -781,7 +771,7 @@ toOrdinalDate (CalendarDate rd) =
             year (CalendarDate rd)
     in
     { year = givenYear
-    , ordinalDay = rd - daysBeforeYear givenYear
+    , ordinalDay = rd - Year.daysBefore givenYear
     }
 
 
@@ -824,7 +814,7 @@ daysBeforeWeekBasedYear : WeekBasedYear -> Int
 daysBeforeWeekBasedYear (WeekBasedYear wby) =
     let
         jan4 =
-            daysBeforeYear (Year wby) + 4
+            Year.daysBefore (Year wby) + 4
 
         dayOfWeekAsInt date =
             dayOfWeekToInt (dayOfWeek date)
@@ -900,7 +890,7 @@ getDatesInMonth : CalendarDate -> List CalendarDate
 getDatesInMonth givenDate =
     let
         lastDayOfTheMonth =
-            dayToInt (lastDayOf (year givenDate) (month givenDate))
+            dayToInt (Month.lastDay (year givenDate) (month givenDate))
     in
     List.map
         CalendarDate
@@ -929,101 +919,6 @@ This means that unlike `subtract`, result will never be negative.
 difference : CalendarDate -> CalendarDate -> Int
 difference (CalendarDate startDate) (CalendarDate endDate) =
     abs (startDate - endDate)
-
-
-{-| Returns the year milliseconds since Epoch. This basically
-means that it will return the milliseconds that have elapsed from
-the 1st Jan 1970 00:00:00.000 till the 1st Jan of the given `Year`.
-
-**Note:** This function is intended to be used along with
-millisSinceStartOfTheYear and millisSinceStartOfTheMonth in order
-to get the total milliseconds elapsed since Epoch (1 Jan 1970 00:00:00.000).
-
-    millisSinceEpoch (Year 1970) -- 0 : Int
-
-    millisSinceEpoch (Year 1971) -- 31536000000 : Int
-
-    millisSinceEpoch (Year 2019) -- 1546300800000 : Int
-
--}
-millisSinceEpoch : Year -> Int
-millisSinceEpoch (Year givenYear) =
-    let
-        epochYear =
-            1970
-
-        getTotalMillis =
-            List.sum << List.map millisInYear << List.map Year
-    in
-    if givenYear >= 1970 then
-        -- We chose (givenYear - 1) here because we want the milliseconds
-        -- in the start of the target year in order to add
-        -- the months + days + hours + minutes + secs + millis if we want to.
-        getTotalMillis (List.range epochYear (givenYear - 1))
-
-    else
-        -- We chose (epochYear - 1) here because we want to
-        -- get the total milliseconds of all the previous years,
-        -- including the target year which we'll then add
-        -- the months + days + hours + minutes + secs + millis in millis
-        -- in order to get the desired outcome.
-        -- Example: Target date = 26 Aug 1950.
-        -- totalMillis from 1/1/1950 - 1/1/1969 = -631152000000
-        -- 26 Aug date millis = 20476800000
-        -- Resulting millis will be = -631152000000 + 20476800000 == -610675200000 == 26 Aug 1950
-        Basics.negate <| getTotalMillis (List.range givenYear (epochYear - 1))
-
-
-{-| Returns the month milliseconds since the start of a given year. This basically
-means that it will return the milliseconds that have elapsed since the start of the
-given year till the 1st of the given month.
-
-**Note:** This function is intended to be used along with millisSinceEpoch and
-millisSinceStartOfTheMonth.
-
-    millisSinceStartOfTheYear (Year 2018) Jan -- 0 : Int
-
-    millisSinceStartOfTheYear (Year 2018) Dec -- 28857600000 : Int
-
--}
-millisSinceStartOfTheYear : Year -> Month -> Int
-millisSinceStartOfTheYear givenYear givenMonth =
-    List.foldl
-        (\m res ->
-            res + (millisInADay * dayToInt (lastDayOf givenYear m))
-        )
-        0
-        (getPrecedingMonths givenMonth)
-
-
-{-| Returns the `DayOfMonth` milliseconds since the start of a given month. This basically
-means that it will return the milliseconds that have elapsed since the 1st day of
-the given month till the given `DayOfMonth` at midnight hours.
-
-**Note:** This function is intended to be used along with millisSinceEpoch and
-millisSinceStartOfTheYear.
-
-    millisSinceStartOfTheMonth (DayOfMonth 1) -- 0 : Int
-
-    millisSinceStartOfTheMonth (DayOfMonth 15) -- 1209600000 : Int
-
--}
-millisSinceStartOfTheMonth : DayOfMonth -> Int
-millisSinceStartOfTheMonth day =
-    -- -1 on the day because we are currently on that day and it hasn't passed yet.
-    -- We also need time in order to construct the full posix.
-    millisInADay * (dayToInt day - 1)
-
-
-{-| Returns the milliseconds in a year.
--}
-millisInYear : Year -> Int
-millisInYear givenYear =
-    if isLeapYear givenYear then
-        millisInADay * 366
-
-    else
-        millisInADay * 365
 
 
 {-| Sorts incrementally a list of [Dates](Calendar#CalendarDate).
@@ -1076,10 +971,10 @@ fromOrdinalParts givenYear givenOrdinalDay =
         (givenOrdinalDay |> intIsBetween 1 365)
             || (givenOrdinalDay == 366 && isLeapYear givenYear)
     then
-        Ok <| CalendarDate <| daysBeforeYear givenYear + givenOrdinalDay
+        Ok <| CalendarDate <| Year.daysBefore givenYear + givenOrdinalDay
 
     else
-        Err <| "Invalid ordinal date (" ++ String.fromInt (yearToInt givenYear) ++ ", " ++ String.fromInt givenOrdinalDay ++ ")"
+        Err <| "Invalid ordinal date (" ++ String.fromInt (Year.toInt givenYear) ++ ", " ++ String.fromInt givenOrdinalDay ++ ")"
 
 
 fromInts : Int -> Int -> Int -> Result String CalendarDate
@@ -1092,7 +987,7 @@ fromInts givenYearInt mn d =
         (mn |> intIsBetween 1 12)
             && (d |> intIsBetween 1 (daysInMonth givenYear (mn |> numberToMonth)))
     then
-        Ok <| CalendarDate <| daysBeforeYear givenYear + daysBeforeMonth givenYear (mn |> numberToMonth) + d
+        Ok <| CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear (mn |> numberToMonth) + d
 
     else
         Err <| "Invalid calendar date (" ++ String.fromInt givenYearInt ++ ", " ++ String.fromInt mn ++ ", " ++ String.fromInt d ++ ")"
@@ -1135,7 +1030,7 @@ fromOrdinalDate givenYear od =
             else
                 365
     in
-    CalendarDate (daysBeforeYear givenYear + (od |> Basics.clamp 1 daysInY))
+    CalendarDate (Year.daysBefore givenYear + (od |> Basics.clamp 1 daysInY))
 
 
 fromWeekDate : WeekBasedYear -> Int -> DayOfWeek -> CalendarDate
@@ -1165,7 +1060,7 @@ fromWeekDate givenWBY wn wd =
 -}
 monthNumber : CalendarDate -> Int
 monthNumber =
-    month >> monthToNumber
+    month >> Month.toInt
 
 
 {-| Extract the quarter of a date. Given the date 23 June 1990 at
@@ -1191,7 +1086,7 @@ ordinalDay givenDate =
         dayOfWeekAsInt =
             dayOfWeekToInt (dayOfWeek givenDate)
     in
-    daysBeforeMonth (year givenDate) (month givenDate) + dayOfWeekAsInt
+    Month.daysBefore (year givenDate) (month givenDate) + dayOfWeekAsInt
 
 
 
@@ -1413,7 +1308,7 @@ toMonths date =
             ( dayOfMonth date, year date )
 
         wholeMonths =
-            12 * (yearInt - 1) + monthToNumber (month date) - 1
+            12 * (yearInt - 1) + Month.toInt (month date) - 1
     in
     -- TODO why was it: toFloat wholeMonths + (toFloat d / 100) + (fractionalDay date / 100)
     toFloat wholeMonths + (toFloat dayInt / 100)
@@ -1588,3 +1483,97 @@ toNext givenDoW givenDate =
 --
 --     else
 --         floored |> add interval 1
+--
+-- {-| Returns the year milliseconds since Epoch. This basically
+-- means that it will return the milliseconds that have elapsed from
+-- the 1st Jan 1970 00:00:00.000 till the 1st Jan of the given `Year`.
+--
+-- **Note:** This function is intended to be used along with
+-- millisSinceStartOfTheYear and millisSinceStartOfTheMonth in order
+-- to get the total milliseconds elapsed since Epoch (1 Jan 1970 00:00:00.000).
+--
+--     millisSinceEpoch (Year 1970) -- 0 : Int
+--
+--     millisSinceEpoch (Year 1971) -- 31536000000 : Int
+--
+--     millisSinceEpoch (Year 2019) -- 1546300800000 : Int
+--
+-- -}
+-- millisSinceEpoch : Year -> Int
+-- millisSinceEpoch (Year givenYear) =
+--     let
+--         epochYear =
+--             1970
+--
+--         getTotalMillis =
+--             List.sum << List.map millisInYear << List.map Year
+--     in
+--     if givenYear >= 1970 then
+--         -- We chose (givenYear - 1) here because we want the milliseconds
+--         -- in the start of the target year in order to add
+--         -- the months + days + hours + minutes + secs + millis if we want to.
+--         getTotalMillis (List.range epochYear (givenYear - 1))
+--
+--     else
+--         -- We chose (epochYear - 1) here because we want to
+--         -- get the total milliseconds of all the previous years,
+--         -- including the target year which we'll then add
+--         -- the months + days + hours + minutes + secs + millis in millis
+--         -- in order to get the desired outcome.
+--         -- Example: Target date = 26 Aug 1950.
+--         -- totalMillis from 1/1/1950 - 1/1/1969 = -631152000000
+--         -- 26 Aug date millis = 20476800000
+--         -- Resulting millis will be = -631152000000 + 20476800000 == -610675200000 == 26 Aug 1950
+--         Basics.negate <| getTotalMillis (List.range givenYear (epochYear - 1))
+--
+--
+-- {-| Returns the month milliseconds since the start of a given year. This basically
+-- means that it will return the milliseconds that have elapsed since the start of the
+-- given year till the 1st of the given month.
+--
+-- **Note:** This function is intended to be used along with millisSinceEpoch and
+-- millisSinceStartOfTheMonth.
+--
+--     millisSinceStartOfTheYear (Year 2018) Jan -- 0 : Int
+--
+--     millisSinceStartOfTheYear (Year 2018) Dec -- 28857600000 : Int
+--
+-- -}
+-- millisSinceStartOfTheYear : Year -> Month -> Int
+-- millisSinceStartOfTheYear givenYear givenMonth =
+--     List.foldl
+--         (\m res ->
+--             res + (millisInADay * dayToInt (Month.lastDay givenYear m))
+--         )
+--         0
+--         (getPrecedingMonths givenMonth)
+--
+--
+-- {-| Returns the `DayOfMonth` milliseconds since the start of a given month. This basically
+-- means that it will return the milliseconds that have elapsed since the 1st day of
+-- the given month till the given `DayOfMonth` at midnight hours.
+--
+-- **Note:** This function is intended to be used along with millisSinceEpoch and
+-- millisSinceStartOfTheYear.
+--
+--     millisSinceStartOfTheMonth (DayOfMonth 1) -- 0 : Int
+--
+--     millisSinceStartOfTheMonth (DayOfMonth 15) -- 1209600000 : Int
+--
+-- -}
+-- millisSinceStartOfTheMonth : DayOfMonth -> Int
+-- millisSinceStartOfTheMonth day =
+--     -- -1 on the day because we are currently on that day and it hasn't passed yet.
+--     -- We also need time in order to construct the full posix.
+--     millisInADay * (dayToInt day - 1)
+--
+--
+-- {-| Returns the milliseconds in a year.
+-- -}
+-- millisInYear : Year -> Int
+-- millisInYear givenYear =
+--     if isLeapYear givenYear then
+--         millisInADay * 366
+--
+--     else
+--         millisInADay * 365
