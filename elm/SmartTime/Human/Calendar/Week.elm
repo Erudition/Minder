@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.DayOfWeek exposing (dayOfWeekToInt, numberToDayOfWeek, weekdayToName)
+module SmartTime.Human.Calendar.Week exposing (DayOfWeek(..), dayOfWeekToInt, numberToDayOfWeek, weekdayToName)
 
 
 type DayOfWeek
