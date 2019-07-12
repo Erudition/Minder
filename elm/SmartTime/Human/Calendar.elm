@@ -8,7 +8,7 @@ module SmartTime.Human.Calendar exposing
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
     , millisInADay
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekBasedYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, dashSeparated, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromString, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, parseDayOfMonth, parseMonth, parseYear, quarter, quarterBoundariesBetween, rollDayBackwards, rollDayForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBasedYear, weekBoundariesBetween, weekNumber, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, dashSeparated, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromString, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, parseDayOfMonth, parseMonth, parseYear, quarter, quarterBoundariesBetween, rollDayBackwards, rollDayForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -345,7 +345,7 @@ weekNumber date =
             date
 
         week1Day1 =
-            daysBeforeWeekBasedYear (weekBasedYear date) + 1
+            daysBeforeWeekBasedYear (weekNumberingYear date) + 1
     in
     (rd - week1Day1) // 7 + 1
 
@@ -759,8 +759,36 @@ dayOfWeek (CalendarDate rd) =
 
 
 
--- ALTERNATE REPRESENTATIONS --------------------------------------------------------------
--- Ordinal dates
+-- ALTERNATE REPRESENTATIONS ---------------------------------------------------
+-- ORDINAL DAYS
+
+
+{-| The "ordinal day" of a date.
+
+Pairs with a `Year` for an alternate representation of `CalendarDate`s:
+
+    Jan 1 -> 1
+    Dec 31 -> 365
+
+See? It's just the number of days _into the year_. That way you don't have to deal with month boundaries.
+
+-}
+type alias OrdinalDay =
+    Int
+
+
+{-| Extract the ordinal day of a date. Given the date 23 June 1990 this returns the integer 174.
+
+Remember that an `OrdinalDay` is meaningless without it's `Year`, thanks to leap years.
+
+-}
+ordinalDay : CalendarDate -> OrdinalDay
+ordinalDay givenDate =
+    let
+        dayOfWeekAsInt =
+            dayOfWeekToInt (dayOfWeek givenDate)
+    in
+    Month.daysBefore (year givenDate) (month givenDate) + dayOfWeekAsInt
 
 
 {-| -}
@@ -783,19 +811,31 @@ type alias RataDie =
     Int
 
 
+{-| -}
+toRataDie : CalendarDate -> Int
+toRataDie (CalendarDate int) =
+    int
+
+
+{-| -}
+fromRataDie : Int -> CalendarDate
+fromRataDie =
+    CalendarDate
+
+
 
 -- WEEK-BASED YEAR
 
 
-type WeekBasedYear
-    = WeekBasedYear Int
+type WeekNumberingYear
+    = WeekNumberingYear Int
 
 
 {-| Extract the week-numbering year of a date. Given the date 23 June
 1990 at 11:45 a.m. this returns the integer 1990.
 -}
-weekBasedYear : CalendarDate -> WeekBasedYear
-weekBasedYear givenDate =
+weekNumberingYear : CalendarDate -> WeekNumberingYear
+weekNumberingYear givenDate =
     let
         (CalendarDate rd) =
             givenDate
@@ -807,11 +847,11 @@ weekBasedYear givenDate =
             -- `year <thursday of this week>`
             year (CalendarDate (rd + (4 - dayOfWeekAsInt)))
     in
-    WeekBasedYear actuallyWeekBasedYear
+    WeekNumberingYear actuallyWeekBasedYear
 
 
-daysBeforeWeekBasedYear : WeekBasedYear -> Int
-daysBeforeWeekBasedYear (WeekBasedYear wby) =
+daysBeforeWeekBasedYear : WeekNumberingYear -> Int
+daysBeforeWeekBasedYear (WeekNumberingYear wby) =
     let
         jan4 =
             Year.daysBefore (Year wby) + 4
@@ -993,10 +1033,10 @@ fromInts givenYearInt mn d =
         Err <| "Invalid calendar date (" ++ String.fromInt givenYearInt ++ ", " ++ String.fromInt mn ++ ", " ++ String.fromInt d ++ ")"
 
 
-fromWeekParts : WeekBasedYear -> Int -> Int -> Result String CalendarDate
+fromWeekParts : WeekNumberingYear -> Int -> Int -> Result String CalendarDate
 fromWeekParts givenWBY wn wdn =
     let
-        (WeekBasedYear wby) =
+        (WeekNumberingYear wby) =
             givenWBY
     in
     if
@@ -1033,10 +1073,10 @@ fromOrdinalDate givenYear od =
     CalendarDate (Year.daysBefore givenYear + (od |> Basics.clamp 1 daysInY))
 
 
-fromWeekDate : WeekBasedYear -> Int -> DayOfWeek -> CalendarDate
+fromWeekDate : WeekNumberingYear -> Int -> DayOfWeek -> CalendarDate
 fromWeekDate givenWBY wn wd =
     let
-        (WeekBasedYear wy) =
+        (WeekNumberingYear wy) =
             givenWBY
 
         weeksInWY =
@@ -1055,8 +1095,7 @@ fromWeekDate givenWBY wn wd =
 -- Extract
 
 
-{-| Extract the month number of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 6.
+{-| Extract the month number of a date. Given the date 23 June 1990 this returns the integer 6.
 -}
 monthNumber : CalendarDate -> Int
 monthNumber =
@@ -1068,92 +1107,21 @@ monthNumber =
 -}
 quarter : CalendarDate -> Int
 quarter =
-    month >> monthToQuarter
-
-
-{-| the ordinal day of a date
--}
-type alias OrdinalDay =
-    Int
-
-
-{-| Extract the ordinal day of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 174.
--}
-ordinalDay : CalendarDate -> OrdinalDay
-ordinalDay givenDate =
-    let
-        dayOfWeekAsInt =
-            dayOfWeekToInt (dayOfWeek givenDate)
-    in
-    Month.daysBefore (year givenDate) (month givenDate) + dayOfWeekAsInt
+    month >> Month.toQuarter
 
 
 
--- Me: huh?
--- {-| Extract the local offset from UTC time, in minutes, of a date. Given a date
--- with a local offset of UTC-05:00 this returns the integer -300.
--- -}
--- offsetFromUtc : CalendarDate -> Int
--- offsetFromUtc date =
---     let
---         localTime =
---             unixTimeFromRataDie (fromCalendarDate (year date) (month date) (day date))
---                 + msFromTimeParts (hour date) (minute date) (second date) (millisecond date)
---                 |> toFloat
---
---         utcTime =
---             date |> toTime
---     in
---     Basics.floor (localTime - utcTime) // msPerMinute
---------------------------------------------------------------------------------
-
-
-{-| Helper function that decides if we should 'roll' the CalendarDate forward due to a Clock.Time change.
--}
-rollDayForward : Bool -> CalendarDate -> CalendarDate
-rollDayForward shouldRoll date =
-    if shouldRoll then
-        incrementDay date
-
-    else
-        date
-
-
-{-| Helper function that decides if we should 'roll' the CalendarDate backwards due to a Clock.Time change.
--}
-rollDayBackwards : Bool -> CalendarDate -> CalendarDate
-rollDayBackwards shouldRoll date =
-    if shouldRoll then
-        decrementDay date
-
-    else
-        date
-
-
-
---------------------------------------------------------------------------------
--- Rata Die
-
-
-{-| -}
-toRataDie : CalendarDate -> Int
-toRataDie (CalendarDate int) =
-    int
-
-
-{-| -}
-fromRataDie : Int -> CalendarDate
-fromRataDie =
-    CalendarDate
-
-
-
---------------------------------------------------------------------------------
--- Compare
+-- COMPARISONS -------------------------------------------------------------NOTE
 
 
 {-| Test the equality of two dates.
+
+Note: There are also fuzzier forms of "sameness" available:
+withinSameWeek
+withinSameMonth
+withinSameQuarter
+withinSameYear
+
 -}
 equal : CalendarDate -> CalendarDate -> Bool
 equal (CalendarDate a) (CalendarDate b) =
@@ -1176,57 +1144,6 @@ isBetween (CalendarDate a) (CalendarDate b) (CalendarDate x) =
     a <= x && x <= b
 
 
-{-| Clamp a date within a given range. The expression `Calendar.clamp min max x`
-returns one of `min`, `max`, or `x`, ensuring the returned date is not before
-`min` and not after `max`.
--}
-clamp : CalendarDate -> CalendarDate -> CalendarDate -> CalendarDate
-clamp (CalendarDate minimum) (CalendarDate maximum) (CalendarDate compareTo) =
-    if compareTo < minimum then
-        CalendarDate minimum
-
-    else if compareTo > maximum then
-        CalendarDate maximum
-
-    else
-        CalendarDate compareTo
-
-
-{-| Get the exact `Duration` between two dates!
-
-If you're using this library for all of your date/time logic, this output will always be exactly correct, regardless of time zone, thanks to `Moment`'s pure (leap-second-free) approach.
-
-(With other libraries however, you may be slightly off, because leap seconds happen at the same `Moment` globally and thus on different dates -- which may here be amplified to being off by entire days!)
-
--}
-timeBetween : CalendarDate -> CalendarDate -> Duration
-timeBetween calendarDate calendarDate2 =
-    Duration.fromDays <| toFloat (subtract calendarDate calendarDate2)
-
-
-
---------------------------------------------------------------------------------
--- CalendarUnits
---- The question of "are these dates within 7 days of each other?" is fundamentally different from the question "are these dates in the same calendar week?". This section can help answer questions like the second one.
-
-
-{-| Represents the various goalposts on a calendar.
-Note that these are NOT units of time (in fact only `Week` could represent a non-changing unit of time). They are ranges of Dates, based on the way the calendar is shaped.
-
-For example, if today is Tuesday, and you have the date for this
-
--}
-
-
-
--- type Boundaries
---     = Year
---     | Quarter
---     | Month
---     | Week
--- PTA : withinSameYear vs equalBy , conciseness
-
-
 withinSameYear : CalendarDate -> CalendarDate -> Bool
 withinSameYear date1 date2 =
     year date1 == year date2
@@ -1244,12 +1161,96 @@ withinSameMonth date1 date2 =
 
 withinSameWeek : CalendarDate -> CalendarDate -> Bool
 withinSameWeek date1 date2 =
-    weekNumber date1 == weekNumber date2 && weekBasedYear date1 == weekBasedYear date2
+    weekNumber date1 == weekNumber date2 && weekNumberingYear date1 == weekNumberingYear date2
+
+
+monthBoundariesBetween : CalendarDate -> CalendarDate -> Int
+monthBoundariesBetween date1 date2 =
+    toMonths date2 - toMonths date1 |> truncate
+
+
+yearBoundariesBetween : CalendarDate -> CalendarDate -> Int
+yearBoundariesBetween date1 date2 =
+    monthBoundariesBetween date1 date2 // 12
+
+
+quarterBoundariesBetween : CalendarDate -> CalendarDate -> Int
+quarterBoundariesBetween date1 date2 =
+    -- TODO this is not correct!
+    monthBoundariesBetween date1 date2 // 3
+
+
+{-| Tells you how many new calendar weeks (starting on Sunday) you will enter when moving from one date to the other.
+
+...But it's really just an alias for `countSpecificDOWBetween Sunday`, so if you want your weeks to start on `Monday`, feel free to switch to `countSpecificDOWBetween Monday`.
+
+-}
+weekBoundariesBetween date1 date2 =
+    -- wrong!? this is the number of weeks between!
+    -- diff Day date1 date2 // 7
+    countSpecificDOWBetween Sun date1 date2
+
+
+{-| How many Tuesdays are between two dates? How about thursdays?
+This can figure that out for you. You specify the DayOfWeek, it adds them up.
+-}
+countSpecificDOWBetween : DayOfWeek -> CalendarDate -> CalendarDate -> Int
+countSpecificDOWBetween dow date1 date2 =
+    difference (toPrevious dow date1) (toPrevious dow date2) // 7
+
+
+
+-- RANGES ----------------------------------------------------------------------
+
+
+{-| Get the exact `Duration` between two dates!
+
+If you're using this library for all of your date/time logic, this output will always be exactly correct, regardless of time zone, thanks to `Moment`'s pure (leap-second-free) approach.
+
+(With other libraries however, you may be slightly off, because leap seconds happen at the same `Moment` globally and thus on different dates -- which may here be amplified to being off by entire days!)
+
+-}
+timeBetween : CalendarDate -> CalendarDate -> Duration
+timeBetween calendarDate calendarDate2 =
+    Duration.fromDays <| toFloat (subtract calendarDate calendarDate2)
+
+
+{-| Clamp a date within a given range. The expression `Calendar.clamp min max x`
+returns one of `min`, `max`, or `x`, ensuring the returned date is not before
+`min` and not after `max`.
+-}
+clamp : CalendarDate -> CalendarDate -> CalendarDate -> CalendarDate
+clamp (CalendarDate minimum) (CalendarDate maximum) (CalendarDate compareTo) =
+    if compareTo < minimum then
+        CalendarDate minimum
+
+    else if compareTo > maximum then
+        CalendarDate maximum
+
+    else
+        CalendarDate compareTo
 
 
 
 --------------------------------------------------------------------------------
--- Arithmetic
+-- CalendarUnits
+--- The question of "are these dates within 7 days of each other?" is fundamentally different from the question "are these dates in the same calendar week?". This section can help answer questions like the second one.
+-- {-| Represents the various goalposts on a calendar.
+-- Note that these are NOT units of time (in fact only `Week` could represent a non-changing unit of time). They are ranges of Dates, based on the way the calendar is shaped.
+--
+-- For example, if today is Tuesday, and you have the date for this
+--
+-- -}
+--
+--
+-- type Boundaries
+--     = Year
+--     | Quarter
+--     | Month
+--     | Week
+-- PTA : withinSameYear vs equalBy , conciseness
+-- MOVING DATES ------------------------------------------------------------NOTE
+-- NOTE shiftWeek unnecessary because you can just add `Days 7`
 
 
 {-| Add a number of whole intervals to a date.
@@ -1289,82 +1290,7 @@ shiftQuarter n date =
 
 
 
--- NOTE shiftWeek unnecessary because you can just add `Days 7`
-
-
-{-| The number of whole months between date and 0001-01-01 plus fraction
-representing the current month. Only used for diffing months.
--}
-
-
-
---TODO don't expose
-
-
-toMonths : CalendarDate -> Float
-toMonths date =
-    let
-        ( DayOfMonth dayInt, Year yearInt ) =
-            ( dayOfMonth date, year date )
-
-        wholeMonths =
-            12 * (yearInt - 1) + Month.toInt (month date) - 1
-    in
-    -- TODO why was it: toFloat wholeMonths + (toFloat d / 100) + (fractionalDay date / 100)
-    toFloat wholeMonths + (toFloat dayInt / 100)
-
-
-{-| Find the difference, as a number of whole intervals, between two dates.
-Calendar.diff Month
-(Calendar.fromParts 2007 Mar 15 11 55 0 0)
-(Calendar.fromParts 2007 Sep 1 0 0 0 0)
--- 5
--}
-
-
-
--- diff : CalendarUnit -> CalendarDate -> CalendarDate -> Int
--- diff interval date1 date2 =
-
-
-monthBoundariesBetween : CalendarDate -> CalendarDate -> Int
-monthBoundariesBetween date1 date2 =
-    toMonths date2 - toMonths date1 |> truncate
-
-
-yearBoundariesBetween : CalendarDate -> CalendarDate -> Int
-yearBoundariesBetween date1 date2 =
-    monthBoundariesBetween date1 date2 // 12
-
-
-quarterBoundariesBetween : CalendarDate -> CalendarDate -> Int
-quarterBoundariesBetween date1 date2 =
-    -- TODO this is not correct!
-    monthBoundariesBetween date1 date2 // 3
-
-
-{-| Tells you how many new calendar weeks (starting on Sunday) you will enter when moving from one date to the other.
-
-...But it's really just an alias for `countSpecificDOWBetween Sunday`, so if you want your weeks to start on `Monday`, feel free to switch to `countSpecificDOWBetween Monday`.
-
--}
-weekBoundariesBetween date1 date2 =
-    -- wrong!? this is the number of weeks between!
-    -- diff Day date1 date2 // 7
-    countSpecificDOWBetween Sun date1 date2
-
-
-{-| How many Tuesdays are between two dates? How about thursdays?
-This can figure that out for you. You specify the DayOfWeek, it adds them up.
--}
-countSpecificDOWBetween : DayOfWeek -> CalendarDate -> CalendarDate -> Int
-countSpecificDOWBetween dow date1 date2 =
-    difference (toPrevious dow date1) (toPrevious dow date2) // 7
-
-
-
---------------------------------------------------------------------------------
--- "Rounding" Dates
+-- "ROUNDING" DATES ------------------------------------------------------------
 
 
 {-| How many days since last Tuesday?
@@ -1405,6 +1331,27 @@ toNext givenDoW givenDate =
     in
     -- Don't call it cheating!
     toPrevious givenDoW (CalendarDate (givenDateRD + 7))
+
+
+
+-- EXTRANEOUS ------------------------------------------------------------------
+
+
+{-| The number of whole months between date and 0001-01-01 plus fraction
+representing the current month. Only used for diffing months.
+-}
+toMonths : CalendarDate -> Float
+toMonths date =
+    --TODO don't expose
+    let
+        ( DayOfMonth dayInt, Year yearInt ) =
+            ( dayOfMonth date, year date )
+
+        wholeMonths =
+            12 * (yearInt - 1) + Month.toInt (month date) - 1
+    in
+    -- TODO why was it: toFloat wholeMonths + (toFloat d / 100) + (fractionalDay date / 100)
+    toFloat wholeMonths + (toFloat dayInt / 100)
 
 
 
