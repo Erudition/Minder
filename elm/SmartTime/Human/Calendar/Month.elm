@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, rollBackwards, toInt, toName, toQuarter)
+module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, parseDayOfMonth, parseMonth, previous, toInt, toName, toQuarter)
 
 import Array exposing (Array)
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
@@ -72,9 +72,9 @@ toInt givenMonth =
 
 {-| Gets the following month from the given month.
 
-    nextMonth Dec -- Jan : Month
+    Month.next Dec -- Jan : Month
 
-    nextMonth Nov -- Dec : Month
+    Month.next Nov -- Dec : Month
 
 -}
 next : Month -> Month
@@ -115,6 +115,53 @@ next givenMonth =
 
         Dec ->
             Jan
+
+
+{-| Gets next month from the given month.
+
+    previous Jan -- Dec : Month
+
+    previous Dec -- Nov : Month
+
+-}
+previous : Month -> Month
+previous givenMonth =
+    case givenMonth of
+        Jan ->
+            Dec
+
+        Feb ->
+            Jan
+
+        Mar ->
+            Feb
+
+        Apr ->
+            Mar
+
+        May ->
+            Apr
+
+        Jun ->
+            May
+
+        Jul ->
+            Jun
+
+        Aug ->
+            Jul
+
+        Sep ->
+            Aug
+
+        Oct ->
+            Sep
+
+        Nov ->
+            Oct
+
+        Dec ->
+            Nov
 
 
 {-| An array of all the `Months` in Calendar order.
@@ -367,53 +414,6 @@ fromIntSafe n =
 
         _ ->
             Nothing
-
-
-{-| Gets next month from the given month.
-
-    rollMonthBackwards Jan -- Dec : Month
-
-    rollMonthBackwards Dec -- Nov : Month
-
--}
-rollBackwards : Month -> Month
-rollBackwards givenMonth =
-    case givenMonth of
-        Jan ->
-            Dec
-
-        Feb ->
-            Jan
-
-        Mar ->
-            Feb
-
-        Apr ->
-            Mar
-
-        May ->
-            Apr
-
-        Jun ->
-            May
-
-        Jul ->
-            Jun
-
-        Aug ->
-            Jul
-
-        Sep ->
-            Aug
-
-        Oct ->
-            Sep
-
-        Nov ->
-            Oct
-
-        Dec ->
-            Nov
 
 
 {-| Compares two given `Months` and returns a Basics.Order.

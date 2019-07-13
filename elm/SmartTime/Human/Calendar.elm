@@ -1,14 +1,12 @@
 module SmartTime.Human.Calendar exposing
-    ( fromRawDay, fromYearMonthDay
-    , toMillis
+    ( fromRawDay, build
     , year, month, dayOfMonth
     , setYear, setMonth, setDayOfMonth
     , incrementYear, incrementMonth, incrementDay
     , decrementYear, decrementMonth, decrementDay
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
-    , millisInADay
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, dashSeparated, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromOrdinalDate, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromString, fromWeekDate, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, parseDayOfMonth, parseMonth, parseYear, quarter, quarterBoundariesBetween, rollDayBackwards, rollDayForward, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, quarter, quarterBoundariesBetween, separatedYMD, setYearKeepMonth, setYearSafe, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -28,12 +26,7 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 # Creating values
 
-@docs fromPosix, fromRawPartsForced, fromRawDay, fromYearMonthDay, dayOfMonthFromInt
-
-
-# Conversions
-
-@docs toPosix, toMillis, monthToInt, dayToInt
+@docs fromPosix, fromRawPartsForced, fromRawDay, build, dayOfMonthFromInt
 
 
 # Accessors
@@ -124,14 +117,14 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import SmartTime.Duration as Duration exposing (Duration, subtract)
-import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth, Month)
-import SmartTime.Human.Calendar.Week as Week exposing (DayOfWeek)
-import SmartTime.Human.Calendar.Year as Year exposing (Year)
+import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth(..), Month(..))
+import SmartTime.Human.Calendar.Week as Week exposing (DayOfWeek(..))
+import SmartTime.Human.Calendar.Year as Year exposing (Year(..))
 import SmartTime.Moment as Moment exposing (Moment)
 
 
 
--- ESSENTIALS  -------------------------------------------------------------------
+-- ESSENTIALS  -------------------------------------------------------------NOTE
 
 
 {-| A full ([Gregorian](https://en.wikipedia.org/wiki/Gregorian_calendar)) calendar date.
@@ -147,6 +140,104 @@ Nomenclature: We could have called this type "Day", but "Tuesday" could be calle
 -}
 type CalendarDate
     = CalendarDate RataDie
+
+
+{-| Add (or subtract, if negative given) a number of `Days` to a `CalendarDate`.
+
+Only use this if you're working with date alone (not dates from `Moment`s) or you are already doing several other date operations on a `Moment`; otherwise just use `Duration.addDays`, since adding Days is always a pure and linear operation in this library!
+
+-}
+addDays : Int -> CalendarDate -> CalendarDate
+addDays amountToAdd (CalendarDate date) =
+    CalendarDate (date + amountToAdd)
+
+
+{-| Attempt to create a `Date` from its constituent parts.
+Returns `Nothing` if the combination would form an invalid date.
+
+    build (Year 2018) Dec (DayOfMonth 25) -- Just (Date { year = (Year 2018), month = Dec, day = (DayOfMonth 25)}) : Maybe Date
+
+    build (Year 2020) Feb (DayOfMonth 29) -- Just (Date { day = DayOfMonth 29, month = Feb, year = Year 2020 }) : Maybe Date
+
+    build (Year 2019) Feb (DayOfMonth 29) -- Nothing : Maybe Date
+
+-}
+build : Year -> Month -> DayOfMonth -> Maybe CalendarDate
+build y m d =
+    let
+        maxDay =
+            Month.lastDay y m
+    in
+    case Month.compareDays d maxDay of
+        GT ->
+            Nothing
+
+        _ ->
+            Just (fromParts { year = y, month = m, day = d })
+
+
+{-| Extract the `Year` part of a [Date](Calendar#Date).
+
+    -- date == 25 Dec 2019
+    year date -- Year 2019 : Year
+
+    Year.toInt (year date) -- 2019 : Int
+
+-}
+year : CalendarDate -> Year
+year (CalendarDate rd) =
+    let
+        ( n400, r400 ) =
+            -- 400 * 365 + 97
+            divideInt rd 146097
+
+        ( n100, r100 ) =
+            -- 100 * 365 + 24
+            divideInt r400 36524
+
+        ( n4, r4 ) =
+            -- 4 * 365 + 1
+            divideInt r100 1461
+
+        ( n1, r1 ) =
+            divideInt r4 365
+
+        n =
+            if r1 == 0 then
+                0
+
+            else
+                1
+    in
+    Year <| n400 * 400 + n100 * 100 + n4 * 4 + n1 + n
+
+
+{-| Extract the `Month` part of a [Date](Calendar#Date).
+
+    -- date == 25 Dec 2019
+    month date -- Dec : Month
+
+-}
+month : CalendarDate -> Month
+month =
+    toParts >> .month
+
+
+{-| Extract the `DayOfMonth` part of a [Date](Calendar#Date).
+
+    -- date == 25 Dec 2019
+    dayOfMonth date -- DayOfMonth 25 : DayOfMonth
+
+    Month.dayToInt (dayOfMonth date) -- 25 : Int
+
+-}
+dayOfMonth : CalendarDate -> DayOfMonth
+dayOfMonth =
+    toParts >> .day
+
+
+
+-- MANIPULATING DATES  -----------------------------------------------------NOTE
 
 
 {-| Increments the `DayOfMonth` in a given [Date](Calendar#Date). Will also increment `Month` and `Year` where applicable.
@@ -185,16 +276,6 @@ decrementDay (CalendarDate date) =
     CalendarDate (date - 1)
 
 
-{-| Add (or subtract, if negative given) a number of `Days` to a `CalendarDate`.
-
-Only use this if you're working with date alone (not dates from `Moment`s) or you are already doing several other date operations on a `Moment`; otherwise just use `Duration.addDays`, since adding Days is always a pure and linear operation in this library!
-
--}
-addDays : Int -> CalendarDate -> CalendarDate
-addDays amountToAdd (CalendarDate date) =
-    CalendarDate (date + amountToAdd)
-
-
 {-| Increments the `Month` in a given [Date](Calendar#Date). It will also roll over to the next year where applicable.
 
     -- date  == 15 Sep 2019
@@ -216,7 +297,7 @@ incrementMonth : CalendarDate -> CalendarDate
 incrementMonth givenDate =
     let
         updatedMonth =
-            nextMonth (month givenDate)
+            Month.next (month givenDate)
 
         updatedYear =
             case updatedMonth of
@@ -230,7 +311,7 @@ incrementMonth givenDate =
             Month.lastDay updatedYear updatedMonth
 
         updatedDay =
-            case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
+            case Month.compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
                 GT ->
                     lastDayOfUpdatedMonth
 
@@ -272,7 +353,7 @@ decrementYear givenDate =
             Month.lastDay updatedYear (month givenDate)
 
         updatedDay =
-            case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
+            case Month.compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
                 GT ->
                     lastDayOfUpdatedMonth
 
@@ -307,7 +388,7 @@ decrementMonth : CalendarDate -> CalendarDate
 decrementMonth givenDate =
     let
         updatedMonth =
-            rollMonthBackwards (month givenDate)
+            Month.previous (month givenDate)
 
         updatedYear =
             case updatedMonth of
@@ -321,7 +402,7 @@ decrementMonth givenDate =
             Month.lastDay updatedYear updatedMonth
 
         updatedDay =
-            case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
+            case Month.compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
                 GT ->
                     lastDayOfUpdatedMonth
 
@@ -333,162 +414,6 @@ decrementMonth givenDate =
         , month = updatedMonth
         , day = updatedDay
         }
-
-
-{-| Extract the week number of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 25.
--}
-weekNumber : CalendarDate -> Int
-weekNumber date =
-    let
-        (CalendarDate rd) =
-            date
-
-        week1Day1 =
-            daysBeforeWeekBasedYear (weekNumberingYear date) + 1
-    in
-    (rd - week1Day1) // 7 + 1
-
-
-
--- CREATING YOUR OWN -----------------------------------------------------------
-
-
-{-| Attempt to create a `Date` from its constituent Year and Month by using its raw day.
-Returns `Nothing` if any parts or their combination would form an invalid date.
-
-    fromRawDay (Year 2018) Dec 25 -- Just (Date { day = DayOfMonth 25, month = Dec, year = Year 2018 }) : Maybe Date
-
-    fromRawDay (Year 2020) Feb 29 -- Just (Date { day = DayOfMonth 11, month = Feb, year = Year 2020 }) : Maybe Date
-
-    fromRawDay (Year 2019) Feb 29 -- Nothing : Maybe Date
-
--}
-fromRawDay : Year -> Month -> Int -> Maybe CalendarDate
-fromRawDay givenYear givenMonth day =
-    dayOfMonthFromInt givenYear givenMonth day
-        |> Maybe.andThen (fromYearMonthDay givenYear givenMonth)
-
-
-{-| Attempt to create a `Date` from its constituent parts.
-Returns `Nothing` if the combination would form an invalid date.
-
-    fromYearMonthDay (Year 2018) Dec (DayOfMonth 25) -- Just (Date { year = (Year 2018), month = Dec, day = (DayOfMonth 25)}) : Maybe Date
-
-    fromYearMonthDay (Year 2020) Feb (DayOfMonth 29) -- Just (Date { day = DayOfMonth 29, month = Feb, year = Year 2020 }) : Maybe Date
-
-    fromYearMonthDay (Year 2019) Feb (DayOfMonth 29) -- Nothing : Maybe Date
-
--}
-fromYearMonthDay : Year -> Month -> DayOfMonth -> Maybe CalendarDate
-fromYearMonthDay y m d =
-    let
-        maxDay =
-            Month.lastDay y m
-    in
-    case compareDays d maxDay of
-        GT ->
-            Nothing
-
-        _ ->
-            Just (fromRawPartsForced { year = y, month = m, day = d })
-
-
-{-| Takes the `Parts` of a `CalendarDate` as parameters, except they're all raw `Int`s so you don't have to wrap them yourself.
-
-The input is validated, and then the resulting date is validated. If both succeed, you get a `CalendarDate`!
-
-If not, you'll just get `Nothing`, and you won't be told why. So, only use this if you're in a hurry. For more control over failures, consider using `fromParts` instead.
-
--}
-fromRawInts : Int -> Int -> Int -> Maybe CalendarDate
-fromRawInts yearInt monthInt dayInt =
-    let
-        givenYear =
-            Year yearInt
-
-        givenMonth =
-            numberToMonth monthInt
-
-        validMonthInt =
-            monthInt >= 1 && monthInt <= 12
-
-        validDayOfMonth =
-            -- is dayInt in bounds for this Year+Month combo?
-            dayInt <= daysInMonth givenYear givenMonth && dayInt > 0
-    in
-    if validDayOfMonth && validMonthInt then
-        CalendarDate <|
-            Year.daysBefore givenYear
-                + Month.daysBefore givenYear givenMonth
-                + dayInt
-
-    else
-        Nothing
-
-
-{-| Take raw calendar parts like `fromRawInts`, and clamp the day so that you get a valid `CalendarDate` no matter what -- even if it's a poor approximation of the date you intended! Great for those who want to live on the edge, or just hate `Maybe`s, or just want to hardcode a known-valid date in a one-liner.
-
-The third `Int` (the `DayOfMonth`) will be clamped to the number of days in the Year&Month combination given.
-
--}
-fromRawIntsForced : Int -> Int -> Int -> CalendarDate
-fromRawIntsForced yearInt monthInt dayInt =
-    let
-        givenYear =
-            Year yearInt
-
-        givenMonth =
-            numberToMonth monthInt
-    in
-    CalendarDate <|
-        Year.daysBefore givenYear
-            + Month.daysBefore givenYear givenMonth
-            + (dayInt |> Basics.clamp 1 (daysInMonth givenYear givenMonth))
-
-
-{-| Get a `CalendarDate` from a string like these:
-
-    "1994/12/27" -- Ok (December 27, 1994)
-
-    "1776-5-11"
-
-    "2013.09.11"
-
-    "34 2 20" -- Yes, that's the `Year 34` CE.
-
-As with the universal technical standard, the parts are in biggest-smallest order.
-
-The parser can fail, with a nice error message:
-
--- Example
-
-Or the successfully parsed date may not actually exist:
-
--- Example
-
--}
-fromNumberString : String -> Result (List Parser.DeadEnd) CalendarDate
-fromNumberString =
-    let
-        parserResult =
-            Parser.run (Parser.oneOf [ separated "/", separated "-", separated ".", separated " " ])
-
-        stringErrorResult =
-            Result.mapError Parser.deadEndsToString parserResult
-    in
-    parserResult |> Result.andThen (Result.fromMaybe "The parsed date was not valid.")
-
-
-separatedYMD : String -> Parser (Maybe CalendarDate)
-separatedYMD separator =
-    Parser.succeed (fromParts << Parts)
-        |. spaces
-        |= Year.parse4DigitYear
-        |. symbol separator
-        |= Month.parseMonth
-        |. symbol separator
-        |= Month.parseDayOfMonth
 
 
 
@@ -528,7 +453,7 @@ calcDate : Year -> Month -> OrdinalDay -> Parts
 calcDate givenYear givenMonth dayCounter =
     let
         monthSize =
-            daysInMonth givenYear givenMonth
+            Month.length givenYear givenMonth
 
         monthsLeftToGo =
             -- was `monthAsNumber < 12`
@@ -542,8 +467,8 @@ calcDate givenYear givenMonth dayCounter =
     if monthsLeftToGo && monthOverFlow then
         let
             nextMonthToCheck =
-                -- was `monthAsNumber + 1 |> numberToMonth`
-                nextMonth givenMonth
+                -- was `monthAsNumber + 1 |> Month.fromInt`
+                Month.next givenMonth
 
             remainingDaysToCount =
                 dayCounter - monthSize
@@ -551,14 +476,14 @@ calcDate givenYear givenMonth dayCounter =
         calcDate givenYear nextMonthToCheck remainingDaysToCount
 
     else
-        { year = Year.toInt givenYear
+        { year = givenYear
         , month = givenMonth
-        , day = dayCounter
+        , day = DayOfMonth dayCounter
         }
 
 
 
--- YEARS ---------------------------------------------------------------
+-- YEAR
 
 
 {-| Increments the `Year` in a given [Date](Calendar#Date) while preserving the `Month` and `DayOfMonth` parts.
@@ -594,7 +519,7 @@ incrementYear givenDate =
             Month.lastDay updatedYear (month givenDate)
 
         updatedDay =
-            case compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
+            case Month.compareDays (dayOfMonth givenDate) lastDayOfUpdatedMonth of
                 GT ->
                     lastDayOfUpdatedMonth
 
@@ -616,76 +541,43 @@ incrementYear givenDate =
     setYear 2019 date -- Nothing : Maybe Date
 
 -}
-setYear : Int -> CalendarDate -> Maybe CalendarDate
+setYearSafe : Int -> CalendarDate -> Maybe CalendarDate
+setYearSafe givenYear date =
+    Debug.todo "set year"
+
+
+{-| Set the `Year` part of a `CalendarDate`. If the `CalendarDate` was the "leap day" and the target year has no leap day, it will intelligently stay in February and become Feb 28.
+
+Warning: this means that if you later set the date's year back to a leap year, it will still be Feb 28! Don't forget there are relative year operators as well.
+
+    -- date == 29 Feb 2020
+    setYear 2024 date -- Just (29 Feb 2024) : CalendarDate
+
+    setYear 2019 date -- Just (29 Feb 2024) : Maybe Date
+
+-}
+setYear : Int -> CalendarDate -> CalendarDate
 setYear givenYear date =
     Debug.todo "set year"
 
 
-{-| Extract the `Year` part of a [Date](Calendar#Date).
+{-| Set the `Year` part of a `CalendarDate`. If the `CalendarDate` was the "leap day" and the target year has no leap day, it will intelligently stay in February and become Feb 28.
 
-    -- date == 25 Dec 2019
-    year date -- Year 2019 : Year
+Warning: this means that if you later set the date's year back to a leap year, it will still be Feb 28! Don't forget there are relative year operators as well.
 
-    Year.toInt (year date) -- 2019 : Int
+    -- date == 29 Feb 2020
+    setYear 2024 date -- Just (29 Feb 2024) : CalendarDate
 
--}
-year : CalendarDate -> Year
-year (CalendarDate rd) =
-    let
-        ( n400, r400 ) =
-            -- 400 * 365 + 97
-            divideInt rd 146097
-
-        ( n100, r100 ) =
-            -- 100 * 365 + 24
-            divideInt r400 36524
-
-        ( n4, r4 ) =
-            -- 4 * 365 + 1
-            divideInt r100 1461
-
-        ( n1, r1 ) =
-            divideInt r4 365
-
-        n =
-            if r1 == 0 then
-                0
-
-            else
-                1
-    in
-    Year <| n400 * 400 + n100 * 100 + n4 * 4 + n1 + n
-
-
-firstOfYear : Year -> CalendarDate
-firstOfYear givenYear =
-    CalendarDate <| Year.daysBefore givenYear + 1
-
-
-is53WeekYear : Year -> Bool
-is53WeekYear givenYear =
-    -- Can't be in `Year` because of dependencies
-    let
-        jan1 =
-            dayOfWeek (firstOfYear givenYear)
-    in
-    -- any year starting on Thursday and any leap year starting on Wednesday
-    jan1 == Thu || (jan1 == Wed && isLeapYear givenYear)
-
-
-
--- MONTHS ----------------------------------------------------------------
-
-
-{-| Extract the `Month` part of a [Date](Calendar#Date).
-
-    -- date == 25 Dec 2019
-    month date -- Dec : Month
+    setYear 2019 date -- Just (29 Feb 2024) : Maybe Date
 
 -}
-month : CalendarDate -> Month
-month =
-    toParts >> .month
+setYearKeepMonth : Int -> CalendarDate -> CalendarDate
+setYearKeepMonth givenYear date =
+    Debug.todo "set year"
+
+
+
+-- MONTHS
 
 
 {-| Attempts to set the `Month` part of a [Date](Calendar#Date).
@@ -699,19 +591,6 @@ month =
 setMonth : Month -> CalendarDate -> Maybe CalendarDate
 setMonth givenMonth date =
     Debug.todo "Set month"
-
-
-{-| Extract the `DayOfMonth` part of a [Date](Calendar#Date).
-
-    -- date == 25 Dec 2019
-    dayOfMonth date -- DayOfMonth 25 : DayOfMonth
-
-    dayToInt (dayOfMonth date) -- 25 : Int
-
--}
-dayOfMonth : CalendarDate -> DayOfMonth
-dayOfMonth =
-    toParts >> .day
 
 
 {-| Attempts to set the `DayOfMonth` part of a [Date](Calendar#Date).
@@ -733,12 +612,25 @@ firstDayOfMonth givenYear givenMonth =
 
 
 
--- WEEKS ----------------------------------------------------------------------
--- Week Arithmetic
--- Days of the week
+-- WEEKS
 
 
-{-| Returns the weekday of a specific [CalendarDate](Calendar#CalendarDate).
+{-| Extract the week number of a date. Given the date 23 June 1990 at
+11:45 a.m. this returns the integer 25.
+-}
+weekNumber : CalendarDate -> Int
+weekNumber date =
+    let
+        (CalendarDate rd) =
+            date
+
+        week1Day1 =
+            daysBeforeWeekBasedYear (weekNumberingYear date) + 1
+    in
+    (rd - week1Day1) // 7 + 1
+
+
+{-| Returns the name of the day of the week (`DayOfWeek`) for a specific [CalendarDate](Calendar#CalendarDate).
 
     -- date == 26 Aug 2019
     dayOfWeek date -- Mon : DayOfWeek
@@ -755,11 +647,11 @@ dayOfWeek (CalendarDate rd) =
                 n ->
                     n
     in
-    numberToDayOfWeek dayNum
+    Week.numberToDayOfWeek dayNum
 
 
 
--- ALTERNATE REPRESENTATIONS ---------------------------------------------------
+-- OTHER WAYS TO REPRESENT AND EXPORT A DATE -------------------------------NOTE
 -- ORDINAL DAYS
 
 
@@ -786,7 +678,7 @@ ordinalDay : CalendarDate -> OrdinalDay
 ordinalDay givenDate =
     let
         dayOfWeekAsInt =
-            dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayOfWeekToInt (dayOfWeek givenDate)
     in
     Month.daysBefore (year givenDate) (month givenDate) + dayOfWeekAsInt
 
@@ -801,6 +693,31 @@ toOrdinalDate (CalendarDate rd) =
     { year = givenYear
     , ordinalDay = rd - Year.daysBefore givenYear
     }
+
+
+fromOrdinalDateForced : Year -> OrdinalDay -> CalendarDate
+fromOrdinalDateForced givenYear od =
+    let
+        daysInY =
+            if Year.isLeapYear givenYear then
+                366
+
+            else
+                365
+    in
+    CalendarDate (Year.daysBefore givenYear + (od |> Basics.clamp 1 daysInY))
+
+
+fromOrdinalParts : Year -> OrdinalDay -> Result String CalendarDate
+fromOrdinalParts givenYear givenOrdinalDay =
+    if
+        (givenOrdinalDay |> intIsBetween 1 365)
+            || (givenOrdinalDay == 366 && Year.isLeapYear givenYear)
+    then
+        Ok <| CalendarDate <| Year.daysBefore givenYear + givenOrdinalDay
+
+    else
+        Err <| "Invalid ordinal date (" ++ String.fromInt (Year.toInt givenYear) ++ ", " ++ String.fromInt givenOrdinalDay ++ ")"
 
 
 
@@ -841,196 +758,13 @@ weekNumberingYear givenDate =
             givenDate
 
         dayOfWeekAsInt =
-            dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayOfWeekToInt (dayOfWeek givenDate)
 
         (Year actuallyWeekBasedYear) =
             -- `year <thursday of this week>`
             year (CalendarDate (rd + (4 - dayOfWeekAsInt)))
     in
     WeekNumberingYear actuallyWeekBasedYear
-
-
-daysBeforeWeekBasedYear : WeekNumberingYear -> Int
-daysBeforeWeekBasedYear (WeekNumberingYear wby) =
-    let
-        jan4 =
-            Year.daysBefore (Year wby) + 4
-
-        dayOfWeekAsInt date =
-            dayOfWeekToInt (dayOfWeek date)
-    in
-    jan4 - dayOfWeekAsInt (CalendarDate jan4)
-
-
-
--- Extraneous TBD -------------------------------------------------------------
-
-
-{-| Transforms a [Date](Calendar#Date) into milliseconds.
-
-    date = fromRawPartsForced { day = 25, month = Dec, year = 2019 }
-    Maybe.map toMillis date -- Just 1577232000000 == 25 Dec 2019 00:00:00.000
-
-    want = 1566795954000 -- 26 Aug 2019 05:05:54.000
-    got = toMillis (fromPosix (millisToPosix want)) -- 1566777600000 == 26 Aug 2019 00:00:00.000
-
-    want == got -- False
-
-Notice that transforming a **date** to milliseconds will always get you midnight hours.
-The first example above will return a timestamp that equals to **Wed 25th of December 2019 00:00:00.000**
-and the second example will return a timestamp that equals to **26th of August 2019 00:00:00.000** even though
-the timestamp we provided in the [fromPosix](Calendar#fromPosix) was equal to **26th of August 2019 05:05:54.000**
-
--}
-
-
-
--- TODO remove?
-
-
-toMillis : CalendarDate -> Int
-toMillis date =
-    millisSinceEpoch (year date)
-        + millisSinceStartOfTheYear (year date) (month date)
-        + millisSinceStartOfTheMonth (dayOfMonth date)
-
-
-
--- Compare values
--- Utilities
-
-
-{-| Returns an incrementally sorted [CalendarDate](Calendar#CalendarDate) list based on the **start** and **end** date parameters.
-_**The resulting list will include both start and end dates**_.
-
-    -- start == 26 Feb 2020
-    -- end   == 1 Mar 2020
-
-    getDateRange start end
-    -- [ 26 Feb 2020, 27 Feb 2020, 28 Feb 2020, 29 Feb 2020, 1  Mar 2020 ] : List CalendarDate
-
-    getDateRange end start
-    -- [ 26 Feb 2020, 27 Feb 2020, 28 Feb 2020, 29 Feb 2020, 1  Mar 2020 ] : List CalendarDate
-
--}
-getDateRange : CalendarDate -> CalendarDate -> List CalendarDate
-getDateRange (CalendarDate startDate) (CalendarDate endDate) =
-    List.map CalendarDate (List.range startDate endDate)
-
-
-{-| Returns a list of [Dates](Calendar#CalendarDate) for the given `Year` and `Month` combination.
-
-    -- date == 26 Aug 2019
-
-    getDatesInMonth date
-    -- [ 1 Aug 2019, 2 Aug 2019, 3 Aug 2019, ..., 29 Aug 2019, 30 Aug 2019, 31 Aug 2019 ] : List CalendarDate
-
--}
-getDatesInMonth : CalendarDate -> List CalendarDate
-getDatesInMonth givenDate =
-    let
-        lastDayOfTheMonth =
-            dayToInt (Month.lastDay (year givenDate) (month givenDate))
-    in
-    List.map
-        CalendarDate
-        (List.range 1 lastDayOfTheMonth)
-
-
-{-| Get the difference in days between two `CalendarDate`s. We can have a negative difference of days as can be seen in the examples below.
-
-    -- past   == 24 Aug 2019
-    -- future == 26 Aug 2019
-    subtract past future -- 2  : Int
-
-    subtract future past -- -2 : Int
-
--}
-subtract : CalendarDate -> CalendarDate -> Int
-subtract (CalendarDate startDate) (CalendarDate endDate) =
-    startDate - endDate
-
-
-{-| Returns the number of days between two `CalendarDate`s, regardless of order.
-
-This means that unlike `subtract`, result will never be negative.
-
--}
-difference : CalendarDate -> CalendarDate -> Int
-difference (CalendarDate startDate) (CalendarDate endDate) =
-    abs (startDate - endDate)
-
-
-{-| Sorts incrementally a list of [Dates](Calendar#CalendarDate).
-
-    -- past   == 26 Aug 1920
-    -- epoch  == 1 Jan 1970
-    -- future == 25 Dec 2020
-
-    sort [ future, past, epoch ]
-    -- [ 26 Aug 1920, 1 Jan 1970, 25 Dec 2020 ] : List CalendarDate
-
--}
-sort : List CalendarDate -> List CalendarDate
-sort =
-    List.sortBy toMillis
-
-
-
--- Constants
-
-
-{-| The number of seconds in a day.
-
-(It's 86 400, by the way. It may help to think of this song...)
-
--}
-millisInADay : Int
-millisInADay =
-    1000 * 60 * 60 * 24
-
-
-
--- calculations
-
-
-{-| integer division, returning (Quotient, Remainder)
--}
-divideInt : Int -> Int -> ( Int, Int )
-divideInt a b =
-    ( a // b, remainderBy a b )
-
-
-
--- constructors, strict
-
-
-fromOrdinalParts : Year -> OrdinalDay -> Result String CalendarDate
-fromOrdinalParts givenYear givenOrdinalDay =
-    if
-        (givenOrdinalDay |> intIsBetween 1 365)
-            || (givenOrdinalDay == 366 && isLeapYear givenYear)
-    then
-        Ok <| CalendarDate <| Year.daysBefore givenYear + givenOrdinalDay
-
-    else
-        Err <| "Invalid ordinal date (" ++ String.fromInt (Year.toInt givenYear) ++ ", " ++ String.fromInt givenOrdinalDay ++ ")"
-
-
-fromInts : Int -> Int -> Int -> Result String CalendarDate
-fromInts givenYearInt mn d =
-    let
-        givenYear =
-            Year givenYearInt
-    in
-    if
-        (mn |> intIsBetween 1 12)
-            && (d |> intIsBetween 1 (daysInMonth givenYear (mn |> numberToMonth)))
-    then
-        Ok <| CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear (mn |> numberToMonth) + d
-
-    else
-        Err <| "Invalid calendar date (" ++ String.fromInt givenYearInt ++ ", " ++ String.fromInt mn ++ ", " ++ String.fromInt d ++ ")"
 
 
 fromWeekParts : WeekNumberingYear -> Int -> Int -> Result String CalendarDate
@@ -1051,30 +785,8 @@ fromWeekParts givenWBY wn wdn =
         Err <| "Invalid week date (" ++ String.fromInt wby ++ ", " ++ String.fromInt wn ++ ", " ++ String.fromInt wdn ++ ")"
 
 
-intIsBetween : Int -> Int -> Int -> Bool
-intIsBetween a b x =
-    a <= x && x <= b
-
-
-
--- constructors, clamping
-
-
-fromOrdinalDate : Year -> Int -> CalendarDate
-fromOrdinalDate givenYear od =
-    let
-        daysInY =
-            if isLeapYear givenYear then
-                366
-
-            else
-                365
-    in
-    CalendarDate (Year.daysBefore givenYear + (od |> Basics.clamp 1 daysInY))
-
-
-fromWeekDate : WeekNumberingYear -> Int -> DayOfWeek -> CalendarDate
-fromWeekDate givenWBY wn wd =
+fromWeekDateForced : WeekNumberingYear -> Int -> DayOfWeek -> CalendarDate
+fromWeekDateForced givenWBY wn wd =
     let
         (WeekNumberingYear wy) =
             givenWBY
@@ -1086,13 +798,157 @@ fromWeekDate givenWBY wn wd =
             else
                 52
     in
-    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> Basics.clamp 1 weeksInWY) - 1) * 7 + (wd |> dayOfWeekToInt)
+    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> Basics.clamp 1 weeksInWY) - 1) * 7 + (wd |> Week.dayOfWeekToInt)
+
+
+daysBeforeWeekBasedYear : WeekNumberingYear -> Int
+daysBeforeWeekBasedYear (WeekNumberingYear wby) =
+    let
+        jan4 =
+            Year.daysBefore (Year wby) + 4
+
+        dayOfWeekAsInt date =
+            Week.dayOfWeekToInt (dayOfWeek date)
+    in
+    jan4 - dayOfWeekAsInt (CalendarDate jan4)
 
 
 
--- From elsewhere
---------------------------------------------------------------------------------
--- Extract
+-- RAW VALUES
+
+
+{-| Attempt to create a `Date` from its constituent Year and Month by using its raw day.
+Returns `Nothing` if any parts or their combination would form an invalid date.
+
+    fromRawDay (Year 2018) Dec 25 -- Just (Date { day = DayOfMonth 25, month = Dec, year = Year 2018 }) : Maybe Date
+
+    fromRawDay (Year 2020) Feb 29 -- Just (Date { day = DayOfMonth 11, month = Feb, year = Year 2020 }) : Maybe Date
+
+    fromRawDay (Year 2019) Feb 29 -- Nothing : Maybe Date
+
+-}
+fromRawDay : Year -> Month -> Int -> Maybe CalendarDate
+fromRawDay givenYear givenMonth day =
+    Month.dayOfMonthValidFor givenYear givenMonth day
+        |> Maybe.andThen (build givenYear givenMonth)
+
+
+{-| Takes the `Parts` of a `CalendarDate` as parameters, except they're all raw `Int`s so you don't have to wrap them yourself.
+
+The input is validated, and then the resulting date is validated. If both succeed, you get a `CalendarDate`!
+
+If not, you'll just get `Nothing`, and you won't be told why. So, only use this if you're in a hurry. For more control over failures, consider using `fromParts` instead.
+
+-}
+fromRawInts : Int -> Int -> Int -> Maybe CalendarDate
+fromRawInts yearInt monthInt dayInt =
+    let
+        givenYear =
+            Year yearInt
+
+        givenMonth =
+            Month.fromInt monthInt
+
+        validMonthInt =
+            monthInt >= 1 && monthInt <= 12
+
+        validDayOfMonth =
+            -- is dayInt in bounds for this Year+Month combo?
+            dayInt <= Month.length givenYear givenMonth && dayInt > 0
+    in
+    if validDayOfMonth && validMonthInt then
+        Just <|
+            CalendarDate <|
+                Year.daysBefore givenYear
+                    + Month.daysBefore givenYear givenMonth
+                    + dayInt
+
+    else
+        Nothing
+
+
+{-| Take raw calendar parts like `fromRawInts`, and clamp the day so that you get a valid `CalendarDate` no matter what -- even if it's a poor approximation of the date you intended! Great for those who want to live on the edge, or just hate `Maybe`s, or just want to hardcode a known-valid date in a one-liner.
+
+The third `Int` (the `DayOfMonth`) will be clamped to the number of days in the Year&Month combination given.
+
+-}
+fromRawIntsForced : Int -> Int -> Int -> CalendarDate
+fromRawIntsForced yearInt monthInt dayInt =
+    let
+        givenYear =
+            Year yearInt
+
+        givenMonth =
+            Month.fromInt monthInt
+    in
+    CalendarDate <|
+        Year.daysBefore givenYear
+            + Month.daysBefore givenYear givenMonth
+            + (dayInt |> Basics.clamp 1 (Month.length givenYear givenMonth))
+
+
+{-| Get a `CalendarDate` from a string like these:
+
+    "1994/12/27" -- Ok (December 27, 1994)
+
+    "1776-5-11"
+
+    "2013.09.11"
+
+    "34 2 20" -- Yes, that's the `Year 34` CE.
+
+As with the universal technical standard, the parts are in biggest-smallest order.
+
+The parser can fail, with a nice error message:
+
+-- Example
+
+Or the successfully parsed date may not actually exist:
+
+-- Example
+
+-}
+fromNumberString : String -> Result String CalendarDate
+fromNumberString input =
+    let
+        parserResult =
+            Parser.run (Parser.oneOf [ separatedYMD "/", separatedYMD "-", separatedYMD ".", separatedYMD " " ]) input
+
+        stringErrorResult =
+            Result.mapError Parser.deadEndsToString parserResult
+    in
+    stringErrorResult |> Result.andThen (Result.fromMaybe "The parsed date was not valid.")
+
+
+separatedYMD : String -> Parser (Maybe CalendarDate)
+separatedYMD separator =
+    Parser.succeed build
+        |. spaces
+        |= Year.parse4DigitYear
+        |. symbol separator
+        |= Month.parseMonth
+        |. symbol separator
+        |= Month.parseDayOfMonth
+
+
+fromInts : Int -> Int -> Int -> Result String CalendarDate
+fromInts givenYearInt mn d =
+    let
+        givenYear =
+            Year givenYearInt
+    in
+    if
+        (mn |> intIsBetween 1 12)
+            && (d |> intIsBetween 1 (Month.length givenYear (mn |> Month.fromInt)))
+    then
+        Ok <| CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear (mn |> Month.fromInt) + d
+
+    else
+        Err <| "Invalid calendar date (" ++ String.fromInt givenYearInt ++ ", " ++ String.fromInt mn ++ ", " ++ String.fromInt d ++ ")"
+
+
+
+--EXTRACTIONS --------------------------------------------------------------NOTE
 
 
 {-| Extract the month number of a date. Given the date 23 June 1990 this returns the integer 6.
@@ -1112,6 +968,45 @@ quarter =
 
 
 -- COMPARISONS -------------------------------------------------------------NOTE
+
+
+{-| Returns the number of days between two `CalendarDate`s, regardless of order.
+
+This means that unlike `subtract`, result will never be negative.
+
+-}
+difference : CalendarDate -> CalendarDate -> Int
+difference (CalendarDate startDate) (CalendarDate endDate) =
+    abs (startDate - endDate)
+
+
+{-| Get the difference in days between two `CalendarDate`s. We can have a negative difference of days as can be seen in the examples below.
+
+    -- past   == 24 Aug 2019
+    -- future == 26 Aug 2019
+    subtract past future -- 2  : Int
+
+    subtract future past -- -2 : Int
+
+-}
+subtract : CalendarDate -> CalendarDate -> Int
+subtract (CalendarDate startDate) (CalendarDate endDate) =
+    startDate - endDate
+
+
+{-| Sorts incrementally a list of [Dates](Calendar#CalendarDate).
+
+    -- past   == 26 Aug 1920
+    -- epoch  == 1 Jan 1970
+    -- future == 25 Dec 2020
+
+    sort [ future, past, epoch ]
+    -- [ 26 Aug 1920, 1 Jan 1970, 25 Dec 2020 ] : List CalendarDate
+
+-}
+sort : List CalendarDate -> List CalendarDate
+sort =
+    List.sortBy toRataDie
 
 
 {-| Test the equality of two dates.
@@ -1185,6 +1080,7 @@ quarterBoundariesBetween date1 date2 =
 ...But it's really just an alias for `countSpecificDOWBetween Sunday`, so if you want your weeks to start on `Monday`, feel free to switch to `countSpecificDOWBetween Monday`.
 
 -}
+weekBoundariesBetween : CalendarDate -> CalendarDate -> Int
 weekBoundariesBetween date1 date2 =
     -- wrong!? this is the number of weeks between!
     -- diff Day date1 date2 // 7
@@ -1200,7 +1096,46 @@ countSpecificDOWBetween dow date1 date2 =
 
 
 
--- RANGES ----------------------------------------------------------------------
+-- CALENDAR FACTS ----------------------------------------------------------NOTE
+
+
+is53WeekYear : Year -> Bool
+is53WeekYear givenYear =
+    -- Can't be in `Year` because of dependencies? TODO
+    let
+        jan1 =
+            dayOfWeek (firstOfYear givenYear)
+    in
+    -- any year starting on Thursday and any leap year starting on Wednesday
+    jan1 == Thu || (jan1 == Wed && Year.isLeapYear givenYear)
+
+
+firstOfYear : Year -> CalendarDate
+firstOfYear givenYear =
+    CalendarDate <| Year.daysBefore givenYear + 1
+
+
+{-| Returns a list of [Dates](Calendar#CalendarDate) for the given `Year` and `Month` combination.
+
+    -- date == 26 Aug 2019
+
+    getDatesInMonth date
+    -- [ 1 Aug 2019, 2 Aug 2019, 3 Aug 2019, ..., 29 Aug 2019, 30 Aug 2019, 31 Aug 2019 ] : List CalendarDate
+
+-}
+getDatesInMonth : CalendarDate -> List CalendarDate
+getDatesInMonth givenDate =
+    let
+        lastDayOfTheMonth =
+            Month.dayToInt (Month.lastDay (year givenDate) (month givenDate))
+    in
+    List.map
+        CalendarDate
+        (List.range 1 lastDayOfTheMonth)
+
+
+
+-- RANGES ------------------------------------------------------------------NOTE
 
 
 {-| Get the exact `Duration` between two dates!
@@ -1231,8 +1166,27 @@ clamp (CalendarDate minimum) (CalendarDate maximum) (CalendarDate compareTo) =
         CalendarDate compareTo
 
 
+{-| Returns an incrementally sorted [CalendarDate](Calendar#CalendarDate) list based on the **start** and **end** date parameters.
+_**The resulting list will include both start and end dates**_.
 
---------------------------------------------------------------------------------
+    -- start == 26 Feb 2020
+    -- end   == 1 Mar 2020
+
+    getDateRange start end
+    -- [ 26 Feb 2020, 27 Feb 2020, 28 Feb 2020, 29 Feb 2020, 1  Mar 2020 ] : List CalendarDate
+
+    getDateRange end start
+    -- [ 26 Feb 2020, 27 Feb 2020, 28 Feb 2020, 29 Feb 2020, 1  Mar 2020 ] : List CalendarDate
+
+-}
+getDateRange : CalendarDate -> CalendarDate -> List CalendarDate
+getDateRange (CalendarDate startDate) (CalendarDate endDate) =
+    List.map CalendarDate (List.range startDate endDate)
+
+
+
+-- MOVING DATES ------------------------------------------------------------NOTE
+-- PTA shiftWeek unnecessary because you can just add `Days 7`
 -- CalendarUnits
 --- The question of "are these dates within 7 days of each other?" is fundamentally different from the question "are these dates in the same calendar week?". This section can help answer questions like the second one.
 -- {-| Represents the various goalposts on a calendar.
@@ -1249,8 +1203,6 @@ clamp (CalendarDate minimum) (CalendarDate maximum) (CalendarDate compareTo) =
 --     | Month
 --     | Week
 -- PTA : withinSameYear vs equalBy , conciseness
--- MOVING DATES ------------------------------------------------------------NOTE
--- NOTE shiftWeek unnecessary because you can just add `Days 7`
 
 
 {-| Add a number of whole intervals to a date.
@@ -1272,7 +1224,7 @@ shiftMonth shiftBy date =
     in
     fromParts
         { year = Year (wholeMonths // 12 + 1)
-        , month = modBy 12 wholeMonths + 1 |> numberToMonth
+        , month = modBy 12 wholeMonths + 1 |> Month.fromInt
         , day = dayOfMonth date
         }
 
@@ -1290,7 +1242,7 @@ shiftQuarter n date =
 
 
 
--- "ROUNDING" DATES ------------------------------------------------------------
+-- "ROUNDING" DATES --------------------------------------------------------NOTE
 
 
 {-| How many days since last Tuesday?
@@ -1305,9 +1257,9 @@ daysSincePrevious : DayOfWeek -> CalendarDate -> Int
 daysSincePrevious givenDoW givenDate =
     let
         dayOfWeekAsInt =
-            dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayOfWeekToInt (dayOfWeek givenDate)
     in
-    modBy 7 (dayOfWeekAsInt + 7 - dayOfWeekToInt givenDoW)
+    modBy 7 (dayOfWeekAsInt + 7 - Week.dayOfWeekToInt givenDoW)
 
 
 {-| Slide a date back to the given `DayOfWeek`.
@@ -1334,7 +1286,23 @@ toNext givenDoW givenDate =
 
 
 
--- EXTRANEOUS ------------------------------------------------------------------
+-- HELPERS -----------------------------------------------------------------NOTE
+
+
+intIsBetween : Int -> Int -> Int -> Bool
+intIsBetween a b x =
+    a <= x && x <= b
+
+
+{-| integer division, returning (Quotient, Remainder)
+-}
+divideInt : Int -> Int -> ( Int, Int )
+divideInt a b =
+    ( a // b, remainderBy a b )
+
+
+
+-- EXTRANEOUS --------------------------------------------------------------NOTE
 
 
 {-| The number of whole months between date and 0001-01-01 plus fraction
@@ -1490,7 +1458,7 @@ toMonths date =
 -- millisSinceStartOfTheYear givenYear givenMonth =
 --     List.foldl
 --         (\m res ->
---             res + (millisInADay * dayToInt (Month.lastDay givenYear m))
+--             res + (millisInADay * Month.dayToInt (Month.lastDay givenYear m))
 --         )
 --         0
 --         (getPrecedingMonths givenMonth)
@@ -1512,7 +1480,7 @@ toMonths date =
 -- millisSinceStartOfTheMonth day =
 --     -- -1 on the day because we are currently on that day and it hasn't passed yet.
 --     -- We also need time in order to construct the full posix.
---     millisInADay * (dayToInt day - 1)
+--     millisInADay * (Month.dayToInt day - 1)
 --
 --
 -- {-| Returns the milliseconds in a year.

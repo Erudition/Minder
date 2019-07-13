@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, isLeapYear, toInt)
+module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, fromBCEYear, isBeforeCommonEra, isCommonEra, isLeapYear, parse4DigitYear, toBCEYear, toClassicFormalString, toFormalString, toInt, toString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 
