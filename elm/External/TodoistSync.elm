@@ -9,7 +9,6 @@ import IntDict exposing (IntDict)
 import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
-import Json.Decode.Extra exposing (fromResult)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode2
 import List.Extra as List
@@ -17,6 +16,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
+import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import Task.Progress
 import Task.Task exposing (Task, newTask)
@@ -610,7 +610,7 @@ encodeProject record =
 
 
 type alias Due =
-    { date : String
+    { date : CalendarDate
     , timezone : Maybe String
     , string : String
     , lang : String
@@ -621,7 +621,7 @@ type alias Due =
 decodeDue : Decoder Due
 decodeDue =
     decode Due
-        |> required "date" string
+        |> required "date" decodeRFC3339Date
         |> required "timezone" (nullable string)
         |> required "string" string
         |> required "lang" string
@@ -631,9 +631,26 @@ decodeDue =
 encodeDue : Due -> Encode.Value
 encodeDue record =
     Encode.object
-        [ ( "date", Encode.string <| record.date )
+        [ ( "date", encodeRFC3339Date <| record.date )
         , ( "timezone", Encode2.maybe Encode.string <| record.timezone )
         , ( "string", Encode.string <| record.string )
         , ( "lang", Encode.string <| record.lang )
         , ( "is_recurring", Encode.bool <| record.isRecurring )
         ]
+
+
+decodeRFC3339Date : Decoder CalendarDate
+decodeRFC3339Date =
+    customDecoder Decode.string Calendar.fromNumberString
+
+
+encodeRFC3339Date : CalendarDate -> Value
+encodeRFC3339Date date =
+    let
+        dateParts =
+            Calendar.toParts date
+
+        dateString =
+            Calendar.toNumberString date '-'
+    in
+    Encode.string dateString
