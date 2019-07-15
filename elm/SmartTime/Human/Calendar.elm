@@ -6,7 +6,7 @@ module SmartTime.Human.Calendar exposing
     , decrementYear, decrementMonth, decrementDay
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calcDate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, difference, divideInt, equal, firstDayOfMonth, firstOfYear, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, monthBoundariesBetween, monthNumber, ordinalDay, quarter, quarterBoundariesBetween, separatedYMD, setYearKeepMonth, setYearSafe, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, difference, equal, firstDayOfMonth, firstOfYear, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -26,7 +26,7 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 
 # Creating values
 
-@docs fromPosix, fromRawPartsForced, fromRawDay, build, dayOfMonthFromInt
+@docs fromPosix, fromRawDay, build, dayOfMonthFromInt
 
 
 # Accessors
@@ -115,7 +115,7 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 --     else
 --         updatedRes
 
-import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import Parser exposing ((|.), (|=), DeadEnd, Parser, Problem(..), chompWhile, getChompedString, spaces, symbol)
 import SmartTime.Duration as Duration exposing (Duration, subtract)
 import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth(..), Month(..))
 import SmartTime.Human.Calendar.Week as Week exposing (DayOfWeek(..))
@@ -152,28 +152,32 @@ addDays amountToAdd (CalendarDate date) =
     CalendarDate (date + amountToAdd)
 
 
-{-| Attempt to create a `Date` from its constituent parts.
+{-| A quick way to attempt to create a `Date` from its constituent parts.
 Returns `Nothing` if the combination would form an invalid date.
 
-    build (Year 2018) Dec (DayOfMonth 25) -- Just (Date { year = (Year 2018), month = Dec, day = (DayOfMonth 25)}) : Maybe Date
+    build (Year 2018) Dec (DayOfMonth 25) -- Just (Date { year = (Year 2018), month = Dec, day = (DayOfMonth 25)})
 
-    build (Year 2020) Feb (DayOfMonth 29) -- Just (Date { day = DayOfMonth 29, month = Feb, year = Year 2020 }) : Maybe Date
+    build (Year 2020) Feb (DayOfMonth 29) -- Just (Date { day = DayOfMonth 29, month = Feb, year = Year 2020 })
 
-    build (Year 2019) Feb (DayOfMonth 29) -- Nothing : Maybe Date
+    build (Year 2019) Feb (DayOfMonth 29) -- Nothing
 
 -}
 build : Year -> Month -> DayOfMonth -> Maybe CalendarDate
-build y m d =
-    let
-        maxDay =
-            Month.lastDay y m
-    in
-    case Month.compareDays d maxDay of
-        GT ->
-            Nothing
+build givenYear givenMonth givenDay =
+    Result.toMaybe (fromParts (Parts givenYear givenMonth givenDay))
 
-        _ ->
-            Just (fromParts { year = y, month = m, day = d })
+
+
+-- let
+--     maxDay =
+--         Month.lastDay y m
+-- in
+-- case Month.compareDays d maxDay of
+--     GT ->
+--         Nothing
+--
+--     _ ->
+--         Just (fromParts { year = y, month = m, day = d })
 
 
 {-| Extract the `Year` part of a [Date](Calendar#Date).
@@ -185,31 +189,67 @@ build y m d =
 
 -}
 year : CalendarDate -> Year
-year (CalendarDate rd) =
+year (CalendarDate givenDays) =
     let
-        ( n400, r400 ) =
-            -- 400 * 365 + 97
-            divideInt rd 146097
+        -- (400 * 365) + 97
+        daysInLeapCycle =
+            146097
 
-        ( n100, r100 ) =
-            -- 100 * 365 + 24
-            divideInt r400 36524
+        -- centurial years are leap years if they are divisible by 400
+        ( leapCyclesPassed, daysWithoutLeapCycles ) =
+            divWithRemainder givenDays daysInLeapCycle
 
-        ( n4, r4 ) =
-            -- 4 * 365 + 1
-            divideInt r100 1461
+        yearsFromLeapCycles =
+            leapCyclesPassed * 400
 
-        ( n1, r1 ) =
-            divideInt r4 365
+        -- (100 * 365) + 24
+        daysInCentury =
+            36524
 
-        n =
-            if r1 == 0 then
+        -- all other years that are divisible by 100 are normal years
+        ( centuriesPassed, daysWithoutCenturies ) =
+            divWithRemainder daysWithoutLeapCycles daysInCentury
+
+        yearsFromCenturies =
+            centuriesPassed * 400
+
+        -- (4 * 365) + 1  (includes 1 leap day)
+        daysInFourYears =
+            1461
+
+        -- otherwise every year that is exactly divisible by four is a leap year
+        ( fourthYearsPassed, daysWithoutFourthYears ) =
+            divWithRemainder daysWithoutCenturies daysInFourYears
+
+        yearsFromFourYearBlocks =
+            fourthYearsPassed * 4
+
+        daysInYear =
+            365
+
+        -- all other years are normal
+        ( wholeYears, daysWithoutYears ) =
+            divWithRemainder daysWithoutFourthYears daysInYear
+
+        newYear =
+            -- New Year's Eve
+            if daysWithoutYears == 0 then
+                -- the "zeroth" day of a year is actually the year before, so don't add one
                 0
+                -- New Year's Day or beyond
 
             else
+                -- add one to get real year since years start at 1, not 0
                 1
+
+        totalYears =
+            yearsFromLeapCycles
+                + yearsFromCenturies
+                + yearsFromFourYearBlocks
+                + wholeYears
+                + newYear
     in
-    Year <| n400 * 400 + n100 * 100 + n4 * 4 + n1 + n
+    Year totalYears
 
 
 {-| Extract the `Month` part of a [Date](Calendar#Date).
@@ -318,7 +358,7 @@ incrementMonth givenDate =
                 _ ->
                     dayOfMonth givenDate
     in
-    fromParts
+    fromPartsTrusted
         { year = updatedYear
         , month = updatedMonth
         , day = updatedDay
@@ -360,7 +400,7 @@ decrementYear givenDate =
                 _ ->
                     dayOfMonth givenDate
     in
-    fromParts
+    fromPartsTrusted
         { year = updatedYear
         , month = month givenDate
         , day = updatedDay
@@ -409,7 +449,7 @@ decrementMonth givenDate =
                 _ ->
                     dayOfMonth givenDate
     in
-    fromParts
+    fromPartsTrusted
         { year = updatedYear
         , month = updatedMonth
         , day = updatedDay
@@ -432,9 +472,69 @@ type alias Parts =
     }
 
 
-fromParts : Parts -> CalendarDate
-fromParts parts =
-    Debug.todo "fromParts"
+fromParts : Parts -> Result String CalendarDate
+fromParts given =
+    let
+        (DayOfMonth dayInt) =
+            given.day
+    in
+    case Month.dayOfMonthValidFor given.year given.month dayInt of
+        Just _ ->
+            Ok (fromPartsTrusted given)
+
+        Nothing ->
+            let
+                (DayOfMonth rawDay) =
+                    given.day
+
+                dayString =
+                    String.fromInt dayInt
+            in
+            if dayInt < 1 then
+                Err <| "You gave me a DayOfMonth of " ++ dayString ++ ". Non-positive values for DayOfMonth are never valid! The day should be between 1 and 31."
+
+            else if dayInt > 31 then
+                Err <| "You gave me a DayOfMonth of " ++ dayString ++ ". No months have more than 31 days!"
+
+            else if
+                given.month
+                    == Feb
+                    && (dayInt == 29)
+                    && not (Year.isLeapYear given.year)
+            then
+                Err <| "Sorry, but " ++ Year.toString given.year ++ " isn't a leap year, so that February doesn't have 29 days!"
+
+            else if dayInt > Month.length given.year given.month then
+                Err <|
+                    "You gave me a DayOfMonth of "
+                        ++ dayString
+                        ++ ", but "
+                        ++ Month.toName given.month
+                        ++ " only has "
+                        ++ String.fromInt (Month.length given.year given.month)
+                        ++ " days!"
+
+            else
+                Err "The date was invalid, but I'm not sure why. Please report this issue!"
+
+
+fromPartsForced : Parts -> CalendarDate
+fromPartsForced given =
+    fromPartsTrusted
+        { year = given.year
+        , month = given.month
+        , day = Month.clampToValidDayOfMonth given.year given.month given.day
+        }
+
+
+{-| Internal function to convert verified Parts to CalendarDate.
+-}
+fromPartsTrusted : Parts -> CalendarDate
+fromPartsTrusted given =
+    CalendarDate <|
+        Year.daysBefore given.year
+            + Month.daysBefore given.year given.month
+            + Month.dayToInt given.day
 
 
 {-| -}
@@ -444,13 +544,13 @@ toParts (CalendarDate rd) =
         date =
             CalendarDate rd |> toOrdinalDate
     in
-    calcDate date.year Jan date.ordinalDay
+    calculate date.year Jan date.ordinalDay
 
 
 {-| Recursively adds up months to get to the given date number.
 -}
-calcDate : Year -> Month -> OrdinalDay -> Parts
-calcDate givenYear givenMonth dayCounter =
+calculate : Year -> Month -> OrdinalDay -> Parts
+calculate givenYear givenMonth dayCounter =
     let
         monthSize =
             Month.length givenYear givenMonth
@@ -473,7 +573,7 @@ calcDate givenYear givenMonth dayCounter =
             remainingDaysToCount =
                 dayCounter - monthSize
         in
-        calcDate givenYear nextMonthToCheck remainingDaysToCount
+        calculate givenYear nextMonthToCheck remainingDaysToCount
 
     else
         { year = givenYear
@@ -526,7 +626,7 @@ incrementYear givenDate =
                 _ ->
                     dayOfMonth givenDate
     in
-    fromParts
+    fromPartsTrusted
         { year = updatedYear
         , month = month givenDate
         , day = updatedDay
@@ -542,8 +642,15 @@ incrementYear givenDate =
 
 -}
 setYearSafe : Int -> CalendarDate -> Maybe CalendarDate
-setYearSafe givenYear date =
-    Debug.todo "set year"
+setYearSafe newYearInt givenDate =
+    let
+        oldParts =
+            toParts givenDate
+
+        newParts =
+            { oldParts | year = Year newYearInt }
+    in
+    Result.toMaybe (fromParts newParts)
 
 
 {-| Set the `Year` part of a `CalendarDate`. If the `CalendarDate` was the "leap day" and the target year has no leap day, it will intelligently stay in February and become Feb 28.
@@ -553,44 +660,158 @@ Warning: this means that if you later set the date's year back to a leap year, i
     -- date == 29 Feb 2020
     setYear 2024 date -- Just (29 Feb 2024) : CalendarDate
 
-    setYear 2019 date -- Just (29 Feb 2024) : Maybe Date
+    setYear 2019 date -- Just (29 Feb 2024) : CalendarDate
 
 -}
 setYear : Int -> CalendarDate -> CalendarDate
-setYear givenYear date =
-    Debug.todo "set year"
+setYear newYearInt givenDate =
+    let
+        oldParts =
+            toParts givenDate
+
+        newYear =
+            Year newYearInt
+
+        newParts =
+            { oldParts | year = newYear }
+    in
+    if isLeapDay givenDate && not (Year.isLeapYear newYear) then
+        fromPartsTrusted { newParts | day = DayOfMonth 28 }
+
+    else
+        fromPartsTrusted newParts
 
 
-{-| Set the `Year` part of a `CalendarDate`. If the `CalendarDate` was the "leap day" and the target year has no leap day, it will intelligently stay in February and become Feb 28.
+{-| Set the `Year` part of a `CalendarDate`. If the `CalendarDate` was the "leap day" and the target year has no leap day, it will become Mar 1.
 
-Warning: this means that if you later set the date's year back to a leap year, it will still be Feb 28! Don't forget there are relative year operators as well.
-
-    -- date == 29 Feb 2020
-    setYear 2024 date -- Just (29 Feb 2024) : CalendarDate
-
-    setYear 2019 date -- Just (29 Feb 2024) : Maybe Date
+Warning: this means that if you later set the date's year back to a leap year, it will still be Mar 1!
 
 -}
-setYearKeepMonth : Int -> CalendarDate -> CalendarDate
-setYearKeepMonth givenYear date =
-    Debug.todo "set year"
+setYearWithOverFlow : Int -> CalendarDate -> CalendarDate
+setYearWithOverFlow newYearInt givenDate =
+    let
+        oldParts =
+            toParts givenDate
+
+        newYear =
+            Year newYearInt
+
+        newParts =
+            { oldParts | year = newYear }
+    in
+    if isLeapDay givenDate && not (Year.isLeapYear newYear) then
+        fromPartsTrusted
+            { newParts
+                | month = Mar
+                , day = DayOfMonth 1
+            }
+
+    else
+        fromPartsTrusted newParts
+
+
+{-| Set the `Year` part of a `CalendarDate`, maintaining the Ordinal Day. That means the day's offset from the beginning of the year will stay the same. If you pass in the 266th day of 1994, and set the year to 2000, you will always get the 266th day of 2000 - even if it's called a different date!
+
+If the `CalendarDate` is before the end of February, the effect is the same as the other `setYear` functions. You also won't notice a difference if you move from a leap year to another leap year, or a non-leap year to another non-leap year.
+
+However, if you move from a non-leap year to a leap year, _and_ the given date is after the leap day, the date will appear to be _one day earler_. This is because in the new year, there was an extra day to count while on the way to your chosen date!
+
+Why would you want that? Well, the nice thing about this form is that it is perfectly invariant on leap days: Feb 29 in a leap year becomes Mar 1 in non-leap years - and, no matter how many other times you set the year this way, returning to a leap year will always get you back to Feb 29!
+
+Note: Unfortunately, this moves the problem to the last day of the year instead: if your date is the 366th day of the year (it must have been a leap year!) and you move it to a year with only 365 days, it will need to be clamped to an Ordinal Day of 365, instead. If you then put it back in a year with 366 days, it'll still be the 365th (second to last) day. If you wanted to be truly invariant, you'd need to store the value of `isLeapDay` along with your original date.
+
+-}
+setYearKeepOrdinal : Int -> CalendarDate -> CalendarDate
+setYearKeepOrdinal newYearInt givenDate =
+    let
+        oldParts =
+            toOrdinalDate givenDate
+
+        newYear =
+            Year newYearInt
+
+        newParts =
+            { oldParts | year = newYear }
+    in
+    fromOrdinalDateForced newParts.year newParts.ordinalDay
 
 
 
 -- MONTHS
 
 
-{-| Attempts to set the `Month` part of a [Date](Calendar#Date).
+{-| Attempts to set the `Month` part of a `CalendarDate`.
 
     -- date == 31 Jan 2019
     setMonth Aug date -- Just (31 Aug 2019) : Maybe Date
 
     setMonth Apr date -- Nothing : Maybe Date
 
+If this is too "safe" for you and you don't want to deal with `Maybe`, do check out `setMonthForced` and `setMonthWithOverflow`.
+
 -}
 setMonth : Month -> CalendarDate -> Maybe CalendarDate
-setMonth givenMonth date =
-    Debug.todo "Set month"
+setMonth newMonth givenDate =
+    if Month.length (year givenDate) (month givenDate) < Month.dayToInt (dayOfMonth givenDate) then
+        Nothing
+
+    else
+        Just (setMonthForced newMonth givenDate)
+
+
+{-| Set a `CalendarDate`'s month, even if the target `Month` does not have enough days for the date's `DayOfMonth`. In that case, it will be clamped to the last day of the new month.
+-}
+setMonthForced : Month -> CalendarDate -> CalendarDate
+setMonthForced newMonth givenDate =
+    let
+        oldParts =
+            toParts givenDate
+
+        (DayOfMonth oldDayInt) =
+            oldParts.day
+
+        newParts =
+            { oldParts
+                | month = newMonth
+                , day = DayOfMonth (Basics.clamp 1 targetMonthLength oldDayInt)
+            }
+
+        targetMonthLength =
+            Month.length oldParts.year oldParts.month
+    in
+    fromPartsTrusted newParts
+
+
+{-| Set a `CalendarDate`'s month, but if the `DayOfMonth` is out of bounds of the target `Month`, allow it to spill into the next month.
+
+Note: In the case of December, this could mean spilling into the next year.
+
+-}
+setMonthWithOverflow : Month -> CalendarDate -> CalendarDate
+setMonthWithOverflow newMonth givenDate =
+    let
+        targetMonthLength =
+            Month.length (year givenDate) (month givenDate)
+
+        spillover =
+            targetMonthLength - Month.dayToInt (dayOfMonth givenDate)
+    in
+    addDays spillover (setMonthForced newMonth givenDate)
+
+
+{-| Extract the month number of a date. Given the date 23 June 1990 this returns the integer 6.
+-}
+monthNumber : CalendarDate -> Int
+monthNumber =
+    month >> Month.toInt
+
+
+{-| Extract the quarter of a date. Given the date 23 June 1990 at
+11:45 a.m. this returns the integer 2.
+-}
+quarter : CalendarDate -> Int
+quarter =
+    month >> Month.toQuarter
 
 
 {-| Attempts to set the `DayOfMonth` part of a [Date](Calendar#Date).
@@ -602,13 +823,46 @@ setMonth givenMonth date =
 
 -}
 setDayOfMonth : Int -> CalendarDate -> Maybe CalendarDate
-setDayOfMonth day date =
-    Debug.todo "setDayOfMonth"
+setDayOfMonth newDayInt oldDate =
+    let
+        oldParts =
+            toParts oldDate
+
+        newParts =
+            { oldParts
+                | day = DayOfMonth newDayInt
+            }
+    in
+    Result.toMaybe (fromParts newParts)
 
 
-firstDayOfMonth : Year -> Month -> CalendarDate
-firstDayOfMonth givenYear givenMonth =
-    CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear givenMonth + 1
+setDayOfMonthForced : Int -> CalendarDate -> CalendarDate
+setDayOfMonthForced newDayInt oldDate =
+    let
+        oldParts =
+            toParts oldDate
+
+        newParts =
+            { oldParts
+                | day = DayOfMonth (Basics.clamp 1 targetMonthLength newDayInt)
+            }
+
+        targetMonthLength =
+            Month.length oldParts.year oldParts.month
+    in
+    fromPartsTrusted newParts
+
+
+setDayOfMonthWithOverflow : Int -> CalendarDate -> CalendarDate
+setDayOfMonthWithOverflow newDayInt oldDate =
+    let
+        targetMonthLength =
+            Month.length (year oldDate) (month oldDate)
+
+        spillover =
+            targetMonthLength - Month.dayToInt (dayOfMonth oldDate)
+    in
+    addDays spillover (setDayOfMonthForced newDayInt oldDate)
 
 
 
@@ -858,10 +1112,8 @@ fromRawInts yearInt monthInt dayInt =
     in
     if validDayOfMonth && validMonthInt then
         Just <|
-            CalendarDate <|
-                Year.daysBefore givenYear
-                    + Month.daysBefore givenYear givenMonth
-                    + dayInt
+            fromPartsTrusted <|
+                Parts givenYear givenMonth (DayOfMonth dayInt)
 
     else
         Nothing
@@ -880,11 +1132,30 @@ fromRawIntsForced yearInt monthInt dayInt =
 
         givenMonth =
             Month.fromInt monthInt
+
+        newDayInt =
+            dayInt |> Basics.clamp 1 (Month.length givenYear givenMonth)
     in
-    CalendarDate <|
-        Year.daysBefore givenYear
-            + Month.daysBefore givenYear givenMonth
-            + (dayInt |> Basics.clamp 1 (Month.length givenYear givenMonth))
+    fromPartsTrusted <|
+        Parts givenYear givenMonth (DayOfMonth newDayInt)
+
+
+toNumberString : CalendarDate -> Char -> String
+toNumberString givenDate separatorChar =
+    let
+        yearPart =
+            Year.toString <| year givenDate
+
+        monthPart =
+            String.fromInt <| Month.toInt <| month givenDate
+
+        dayPart =
+            String.fromInt <| Month.dayToInt <| dayOfMonth givenDate
+
+        separator =
+            String.fromChar separatorChar
+    in
+    yearPart ++ separator ++ monthPart ++ separator ++ dayPart
 
 
 {-| Get a `CalendarDate` from a string like these:
@@ -915,14 +1186,14 @@ fromNumberString input =
             Parser.run (Parser.oneOf [ separatedYMD "/", separatedYMD "-", separatedYMD ".", separatedYMD " " ]) input
 
         stringErrorResult =
-            Result.mapError Parser.deadEndsToString parserResult
+            Result.mapError deadEndsToString parserResult
     in
-    stringErrorResult |> Result.andThen (Result.fromMaybe "The parsed date was not valid.")
+    stringErrorResult |> Result.andThen fromParts
 
 
-separatedYMD : String -> Parser (Maybe CalendarDate)
+separatedYMD : String -> Parser Parts
 separatedYMD separator =
-    Parser.succeed build
+    Parser.succeed Parts
         |. spaces
         |= Year.parse4DigitYear
         |. symbol separator
@@ -933,6 +1204,7 @@ separatedYMD separator =
 
 fromInts : Int -> Int -> Int -> Result String CalendarDate
 fromInts givenYearInt mn d =
+    --TODO clean up
     let
         givenYear =
             Year givenYearInt
@@ -945,25 +1217,6 @@ fromInts givenYearInt mn d =
 
     else
         Err <| "Invalid calendar date (" ++ String.fromInt givenYearInt ++ ", " ++ String.fromInt mn ++ ", " ++ String.fromInt d ++ ")"
-
-
-
---EXTRACTIONS --------------------------------------------------------------NOTE
-
-
-{-| Extract the month number of a date. Given the date 23 June 1990 this returns the integer 6.
--}
-monthNumber : CalendarDate -> Int
-monthNumber =
-    month >> Month.toInt
-
-
-{-| Extract the quarter of a date. Given the date 23 June 1990 at
-11:45 a.m. this returns the integer 2.
--}
-quarter : CalendarDate -> Int
-quarter =
-    month >> Month.toQuarter
 
 
 
@@ -1134,6 +1387,18 @@ getDatesInMonth givenDate =
         (List.range 1 lastDayOfTheMonth)
 
 
+firstDayOfMonth : Year -> Month -> CalendarDate
+firstDayOfMonth givenYear givenMonth =
+    CalendarDate <| Year.daysBefore givenYear + Month.daysBefore givenYear givenMonth + 1
+
+
+isLeapDay : CalendarDate -> Bool
+isLeapDay givenDate =
+    (month givenDate == Feb)
+        && (Month.dayToInt (dayOfMonth givenDate) == 29)
+        && Year.isLeapYear (year givenDate)
+
+
 
 -- RANGES ------------------------------------------------------------------NOTE
 
@@ -1222,7 +1487,7 @@ shiftMonth shiftBy date =
         wholeMonths =
             12 * (yearInt - 1) + monthNumber date - 1 + shiftBy
     in
-    fromParts
+    fromPartsTrusted
         { year = Year (wholeMonths // 12 + 1)
         , month = modBy 12 wholeMonths + 1 |> Month.fromInt
         , day = dayOfMonth date
@@ -1296,9 +1561,74 @@ intIsBetween a b x =
 
 {-| integer division, returning (Quotient, Remainder)
 -}
-divideInt : Int -> Int -> ( Int, Int )
-divideInt a b =
-    ( a // b, remainderBy a b )
+divWithRemainder : Int -> Int -> ( Int, Int )
+divWithRemainder a b =
+    ( floorDiv a b, a |> modBy b )
+
+
+floorDiv : Int -> Int -> Int
+floorDiv a b =
+    Basics.floor (toFloat a / toFloat b)
+
+
+
+-- From https://github.com/elm/parser/pull/16/files
+
+
+deadEndsToString : List DeadEnd -> String
+deadEndsToString deadEnds =
+    String.concat (List.intersperse "; " (List.map deadEndToString deadEnds))
+
+
+deadEndToString : DeadEnd -> String
+deadEndToString deadend =
+    problemToString deadend.problem ++ " at row " ++ String.fromInt deadend.row ++ ", col " ++ String.fromInt deadend.col
+
+
+problemToString : Problem -> String
+problemToString p =
+    case p of
+        Expecting s ->
+            "expecting '" ++ s ++ "'"
+
+        ExpectingInt ->
+            "expecting int"
+
+        ExpectingHex ->
+            "expecting hex"
+
+        ExpectingOctal ->
+            "expecting octal"
+
+        ExpectingBinary ->
+            "expecting binary"
+
+        ExpectingFloat ->
+            "expecting float"
+
+        ExpectingNumber ->
+            "expecting number"
+
+        ExpectingVariable ->
+            "expecting variable"
+
+        ExpectingSymbol s ->
+            "expecting symbol '" ++ s ++ "'"
+
+        ExpectingKeyword s ->
+            "expecting keyword '" ++ s ++ "'"
+
+        ExpectingEnd ->
+            "expecting end"
+
+        UnexpectedChar ->
+            "unexpected char"
+
+        Problem s ->
+            "Problem parsing: " ++ s
+
+        BadRepeat ->
+            "bad repeat"
 
 
 

@@ -38,6 +38,8 @@ import Parser exposing (getOffset)
 import Regex exposing (Regex)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
+import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth(..), Month)
+import SmartTime.Human.Calendar.Year as Year exposing (Year(..))
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Moment as Moment exposing (ElmTime, Moment)
@@ -109,7 +111,11 @@ getOffsetMinutes : ElmTime.Zone -> ElmTime -> Int
 getOffsetMinutes zone elmTime =
     let
         zonedDate =
-            Calendar.fromRawParts (ElmTime.toYear zone elmTime) (importElmMonth (ElmTime.toMonth zone elmTime)) (ElmTime.toDay zone elmTime)
+            Calendar.fromPartsForced
+                { year = Year (ElmTime.toYear zone elmTime)
+                , month = importElmMonth (ElmTime.toMonth zone elmTime)
+                , day = DayOfMonth (ElmTime.toDay zone elmTime)
+                }
 
         zonedTime =
             Clock.clock (ElmTime.toHour zone elmTime) (ElmTime.toMinute zone elmTime) (ElmTime.toSecond zone elmTime) (ElmTime.toMillis zone elmTime)
@@ -126,44 +132,44 @@ getOffsetMinutes zone elmTime =
     (localMillis - utcMillis) // 60000
 
 
-importElmMonth : ElmTime.Month -> Calendar.Month
+importElmMonth : ElmTime.Month -> Month
 importElmMonth elmMonth =
     case elmMonth of
         ElmTime.Jan ->
-            Calendar.Jan
+            Month.Jan
 
         ElmTime.Feb ->
-            Calendar.Feb
+            Month.Feb
 
         ElmTime.Mar ->
-            Calendar.Mar
+            Month.Mar
 
         ElmTime.Apr ->
-            Calendar.Apr
+            Month.Apr
 
         ElmTime.May ->
-            Calendar.May
+            Month.May
 
         ElmTime.Jun ->
-            Calendar.Jun
+            Month.Jun
 
         ElmTime.Jul ->
-            Calendar.Jul
+            Month.Jul
 
         ElmTime.Aug ->
-            Calendar.Aug
+            Month.Aug
 
         ElmTime.Sep ->
-            Calendar.Sep
+            Month.Sep
 
         ElmTime.Oct ->
-            Calendar.Oct
+            Month.Oct
 
         ElmTime.Nov ->
-            Calendar.Nov
+            Month.Nov
 
         ElmTime.Dec ->
-            Calendar.Dec
+            Month.Dec
 
 
 

@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, parseDayOfMonth, parseMonth, previous, toInt, toName, toQuarter)
+module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), clampToValidDayOfMonth, compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, parseDayOfMonth, parseMonth, previous, toInt, toName, toQuarter)
 
 import Array exposing (Array)
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
@@ -650,6 +650,17 @@ dayOfMonthValidFor givenYear givenMonth day =
         Nothing
 
 
+{-| Clamp a `DayOfMonth` so it's guaranteed valid for the given `Month` in the given `Year`. It is only guaranteed valid for this specific combination, however.
+-}
+clampToValidDayOfMonth : Year -> Month -> DayOfMonth -> DayOfMonth
+clampToValidDayOfMonth givenYear givenMonth (DayOfMonth originalDay) =
+    let
+        targetMonthLength =
+            length givenYear givenMonth
+    in
+    DayOfMonth (Basics.clamp 1 targetMonthLength originalDay)
+
+
 {-| Compares two given `Days` and returns an Order.
 
     compareDays (DayOfMonth 28) (DayOfMonth 29) -- LT : Order
@@ -673,7 +684,7 @@ parseMonth =
                 Parser.succeed (fromInt givenInt)
 
             else
-                Parser.problem "a month number is from 1 to 12"
+                Parser.problem <| "A month number should be from 1 to 12, but I got " ++ String.fromInt givenInt ++ "... "
     in
     Parser.int
         |> Parser.andThen checkYear
