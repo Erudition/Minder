@@ -18,6 +18,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..))
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
@@ -293,7 +294,12 @@ TODO doesn't specify "ago", "in", etc.
 -}
 timingInfo : Moment -> Task -> Html Msg
 timingInfo time task =
-    text <| describeTaskMoment time task.deadline
+    text <| Maybe.withDefault "No due" <| Maybe.map (describeTaskMoment time) task.deadline
+
+
+describeTaskMoment : Moment -> FuzzyMoment -> String
+describeTaskMoment now dueMoment =
+    HumanMoment.fuzzyToString dueMoment
 
 
 {-| Get the date out of a date input.
@@ -302,7 +308,7 @@ TODO handle times
 -}
 extractDate : TaskId -> String -> String -> Msg
 extractDate task field input =
-    case Date.fromIsoString input of
+    case Calendar.fromNumberString input of
         Ok date ->
             UpdateTaskDate task field (Just (DateOnly date))
 
