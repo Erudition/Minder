@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, today, unlocalize, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, unlocalize, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -241,6 +241,20 @@ fromDateAndTime zone date timeOfDay =
     unlocalize zone total
 
 
+toStandardString : Moment -> String
+toStandardString moment =
+    let
+        ( date, time ) =
+            humanize utc moment
+    in
+    Calendar.toStandardString date ++ "T" ++ Clock.toStandardString time ++ "Z"
+
+
+fromStandardString : String -> Result String Moment
+fromStandardString givenString =
+    Result.Err "todo"
+
+
 
 -- Accessors
 
@@ -262,6 +276,7 @@ But if you really only need the Date or the Time, consider just using the `fromM
 -}
 humanize : Zone -> Moment -> ( CalendarDate, TimeOfDay )
 humanize zone moment =
+    -- TODO humanize to UTC, not TAI!!
     let
         localMomentDur =
             localize zone moment
@@ -499,3 +514,29 @@ humanizeFuzzy zone fuzzy =
 dateFromFuzzy : Zone -> FuzzyMoment -> CalendarDate
 dateFromFuzzy zone fuzzy =
     Tuple.first (humanizeFuzzy zone fuzzy)
+
+
+fuzzyToString : FuzzyMoment -> String
+fuzzyToString fuzzyMoment =
+    case fuzzyMoment of
+        Global moment ->
+            toStandardString moment
+
+        Floating moment ->
+            -- Remove the "Z" from the end to indicate this is not in any particular zone
+            String.dropRight 1 (toStandardString moment)
+
+        DateOnly date ->
+            Calendar.toStandardString date
+
+
+fuzzyFromString : String -> Result String FuzzyMoment
+fuzzyFromString givenString =
+    if String.endsWith "Z" givenString then
+        Result.map Global (fromStandardString givenString)
+
+    else if String.contains "T" givenString then
+        Result.map Floating (fromStandardString givenString)
+
+    else
+        Result.map DateOnly (Calendar.fromNumberString givenString)

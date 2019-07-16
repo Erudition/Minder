@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight, toStandardString)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), dur)
@@ -47,34 +47,9 @@ asFractionOfDay time =
     Duration.inDays time
 
 
-
--- getTimeOfDay : Moment -> Zone -> TimeOfDay
--- getTimeOfDay moment zone =
--- let
---     civil =
---         toElmTime moment
---
---     hour =
---         toHour zone civil
---
---     postMeridiem =
---         hour > 12
---
---     hourOf12HrDay =
---         hour - 12
--- in
--- { hour =
---     if postMeridiem then
---         PM hourOf12HrDay
---
---     else
---         AM hour
--- , minute = toMinute zone civil
--- , second = toSecond zone civil
--- , ms = toMillis zone civil
--- , bareHour = hourOf12HrDay
--- , pm = postMeridiem
--- }
+toStandardString : TimeOfDay -> String
+toStandardString timeOfDay =
+    HumanDuration.colonSeparated (HumanDuration.breakdownHMSM timeOfDay)
 
 
 isMidnight : TimeOfDay -> Bool

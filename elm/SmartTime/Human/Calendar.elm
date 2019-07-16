@@ -6,7 +6,7 @@ module SmartTime.Human.Calendar exposing
     , decrementYear, decrementMonth, decrementDay
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, difference, equal, firstDayOfMonth, firstOfYear, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, deadEndToString, deadEndsToString, difference, divWithRemainder, equal, firstDayOfMonth, firstOfYear, floorDiv, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, padNumber, problemToString, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, toStandardString, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -1140,8 +1140,8 @@ fromRawIntsForced yearInt monthInt dayInt =
         Parts givenYear givenMonth (DayOfMonth newDayInt)
 
 
-toNumberString : CalendarDate -> Char -> String
-toNumberString givenDate separatorChar =
+toNumberString : Char -> CalendarDate -> String
+toNumberString separatorChar givenDate =
     let
         yearPart =
             Year.toString <| year givenDate
@@ -1156,6 +1156,40 @@ toNumberString givenDate separatorChar =
             String.fromChar separatorChar
     in
     yearPart ++ separator ++ monthPart ++ separator ++ dayPart
+
+
+{-| <https://tools.ietf.org/html/rfc3339>
+-}
+toStandardString : CalendarDate -> String
+toStandardString givenDate =
+    let
+        yearPart =
+            padNumber 4 <| Year.toString <| year givenDate
+
+        monthPart =
+            padNumber 2 <| String.fromInt <| Month.toInt <| month givenDate
+
+        dayPart =
+            padNumber 2 <| String.fromInt <| Month.dayToInt <| dayOfMonth givenDate
+    in
+    yearPart ++ "-" ++ monthPart ++ "-" ++ dayPart
+
+
+
+-- Is there a library function out there that does this already?
+
+
+padNumber : Int -> String -> String
+padNumber targetLength numString =
+    let
+        -- no numbers have less than one digit
+        minLength =
+            Basics.clamp 1 targetLength targetLength
+
+        zerosToAdd =
+            minLength - String.length numString
+    in
+    String.repeat zerosToAdd "0" ++ numString
 
 
 {-| Get a `CalendarDate` from a string like these:
