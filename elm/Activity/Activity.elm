@@ -18,7 +18,6 @@ import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
 import Svg.Styled exposing (..)
-import Task.TaskMoment exposing (decodeMoment, encodeMoment)
 import Time
 import Time.Extra exposing (..)
 

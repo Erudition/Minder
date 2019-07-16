@@ -18,6 +18,7 @@ import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress
 import Task.Task exposing (Task, newTask)
 import Url
@@ -610,7 +611,7 @@ encodeProject record =
 
 
 type alias Due =
-    { date : CalendarDate
+    { date : FuzzyMoment
     , timezone : Maybe String
     , string : String
     , lang : String
@@ -639,18 +640,11 @@ encodeDue record =
         ]
 
 
-decodeRFC3339Date : Decoder CalendarDate
+decodeRFC3339Date : Decoder FuzzyMoment
 decodeRFC3339Date =
-    customDecoder Decode.string Calendar.fromNumberString
+    customDecoder Decode.string HumanMoment.fuzzyFromString
 
 
-encodeRFC3339Date : CalendarDate -> Value
-encodeRFC3339Date date =
-    let
-        dateParts =
-            Calendar.toParts date
-
-        dateString =
-            Calendar.toNumberString '-' date
-    in
-    Encode.string dateString
+encodeRFC3339Date : FuzzyMoment -> Value
+encodeRFC3339Date dateString =
+    Encode.string (HumanMoment.fuzzyToString dateString)

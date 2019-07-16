@@ -12,7 +12,6 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress exposing (..)
-import Task.TaskMoment exposing (TaskMoment(..), decodeTaskMoment, encodeTaskMoment)
 
 
 {-| Definition of a single task.
