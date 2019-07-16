@@ -9,6 +9,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress exposing (..)
 import Task.TaskMoment exposing (TaskMoment(..), decodeTaskMoment, encodeTaskMoment)
@@ -32,11 +33,11 @@ type alias Task =
     , parent : Maybe TaskId
     , tags : List TagId
     , activity : Maybe ActivityID
-    , deadline : TaskMoment
-    , plannedStart : TaskMoment
-    , plannedFinish : TaskMoment
-    , relevanceStarts : TaskMoment
-    , relevanceEnds : TaskMoment
+    , deadline : Maybe FuzzyMoment
+    , plannedStart : Maybe FuzzyMoment
+    , plannedFinish : Maybe FuzzyMoment
+    , relevanceStarts : Maybe FuzzyMoment
+    , relevanceEnds : Maybe FuzzyMoment
     , importance : Int
     }
 
@@ -54,11 +55,11 @@ decodeTask =
         |> Pipeline.required "parent" (Decode.nullable Decode.int)
         |> Pipeline.required "tags" (Decode.list Decode.int)
         |> Pipeline.required "activity" (Decode.nullable ID.decode)
-        |> Pipeline.required "deadline" decodeTaskMoment
-        |> Pipeline.required "plannedStart" decodeTaskMoment
-        |> Pipeline.required "plannedFinish" decodeTaskMoment
-        |> Pipeline.required "relevanceStarts" decodeTaskMoment
-        |> Pipeline.required "relevanceEnds" decodeTaskMoment
+        |> Pipeline.required "deadline" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "plannedStart" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "plannedFinish" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "relevanceStarts" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "relevanceEnds" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "importance" Decode.int
 
 
@@ -75,13 +76,25 @@ encodeTask record =
         , ( "parent", Encode2.maybe Encode.int record.parent )
         , ( "tags", Encode.list Encode.int record.tags )
         , ( "activity", Encode2.maybe ID.encode record.activity )
-        , ( "deadline", encodeTaskMoment record.deadline )
-        , ( "plannedStart", encodeTaskMoment record.plannedStart )
-        , ( "plannedFinish", encodeTaskMoment record.plannedFinish )
-        , ( "relevanceStarts", encodeTaskMoment record.relevanceStarts )
-        , ( "relevanceEnds", encodeTaskMoment record.relevanceEnds )
+        , ( "deadline", Encode2.maybe encodeTaskMoment record.deadline )
+        , ( "plannedStart", Encode2.maybe encodeTaskMoment record.plannedStart )
+        , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
+        , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
+        , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
         , ( "importance", Encode.int <| record.id )
         ]
+
+
+decodeTaskMoment : Decoder FuzzyMoment
+decodeTaskMoment =
+    customDecoder Decode.string HumanMoment.fuzzyFromString
+
+
+{-| TODO make encoder
+-}
+encodeTaskMoment : FuzzyMoment -> Encode.Value
+encodeTaskMoment fuzzy =
+    Encode.string <| HumanMoment.fuzzyToString fuzzy
 
 
 newTask : String -> Int -> Task
@@ -96,11 +109,11 @@ newTask description id =
     , history = []
     , tags = []
     , activity = Nothing
-    , deadline = Unset
-    , plannedStart = Unset
-    , plannedFinish = Unset
-    , relevanceStarts = Unset
-    , relevanceEnds = Unset
+    , deadline = Nothing
+    , plannedStart = Nothing
+    , plannedFinish = Nothing
+    , relevanceStarts = Nothing
+    , relevanceEnds = Nothing
     , importance = 0
     }
 
@@ -144,7 +157,7 @@ type TaskChange
     | PredictedEffortChange Duration
     | ParentChange TaskId
     | TagsChange
-    | DateChange TaskMoment
+    | DateChange (Maybe FuzzyMoment)
 
 
 decodeTaskChange : Decode.Decoder TaskChange
@@ -181,7 +194,7 @@ encodeTaskChange theTaskChange =
             Encode.string "TagsChange"
 
         DateChange taskMoment ->
-            Encode.object [ ( "DateChange", encodeTaskMoment taskMoment ) ]
+            Encode.object [ ( "DateChange", Encode2.maybe encodeTaskMoment taskMoment ) ]
 
 
 type alias TaskId =

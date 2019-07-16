@@ -651,6 +651,6 @@ encodeRFC3339Date date =
             Calendar.toParts date
 
         dateString =
-            Calendar.toNumberString date '-'
+            Calendar.toNumberString '-' date
     in
     Encode.string dateString

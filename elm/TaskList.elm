@@ -18,6 +18,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)
@@ -412,7 +413,7 @@ type Msg
     | DeleteComplete
     | UpdateProgress TaskId Progress
     | FocusSlider TaskId Bool
-    | UpdateTaskDate TaskId String TaskMoment
+    | UpdateTaskDate TaskId String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
 
