@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (Zone, clockTurnBack, clockTurnForward, extractDate, extractTime, fromDate, fromDateAndTime, getMillisecond, getOffsetMinutes, getSecond, humanize, importElmMonth, localZone, localize, makeZone, setDate, setTime, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, today, unlocalize, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -440,3 +440,62 @@ clockTurnForward timeOfDay zone moment =
     else
         -- if the new time is not later than the old one, force it to be
         Moment.future newMoment Duration.aDay
+
+
+{-| A convenience type for a much more human kind of `Moment`: the `Zone` and `TimeOfDay` are optional! Why? Imagine you have a schedule that looks something like this:
+
+    type alias Event =
+        { what : String, when : String }
+
+    schedule =
+        [ { what = "Meeting with Greg", when = "tomorrow at 4 EST" }
+        , { what = "Call Donna", when = "tomorrow at 4 EST" }
+        , { what = "The Simpsons is on", when = "Thursday at 9" }
+        ]
+
+Note: For something like a to-do list, this is best wrapped with a `Maybe` so you can have todos with no due moments!
+
+Note: As you can see, there no Floating/Universal distinction for the `DateOnly` option. That's because dates, unlike `Moment`s, are inherently `Floating` - they're pretty much always local! You never see a date with a time zone (like "2022/03/12 EST" (!?) or something) because anyone collaborating across timezones will need more precision than just a Date anyway. Anything meaningfully assigned to a Date - like holidays or birthday - is always attributed to the start of that date _in your local zone_. That's why the New Year always starts at midnight wherever you are, not midnight in Greenwhich!
+
+-}
+type FuzzyMoment
+    = Global Moment
+    | Floating Moment
+    | DateOnly CalendarDate
+
+
+fromFuzzy : Zone -> FuzzyMoment -> Moment
+fromFuzzy zone fuzzy =
+    case fuzzy of
+        DateOnly date ->
+            fromDate zone date
+
+        Floating moment ->
+            unlocalize zone (Moment.toDuration moment Moment.commonEraStart)
+
+        Global moment ->
+            moment
+
+
+humanizeFuzzy : Zone -> FuzzyMoment -> ( CalendarDate, Maybe TimeOfDay )
+humanizeFuzzy zone fuzzy =
+    let
+        wrapTimeWithJust ( date, time ) =
+            ( date, Just time )
+    in
+    case fuzzy of
+        DateOnly date ->
+            ( date, Nothing )
+
+        Floating fakeMoment ->
+            wrapTimeWithJust (humanize utc fakeMoment)
+
+        Global moment ->
+            wrapTimeWithJust (humanize zone moment)
+
+
+{-| One thing all `FuzzyMoment`s have in common is they hold a `CalendarDate`. This extracts that directly!
+-}
+dateFromFuzzy : Zone -> FuzzyMoment -> CalendarDate
+dateFromFuzzy zone fuzzy =
+    Tuple.first (humanizeFuzzy zone fuzzy)
