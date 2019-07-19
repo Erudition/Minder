@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, unlocalize, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -72,9 +72,13 @@ localZone =
 
 makeZone : ElmTime.ZoneName -> ElmTime.Zone -> ElmTime -> Zone
 makeZone elmZoneName elmZone now =
+    let
+        deducedOffset =
+            Duration.fromMinutes (toFloat (getOffsetMinutes elmZone now))
+    in
     case elmZoneName of
         ElmTime.Name zoneName ->
-            { defaultOffset = Duration.fromMinutes (toFloat (getOffsetMinutes elmZone now))
+            { defaultOffset = deducedOffset
             , name = zoneName
             , history = [] -- should be supported one day
             }
@@ -122,15 +126,19 @@ getOffsetMinutes zone elmTime =
             Clock.clock (ElmTime.toHour zone elmTime) (ElmTime.toMinute zone elmTime) (ElmTime.toSecond zone elmTime) (ElmTime.toMillis zone elmTime)
 
         combinedMoment =
+            -- pretend the date is utc so we can see the difference
             fromDateAndTime utc zonedDate zonedTime
 
-        localMillis =
-            ElmTime.posixToMillis (Moment.toElmTime combinedMoment)
+        localTime =
+            Debug.log ("local: " ++ toStandardString combinedMoment) <| combinedMoment
 
-        utcMillis =
-            ElmTime.posixToMillis elmTime
+        utcTime =
+            Moment.fromElmTime elmTime
+
+        offset =
+            Moment.difference localTime (Debug.log ("utc: " ++ toStandardString utcTime) utcTime)
     in
-    (localMillis - utcMillis) // 60000
+    Duration.inMinutesRounded <| Debug.log ("offset " ++ HumanDuration.singleLetterSpaced (HumanDuration.breakdownDHMSM offset)) offset
 
 
 importElmMonth : ElmTime.Month -> Month
@@ -239,7 +247,7 @@ fromDateAndTime zone date timeOfDay =
         total =
             Duration.add timeOfDay woleDaysBefore
     in
-    unlocalize zone total
+    toTAIAndUnlocalize zone total
 
 
 toStandardString : Moment -> String
@@ -320,10 +328,9 @@ But if you really only need the Date or the Time, consider just using the `fromM
 -}
 humanize : Zone -> Moment -> ( CalendarDate, TimeOfDay )
 humanize zone moment =
-    -- TODO humanize to UTC, not TAI!!
     let
         localMomentDur =
-            localize zone moment
+            toUTCAndLocalize zone moment
 
         daysSinceEpoch =
             Duration.inWholeDays localMomentDur
@@ -349,23 +356,23 @@ extractTime zone moment =
 Use this function as late as possible.
 
 -}
-localize : Zone -> Moment -> Duration
-localize zone moment =
+toUTCAndLocalize : Zone -> Moment -> Duration
+toUTCAndLocalize zone moment =
     let
         momentAsDur =
-            Moment.toDuration moment Moment.commonEraStart
+            Duration.fromInt <| Moment.toInt moment Moment.UTC Moment.commonEraStart
     in
     Duration.add momentAsDur (getOffset moment zone)
 
 
-unlocalize : Zone -> Duration -> Moment
-unlocalize zone localMomentDur =
+toTAIAndUnlocalize : Zone -> Duration -> Moment
+toTAIAndUnlocalize zone localMomentDur =
     let
         zoneOffset =
             getOffset (toMoment localMomentDur) zone
 
         toMoment duration =
-            Moment.moment Moment.TAI Moment.commonEraStart duration
+            Moment.moment Moment.UTC Moment.commonEraStart duration
     in
     toMoment <| Duration.subtract localMomentDur zoneOffset
 
@@ -530,7 +537,7 @@ fromFuzzy zone fuzzy =
             fromDate zone date
 
         Floating moment ->
-            unlocalize zone (Moment.toDuration moment Moment.commonEraStart)
+            toTAIAndUnlocalize zone (Moment.toDuration moment Moment.commonEraStart)
 
         Global moment ->
             moment

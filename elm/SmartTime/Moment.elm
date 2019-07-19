@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
@@ -51,7 +51,7 @@ moment timeScale (Moment epochDur) inputDuration =
     let
         input =
             --rebase Epoch
-            Duration.subtract inputDuration epochDur
+            Duration.add inputDuration epochDur
     in
     case timeScale of
         TAI ->
@@ -70,12 +70,12 @@ moment timeScale (Moment epochDur) inputDuration =
 
 utcFromLinear : Duration -> Duration
 utcFromLinear momentAsDur =
-    Duration.add momentAsDur (utcOffset momentAsDur)
+    Duration.subtract momentAsDur (utcOffset momentAsDur)
 
 
 linearFromUTC : Duration -> Duration
 linearFromUTC momentAsDur =
-    Duration.subtract momentAsDur (utcOffset momentAsDur)
+    Duration.add momentAsDur (utcOffset momentAsDur)
 
 
 utcOffset : Duration -> Duration
@@ -230,7 +230,7 @@ fromJsTime floatMsUtc =
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
 
-Since 0.19 Elm has a single type for UTC time, called `Posix`. In reality "POSIX" isn't a way of telling time, it's a description of how an operating system should work (like Unix and Gnu/Linux). It does mention a standard for representing UTC (which is actually a way of telling time), but that's already got a slightly nicer nickname ("Unix Time") and is _not_ stored as milliseconds since the epoch (like the Elm `Posix`). Rather, it counts _seconds_ since that epoch. (If sub-second accuracy is needed, it is expressed with decimal fractions.)
+Since 0.19 Elm has a single type for UTC time, called `Posix`. In reality "POSIX" isn't a way of telling time, it's a description of how an operating system (like Unix and GNU/Linux) should work. It does mention a standard for representing UTC (which _is_ a way of telling time), but that's already got a slightly nicer nickname ("Unix Time") and is _not_ stored as milliseconds since the epoch (like the Elm `Posix`). Rather, it counts _seconds_ since that epoch. (If sub-second accuracy is needed, it is expressed with decimal fractions.)
 
 If you actually want a conversion from real "POSIX" time (rather than the elm type that bears the name), check out `fromUnixTime`.
 
@@ -241,8 +241,8 @@ fromElmTime intMsUtc =
 
 
 toElmTime : Moment -> ElmTime
-toElmTime (Moment dur) =
-    ElmTime.millisToPosix <| Duration.inMs (utcFromLinear dur)
+toElmTime givenMoment =
+    ElmTime.millisToPosix <| Duration.inMs <| utcFromLinear <| toDuration givenMoment unixEpoch
 
 
 {-| Handy alias for `(moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
@@ -294,9 +294,26 @@ toDuration (Moment momentDur) (Moment epochDur) =
 The Int will be the number of milliseconds since the chosen `Epoch`, with corrections applied for your chosen `TimeScale`.
 -}
 toInt : Moment -> TimeScale -> Epoch -> Int
-toInt (Moment dur) timeScale epoch =
-    -- TODO incorporate other params!
-    Duration.inMs dur
+toInt (Moment inputTAI) timeScale (Moment epochDur) =
+    -- this function is effectively the opposite of "moment".
+    let
+        newScale =
+            case timeScale of
+                TAI ->
+                    inputTAI
+
+                UTC ->
+                    utcFromLinear inputTAI
+
+                GPS ->
+                    Duration.subtract inputTAI (Duration.fromSeconds 19)
+
+                TT ->
+                    -- TODO what about retroactively
+                    Duration.subtract inputTAI (Duration.fromMs 32184)
+    in
+    --rebase Epoch AFTER scale, so leap seconds are correct
+    Duration.inMs <| Duration.subtract newScale epochDur
 
 
 {-| Turn a `Moment` into a raw `Int` so you can Encode it.
@@ -343,7 +360,11 @@ Note: For some reason, some people unfamiliar with [any epoch other](https://www
 -}
 unixEpoch : Epoch
 unixEpoch =
-    Moment (Duration.fromInt 0)
+    let
+        jan1st1970_rataDie =
+            toFloat 719163
+    in
+    Moment (Duration.scale Duration.aDay jan1st1970_rataDie)
 
 
 {-| Okay, so the Unix epoch is 00:00:00 Thursday, 1 January 1970. But that's UTC, and the UTC we use didn't exist until 1972! Wha??
