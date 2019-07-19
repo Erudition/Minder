@@ -557,10 +557,10 @@ fuzzyDescription : Moment -> Zone -> FuzzyMoment -> String
 fuzzyDescription now zone dueMoment =
     case humanizeFuzzy zone dueMoment of
         ( date, Nothing ) ->
-            Calendar.describeVsToday date (extractDate zone now)
+            Calendar.describeVsToday (extractDate zone now) date
 
         ( date, Just time ) ->
-            Calendar.describeVsToday date (extractDate zone now) ++ " at " ++ Clock.toStandardString time
+            Calendar.describeVsToday (extractDate zone now) date ++ " at " ++ Clock.toStandardString time
 
 
 {-| One thing all `FuzzyMoment`s have in common is they hold a `CalendarDate`. This extracts that directly!
