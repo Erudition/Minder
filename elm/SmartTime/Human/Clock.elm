@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toStandardString)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toStandardString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -48,6 +48,18 @@ parseHMS =
         |= Parser.paddedInt
         -- second
         |= Parser.map secsFracToMs decimalOptional
+
+
+fromStandardString : String -> Result String TimeOfDay
+fromStandardString input =
+    let
+        parserResult =
+            Parser.run parseHMS input
+
+        stringErrorResult =
+            Result.mapError Parser.realDeadEndsToString parserResult
+    in
+    stringErrorResult
 
 
 {-| Represent the positions of all the hands of a clock... with a single `Int`!
