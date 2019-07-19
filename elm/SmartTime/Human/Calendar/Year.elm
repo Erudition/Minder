@@ -1,6 +1,7 @@
 module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, fromBCEYear, isBeforeCommonEra, isCommonEra, isLeapYear, parse4DigitYear, toBCEYear, toClassicFormalString, toFormalString, toInt, toString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import ParserExtra as Parser
 
 
 {-| A year on the Gregorian Calendar.
@@ -50,10 +51,10 @@ fromBCEYear positiveYear =
 toString : Year -> String
 toString ((Year yearInt) as year) =
     if isBeforeCommonEra year then
-        String.fromInt yearInt
+        String.fromInt (toBCEYear year) ++ " BCE"
 
     else
-        String.fromInt (toBCEYear year) ++ " BCE"
+        String.fromInt yearInt
 
 
 toFormalString : Year -> String
@@ -123,23 +124,9 @@ isLeapYear (Year int) =
 parse4DigitYear : Parser Year
 parse4DigitYear =
     let
-        checkSize : String -> Parser String
-        checkSize digits =
-            if String.length digits >= 4 then
-                Parser.succeed digits
-
-            else
-                Parser.problem "a year has at least 4 digits - pad with zeros"
-
-        toYearNum : String -> Parser Year
-        toYearNum digits =
-            case String.toInt digits of
-                Just num ->
-                    Parser.succeed (Year num)
-
-                Nothing ->
-                    Parser.problem "You should never see this error, as four verified digits should always form a valid int."
+        toYearNum : Int -> Parser Year
+        toYearNum num =
+            Parser.succeed (Year num)
     in
-    getChompedString (chompWhile Char.isDigit)
-        |> Parser.andThen checkSize
+    Parser.strictPaddedInt 4
         |> Parser.andThen toYearNum

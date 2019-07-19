@@ -80,6 +80,7 @@ toDuration humanDuration =
             scale aMillisecond (toFloat milliseconds)
 
 
+dur : HumanDuration -> Duration
 dur =
     toDuration
 

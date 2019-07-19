@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Week exposing (DayOfWeek(..), dayOfWeekToInt, numberToDayOfWeek, weekdayToName)
+module SmartTime.Human.Calendar.Week exposing (DayOfWeek(..), dayOfWeekToInt, dayToName, numberToDayOfWeek)
 
 
 type DayOfWeek
@@ -71,8 +71,8 @@ numberToDayOfWeek n =
             Sun
 
 
-weekdayToName : DayOfWeek -> String
-weekdayToName d =
+dayToName : DayOfWeek -> String
+dayToName d =
     case d of
         Mon ->
             "Monday"
