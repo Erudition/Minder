@@ -1,5 +1,7 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, second, secondFractional, secondsSinceMidnight, toStandardString)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toStandardString)
 
+import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import ParserExtra as Parser
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), dur)
 import SmartTime.Moment as Moment exposing (..)
@@ -24,6 +26,28 @@ type alias TimeOfDay =
 clock : Int -> Int -> Int -> Int -> TimeOfDay
 clock hh mm ss ms =
     HumanDuration.build [ Hours hh, Minutes mm, Seconds ss, Milliseconds ms ]
+
+
+parseHMS : Parser TimeOfDay
+parseHMS =
+    let
+        secsFracToMs frac =
+            round (frac * 1000)
+
+        decimalOptional =
+            -- Parser.float accepts numbers like ".123"
+            Parser.oneOf [ Parser.float, Parser.succeed 0 ]
+    in
+    Parser.succeed clock
+        |= Parser.backtrackable Parser.paddedInt
+        -- hour
+        |. symbol ":"
+        |= Parser.paddedInt
+        -- minute
+        |. symbol ":"
+        |= Parser.paddedInt
+        -- second
+        |= Parser.map secsFracToMs decimalOptional
 
 
 {-| Represent the positions of all the hands of a clock... with a single `Int`!
