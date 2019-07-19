@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, linearFromUTC, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, utcFromLinear, windowsNT, y2k, zero)
 
 import List.Extra
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
@@ -205,6 +205,13 @@ type TimelineOrder
     = Later
     | Earlier
     | Coincident
+
+
+{-| Compare a `Moment` to another with the normal `Basics.Order` output.
+Less intuitive than `compare`, but handy for normal library functions like `sortWith`.
+-}
+compareBasic (Moment time1) (Moment time2) =
+    Basics.compare (Duration.inMs time1) (Duration.inMs time2)
 
 
 difference (Moment time1) (Moment time2) =
