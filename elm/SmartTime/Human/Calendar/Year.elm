@@ -83,13 +83,13 @@ toClassicFormalString ((Year yearInt) as year) =
 daysBefore : Year -> Int
 daysBefore (Year givenYearInt) =
     let
-        y =
+        yearFromZero =
             givenYearInt - 1
 
         leapYears =
-            (y // 4) - (y // 100) + (y // 400)
+            (yearFromZero // 4) - (yearFromZero // 100) + (yearFromZero // 400)
     in
-    365 * y + leapYears
+    365 * yearFromZero + leapYears
 
 
 {-| Compares two given `Years` and returns an Order.
