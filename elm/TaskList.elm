@@ -19,7 +19,8 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
-import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..))
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Progress exposing (..)
@@ -83,7 +84,7 @@ view state app env =
                 [ section
                     [ class "todoapp" ]
                     [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env.time (Maybe.withDefault AllTasks (List.head filters)) (prioritize <| IntDict.values app.tasks)
+                    , Html.Styled.Lazy.lazy3 viewTasks env (Maybe.withDefault AllTasks (List.head filters)) (prioritize env.time env.timeZone <| IntDict.values app.tasks)
                     , lazy2 viewControls filters (IntDict.values app.tasks)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
@@ -132,8 +133,8 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Moment -> Filter -> List Task -> Html Msg
-viewTasks now filter tasks =
+viewTasks : Environment -> Filter -> List Task -> Html Msg
+viewTasks env filter tasks =
     let
         isVisible task =
             case filter of
@@ -162,7 +163,7 @@ viewTasks now filter tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask now) (List.filter isVisible tasks)
+            List.map (viewKeyedTask env) (List.filter isVisible tasks)
         ]
 
 
@@ -170,17 +171,17 @@ viewTasks now filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Moment -> Task -> ( String, Html Msg )
-viewKeyedTask now task =
-    ( String.fromInt task.id, lazy2 viewTask now task )
+viewKeyedTask : Environment -> Task -> ( String, Html Msg )
+viewKeyedTask env task =
+    ( String.fromInt task.id, lazy2 viewTask env task )
 
 
 
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Moment -> Task -> Html Msg
-viewTask now task =
+viewTask : Environment -> Task -> Html Msg
+viewTask env task =
     li
         [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", False ) ] ]
         [ progressSlider task
@@ -206,7 +207,7 @@ viewTask now task =
                 [ text task.title ]
             , div
                 [ class "timing-info" ]
-                [ timingInfo now task ]
+                [ timingInfo env task ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.id)
@@ -292,14 +293,41 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Moment -> Task -> Html Msg
-timingInfo time task =
-    text <| Maybe.withDefault "No due" <| Maybe.map (describeTaskMoment time) task.deadline
+timingInfo : Environment -> Task -> Html Msg
+timingInfo env task =
+    let
+        dueDescription =
+            Maybe.withDefault "whenever" <| Maybe.map (describeTaskMoment env.time env.timeZone) task.deadline
+
+        effortDescription =
+            describeEffort task
+    in
+    text (effortDescription ++ dueDescription)
 
 
-describeTaskMoment : Moment -> FuzzyMoment -> String
-describeTaskMoment now dueMoment =
-    HumanMoment.fuzzyToString dueMoment
+describeEffort : Task -> String
+describeEffort task =
+    let
+        sayEffort amount =
+            HumanDuration.breakdownNonzero amount
+    in
+    case ( sayEffort task.minEffort, sayEffort task.maxEffort ) of
+        ( [], [] ) ->
+            ""
+
+        ( [], givenMax ) ->
+            "up to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " at "
+
+        ( givenMin, [] ) ->
+            "at least " ++ HumanDuration.abbreviatedSpaced givenMin ++ " at "
+
+        ( givenMin, givenMax ) ->
+            HumanDuration.abbreviatedSpaced givenMin ++ " to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " at "
+
+
+describeTaskMoment : Moment -> Zone -> FuzzyMoment -> String
+describeTaskMoment now zone dueMoment =
+    HumanMoment.fuzzyDescription now zone dueMoment
 
 
 {-| Get the date out of a date input.
