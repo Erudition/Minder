@@ -316,13 +316,13 @@ describeEffort task =
             ""
 
         ( [], givenMax ) ->
-            "up to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " at "
+            "up to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " by "
 
         ( givenMin, [] ) ->
-            "at least " ++ HumanDuration.abbreviatedSpaced givenMin ++ " at "
+            "at least " ++ HumanDuration.abbreviatedSpaced givenMin ++ " by "
 
         ( givenMin, givenMax ) ->
-            HumanDuration.abbreviatedSpaced givenMin ++ " to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " at "
+            HumanDuration.abbreviatedSpaced givenMin ++ " - " ++ HumanDuration.abbreviatedSpaced givenMax ++ " by "
 
 
 describeTaskMoment : Moment -> Zone -> FuzzyMoment -> String

@@ -69,9 +69,9 @@ encodeTask record =
         [ ( "title", Encode.string <| record.title )
         , ( "completion", encodeProgress <| record.completion )
         , ( "id", Encode.int <| record.id )
-        , ( "minEffort", encodeDuration <| record.predictedEffort )
+        , ( "minEffort", encodeDuration <| record.minEffort )
         , ( "predictedEffort", encodeDuration <| record.predictedEffort )
-        , ( "maxEffort", encodeDuration <| record.predictedEffort )
+        , ( "maxEffort", encodeDuration <| record.maxEffort )
         , ( "history", Encode.list encodeHistoryEntry record.history )
         , ( "parent", Encode2.maybe Encode.int record.parent )
         , ( "tags", Encode.list Encode.int record.tags )
@@ -251,7 +251,7 @@ deepSort compareFuncs listToSort =
                 sortedGroups =
                     List.map (deepSort laterCompareFuncs) fixedGroups
             in
-            List.concat (Debug.log "groups" sortedGroups)
+            List.concat sortedGroups
 
 
 compareSoonness : HumanMoment.Zone -> CompareFunction Task
