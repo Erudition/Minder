@@ -192,8 +192,8 @@ build givenYear givenMonth givenDay =
 year : CalendarDate -> Year
 year (CalendarDate givenDays) =
     let
-        -- (400 * 365) + 97
         daysInLeapCycle =
+            -- (400 * 365) + 97
             146097
 
         -- centurial years are leap years if they are divisible by 400
@@ -203,8 +203,8 @@ year (CalendarDate givenDays) =
         yearsFromLeapCycles =
             leapCyclesPassed * 400
 
-        -- (100 * 365) + 24
         daysInCentury =
+            -- (100 * 365) + 24
             36524
 
         -- all other years that are divisible by 100 are normal years
@@ -212,10 +212,10 @@ year (CalendarDate givenDays) =
             divWithRemainder daysWithoutLeapCycles daysInCentury
 
         yearsFromCenturies =
-            centuriesPassed * 400
+            centuriesPassed * 100
 
-        -- (4 * 365) + 1  (includes 1 leap day)
         daysInFourYears =
+            -- (4 * 365) + 1  (includes 1 leap day)
             1461
 
         -- otherwise every year that is exactly divisible by four is a leap year
@@ -543,7 +543,7 @@ toParts : CalendarDate -> Parts
 toParts (CalendarDate rd) =
     let
         date =
-            CalendarDate rd |> toOrdinalDate
+            Debug.log "parts" (CalendarDate rd |> toOrdinalDate)
     in
     calculate date.year Jan date.ordinalDay
 
@@ -902,7 +902,7 @@ dayOfWeek (CalendarDate rd) =
                 n ->
                     n
     in
-    Week.numberToDayOfWeek dayNum
+    Week.numberToDay dayNum
 
 
 
@@ -933,7 +933,7 @@ ordinalDay : CalendarDate -> OrdinalDay
 ordinalDay givenDate =
     let
         dayOfWeekAsInt =
-            Week.dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayToInt (dayOfWeek givenDate)
     in
     Month.daysBefore (year givenDate) (month givenDate) + dayOfWeekAsInt
 
@@ -943,10 +943,10 @@ toOrdinalDate : CalendarDate -> { year : Year, ordinalDay : OrdinalDay }
 toOrdinalDate (CalendarDate rd) =
     let
         givenYear =
-            year (CalendarDate rd)
+            Debug.log "year to toOrdinalDate" <| year (CalendarDate rd)
     in
     { year = givenYear
-    , ordinalDay = rd - Year.daysBefore givenYear
+    , ordinalDay = rd - Debug.log "days before" (Year.daysBefore givenYear)
     }
 
 
@@ -1013,7 +1013,7 @@ weekNumberingYear givenDate =
             givenDate
 
         dayOfWeekAsInt =
-            Week.dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayToInt (dayOfWeek givenDate)
 
         (Year actuallyWeekBasedYear) =
             -- `year <thursday of this week>`
@@ -1053,7 +1053,7 @@ fromWeekDateForced givenWBY wn wd =
             else
                 52
     in
-    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> Basics.clamp 1 weeksInWY) - 1) * 7 + (wd |> Week.dayOfWeekToInt)
+    CalendarDate <| daysBeforeWeekBasedYear givenWBY + ((wn |> Basics.clamp 1 weeksInWY) - 1) * 7 + (wd |> Week.dayToInt)
 
 
 daysBeforeWeekBasedYear : WeekNumberingYear -> Int
@@ -1063,7 +1063,7 @@ daysBeforeWeekBasedYear (WeekNumberingYear wby) =
             Year.daysBefore (Year wby) + 4
 
         dayOfWeekAsInt date =
-            Week.dayOfWeekToInt (dayOfWeek date)
+            Week.dayToInt (dayOfWeek date)
     in
     jan4 - dayOfWeekAsInt (CalendarDate jan4)
 
@@ -1174,23 +1174,6 @@ toStandardString givenDate =
             padNumber 2 <| String.fromInt <| Month.dayToInt <| dayOfMonth givenDate
     in
     yearPart ++ "-" ++ monthPart ++ "-" ++ dayPart
-
-
-
--- Is there a library function out there that does this already?
-
-
-padNumber : Int -> String -> String
-padNumber targetLength numString =
-    let
-        -- no numbers have less than one digit
-        minLength =
-            Basics.clamp 1 targetLength targetLength
-
-        zerosToAdd =
-            minLength - String.length numString
-    in
-    String.repeat zerosToAdd "0" ++ numString
 
 
 {-| Get a `CalendarDate` from a string like these:
@@ -1394,7 +1377,7 @@ describeVsToday today describee =
             subtract today describee
 
         des =
-            toParts describee
+            toParts (Debug.log "date:" describee)
     in
     case ( dayDiff, negate dayDiff ) of
         ( _, 1 ) ->
@@ -1415,11 +1398,14 @@ describeVsToday today describee =
 
             else if year today == des.year then
                 Month.toName des.month
+                    ++ " "
                     ++ String.fromInt (Month.dayToInt des.day)
 
             else
                 Month.toName des.month
+                    ++ " "
                     ++ String.fromInt (Month.dayToInt des.day)
+                    ++ " "
                     ++ Year.toString des.year
 
 
@@ -1593,9 +1579,9 @@ daysSincePrevious : DayOfWeek -> CalendarDate -> Int
 daysSincePrevious givenDoW givenDate =
     let
         dayOfWeekAsInt =
-            Week.dayOfWeekToInt (dayOfWeek givenDate)
+            Week.dayToInt (dayOfWeek givenDate)
     in
-    modBy 7 (dayOfWeekAsInt + 7 - Week.dayOfWeekToInt givenDoW)
+    modBy 7 (dayOfWeekAsInt + 7 - Week.dayToInt givenDoW)
 
 
 {-| Slide a date back to the given `DayOfWeek`.
@@ -1634,12 +1620,30 @@ intIsBetween a b x =
 -}
 divWithRemainder : Int -> Int -> ( Int, Int )
 divWithRemainder a b =
-    ( floorDiv a b, a |> modBy b )
+    ( a // b, a |> modBy b )
+
+
+
+-- why
 
 
 floorDiv : Int -> Int -> Int
 floorDiv a b =
     Basics.floor (toFloat a / toFloat b)
+
+
+padNumber : Int -> String -> String
+padNumber targetLength numString =
+    -- Is there a library function out there that does this already?
+    let
+        -- no numbers have less than one digit
+        minLength =
+            Basics.clamp 1 targetLength targetLength
+
+        zerosToAdd =
+            minLength - String.length numString
+    in
+    String.repeat zerosToAdd "0" ++ numString
 
 
 
