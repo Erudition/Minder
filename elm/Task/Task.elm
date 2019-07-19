@@ -7,6 +7,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import List.Extra as List
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
@@ -209,10 +210,74 @@ completed task =
     isMax (.completion task)
 
 
-prioritize : List Task -> List Task
-prioritize taskList =
+type alias WithSoonness t =
+    { t | soonness : Duration }
+
+
+prioritize : Moment -> HumanMoment.Zone -> List Task -> List Task
+prioritize now zone taskList =
     let
-        priorityAlgorithm task =
-            (toFloat task.importance * 10) + Duration.inMinutes task.maxEffort
+        compareProp prop a b =
+            Basics.compare (prop a) (prop b)
     in
-    List.sortBy priorityAlgorithm taskList
+    deepSort [ compareSoonness zone, compareProp .importance ] taskList
+
+
+type alias CompareFunction a =
+    a -> a -> Basics.Order
+
+
+deepSort : List (CompareFunction a) -> List a -> List a
+deepSort compareFuncs listToSort =
+    case compareFuncs of
+        [] ->
+            listToSort
+
+        nextCompareFunc :: laterCompareFuncs ->
+            let
+                sortedList =
+                    List.sortWith nextCompareFunc listToSort
+
+                equivalentItems a b =
+                    nextCompareFunc a b == EQ
+
+                grouped =
+                    List.groupWhile equivalentItems listToSort
+
+                -- unfortunately groupWhile returns a List of fake Nonemptys, so here we turn them back into lists.
+                fixedGroups =
+                    List.map (\( first, rest ) -> first :: rest) grouped
+
+                sortedGroups =
+                    List.map (deepSort laterCompareFuncs) fixedGroups
+            in
+            List.concat (Debug.log "groups" sortedGroups)
+
+
+compareSoonness : HumanMoment.Zone -> CompareFunction Task
+compareSoonness zone taskA taskB =
+    case ( taskA.deadline, taskB.deadline ) of
+        ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
+            Moment.compareBasic (HumanMoment.fromFuzzy zone fuzzyMomentA) (HumanMoment.fromFuzzy zone fuzzyMomentB)
+
+        ( Nothing, Nothing ) ->
+            EQ
+
+        ( Just _, Nothing ) ->
+            GT
+
+        ( Nothing, Just _ ) ->
+            LT
+
+
+
+-- soonestFirst : Sorter Task
+-- soonestFirst taskList =
+--     let
+--         withSoonnessValues =
+--             List.map (\t -> ( soonness t, t )) taskList
+--
+--         sortBySoonness =
+--             List.sortWith soonness taskList
+--     in
+--     sortBySoonness
