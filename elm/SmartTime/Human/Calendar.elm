@@ -6,7 +6,7 @@ module SmartTime.Human.Calendar exposing
     , decrementYear, decrementMonth, decrementDay
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, deadEndToString, deadEndsToString, difference, divWithRemainder, equal, firstDayOfMonth, firstOfYear, floorDiv, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, padNumber, problemToString, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, toStandardString, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, describeVsToday, difference, divWithRemainder, equal, firstDayOfMonth, firstOfYear, floorDiv, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, padNumber, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, toStandardString, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -116,6 +116,7 @@ a [Posix](https://package.elm-lang.org/packages/elm/time/latest/Time#Posix).
 --         updatedRes
 
 import Parser exposing ((|.), (|=), DeadEnd, Parser, Problem(..), chompWhile, getChompedString, spaces, symbol)
+import ParserExtra as Parser
 import SmartTime.Duration as Duration exposing (Duration, subtract)
 import SmartTime.Human.Calendar.Month as Month exposing (DayOfMonth(..), Month(..))
 import SmartTime.Human.Calendar.Week as Week exposing (DayOfWeek(..))
@@ -1217,10 +1218,10 @@ fromNumberString : String -> Result String CalendarDate
 fromNumberString input =
     let
         parserResult =
-            Parser.run (Parser.oneOf [ separatedYMD "/", separatedYMD "-", separatedYMD ".", separatedYMD " " ]) input
+            Parser.run (Parser.oneOf [ separatedYMD "-", separatedYMD "/", separatedYMD ".", separatedYMD " " ]) input
 
         stringErrorResult =
-            Result.mapError deadEndsToString parserResult
+            Result.mapError Parser.realDeadEndsToString parserResult
     in
     stringErrorResult |> Result.andThen fromParts
 
@@ -1229,9 +1230,9 @@ separatedYMD : String -> Parser Parts
 separatedYMD separator =
     Parser.succeed Parts
         |. spaces
-        |= Year.parse4DigitYear
+        |= Parser.backtrackable Year.parse4DigitYear
         |. symbol separator
-        |= Month.parseMonth
+        |= Month.parseMonthInt
         |. symbol separator
         |= Month.parseDayOfMonth
 
@@ -1384,6 +1385,42 @@ countSpecificDOWBetween dow date1 date2 =
 
 
 -- CALENDAR FACTS ----------------------------------------------------------NOTE
+
+
+describeVsToday : CalendarDate -> CalendarDate -> String
+describeVsToday today describee =
+    let
+        dayDiff =
+            subtract today describee
+
+        des =
+            toParts describee
+    in
+    case ( dayDiff, negate dayDiff ) of
+        ( _, 1 ) ->
+            "yesterday"
+
+        ( 0, 0 ) ->
+            "today"
+
+        ( 1, _ ) ->
+            "tomorrow"
+
+        ( futureDays, pastDays ) ->
+            if intIsBetween 0 6 futureDays then
+                "next " ++ Week.dayToName (dayOfWeek describee)
+
+            else if intIsBetween 0 6 pastDays then
+                "last " ++ Week.dayToName (dayOfWeek describee)
+
+            else if year today == des.year then
+                Month.toName des.month
+                    ++ String.fromInt (Month.dayToInt des.day)
+
+            else
+                Month.toName des.month
+                    ++ String.fromInt (Month.dayToInt des.day)
+                    ++ Year.toString des.year
 
 
 is53WeekYear : Year -> Bool
@@ -1603,66 +1640,6 @@ divWithRemainder a b =
 floorDiv : Int -> Int -> Int
 floorDiv a b =
     Basics.floor (toFloat a / toFloat b)
-
-
-
--- From https://github.com/elm/parser/pull/16/files
-
-
-deadEndsToString : List DeadEnd -> String
-deadEndsToString deadEnds =
-    String.concat (List.intersperse "; " (List.map deadEndToString deadEnds))
-
-
-deadEndToString : DeadEnd -> String
-deadEndToString deadend =
-    problemToString deadend.problem ++ " at row " ++ String.fromInt deadend.row ++ ", col " ++ String.fromInt deadend.col
-
-
-problemToString : Problem -> String
-problemToString p =
-    case p of
-        Expecting s ->
-            "expecting '" ++ s ++ "'"
-
-        ExpectingInt ->
-            "expecting int"
-
-        ExpectingHex ->
-            "expecting hex"
-
-        ExpectingOctal ->
-            "expecting octal"
-
-        ExpectingBinary ->
-            "expecting binary"
-
-        ExpectingFloat ->
-            "expecting float"
-
-        ExpectingNumber ->
-            "expecting number"
-
-        ExpectingVariable ->
-            "expecting variable"
-
-        ExpectingSymbol s ->
-            "expecting symbol '" ++ s ++ "'"
-
-        ExpectingKeyword s ->
-            "expecting keyword '" ++ s ++ "'"
-
-        ExpectingEnd ->
-            "expecting end"
-
-        UnexpectedChar ->
-            "unexpected char"
-
-        Problem s ->
-            "Problem parsing: " ++ s
-
-        BadRepeat ->
-            "bad repeat"
 
 
 
