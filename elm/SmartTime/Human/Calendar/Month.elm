@@ -1,7 +1,8 @@
-module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), clampToValidDayOfMonth, compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, parseDayOfMonth, parseMonth, previous, toInt, toName, toQuarter)
+module SmartTime.Human.Calendar.Month exposing (DayOfMonth(..), Month(..), clampToValidDayOfMonth, compare, compareBasic, compareDays, dayOfMonthValidFor, dayToInt, daysBefore, fromInt, fromIntSafe, fromQuarter, getMonthsAfter, getMonthsBefore, intToAlwaysValidDay, intToDay, intToDayForced, lastDay, length, monthList, months, next, parseDayOfMonth, parseMonthInt, previous, toInt, toName, toQuarter)
 
 import Array exposing (Array)
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import ParserExtra as Parser
 import SmartTime.Human.Calendar.Year as Year exposing (Year)
 import SmartTime.Moment exposing (TimelineOrder(..))
 
@@ -675,21 +676,20 @@ compareDays lhs rhs =
     Basics.compare (dayToInt lhs) (dayToInt rhs)
 
 
-parseMonth : Parser Month
-parseMonth =
+parseMonthInt : Parser Month
+parseMonthInt =
     let
-        checkYear : Int -> Parser Month
-        checkYear givenInt =
+        checkMonth : Int -> Parser Month
+        checkMonth givenInt =
             if givenInt >= 1 && givenInt <= 12 then
                 Parser.succeed (fromInt givenInt)
 
             else
-                Parser.problem <| "A month number should be from 1 to 12, but I got " ++ String.fromInt givenInt ++ "... "
+                Parser.problem <| "A month number should be from 1 to 12, but I got " ++ String.fromInt givenInt ++ " instead?"
     in
-    Parser.int
-        |> Parser.andThen checkYear
+    Parser.paddedInt |> Parser.andThen checkMonth
 
 
 parseDayOfMonth : Parser DayOfMonth
 parseDayOfMonth =
-    Parser.map DayOfMonth Parser.int
+    Parser.map DayOfMonth Parser.paddedInt

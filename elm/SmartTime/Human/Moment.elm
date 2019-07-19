@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, unlocalize, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, localize, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, unlocalize, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -34,7 +34,8 @@ Then, when changing a fixed time, we do the usual: use the local zone to display
 
 -}
 
-import Parser exposing (getOffset)
+import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
+import ParserExtra as Parser
 import Regex exposing (Regex)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -251,8 +252,51 @@ toStandardString moment =
 
 
 fromStandardString : String -> Result String Moment
-fromStandardString givenString =
-    Result.Err "todo"
+fromStandardString input =
+    let
+        combinedParser =
+            Parser.succeed Tuple.pair
+                |= Calendar.separatedYMD "-"
+                |. symbol "T"
+                |= Clock.parseHMS
+                |. symbol "Z"
+                -- TODO allow offset 0 as well
+                |. Parser.end
+    in
+    fromStringHelper combinedParser input
+
+
+fromStandardStringLoose : String -> Result String Moment
+fromStandardStringLoose input =
+    let
+        combinedParser =
+            Parser.succeed Tuple.pair
+                |= Calendar.separatedYMD "-"
+                |. symbol "T"
+                |= Clock.parseHMS
+    in
+    fromStringHelper combinedParser input
+
+
+fromStringHelper : Parser ( Calendar.Parts, TimeOfDay ) -> String -> Result String Moment
+fromStringHelper givenParser input =
+    -- Internal
+    let
+        parserResult =
+            Parser.run givenParser input
+
+        withNiceErrors =
+            Result.mapError Parser.realDeadEndsToString parserResult
+
+        -- TODO handle in-built zones
+        combiner d t =
+            fromDateAndTime utc d t
+
+        fromAll : ( Calendar.Parts, Clock.TimeOfDay ) -> Result String Moment
+        fromAll ( dateparts, time ) =
+            Result.map (\d -> combiner d time) (Calendar.fromParts dateparts)
+    in
+    withNiceErrors |> Result.andThen fromAll
 
 
 
@@ -509,11 +553,28 @@ humanizeFuzzy zone fuzzy =
             wrapTimeWithJust (humanize zone moment)
 
 
+fuzzyDescription : Moment -> Zone -> FuzzyMoment -> String
+fuzzyDescription now zone dueMoment =
+    case humanizeFuzzy zone dueMoment of
+        ( date, Nothing ) ->
+            Calendar.describeVsToday date (extractDate zone now)
+
+        ( date, Just time ) ->
+            Calendar.describeVsToday date (extractDate zone now) ++ " at " ++ Clock.toStandardString time
+
+
 {-| One thing all `FuzzyMoment`s have in common is they hold a `CalendarDate`. This extracts that directly!
 -}
 dateFromFuzzy : Zone -> FuzzyMoment -> CalendarDate
 dateFromFuzzy zone fuzzy =
     Tuple.first (humanizeFuzzy zone fuzzy)
+
+
+{-| If a `TimeOfDay` was specified in this `FuzzyMoment`, you can extract `Just` that time without using `humanizeFuzzy`. If not, you get `Nothing`.
+-}
+timeFromFuzzy : Zone -> FuzzyMoment -> Maybe TimeOfDay
+timeFromFuzzy zone fuzzy =
+    Tuple.second (humanizeFuzzy zone fuzzy)
 
 
 fuzzyToString : FuzzyMoment -> String
@@ -532,11 +593,14 @@ fuzzyToString fuzzyMoment =
 
 fuzzyFromString : String -> Result String FuzzyMoment
 fuzzyFromString givenString =
+    -- follows "T and "Z" convention
     if String.endsWith "Z" givenString then
+        -- TODO may not necessarily end with Z!
         Result.map Global (fromStandardString givenString)
 
     else if String.contains "T" givenString then
-        Result.map Floating (fromStandardString givenString)
+        -- Doesn't end with "Z", but still has a "T"
+        Result.map Floating (fromStandardStringLoose givenString)
 
     else
         Result.map DateOnly (Calendar.fromNumberString givenString)
