@@ -16,6 +16,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
@@ -200,7 +201,7 @@ describeSuccess success =
             ++ String.fromInt (List.length success.items)
             ++ " items, "
             ++ String.fromInt (List.length success.projects)
-            ++ "projects retrieved!"
+            ++ " projects retrieved!"
 
     else
         "Incremental Todoist sync complete: Updated "
@@ -381,11 +382,6 @@ itemToTask activityID item =
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
-
-        ( finalMin, finalMax ) =
-            ( Maybe.map HumanDuration.toDuration minDur
-            , Maybe.map HumanDuration.toDuration maxDur
-            )
     in
     { base
         | completion =
@@ -396,9 +392,10 @@ itemToTask activityID item =
                 base.completion
         , tags = []
         , activity = Just activityID
-        , minEffort = Maybe.withDefault base.minEffort finalMin
-        , maxEffort = Maybe.withDefault base.maxEffort finalMax
+        , minEffort = Maybe.withDefault base.minEffort minDur
+        , maxEffort = Maybe.withDefault base.maxEffort maxDur
         , importance = priorityToImportance item.priority
+        , deadline = Maybe.map .date item.due
     }
 
 
@@ -469,43 +466,47 @@ extractTiming name =
     ( name, ( Nothing, Nothing ) )
 
 
-extractTiming2 : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )
+extractTiming2 : String -> ( String, ( Maybe Duration, Maybe Duration ) )
 extractTiming2 input =
+    -- TODO optimize this sucker
     let
         chunk start =
             String.dropLeft start input
 
         withoutChunk chunkStart =
-            String.dropRight (String.length (chunk chunkStart)) (chunk chunkStart)
+            String.dropRight (String.length (chunk chunkStart)) input
 
         default =
             ( input, ( Nothing, Nothing ) )
     in
     case List.last (String.indexes "(" input) of
+        -- There were no left parens
         Nothing ->
             default
 
+        -- found left parens! here's the index of the last one found
         Just chunkStart ->
             case Parser.run timing (chunk chunkStart) of
                 Err _ ->
+                    -- couldn't make out a valid glob, leave it be
                     default
 
                 Ok ( num1, num2 ) ->
+                    -- found a valid glob! remove it from title
                     ( withoutChunk chunkStart
-                    , ( Just (HumanDuration.Minutes num1), Just (HumanDuration.Minutes num2) )
+                    , ( Just (Duration.fromMinutes num1), Just (Duration.fromMinutes num2) )
                     )
 
 
-timing : Parser ( Int, Int )
+timing : Parser ( Float, Float )
 timing =
     Parser.succeed Tuple.pair
         |. symbol "("
         |. spaces
-        |= Parser.int
+        |= Parser.float
         -- TODO allow "m" after this one too
         |. symbol "-"
-        |= Parser.int
-        -- TODO allow float
+        |= Parser.float
         |. symbol "m"
         -- TODO allow "min" also
         |. spaces
