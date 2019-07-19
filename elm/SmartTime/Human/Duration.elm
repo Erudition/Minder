@@ -1,5 +1,6 @@
 module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, toDuration, withAbbreviation, withLetter)
 
+import List.Extra
 import SmartTime.Duration exposing (..)
 
 
@@ -366,14 +367,15 @@ colonSeparated : List HumanDuration -> String
 colonSeparated breakdownList =
     let
         separate list =
-            String.concat <| List.intersperse ":" (List.map justNumber list)
-
-        backwards =
-            List.reverse breakdownList
+            String.concat <| List.intersperse ":" (List.map justNumberPadded list)
     in
-    case backwards of
-        (Milliseconds ms) :: tail ->
-            separate tail ++ "." ++ String.fromInt ms
+    case List.Extra.last breakdownList of
+        Just (Milliseconds ms) ->
+            let
+                withoutLast =
+                    Maybe.withDefault [] <| List.Extra.init breakdownList
+            in
+            separate withoutLast ++ "." ++ padNumber 3 (String.fromInt ms)
 
         _ ->
             separate breakdownList
@@ -409,6 +411,48 @@ justNumber unit =
 
         Days int ->
             String.fromInt int
+
+
+{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
+
+So `Minutes 5` becomes "5m", `Hours 3` becomes "3h", etcetera.
+
+Conveniently, this form is also readable in Spanish and other languages as well!
+
+Note that this function uses a two-letter abbreviation for Milliseconds, "ms", to remove ambiguity with minutes (and because it's a more commonly accepted form).
+
+-}
+justNumberPadded : HumanDuration -> String
+justNumberPadded unit =
+    case unit of
+        Milliseconds int ->
+            padNumber 3 <| String.fromInt int
+
+        Seconds int ->
+            padNumber 2 <| String.fromInt int
+
+        Minutes int ->
+            padNumber 2 <| String.fromInt int
+
+        Hours int ->
+            padNumber 2 <| String.fromInt int
+
+        Days int ->
+            padNumber 2 <| String.fromInt int
+
+
+padNumber : Int -> String -> String
+padNumber targetLength numString =
+    -- Is there a library function out there that does this already?
+    let
+        -- no numbers have less than one digit
+        minLength =
+            Basics.clamp 1 targetLength targetLength
+
+        zerosToAdd =
+            minLength - String.length numString
+    in
+    String.repeat zerosToAdd "0" ++ numString
 
 
 {-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
