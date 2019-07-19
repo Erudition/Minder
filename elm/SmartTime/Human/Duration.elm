@@ -296,11 +296,11 @@ On the other hand, for a film of duration of 1 hour 30 minutes, you'd get `Minut
 inLargestExactUnits : Duration -> HumanDuration
 inLargestExactUnits duration =
     let
-        partsSmallToBig =
-            List.reverse (breakdownDHMSM duration)
+        smallestPartMaybe =
+            List.Extra.last (breakdownDHMSM duration)
 
         smallestPart =
-            Maybe.withDefault (Milliseconds 0) (List.head partsSmallToBig)
+            Maybe.withDefault (Milliseconds 0) smallestPartMaybe
     in
     case smallestPart of
         Days days ->
