@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Week exposing (DayOfWeek(..), dayOfWeekToInt, dayToName, numberToDayOfWeek)
+module SmartTime.Human.Calendar.Week exposing (DayOfWeek(..), dayToInt, dayToName, numberToDay)
 
 
 type DayOfWeek
@@ -16,8 +16,8 @@ type DayOfWeek
     dayOfWeekToInt Mon -- 1
 
 -}
-dayOfWeekToInt : DayOfWeek -> Int
-dayOfWeekToInt d =
+dayToInt : DayOfWeek -> Int
+dayToInt d =
     case d of
         Mon ->
             1
@@ -46,8 +46,8 @@ dayOfWeekToInt d =
     numberToDayOfWeek 1 -- Mon
 
 -}
-numberToDayOfWeek : Int -> DayOfWeek
-numberToDayOfWeek n =
+numberToDay : Int -> DayOfWeek
+numberToDay n =
     case max 1 n of
         1 ->
             Mon
