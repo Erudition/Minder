@@ -543,7 +543,7 @@ toParts : CalendarDate -> Parts
 toParts (CalendarDate rd) =
     let
         date =
-            Debug.log "parts" (CalendarDate rd |> toOrdinalDate)
+            CalendarDate rd |> toOrdinalDate
     in
     calculate date.year Jan date.ordinalDay
 
@@ -943,10 +943,10 @@ toOrdinalDate : CalendarDate -> { year : Year, ordinalDay : OrdinalDay }
 toOrdinalDate (CalendarDate rd) =
     let
         givenYear =
-            Debug.log "year to toOrdinalDate" <| year (CalendarDate rd)
+            year (CalendarDate rd)
     in
     { year = givenYear
-    , ordinalDay = rd - Debug.log "days before" (Year.daysBefore givenYear)
+    , ordinalDay = rd - Year.daysBefore givenYear
     }
 
 
@@ -1377,7 +1377,7 @@ describeVsToday today describee =
             subtract today describee
 
         des =
-            toParts (Debug.log "date:" describee)
+            toParts describee
     in
     case ( dayDiff, negate dayDiff ) of
         ( _, 1 ) ->
