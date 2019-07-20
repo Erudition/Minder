@@ -1374,7 +1374,7 @@ describeVsToday : CalendarDate -> CalendarDate -> String
 describeVsToday today describee =
     let
         dayDiff =
-            subtract today describee
+            subtract describee today
 
         des =
             toParts describee
