@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toStandardString)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -86,6 +86,11 @@ asFractionOfDay time =
 toStandardString : TimeOfDay -> String
 toStandardString timeOfDay =
     HumanDuration.colonSeparated (HumanDuration.breakdownHMSM timeOfDay)
+
+
+toShortString : TimeOfDay -> String
+toShortString timeOfDay =
+    HumanDuration.colonSeparated (HumanDuration.breakdownHM timeOfDay)
 
 
 isMidnight : TimeOfDay -> Bool
