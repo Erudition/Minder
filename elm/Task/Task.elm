@@ -81,7 +81,7 @@ encodeTask record =
         , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
         , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
         , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
-        , ( "importance", Encode.int <| record.id )
+        , ( "importance", Encode.int <| record.importance )
         ]
 
 
@@ -223,35 +223,38 @@ prioritize now zone taskList =
     deepSort [ compareSoonness zone, compareProp .importance ] taskList
 
 
+
+-- List.sortWith (compareSoonness zone) <| List.sortBy .importance taskList
+
+
 type alias CompareFunction a =
     a -> a -> Basics.Order
 
 
 deepSort : List (CompareFunction a) -> List a -> List a
 deepSort compareFuncs listToSort =
-    case compareFuncs of
-        [] ->
-            listToSort
+    let
+        deepCompare funcs a b =
+            case funcs of
+                [] ->
+                    -- No more comparisons to make, give up and say they're equal
+                    EQ
 
-        nextCompareFunc :: laterCompareFuncs ->
-            let
-                sortedList =
-                    List.sortWith nextCompareFunc listToSort
+                nextCompareFunc :: laterCompareFuncs ->
+                    let
+                        -- run next comparison
+                        check =
+                            nextCompareFunc a b
+                    in
+                    if check == EQ then
+                        -- they still look equal, dig deeper
+                        deepCompare laterCompareFuncs a b
 
-                equivalentItems a b =
-                    nextCompareFunc a b == EQ
-
-                grouped =
-                    List.groupWhile equivalentItems listToSort
-
-                -- unfortunately groupWhile returns a List of fake Nonemptys, so here we turn them back into lists.
-                fixedGroups =
-                    List.map (\( first, rest ) -> first :: rest) grouped
-
-                sortedGroups =
-                    List.map (deepSort laterCompareFuncs) fixedGroups
-            in
-            List.concat sortedGroups
+                    else
+                        -- we have a winner, we can stop digging
+                        check
+    in
+    List.sortWith (deepCompare compareFuncs) listToSort
 
 
 compareSoonness : HumanMoment.Zone -> CompareFunction Task
