@@ -11,6 +11,7 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
+import ID
 import IntDict
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
@@ -59,7 +60,7 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map (Normal [ IncompleteTasksOnly ] Nothing "Test") (s "tasks")
+    P.map (Normal [ IncompleteTasksOnly ] Nothing "") (s "tasks")
 
 
 defaultView : ViewState
@@ -79,12 +80,19 @@ view : ViewState -> AppData -> Environment -> Html Msg
 view state app env =
     case state of
         Normal filters expanded field ->
+            let
+                activeFilter =
+                    Maybe.withDefault AllTasks (List.head filters)
+
+                sortedTasks =
+                    prioritize env.time env.timeZone <| IntDict.values app.tasks
+            in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
                 [ section
                     [ class "todoapp" ]
                     [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env (Maybe.withDefault AllTasks (List.head filters)) (prioritize env.time env.timeZone <| IntDict.values app.tasks)
+                    , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
                     , lazy2 viewControls filters (IntDict.values app.tasks)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
@@ -183,7 +191,16 @@ viewKeyedTask env task =
 viewTask : Environment -> Task -> Html Msg
 viewTask env task =
     li
-        [ class "task-entry", classList [ ( "completed", completed task ), ( "editing", False ) ] ]
+        [ class "task-entry"
+        , classList [ ( "completed", completed task ), ( "editing", False ) ]
+        , title <|
+            String.concat <|
+                List.intersperse "\n" <|
+                    List.filterMap identity
+                        [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.activity
+                        , Just ("importance: " ++ String.fromInt task.importance)
+                        ]
+        ]
         [ progressSlider task
         , div
             [ class "view" ]
