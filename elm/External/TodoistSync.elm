@@ -144,30 +144,42 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                 validActivityProjects =
                     IntDict.filter (\_ p -> p.parentId == timetrackParent) projectsDict
 
-                activityLookupTable =
+                newActivityLookupTable =
                     findActivityProjectIDs validActivityProjects filledInActivities
+
+                combinedALT =
+                    IntDict.union newActivityLookupTable todoist.activityProjectIDs
 
                 itemsInTimetrackToTasks =
                     List.filterMap
-                        (timetrackItemToTask activityLookupTable)
+                        (timetrackItemToTask combinedALT)
                         items
+
+                itemsInTimetrackForDeletion =
+                    List.map .id (List.filter .is_deleted items)
+
+                removeDeletedFromDict dict =
+                    IntDict.filterKeys
+                        (\id -> not (List.member id itemsInTimetrackForDeletion))
+                        dict
 
                 filledInActivities =
                     Activity.allActivities activities
 
                 generatedTasks =
                     IntDict.fromList <|
-                        List.map (\t -> ( t.id, t )) <|
-                            itemsInTimetrackToTasks
+                        Debug.log "generated task list" <|
+                            List.map (\t -> ( t.id, t )) <|
+                                itemsInTimetrackToTasks
             in
             ( { app
                 | todoist =
                     { syncToken = sync_token
                     , parentProjectID = timetrackParent
-                    , activityProjectIDs = IntDict.union activityLookupTable todoist.activityProjectIDs
+                    , activityProjectIDs = combinedALT
                     }
                 , tasks =
-                    IntDict.union generatedTasks tasks
+                    removeDeletedFromDict <| IntDict.union generatedTasks tasks
               }
             , describeSuccess success
             )
@@ -250,7 +262,7 @@ timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
     -- Just sayin'.
-    case IntDict.get item.project_id lookup of
+    case Debug.log "lookup" <| IntDict.get item.project_id lookup of
         Just act ->
             Just (itemToTask act item)
 
@@ -346,6 +358,8 @@ decodeItem =
         |> optionalIgnored "date_completed"
         |> optionalIgnored "has_more_notes"
         |> optionalIgnored "section_id"
+        -- only shows up during deletions?
+        |> optionalIgnored "due_is_recurring"
 
 
 encodeItem : Item -> Encode.Value
