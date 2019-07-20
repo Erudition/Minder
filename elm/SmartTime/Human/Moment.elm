@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getOffsetMinutes, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -74,7 +74,7 @@ makeZone : ElmTime.ZoneName -> ElmTime.Zone -> ElmTime -> Zone
 makeZone elmZoneName elmZone now =
     let
         deducedOffset =
-            Duration.fromMinutes (toFloat (getOffsetMinutes elmZone now))
+            deduceZoneOffset elmZone now
     in
     case elmZoneName of
         ElmTime.Name zoneName ->
@@ -112,8 +112,8 @@ nyc =
 TimeZone.america\__new_york ()
 [tzdata]: <https://package.elm-lang.org/packages/justinmimbs/timezone-data/latest/>
 -}
-getOffsetMinutes : ElmTime.Zone -> ElmTime -> Int
-getOffsetMinutes zone elmTime =
+deduceZoneOffset : ElmTime.Zone -> ElmTime -> Duration
+deduceZoneOffset zone elmTime =
     let
         zonedDate =
             Calendar.fromPartsForced
@@ -136,9 +136,9 @@ getOffsetMinutes zone elmTime =
             Moment.fromElmTime elmTime
 
         offset =
-            Moment.difference localTime (Debug.log ("utc: " ++ toStandardString utcTime) utcTime)
+            Moment.toSmartInt localTime - Moment.toSmartInt utcTime
     in
-    Duration.inMinutesRounded <| Debug.log ("offset " ++ HumanDuration.singleLetterSpaced (HumanDuration.breakdownDHMSM offset)) offset
+    Debug.log "zone offset" <| Duration.fromMs (toFloat offset)
 
 
 importElmMonth : ElmTime.Month -> Month
@@ -229,14 +229,7 @@ fromDate zone date =
 --- From DateTime
 
 
-{-| Create a [CalendarDate](CalendarDate#CalendarDate) by combining a [Date](Calendar#Date) and [Time](Clock#Time).
-
-    -- date == 26 Aug 2019
-    -- time == 12:30:45.000
-
-    fromDateAndTime date time
-    -- CalendarDate { date = Date { day = Day 26, month = Aug, year = Year 2019 }, time = Time { hours = Hour 12, minutes = Minute 30, seconds = Second 45, milliseconds = Millisecond 0 } } : CalendarDate
-
+{-| Create a Moment by combining a [CalendarDate](Calendar#CalendarDate) and [TimeOfDay](Clock#TimeOfDay).
 -}
 fromDateAndTime : Zone -> CalendarDate -> TimeOfDay -> Moment
 fromDateAndTime zone date timeOfDay =
@@ -526,7 +519,7 @@ Note: As you can see, there no Floating/Universal distinction for the `DateOnly`
 -}
 type FuzzyMoment
     = Global Moment
-    | Floating Moment
+    | Floating ( CalendarDate, TimeOfDay )
     | DateOnly CalendarDate
 
 
@@ -536,8 +529,9 @@ fromFuzzy zone fuzzy =
         DateOnly date ->
             fromDate zone date
 
-        Floating moment ->
-            toTAIAndUnlocalize zone (Moment.toDuration moment Moment.commonEraStart)
+        Floating ( date, time ) ->
+            -- de-humanize as if it was written for this time zone
+            fromDateAndTime zone date time
 
         Global moment ->
             moment
@@ -553,21 +547,21 @@ humanizeFuzzy zone fuzzy =
         DateOnly date ->
             ( date, Nothing )
 
-        Floating fakeMoment ->
-            wrapTimeWithJust (humanize utc fakeMoment)
+        Floating ( date, time ) ->
+            ( date, Just time )
 
         Global moment ->
             wrapTimeWithJust (humanize zone moment)
 
 
 fuzzyDescription : Moment -> Zone -> FuzzyMoment -> String
-fuzzyDescription now zone dueMoment =
-    case humanizeFuzzy zone dueMoment of
+fuzzyDescription now zone fuzzyMoment =
+    case humanizeFuzzy zone fuzzyMoment of
         ( date, Nothing ) ->
             Calendar.describeVsToday (extractDate zone now) date
 
         ( date, Just time ) ->
-            Calendar.describeVsToday (extractDate zone now) date ++ " at " ++ Clock.toStandardString time
+            Calendar.describeVsToday (extractDate zone now) date ++ " at " ++ Clock.toShortString time
 
 
 {-| One thing all `FuzzyMoment`s have in common is they hold a `CalendarDate`. This extracts that directly!
@@ -590,9 +584,9 @@ fuzzyToString fuzzyMoment =
         Global moment ->
             toStandardString moment
 
-        Floating moment ->
+        Floating _ ->
             -- Remove the "Z" from the end to indicate this is not in any particular zone
-            String.dropRight 1 (toStandardString moment)
+            String.dropRight 1 (toStandardString (fromFuzzy utc fuzzyMoment))
 
         DateOnly date ->
             Calendar.toStandardString date
@@ -607,7 +601,7 @@ fuzzyFromString givenString =
 
     else if String.contains "T" givenString then
         -- Doesn't end with "Z", but still has a "T"
-        Result.map Floating (fromStandardStringLoose givenString)
+        Result.map (Floating << humanize utc) (fromStandardStringLoose givenString)
 
     else
         Result.map DateOnly (Calendar.fromNumberString givenString)
