@@ -8872,6 +8872,66 @@ var author$project$SmartTime$Human$Moment$fromStandardStringLoose = function (in
 		author$project$SmartTime$Human$Clock$parseHMS);
 	return A2(author$project$SmartTime$Human$Moment$fromStringHelper, combinedParser, input);
 };
+var author$project$SmartTime$Duration$fromDays = function (_float) {
+	return author$project$SmartTime$Duration$Duration(
+		elm$core$Basics$round(_float * author$project$SmartTime$Duration$dayLength));
+};
+var author$project$SmartTime$Duration$inWholeDays = function (duration) {
+	return (author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$dayLength) | 0;
+};
+var author$project$SmartTime$Human$Calendar$fromRataDie = author$project$SmartTime$Human$Calendar$CalendarDate;
+var author$project$SmartTime$Moment$utcFromLinear = function (momentAsDur) {
+	return A2(
+		author$project$SmartTime$Duration$subtract,
+		momentAsDur,
+		author$project$SmartTime$Moment$utcOffset(momentAsDur));
+};
+var author$project$SmartTime$Moment$toInt = F3(
+	function (_n0, timeScale, _n1) {
+		var inputTAI = _n0.a;
+		var epochDur = _n1.a;
+		var newScale = function () {
+			switch (timeScale.$) {
+				case 'TAI':
+					return inputTAI;
+				case 'UTC':
+					return author$project$SmartTime$Moment$utcFromLinear(inputTAI);
+				case 'GPS':
+					return A2(
+						author$project$SmartTime$Duration$subtract,
+						inputTAI,
+						author$project$SmartTime$Duration$fromSeconds(19));
+				default:
+					return A2(
+						author$project$SmartTime$Duration$subtract,
+						inputTAI,
+						author$project$SmartTime$Duration$fromMs(32184));
+			}
+		}();
+		return author$project$SmartTime$Duration$inMs(
+			A2(author$project$SmartTime$Duration$subtract, newScale, epochDur));
+	});
+var author$project$SmartTime$Human$Moment$toUTCAndLocalize = F2(
+	function (zone, moment) {
+		var momentAsDur = author$project$SmartTime$Duration$fromInt(
+			A3(author$project$SmartTime$Moment$toInt, moment, author$project$SmartTime$Moment$UTC, author$project$SmartTime$Moment$commonEraStart));
+		return A2(
+			author$project$SmartTime$Duration$add,
+			momentAsDur,
+			A2(author$project$SmartTime$Human$Moment$getOffset, moment, zone));
+	});
+var author$project$SmartTime$Human$Moment$humanize = F2(
+	function (zone, moment) {
+		var localMomentDur = A2(author$project$SmartTime$Human$Moment$toUTCAndLocalize, zone, moment);
+		var daysSinceEpoch = author$project$SmartTime$Duration$inWholeDays(localMomentDur);
+		var remaining = A2(
+			author$project$SmartTime$Duration$subtract,
+			localMomentDur,
+			author$project$SmartTime$Duration$fromDays(daysSinceEpoch));
+		return _Utils_Tuple2(
+			author$project$SmartTime$Human$Calendar$fromRataDie(daysSinceEpoch),
+			remaining);
+	});
 var elm$core$String$contains = _String_contains;
 var elm$core$String$endsWith = _String_endsWith;
 var author$project$SmartTime$Human$Moment$fuzzyFromString = function (givenString) {
@@ -8880,7 +8940,10 @@ var author$project$SmartTime$Human$Moment$fuzzyFromString = function (givenStrin
 		author$project$SmartTime$Human$Moment$Global,
 		author$project$SmartTime$Human$Moment$fromStandardString(givenString)) : (A2(elm$core$String$contains, 'T', givenString) ? A2(
 		elm$core$Result$map,
-		author$project$SmartTime$Human$Moment$Floating,
+		A2(
+			elm$core$Basics$composeL,
+			author$project$SmartTime$Human$Moment$Floating,
+			author$project$SmartTime$Human$Moment$humanize(author$project$SmartTime$Human$Moment$utc)),
 		author$project$SmartTime$Human$Moment$fromStandardStringLoose(givenString)) : A2(
 		elm$core$Result$map,
 		author$project$SmartTime$Human$Moment$DateOnly,
@@ -9515,7 +9578,7 @@ var author$project$TaskList$routeView = A2(
 		_List_fromArray(
 			[author$project$TaskList$IncompleteTasksOnly]),
 		elm$core$Maybe$Nothing,
-		'Test'),
+		''),
 	elm$url$Url$Parser$s('tasks'));
 var author$project$TimeTracker$routeView = A2(
 	elm$url$Url$Parser$map,
@@ -10744,6 +10807,27 @@ var author$project$SmartTime$Human$Calendar$toStandardString = function (givenDa
 				author$project$SmartTime$Human$Calendar$dayOfMonth(givenDate))));
 	return yearPart + ('-' + (monthPart + ('-' + dayPart)));
 };
+var author$project$SmartTime$Human$Clock$midnight = author$project$SmartTime$Duration$zero;
+var author$project$SmartTime$Human$Moment$fromDate = F2(
+	function (zone, date) {
+		return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, author$project$SmartTime$Human$Clock$midnight);
+	});
+var author$project$SmartTime$Human$Moment$fromFuzzy = F2(
+	function (zone, fuzzy) {
+		switch (fuzzy.$) {
+			case 'DateOnly':
+				var date = fuzzy.a;
+				return A2(author$project$SmartTime$Human$Moment$fromDate, zone, date);
+			case 'Floating':
+				var _n1 = fuzzy.a;
+				var date = _n1.a;
+				var time = _n1.b;
+				return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, time);
+			default:
+				var moment = fuzzy.a;
+				return moment;
+		}
+	});
 var author$project$SmartTime$Human$Duration$breakdownHMSM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
 	var days = _n0.days;
@@ -10850,66 +10934,6 @@ var author$project$SmartTime$Human$Clock$toStandardString = function (timeOfDay)
 	return author$project$SmartTime$Human$Duration$colonSeparated(
 		author$project$SmartTime$Human$Duration$breakdownHMSM(timeOfDay));
 };
-var author$project$SmartTime$Duration$fromDays = function (_float) {
-	return author$project$SmartTime$Duration$Duration(
-		elm$core$Basics$round(_float * author$project$SmartTime$Duration$dayLength));
-};
-var author$project$SmartTime$Duration$inWholeDays = function (duration) {
-	return (author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$dayLength) | 0;
-};
-var author$project$SmartTime$Human$Calendar$fromRataDie = author$project$SmartTime$Human$Calendar$CalendarDate;
-var author$project$SmartTime$Moment$utcFromLinear = function (momentAsDur) {
-	return A2(
-		author$project$SmartTime$Duration$subtract,
-		momentAsDur,
-		author$project$SmartTime$Moment$utcOffset(momentAsDur));
-};
-var author$project$SmartTime$Moment$toInt = F3(
-	function (_n0, timeScale, _n1) {
-		var inputTAI = _n0.a;
-		var epochDur = _n1.a;
-		var newScale = function () {
-			switch (timeScale.$) {
-				case 'TAI':
-					return inputTAI;
-				case 'UTC':
-					return author$project$SmartTime$Moment$utcFromLinear(inputTAI);
-				case 'GPS':
-					return A2(
-						author$project$SmartTime$Duration$subtract,
-						inputTAI,
-						author$project$SmartTime$Duration$fromSeconds(19));
-				default:
-					return A2(
-						author$project$SmartTime$Duration$subtract,
-						inputTAI,
-						author$project$SmartTime$Duration$fromMs(32184));
-			}
-		}();
-		return author$project$SmartTime$Duration$inMs(
-			A2(author$project$SmartTime$Duration$subtract, newScale, epochDur));
-	});
-var author$project$SmartTime$Human$Moment$toUTCAndLocalize = F2(
-	function (zone, moment) {
-		var momentAsDur = author$project$SmartTime$Duration$fromInt(
-			A3(author$project$SmartTime$Moment$toInt, moment, author$project$SmartTime$Moment$UTC, author$project$SmartTime$Moment$commonEraStart));
-		return A2(
-			author$project$SmartTime$Duration$add,
-			momentAsDur,
-			A2(author$project$SmartTime$Human$Moment$getOffset, moment, zone));
-	});
-var author$project$SmartTime$Human$Moment$humanize = F2(
-	function (zone, moment) {
-		var localMomentDur = A2(author$project$SmartTime$Human$Moment$toUTCAndLocalize, zone, moment);
-		var daysSinceEpoch = author$project$SmartTime$Duration$inWholeDays(localMomentDur);
-		var remaining = A2(
-			author$project$SmartTime$Duration$subtract,
-			localMomentDur,
-			author$project$SmartTime$Duration$fromDays(daysSinceEpoch));
-		return _Utils_Tuple2(
-			author$project$SmartTime$Human$Calendar$fromRataDie(daysSinceEpoch),
-			remaining);
-	});
 var author$project$SmartTime$Human$Moment$toStandardString = function (moment) {
 	var _n0 = A2(author$project$SmartTime$Human$Moment$humanize, author$project$SmartTime$Human$Moment$utc, moment);
 	var date = _n0.a;
@@ -10926,11 +10950,11 @@ var author$project$SmartTime$Human$Moment$fuzzyToString = function (fuzzyMoment)
 			var moment = fuzzyMoment.a;
 			return author$project$SmartTime$Human$Moment$toStandardString(moment);
 		case 'Floating':
-			var moment = fuzzyMoment.a;
 			return A2(
 				elm$core$String$dropRight,
 				1,
-				author$project$SmartTime$Human$Moment$toStandardString(moment));
+				author$project$SmartTime$Human$Moment$toStandardString(
+					A2(author$project$SmartTime$Human$Moment$fromFuzzy, author$project$SmartTime$Human$Moment$utc, fuzzyMoment)));
 		default:
 			var date = fuzzyMoment.a;
 			return author$project$SmartTime$Human$Calendar$toStandardString(date);
@@ -10997,7 +11021,7 @@ var author$project$Task$Task$encodeTask = function (record) {
 				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.relevanceEnds)),
 				_Utils_Tuple2(
 				'importance',
-				elm$json$Json$Encode$int(record.id))
+				elm$json$Json$Encode$int(record.importance))
 			]));
 };
 var elm$core$List$takeReverse = F3(
@@ -12630,6 +12654,7 @@ var author$project$External$TodoistSync$itemToTask = F2(
 				tags: _List_Nil
 			});
 	});
+var elm$core$Debug$log = _Debug_log;
 var elm_community$intdict$IntDict$get = F2(
 	function (key, dict) {
 		get:
@@ -12664,7 +12689,10 @@ var elm_community$intdict$IntDict$get = F2(
 	});
 var author$project$External$TodoistSync$timetrackItemToTask = F2(
 	function (lookup, item) {
-		var _n0 = A2(elm_community$intdict$IntDict$get, item.project_id, lookup);
+		var _n0 = A2(
+			elm$core$Debug$log,
+			'lookup',
+			A2(elm_community$intdict$IntDict$get, item.project_id, lookup));
 		if (_n0.$ === 'Just') {
 			var act = _n0.a;
 			return elm$core$Maybe$Just(
@@ -12680,6 +12708,27 @@ var elm_community$intdict$IntDict$filter = F2(
 				return A2(predicate, k, v) ? A3(elm_community$intdict$IntDict$insert, k, v, d) : d;
 			});
 		return A3(elm_community$intdict$IntDict$foldl, add, elm_community$intdict$IntDict$empty, dict);
+	});
+var author$project$IntDictExtra$filterKeys = F2(
+	function (func, dict) {
+		return A2(
+			elm_community$intdict$IntDict$filter,
+			F2(
+				function (k, _n0) {
+					return func(k);
+				}),
+			dict);
+	});
+var elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
 	});
 var elm_community$intdict$IntDict$keys = function (dict) {
 	return A3(
@@ -12705,6 +12754,25 @@ var author$project$External$TodoistSync$handle = F2(
 			var full_sync = _n2.full_sync;
 			var items = _n2.items;
 			var projects = _n2.projects;
+			var itemsInTimetrackForDeletion = A2(
+				elm$core$List$map,
+				function ($) {
+					return $.id;
+				},
+				A2(
+					elm$core$List$filter,
+					function ($) {
+						return $.is_deleted;
+					},
+					items));
+			var removeDeletedFromDict = function (dict) {
+				return A2(
+					author$project$IntDictExtra$filterKeys,
+					function (id) {
+						return !A2(elm$core$List$member, id, itemsInTimetrackForDeletion);
+					},
+					dict);
+			};
 			var projectsDict = elm_community$intdict$IntDict$fromList(
 				A2(
 					elm$core$List$map,
@@ -12729,28 +12797,29 @@ var author$project$External$TodoistSync$handle = F2(
 						return _Utils_eq(p.parentId, timetrackParent);
 					}),
 				projectsDict);
-			var activityLookupTable = A2(author$project$External$TodoistSync$findActivityProjectIDs, validActivityProjects, filledInActivities);
+			var newActivityLookupTable = A2(author$project$External$TodoistSync$findActivityProjectIDs, validActivityProjects, filledInActivities);
+			var combinedALT = A2(elm_community$intdict$IntDict$union, newActivityLookupTable, todoist.activityProjectIDs);
 			var itemsInTimetrackToTasks = A2(
 				elm$core$List$filterMap,
-				author$project$External$TodoistSync$timetrackItemToTask(activityLookupTable),
+				author$project$External$TodoistSync$timetrackItemToTask(combinedALT),
 				items);
 			var generatedTasks = elm_community$intdict$IntDict$fromList(
 				A2(
-					elm$core$List$map,
-					function (t) {
-						return _Utils_Tuple2(t.id, t);
-					},
-					itemsInTimetrackToTasks));
+					elm$core$Debug$log,
+					'generated task list',
+					A2(
+						elm$core$List$map,
+						function (t) {
+							return _Utils_Tuple2(t.id, t);
+						},
+						itemsInTimetrackToTasks)));
 			return _Utils_Tuple2(
 				_Utils_update(
 					app,
 					{
-						tasks: A2(elm_community$intdict$IntDict$union, generatedTasks, tasks),
-						todoist: {
-							activityProjectIDs: A2(elm_community$intdict$IntDict$union, activityLookupTable, todoist.activityProjectIDs),
-							parentProjectID: timetrackParent,
-							syncToken: sync_token
-						}
+						tasks: removeDeletedFromDict(
+							A2(elm_community$intdict$IntDict$union, generatedTasks, tasks)),
+						todoist: {activityProjectIDs: combinedALT, parentProjectID: timetrackParent, syncToken: sync_token}
 					}),
 				author$project$External$TodoistSync$describeSuccess(success));
 		} else {
@@ -12920,110 +12989,113 @@ var author$project$Porting$optionalIgnored = F2(
 	});
 var author$project$External$TodoistSync$decodeItem = A2(
 	author$project$Porting$optionalIgnored,
-	'section_id',
+	'due_is_recurring',
 	A2(
 		author$project$Porting$optionalIgnored,
-		'has_more_notes',
+		'section_id',
 		A2(
 			author$project$Porting$optionalIgnored,
-			'date_completed',
+			'has_more_notes',
 			A2(
 				author$project$Porting$optionalIgnored,
-				'sync_id',
+				'date_completed',
 				A2(
 					author$project$Porting$optionalIgnored,
-					'legacy_parent_id',
+					'sync_id',
 					A2(
 						author$project$Porting$optionalIgnored,
-						'legacy_project_id',
+						'legacy_parent_id',
 						A2(
 							author$project$Porting$optionalIgnored,
-							'legacy_id',
-							A3(
-								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-								'date_added',
-								zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-								A4(
-									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-									'is_archived',
-									author$project$Porting$decodeBoolAsInt,
-									false,
-									A3(
-										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-										'is_deleted',
+							'legacy_project_id',
+							A2(
+								author$project$Porting$optionalIgnored,
+								'legacy_id',
+								A3(
+									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+									'date_added',
+									zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+									A4(
+										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+										'is_archived',
 										author$project$Porting$decodeBoolAsInt,
+										false,
 										A3(
 											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-											'in_history',
+											'is_deleted',
 											author$project$Porting$decodeBoolAsInt,
 											A3(
 												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-												'checked',
+												'in_history',
 												author$project$Porting$decodeBoolAsInt,
 												A3(
 													zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-													'responsible_uid',
-													zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-													A4(
-														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-														'assigned_by_uid',
-														zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-														0,
-														A3(
-															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-															'labels',
-															zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-															A4(
-																zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-																'children',
+													'checked',
+													author$project$Porting$decodeBoolAsInt,
+													A3(
+														zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+														'responsible_uid',
+														zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+														A4(
+															zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+															'assigned_by_uid',
+															zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+															0,
+															A3(
+																zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																'labels',
 																zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-																_List_Nil,
-																A3(
-																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																	'collapsed',
-																	author$project$Porting$decodeBoolAsInt,
+																A4(
+																	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																	'children',
+																	zwilias$json_decode_exploration$Json$Decode$Exploration$list(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+																	_List_Nil,
 																	A3(
 																		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																		'day_order',
-																		zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																		'collapsed',
+																		author$project$Porting$decodeBoolAsInt,
 																		A3(
 																			zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																			'child_order',
+																			'day_order',
 																			zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 																			A3(
 																				zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																				'parent_id',
-																				zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+																				'child_order',
+																				zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 																				A3(
 																					zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																					'priority',
-																					author$project$External$TodoistSync$decodePriority,
-																					A4(
-																						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-																						'indent',
-																						zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-																						0,
-																						A3(
-																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																							'due',
-																							zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(author$project$External$TodoistSync$decodeDue),
+																					'parent_id',
+																					zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+																					A3(
+																						zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																						'priority',
+																						author$project$External$TodoistSync$decodePriority,
+																						A4(
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																							'indent',
+																							zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																							0,
 																							A3(
 																								zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																								'content',
-																								zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																								'due',
+																								zwilias$json_decode_exploration$Json$Decode$Exploration$nullable(author$project$External$TodoistSync$decodeDue),
 																								A3(
 																									zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																									'project_id',
-																									zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																									'content',
+																									zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 																									A3(
 																										zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																										'user_id',
+																										'project_id',
 																										zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 																										A3(
 																											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																											'id',
+																											'user_id',
 																											zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-																											zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item))))))))))))))))))))))))))));
+																											A3(
+																												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																												'id',
+																												zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																												zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode(author$project$External$TodoistSync$Item)))))))))))))))))))))))))))));
 var author$project$External$TodoistSync$Project = function (id) {
 	return function (name) {
 		return function (color) {
@@ -13336,6 +13408,7 @@ var elm$http$Http$Sending = function (a) {
 	return {$: 'Sending', a: a};
 };
 var elm$http$Http$Timeout_ = {$: 'Timeout_'};
+var elm$http$Http$emptyBody = _Http_emptyBody;
 var elm$http$Http$expectStringResponse = F2(
 	function (toMsg, toResult) {
 		return A3(
@@ -13391,7 +13464,6 @@ var elm$http$Http$expectJson = F2(
 						A2(elm$json$Json$Decode$decodeString, decoder, string));
 				}));
 	});
-var elm$http$Http$emptyBody = _Http_emptyBody;
 var elm$http$Http$Request = function (a) {
 	return {$: 'Request', a: a};
 };
@@ -13566,13 +13638,14 @@ var elm$http$Http$request = function (r) {
 		elm$http$Http$Request(
 			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
 };
-var elm$http$Http$get = function (r) {
+var elm$http$Http$post = function (r) {
 	return elm$http$Http$request(
-		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
+		{body: r.body, expect: r.expect, headers: _List_Nil, method: 'POST', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
 var author$project$External$TodoistSync$sync = function (incrementalSyncToken) {
-	return elm$http$Http$get(
+	return elm$http$Http$post(
 		{
+			body: elm$http$Http$emptyBody,
 			expect: A2(
 				elm$http$Http$expectJson,
 				author$project$External$TodoistSync$SyncResponded,
@@ -17601,6 +17674,17 @@ var author$project$Activity$Switching$sameActivity = F3(
 						author$project$External$Commands$hideWindow
 					])));
 	});
+var author$project$Activity$Activity$statusToString = function (onTaskStatus) {
+	switch (onTaskStatus.$) {
+		case 'OnTask':
+			return 'Yes';
+		case 'OffTask':
+			var excusable = onTaskStatus.a;
+			return 'Excused';
+		default:
+			return 'Yes';
+	}
+};
 var author$project$Activity$Measure$excusedLeft = F3(
 	function (timeline, now, _n0) {
 		var activityID = _n0.a;
@@ -17659,17 +17743,6 @@ var author$project$SmartTime$Moment$future = F2(
 		var time = _n0.a;
 		return author$project$SmartTime$Moment$Moment(
 			A2(author$project$SmartTime$Duration$add, time, duration));
-	});
-var elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2(elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
 	});
 var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 	function (now, maxExcused, timeLeft) {
@@ -17736,6 +17809,124 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 					title: '1 minute left!'
 				}
 				])) : _List_Nil;
+	});
+var author$project$Activity$Activity$AllDone = {$: 'AllDone'};
+var author$project$Activity$Activity$OffTask = function (a) {
+	return {$: 'OffTask', a: a};
+};
+var author$project$Activity$Activity$OnTask = {$: 'OnTask'};
+var author$project$SmartTime$Moment$compareBasic = F2(
+	function (_n0, _n1) {
+		var time1 = _n0.a;
+		var time2 = _n1.a;
+		return A2(
+			elm$core$Basics$compare,
+			author$project$SmartTime$Duration$inMs(time1),
+			author$project$SmartTime$Duration$inMs(time2));
+	});
+var author$project$Task$Task$compareSoonness = F3(
+	function (zone, taskA, taskB) {
+		var _n0 = _Utils_Tuple2(taskA.deadline, taskB.deadline);
+		if (_n0.a.$ === 'Just') {
+			if (_n0.b.$ === 'Just') {
+				var fuzzyMomentA = _n0.a.a;
+				var fuzzyMomentB = _n0.b.a;
+				return A2(
+					author$project$SmartTime$Moment$compareBasic,
+					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentA),
+					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentB));
+			} else {
+				var _n3 = _n0.b;
+				return elm$core$Basics$GT;
+			}
+		} else {
+			if (_n0.b.$ === 'Nothing') {
+				var _n1 = _n0.a;
+				var _n2 = _n0.b;
+				return elm$core$Basics$EQ;
+			} else {
+				var _n4 = _n0.a;
+				return elm$core$Basics$LT;
+			}
+		}
+	});
+var elm$core$List$sortWith = _List_sortWith;
+var author$project$Task$Task$deepSort = F2(
+	function (compareFuncs, listToSort) {
+		var deepCompare = F3(
+			function (funcs, a, b) {
+				deepCompare:
+				while (true) {
+					if (!funcs.b) {
+						return elm$core$Basics$EQ;
+					} else {
+						var nextCompareFunc = funcs.a;
+						var laterCompareFuncs = funcs.b;
+						var check = A2(nextCompareFunc, a, b);
+						if (_Utils_eq(check, elm$core$Basics$EQ)) {
+							var $temp$funcs = laterCompareFuncs,
+								$temp$a = a,
+								$temp$b = b;
+							funcs = $temp$funcs;
+							a = $temp$a;
+							b = $temp$b;
+							continue deepCompare;
+						} else {
+							return check;
+						}
+					}
+				}
+			});
+		return A2(
+			elm$core$List$sortWith,
+			deepCompare(compareFuncs),
+			listToSort);
+	});
+var author$project$Task$Task$prioritize = F3(
+	function (now, zone, taskList) {
+		var compareProp = F3(
+			function (prop, a, b) {
+				return A2(
+					elm$core$Basics$compare,
+					prop(a),
+					prop(b));
+			});
+		return A2(
+			author$project$Task$Task$deepSort,
+			_List_fromArray(
+				[
+					author$project$Task$Task$compareSoonness(zone),
+					compareProp(
+					function ($) {
+						return $.importance;
+					})
+				]),
+			taskList);
+	});
+var author$project$Activity$Switching$determineOnTask = F3(
+	function (activityID, app, env) {
+		var current = A2(
+			author$project$Activity$Activity$getActivity,
+			activityID,
+			author$project$Activity$Activity$allActivities(app.activities));
+		var _n0 = elm$core$List$head(
+			A3(
+				author$project$Task$Task$prioritize,
+				env.time,
+				env.timeZone,
+				elm_community$intdict$IntDict$values(app.tasks)));
+		if (_n0.$ === 'Nothing') {
+			return author$project$Activity$Activity$AllDone;
+		} else {
+			var nextTask = _n0.a;
+			var _n1 = nextTask.activity;
+			if (_n1.$ === 'Nothing') {
+				return author$project$Activity$Activity$OffTask(current.excusable);
+			} else {
+				var nextActivity = _n1.a;
+				return _Utils_eq(nextActivity, activityID) ? author$project$Activity$Activity$OnTask : author$project$Activity$Activity$OffTask(current.excusable);
+			}
+		}
 	});
 var author$project$External$Commands$compileList = function (reminderList) {
 	return elm$core$String$concat(
@@ -17804,6 +17995,11 @@ var author$project$Activity$Switching$switchActivity = F3(
 							env,
 							_Utils_Tuple2(activityID, newActivity),
 							_Utils_Tuple2(oldActivityID, oldActivity))),
+						author$project$External$Tasker$variableOut(
+						_Utils_Tuple2(
+							'OnTaskStatus',
+							author$project$Activity$Activity$statusToString(
+								A3(author$project$Activity$Switching$determineOnTask, activityID, app, env)))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
 							'ExcusedTotalSec',
@@ -18411,7 +18607,6 @@ var author$project$SmartTime$Human$Moment$importElmMonth = function (elmMonth) {
 			return author$project$SmartTime$Human$Calendar$Month$Dec;
 	}
 };
-var elm$core$Debug$log = _Debug_log;
 var elm$time$Time$flooredDiv = F2(
 	function (numerator, denominator) {
 		return elm$core$Basics$floor(numerator / denominator);
@@ -18554,7 +18749,7 @@ var elm$time$Time$toYear = F2(
 		return elm$time$Time$toCivil(
 			A2(elm$time$Time$toAdjustedMinutes, zone, time)).year;
 	});
-var author$project$SmartTime$Human$Moment$getOffsetMinutes = F2(
+var author$project$SmartTime$Human$Moment$deduceZoneOffset = F2(
 	function (zone, elmTime) {
 		var zonedTime = A4(
 			author$project$SmartTime$Human$Clock$clock,
@@ -18577,24 +18772,15 @@ var author$project$SmartTime$Human$Moment$getOffsetMinutes = F2(
 			elm$core$Debug$log,
 			'local: ' + author$project$SmartTime$Human$Moment$toStandardString(combinedMoment),
 			combinedMoment);
-		var offset = A2(
-			author$project$SmartTime$Moment$difference,
-			localTime,
-			A2(
-				elm$core$Debug$log,
-				'utc: ' + author$project$SmartTime$Human$Moment$toStandardString(utcTime),
-				utcTime));
-		return author$project$SmartTime$Duration$inMinutesRounded(
-			A2(
-				elm$core$Debug$log,
-				'offset ' + author$project$SmartTime$Human$Duration$singleLetterSpaced(
-					author$project$SmartTime$Human$Duration$breakdownDHMSM(offset)),
-				offset));
+		var offset = author$project$SmartTime$Moment$toSmartInt(localTime) - author$project$SmartTime$Moment$toSmartInt(utcTime);
+		return A2(
+			elm$core$Debug$log,
+			'zone offset',
+			author$project$SmartTime$Duration$fromMs(offset));
 	});
 var author$project$SmartTime$Human$Moment$makeZone = F3(
 	function (elmZoneName, elmZone, now) {
-		var deducedOffset = author$project$SmartTime$Duration$fromMinutes(
-			A2(author$project$SmartTime$Human$Moment$getOffsetMinutes, elmZone, now));
+		var deducedOffset = A2(author$project$SmartTime$Human$Moment$deduceZoneOffset, elmZone, now);
 		if (elmZoneName.$ === 'Name') {
 			var zoneName = elmZoneName.a;
 			return {defaultOffset: deducedOffset, history: _List_Nil, name: zoneName};
@@ -19228,151 +19414,6 @@ var author$project$Main$infoFooter = A2(
 						]))
 				]))
 		]));
-var author$project$SmartTime$Human$Clock$midnight = author$project$SmartTime$Duration$zero;
-var author$project$SmartTime$Human$Moment$fromDate = F2(
-	function (zone, date) {
-		return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, author$project$SmartTime$Human$Clock$midnight);
-	});
-var author$project$SmartTime$Moment$toDuration = F2(
-	function (_n0, _n1) {
-		var momentDur = _n0.a;
-		var epochDur = _n1.a;
-		return A2(author$project$SmartTime$Duration$subtract, momentDur, epochDur);
-	});
-var author$project$SmartTime$Human$Moment$fromFuzzy = F2(
-	function (zone, fuzzy) {
-		switch (fuzzy.$) {
-			case 'DateOnly':
-				var date = fuzzy.a;
-				return A2(author$project$SmartTime$Human$Moment$fromDate, zone, date);
-			case 'Floating':
-				var moment = fuzzy.a;
-				return A2(
-					author$project$SmartTime$Human$Moment$toTAIAndUnlocalize,
-					zone,
-					A2(author$project$SmartTime$Moment$toDuration, moment, author$project$SmartTime$Moment$commonEraStart));
-			default:
-				var moment = fuzzy.a;
-				return moment;
-		}
-	});
-var author$project$SmartTime$Moment$compareBasic = F2(
-	function (_n0, _n1) {
-		var time1 = _n0.a;
-		var time2 = _n1.a;
-		return A2(
-			elm$core$Basics$compare,
-			author$project$SmartTime$Duration$inMs(time1),
-			author$project$SmartTime$Duration$inMs(time2));
-	});
-var author$project$Task$Task$compareSoonness = F3(
-	function (zone, taskA, taskB) {
-		var _n0 = _Utils_Tuple2(taskA.deadline, taskB.deadline);
-		if (_n0.a.$ === 'Just') {
-			if (_n0.b.$ === 'Just') {
-				var fuzzyMomentA = _n0.a.a;
-				var fuzzyMomentB = _n0.b.a;
-				return A2(
-					author$project$SmartTime$Moment$compareBasic,
-					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentA),
-					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentB));
-			} else {
-				var _n3 = _n0.b;
-				return elm$core$Basics$GT;
-			}
-		} else {
-			if (_n0.b.$ === 'Nothing') {
-				var _n1 = _n0.a;
-				var _n2 = _n0.b;
-				return elm$core$Basics$EQ;
-			} else {
-				var _n4 = _n0.a;
-				return elm$core$Basics$LT;
-			}
-		}
-	});
-var elm$core$List$sortWith = _List_sortWith;
-var elm_community$list_extra$List$Extra$groupWhile = F2(
-	function (isSameGroup, items) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					if (!acc.b) {
-						return _List_fromArray(
-							[
-								_Utils_Tuple2(x, _List_Nil)
-							]);
-					} else {
-						var _n1 = acc.a;
-						var y = _n1.a;
-						var restOfGroup = _n1.b;
-						var groups = acc.b;
-						return A2(isSameGroup, x, y) ? A2(
-							elm$core$List$cons,
-							_Utils_Tuple2(
-								x,
-								A2(elm$core$List$cons, y, restOfGroup)),
-							groups) : A2(
-							elm$core$List$cons,
-							_Utils_Tuple2(x, _List_Nil),
-							acc);
-					}
-				}),
-			_List_Nil,
-			items);
-	});
-var author$project$Task$Task$deepSort = F2(
-	function (compareFuncs, listToSort) {
-		if (!compareFuncs.b) {
-			return listToSort;
-		} else {
-			var nextCompareFunc = compareFuncs.a;
-			var laterCompareFuncs = compareFuncs.b;
-			var sortedList = A2(elm$core$List$sortWith, nextCompareFunc, listToSort);
-			var equivalentItems = F2(
-				function (a, b) {
-					return _Utils_eq(
-						A2(nextCompareFunc, a, b),
-						elm$core$Basics$EQ);
-				});
-			var grouped = A2(elm_community$list_extra$List$Extra$groupWhile, equivalentItems, listToSort);
-			var fixedGroups = A2(
-				elm$core$List$map,
-				function (_n1) {
-					var first = _n1.a;
-					var rest = _n1.b;
-					return A2(elm$core$List$cons, first, rest);
-				},
-				grouped);
-			var sortedGroups = A2(
-				elm$core$List$map,
-				author$project$Task$Task$deepSort(laterCompareFuncs),
-				fixedGroups);
-			return elm$core$List$concat(sortedGroups);
-		}
-	});
-var author$project$Task$Task$prioritize = F3(
-	function (now, zone, taskList) {
-		var compareProp = F3(
-			function (prop, a, b) {
-				return A2(
-					elm$core$Basics$compare,
-					prop(a),
-					prop(b));
-			});
-		return A2(
-			author$project$Task$Task$deepSort,
-			_List_fromArray(
-				[
-					author$project$Task$Task$compareSoonness(zone),
-					compareProp(
-					function ($) {
-						return $.importance;
-					})
-				]),
-			taskList);
-	});
 var author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var author$project$TaskList$DeleteComplete = {$: 'DeleteComplete'};
 var rtfeldman$elm_css$Html$Styled$button = rtfeldman$elm_css$Html$Styled$node('button');
@@ -21992,7 +22033,7 @@ var author$project$SmartTime$Human$Calendar$Week$dayToName = function (d) {
 var author$project$SmartTime$Human$Calendar$describeVsToday = F2(
 	function (today, describee) {
 		var des = author$project$SmartTime$Human$Calendar$toParts(describee);
-		var dayDiff = A2(author$project$SmartTime$Human$Calendar$subtract, today, describee);
+		var dayDiff = A2(author$project$SmartTime$Human$Calendar$subtract, describee, today);
 		var _n0 = _Utils_Tuple2(dayDiff, -dayDiff);
 		_n0$2:
 		while (true) {
@@ -22030,15 +22071,19 @@ var author$project$SmartTime$Human$Calendar$describeVsToday = F2(
 		}
 		return 'tomorrow';
 	});
+var author$project$SmartTime$Human$Clock$toShortString = function (timeOfDay) {
+	return author$project$SmartTime$Human$Duration$colonSeparated(
+		author$project$SmartTime$Human$Duration$breakdownHM(timeOfDay));
+};
 var author$project$SmartTime$Human$Moment$extractDate = F2(
 	function (zone, moment) {
 		return A2(author$project$SmartTime$Human$Moment$humanize, zone, moment).a;
 	});
 var author$project$SmartTime$Human$Moment$humanizeFuzzy = F2(
 	function (zone, fuzzy) {
-		var wrapTimeWithJust = function (_n1) {
-			var date = _n1.a;
-			var time = _n1.b;
+		var wrapTimeWithJust = function (_n2) {
+			var date = _n2.a;
+			var time = _n2.b;
 			return _Utils_Tuple2(
 				date,
 				elm$core$Maybe$Just(time));
@@ -22048,9 +22093,12 @@ var author$project$SmartTime$Human$Moment$humanizeFuzzy = F2(
 				var date = fuzzy.a;
 				return _Utils_Tuple2(date, elm$core$Maybe$Nothing);
 			case 'Floating':
-				var fakeMoment = fuzzy.a;
-				return wrapTimeWithJust(
-					A2(author$project$SmartTime$Human$Moment$humanize, author$project$SmartTime$Human$Moment$utc, fakeMoment));
+				var _n1 = fuzzy.a;
+				var date = _n1.a;
+				var time = _n1.b;
+				return _Utils_Tuple2(
+					date,
+					elm$core$Maybe$Just(time));
 			default:
 				var moment = fuzzy.a;
 				return wrapTimeWithJust(
@@ -22058,8 +22106,8 @@ var author$project$SmartTime$Human$Moment$humanizeFuzzy = F2(
 		}
 	});
 var author$project$SmartTime$Human$Moment$fuzzyDescription = F3(
-	function (now, zone, dueMoment) {
-		var _n0 = A2(author$project$SmartTime$Human$Moment$humanizeFuzzy, zone, dueMoment);
+	function (now, zone, fuzzyMoment) {
+		var _n0 = A2(author$project$SmartTime$Human$Moment$humanizeFuzzy, zone, fuzzyMoment);
 		if (_n0.b.$ === 'Nothing') {
 			var date = _n0.a;
 			var _n1 = _n0.b;
@@ -22073,7 +22121,7 @@ var author$project$SmartTime$Human$Moment$fuzzyDescription = F3(
 			return A2(
 				author$project$SmartTime$Human$Calendar$describeVsToday,
 				A2(author$project$SmartTime$Human$Moment$extractDate, zone, now),
-				date) + (' at ' + author$project$SmartTime$Human$Clock$toStandardString(time));
+				date) + (' at ' + author$project$SmartTime$Human$Clock$toShortString(time));
 		}
 	});
 var author$project$TaskList$describeTaskMoment = F3(
@@ -22098,6 +22146,7 @@ var rtfeldman$elm_css$Html$Styled$Attributes$checked = rtfeldman$elm_css$Html$St
 var rtfeldman$elm_css$Html$Styled$Attributes$for = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('htmlFor');
 var rtfeldman$elm_css$Html$Styled$Attributes$id = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('id');
 var rtfeldman$elm_css$Html$Styled$Attributes$pattern = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('pattern');
+var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
 var author$project$TaskList$viewTask = F2(
 	function (env, task) {
 		return A2(
@@ -22112,7 +22161,30 @@ var author$project$TaskList$viewTask = F2(
 							'completed',
 							author$project$Task$Task$completed(task)),
 							_Utils_Tuple2('editing', false)
-						]))
+						])),
+					rtfeldman$elm_css$Html$Styled$Attributes$title(
+					elm$core$String$concat(
+						A2(
+							elm$core$List$intersperse,
+							'\n',
+							A2(
+								elm$core$List$filterMap,
+								elm$core$Basics$identity,
+								_List_fromArray(
+									[
+										A2(
+										elm$core$Maybe$map,
+										A2(
+											elm$core$Basics$composeR,
+											author$project$ID$read,
+											A2(
+												elm$core$Basics$composeR,
+												elm$core$String$fromInt,
+												elm$core$String$append('activity: '))),
+										task.activity),
+										elm$core$Maybe$Just(
+										'importance: ' + elm$core$String$fromInt(task.importance))
+									])))))
 				]),
 			_List_fromArray(
 				[
@@ -22420,6 +22492,15 @@ var author$project$TaskList$view = F3(
 		var filters = state.a;
 		var expanded = state.b;
 		var field = state.c;
+		var sortedTasks = A3(
+			author$project$Task$Task$prioritize,
+			env.time,
+			env.timeZone,
+			elm_community$intdict$IntDict$values(app.tasks));
+		var activeFilter = A2(
+			elm$core$Maybe$withDefault,
+			author$project$TaskList$AllTasks,
+			elm$core$List$head(filters));
 		return A2(
 			rtfeldman$elm_css$Html$Styled$div,
 			_List_fromArray(
@@ -22442,19 +22523,7 @@ var author$project$TaskList$view = F3(
 					_List_fromArray(
 						[
 							A2(rtfeldman$elm_css$Html$Styled$Lazy$lazy, author$project$TaskList$viewInput, field),
-							A4(
-							rtfeldman$elm_css$Html$Styled$Lazy$lazy3,
-							author$project$TaskList$viewTasks,
-							env,
-							A2(
-								elm$core$Maybe$withDefault,
-								author$project$TaskList$AllTasks,
-								elm$core$List$head(filters)),
-							A3(
-								author$project$Task$Task$prioritize,
-								env.time,
-								env.timeZone,
-								elm_community$intdict$IntDict$values(app.tasks))),
+							A4(rtfeldman$elm_css$Html$Styled$Lazy$lazy3, author$project$TaskList$viewTasks, env, activeFilter, sortedTasks),
 							A3(
 							rtfeldman$elm_css$Html$Styled$Lazy$lazy2,
 							author$project$TaskList$viewControls,
@@ -22663,7 +22732,6 @@ var author$project$TimeTracker$writeActivityUsage = F3(
 			author$project$SmartTime$Duration$inMinutesRounded(
 				author$project$SmartTime$Human$Duration$toDuration(period))) + 'm'))) : '';
 	});
-var rtfeldman$elm_css$Html$Styled$Attributes$title = rtfeldman$elm_css$Html$Styled$Attributes$stringProperty('title');
 var author$project$TimeTracker$viewActivity = F3(
 	function (app, env, _n0) {
 		var activityID = _n0.a;
@@ -22991,4 +23059,4 @@ _Platform_export({'Main':{'init':author$project$Main$main(
 			[
 				elm$json$Json$Decode$null(elm$core$Maybe$Nothing),
 				A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, elm$json$Json$Decode$string)
-			])))({"versions":{"elm":"0.19.0"},"types":{"message":"Main.Msg","aliases":{"SmartTime.Human.Moment.Zone":{"args":[],"type":"{ defaultOffset : SmartTime.Duration.Duration, name : String.String, history : List.List ( SmartTime.Moment.Moment, SmartTime.Duration.Duration ) }"},"Url.Url":{"args":[],"type":"{ protocol : Url.Protocol, host : String.String, port_ : Maybe.Maybe Basics.Int, path : String.String, query : Maybe.Maybe String.String, fragment : Maybe.Maybe String.String }"},"Activity.Activity.Activity":{"args":[],"type":"{ names : List.List String.String, icon : Activity.Activity.Icon, excusable : Activity.Activity.Excusable, taskOptional : Basics.Bool, evidence : List.List Activity.Activity.Evidence, category : Activity.Activity.Category, backgroundable : Basics.Bool, maxTime : Activity.Activity.DurationPerPeriod, hidden : Basics.Bool, template : Activity.Template.Template }"},"Activity.Activity.ActivityID":{"args":[],"type":"ID.ID Activity.Activity.Activity"},"Activity.Activity.DurationPerPeriod":{"args":[],"type":"( SmartTime.Human.Duration.HumanDuration, SmartTime.Human.Duration.HumanDuration )"},"External.TodoistSync.Due":{"args":[],"type":"{ date : SmartTime.Human.Moment.FuzzyMoment, timezone : Maybe.Maybe String.String, string : String.String, lang : String.String, isRecurring : Basics.Bool }"},"External.TodoistSync.ISODateString":{"args":[],"type":"String.String"},"External.TodoistSync.Item":{"args":[],"type":"{ id : External.TodoistSync.ItemID, user_id : External.TodoistSync.UserID, project_id : Basics.Int, content : String.String, due : Maybe.Maybe External.TodoistSync.Due, indent : Basics.Int, priority : External.TodoistSync.Priority, parent_id : Maybe.Maybe External.TodoistSync.ItemID, child_order : Basics.Int, day_order : Basics.Int, collapsed : Basics.Bool, children : List.List External.TodoistSync.ItemID, labels : List.List External.TodoistSync.LabelID, assigned_by_uid : External.TodoistSync.UserID, responsible_uid : Maybe.Maybe External.TodoistSync.UserID, checked : Basics.Bool, in_history : Basics.Bool, is_deleted : Basics.Bool, is_archived : Basics.Bool, date_added : External.TodoistSync.ISODateString }"},"External.TodoistSync.ItemID":{"args":[],"type":"Basics.Int"},"External.TodoistSync.LabelID":{"args":[],"type":"Basics.Int"},"External.TodoistSync.Project":{"args":[],"type":"{ id : Basics.Int, name : String.String, color : Basics.Int, parentId : Basics.Int, childOrder : Basics.Int, collapsed : Basics.Int, shared : Basics.Bool, isDeleted : Basics.Int, isArchived : Basics.Int, isFavorite : Basics.Int }"},"External.TodoistSync.Response":{"args":[],"type":"{ sync_token : String.String, full_sync : Basics.Bool, items : List.List External.TodoistSync.Item, projects : List.List External.TodoistSync.Project }"},"External.TodoistSync.UserID":{"args":[],"type":"Basics.Int"},"Task.Progress.Portion":{"args":[],"type":"Basics.Int"},"Task.Progress.Progress":{"args":[],"type":"( Task.Progress.Portion, Task.Progress.Unit )"},"Task.Task.TaskId":{"args":[],"type":"Basics.Int"},"Activity.Activity.SvgPath":{"args":[],"type":"String.String"},"SmartTime.Human.Calendar.RataDie":{"args":[],"type":"Basics.Int"}},"unions":{"Main.Msg":{"args":[],"tags":{"NoOp":[],"Tick":["Main.Msg"],"Tock":["Main.Msg","SmartTime.Moment.Moment"],"SetZoneAndTime":["SmartTime.Human.Moment.Zone","SmartTime.Moment.Moment"],"ClearErrors":[],"SyncTodoist":[],"TodoistServerResponse":["External.TodoistSync.TodoistMsg"],"Link":["Browser.UrlRequest"],"NewUrl":["Url.Url"],"TaskListMsg":["TaskList.Msg"],"TimeTrackerMsg":["TimeTracker.Msg"]}},"External.TodoistSync.TodoistMsg":{"args":[],"tags":{"SyncResponded":["Result.Result Http.Error External.TodoistSync.Response"]}},"SmartTime.Duration.Duration":{"args":[],"tags":{"Duration":["Basics.Int"]}},"SmartTime.Moment.Moment":{"args":[],"tags":{"Moment":["SmartTime.Duration.Duration"]}},"TaskList.Msg":{"args":[],"tags":{"EditingTitle":["Task.Task.TaskId","Basics.Bool"],"UpdateTask":["Task.Task.TaskId","String.String"],"Add":[],"Delete":["Task.Task.TaskId"],"DeleteComplete":[],"UpdateProgress":["Task.Task.TaskId","Task.Progress.Progress"],"FocusSlider":["Task.Task.TaskId","Basics.Bool"],"UpdateTaskDate":["Task.Task.TaskId","String.String","Maybe.Maybe SmartTime.Human.Moment.FuzzyMoment"],"UpdateNewEntryField":["String.String"],"NoOp":[]}},"TimeTracker.Msg":{"args":[],"tags":{"NoOp":[],"StartTracking":["Activity.Activity.ActivityID"]}},"Browser.UrlRequest":{"args":[],"tags":{"Internal":["Url.Url"],"External":["String.String"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"String.String":{"args":[],"tags":{"String":[]}},"Url.Protocol":{"args":[],"tags":{"Http":[],"Https":[]}},"Activity.Activity.Category":{"args":[],"tags":{"Transit":[],"Entertainment":[],"Hygiene":[],"Slacking":[],"Communication":[]}},"Activity.Activity.Evidence":{"args":[],"tags":{"Evidence":[]}},"Activity.Activity.Excusable":{"args":[],"tags":{"NeverExcused":[],"TemporarilyExcused":["Activity.Activity.DurationPerPeriod"],"IndefinitelyExcused":[]}},"Activity.Activity.Icon":{"args":[],"tags":{"File":["Activity.Activity.SvgPath"],"Ion":[],"Other":[]}},"Activity.Template.Template":{"args":[],"tags":{"DillyDally":[],"Apparel":[],"Messaging":[],"Restroom":[],"Grooming":[],"Meal":[],"Supplements":[],"Workout":[],"Shower":[],"Toothbrush":[],"Floss":[],"Wakeup":[],"Sleep":[],"Plan":[],"Configure":[],"Email":[],"Work":[],"Call":[],"Chores":[],"Parents":[],"Prepare":[],"Lover":[],"Driving":[],"Riding":[],"SocialMedia":[],"Pacing":[],"Sport":[],"Finance":[],"Laundry":[],"Bedward":[],"Browse":[],"Fiction":[],"Learning":[],"BrainTrain":[],"Music":[],"Create":[],"Children":[],"Meeting":[],"Cinema":[],"FilmWatching":[],"Series":[],"Broadcast":[],"Theatre":[],"Shopping":[],"VideoGaming":[],"Housekeeping":[],"MealPrep":[],"Networking":[],"Meditate":[],"Homework":[],"Flight":[],"Course":[],"Pet":[],"Presentation":[],"Projects":[]}},"External.TodoistSync.Priority":{"args":[],"tags":{"Priority":["Basics.Int"]}},"ID.ID":{"args":["userType"],"tags":{"ID":["Basics.Int"]}},"SmartTime.Human.Duration.HumanDuration":{"args":[],"tags":{"Milliseconds":["Basics.Int"],"Seconds":["Basics.Int"],"Minutes":["Basics.Int"],"Hours":["Basics.Int"],"Days":["Basics.Int"]}},"SmartTime.Human.Moment.FuzzyMoment":{"args":[],"tags":{"Global":["SmartTime.Moment.Moment"],"Floating":["SmartTime.Moment.Moment"],"DateOnly":["SmartTime.Human.Calendar.CalendarDate"]}},"Task.Progress.Unit":{"args":[],"tags":{"None":[],"Permille":[],"Percent":[],"Word":["Basics.Int"],"Minute":["Basics.Int"],"CustomUnit":["( String.String, String.String )","Basics.Int"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"SmartTime.Human.Calendar.CalendarDate":{"args":[],"tags":{"CalendarDate":["SmartTime.Human.Calendar.RataDie"]}}}}})}});}(this));
+			])))({"versions":{"elm":"0.19.0"},"types":{"message":"Main.Msg","aliases":{"SmartTime.Human.Moment.Zone":{"args":[],"type":"{ defaultOffset : SmartTime.Duration.Duration, name : String.String, history : List.List ( SmartTime.Moment.Moment, SmartTime.Duration.Duration ) }"},"Url.Url":{"args":[],"type":"{ protocol : Url.Protocol, host : String.String, port_ : Maybe.Maybe Basics.Int, path : String.String, query : Maybe.Maybe String.String, fragment : Maybe.Maybe String.String }"},"Activity.Activity.Activity":{"args":[],"type":"{ names : List.List String.String, icon : Activity.Activity.Icon, excusable : Activity.Activity.Excusable, taskOptional : Basics.Bool, evidence : List.List Activity.Activity.Evidence, category : Activity.Activity.Category, backgroundable : Basics.Bool, maxTime : Activity.Activity.DurationPerPeriod, hidden : Basics.Bool, template : Activity.Template.Template }"},"Activity.Activity.ActivityID":{"args":[],"type":"ID.ID Activity.Activity.Activity"},"Activity.Activity.DurationPerPeriod":{"args":[],"type":"( SmartTime.Human.Duration.HumanDuration, SmartTime.Human.Duration.HumanDuration )"},"External.TodoistSync.Due":{"args":[],"type":"{ date : SmartTime.Human.Moment.FuzzyMoment, timezone : Maybe.Maybe String.String, string : String.String, lang : String.String, isRecurring : Basics.Bool }"},"External.TodoistSync.ISODateString":{"args":[],"type":"String.String"},"External.TodoistSync.Item":{"args":[],"type":"{ id : External.TodoistSync.ItemID, user_id : External.TodoistSync.UserID, project_id : Basics.Int, content : String.String, due : Maybe.Maybe External.TodoistSync.Due, indent : Basics.Int, priority : External.TodoistSync.Priority, parent_id : Maybe.Maybe External.TodoistSync.ItemID, child_order : Basics.Int, day_order : Basics.Int, collapsed : Basics.Bool, children : List.List External.TodoistSync.ItemID, labels : List.List External.TodoistSync.LabelID, assigned_by_uid : External.TodoistSync.UserID, responsible_uid : Maybe.Maybe External.TodoistSync.UserID, checked : Basics.Bool, in_history : Basics.Bool, is_deleted : Basics.Bool, is_archived : Basics.Bool, date_added : External.TodoistSync.ISODateString }"},"External.TodoistSync.ItemID":{"args":[],"type":"Basics.Int"},"External.TodoistSync.LabelID":{"args":[],"type":"Basics.Int"},"External.TodoistSync.Project":{"args":[],"type":"{ id : Basics.Int, name : String.String, color : Basics.Int, parentId : Basics.Int, childOrder : Basics.Int, collapsed : Basics.Int, shared : Basics.Bool, isDeleted : Basics.Int, isArchived : Basics.Int, isFavorite : Basics.Int }"},"External.TodoistSync.Response":{"args":[],"type":"{ sync_token : String.String, full_sync : Basics.Bool, items : List.List External.TodoistSync.Item, projects : List.List External.TodoistSync.Project }"},"External.TodoistSync.UserID":{"args":[],"type":"Basics.Int"},"Task.Progress.Portion":{"args":[],"type":"Basics.Int"},"Task.Progress.Progress":{"args":[],"type":"( Task.Progress.Portion, Task.Progress.Unit )"},"Task.Task.TaskId":{"args":[],"type":"Basics.Int"},"Activity.Activity.SvgPath":{"args":[],"type":"String.String"},"SmartTime.Human.Clock.TimeOfDay":{"args":[],"type":"SmartTime.Duration.Duration"},"SmartTime.Human.Calendar.RataDie":{"args":[],"type":"Basics.Int"}},"unions":{"Main.Msg":{"args":[],"tags":{"NoOp":[],"Tick":["Main.Msg"],"Tock":["Main.Msg","SmartTime.Moment.Moment"],"SetZoneAndTime":["SmartTime.Human.Moment.Zone","SmartTime.Moment.Moment"],"ClearErrors":[],"SyncTodoist":[],"TodoistServerResponse":["External.TodoistSync.TodoistMsg"],"Link":["Browser.UrlRequest"],"NewUrl":["Url.Url"],"TaskListMsg":["TaskList.Msg"],"TimeTrackerMsg":["TimeTracker.Msg"]}},"External.TodoistSync.TodoistMsg":{"args":[],"tags":{"SyncResponded":["Result.Result Http.Error External.TodoistSync.Response"]}},"SmartTime.Duration.Duration":{"args":[],"tags":{"Duration":["Basics.Int"]}},"SmartTime.Moment.Moment":{"args":[],"tags":{"Moment":["SmartTime.Duration.Duration"]}},"TaskList.Msg":{"args":[],"tags":{"EditingTitle":["Task.Task.TaskId","Basics.Bool"],"UpdateTask":["Task.Task.TaskId","String.String"],"Add":[],"Delete":["Task.Task.TaskId"],"DeleteComplete":[],"UpdateProgress":["Task.Task.TaskId","Task.Progress.Progress"],"FocusSlider":["Task.Task.TaskId","Basics.Bool"],"UpdateTaskDate":["Task.Task.TaskId","String.String","Maybe.Maybe SmartTime.Human.Moment.FuzzyMoment"],"UpdateNewEntryField":["String.String"],"NoOp":[]}},"TimeTracker.Msg":{"args":[],"tags":{"NoOp":[],"StartTracking":["Activity.Activity.ActivityID"]}},"Browser.UrlRequest":{"args":[],"tags":{"Internal":["Url.Url"],"External":["String.String"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"String.String":{"args":[],"tags":{"String":[]}},"Url.Protocol":{"args":[],"tags":{"Http":[],"Https":[]}},"Activity.Activity.Category":{"args":[],"tags":{"Transit":[],"Entertainment":[],"Hygiene":[],"Slacking":[],"Communication":[]}},"Activity.Activity.Evidence":{"args":[],"tags":{"Evidence":[]}},"Activity.Activity.Excusable":{"args":[],"tags":{"NeverExcused":[],"TemporarilyExcused":["Activity.Activity.DurationPerPeriod"],"IndefinitelyExcused":[]}},"Activity.Activity.Icon":{"args":[],"tags":{"File":["Activity.Activity.SvgPath"],"Ion":[],"Other":[]}},"Activity.Template.Template":{"args":[],"tags":{"DillyDally":[],"Apparel":[],"Messaging":[],"Restroom":[],"Grooming":[],"Meal":[],"Supplements":[],"Workout":[],"Shower":[],"Toothbrush":[],"Floss":[],"Wakeup":[],"Sleep":[],"Plan":[],"Configure":[],"Email":[],"Work":[],"Call":[],"Chores":[],"Parents":[],"Prepare":[],"Lover":[],"Driving":[],"Riding":[],"SocialMedia":[],"Pacing":[],"Sport":[],"Finance":[],"Laundry":[],"Bedward":[],"Browse":[],"Fiction":[],"Learning":[],"BrainTrain":[],"Music":[],"Create":[],"Children":[],"Meeting":[],"Cinema":[],"FilmWatching":[],"Series":[],"Broadcast":[],"Theatre":[],"Shopping":[],"VideoGaming":[],"Housekeeping":[],"MealPrep":[],"Networking":[],"Meditate":[],"Homework":[],"Flight":[],"Course":[],"Pet":[],"Presentation":[],"Projects":[]}},"External.TodoistSync.Priority":{"args":[],"tags":{"Priority":["Basics.Int"]}},"ID.ID":{"args":["userType"],"tags":{"ID":["Basics.Int"]}},"SmartTime.Human.Duration.HumanDuration":{"args":[],"tags":{"Milliseconds":["Basics.Int"],"Seconds":["Basics.Int"],"Minutes":["Basics.Int"],"Hours":["Basics.Int"],"Days":["Basics.Int"]}},"SmartTime.Human.Moment.FuzzyMoment":{"args":[],"tags":{"Global":["SmartTime.Moment.Moment"],"Floating":["( SmartTime.Human.Calendar.CalendarDate, SmartTime.Human.Clock.TimeOfDay )"],"DateOnly":["SmartTime.Human.Calendar.CalendarDate"]}},"Task.Progress.Unit":{"args":[],"tags":{"None":[],"Permille":[],"Percent":[],"Word":["Basics.Int"],"Minute":["Basics.Int"],"CustomUnit":["( String.String, String.String )","Basics.Int"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"SmartTime.Human.Calendar.CalendarDate":{"args":[],"tags":{"CalendarDate":["SmartTime.Human.Calendar.RataDie"]}}}}})}});}(this));
