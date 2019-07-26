@@ -8,6 +8,7 @@ Allows efficient batch processing and incremental sync.
 
 import Dict exposing (Dict)
 import External.Todoist.Command exposing (..)
+import External.Todoist.Item as Item exposing (..)
 import Http
 import ID
 import IntDict exposing (IntDict)
@@ -15,7 +16,7 @@ import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
-import Json.Encode.Extra as Encode2
+import Json.Encode.Extra as Encode
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
@@ -59,8 +60,8 @@ That said, this is optional. You can handle the fetched resources individually i
 type alias Cache =
     { lastSync : IncrementalSyncToken
     , items : IntDict Item
-    , projects : IntDict Item
-    , pendingCommands : List Command
+    , projects : IntDict Project
+    , pendingCommands : List String
     }
 
 
@@ -79,7 +80,7 @@ decodeTodoistCache =
         |> optional "lastSync" decodeIncrementalSyncToken emptyCache.lastSync
         |> required "items" decodeIntDict decodeItem
         |> required "projects" decodeIntDict decodeProject
-        |> required "pendingCommands" Decode.list decodeCommand
+        |> required "pendingCommands" Decode.list Decode.string
 
 
 encodeTodoistCache : Cache -> Encode.Value
@@ -237,160 +238,6 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 -------------------------------- ACTUAL TODOIST STUFF ----------------------NOTE
 
 
-type alias ItemID =
-    Int
-
-
-type alias UserID =
-    Int
-
-
-type alias ISODateString =
-    String
-
-
-type alias DayOrders =
-    Dict ItemID Int
-
-
-type alias BoolFromInt =
-    Int
-
-
-decodeBoolFromInt : Decoder Bool
-decodeBoolFromInt =
-    oneOf
-        [ check int 1 <| succeed True
-        , check int 0 <| succeed False
-        ]
-
-
-encodeBoolAsInt : Bool -> Encode.Value
-encodeBoolAsInt bool =
-    case bool of
-        True ->
-            Encode.int 1
-
-        False ->
-            Encode.int 0
-
-
-type alias Item =
-    { id : ItemID
-    , user_id : UserID
-    , project_id : Int
-    , content : String
-    , due : Maybe Due
-    , indent : Int
-    , priority : Priority
-    , parent_id : Maybe ItemID
-    , child_order : Int
-    , day_order : Int
-    , collapsed : Bool
-    , children : List ItemID
-    , labels : List LabelID
-    , assigned_by_uid : UserID
-    , responsible_uid : Maybe UserID
-    , checked : Bool
-    , in_history : Bool
-    , is_deleted : Bool
-    , is_archived : Bool
-    , date_added : ISODateString
-    }
-
-
-decodeItem : Decoder Item
-decodeItem =
-    decode Item
-        |> required "id" int
-        |> required "user_id" int
-        |> required "project_id" int
-        |> required "content" string
-        |> required "due" (nullable decodeDue)
-        |> optional "indent" int 0
-        |> required "priority" decodePriority
-        |> required "parent_id" (nullable int)
-        |> required "child_order" int
-        -- API docs has incorrect "item_order" in example code (only)
-        |> required "day_order" int
-        |> required "collapsed" decodeBoolAsInt
-        |> optional "children" (list int) []
-        |> required "labels" (list int)
-        |> optional "assigned_by_uid" int 0
-        |> required "responsible_uid" (nullable int)
-        |> required "checked" decodeBoolAsInt
-        |> required "in_history" decodeBoolAsInt
-        |> required "is_deleted" decodeBoolAsInt
-        |> optional "is_archived" decodeBoolAsInt False
-        -- API docs do not indicate this is an optional field
-        |> required "date_added" string
-        |> optionalIgnored "legacy_id"
-        |> optionalIgnored "legacy_project_id"
-        |> optionalIgnored "legacy_parent_id"
-        |> optionalIgnored "sync_id"
-        |> optionalIgnored "date_completed"
-        |> optionalIgnored "has_more_notes"
-        |> optionalIgnored "section_id"
-        -- only shows up during deletions?
-        |> optionalIgnored "due_is_recurring"
-
-
-encodeItem : Item -> Encode.Value
-encodeItem record =
-    Encode.object
-        [ ( "id", Encode.int <| record.id )
-        , ( "user_id", Encode.int <| record.user_id )
-        , ( "project_id", Encode.int <| record.project_id )
-        , ( "content", Encode.string <| record.content )
-        , ( "due", Encode2.maybe encodeDue <| record.due )
-        , ( "indent", Encode.int <| record.indent )
-        , ( "priority", encodePriority <| record.priority )
-        , ( "parent_id", Encode2.maybe Encode.int <| record.parent_id )
-        , ( "child_order", Encode.int <| record.child_order )
-        , ( "day_order", Encode.int <| record.day_order )
-        , ( "collapsed", encodeBoolAsInt <| record.collapsed )
-        , ( "children", Encode.list Encode.int <| record.children )
-        , ( "labels", Encode.list Encode.int <| record.labels )
-        , ( "assigned_by_uid", Encode.int <| record.assigned_by_uid )
-        , ( "responsible_uid", Encode2.maybe Encode.int <| record.responsible_uid )
-        , ( "checked", encodeBoolAsInt <| record.checked )
-        , ( "in_history", encodeBoolAsInt <| record.in_history )
-        , ( "is_deleted", encodeBoolAsInt <| record.is_deleted )
-        , ( "is_archived", encodeBoolAsInt <| record.is_archived )
-        , ( "date_added", Encode.string <| record.date_added )
-        ]
-
-
-type Priority
-    = Priority Int
-
-
-decodePriority : Decoder Priority
-decodePriority =
-    oneOf
-        [ check int 4 <| succeed (Priority 1)
-        , check int 3 <| succeed (Priority 2)
-        , check int 2 <| succeed (Priority 3)
-        , check int 1 <| succeed (Priority 4)
-        ]
-
-
-encodePriority : Priority -> Encode.Value
-encodePriority priority =
-    case priority of
-        Priority 1 ->
-            Encode.int 4
-
-        Priority 2 ->
-            Encode.int 3
-
-        Priority 3 ->
-            Encode.int 2
-
-        _ ->
-            Encode.int 1
-
-
 {-| A Todoist "project", represented exactly the way the API describes it.
 -}
 type alias Project =
@@ -458,56 +305,16 @@ encodeProject record =
         [ ( "id", Encode.int <| record.id )
         , ( "name", Encode.string <| record.name )
         , ( "color", Encode.int <| record.color )
-        , ( "parent_id", Encode2.maybe Encode.int <| record.parentId )
+        , ( "parent_id", Encode.maybe Encode.int <| record.parentId )
         , ( "child_order", Encode.int <| record.childOrder )
         , ( "collapsed", Encode.int <| record.collapsed )
         , ( "shared", Encode.bool <| record.shared )
-        , ( "is_deleted", encodeBoolAsInt <| record.isDeleted )
-        , ( "is_archived", encodeBoolAsInt <| record.isArchived )
-        , ( "is_favorite", encodeBoolAsInt <| record.isFavorite )
+        , ( "is_deleted", encodeBoolToInt <| record.isDeleted )
+        , ( "is_archived", encodeBoolToInt <| record.isArchived )
+        , ( "is_favorite", encodeBoolToInt <| record.isFavorite )
         , ( "inbox_project", Encode.bool <| record.inbox_project )
         , ( "team_inbox", Encode.bool <| record.team_inbox )
         ]
-
-
-type alias Due =
-    { date : String
-    , timezone : Maybe String
-    , string : String
-    , lang : String
-    , isRecurring : Bool
-    }
-
-
-decodeDue : Decoder Due
-decodeDue =
-    decode Due
-        |> required "date" string
-        |> required "timezone" (nullable string)
-        |> required "string" string
-        |> required "lang" string
-        |> required "is_recurring" bool
-
-
-encodeDue : Due -> Encode.Value
-encodeDue record =
-    Encode.object
-        [ ( "date", string <| record.date )
-        , ( "timezone", Encode2.maybe Encode.string <| record.timezone )
-        , ( "string", Encode.string <| record.string )
-        , ( "lang", Encode.string <| record.lang )
-        , ( "is_recurring", Encode.bool <| record.isRecurring )
-        ]
-
-
-fromRFC3339Date : String -> Maybe HumanMoment.FuzzyMoment
-fromRFC3339Date =
-    Result.toMaybe << HumanMoment.fuzzyFromString
-
-
-toRFC3339Date : HumanMoment.FuzzyMoment -> String
-toRFC3339Date dateString =
-    HumanMoment.fuzzyToString dateString
 
 
 
@@ -538,10 +345,11 @@ handleResponse (SyncResponded response) oldCache =
                 { lastSync = Maybe.withDefault oldCache.lastSync new.sync_token
                 , items = prune <| IntDict.union itemsDict oldCache.items
                 , projects = prune <| IntDict.union projectsDict oldCache.projects
+                , pendingCommands = []
                 }
 
         Err err ->
-            err
+            Result.Err err
 
 
 {-| An example of how you can handle the output of `handleResponse`. Wraps it.
