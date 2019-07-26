@@ -1,6 +1,7 @@
 module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
+import External.Todoist
 import ID
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -24,7 +25,7 @@ type alias AppData =
     , tasks : IntDict Task
     , activities : StoredActivities
     , timeline : Timeline
-    , todoist : TodoistCache
+    , todoist : Todoist.TodoistCache
     }
 
 
@@ -59,35 +60,6 @@ encodeAppData record =
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
         , ( "todoist", encodeTodoistCache record.todoist )
-        ]
-
-
-type alias TodoistCache =
-    { syncToken : String
-    , parentProjectID : Int
-    , activityProjectIDs : IntDict ActivityID
-    }
-
-
-emptyTodoistCache : TodoistCache
-emptyTodoistCache =
-    TodoistCache "*" 1 IntDict.empty
-
-
-decodeTodoistCache : Decoder TodoistCache
-decodeTodoistCache =
-    Pipeline.decode TodoistCache
-        |> optional "syncToken" Decode.string "*"
-        |> required "parentProjectID" Decode.int
-        |> required "activityProjectIDs" (Porting.decodeIntDict ID.decode)
-
-
-encodeTodoistCache : TodoistCache -> Encode.Value
-encodeTodoistCache record =
-    Encode.object
-        [ ( "syncToken", Encode.string record.syncToken )
-        , ( "parentProjectID", Encode.int record.parentProjectID )
-        , ( "activityProjectIDs", Porting.encodeIntDict ID.encode record.activityProjectIDs )
         ]
 
 
