@@ -1,4 +1,4 @@
-module External.Todoist exposing (Item, Project, TodoistMsg(..), sync)
+module External.Todoist exposing (Project, TodoistMsg(..), sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -30,15 +30,20 @@ type alias SecretToken =
     String
 
 
+devSecret : SecretToken
+devSecret =
+    "0bdc5149510737ab941485bace8135c60e2d812b"
+
+
 {-| Sync with Todoist!
 
 This is a `Platform.Cmd`, you'll need to run it from your `update`.
 
 -}
-sync : Cache -> SecretToken -> List Resources -> Cmd TodoistMsg
-sync cache secret resourceList =
+sync : Cache -> SecretToken -> List Resources -> List Command -> Cmd TodoistMsg
+sync cache secret resourceList commandList =
     Http.post
-        { url = Url.toString <| syncUrl secret resourceList cache.lastSync
+        { url = serverUrl secret resourceList commandList cache.lastSync
         , body = Http.emptyBody
         , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
         }
@@ -78,17 +83,18 @@ decodeTodoistCache : Decoder Cache
 decodeTodoistCache =
     decode Cache
         |> optional "lastSync" decodeIncrementalSyncToken emptyCache.lastSync
-        |> required "items" decodeIntDict decodeItem
-        |> required "projects" decodeIntDict decodeProject
-        |> required "pendingCommands" Decode.list Decode.string
+        |> required "items" (decodeIntDict decodeItem)
+        |> required "projects" (decodeIntDict decodeProject)
+        |> required "pendingCommands" (Decode.list Decode.string)
 
 
 encodeTodoistCache : Cache -> Encode.Value
 encodeTodoistCache record =
     Encode.object
         [ ( "lastSync", encodeIncrementalSyncToken record.lastSync )
-        , ( "parentProjectID", Encode.int record.parentProjectID )
-        , ( "activityProjectIDs", Porting.encodeIntDict ID.encode record.activityProjectIDs )
+        , ( "items", encodeIntDict encodeItem record.items )
+        , ( "projects", encodeIntDict encodeProject record.projects )
+        , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
         ]
 
 
@@ -122,21 +128,37 @@ encodeTodoistCache record =
 --     }
 
 
-syncUrl : SecretToken -> List Resources -> IncrementalSyncToken -> Url.Url
-syncUrl secret resourceList (IncrementalSyncToken incrementalSyncToken) =
+serverUrl : SecretToken -> List Resources -> List Command -> IncrementalSyncToken -> String
+serverUrl secret resourceList commandList (IncrementalSyncToken syncToken) =
     let
         chosenResources =
             """[%22items%22,%22projects%22]"""
 
         resources =
             Encode.list encodeResources resourceList
+
+        commands =
+            Encode.list encodeCommand commandList
+
+        withRead =
+            if List.length resourceList > 0 then
+                [ Url.Builder.string "sync_token" syncToken
+                , Url.Builder.string "resource_type" (Encode.encode 0 resources)
+                ]
+
+            else
+                []
+
+        withWrite =
+            if List.length commandList > 0 then
+                [ Url.Builder.string "commands" (Encode.encode 0 commands) ]
+
+            else
+                []
     in
     Url.Builder.crossOrigin "https://todoist.com"
         [ "api", "v8", "sync" ]
-        [ Url.Builder.string "token" secret
-        , Url.Builder.string "sync_token" incrementalSyncToken
-        , Url.Builder.string "resource_type" (Encode.encode 0 resources)
-        ]
+        ([ Url.Builder.string "token" secret ] ++ withRead ++ withWrite)
 
 
 
@@ -145,48 +167,12 @@ syncUrl secret resourceList (IncrementalSyncToken incrementalSyncToken) =
 --     -d token=0bdc5149510737ab941485bace8135c60e2d812b \
 --     -d sync_token='*' \
 --     -d resource_types='["all"]'
-
-
-old_sync : IncrementalSyncToken -> Cmd TodoistMsg
-old_sync (IncrementalSyncToken incrementalSyncToken) =
-    Http.get
-        { url = Url.toString <| syncUrl incrementalSyncToken
-        , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
-        }
-
-
-new_syncUrl : IncrementalSyncToken -> List Command -> Url.Url
-new_syncUrl (IncrementalSyncToken incrementalSyncToken) commandList =
-    let
-        commands =
-            Encode.list identity commandList
-
-        devSecret =
-            "0bdc5149510737ab941485bace8135c60e2d812b"
-
-        query =
-            String.concat <|
-                List.intersperse "&" <|
-                    [ "token=" ++ devSecret
-                    , "commands=" ++ Encode.encode 0 commands
-                    ]
-    in
-    { protocol = Url.Https
-    , host = "todoist.com"
-    , port_ = Nothing
-    , path = "/api/v8/sync"
-    , query = Just query
-    , fragment = Nothing
-    }
-
-
-sendCommands : IncrementalSyncToken -> Cmd TodoistMsg
-sendCommands (IncrementalSyncToken incrementalSyncToken) =
-    Http.post
-        { url = Url.toString <| syncUrl incrementalSyncToken
-        , body = Http.emptyBody
-        , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
-        }
+-- old_sync : IncrementalSyncToken -> Cmd TodoistMsg
+-- old_sync (IncrementalSyncToken incrementalSyncToken) =
+--     Http.get
+--         { url = Url.toString <| syncUrl incrementalSyncToken
+--         , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
+--         }
 
 
 {-| The resources you want to acquire. This is limited to the resources supported by this library, since there's no point in fetching resources and not doing anything with them. Note that currently this intentionally excudes resources that are only relevant to Todoist Premium users (e.g. `labels`, `filters`, `notes`).
@@ -305,13 +291,13 @@ encodeProject record =
         [ ( "id", Encode.int <| record.id )
         , ( "name", Encode.string <| record.name )
         , ( "color", Encode.int <| record.color )
-        , ( "parent_id", Encode.maybe Encode.int <| record.parentId )
-        , ( "child_order", Encode.int <| record.childOrder )
+        , ( "parent_id", Encode.maybe Encode.int <| record.parent_id )
+        , ( "child_order", Encode.int <| record.child_order )
         , ( "collapsed", Encode.int <| record.collapsed )
         , ( "shared", Encode.bool <| record.shared )
-        , ( "is_deleted", encodeBoolToInt <| record.isDeleted )
-        , ( "is_archived", encodeBoolToInt <| record.isArchived )
-        , ( "is_favorite", encodeBoolToInt <| record.isFavorite )
+        , ( "is_deleted", encodeBoolToInt <| record.is_deleted )
+        , ( "is_archived", encodeBoolToInt <| record.is_archived )
+        , ( "is_favorite", encodeBoolToInt <| record.is_favorite )
         , ( "inbox_project", Encode.bool <| record.inbox_project )
         , ( "team_inbox", Encode.bool <| record.team_inbox )
         ]

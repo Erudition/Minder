@@ -1,4 +1,4 @@
-module External.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, NewProject, ProjectChanges, ProjectID(..), RealProjectID, TempID, decodeCommandError, decodeCommandResult)
+module External.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RealProjectID, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
 
 {-| A library for interacting with the Todoist API.
 
