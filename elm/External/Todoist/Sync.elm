@@ -1,4 +1,4 @@
-module External.Todoist exposing (Cache, IncrementalSyncToken(..), Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeIncrementalSyncToken, decodeProject, decodeResponse, decodeTodoistCache, devSecret, emptyCache, encodeIncrementalSyncToken, encodeProject, encodeResources, encodeTodoistCache, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
+module External.Todoist.Sync exposing (Cache, Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeProject, decodeResponse, devSecret, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeProject, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -79,8 +79,8 @@ emptyCache =
     }
 
 
-decodeTodoistCache : Decoder Cache
-decodeTodoistCache =
+decodeCache : Decoder Cache
+decodeCache =
     decode Cache
         |> optional "lastSync" decodeIncrementalSyncToken emptyCache.lastSync
         |> required "items" (decodeIntDict decodeItem)
@@ -88,8 +88,8 @@ decodeTodoistCache =
         |> required "pendingCommands" (Decode.list Decode.string)
 
 
-encodeTodoistCache : Cache -> Encode.Value
-encodeTodoistCache record =
+encodeCache : Cache -> Encode.Value
+encodeCache record =
     Encode.object
         [ ( "lastSync", encodeIncrementalSyncToken record.lastSync )
         , ( "items", encodeIntDict encodeItem record.items )

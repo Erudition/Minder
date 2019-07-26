@@ -1,9 +1,9 @@
-module External.TodoistSync exposing (Item, Project, TodoistMsg(..), handle, sync)
+module Integrations.Todoist exposing (Item, Project, TodoistMsg(..), handle, sync)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistData, saveError)
 import Dict exposing (Dict)
-import External.Todoist
+import External.Todoist.Sync
 import Http
 import ID
 import IntDict exposing (IntDict)
