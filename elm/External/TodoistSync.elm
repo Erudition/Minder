@@ -1,7 +1,7 @@
 module External.TodoistSync exposing (Item, Project, TodoistMsg(..), handle, sync)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
-import AppData exposing (AppData, saveError)
+import AppData exposing (AppData, TodoistData, saveError)
 import Dict exposing (Dict)
 import External.Todoist
 import Http
@@ -25,13 +25,6 @@ import Task.Progress
 import Task.Task exposing (Task, newTask)
 import Url
 import Url.Builder
-
-
-type alias TodoistData =
-    { cache : Todoist.Cache
-    , parentProjectID : Int
-    , activityProjectIDs : IntDict ActivityID
-    }
 
 
 handle : TodoistMsg -> AppData -> ( AppData, String )
