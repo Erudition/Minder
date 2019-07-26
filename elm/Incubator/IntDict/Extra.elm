@@ -1,4 +1,4 @@
-module IntDictExtra exposing (filterKeys, filterMap, filterValues, mapValues)
+module Incubator.IntDict.Extra exposing (filterKeys, filterMap, filterValues, mapValues)
 
 import IntDict exposing (IntDict)
 

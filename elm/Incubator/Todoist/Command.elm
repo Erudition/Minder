@@ -1,4 +1,4 @@
-module External.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RealProjectID, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
+module Incubator.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RealProjectID, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
 
 {-| A library for interacting with the Todoist API.
 
@@ -7,11 +7,11 @@ Allows efficient batch processing and incremental sync.
 -}
 
 import Dict exposing (Dict)
-import External.Todoist.Item as Item exposing (..)
 import Http
 import ID
+import Incubator.IntDict.Extra as IntDict
+import Incubator.Todoist.Item as Item exposing (..)
 import IntDict exposing (IntDict)
-import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode

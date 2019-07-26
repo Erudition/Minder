@@ -1,10 +1,10 @@
-module External.Todoist.Item exposing (Due, ISODateString, Item, Priority(..), RealItemID, UserID, decodeDue, decodeItem, decodePriority, encodeDue, encodeItem, encodePriority, fromRFC3339Date, toRFC3339Date)
+module Incubator.Todoist.Item exposing (Due, ISODateString, Item, Priority(..), RealItemID, UserID, decodeDue, decodeItem, decodePriority, encodeDue, encodeItem, encodePriority, fromRFC3339Date, toRFC3339Date)
 
 import Dict exposing (Dict)
 import Http
 import ID
+import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
-import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode

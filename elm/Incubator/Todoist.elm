@@ -1,4 +1,4 @@
-module External.Todoist.Sync exposing (Cache, Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeProject, decodeResponse, devSecret, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeProject, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
+module Incubator.Todoist.Sync exposing (Cache, Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeProject, decodeResponse, devSecret, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeProject, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -7,12 +7,11 @@ Allows efficient batch processing and incremental sync.
 -}
 
 import Dict exposing (Dict)
-import External.Todoist.Command exposing (..)
-import External.Todoist.Item as Item exposing (..)
 import Http
-import ID
+import Incubator.IntDict.Extra as IntDict
+import Incubator.Todoist.Command exposing (..)
+import Incubator.Todoist.Item as Item exposing (..)
 import IntDict exposing (IntDict)
-import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
