@@ -8,10 +8,10 @@ import Browser.Navigation as Nav exposing (..)
 import Dict
 import Environment exposing (..)
 import External.Commands exposing (..)
-import External.TodoistSync as Todoist
 import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
+import Integrations.Todoist
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import SmartTime.Human.Clock as Clock
@@ -366,7 +366,7 @@ update msg ({ viewState, appData, environment } as model) =
         ( TodoistServerResponse response, _ ) ->
             let
                 ( newAppData, whatHappened ) =
-                    Todoist.handle response appData
+                    Integrations.Todoist.handle response appData
             in
             ( Model viewState newAppData environment
             , toast whatHappened

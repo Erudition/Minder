@@ -18,8 +18,8 @@ import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (..)
 import ID
+import Incubator.IntDict.Extra as IntDict
 import IntDict
-import IntDictExtra as IntDict
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)

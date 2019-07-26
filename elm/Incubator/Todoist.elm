@@ -1,4 +1,4 @@
-module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeResponse, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
+module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), Msg(..), Resources(..), Response, SecretToken, decodeCache, decodeIncrementalSyncToken, decodeResponse, describeError, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -35,7 +35,7 @@ type alias SecretToken =
 This is a `Platform.Cmd`, you'll need to run it from your `update`.
 
 -}
-sync : Cache -> SecretToken -> List Resources -> List Command -> Cmd TodoistMsg
+sync : Cache -> SecretToken -> List Resources -> List Command -> Cmd Msg
 sync cache secret resourceList commandList =
     Http.post
         { url = serverUrl secret resourceList commandList cache.lastSync
@@ -46,7 +46,7 @@ sync cache secret resourceList commandList =
 
 {-| A message for you to add to your app's `Msg` type. Comes back when the sync request succeeded or failed.
 -}
-type TodoistMsg
+type Msg
     = SyncResponded (Result Http.Error Response)
 
 
@@ -162,7 +162,7 @@ serverUrl secret resourceList commandList (IncrementalSyncToken syncToken) =
 --     -d token=0bdc5149510737ab941485bace8135c60e2d812b \
 --     -d sync_token='*' \
 --     -d resource_types='["all"]'
--- old_sync : IncrementalSyncToken -> Cmd TodoistMsg
+-- old_sync : IncrementalSyncToken -> Cmd Msg
 -- old_sync (IncrementalSyncToken incrementalSyncToken) =
 --     Http.get
 --         { url = Url.toString <| syncUrl incrementalSyncToken
@@ -219,7 +219,7 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 --------------------------------- RESPONSE ---------------------------------NOTE
 
 
-handleResponse : TodoistMsg -> Cache -> Result Http.Error Cache
+handleResponse : Msg -> Cache -> Result Http.Error Cache
 handleResponse (SyncResponded response) oldCache =
     case response of
         Ok new ->
@@ -252,7 +252,7 @@ handleResponse (SyncResponded response) oldCache =
 
 {-| An example of how you can handle the output of `handleResponse`. Wraps it.
 -}
-smartHandle : TodoistMsg -> Cache -> ( Cache, String )
+smartHandle : Msg -> Cache -> ( Cache, String )
 smartHandle inputMsg oldCache =
     let
         runHandler =

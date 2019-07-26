@@ -1,12 +1,14 @@
-module Integrations.Todoist exposing (Item, Project, TodoistMsg(..), handle, sync)
+module Integrations.Todoist exposing (describeSuccess, devSecret, extractTiming, extractTiming2, findActivityProjectIDs, handle, itemToTask, priorityToImportance, timetrackItemToTask, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
-import AppData exposing (AppData, TodoistData, saveError)
+import AppData exposing (AppData, TodoistIntegrationData, saveError)
 import Dict exposing (Dict)
 import Http
 import ID
 import Incubator.IntDict.Extra as IntDict
-import Incubator.Todoist
+import Incubator.Todoist as Todoist
+import Incubator.Todoist.Item as Item exposing (Item)
+import Incubator.Todoist.Project as Project exposing (Project)
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
@@ -27,14 +29,14 @@ import Url
 import Url.Builder
 
 
-devSecret : SecretToken
+devSecret : Todoist.SecretToken
 devSecret =
     "0bdc5149510737ab941485bace8135c60e2d812b"
 
 
-handle : TodoistMsg -> AppData -> ( AppData, String )
+handle : Todoist.Msg -> AppData -> ( AppData, String )
 handle msg app =
-    case Todoist.handleResponse msg of
+    case Todoist.handleResponse msg app.todoist.cache of
         Ok newCache ->
             let
                 updatedTimetrackParent =
@@ -42,7 +44,7 @@ handle msg app =
                     List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") newCache.projects
 
                 timetrackParent =
-                    Maybe.withDefault todoist.parentProjectID updatedTimetrackParent
+                    Maybe.withDefault app.todoist.parentProjectID updatedTimetrackParent
 
                 validActivityProjects =
                     IntDict.filter (\_ p -> p.parent_id == timetrackParent) newCache.projects
@@ -51,7 +53,7 @@ handle msg app =
                     findActivityProjectIDs validActivityProjects filledInActivities
 
                 combinedALT =
-                    IntDict.union newActivityLookupTable todoist.activityProjectIDs
+                    IntDict.union newActivityLookupTable app.todoist.activityProjectIDs
 
                 itemsInTimetrackToTasks =
                     List.filterMap
@@ -59,7 +61,7 @@ handle msg app =
                         newCache.items
 
                 filledInActivities =
-                    Activity.allActivities activities
+                    Activity.allActivities app.activities
 
                 generatedTasks =
                     IntDict.fromList <|
@@ -69,14 +71,15 @@ handle msg app =
             in
             ( { app
                 | todoist =
-                    { syncToken = Maybe.withDefault app.todoist.syncToken sync_token
+                    { cache = newCache
                     , parentProjectID = timetrackParent
                     , activityProjectIDs = combinedALT
                     }
                 , tasks =
-                    removeDeletedFromDict <| IntDict.union generatedTasks tasks
+                    -- TODO figure out deleted
+                    IntDict.union generatedTasks app.tasks
               }
-            , describeSuccess success
+            , describeSuccess newCache
             )
 
         Err err ->
@@ -87,7 +90,7 @@ handle msg app =
             ( saveError app description, description )
 
 
-describeSuccess : Response -> String
+describeSuccess : Todoist.Response -> String
 describeSuccess success =
     if success.full_sync then
         "Did FULL Todoist sync: "
@@ -176,8 +179,8 @@ itemToTask activityID item =
     }
 
 
-priorityToImportance : Priority -> Int
-priorityToImportance (Priority int) =
+priorityToImportance : Item.Priority -> Int
+priorityToImportance (Item.Priority int) =
     0 - int
 
 

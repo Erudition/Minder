@@ -1,4 +1,4 @@
-module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
+module AppData exposing (AppData, Instance, TodoistIntegrationData, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
 import ID
@@ -85,7 +85,7 @@ decodeTodoistIntegrationData =
     decode TodoistIntegrationData
         |> required "cache" Todoist.decodeCache
         |> withPresence "parentProjectID" Decode.int
-        |> required "activityProjectIDs" decodeIntDict Decode.int
+        |> required "activityProjectIDs" (decodeIntDict ID.decode)
 
 
 emptyTodoistIntegrationData : TodoistIntegrationData
