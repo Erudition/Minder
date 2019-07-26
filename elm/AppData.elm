@@ -1,14 +1,15 @@
 module AppData exposing (AppData, Instance, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
-import External.Todoist
 import ID
+import Incubator.Todoist as Todoist
+import Incubator.Todoist.Project as TodoistProject
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
-import Porting
+import Porting exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
 
@@ -25,7 +26,7 @@ type alias AppData =
     , tasks : IntDict Task
     , activities : StoredActivities
     , timeline : Timeline
-    , todoist : Todoist.TodoistCache
+    , todoist : TodoistIntegrationData
     }
 
 
@@ -36,7 +37,7 @@ fromScratch =
     , tasks = IntDict.empty
     , activities = IntDict.empty
     , timeline = []
-    , todoist = emptyTodoistCache
+    , todoist = emptyTodoistIntegrationData
     }
 
 
@@ -48,7 +49,7 @@ decodeAppData =
         |> optional "tasks" (Porting.decodeIntDict decodeTask) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
-        |> optional "todoist" decodeTodoistCache emptyTodoistCache
+        |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
 
 
 encodeAppData : AppData -> Encode.Value
@@ -59,12 +60,41 @@ encodeAppData record =
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
-        , ( "todoist", encodeTodoistCache record.todoist )
+        , ( "todoist", encodeTodoistIntegrationData record.todoist )
         ]
 
 
+type alias TodoistIntegrationData =
+    { cache : Todoist.Cache
+    , parentProjectID : Maybe TodoistProject.ProjectID
+    , activityProjectIDs : IntDict ActivityID
+    }
 
--- TODO save time with errors?
+
+encodeTodoistIntegrationData : TodoistIntegrationData -> Encode.Value
+encodeTodoistIntegrationData data =
+    encodeObjectWithoutNothings
+        [ normal ( "cache", Todoist.encodeCache data.cache )
+        , omittable ( "parentProjectID", Encode.int, data.parentProjectID )
+        , normal ( "activityProjectIDs", encodeIntDict ID.encode data.activityProjectIDs )
+        ]
+
+
+decodeTodoistIntegrationData : Decoder TodoistIntegrationData
+decodeTodoistIntegrationData =
+    decode TodoistIntegrationData
+        |> required "cache" Todoist.decodeCache
+        |> withPresence "parentProjectID" Decode.int
+        |> required "activityProjectIDs" decodeIntDict Decode.int
+
+
+emptyTodoistIntegrationData : TodoistIntegrationData
+emptyTodoistIntegrationData =
+    { cache = Todoist.emptyCache, parentProjectID = Nothing, activityProjectIDs = IntDict.empty }
+
+
+
+-- TODO save time of occurence along with errors?
 
 
 saveWarnings : AppData -> Decode.Warnings -> AppData

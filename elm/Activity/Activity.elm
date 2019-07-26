@@ -68,35 +68,34 @@ type alias Customizations =
 decodeCustomizations : Decode.Decoder Customizations
 decodeCustomizations =
     decode Customizations
-        |> ifPresent "names" (Decode.list Decode.string)
-        |> ifPresent "icon" decodeIcon
-        |> ifPresent "excusable" decodeExcusable
-        |> ifPresent "taskOptional" Decode.bool
-        |> ifPresent "evidence" (Decode.list decodeEvidence)
-        |> ifPresent "category" decodeCategory
-        |> ifPresent "backgroundable" Decode.bool
-        |> ifPresent "maxTime" decodeDurationPerPeriod
-        |> ifPresent "hidden" Decode.bool
+        |> withPresence "names" (Decode.list Decode.string)
+        |> withPresence "icon" decodeIcon
+        |> withPresence "excusable" decodeExcusable
+        |> withPresence "taskOptional" Decode.bool
+        |> withPresence "evidence" (Decode.list decodeEvidence)
+        |> withPresence "category" decodeCategory
+        |> withPresence "backgroundable" Decode.bool
+        |> withPresence "maxTime" decodeDurationPerPeriod
+        |> withPresence "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
         |> Pipeline.required "id" ID.decode
 
 
 encodeCustomizations : Customizations -> Encode.Value
 encodeCustomizations record =
-    Encode.object <|
-        omitNothings
-            [ normal ( "template", encodeTemplate record.template )
-            , normal ( "stock", ID.encode record.id )
-            , omittable ( "names", Encode.list Encode.string, record.names )
-            , omittable ( "icon", encodeIcon, record.icon )
-            , omittable ( "excusable", encodeExcusable, record.excusable )
-            , omittable ( "taskOptional", Encode.bool, record.taskOptional )
-            , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
-            , omittable ( "category", encodeCategory, record.category )
-            , omittable ( "backgroundable", Encode.bool, record.backgroundable )
-            , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
-            , omittable ( "hidden", Encode.bool, record.hidden )
-            ]
+    encodeObjectWithoutNothings
+        [ normal ( "template", encodeTemplate record.template )
+        , normal ( "stock", ID.encode record.id )
+        , omittable ( "names", Encode.list Encode.string, record.names )
+        , omittable ( "icon", encodeIcon, record.icon )
+        , omittable ( "excusable", encodeExcusable, record.excusable )
+        , omittable ( "taskOptional", Encode.bool, record.taskOptional )
+        , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
+        , omittable ( "category", encodeCategory, record.category )
+        , omittable ( "backgroundable", Encode.bool, record.backgroundable )
+        , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
+        , omittable ( "hidden", Encode.bool, record.hidden )
+        ]
 
 
 
