@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), OnTaskStatus(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, statusToString, withTemplate)
 
 import Activity.Template exposing (..)
 import Date
@@ -168,6 +168,25 @@ encodeEvidence v =
     case v of
         Evidence ->
             Encode.string "Evidence"
+
+
+type OnTaskStatus
+    = OnTask
+    | OffTask Excusable
+    | AllDone
+
+
+statusToString : OnTaskStatus -> String
+statusToString onTaskStatus =
+    case onTaskStatus of
+        OnTask ->
+            "Yes"
+
+        OffTask excusable ->
+            "Excused"
+
+        AllDone ->
+            "Yes"
 
 
 type Excusable

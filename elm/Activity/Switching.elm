@@ -11,6 +11,7 @@ import IntDict
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment exposing (..)
+import Task.Task as Task
 import Time
 import Time.Extra as Time
 
@@ -33,6 +34,7 @@ switchActivity activityID app env =
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
+        , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString <| determineOnTask activityID app env )
         , Tasker.variableOut ( "ExcusedTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "OnTaskTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
@@ -43,6 +45,29 @@ switchActivity activityID app env =
         , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
         ]
     )
+
+
+determineOnTask : ActivityID -> AppData -> Environment -> OnTaskStatus
+determineOnTask activityID app env =
+    let
+        current =
+            getActivity activityID (allActivities app.activities)
+    in
+    case List.head (Task.prioritize env.time env.timeZone <| IntDict.values app.tasks) of
+        Nothing ->
+            AllDone
+
+        Just nextTask ->
+            case nextTask.activity of
+                Nothing ->
+                    OffTask current.excusable
+
+                Just nextActivity ->
+                    if nextActivity == activityID then
+                        OnTask
+
+                    else
+                        OffTask current.excusable
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
