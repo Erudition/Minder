@@ -41,8 +41,8 @@ type Command
     | ReorderProjects (List ProjectOrder)
     | DayOrdersUpdate IDsToOrders
     | ItemAdd NewItem
-    | ItemMoveProject (Maybe ProjectID)
-    | ItemMoveParent (Maybe ItemID)
+    | ItemSwitchProject ItemID (Maybe ProjectID)
+    | ItemSwitchParent ItemID (Maybe ItemID)
     | ItemDelete ItemID
     | ItemClose ItemID
     | ItemComplete ItemCompletion
@@ -85,44 +85,52 @@ encodeCommand command =
         ReorderProjects orderList ->
             encodeWrapper "project_reorder" <| Encode.list encodeProjectOrder orderList
 
-        DayOrdersUpdate _ ->
-            Debug.todo "handle DayOrdersUpdate _"
+        DayOrdersUpdate dayOrdersDict ->
+            encodeWrapper "item_update_day_orders" <| encodeIntDict Encode.int dayOrdersDict
 
-        ItemAdd _ ->
-            Debug.todo "handle ItemAdd _"
+        ItemAdd new ->
+            encodeWrapper "item_add" (encodeNewItem new)
 
-        ItemMoveProject _ ->
-            Debug.todo "handle ItemMoveProject _"
+        ItemSwitchProject id newProject ->
+            encodeWrapper "item_move" <|
+                encodeObjectWithoutNothings
+                    [ normal ( "id", encodeItemID id )
+                    , omittable ( "parent_id", encodeProjectID, newProject )
+                    ]
 
-        ItemMoveParent _ ->
-            Debug.todo "handle ItemMoveParent _"
+        ItemSwitchParent id newParentItem ->
+            encodeWrapper "item_move" <|
+                encodeObjectWithoutNothings
+                    [ normal ( "id", encodeItemID id )
+                    , omittable ( "project_id", encodeItemID, newParentItem )
+                    ]
 
-        ItemDelete _ ->
-            Debug.todo "handle ItemDelete _"
+        ItemDelete id ->
+            encodeWrapper "item_delete" <| Encode.object [ ( "id", encodeItemID id ) ]
 
-        ItemClose _ ->
-            Debug.todo "handle ItemClose _"
+        ItemClose id ->
+            encodeWrapper "item_close" <| Encode.object [ ( "id", encodeItemID id ) ]
 
-        ItemComplete _ ->
-            Debug.todo "handle ItemComplete _"
+        ItemComplete completionDetails ->
+            encodeWrapper "item_complete" <| encodeItemCompletion completionDetails
 
-        ItemCompleteRecurring _ ->
-            Debug.todo "handle ItemCompleteRecurring _"
+        ItemCompleteRecurring completionDetails ->
+            encodeWrapper "item_update_date_complete" <| encodeRecurringItemCompletion completionDetails
 
-        ItemUncomplete _ ->
-            Debug.todo "handle ItemUncomplete _"
+        ItemUncomplete id ->
+            encodeWrapper "item_uncomplete" <| Encode.object [ ( "id", encodeItemID id ) ]
 
-        ItemArchive _ ->
-            Debug.todo "handle ItemArchive _"
+        ItemArchive id ->
+            encodeWrapper "item_archive" <| Encode.object [ ( "id", encodeItemID id ) ]
 
-        ItemUnarchive _ ->
-            Debug.todo "handle ItemUnarchive _"
+        ItemUnarchive id ->
+            encodeWrapper "item_unarchive" <| Encode.object [ ( "id", encodeItemID id ) ]
 
-        ItemUpdate _ ->
-            Debug.todo "handle ItemUpdate _"
+        ItemUpdate changes ->
+            encodeWrapper "item_update" (encodeItemChanges changes)
 
-        ReorderItems _ ->
-            Debug.todo "handle ReorderItems _"
+        ReorderItems orderList ->
+            encodeWrapper "item_reorder" <| Encode.list encodeItemOrder orderList
 
 
 type alias CommandUUID =
@@ -131,11 +139,6 @@ type alias CommandUUID =
 
 type alias TempID =
     String
-
-
-type alias BoolToInt =
-    -- TODO remove this - just for reference
-    Bool
 
 
 
@@ -171,7 +174,7 @@ type alias NewProject =
     , color : Maybe Int
     , parent_id : Maybe RealProjectID
     , child_order : Maybe Int
-    , is_favorite : BoolToInt
+    , is_favorite : BoolFromInt
     }
 
 
