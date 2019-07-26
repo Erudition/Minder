@@ -3,11 +3,11 @@ module Integrations.Todoist exposing (Item, Project, TodoistMsg(..), handle, syn
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistData, saveError)
 import Dict exposing (Dict)
-import External.Todoist.Sync
 import Http
 import ID
+import Incubator.IntDict.Extra as IntDict
+import Incubator.Todoist
 import IntDict exposing (IntDict)
-import IntDictExtra as IntDict
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
@@ -27,25 +27,25 @@ import Url
 import Url.Builder
 
 
+devSecret : SecretToken
+devSecret =
+    "0bdc5149510737ab941485bace8135c60e2d812b"
+
+
 handle : TodoistMsg -> AppData -> ( AppData, String )
-handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
-    case result of
-        Ok success ->
+handle msg app =
+    case Todoist.handleResponse msg of
+        Ok newCache ->
             let
-                { sync_token, full_sync, items, projects } =
-                    success
-
-                projectsDict =
-                    IntDict.fromList (List.map (\p -> ( p.id, p )) projects)
-
                 updatedTimetrackParent =
-                    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") projectsDict
+                    -- TODO only do once
+                    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") newCache.projects
 
                 timetrackParent =
                     Maybe.withDefault todoist.parentProjectID updatedTimetrackParent
 
                 validActivityProjects =
-                    IntDict.filter (\_ p -> p.parentId == timetrackParent) projectsDict
+                    IntDict.filter (\_ p -> p.parent_id == timetrackParent) newCache.projects
 
                 newActivityLookupTable =
                     findActivityProjectIDs validActivityProjects filledInActivities
@@ -56,15 +56,7 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
                 itemsInTimetrackToTasks =
                     List.filterMap
                         (timetrackItemToTask combinedALT)
-                        items
-
-                itemsInTimetrackForDeletion =
-                    List.map .id (List.filter .is_deleted items)
-
-                removeDeletedFromDict dict =
-                    IntDict.filterKeys
-                        (\id -> not (List.member id itemsInTimetrackForDeletion))
-                        dict
+                        newCache.items
 
                 filledInActivities =
                     Activity.allActivities activities
@@ -89,24 +81,10 @@ handle (SyncResponded result) ({ tasks, activities, todoist } as app) =
 
         Err err ->
             let
-                handleError description =
-                    ( saveError app description, description )
+                description =
+                    Todoist.describeError err
             in
-            case err of
-                Http.BadUrl msg ->
-                    handleError msg
-
-                Http.Timeout ->
-                    handleError "Timeout?"
-
-                Http.NetworkError ->
-                    handleError "Network Error"
-
-                Http.BadStatus status ->
-                    handleError <| "Got Error code" ++ String.fromInt status
-
-                Http.BadBody string ->
-                    handleError string
+            ( saveError app description, description )
 
 
 describeSuccess : Response -> String

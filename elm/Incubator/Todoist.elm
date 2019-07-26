@@ -257,31 +257,55 @@ smartHandle inputMsg oldCache =
     let
         runHandler =
             handleResponse inputMsg oldCache
-
-        handleError description =
-            ( oldCache, description )
     in
     case runHandler of
         Ok newCache ->
             ( newCache, "Success" )
 
         Err error ->
-            case error of
-                Http.BadUrl msg ->
-                    handleError <| "For some reason we were told the URL is bad. This should never happen, it's a perfectly tested working URL! The error: " ++ msg
+            ( oldCache, describeError error )
 
-                Http.Timeout ->
-                    handleError "Timed out. Try again later?"
 
-                Http.NetworkError ->
-                    handleError "Network Error. That's all we know."
+describeError : Http.Error -> String
+describeError error =
+    case error of
+        Http.BadUrl msg ->
+            "For some reason we were told the URL is bad. This should never happen, it's a perfectly tested working URL! The error: " ++ msg
 
-                Http.BadStatus status ->
-                    -- TODO handle Todoist codes
-                    handleError <| "Got HTTP Error code " ++ String.fromInt status
+        Http.Timeout ->
+            "Timed out. Try again later?"
 
-                Http.BadBody string ->
-                    handleError <| "Response says the body was bad. That's weird, because we don't send any body to Todoist servers, and the API doesn't ask you to. Here's the error: " ++ string
+        Http.NetworkError ->
+            "Network Error. That's all we know."
+
+        Http.BadStatus status ->
+            case status of
+                400 ->
+                    "400 Bad Request: The request was incorrect."
+
+                401 ->
+                    "401 Unauthorized: Authentication is required, and has failed, or has not yet been provided. Maybe your API credentials are messed up?"
+
+                403 ->
+                    "403 Forbidden: The request was valid, but for something that is forbidden."
+
+                404 ->
+                    "404 Not Found! That should never happen, because I definitely used the right URL. Is your system or proxy blocking or messing with internet requests? Is it many years in future, where Todoist API v8 has been deprecated, obseleted, and then discontinued? Or maybe it's far enough in the future that Todoist doesn't exist anymore but for some reason you're still using this library?"
+
+                429 ->
+                    "429 Too Many Requests: Slow down, cowboy! Check out the Todoist API Docs for Usage Limits. Maybe try batching more requests into one?"
+
+                500 ->
+                    "500 Internal Server Error: Not my fault! Todoist must be having a bad day."
+
+                503 ->
+                    "503 Service Unavailable: Not my fault! Todoist must be bogged down today, or perhaps experiencing a DDoS attack. :O"
+
+                other ->
+                    "Got HTTP Error code " ++ String.fromInt other ++ ", not sure what that means in this case. Sorry!"
+
+        Http.BadBody string ->
+            "Response says the body was bad. That's weird, because we don't send any body to Todoist servers, and the API doesn't ask you to. Here's the error: " ++ string
 
 
 pruneDeleted : IntDict { a | is_deleted : Bool } -> IntDict { a | is_deleted : Bool }
