@@ -1,4 +1,4 @@
-module Incubator.Todoist.Sync exposing (Cache, Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeProject, decodeResponse, devSecret, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeProject, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
+module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), Resources(..), Response, SecretToken, TodoistMsg(..), decodeCache, decodeIncrementalSyncToken, decodeResponse, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -10,7 +10,8 @@ import Dict exposing (Dict)
 import Http
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist.Command exposing (..)
-import Incubator.Todoist.Item as Item exposing (..)
+import Incubator.Todoist.Item as Item exposing (Item)
+import Incubator.Todoist.Project as Project exposing (Project)
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
@@ -27,11 +28,6 @@ import Url.Builder
 
 type alias SecretToken =
     String
-
-
-devSecret : SecretToken
-devSecret =
-    "0bdc5149510737ab941485bace8135c60e2d812b"
 
 
 {-| Sync with Todoist!
@@ -82,8 +78,8 @@ decodeCache : Decoder Cache
 decodeCache =
     decode Cache
         |> optional "lastSync" decodeIncrementalSyncToken emptyCache.lastSync
-        |> required "items" (decodeIntDict decodeItem)
-        |> required "projects" (decodeIntDict decodeProject)
+        |> required "items" (decodeIntDict Item.decodeItem)
+        |> required "projects" (decodeIntDict Project.decodeProject)
         |> required "pendingCommands" (Decode.list Decode.string)
 
 
@@ -91,8 +87,8 @@ encodeCache : Cache -> Encode.Value
 encodeCache record =
     Encode.object
         [ ( "lastSync", encodeIncrementalSyncToken record.lastSync )
-        , ( "items", encodeIntDict encodeItem record.items )
-        , ( "projects", encodeIntDict encodeProject record.projects )
+        , ( "items", encodeIntDict Item.encodeItem record.items )
+        , ( "projects", encodeIntDict Project.encodeProject record.projects )
         , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
         ]
 
@@ -220,89 +216,6 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 
 
 
--------------------------------- ACTUAL TODOIST STUFF ----------------------NOTE
-
-
-{-| A Todoist "project", represented exactly the way the API describes it.
--}
-type alias Project =
-    { id : RealProjectID
-    , name : String
-    , color : Int
-    , parent_id : Maybe Int
-    , child_order : Int
-    , collapsed : Int
-    , shared : Bool
-    , is_deleted : BoolFromInt
-    , is_archived : BoolFromInt
-    , is_favorite : BoolFromInt
-    , inbox_project : Bool
-    , team_inbox : Bool
-    }
-
-
-
--- {-| Needed?
---
--- -}
--- newProject : String -> Int -> Project
--- newProject newName =
---     { id =
---     , name = ""
---     , color = 0
---     , parentId = 0
---     , childOrder = 0
---     , collapsed = 0
---     , shared = False
---     , is_deleted = 0
---     , is_archived = 0
---     , is_favorite = 0
---     }
-
-
-decodeProject : Decoder Project
-decodeProject =
-    decode Project
-        |> required "id" int
-        |> required "name" string
-        |> required "color" int
-        |> required "parent_id" (nullable int)
-        |> required "child_order" int
-        |> required "collapsed" int
-        |> required "shared" bool
-        |> required "is_deleted" decodeBoolFromInt
-        |> required "is_archived" decodeBoolFromInt
-        |> required "is_favorite" decodeBoolFromInt
-        |> optional "inbox_project" bool False
-        |> optional "team_inbox" bool False
-        |> optionalIgnored "legacy_parent_id"
-        |> optionalIgnored "legacy_id"
-        |> optionalIgnored "has_more_notes"
-
-
-
---should be id 1 anyway
-
-
-encodeProject : Project -> Encode.Value
-encodeProject record =
-    Encode.object
-        [ ( "id", Encode.int <| record.id )
-        , ( "name", Encode.string <| record.name )
-        , ( "color", Encode.int <| record.color )
-        , ( "parent_id", Encode.maybe Encode.int <| record.parent_id )
-        , ( "child_order", Encode.int <| record.child_order )
-        , ( "collapsed", Encode.int <| record.collapsed )
-        , ( "shared", Encode.bool <| record.shared )
-        , ( "is_deleted", encodeBoolToInt <| record.is_deleted )
-        , ( "is_archived", encodeBoolToInt <| record.is_archived )
-        , ( "is_favorite", encodeBoolToInt <| record.is_favorite )
-        , ( "inbox_project", Encode.bool <| record.inbox_project )
-        , ( "team_inbox", Encode.bool <| record.team_inbox )
-        ]
-
-
-
 --------------------------------- RESPONSE ---------------------------------NOTE
 
 
@@ -391,8 +304,8 @@ decodeResponse =
         |> optional "sync_token" (Decode.map Just decodeIncrementalSyncToken) Nothing
         |> optional "sync_status" (Decode.dict decodeCommandResult) Dict.empty
         |> required "full_sync" bool
-        |> optional "items" (list decodeItem) []
-        |> optional "projects" (list decodeProject) []
+        |> optional "items" (list Item.decodeItem) []
+        |> optional "projects" (list Project.decodeProject) []
         |> optionalIgnored "collaborators"
         |> optionalIgnored "collaborator_states"
         |> optionalIgnored "day_orders"
