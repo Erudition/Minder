@@ -1,4 +1,4 @@
-module External.Todoist exposing (Project, TodoistMsg(..), sync)
+module External.Todoist exposing (Cache, IncrementalSyncToken(..), Project, Resources(..), Response, SecretToken, TodoistMsg(..), decodeIncrementalSyncToken, decodeProject, decodeResponse, decodeTodoistCache, devSecret, emptyCache, encodeIncrementalSyncToken, encodeProject, encodeResources, encodeTodoistCache, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -143,7 +143,7 @@ serverUrl secret resourceList commandList (IncrementalSyncToken syncToken) =
         withRead =
             if List.length resourceList > 0 then
                 [ Url.Builder.string "sync_token" syncToken
-                , Url.Builder.string "resource_type" (Encode.encode 0 resources)
+                , Url.Builder.string "resource_types" (Encode.encode 0 resources)
                 ]
 
             else
