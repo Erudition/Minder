@@ -1,4 +1,4 @@
-module Incubator.Todoist.Item exposing (Due, ISODateString, Item, Priority(..), RealItemID, UserID, decodeDue, decodeItem, decodePriority, encodeDue, encodeItem, encodePriority, fromRFC3339Date, toRFC3339Date)
+module Incubator.Todoist.Item exposing (Due, ISODateString, Item, ItemID, Priority(..), UserID, decodeDue, decodeItem, decodePriority, encodeDue, encodeItem, encodePriority, fromRFC3339Date, toRFC3339Date)
 
 import Dict exposing (Dict)
 import Http
@@ -20,7 +20,7 @@ import Url.Builder
 
 {-| Todoist uses large integers for item IDs. It would nice to use type-safe Elm goodness here, but we want to stick to the API, so this is just a helpfully-named alias for `Int`.
 -}
-type alias RealItemID =
+type alias ItemID =
     Int
 
 
@@ -35,17 +35,17 @@ type alias ISODateString =
 {-| Item
 -}
 type alias Item =
-    { id : RealItemID
+    { id : ItemID
     , user_id : UserID
     , project_id : Int
     , content : String
     , due : Maybe Due
     , priority : Priority
-    , parent_id : Maybe RealItemID
+    , parent_id : Maybe ItemID
     , child_order : Int
     , day_order : Int
     , collapsed : BoolFromInt
-    , children : List RealItemID
+    , children : List ItemID
     , assigned_by_uid : UserID
     , responsible_uid : Maybe UserID
     , checked : Bool

@@ -1,4 +1,4 @@
-module Incubator.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RealProjectID, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
+module Incubator.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
 
 {-| A library for interacting with the Todoist API.
 
@@ -11,6 +11,7 @@ import Http
 import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist.Item as Item exposing (..)
+import Incubator.Todoist.Project as Project exposing (..)
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
@@ -146,7 +147,7 @@ type alias TempID =
 
 
 type ProjectID
-    = RealProject RealProjectID
+    = RealProject Project.ProjectID
     | PlaceholderProject TempID
 
 
@@ -160,19 +161,13 @@ encodeProjectID realOrTemp =
             Encode.string tempID
 
 
-{-| Todoist uses large integers for project IDs. It would nice to use type-safe Elm goodness here, but we want to stick to the API, so this is just a helpfully-named alias for `Int`.
--}
-type alias RealProjectID =
-    Int
-
-
 {-| The fields required (and the only fields allowed) to ask the server to create a new Todoist "project", which can be done with the `ProjectAdd` `Command`.
 -}
 type alias NewProject =
     { temp_id : Maybe TempID
     , name : String
     , color : Maybe Int
-    , parent_id : Maybe RealProjectID
+    , parent_id : Maybe Project.ProjectID
     , child_order : Maybe Int
     , is_favorite : BoolFromInt
     }
@@ -215,7 +210,7 @@ encodeProjectChanges new =
 {-| One entry in a reordering list of projects.
 -}
 type alias ProjectOrder =
-    { id : RealProjectID
+    { id : Project.ProjectID
     , child_order : Int
     }
 
@@ -265,7 +260,7 @@ encodeNewItem new =
 
 
 type ItemID
-    = RealItem RealItemID
+    = RealItem Item.ItemID
     | PlaceholderItem TempID
 
 
@@ -348,7 +343,7 @@ type alias IDsToOrders =
 {-| One entry in a reordering list of items.
 -}
 type alias ItemOrder =
-    { id : RealItemID
+    { id : Item.ItemID
     , child_order : Int
     }
 

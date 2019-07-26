@@ -1,4 +1,4 @@
-module Incubator.Todoist.Project exposing (Project, decodeProject, encodeProject)
+module Incubator.Todoist.Project exposing (Project, ProjectID, decodeProject, encodeProject)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
@@ -7,14 +7,16 @@ import Json.Encode.Extra as Encode
 import Porting exposing (..)
 
 
-type alias ID =
+{-| Todoist uses large integers for project IDs. It would nice to use type-safe Elm goodness here, but we want to stick to the API, so this is just a helpfully-named alias for `Int`.
+-}
+type alias ProjectID =
     Int
 
 
 {-| A Todoist "project", represented exactly the way the API describes it.
 -}
 type alias Project =
-    { id : ID
+    { id : ProjectID
     , name : String
     , color : Int
     , parent_id : Maybe Int
