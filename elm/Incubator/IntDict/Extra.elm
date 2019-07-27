@@ -20,16 +20,18 @@ filterKeys func dict =
 
 {-| Apply a function that may or may not succeed to all entries in a dictionary,
 but only keep the successes.
-let
-isTeen n a =
-if 13 <= n && n <= 19 then
-Just <| String.toUpper a
-else
-Nothing
-in
-Dict.fromList [ ( 5, "Jack" ), ( 15, "Jill" ), ( 20, "Jones" ) ]
-|> filterMap isTeen
---> Dict.fromList [ ( 15, "JILL" ) ]
+
+        let
+            isTeen n a =
+                if 13 <= n && n <= 19 then
+                    Just <| String.toUpper a
+                else
+                    Nothing
+        in
+        Dict.fromList [ ( 5, "Jack" ), ( 15, "Jill" ), ( 20, "Jones" ) ]
+            |> filterMap isTeen
+        --> Dict.fromList [ ( 15, "JILL" ) ]
+
 -}
 filterMap : (Int -> a -> Maybe b) -> IntDict a -> IntDict b
 filterMap f dict =
