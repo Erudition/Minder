@@ -11,6 +11,7 @@ import External.Commands exposing (..)
 import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
+import Incubator.Todoist as Todoist
 import Integrations.Todoist
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
@@ -336,7 +337,7 @@ type Msg
     | SetZoneAndTime Zone Moment
     | ClearErrors
     | SyncTodoist
-    | TodoistServerResponse Todoist.TodoistMsg
+    | TodoistServerResponse Todoist.Msg
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -361,7 +362,9 @@ update msg ({ viewState, appData, environment } as model) =
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
         ( SyncTodoist, _ ) ->
-            justRunCommand <| Cmd.map TodoistServerResponse <| Todoist.sync appData.todoist.syncToken
+            justRunCommand <|
+                Cmd.map TodoistServerResponse <|
+                    Integrations.Todoist.fetchUpdates appData.todoist
 
         ( TodoistServerResponse response, _ ) ->
             let

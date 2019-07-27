@@ -1,4 +1,4 @@
-module Integrations.Todoist exposing (describeSuccess, devSecret, handle, itemToTask, priorityToImportance, timing)
+module Integrations.Todoist exposing (describeSuccess, devSecret, fetchUpdates, handle, itemToTask, priorityToImportance, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistIntegrationData, saveError)
@@ -28,6 +28,11 @@ import Task.Progress
 import Task.Task exposing (Task, newTask)
 import Url
 import Url.Builder
+
+
+fetchUpdates : TodoistIntegrationData -> Cmd Todoist.Msg
+fetchUpdates localData =
+    Todoist.sync localData.cache devSecret [ Todoist.Items, Todoist.Projects ] []
 
 
 devSecret : Todoist.SecretToken
