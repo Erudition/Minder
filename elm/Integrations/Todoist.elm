@@ -39,29 +39,11 @@ handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
         Ok newCache ->
             let
-                updatedTimetrackParent =
-                    -- TODO only do once
-                    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") newCache.projects
-
-                timetrackParent =
-                    Maybe.withDefault app.todoist.parentProjectID updatedTimetrackParent
-
-                validActivityProjects =
-                    IntDict.filter (\_ p -> p.parent_id == timetrackParent) newCache.projects
-
-                newActivityLookupTable =
-                    findActivityProjectIDs validActivityProjects filledInActivities
-
-                combinedALT =
-                    IntDict.union newActivityLookupTable app.todoist.activityProjectIDs
+                activitiesToProjects =
+                    discernActivityProjects app newCache
 
                 itemsInTimetrackToTasks =
-                    List.filterMap
-                        (timetrackItemToTask combinedALT)
-                        newCache.items
-
-                filledInActivities =
-                    Activity.allActivities app.activities
+                    List.filterMap (timetrackItemToTask activitiesToProjects) newCache.items
 
                 generatedTasks =
                     IntDict.fromList <|
@@ -73,7 +55,7 @@ handle msg app =
                 | todoist =
                     { cache = newCache
                     , parentProjectID = timetrackParent
-                    , activityProjectIDs = combinedALT
+                    , activityProjectIDs = activitiesToProjects
                     }
                 , tasks =
                     -- TODO figure out deleted
@@ -107,10 +89,43 @@ describeSuccess success =
             ++ "projects."
 
 
+discernActivityProjects : AppData -> Todoist.Cache -> IntDict Project
+discernActivityProjects app cache =
+    let
+        -- if we know the parent project already, don't look again. If not, try to find it.
+        foundTimetrackParent =
+            -- still returns a Maybe!
+            Maybe.withDefault (findTimetrackProject cache) app.todoist.parentProjectID
+    in
+    case foundTimetrackParent of
+        Nothing ->
+            -- Didn't know the ID beforehand, and couldn't find it this time either. Give up with empty - no tasks will be matched with an Activity for now
+            IntDict.empty
+
+        Just parentProjectID ->
+            let
+                validActivityProjects =
+                    IntDict.filter (\_ p -> p.parent_id == foundTimetrackParent) cache.projects
+
+                newActivityLookupTable =
+                    findActivityProjects validActivityProjects activities
+
+                activities =
+                    Activity.allActivities app.activities
+            in
+            -- add it to what we already know! TODO what if one is deleted?
+            IntDict.union newActivityLookupTable app.todoist.activityProjectIDs
+
+
+findTimetrackProject : Todoist.Cache -> Maybe Project.ProjectID
+findTimetrackProject cache =
+    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") cache.projects
+
+
 {-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
 -}
-findActivityProjectIDs : IntDict Project -> IntDict Activity -> IntDict ActivityID
-findActivityProjectIDs projects activities =
+findActivityProjects : IntDict Project -> IntDict Activity -> IntDict ActivityID
+findActivityProjects projects activities =
     -- phew! this was a hard one conceptually :) Looks clean though!
     let
         -- The only part of our activities we care about here is the name field, so we reduce the activities to just their name list
