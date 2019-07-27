@@ -1,4 +1,4 @@
-module Integrations.Todoist exposing (describeSuccess, devSecret, extractTiming, extractTiming2, findActivityProjectIDs, handle, itemToTask, priorityToImportance, timetrackItemToTask, timing)
+module Integrations.Todoist exposing (describeSuccess, devSecret, handle, itemToTask, priorityToImportance, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistIntegrationData, saveError)
@@ -19,6 +19,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
+import Set
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
@@ -37,31 +38,32 @@ devSecret =
 handle : Todoist.Msg -> AppData -> ( AppData, String )
 handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
-        Ok newCache ->
+        Ok ( newCache, changes ) ->
             let
-                activitiesToProjects =
-                    discernActivityProjects app newCache
+                maybeParent =
+                    -- uses old and new data to try to find the parent project
+                    tryGetTimetrackParentProject app.todoist newCache
 
-                itemsInTimetrackToTasks =
-                    List.filterMap (timetrackItemToTask activitiesToProjects) newCache.items
+                projectToActivityMapping =
+                    -- a table of project-to-activity correspondence
+                    -- TODO perf: only search new projects
+                    detectActivityProjects maybeParent app newCache
 
-                generatedTasks =
-                    IntDict.fromList <|
-                        Debug.log "generated task list" <|
-                            List.map (\t -> ( t.id, t )) <|
-                                itemsInTimetrackToTasks
+                convertItemsToTasks =
+                    -- ignores certain items (no Activity) during conversion
+                    IntDict.filterMapValues (timetrackItemToTask projectToActivityMapping) newCache.items
             in
             ( { app
                 | todoist =
                     { cache = newCache
-                    , parentProjectID = timetrackParent
-                    , activityProjectIDs = activitiesToProjects
+                    , parentProjectID = maybeParent
+                    , activityProjectIDs = projectToActivityMapping
                     }
                 , tasks =
                     -- TODO figure out deleted
-                    IntDict.union generatedTasks app.tasks
+                    IntDict.union convertItemsToTasks app.tasks
               }
-            , describeSuccess newCache
+            , describeSuccess changes
             )
 
         Err err ->
@@ -72,40 +74,74 @@ handle msg app =
             ( saveError app description, description )
 
 
-describeSuccess : Todoist.Response -> String
-describeSuccess success =
-    if success.full_sync then
-        "Did FULL Todoist sync: "
-            ++ String.fromInt (List.length success.items)
-            ++ " items, "
-            ++ String.fromInt (List.length success.projects)
-            ++ " projects retrieved!"
-
-    else
-        "Incremental Todoist sync complete: Updated "
-            ++ String.fromInt (List.length success.items)
-            ++ " items and "
-            ++ String.fromInt (List.length success.projects)
-            ++ "projects."
-
-
-discernActivityProjects : AppData -> Todoist.Cache -> IntDict Project
-discernActivityProjects app cache =
+describeSuccess : Todoist.LatestChanges -> String
+describeSuccess report =
     let
-        -- if we know the parent project already, don't look again. If not, try to find it.
-        foundTimetrackParent =
-            -- still returns a Maybe!
-            Maybe.withDefault (findTimetrackProject cache) app.todoist.parentProjectID
+        ( projectsAdded, projectsDeleted, projectsModified ) =
+            ( Set.size report.projectsAdded, Set.size report.projectsDeleted, Set.size report.projectsChanged )
+
+        ( itemsAdded, itemsDeleted, itemsModified ) =
+            ( Set.size report.itemsAdded, Set.size report.itemsDeleted, Set.size report.itemsChanged )
+
+        totalProjectChanges =
+            projectsAdded + projectsDeleted + projectsModified
+
+        totalItemChanges =
+            itemsAdded + itemsDeleted + itemsModified
+
+        itemReport =
+            if totalItemChanges > 0 then
+                Just <|
+                    String.fromInt totalItemChanges
+                        ++ " items updated ("
+                        ++ String.fromInt itemsAdded
+                        ++ " created, "
+                        ++ String.fromInt itemsDeleted
+                        ++ " deleted) and "
+
+            else
+                Nothing
+
+        projectReport =
+            if totalProjectChanges > 0 then
+                Just <|
+                    String.fromInt totalProjectChanges
+                        ++ " projects updated ("
+                        ++ String.fromInt projectsAdded
+                        ++ " created, "
+                        ++ String.fromInt projectsDeleted
+                        ++ " deleted)"
+
+            else
+                Nothing
+
+        reportList =
+            List.filterMap identity [ itemReport, projectReport ]
     in
-    case foundTimetrackParent of
+    "Todoist sync complete: "
+        ++ (if totalProjectChanges + totalItemChanges == 0 then
+                "Nothing changed since last sync."
+
+            else
+                (String.concat <| List.intersperse " and " reportList) ++ "."
+           )
+
+
+detectActivityProjects : Maybe Project.ProjectID -> AppData -> Todoist.Cache -> IntDict ActivityID
+detectActivityProjects maybeParent app cache =
+    case maybeParent of
         Nothing ->
-            -- Didn't know the ID beforehand, and couldn't find it this time either. Give up with empty - no tasks will be matched with an Activity for now
+            -- Still coudln't find parent ID. Give up with empty - no tasks will be matched with an Activity for now
             IntDict.empty
 
         Just parentProjectID ->
             let
+                hasTimetrackAsParent : Project -> Bool
+                hasTimetrackAsParent p =
+                    Maybe.unwrap False ((==) parentProjectID) p.parent_id
+
                 validActivityProjects =
-                    IntDict.filter (\_ p -> p.parent_id == foundTimetrackParent) cache.projects
+                    IntDict.filterValues hasTimetrackAsParent cache.projects
 
                 newActivityLookupTable =
                     findActivityProjects validActivityProjects activities
@@ -117,9 +153,16 @@ discernActivityProjects app cache =
             IntDict.union newActivityLookupTable app.todoist.activityProjectIDs
 
 
-findTimetrackProject : Todoist.Cache -> Maybe Project.ProjectID
-findTimetrackProject cache =
-    List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") cache.projects
+tryGetTimetrackParentProject : TodoistIntegrationData -> Todoist.Cache -> Maybe Project.ProjectID
+tryGetTimetrackParentProject localData cache =
+    case localData.parentProjectID of
+        Just parentProjectID ->
+            -- we already know it! just use that. If it changes later for some reason, the user will have to do a reset.
+            Just parentProjectID
+
+        Nothing ->
+            -- we have yet to find the parentProjectID. Let's try again:
+            List.head <| IntDict.keys <| IntDict.filter (\_ p -> p.name == "Timetrack") cache.projects
 
 
 {-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
@@ -177,6 +220,9 @@ itemToTask activityID item =
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
+
+        getDueDate due =
+            Item.fromRFC3339Date due.date
     in
     { base
         | completion =
@@ -190,7 +236,7 @@ itemToTask activityID item =
         , minEffort = Maybe.withDefault base.minEffort minDur
         , maxEffort = Maybe.withDefault base.maxEffort maxDur
         , importance = priorityToImportance item.priority
-        , deadline = Maybe.map .date item.due
+        , deadline = Maybe.andThen getDueDate item.due
     }
 
 
