@@ -1,4 +1,4 @@
-module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), Msg(..), Resources(..), Response, SecretToken, decodeCache, decodeIncrementalSyncToken, decodeResponse, describeError, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, smartHandle, sync)
+module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), LatestChanges, Msg(..), Resources(..), Response, SecretToken, decodeCache, decodeIncrementalSyncToken, decodeResponse, describeError, easyHandle, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, summarizeChanges, sync)
 
 {-| A library for interacting with the Todoist API.
 
@@ -21,6 +21,7 @@ import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Porting exposing (..)
+import Set exposing (Set)
 import SmartTime.Human.Moment as HumanMoment
 import Url
 import Url.Builder
@@ -38,7 +39,7 @@ This is a `Platform.Cmd`, you'll need to run it from your `update`.
 sync : Cache -> SecretToken -> List Resources -> List Command -> Cmd Msg
 sync cache secret resourceList commandList =
     Http.post
-        { url = serverUrl secret resourceList commandList cache.lastSync
+        { url = serverUrl secret resourceList commandList cache.nextSync
         , body = Http.emptyBody
         , expect = Http.expectJson SyncResponded (toClassic decodeResponse)
         }
@@ -58,7 +59,7 @@ That said, this is optional. You can handle the fetched resources individually i
 
 -}
 type alias Cache =
-    { lastSync : IncrementalSyncToken
+    { nextSync : IncrementalSyncToken
     , items : IntDict Item
     , projects : IntDict Project
     , pendingCommands : List String
@@ -67,7 +68,7 @@ type alias Cache =
 
 emptyCache : Cache
 emptyCache =
-    { lastSync = IncrementalSyncToken "*"
+    { nextSync = IncrementalSyncToken "*"
     , items = IntDict.empty
     , projects = IntDict.empty
     , pendingCommands = []
@@ -77,7 +78,7 @@ emptyCache =
 decodeCache : Decoder Cache
 decodeCache =
     decode Cache
-        |> optional "lastSync" decodeIncrementalSyncToken emptyCache.lastSync
+        |> optional "nextSync" decodeIncrementalSyncToken emptyCache.nextSync
         |> required "items" (decodeIntDict Item.decodeItem)
         |> required "projects" (decodeIntDict Project.decodeProject)
         |> required "pendingCommands" (Decode.list Decode.string)
@@ -86,7 +87,7 @@ decodeCache =
 encodeCache : Cache -> Encode.Value
 encodeCache record =
     Encode.object
-        [ ( "lastSync", encodeIncrementalSyncToken record.lastSync )
+        [ ( "nextSync", encodeIncrementalSyncToken record.nextSync )
         , ( "items", encodeIntDict Item.encodeItem record.items )
         , ( "projects", encodeIntDict Project.encodeProject record.projects )
         , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
@@ -219,47 +220,96 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 --------------------------------- RESPONSE ---------------------------------NOTE
 
 
-handleResponse : Msg -> Cache -> Result Http.Error Cache
+handleResponse : Msg -> Cache -> Result Http.Error ( Cache, LatestChanges )
 handleResponse (SyncResponded response) oldCache =
     case response of
-        Ok new ->
+        Ok newStuff ->
             let
-                -- creates a dictionary out of the returned projects
-                projectsDict =
-                    IntDict.fromList (List.map (\p -> ( p.id, p )) new.projects)
-
-                itemsDict =
-                    IntDict.fromList (List.map (\i -> ( i.id, i )) new.items)
+                -- creates a dictionary out of the returned stuff, for merging
+                ( itemsDict, projectsDict ) =
+                    ( IntDict.fromList (List.map (\i -> ( i.id, i )) newStuff.items)
+                    , IntDict.fromList (List.map (\p -> ( p.id, p )) newStuff.projects)
+                    )
 
                 -- Only remove deleted if it's a partial sync. We won't get deleted items on a full sync anyway, and that would take the longest to map over.
                 prune inputDict =
-                    if not new.full_sync then
+                    if not newStuff.full_sync then
                         pruneDeleted inputDict
 
                     else
                         inputDict
             in
             Ok
-                { lastSync = Maybe.withDefault oldCache.lastSync new.sync_token
-                , items = prune <| IntDict.union itemsDict oldCache.items
-                , projects = prune <| IntDict.union projectsDict oldCache.projects
-                , pendingCommands = []
-                }
+                ( { nextSync = Maybe.withDefault oldCache.nextSync newStuff.sync_token
+                  , items = prune <| IntDict.union itemsDict oldCache.items
+                  , projects = prune <| IntDict.union projectsDict oldCache.projects
+                  , pendingCommands = []
+                  }
+                , summarizeChanges oldCache newStuff
+                )
 
         Err err ->
             Result.Err err
 
 
+{-| A summary of the latest changes!
+-}
+type alias LatestChanges =
+    { itemsAdded : Set Item.ItemID
+    , itemsDeleted : Set Item.ItemID
+    , itemsChanged : Set Item.ItemID
+    , projectsAdded : Set Project.ProjectID
+    , projectsDeleted : Set Project.ProjectID
+    , projectsChanged : Set Project.ProjectID
+    }
+
+
+summarizeChanges : Cache -> Response -> LatestChanges
+summarizeChanges oldCache new =
+    let
+        toIDSet list =
+            Set.fromList (List.map .id list)
+
+        -- keeps track of all the changed IDs, before the changes are merged
+        ( allChangedItemIDs, allChangedProjectIDs ) =
+            ( toIDSet new.items, toIDSet new.projects )
+
+        ( newlyAddedItemIDs, newlyAddedProjectIDs ) =
+            ( Set.filter (\id -> not (IntDict.member id oldCache.items)) allChangedItemIDs
+            , Set.filter (\id -> not (IntDict.member id oldCache.projects)) allChangedProjectIDs
+            )
+
+        ( deletedItemIDs, deletedProjectIDs ) =
+            ( toIDSet (List.filter .is_deleted new.items)
+            , toIDSet (List.filter .is_deleted new.projects)
+            )
+
+        -- not new nor deleted, but changed some other way
+        ( remainingItemIDs, remainingProjectIDs ) =
+            ( Set.diff allChangedItemIDs (Set.union newlyAddedItemIDs deletedItemIDs)
+            , Set.diff allChangedProjectIDs (Set.union newlyAddedProjectIDs deletedProjectIDs)
+            )
+    in
+    { itemsAdded = newlyAddedItemIDs
+    , itemsDeleted = deletedItemIDs
+    , itemsChanged = remainingItemIDs
+    , projectsAdded = newlyAddedProjectIDs
+    , projectsDeleted = deletedProjectIDs
+    , projectsChanged = remainingProjectIDs
+    }
+
+
 {-| An example of how you can handle the output of `handleResponse`. Wraps it.
 -}
-smartHandle : Msg -> Cache -> ( Cache, String )
-smartHandle inputMsg oldCache =
+easyHandle : Msg -> Cache -> ( Cache, String )
+easyHandle inputMsg oldCache =
     let
         runHandler =
             handleResponse inputMsg oldCache
     in
     case runHandler of
-        Ok newCache ->
+        Ok ( newCache, _ ) ->
+            -- TODO describe success
             ( newCache, "Success" )
 
         Err error ->
