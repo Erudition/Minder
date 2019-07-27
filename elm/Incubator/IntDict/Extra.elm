@@ -1,4 +1,4 @@
-module Incubator.IntDict.Extra exposing (filterKeys, filterMap, filterValues, mapValues)
+module Incubator.IntDict.Extra exposing (filterKeys, filterMap, filterMapKeys, filterMapValues, filterValues, mapValues)
 
 import IntDict exposing (IntDict)
 
@@ -38,6 +38,42 @@ filterMap f dict =
     IntDict.foldl
         (\k v acc ->
             case f k v of
+                Just newVal ->
+                    IntDict.insert k newVal acc
+
+                Nothing ->
+                    acc
+        )
+        IntDict.empty
+        dict
+
+
+{-| Apply a function that may or may not succeed to all keys in a dictionary,
+but only keep the successes.
+-}
+filterMapKeys : (Int -> Maybe b) -> IntDict a -> IntDict b
+filterMapKeys f dict =
+    IntDict.foldl
+        (\k _ acc ->
+            case f k of
+                Just newVal ->
+                    IntDict.insert k newVal acc
+
+                Nothing ->
+                    acc
+        )
+        IntDict.empty
+        dict
+
+
+{-| Apply a function that may or may not succeed to all values in a dictionary,
+but only keep the successes.
+-}
+filterMapValues : (a -> Maybe b) -> IntDict a -> IntDict b
+filterMapValues f dict =
+    IntDict.foldl
+        (\k v acc ->
+            case f v of
                 Just newVal ->
                     IntDict.insert k newVal acc
 
