@@ -19,7 +19,7 @@ type alias Project =
     { id : ProjectID
     , name : String
     , color : Int
-    , parent_id : Maybe Int
+    , parent_id : Maybe ProjectID
     , child_order : Int
     , collapsed : Int
     , shared : Bool
