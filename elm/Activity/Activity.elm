@@ -433,7 +433,7 @@ defaults startWith =
         Apparel ->
             { names = [ "Appareling", "Dressing", "Getting Dressed", "Dressing Up" ]
             , icon = File "shirt.svg"
-            , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
+            , excusable = TemporarilyExcused ( Minutes 5, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Hygiene
@@ -446,7 +446,7 @@ defaults startWith =
         Messaging ->
             { names = [ "Messaging", "Texting", "Chatting", "Text Messaging" ]
             , icon = File "messaging.svg"
-            , excusable = TemporarilyExcused ( Minutes 5, Minutes 30 )
+            , excusable = TemporarilyExcused ( Minutes 7, Minutes 30 )
             , taskOptional = True
             , evidence = []
             , category = Communication
@@ -459,7 +459,7 @@ defaults startWith =
         Restroom ->
             { names = [ "Restroom", "Toilet", "WC", "Washroom", "Latrine", "Lavatory", "Water Closet" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
+            , excusable = TemporarilyExcused ( Minutes 12, Hours 2 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -589,7 +589,7 @@ defaults startWith =
         Plan ->
             { names = [ "Plan", "Planning", "Plans" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
+            , excusable = TemporarilyExcused ( Minutes 20, Hours 3 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -602,7 +602,7 @@ defaults startWith =
         Configure ->
             { names = [ "Configure", "Configuring", "Configuration" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 30, Hours 5 )
+            , excusable = TemporarilyExcused ( Minutes 25, Hours 5 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -615,7 +615,7 @@ defaults startWith =
         Email ->
             { names = [ "Email", "E-Mail", "E-mail", "Emailing", "E-mails", "Emails", "E-mailing" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 10, Hours 2 )
+            , excusable = TemporarilyExcused ( Minutes 15, Hours 4 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -654,7 +654,7 @@ defaults startWith =
         Chores ->
             { names = [ "Chore", "Chores" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 25, Hours 4 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -732,7 +732,7 @@ defaults startWith =
         SocialMedia ->
             { names = [ "Social Media" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 10, Hours 4 )
+            , excusable = TemporarilyExcused ( Minutes 20, Hours 4 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -769,9 +769,9 @@ defaults startWith =
             }
 
         Finance ->
-            { names = [ "Finance", "Financial" ]
+            { names = [ "Finance", "Financial", "Finances" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 20, Hours 16 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -836,7 +836,7 @@ defaults startWith =
         Learning ->
             { names = [ "Learn", "Learning" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 15, Hours 10 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -849,7 +849,7 @@ defaults startWith =
         BrainTrain ->
             { names = [ "Brain Training", "Braining", "Brain Train", "Mental Math Practice" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 30, Days 1 )
+            , excusable = TemporarilyExcused ( Minutes 30, Hours 20 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -875,7 +875,7 @@ defaults startWith =
         Create ->
             { names = [ "Create", "Creating", "Creation", "Making" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 35, Hours 16 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -901,7 +901,7 @@ defaults startWith =
         Meeting ->
             { names = [ "Meeting", "Meet", "Meetings" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 35, Hours 8 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -1005,7 +1005,7 @@ defaults startWith =
         Housekeeping ->
             { names = [ "Housekeeping" ]
             , icon = File "unknown.svg"
-            , excusable = NeverExcused
+            , excusable = TemporarilyExcused ( Minutes 20, Hours 6 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
@@ -1018,7 +1018,7 @@ defaults startWith =
         MealPrep ->
             { names = [ "Meal Prep", "Cooking", "Food making" ]
             , icon = File "unknown.svg"
-            , excusable = TemporarilyExcused ( Minutes 45, Hours 3 )
+            , excusable = TemporarilyExcused ( Minutes 45, Hours 6 )
             , taskOptional = True
             , evidence = []
             , category = Slacking
