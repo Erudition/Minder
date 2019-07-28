@@ -13386,7 +13386,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Minutes(5),
 						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('shirt.svg'),
@@ -13405,7 +13405,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(5),
+						author$project$SmartTime$Human$Duration$Minutes(7),
 						author$project$SmartTime$Human$Duration$Minutes(30))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('messaging.svg'),
@@ -13424,7 +13424,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(15),
+						author$project$SmartTime$Human$Duration$Minutes(12),
 						author$project$SmartTime$Human$Duration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -13599,8 +13599,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(15),
-						author$project$SmartTime$Human$Duration$Hours(2))),
+						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13618,7 +13618,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(30),
+						author$project$SmartTime$Human$Duration$Minutes(25),
 						author$project$SmartTime$Human$Duration$Hours(5))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -13637,8 +13637,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(10),
-						author$project$SmartTime$Human$Duration$Hours(2))),
+						author$project$SmartTime$Human$Duration$Minutes(15),
+						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13692,7 +13692,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(25),
+						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13802,7 +13805,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Minutes(20),
 						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -13851,14 +13854,17 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Hours(16))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
 					author$project$SmartTime$Human$Duration$Hours(2),
 					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
-					['Finance', 'Financial']),
+					['Finance', 'Financial', 'Finances']),
 				taskOptional: true,
 				template: startWith
 			};
@@ -13931,7 +13937,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(15),
+						author$project$SmartTime$Human$Duration$Hours(10))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13950,7 +13959,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
 						author$project$SmartTime$Human$Duration$Minutes(30),
-						author$project$SmartTime$Human$Duration$Days(1))),
+						author$project$SmartTime$Human$Duration$Hours(20))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13982,7 +13991,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(35),
+						author$project$SmartTime$Human$Duration$Hours(16))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14014,7 +14026,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(35),
+						author$project$SmartTime$Human$Duration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14142,7 +14157,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Hours(6))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14161,7 +14179,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
 						author$project$SmartTime$Human$Duration$Minutes(45),
-						author$project$SmartTime$Human$Duration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Hours(6))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
