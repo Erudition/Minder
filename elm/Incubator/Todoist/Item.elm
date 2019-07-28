@@ -64,7 +64,6 @@ decodeItem =
         |> required "project_id" int
         |> required "content" string
         |> required "due" (nullable decodeDue)
-        |> ignored "indent"
         |> required "priority" decodePriority
         |> required "parent_id" (nullable int)
         |> required "child_order" int
@@ -72,7 +71,7 @@ decodeItem =
         |> required "day_order" int
         |> required "collapsed" decodeBoolFromInt
         |> optional "children" (list int) []
-        |> ignored "labels"
+        |> optionalIgnored "labels"
         |> optional "assigned_by_uid" int 0
         |> required "responsible_uid" (nullable int)
         |> required "checked" decodeBoolFromInt
@@ -81,6 +80,7 @@ decodeItem =
         |> optional "is_archived" decodeBoolFromInt False
         -- API docs do not indicate this is an optional field
         |> required "date_added" string
+        |> optionalIgnored "indent"
         |> optionalIgnored "legacy_id"
         |> optionalIgnored "legacy_project_id"
         |> optionalIgnored "legacy_parent_id"
