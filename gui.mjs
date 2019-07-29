@@ -3,13 +3,13 @@ const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = win
 
 // Check for Tasker on Android
 import * as taskerFillers from "./tasker-fillers.mjs";
-try {
+// try {
     tk.flash("hey I'm in tasker!");
     var inTasker = ( tk.global( 'sdk' ) > 0 );
-} catch (e) {
-    var tk = taskerFillers;
-    var inTasker = false;
-}
+// } catch (e) {
+//     var tk = taskerFillers;
+//     var inTasker = false;
+// }
 
 
 
