@@ -4,7 +4,8 @@ const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = win
 // Check for Tasker on Android
 import * as taskerFillers from "./tasker-fillers.mjs";
 // try {
-    tk.flash("hey I'm in tasker!");
+    var sdk = tk.global( 'sdk' );
+    tk.flash("2 hey I'm in tasker! Android sdk v" + sdk);
     var inTasker = ( tk.global( 'sdk' ) > 0 );
 // } catch (e) {
 //     var tk = taskerFillers;
