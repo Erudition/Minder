@@ -209,7 +209,7 @@ timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
     -- Just sayin'.
-    case Debug.log "lookup" <| IntDict.get item.project_id lookup of
+    case IntDict.get item.project_id lookup of
         Just act ->
             Just (itemToTask act item)
 

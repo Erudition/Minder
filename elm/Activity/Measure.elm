@@ -174,11 +174,18 @@ excusedUsage timeline now ( activityID, activity ) =
     totalLive now lastPeriod activityID
 
 
-{-| Length of the the excused window.
+{-| Amount of time allowed to be Excused (within window)
 -}
 excusableLimit : Activity -> Duration
 excusableLimit activity =
     dur (Tuple.first (Activity.excusableFor activity))
+
+
+{-| Length of the the window in which excused time is limited.
+-}
+excusableLimitWindow : Activity -> Duration
+excusableLimitWindow activity =
+    dur (Tuple.second (Activity.excusableFor activity))
 
 
 {-| Total time NOT used within the excused window.

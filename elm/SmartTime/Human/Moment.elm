@@ -130,7 +130,8 @@ deduceZoneOffset zone elmTime =
             fromDateAndTime utc zonedDate zonedTime
 
         localTime =
-            Debug.log ("local: " ++ toStandardString combinedMoment) <| combinedMoment
+            -- Debug.log ("local: " ++ toStandardString combinedMoment) <| combinedMoment
+            combinedMoment
 
         utcTime =
             Moment.fromElmTime elmTime
@@ -138,7 +139,7 @@ deduceZoneOffset zone elmTime =
         offset =
             Moment.toSmartInt localTime - Moment.toSmartInt utcTime
     in
-    Debug.log "zone offset" <| Duration.fromMs (toFloat offset)
+    Duration.fromMs (toFloat offset)
 
 
 importElmMonth : ElmTime.Month -> Month
