@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -246,6 +246,44 @@ compare lhs rhs =
 midnight : TimeOfDay
 midnight =
     Duration.zero
+
+
+{-| The exact end of the day, equivalent to midnight of the next day. Often represented as the time 24:00.
+
+Yes, this feature is supported! And no, the internal type is not complicated by this! Now you can compare moments to the end of the day without silly approximations like 23:59:59 and pretending the day is longer than it is.
+
+Usage Note: Since this `TimeOfDay` is logically equivalent to 00:00 (when dates aren't involved), you can only achieve this `TimeOfDay` by explicitly setting it. You can't arrive at it with any arithmetic operations, it will just be interpreted as midnight.
+
+Warning: Programs outside of this library are not so smart, and will probably interpret this as 00:00. That could mean a whole day of error, so if you need compatibility with some outside system, use the approximations like `lastMillisecond` instead!
+
+-}
+endOfDay : TimeOfDay
+endOfDay =
+    Duration.aDay
+
+
+{-| The last second of the day, just before midnight of the next day.
+
+    endOfDay == 23:59:59.000
+
+Useful as an approximation for `endOfDay`, for apps that work on the granularity of Seconds, and can't handle the double-representation of (00:00 == 24:00), but still want to compare times to the end of the day.
+
+-}
+lastSecond : TimeOfDay
+lastSecond =
+    Duration.subtract Duration.aDay (Duration.fromSeconds 1.0)
+
+
+{-| The last millisecond of the day, just before midnight of the next day.
+
+    endOfDay == 23:59:59.999
+
+Useful as an approximation for `endOfDay`, for apps that can't handle the double-representation of (00:00 == 24:00) but still want to compare times to the end of the day.
+
+-}
+lastMillisecond : TimeOfDay
+lastMillisecond =
+    Duration.subtract Duration.aDay (Duration.fromMs 1)
 
 
 noon : TimeOfDay
