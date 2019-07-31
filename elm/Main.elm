@@ -577,12 +577,8 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                     ( model, Cmd.none )
 
         Nothing ->
-            let
-                problemText =
-                    "Handle URL Triggers: failed to parse URL "
-                        ++ Url.toString normalizedUrl
-            in
-            ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+            -- Failed to parse URL Query - there probably wasn't one!
+            ( model, Cmd.none )
 
 
 nerfUrl : Url.Url -> Url.Url
