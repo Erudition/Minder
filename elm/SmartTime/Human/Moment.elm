@@ -639,11 +639,28 @@ fuzzyFromString givenString =
         Result.map DateOnly (Calendar.fromNumberString givenString)
 
 
+{-| Compare two Fuzzy Moments, to determine whether the first is `Later` or `Earlier` than the second. When comparing values with a `TimeOfDay` to values without one, the given default `TimeOfDay` is used. (Sensible choices include `Clock.startOfDay`, `Clock.midday`, and `Clock.endOfDay`.)
+
+In the specific case where Two `DateOnly` values are compared, their dates are compared directly, without being converted to `Moment`s. This is so that comparisons work the the way humans expect - one day's end (`Clock.endOfDay`) is considered earlier than the next day's start (`Clock.startOfDay`) even though they're mathematically equivalent `Moment`s in time.
+
+-}
 compareFuzzy : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Moment.TimelineOrder
 compareFuzzy zone defaultTime fuzzyA fuzzyB =
-    Moment.compare (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
+    case ( fuzzyA, fuzzyB ) of
+        ( DateOnly dateA, DateOnly dateB ) ->
+            Calendar.compare dateA dateB
+
+        ( _, _ ) ->
+            Moment.compare (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
 
 
+{-| A version of `compareFuzzy` that returns a `Basics.Order`.
+-}
 compareFuzzyBasic : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Order
 compareFuzzyBasic zone defaultTime fuzzyA fuzzyB =
-    Moment.compareBasic (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
+    case ( fuzzyA, fuzzyB ) of
+        ( DateOnly dateA, DateOnly dateB ) ->
+            Calendar.compareBasic dateA dateB
+
+        ( _, _ ) ->
+            Moment.compareBasic (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)

@@ -6,7 +6,7 @@ module SmartTime.Human.Calendar exposing
     , decrementYear, decrementMonth, decrementDay
     , compare
     , getDateRange, getDatesInMonth, subtract, dayOfWeek, sort
-    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, describeVsToday, difference, divWithRemainder, equal, firstDayOfMonth, firstOfYear, floorDiv, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, padNumber, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, toStandardString, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
+    , CalendarDate(..), OrdinalDay, Parts, RataDie, WeekNumberingYear(..), addDays, calculate, clamp, compareBasic, countSpecificDOWBetween, daysBeforeWeekBasedYear, daysSincePrevious, describeVsToday, difference, divWithRemainder, equal, firstDayOfMonth, firstOfYear, floorDiv, fromInts, fromNumberString, fromOrdinalDateForced, fromOrdinalParts, fromParts, fromPartsForced, fromPartsTrusted, fromRataDie, fromRawInts, fromRawIntsForced, fromWeekDateForced, fromWeekParts, intIsBetween, is53WeekYear, isBetween, isLeapDay, monthBoundariesBetween, monthNumber, ordinalDay, padNumber, quarter, quarterBoundariesBetween, separatedYMD, setDayOfMonthForced, setDayOfMonthWithOverflow, setMonthForced, setMonthWithOverflow, setYearKeepOrdinal, setYearSafe, setYearWithOverFlow, shiftMonth, shiftQuarter, shiftYear, timeBetween, toMonths, toNext, toNumberString, toOrdinalDate, toParts, toPrevious, toRataDie, toStandardString, weekBoundariesBetween, weekNumber, weekNumberingYear, withinSameMonth, withinSameQuarter, withinSameWeek, withinSameYear, yearBoundariesBetween
     )
 
 {-| The [Calendar](Calendar#) module was introduced in order to keep track of the `Calendar Date` concept.
@@ -1294,11 +1294,33 @@ equal (CalendarDate a) (CalendarDate b) =
     a == b
 
 
-{-| Compare two dates. This can be used as the compare function for
-`List.sortWith`.
+{-| Compare two dates, letting you know whether the first is `Earlier`, `Later`, or the same as the second.
+
+This returns a `Moment.TimelineOrder`, which is more intuitive and readable than 'Basics.Order' for timeline-related types (especially in `case` statements!), but if you need `LT`, `GT` and `EQ` you can use `compareBasic` instead.
+
 -}
-compare : CalendarDate -> CalendarDate -> Order
+compare : CalendarDate -> CalendarDate -> Moment.TimelineOrder
 compare (CalendarDate a) (CalendarDate b) =
+    case Basics.compare a b of
+        EQ ->
+            Moment.Coincident
+
+        LT ->
+            Moment.Earlier
+
+        GT ->
+            Moment.Later
+
+
+{-| Compare two dates. Returns a `Basics.Order`.
+
+This can be used as the compare function for `List.sortWith`, for example.
+
+Dates later on the timeline are considered "greater than" (`GT`) earlier dates. For a more intuitive treatment (and more readable `case` statements), consider using `compare` instead, which will actually return `Earlier` and `Later`.
+
+-}
+compareBasic : CalendarDate -> CalendarDate -> Order
+compareBasic (CalendarDate a) (CalendarDate b) =
     Basics.compare a b
 
 
