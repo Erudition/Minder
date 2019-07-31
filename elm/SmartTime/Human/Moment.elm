@@ -555,6 +555,37 @@ humanizeFuzzy zone fuzzy =
             wrapTimeWithJust (humanize zone moment)
 
 
+fromFuzzyWithDefaultTime : Zone -> TimeOfDay -> FuzzyMoment -> Moment
+fromFuzzyWithDefaultTime zone defaultTime fuzzy =
+    case fuzzy of
+        DateOnly date ->
+            fromDateAndTime zone date defaultTime
+
+        Floating ( date, time ) ->
+            -- de-humanize as if it was written for this time zone
+            fromDateAndTime zone date time
+
+        Global moment ->
+            moment
+
+
+humanizeFuzzyWithDefaultTime : Zone -> TimeOfDay -> FuzzyMoment -> ( CalendarDate, TimeOfDay )
+humanizeFuzzyWithDefaultTime zone defaultTime fuzzy =
+    let
+        wrapTimeWithJust ( date, time ) =
+            ( date, Just time )
+    in
+    case fuzzy of
+        DateOnly date ->
+            ( date, defaultTime )
+
+        Floating ( date, time ) ->
+            ( date, time )
+
+        Global moment ->
+            humanize zone moment
+
+
 fuzzyDescription : Moment -> Zone -> FuzzyMoment -> String
 fuzzyDescription now zone fuzzyMoment =
     case humanizeFuzzy zone fuzzyMoment of
