@@ -39,7 +39,7 @@ type alias Task =
     , plannedFinish : Maybe FuzzyMoment
     , relevanceStarts : Maybe FuzzyMoment
     , relevanceEnds : Maybe FuzzyMoment
-    , importance : Int
+    , importance : Float
     }
 
 
@@ -61,7 +61,7 @@ decodeTask =
         |> Pipeline.required "plannedFinish" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "relevanceStarts" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "relevanceEnds" (Decode.nullable decodeTaskMoment)
-        |> Pipeline.required "importance" Decode.int
+        |> Pipeline.required "importance" Decode.float
 
 
 encodeTask : Task -> Encode.Value
@@ -82,7 +82,7 @@ encodeTask record =
         , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
         , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
         , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
-        , ( "importance", Encode.int <| record.importance )
+        , ( "importance", Encode.float <| record.importance )
         ]
 
 
