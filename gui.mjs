@@ -91,7 +91,13 @@ function elmStartedWithoutTasker(app) {
 
     // FLASH OR TOAST
     app.ports.flash.subscribe(function(data) {
-        Toast.show({ text: data, duration: '10000'}).then();
+
+        // Workaround for https://github.com/ionic-team/pwa-elements/issues/34
+        // (Line breaks are ignored and replaced with spaces)
+        let reformatted = data.replace(/(?:\r\n|\r|\n)/g, " — ");
+
+
+        Toast.show({ text: reformatted, duration: '10000'}).then();
         console.log("Toast: "+data)
     });
 
