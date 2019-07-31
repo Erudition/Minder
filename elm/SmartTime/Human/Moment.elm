@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, dateFromFuzzy, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromStandardString, fromStandardStringLoose, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, toStandardString, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyBasic, dateFromFuzzy, deduceZoneOffset, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -637,3 +637,13 @@ fuzzyFromString givenString =
 
     else
         Result.map DateOnly (Calendar.fromNumberString givenString)
+
+
+compareFuzzy : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Moment.TimelineOrder
+compareFuzzy zone defaultTime fuzzyA fuzzyB =
+    Moment.compare (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
+
+
+compareFuzzyBasic : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Order
+compareFuzzyBasic zone defaultTime fuzzyA fuzzyB =
+    Moment.compareBasic (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
