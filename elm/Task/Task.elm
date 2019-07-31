@@ -10,6 +10,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress exposing (..)
@@ -261,7 +262,7 @@ compareSoonness : HumanMoment.Zone -> CompareFunction Task
 compareSoonness zone taskA taskB =
     case ( taskA.deadline, taskB.deadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
-            Moment.compareBasic (HumanMoment.fromFuzzy zone fuzzyMomentA) (HumanMoment.fromFuzzy zone fuzzyMomentB)
+            HumanMoment.compareFuzzyBasic zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 
         ( Nothing, Nothing ) ->
             EQ
