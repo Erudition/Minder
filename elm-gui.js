@@ -10256,8 +10256,10 @@ var author$project$Activity$Template$encodeTemplate = function (v) {
 			return elm$json$Json$Encode$string('Pet');
 		case 'Presentation':
 			return elm$json$Json$Encode$string('Presentation');
-		default:
+		case 'Projects':
 			return elm$json$Json$Encode$string('Projects');
+		default:
+			return elm$json$Json$Encode$string('Research');
 	}
 };
 var author$project$ID$encode = function (_n0) {
@@ -13760,7 +13762,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				taskOptional: true,
 				template: startWith
 			};
-		default:
+		case 'Projects':
 			return {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
@@ -13776,6 +13778,25 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 					author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
 					['Project', 'Projects', 'Project Work', 'Fun Project']),
+				taskOptional: true,
+				template: startWith
+			};
+		default:
+			return {
+				backgroundable: false,
+				category: author$project$Activity$Activity$Slacking,
+				evidence: _List_Nil,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(3))),
+				hidden: false,
+				icon: author$project$Activity$Activity$File('unknown.svg'),
+				maxTime: _Utils_Tuple2(
+					author$project$SmartTime$Human$Duration$Hours(6),
+					author$project$SmartTime$Human$Duration$Days(1)),
+				names: _List_fromArray(
+					['Research', 'Researching', 'Looking Stuff Up', 'Evaluating']),
 				taskOptional: true,
 				template: startWith
 			};
@@ -15557,14 +15578,7 @@ var author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		} else {
-			var problemText = 'Handle URL Triggers: failed to parse URL ' + elm$url$Url$toString(normalizedUrl);
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						appData: A2(author$project$AppData$saveError, appData, problemText)
-					}),
-				author$project$External$Commands$toast(problemText));
+			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
 var author$project$Main$update = F2(
