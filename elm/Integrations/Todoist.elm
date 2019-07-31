@@ -1,4 +1,4 @@
-module Integrations.Todoist exposing (describeSuccess, devSecret, fetchUpdates, handle, itemToTask, priorityToImportance, timing)
+module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret, fetchUpdates, handle, itemToTask, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistIntegrationData, saveError)
@@ -45,25 +45,27 @@ handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
         Ok ( newCache, changes ) ->
             let
-                maybeParent =
+                newMaybeParent =
                     -- uses old and new data to try to find the parent project
                     tryGetTimetrackParentProject app.todoist newCache
 
                 projectToActivityMapping =
                     -- a table of project-to-activity correspondence
                     -- TODO perf: only search new projects
-                    detectActivityProjects maybeParent app newCache
+                    detectActivityProjects newMaybeParent app newCache
 
                 convertItemsToTasks =
                     -- ignores certain items (no Activity) during conversion
                     IntDict.filterMapValues (timetrackItemToTask projectToActivityMapping) newCache.items
-            in
-            ( { app
-                | todoist =
+
+                newTodoistData =
                     { cache = newCache
-                    , parentProjectID = maybeParent
+                    , parentProjectID = newMaybeParent
                     , activityProjectIDs = projectToActivityMapping
                     }
+            in
+            ( { app
+                | todoist = newTodoistData
                 , tasks =
                     -- TODO figure out deleted
                     IntDict.union convertItemsToTasks app.tasks
@@ -149,13 +151,16 @@ detectActivityProjects maybeParent app cache =
                     IntDict.filterValues hasTimetrackAsParent cache.projects
 
                 newActivityLookupTable =
-                    findActivityProjects validActivityProjects activities
+                    filterActivityProjects validActivityProjects activities
+
+                oldActivityLookupTable =
+                    app.todoist.activityProjectIDs
 
                 activities =
                     Activity.allActivities app.activities
             in
             -- add it to what we already know! TODO what if one is deleted?
-            IntDict.union newActivityLookupTable app.todoist.activityProjectIDs
+            IntDict.union newActivityLookupTable oldActivityLookupTable
 
 
 tryGetTimetrackParentProject : TodoistIntegrationData -> Todoist.Cache -> Maybe Project.ProjectID
@@ -172,8 +177,8 @@ tryGetTimetrackParentProject localData cache =
 
 {-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
 -}
-findActivityProjects : IntDict Project -> IntDict Activity -> IntDict ActivityID
-findActivityProjects projects activities =
+filterActivityProjects : IntDict Project -> IntDict Activity -> IntDict ActivityID
+filterActivityProjects projects activities =
     -- phew! this was a hard one conceptually :) Looks clean though!
     let
         -- The only part of our activities we care about here is the name field, so we reduce the activities to just their name list
@@ -195,8 +200,8 @@ findActivityProjects projects activities =
             IntDict.filterMap (matchToID nameToTest) activityNamesDict
 
         -- Convert the matches dict to a list and then to a single ActivityID, maybe.
-        -- If for some reason there's multiple matches, choose the first.
-        -- If none matched, returns nothing (List.head)
+        -- If for some reason there's multiple matches, choose the first. TODO save error instead
+        -- If none matched, returns nothing (List.head) TODO save error instead
         pickFirstMatch nameToTest =
             List.head <| IntDict.values (activityNameMatches nameToTest)
     in
@@ -240,14 +245,18 @@ itemToTask activityID item =
         , activity = Just activityID
         , minEffort = Maybe.withDefault base.minEffort minDur
         , maxEffort = Maybe.withDefault base.maxEffort maxDur
-        , importance = priorityToImportance item.priority
+        , importance = calcImportance item
         , deadline = Maybe.andThen getDueDate item.due
     }
 
 
-priorityToImportance : Item.Priority -> Int
-priorityToImportance (Item.Priority int) =
-    0 - int
+calcImportance : Item -> Float
+calcImportance { priority, day_order } =
+    let
+        (Item.Priority int) =
+            priority
+    in
+    (0 - toFloat int) + (toFloat day_order * 0.01)
 
 
 extractTiming : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )
