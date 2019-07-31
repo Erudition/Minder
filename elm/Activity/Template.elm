@@ -63,6 +63,7 @@ type Template
     | Pet
     | Presentation
     | Projects
+    | Research
 
 
 decodeTemplate : Decoder Template
@@ -293,6 +294,9 @@ encodeTemplate v =
 
         Projects ->
             Encode.string "Projects"
+
+        Research ->
+            Encode.string "Research"
 
 
 stockActivities : List Template

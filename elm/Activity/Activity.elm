@@ -834,7 +834,7 @@ defaults startWith =
             }
 
         Learning ->
-            { names = [ "Learn", "Learning" ]
+            { names = [ "Learn", "Learning", "Reading", "Read", "Book", "Books" ]
             , icon = File "unknown.svg"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 10 )
             , taskOptional = True
@@ -1128,6 +1128,19 @@ defaults startWith =
             , category = Slacking
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
+            , hidden = False
+            , template = startWith
+            }
+
+        Research ->
+            { names = [ "Research", "Researching", "Looking Stuff Up", "Evaluating" ]
+            , icon = File "unknown.svg"
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
+            , taskOptional = True
+            , evidence = []
+            , category = Slacking
+            , backgroundable = False
+            , maxTime = ( Hours 6, Days 1 )
             , hidden = False
             , template = startWith
             }
