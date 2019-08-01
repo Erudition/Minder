@@ -32,8 +32,8 @@ type alias Alarm =
 
 {-| Calculate the interim reminders before the activity expires from being excused.
 -}
-scheduleExcusedReminders : Moment -> Duration -> Duration -> List Reminder
-scheduleExcusedReminders now excusableLimit timeLeft =
+scheduleExcusedReminders : Moment -> Duration -> List Reminder
+scheduleExcusedReminders now timeLeft =
     let
         halfLeft =
             Duration.scale timeLeft (1 / 2)

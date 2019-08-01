@@ -170,30 +170,26 @@ encodeEvidence v =
 
 
 type OnTaskStatus
-    = OnTask
-    | OffTask Excusable
+    = OnTask Duration
+    | OffTask Duration
     | AllDone
 
 
 statusToString : OnTaskStatus -> String
 statusToString onTaskStatus =
     case onTaskStatus of
-        OnTask ->
-            "Yes"
+        OnTask for ->
+            "On Task, for the next " ++ say for
 
-        OffTask excusable ->
-            case excusable of
-                NeverExcused ->
-                    "No"
+        OffTask excusedLeft ->
+            if Duration.isPositive excusedLeft then
+                "Excused, for the next " ++ say excusedLeft
 
-                IndefinitelyExcused ->
-                    "Yes"
-
-                TemporarilyExcused ( excusedFor, outOf ) ->
-                    "Yes, only for " ++ HumanDuration.withAbbreviation excusedFor
+            else
+                "Off Task"
 
         AllDone ->
-            "Yes"
+            "Done"
 
 
 type Excusable

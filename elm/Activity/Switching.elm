@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, sameActivity, switchActivity, switchPopup)
+module Activity.Switching exposing (currentActivityFromApp, sameActivity, switchActivity)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
@@ -30,11 +30,14 @@ switchActivity activityID app env =
 
         oldActivityID =
             currentActivityFromApp app
+
+        onTaskStatus =
+            determineOnTask activityID app env
     in
     ( updatedApp
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
-        , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString <| determineOnTask activityID app env )
+        , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString onTaskStatus )
         , Tasker.variableOut ( "ExcusedTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "OnTaskTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
@@ -42,9 +45,27 @@ switchActivity activityID app env =
         , Tasker.variableOut ( "ElmSelected", getName newActivity )
         , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
+        , Commands.scheduleNotify <| scheduleReminders env updatedApp.timeline onTaskStatus ( activityID, newActivity )
         ]
     )
+
+
+scheduleReminders : Environment -> Timeline -> OnTaskStatus -> ( ActivityID, Activity ) -> List Reminder
+scheduleReminders env timeline onTaskStatus ( activityID, newActivity ) =
+    case onTaskStatus of
+        OnTask timeLeft ->
+            scheduleOnTaskReminders env.time timeLeft
+
+        OffTask excusedLeft ->
+            --TODO handle indefinitely excused
+            if Duration.isPositive excusedLeft then
+                scheduleExcusedReminders env.time excusedLeft
+
+            else
+                scheduleOffTaskReminders env.time
+
+        AllDone ->
+            []
 
 
 determineOnTask : ActivityID -> AppData -> Environment -> OnTaskStatus
@@ -52,6 +73,9 @@ determineOnTask activityID app env =
     let
         current =
             getActivity activityID (allActivities app.activities)
+
+        excusedLeft =
+            Measure.excusedLeft app.timeline env.time ( activityID, current )
     in
     case List.head (Task.prioritize env.time env.timeZone <| IntDict.values app.tasks) of
         Nothing ->
@@ -60,14 +84,14 @@ determineOnTask activityID app env =
         Just nextTask ->
             case nextTask.activity of
                 Nothing ->
-                    OffTask current.excusable
+                    OffTask excusedLeft
 
                 Just nextActivity ->
                     if nextActivity == activityID then
-                        OnTask
+                        OnTask nextTask.maxEffort
 
                     else
-                        OffTask current.excusable
+                        OffTask excusedLeft
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
@@ -115,8 +139,8 @@ currentActivityFromApp app =
     currentActivityID app.timeline
 
 
-scheduleReminders : Moment -> Duration -> List Reminder
-scheduleReminders now fromNow =
+scheduleOnTaskReminders : Moment -> Duration -> List Reminder
+scheduleOnTaskReminders now fromNow =
     let
         fractionLeft denom =
             future now <| Duration.subtract fromNow (Duration.scale fromNow (1 / denom))
@@ -138,3 +162,8 @@ scheduleReminders now fromNow =
         "Reached maximum time allowed for this."
         []
     ]
+
+
+scheduleOffTaskReminders : Moment -> List Reminder
+scheduleOffTaskReminders moment =
+    []
