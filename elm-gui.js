@@ -8705,7 +8705,7 @@ var author$project$Task$Task$decodeTaskMoment = A2(author$project$Porting$custom
 var author$project$Task$Task$decodeTask = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 	'importance',
-	zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+	zwilias$json_decode_exploration$Json$Decode$Exploration$float,
 	A3(
 		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 		'relevanceEnds',
@@ -10920,7 +10920,7 @@ var author$project$Task$Task$encodeTask = function (record) {
 				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.b4)),
 				_Utils_Tuple2(
 				'importance',
-				elm$json$Json$Encode$int(record.d7))
+				elm$json$Json$Encode$float(record.d7))
 			]));
 };
 var elm$core$List$takeReverse = F3(
@@ -13902,6 +13902,13 @@ var elm$core$Result$toMaybe = function (result) {
 	}
 };
 var author$project$Incubator$Todoist$Item$fromRFC3339Date = A2(elm$core$Basics$composeL, elm$core$Result$toMaybe, author$project$SmartTime$Human$Moment$fuzzyFromString);
+var author$project$Integrations$Todoist$calcImportance = function (_n0) {
+	var priority = _n0.bA;
+	var day_order = _n0.bn;
+	var _n1 = priority;
+	var _int = _n1;
+	return (0 - _int) + (day_order * 1.0e-2);
+};
 var author$project$Integrations$Todoist$timing = A2(
 	elm$parser$Parser$keeper,
 	A2(
@@ -13966,10 +13973,6 @@ var author$project$Integrations$Todoist$extractTiming2 = function (input) {
 						author$project$SmartTime$Duration$fromMinutes(num2))));
 		}
 	}
-};
-var author$project$Integrations$Todoist$priorityToImportance = function (_n0) {
-	var _int = _n0;
-	return 0 - _int;
 };
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
@@ -14044,7 +14047,7 @@ var author$project$Integrations$Todoist$itemToTask = F2(
 				dM: elm$core$Maybe$Just(activityID),
 				bL: item.cw ? author$project$Task$Progress$maximize(base.bL) : base.bL,
 				dW: A2(elm$core$Maybe$andThen, getDueDate, item.aI),
-				d7: author$project$Integrations$Todoist$priorityToImportance(item.bA),
+				d7: author$project$Integrations$Todoist$calcImportance(item),
 				c0: A2(elm$core$Maybe$withDefault, base.c0, maxDur),
 				c2: A2(elm$core$Maybe$withDefault, base.c2, minDur),
 				ex: _List_Nil
@@ -14784,13 +14787,42 @@ var author$project$Activity$Switching$sameActivity = F3(
 						author$project$External$Commands$hideWindow
 					])));
 	});
+var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
+	switch (unit.$) {
+		case 0:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 1:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'sec';
+		case 2:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'min';
+		case 3:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'hr';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
 var author$project$Activity$Activity$statusToString = function (onTaskStatus) {
 	switch (onTaskStatus.$) {
 		case 0:
 			return 'Yes';
 		case 1:
 			var excusable = onTaskStatus.a;
-			return 'Excused';
+			switch (excusable.$) {
+				case 0:
+					return 'No';
+				case 2:
+					return 'Yes';
+				default:
+					var _n2 = excusable.a;
+					var excusedFor = _n2.a;
+					var outOf = _n2.b;
+					return 'Yes, only for ' + author$project$SmartTime$Human$Duration$withAbbreviation(excusedFor);
+			}
 		default:
 			return 'Yes';
 	}
@@ -14811,25 +14843,6 @@ var author$project$Activity$Measure$excusedLeft = F3(
 var author$project$SmartTime$Duration$isZero = function (_n0) {
 	var _int = _n0;
 	return !_int;
-};
-var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
-	switch (unit.$) {
-		case 0:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'ms';
-		case 1:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'sec';
-		case 2:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'min';
-		case 3:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'hr';
-		default:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'd';
-	}
 };
 var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
 	return elm$core$String$concat(

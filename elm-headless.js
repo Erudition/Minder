@@ -8847,7 +8847,7 @@ var author$project$Task$Task$decodeTaskMoment = A2(author$project$Porting$custom
 var author$project$Task$Task$decodeTask = A3(
 	zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 	'importance',
-	zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+	zwilias$json_decode_exploration$Json$Decode$Exploration$float,
 	A3(
 		zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 		'relevanceEnds',
@@ -10184,8 +10184,10 @@ var author$project$Activity$Template$encodeTemplate = function (v) {
 			return elm$json$Json$Encode$string('Pet');
 		case 53:
 			return elm$json$Json$Encode$string('Presentation');
-		default:
+		case 54:
 			return elm$json$Json$Encode$string('Projects');
+		default:
+			return elm$json$Json$Encode$string('Research');
 	}
 };
 var author$project$ID$encode = function (_n0) {
@@ -10937,7 +10939,7 @@ var author$project$Task$Task$encodeTask = function (record) {
 				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.b2)),
 				_Utils_Tuple2(
 				'importance',
-				elm$json$Json$Encode$int(record.d3))
+				elm$json$Json$Encode$float(record.d3))
 			]));
 };
 var elm$core$List$takeReverse = F3(
@@ -13318,7 +13320,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 					author$project$SmartTime$Human$Duration$Hours(2),
 					author$project$SmartTime$Human$Duration$Days(1)),
 				c: _List_fromArray(
-					['Learn', 'Learning']),
+					['Learn', 'Learning', 'Reading', 'Read', 'Book', 'Books']),
 				i: true,
 				j: startWith
 			};
@@ -13673,7 +13675,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				i: true,
 				j: startWith
 			};
-		default:
+		case 54:
 			return {
 				d: false,
 				e: 3,
@@ -13689,6 +13691,25 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 					author$project$SmartTime$Human$Duration$Days(1)),
 				c: _List_fromArray(
 					['Project', 'Projects', 'Project Work', 'Fun Project']),
+				i: true,
+				j: startWith
+			};
+		default:
+			return {
+				d: false,
+				e: 3,
+				f: _List_Nil,
+				a: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Hours(3))),
+				b: false,
+				g: author$project$Activity$Activity$File('unknown.svg'),
+				h: _Utils_Tuple2(
+					author$project$SmartTime$Human$Duration$Hours(6),
+					author$project$SmartTime$Human$Duration$Days(1)),
+				c: _List_fromArray(
+					['Research', 'Researching', 'Looking Stuff Up', 'Evaluating']),
 				i: true,
 				j: startWith
 			};
@@ -13713,8 +13734,9 @@ var author$project$Activity$Activity$withTemplate = function (delta) {
 		j: delta.j
 	};
 };
+var author$project$Activity$Template$Research = 55;
 var author$project$Activity$Template$stockActivities = _List_fromArray(
-	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]);
+	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55]);
 var elm_community$intdict$IntDict$map = F2(
 	function (f, dict) {
 		switch (dict.$) {
@@ -13829,7 +13851,7 @@ var elm_community$intdict$IntDict$values = function (dict) {
 		_List_Nil,
 		dict);
 };
-var author$project$Integrations$Todoist$findActivityProjects = F2(
+var author$project$Integrations$Todoist$filterActivityProjects = F2(
 	function (projects, activities) {
 		var matchToID = F3(
 			function (nameToTest, activityID, nameList) {
@@ -13876,6 +13898,7 @@ var author$project$Integrations$Todoist$detectActivityProjects = F3(
 			return elm_community$intdict$IntDict$empty;
 		} else {
 			var parentProjectID = maybeParent.a;
+			var oldActivityLookupTable = app.ca.bG;
 			var hasTimetrackAsParent = function (p) {
 				return A3(
 					elm_community$maybe_extra$Maybe$Extra$unwrap,
@@ -13885,8 +13908,8 @@ var author$project$Integrations$Todoist$detectActivityProjects = F3(
 			};
 			var validActivityProjects = A2(author$project$Incubator$IntDict$Extra$filterValues, hasTimetrackAsParent, cache.S);
 			var activities = author$project$Activity$Activity$allActivities(app.bg);
-			var newActivityLookupTable = A2(author$project$Integrations$Todoist$findActivityProjects, validActivityProjects, activities);
-			return A2(elm_community$intdict$IntDict$union, newActivityLookupTable, app.ca.bG);
+			var newActivityLookupTable = A2(author$project$Integrations$Todoist$filterActivityProjects, validActivityProjects, activities);
+			return A2(elm_community$intdict$IntDict$union, newActivityLookupTable, oldActivityLookupTable);
 		}
 	});
 var elm$core$Result$toMaybe = function (result) {
@@ -13898,6 +13921,13 @@ var elm$core$Result$toMaybe = function (result) {
 	}
 };
 var author$project$Incubator$Todoist$Item$fromRFC3339Date = A2(elm$core$Basics$composeL, elm$core$Result$toMaybe, author$project$SmartTime$Human$Moment$fuzzyFromString);
+var author$project$Integrations$Todoist$calcImportance = function (_n0) {
+	var priority = _n0.by;
+	var day_order = _n0.bl;
+	var _n1 = priority;
+	var _int = _n1;
+	return (0 - _int) + (day_order * 1.0e-2);
+};
 var author$project$Integrations$Todoist$timing = A2(
 	elm$parser$Parser$keeper,
 	A2(
@@ -13962,10 +13992,6 @@ var author$project$Integrations$Todoist$extractTiming2 = function (input) {
 						author$project$SmartTime$Duration$fromMinutes(num2))));
 		}
 	}
-};
-var author$project$Integrations$Todoist$priorityToImportance = function (_n0) {
-	var _int = _n0;
-	return 0 - _int;
 };
 var author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
@@ -14040,7 +14066,7 @@ var author$project$Integrations$Todoist$itemToTask = F2(
 				dF: elm$core$Maybe$Just(activityID),
 				bJ: item.cu ? author$project$Task$Progress$maximize(base.bJ) : base.bJ,
 				dQ: A2(elm$core$Maybe$andThen, getDueDate, item.aG),
-				d3: author$project$Integrations$Todoist$priorityToImportance(item.by),
+				d3: author$project$Integrations$Todoist$calcImportance(item),
 				cZ: A2(elm$core$Maybe$withDefault, base.cZ, maxDur),
 				c$: A2(elm$core$Maybe$withDefault, base.c$, minDur),
 				ex: _List_Nil
@@ -14092,8 +14118,9 @@ var author$project$Integrations$Todoist$handle = F2(
 			var _n1 = _n0.a;
 			var newCache = _n1.a;
 			var changes = _n1.b;
-			var maybeParent = A2(author$project$Integrations$Todoist$tryGetTimetrackParentProject, app.ca, newCache);
-			var projectToActivityMapping = A3(author$project$Integrations$Todoist$detectActivityProjects, maybeParent, app, newCache);
+			var newMaybeParent = A2(author$project$Integrations$Todoist$tryGetTimetrackParentProject, app.ca, newCache);
+			var projectToActivityMapping = A3(author$project$Integrations$Todoist$detectActivityProjects, newMaybeParent, app, newCache);
+			var newTodoistData = {bG: projectToActivityMapping, bI: newCache, bZ: newMaybeParent};
 			var convertItemsToTasks = A2(
 				author$project$Incubator$IntDict$Extra$filterMapValues,
 				author$project$Integrations$Todoist$timetrackItemToTask(projectToActivityMapping),
@@ -14103,7 +14130,7 @@ var author$project$Integrations$Todoist$handle = F2(
 					app,
 					{
 						ey: A2(elm_community$intdict$IntDict$union, convertItemsToTasks, app.ey),
-						ca: {bG: projectToActivityMapping, bI: newCache, bZ: maybeParent}
+						ca: newTodoistData
 					}),
 				author$project$Integrations$Todoist$describeSuccess(changes));
 		} else {
@@ -14779,13 +14806,42 @@ var author$project$Activity$Switching$sameActivity = F3(
 						author$project$External$Commands$hideWindow
 					])));
 	});
+var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
+	switch (unit.$) {
+		case 0:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 1:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'sec';
+		case 2:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'min';
+		case 3:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'hr';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
 var author$project$Activity$Activity$statusToString = function (onTaskStatus) {
 	switch (onTaskStatus.$) {
 		case 0:
 			return 'Yes';
 		case 1:
 			var excusable = onTaskStatus.a;
-			return 'Excused';
+			switch (excusable.$) {
+				case 0:
+					return 'No';
+				case 2:
+					return 'Yes';
+				default:
+					var _n2 = excusable.a;
+					var excusedFor = _n2.a;
+					var outOf = _n2.b;
+					return 'Yes, only for ' + author$project$SmartTime$Human$Duration$withAbbreviation(excusedFor);
+			}
 		default:
 			return 'Yes';
 	}
@@ -14806,25 +14862,6 @@ var author$project$Activity$Measure$excusedLeft = F3(
 var author$project$SmartTime$Duration$isZero = function (_n0) {
 	var _int = _n0;
 	return !_int;
-};
-var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
-	switch (unit.$) {
-		case 0:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'ms';
-		case 1:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'sec';
-		case 2:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'min';
-		case 3:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'hr';
-		default:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'd';
-	}
 };
 var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
 	return elm$core$String$concat(
@@ -14917,6 +14954,29 @@ var author$project$Activity$Activity$OffTask = function (a) {
 	return {$: 1, a: a};
 };
 var author$project$Activity$Activity$OnTask = {$: 0};
+var author$project$SmartTime$Human$Clock$endOfDay = author$project$SmartTime$Duration$aDay;
+var author$project$SmartTime$Human$Calendar$compareBasic = F2(
+	function (_n0, _n1) {
+		var a = _n0;
+		var b = _n1;
+		return A2(elm$core$Basics$compare, a, b);
+	});
+var author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime = F3(
+	function (zone, defaultTime, fuzzy) {
+		switch (fuzzy.$) {
+			case 2:
+				var date = fuzzy.a;
+				return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, defaultTime);
+			case 1:
+				var _n1 = fuzzy.a;
+				var date = _n1.a;
+				var time = _n1.b;
+				return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, time);
+			default:
+				var moment = fuzzy.a;
+				return moment;
+		}
+	});
 var author$project$SmartTime$Moment$compareBasic = F2(
 	function (_n0, _n1) {
 		var time1 = _n0;
@@ -14926,6 +14986,20 @@ var author$project$SmartTime$Moment$compareBasic = F2(
 			author$project$SmartTime$Duration$inMs(time1),
 			author$project$SmartTime$Duration$inMs(time2));
 	});
+var author$project$SmartTime$Human$Moment$compareFuzzyBasic = F4(
+	function (zone, defaultTime, fuzzyA, fuzzyB) {
+		var _n0 = _Utils_Tuple2(fuzzyA, fuzzyB);
+		if ((_n0.a.$ === 2) && (_n0.b.$ === 2)) {
+			var dateA = _n0.a.a;
+			var dateB = _n0.b.a;
+			return A2(author$project$SmartTime$Human$Calendar$compareBasic, dateA, dateB);
+		} else {
+			return A2(
+				author$project$SmartTime$Moment$compareBasic,
+				A3(author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime, zone, defaultTime, fuzzyA),
+				A3(author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime, zone, defaultTime, fuzzyB));
+		}
+	});
 var author$project$Task$Task$compareSoonness = F3(
 	function (zone, taskA, taskB) {
 		var _n0 = _Utils_Tuple2(taskA.dQ, taskB.dQ);
@@ -14933,10 +15007,7 @@ var author$project$Task$Task$compareSoonness = F3(
 			if (!_n0.b.$) {
 				var fuzzyMomentA = _n0.a.a;
 				var fuzzyMomentB = _n0.b.a;
-				return A2(
-					author$project$SmartTime$Moment$compareBasic,
-					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentA),
-					A2(author$project$SmartTime$Human$Moment$fromFuzzy, zone, fuzzyMomentB));
+				return A4(author$project$SmartTime$Human$Moment$compareFuzzyBasic, zone, author$project$SmartTime$Human$Clock$endOfDay, fuzzyMomentA, fuzzyMomentB);
 			} else {
 				var _n3 = _n0.b;
 				return 2;
@@ -15448,14 +15519,7 @@ var author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		} else {
-			var problemText = 'Handle URL Triggers: failed to parse URL ' + elm$url$Url$toString(normalizedUrl);
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						dJ: A2(author$project$AppData$saveError, appData, problemText)
-					}),
-				author$project$External$Commands$toast(problemText));
+			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
 var author$project$Main$update = F2(
