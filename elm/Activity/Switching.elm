@@ -42,7 +42,7 @@ switchActivity activityID app env =
         , Tasker.variableOut ( "ElmSelected", getName newActivity )
         , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (HumanDuration.toDuration <| Tuple.second <| Activity.excusableFor newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
+        , Commands.scheduleNotify <| scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) (Measure.excusedLeft updatedApp.timeline env.time ( activityID, newActivity ))
         ]
     )
 
