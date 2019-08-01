@@ -1,4 +1,4 @@
-module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, singleLetterSpaced, toDuration, withAbbreviation, withLetter)
+module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, withAbbreviation, withLetter)
 
 import List.Extra
 import SmartTime.Duration exposing (..)
@@ -79,11 +79,6 @@ toDuration humanDuration =
 
         Milliseconds milliseconds ->
             scale aMillisecond (toFloat milliseconds)
-
-
-dur : HumanDuration -> Duration
-dur =
-    toDuration
 
 
 {-| Make your own `Duration` constant by combining several units.
@@ -507,3 +502,21 @@ withAbbreviation unit =
 
         Days int ->
             String.fromInt int ++ "d"
+
+
+
+-- SHORTHAND ---------------------------------------------------------------NOTE
+
+
+{-| Super-quick shorthand for `toDuration`, best when exposed. This is great while prototyping if you are building a lot of constants in your code.
+-}
+dur : HumanDuration -> Duration
+dur =
+    toDuration
+
+
+{-| Super-quick shorthand for `toDuration << singleLetterSpaced`, best when exposed. This is great while prototyping if you are putting out a lot of text that involves HumanDurations.
+-}
+say : Duration -> String
+say =
+    breakdownNonzero >> abbreviatedSpaced
