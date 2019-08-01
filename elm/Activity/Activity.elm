@@ -182,7 +182,15 @@ statusToString onTaskStatus =
             "Yes"
 
         OffTask excusable ->
-            "Excused"
+            case excusable of
+                NeverExcused ->
+                    "No"
+
+                IndefinitelyExcused ->
+                    "Yes"
+
+                TemporarilyExcused ( excusedFor, outOf ) ->
+                    "Yes, only for " ++ HumanDuration.withAbbreviation excusedFor
 
         AllDone ->
             "Yes"
