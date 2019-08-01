@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromMs, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isZero, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromMs, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isPositive, isZero, scale, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -392,6 +392,16 @@ Or use `not` to find out if the Duration has any substance to it.
 isZero : Duration -> Bool
 isZero (Duration int) =
     int == 0
+
+
+{-| Find out if a Duration is greater than zero.
+
+This will rule out empty durations, and also negative ones (should they occur).
+
+-}
+isPositive : Duration -> Bool
+isPositive (Duration int) =
+    int > 0
 
 
 
