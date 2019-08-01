@@ -198,7 +198,7 @@ viewTask env task =
                 List.intersperse "\n" <|
                     List.filterMap identity
                         [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.activity
-                        , Just ("importance: " ++ String.fromInt task.importance)
+                        , Just ("importance: " ++ String.fromFloat task.importance)
                         ]
         ]
         [ progressSlider task
