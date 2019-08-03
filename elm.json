@@ -23,6 +23,7 @@
             "j-panasiuk/elm-ionicons": "2.0.0",
             "justinmimbs/date": "3.1.2",
             "justinmimbs/time-extra": "1.1.0",
+            "kuon/elm-string-normalize": "1.0.1",
             "mgold/elm-nonempty-list": "4.0.1",
             "rtfeldman/elm-css": "15.1.0",
             "sporto/time-distance": "1.0.0",
