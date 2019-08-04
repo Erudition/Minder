@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, sameActivity, switchActivity)
+module Activity.Switching exposing (currentActivityFromApp, determineNextTask, sameActivity, switchActivity)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
@@ -77,7 +77,7 @@ determineOnTask activityID app env =
         excusedLeft =
             Measure.excusedLeft app.timeline env.time ( activityID, current )
     in
-    case List.head (Task.prioritize env.time env.timeZone <| IntDict.values app.tasks) of
+    case determineNextTask app env of
         Nothing ->
             AllDone
 
@@ -92,6 +92,11 @@ determineOnTask activityID app env =
 
                     else
                         OffTask excusedLeft
+
+
+determineNextTask : AppData -> Environment -> Maybe Task.Task
+determineNextTask app env =
+    List.head (Task.prioritize env.time env.timeZone <| Debug.log "completed" <| List.filter (Task.completed >> not) <| IntDict.values app.tasks)
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
