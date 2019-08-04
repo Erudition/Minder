@@ -47,10 +47,14 @@ subscriptions ({ appData, environment } as model) =
           -- TODO sync subscription with current activity
           Moment.every (dur (Minutes 1)) (Tock NoOp)
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
+        , storageChangedElsewhere NewAppData
         ]
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
+
+
+port storageChangedElsewhere : (String -> msg) -> Sub msg
 
 
 log : String -> a -> a
@@ -342,6 +346,7 @@ type Msg
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
+    | NewAppData String
 
 
 
@@ -413,6 +418,24 @@ update msg ({ viewState, appData, environment } as model) =
                     TimeTracker.update subMsg subViewState appData environment
             in
             ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
+
+        ( NewAppData newJSON, _ ) ->
+            let
+                maybeNewApp =
+                    appDataFromJson newJSON
+            in
+            case maybeNewApp of
+                Success savedAppData ->
+                    ( Model viewState savedAppData environment, toast "Synced with another browser tab!" )
+
+                WithWarnings warnings savedAppData ->
+                    ( Model viewState (AppData.saveWarnings savedAppData warnings) environment, Cmd.none )
+
+                Errors errors ->
+                    ( Model viewState (AppData.saveDecodeErrors appData errors) environment, Cmd.none )
+
+                BadJson ->
+                    ( Model viewState (AppData.saveError appData "Got bad JSON from cross-sync") environment, Cmd.none )
 
         ( _, _ ) ->
             ( model, Cmd.none )
