@@ -1,11 +1,14 @@
-module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
+module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
+import Activity.Switching
 import AppData exposing (..)
 import Browser
 import Browser.Dom
 import Css exposing (..)
 import Date
+import Dict
 import Environment exposing (..)
+import External.Commands as Commands
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -23,6 +26,7 @@ import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
+import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
@@ -236,7 +240,7 @@ viewTask env task =
             , value task.title
             , name "title"
             , id ("task-" ++ String.fromInt task.id)
-            , onInput (UpdateTask task.id)
+            , onInput (UpdateTitle task.id)
             , onBlur (EditingTitle task.id False)
             , onEnter (EditingTitle task.id False)
             ]
@@ -457,7 +461,7 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = EditingTitle TaskId Bool
-    | UpdateTask TaskId String
+    | UpdateTitle TaskId String
     | Add
     | Delete TaskId
     | DeleteComplete
@@ -484,7 +488,7 @@ update msg state app env =
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | tasks = IntDict.insert (Moment.toSmartInt env.time) (newTask newTaskTitle (Moment.toSmartInt env.time)) app.tasks
+                        | tasks = IntDict.insert (Moment.toSmartInt env.time) (newTask (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)) app.tasks
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
@@ -515,13 +519,13 @@ update msg state app env =
             , Job.attempt (\_ -> NoOp) focus
             )
 
-        UpdateTask id task ->
+        UpdateTitle id task ->
             let
-                updateTask t =
+                updateTitle t =
                     { t | title = task }
             in
             ( state
-            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
+            , { app | tasks = IntDict.update id (Maybe.map updateTitle) app.tasks }
             , Cmd.none
             )
 
@@ -551,10 +555,13 @@ update msg state app env =
             let
                 updateTask t =
                     { t | completion = new_completion }
+
+                maybeTaskTitle =
+                    Maybe.map .title (IntDict.get id app.tasks)
             in
             ( state
             , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
-            , Cmd.none
+            , Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
             )
 
         FocusSlider task focused ->
@@ -568,3 +575,25 @@ update msg state app env =
             , app
             , Cmd.none
             )
+
+
+urlTriggers : AppData -> Environment -> List ( String, Dict.Dict String Msg )
+urlTriggers app env =
+    let
+        tasksWithNames =
+            List.map normalizedEntry (IntDict.toList app.tasks)
+
+        normalizedEntry ( id, task ) =
+            ( task.title, UpdateProgress id (maximize task.completion) )
+
+        buildNextTaskEntry next =
+            [ ( "next", UpdateProgress next.id (maximize next.completion) ) ]
+
+        nextTaskEntry =
+            Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask app env)
+
+        allEntries =
+            Maybe.withDefault [] nextTaskEntry ++ tasksWithNames
+    in
+    [ ( "complete", Dict.fromList allEntries )
+    ]

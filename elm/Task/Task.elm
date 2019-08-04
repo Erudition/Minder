@@ -1,4 +1,4 @@
-module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask, prioritize)
+module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask, normalizeTitle, prioritize)
 
 import Activity.Activity exposing (ActivityID)
 import Date
@@ -224,6 +224,12 @@ prioritize now zone taskList =
     deepSort [ compareSoonness zone, compareProp .importance ] taskList
 
 
+normalizeTitle : String -> String
+normalizeTitle newTaskTitle =
+    -- TODO capitalize, and other such normalization
+    String.trim newTaskTitle
+
+
 
 -- List.sortWith (compareSoonness zone) <| List.sortBy .importance taskList
 
@@ -272,16 +278,3 @@ compareSoonness zone taskA taskB =
 
         ( Nothing, Just _ ) ->
             LT
-
-
-
--- soonestFirst : Sorter Task
--- soonestFirst taskList =
---     let
---         withSoonnessValues =
---             List.map (\t -> ( soonness t, t )) taskList
---
---         sortBySoonness =
---             List.sortWith soonness taskList
---     in
---     sortBySoonness
