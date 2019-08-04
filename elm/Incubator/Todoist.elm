@@ -222,7 +222,7 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 
 handleResponse : Msg -> Cache -> Result Http.Error ( Cache, LatestChanges )
 handleResponse (SyncResponded response) oldCache =
-    case Debug.log "response" response of
+    case response of
         Ok newStuff ->
             let
                 -- creates a dictionary out of the returned stuff, for merging
