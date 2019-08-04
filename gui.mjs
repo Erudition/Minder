@@ -32,6 +32,15 @@ if (inTasker) {
         let app = Elm.Main.init({ flags: (found.value ? found.value : null) });
         elmStartedWithoutTasker(app);
     });
+
+    // Try to make it persistent
+    if (navigator.storage && navigator.storage.persist)
+      navigator.storage.persist().then(granted => {
+        if (granted)
+          console.log("Storage will not be cleared except by explicit user action");
+        else
+          console.log("Storage may be cleared by the UA under storage pressure.");
+      });
 }
 
 
@@ -82,10 +91,24 @@ function elmStartedWithoutTasker(app) {
 
     // SET STORAGE
     app.ports.setStorage.subscribe(function(state) {
+        // TODO does this account for localStorage disabled/unavailable?
+        // https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
         Storage.set({
          key: browserStorageKey,
          value: state
         });
+    });
+
+    // LISTEN TO STORAGE
+    // Capacitor Storage api doesn't seem to have this yet
+    // https://github.com/ionic-team/capacitor/blob/master/core/src/web/storage.ts
+    // So let's subscribe to localStorage ourselves
+    window.addEventListener('storage', function(e) {
+        if (e.key == Storage.KEY_PREFIX + browserStorageKey) {
+            app.ports.storageChangedElsewhere.send(e.newValue);
+        } else {
+            console.log("localStorage changed elsewhere, but the key was different.")
+        }
     });
 
 
