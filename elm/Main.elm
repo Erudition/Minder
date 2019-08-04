@@ -527,6 +527,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
             List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
+                ++ List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers appData environment)
                 ++ [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] )
                    , ( "blowup", Dict.fromList [ ( "yes", SyncTodoist ) ] )
                    ]
@@ -577,8 +578,19 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                     ( model, Cmd.none )
 
         Nothing ->
-            -- Failed to parse URL Query - there probably wasn't one!
-            ( model, Cmd.none )
+            -- Failed to parse URL Query - was there one?
+            case normalizedUrl.query of
+                Nothing ->
+                    -- Perfectly normal - failed to parse triggers because there were none.
+                    ( model, Cmd.none )
+
+                Just queriesPresent ->
+                    -- passed a query that we didn't understand! Fail gracefully
+                    let
+                        problemText =
+                            "URL: not sure what to do with: " ++ queriesPresent ++ ", so I just left it there. Is the trigger misspelled?"
+                    in
+                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
 
 
 nerfUrl : Url.Url -> Url.Url
