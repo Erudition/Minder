@@ -25,7 +25,7 @@ import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress
-import Task.Task exposing (Task, newTask)
+import Task.Task as Task exposing (Task, newTask)
 import Url
 import Url.Builder
 
@@ -226,7 +226,7 @@ itemToTask : Activity.ActivityID -> Item -> Task
 itemToTask activityID item =
     let
         base =
-            newTask newName item.id
+            newTask (Task.normalizeTitle newName) item.id
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
