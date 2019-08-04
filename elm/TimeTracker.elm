@@ -241,7 +241,6 @@ urlTriggers app =
             List.map (\nm -> ( nm, StartTracking (ID.tag id) )) activity.names
                 ++ List.map (\nm -> ( String.toLower nm, StartTracking (ID.tag id) )) activity.names
     in
-    -- HELP TODO only the first one runs, if it fails the rest are ignored
     [ ( "start", Dict.fromList activitiesWithNames )
     , ( "stop", Dict.fromList [ ( "stop", StartTracking dummy ) ] )
     , ( "noop", Dict.fromList [ ( "noop", NoOp ) ] )
