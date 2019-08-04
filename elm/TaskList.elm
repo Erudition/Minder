@@ -10,17 +10,21 @@ import Dict
 import Environment exposing (..)
 import External.Commands as Commands
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (..)
+import Html.Styled.Attributes as Attr exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
 import ID
+import Incubator.Todoist as Todoist
+import Incubator.Todoist.Command as TodoistCommand
 import IntDict
+import Integrations.Todoist
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import List.Extra as List
 import Porting exposing (..)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
@@ -168,7 +172,7 @@ viewTasks env filter tasks =
             [ class "toggle-all"
             , type_ "checkbox"
             , name "toggle"
-            , Html.Styled.Attributes.checked allCompleted
+            , Attr.checked allCompleted
             ]
             []
         , label
@@ -211,7 +215,7 @@ viewTask env task =
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
-                , Html.Styled.Attributes.checked (completed task)
+                , Attr.checked (completed task)
                 , onClick
                     (UpdateProgress task.id
                         (if not (completed task) then
@@ -245,7 +249,7 @@ viewTask env task =
             , onEnter (EditingTitle task.id False)
             ]
             []
-        , div [ class "task-drawer", Html.Styled.Attributes.hidden False ]
+        , div [ class "task-drawer", Attr.hidden False ]
             [ label [ for "readyDate" ] [ text "Ready" ]
             , input [ type_ "date", name "readyDate", onInput (extractDate task.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
             , label [ for "startDate" ] [ text "Start" ]
@@ -268,8 +272,8 @@ progressSlider task =
         [ class "task-progress"
         , type_ "range"
         , value <| String.fromInt <| getPortion task.completion
-        , Html.Styled.Attributes.min "0"
-        , Html.Styled.Attributes.max <| String.fromInt <| getWhole task.completion
+        , Attr.min "0"
+        , Attr.max <| String.fromInt <| getWhole task.completion
         , step
             (if isDiscrete <| getUnits task.completion then
                 "1"
@@ -376,7 +380,7 @@ viewControls visibilityFilters tasks =
     in
     footer
         [ class "footer"
-        , Html.Styled.Attributes.hidden (List.isEmpty tasks)
+        , Attr.hidden (List.isEmpty tasks)
         ]
         [ Html.Styled.Lazy.lazy viewControlsCount tasksLeft
         , Html.Styled.Lazy.lazy viewControlsFilters visibilityFilters
@@ -405,20 +409,38 @@ viewControlsFilters : List Filter -> Html Msg
 viewControlsFilters visibilityFilters =
     ul
         [ class "filters" ]
-        [ visibilitySwap "#/" AllTasks visibilityFilters
+        [ visibilitySwap "all" AllTasks visibilityFilters
         , text " "
-        , visibilitySwap "#/active" IncompleteTasksOnly visibilityFilters
+        , visibilitySwap "active" IncompleteTasksOnly visibilityFilters
         , text " "
-        , visibilitySwap "#/completed" CompleteTasksOnly visibilityFilters
+        , visibilitySwap "completed" CompleteTasksOnly visibilityFilters
         ]
 
 
 visibilitySwap : String -> Filter -> List Filter -> Html Msg
-visibilitySwap uri visibilityToDisplay actualVisibility =
+visibilitySwap name visibilityToDisplay actualVisibility =
+    let
+        isCurrent =
+            List.member visibilityToDisplay actualVisibility
+
+        changeList =
+            if isCurrent then
+                List.remove visibilityToDisplay actualVisibility
+
+            else
+                visibilityToDisplay :: actualVisibility
+    in
     li
         []
-        [ a [ href uri, classList [ ( "selected", List.member visibilityToDisplay actualVisibility ) ] ]
-            [ text (filterName visibilityToDisplay) ]
+        [ input
+            [ type_ "checkbox"
+            , Attr.checked isCurrent
+            , onClick (Refilter changeList)
+            , classList [ ( "selected", isCurrent ) ]
+            , Attr.name name
+            ]
+            []
+        , label [ for name ] [ text (filterName visibilityToDisplay) ]
         ]
 
 
@@ -443,7 +465,7 @@ viewControlsClear : Int -> Html Msg
 viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
-        , Html.Styled.Attributes.hidden (tasksCompleted == 0)
+        , Attr.hidden (tasksCompleted == 0)
         , onClick DeleteComplete
         ]
         [ text ("Clear completed (" ++ String.fromInt tasksCompleted ++ ")")
@@ -460,7 +482,8 @@ viewControlsClear tasksCompleted =
 
 
 type Msg
-    = EditingTitle TaskId Bool
+    = Refilter (List Filter)
+    | EditingTitle TaskId Bool
     | UpdateTitle TaskId String
     | Add
     | Delete TaskId
@@ -470,6 +493,7 @@ type Msg
     | UpdateTaskDate TaskId String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
+    | TodoistServerResponse Todoist.Msg
 
 
 update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
@@ -560,8 +584,19 @@ update msg state app env =
                     Maybe.map .title (IntDict.get id app.tasks)
             in
             ( state
-            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
-            , Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+            , { app
+                | tasks = IntDict.update id (Maybe.map updateTask) app.tasks
+              }
+            , if isMax new_completion then
+                Cmd.batch
+                    [ Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+                    , Cmd.map TodoistServerResponse <|
+                        Integrations.Todoist.sendChanges app.todoist
+                            [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
+                    ]
+
+              else
+                Cmd.none
             )
 
         FocusSlider task focused ->
@@ -572,6 +607,24 @@ update msg state app env =
 
         NoOp ->
             ( state
+            , app
+            , Cmd.none
+            )
+
+        TodoistServerResponse response ->
+            let
+                ( newAppData, whatHappened ) =
+                    Integrations.Todoist.handle response app
+            in
+            ( state
+            , newAppData
+            , Commands.toast whatHappened
+            )
+
+        Refilter newList ->
+            ( case state of
+                Normal filterList expandedTaskMaybe newTaskField ->
+                    Normal newList expandedTaskMaybe newTaskField
             , app
             , Cmd.none
             )
