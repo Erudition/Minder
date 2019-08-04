@@ -36,7 +36,7 @@ type alias SecretToken =
 This is a `Platform.Cmd`, you'll need to run it from your `update`.
 
 -}
-sync : Cache -> SecretToken -> List Resources -> List Command -> Cmd Msg
+sync : Cache -> SecretToken -> List Resources -> List CommandInstance -> Cmd Msg
 sync cache secret resourceList commandList =
     Http.post
         { url = serverUrl secret resourceList commandList cache.nextSync
@@ -124,7 +124,7 @@ encodeCache record =
 --     }
 
 
-serverUrl : SecretToken -> List Resources -> List Command -> IncrementalSyncToken -> String
+serverUrl : SecretToken -> List Resources -> List CommandInstance -> IncrementalSyncToken -> String
 serverUrl secret resourceList commandList (IncrementalSyncToken syncToken) =
     let
         chosenResources =
@@ -134,7 +134,7 @@ serverUrl secret resourceList commandList (IncrementalSyncToken syncToken) =
             Encode.list encodeResources resourceList
 
         commands =
-            Encode.list encodeCommand commandList
+            Encode.list encodeCommandInstance commandList
 
         withRead =
             if List.length resourceList > 0 then
@@ -222,7 +222,7 @@ encodeIncrementalSyncToken (IncrementalSyncToken token) =
 
 handleResponse : Msg -> Cache -> Result Http.Error ( Cache, LatestChanges )
 handleResponse (SyncResponded response) oldCache =
-    case response of
+    case Debug.log "response" response of
         Ok newStuff ->
             let
                 -- creates a dictionary out of the returned stuff, for merging

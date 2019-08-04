@@ -1,4 +1,4 @@
-module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret, fetchUpdates, handle, itemToTask, timing)
+module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret, fetchUpdates, handle, itemToTask, sendChanges, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import AppData exposing (AppData, TodoistIntegrationData, saveError)
@@ -7,6 +7,7 @@ import Http
 import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
+import Incubator.Todoist.Command as TDCommand
 import Incubator.Todoist.Item as Item exposing (Item)
 import Incubator.Todoist.Project as Project exposing (Project)
 import IntDict exposing (IntDict)
@@ -33,6 +34,11 @@ import Url.Builder
 fetchUpdates : TodoistIntegrationData -> Cmd Todoist.Msg
 fetchUpdates localData =
     Todoist.sync localData.cache devSecret [ Todoist.Items, Todoist.Projects ] []
+
+
+sendChanges : TodoistIntegrationData -> List TDCommand.CommandInstance -> Cmd Todoist.Msg
+sendChanges localData changeList =
+    Todoist.sync localData.cache devSecret [ Todoist.Items, Todoist.Projects ] changeList
 
 
 devSecret : Todoist.SecretToken
@@ -104,7 +110,7 @@ describeSuccess report =
                         ++ String.fromInt itemsAdded
                         ++ " created, "
                         ++ String.fromInt itemsDeleted
-                        ++ " deleted) and "
+                        ++ " deleted)"
 
             else
                 Nothing

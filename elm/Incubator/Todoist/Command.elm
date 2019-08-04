@@ -1,4 +1,4 @@
-module Incubator.Todoist.Command exposing (Command(..), CommandError, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommand, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
+module Incubator.Todoist.Command exposing (Command(..), CommandError, CommandInstance, CommandResult, CommandUUID, DayOrder, IDsToOrders, ItemChanges, ItemCompletion, ItemID(..), ItemOrder, NewItem, NewProject, ProjectChanges, ProjectID(..), ProjectOrder, RecurringItemCompletion, TempID, decodeCommandError, decodeCommandResult, encodeCommandInstance, encodeItemChanges, encodeItemCompletion, encodeItemID, encodeItemOrder, encodeNewItem, encodeNewProject, encodeProjectChanges, encodeProjectID, encodeProjectOrder, encodeRecurringItemCompletion)
 
 {-| A library for interacting with the Todoist API.
 
@@ -55,14 +55,18 @@ type Command
     | ReorderItems (List ItemOrder)
 
 
-encodeCommand : Command -> Encode.Value
-encodeCommand command =
+type alias CommandInstance =
+    ( CommandUUID, Command )
+
+
+encodeCommandInstance : CommandInstance -> Encode.Value
+encodeCommandInstance ( uuid, command ) =
     let
         encodeWrapper typeName args =
             encodeObjectWithoutNothings
                 [ normal ( "type", Encode.string typeName )
                 , normal ( "args", args )
-                , normal ( "uuid", Encode.string "UUID" ) -- TODO
+                , normal ( "uuid", Encode.string uuid )
                 , omittable ( "temp_id", Encode.string, Nothing ) -- TODO
                 ]
     in
@@ -394,3 +398,6 @@ decodeCommandError =
     decode CommandError
         |> required "error_code" Decode.int
         |> required "error" Decode.string
+        |> optionalIgnored "error_tag"
+        |> optionalIgnored "http_code"
+        |> optionalIgnored "error_extra"
