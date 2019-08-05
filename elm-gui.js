@@ -12553,7 +12553,6 @@ var author$project$Incubator$Todoist$summarizeChanges = F2(
 		var remainingProjectIDs = _n3.b;
 		return {itemsAdded: newlyAddedItemIDs, itemsChanged: remainingItemIDs, itemsDeleted: deletedItemIDs, projectsAdded: newlyAddedProjectIDs, projectsChanged: remainingProjectIDs, projectsDeleted: deletedProjectIDs};
 	});
-var elm$core$Debug$log = _Debug_log;
 var elm_community$intdict$IntDict$Disjunct = F2(
 	function (a, b) {
 		return {$: 'Disjunct', a: a, b: b};
@@ -12742,9 +12741,8 @@ var elm_community$intdict$IntDict$union = elm_community$intdict$IntDict$uniteWit
 var author$project$Incubator$Todoist$handleResponse = F2(
 	function (_n0, oldCache) {
 		var response = _n0.a;
-		var _n1 = A2(elm$core$Debug$log, 'response', response);
-		if (_n1.$ === 'Ok') {
-			var newStuff = _n1.a;
+		if (response.$ === 'Ok') {
+			var newStuff = response.a;
 			var prune = function (inputDict) {
 				return (!newStuff.full_sync) ? author$project$Incubator$Todoist$pruneDeleted(inputDict) : inputDict;
 			};
@@ -12777,7 +12775,7 @@ var author$project$Incubator$Todoist$handleResponse = F2(
 					},
 					A2(author$project$Incubator$Todoist$summarizeChanges, oldCache, newStuff)));
 		} else {
-			var err = _n1.a;
+			var err = response.a;
 			return elm$core$Result$Err(err);
 		}
 	});
@@ -14262,22 +14260,13 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 'TodoistServerResponse', a: a};
 };
-var author$project$Incubator$Todoist$Command$ItemClose = function (a) {
-	return {$: 'ItemClose', a: a};
-};
-var author$project$Incubator$Todoist$Command$RealItem = function (a) {
-	return {$: 'RealItem', a: a};
-};
-var author$project$Integrations$Todoist$sendChanges = F2(
-	function (localData, changeList) {
-		return A4(
-			author$project$Incubator$Todoist$sync,
-			localData.cache,
-			author$project$Integrations$Todoist$devSecret,
-			_List_fromArray(
-				[author$project$Incubator$Todoist$Items, author$project$Incubator$Todoist$Projects]),
-			changeList);
-	});
+var author$project$TaskList$AllTasks = {$: 'AllTasks'};
+var author$project$TaskList$defaultView = A3(
+	author$project$TaskList$Normal,
+	_List_fromArray(
+		[author$project$TaskList$AllTasks]),
+	elm$core$Maybe$Nothing,
+	'');
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -14294,9 +14283,6 @@ var author$project$Task$Task$completed = function (task) {
 		}(task));
 };
 var author$project$TaskList$NoOp = {$: 'NoOp'};
-var author$project$TaskList$TodoistServerResponse = function (a) {
-	return {$: 'TodoistServerResponse', a: a};
-};
 var elm$browser$Browser$External = function (a) {
 	return {$: 'External', a: a};
 };
@@ -14384,7 +14370,6 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 };
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$Platform$Cmd$batch = _Platform_batch;
-var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var elm$core$Task$onError = _Scheduler_onError;
 var elm$core$Task$attempt = F2(
@@ -14573,20 +14558,7 @@ var author$project$TaskList$update = F4(
 						_List_fromArray(
 							[
 								author$project$External$Commands$toast(
-								'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle)),
-								A2(
-								elm$core$Platform$Cmd$map,
-								author$project$TaskList$TodoistServerResponse,
-								A2(
-									author$project$Integrations$Todoist$sendChanges,
-									app.todoist,
-									_List_fromArray(
-										[
-											_Utils_Tuple2(
-											author$project$SmartTime$Human$Moment$toStandardString(env.time),
-											author$project$Incubator$Todoist$Command$ItemClose(
-												author$project$Incubator$Todoist$Command$RealItem(id)))
-										])))
+								'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle))
 							])) : elm$core$Platform$Cmd$none);
 			case 'FocusSlider':
 				var task = msg.a;
@@ -14770,6 +14742,10 @@ var author$project$TaskList$urlTriggers = F2(
 			elm$core$List$map,
 			normalizedEntry,
 			elm_community$intdict$IntDict$toList(app.tasks));
+		var noNextTaskEntry = _List_fromArray(
+			[
+				_Utils_Tuple2('next', author$project$TaskList$NoOp)
+			]);
 		var buildNextTaskEntry = function (next) {
 			return _List_fromArray(
 				[
@@ -14786,13 +14762,20 @@ var author$project$TaskList$urlTriggers = F2(
 			buildNextTaskEntry,
 			A2(author$project$Activity$Switching$determineNextTask, app, env));
 		var allEntries = _Utils_ap(
-			A2(elm$core$Maybe$withDefault, _List_Nil, nextTaskEntry),
+			A2(elm$core$Maybe$withDefault, noNextTaskEntry, nextTaskEntry),
 			tasksWithNames);
 		return _List_fromArray(
 			[
 				_Utils_Tuple2(
 				'complete',
-				elm$core$Dict$fromList(allEntries))
+				elm$core$Dict$fromList(allEntries)),
+				_Utils_Tuple2(
+				'bleh',
+				elm$core$Dict$fromList(
+					_List_fromArray(
+						[
+							_Utils_Tuple2('bleh', author$project$TaskList$NoOp)
+						])))
 			]);
 	});
 var author$project$Activity$Activity$latestSwitch = function (timeline) {
@@ -15648,6 +15631,7 @@ var elm$core$Dict$map = F2(
 				A2(elm$core$Dict$map, func, right));
 		}
 	});
+var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
 	var queryParser = _n0.a;
 	return elm$url$Url$Parser$Parser(
@@ -15776,13 +15760,13 @@ var author$project$Main$handleUrlTriggers = F2(
 		var allTriggers = _Utils_ap(
 			A2(
 				elm$core$List$map,
-				wrapMsgs(author$project$Main$TimeTrackerMsg),
-				author$project$TimeTracker$urlTriggers(appData)),
+				wrapMsgs(author$project$Main$TaskListMsg),
+				A2(author$project$TaskList$urlTriggers, appData, environment)),
 			_Utils_ap(
 				A2(
 					elm$core$List$map,
-					wrapMsgs(author$project$Main$TaskListMsg),
-					A2(author$project$TaskList$urlTriggers, appData, environment)),
+					wrapMsgs(author$project$Main$TimeTrackerMsg),
+					author$project$TimeTracker$urlTriggers(appData)),
 				_List_fromArray(
 					[
 						_Utils_Tuple2(
@@ -15883,152 +15867,153 @@ var author$project$Main$update = F2(
 		var justRunCommand = function (command) {
 			return _Utils_Tuple2(model, command);
 		};
-		var _n0 = _Utils_Tuple2(msg, viewState.primaryView);
-		_n0$8:
-		while (true) {
-			switch (_n0.a.$) {
-				case 'ClearErrors':
-					var _n1 = _n0.a;
-					return _Utils_Tuple2(
-						A3(
-							author$project$Main$Model,
-							viewState,
-							_Utils_update(
-								appData,
-								{errors: _List_Nil}),
-							environment),
-						elm$core$Platform$Cmd$none);
-				case 'SyncTodoist':
-					var _n2 = _n0.a;
-					return justRunCommand(
-						A2(
-							elm$core$Platform$Cmd$map,
-							author$project$Main$TodoistServerResponse,
-							author$project$Integrations$Todoist$fetchUpdates(appData.todoist)));
-				case 'TodoistServerResponse':
-					var response = _n0.a.a;
-					var _n3 = A2(author$project$Integrations$Todoist$handle, response, appData);
-					var newAppData = _n3.a;
-					var whatHappened = _n3.b;
-					return _Utils_Tuple2(
-						A3(author$project$Main$Model, viewState, newAppData, environment),
-						author$project$External$Commands$toast(whatHappened));
-				case 'Link':
-					var urlRequest = _n0.a.a;
-					if (urlRequest.$ === 'Internal') {
-						var url = urlRequest.a;
-						var _n5 = environment.navkey;
-						if (_n5.$ === 'Just') {
-							var navkey = _n5.a;
-							return justRunCommand(
-								A2(
-									elm$browser$Browser$Navigation$pushUrl,
-									navkey,
-									elm$url$Url$toString(url)));
-						} else {
-							return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-						}
-					} else {
-						var href = urlRequest.a;
-						return justRunCommand(
-							elm$browser$Browser$Navigation$load(href));
-					}
-				case 'NewUrl':
-					var url = _n0.a.a;
-					var _n6 = A2(author$project$Main$handleUrlTriggers, url, model);
-					var modelAfter = _n6.a;
-					var effectsAfter = _n6.b;
-					return _Utils_Tuple2(
+		switch (msg.$) {
+			case 'ClearErrors':
+				return _Utils_Tuple2(
+					A3(
+						author$project$Main$Model,
+						viewState,
 						_Utils_update(
-							modelAfter,
-							{
-								viewState: author$project$Main$viewUrl(url)
-							}),
-						effectsAfter);
-				case 'TaskListMsg':
-					if (_n0.b.$ === 'TaskList') {
-						var subMsg = _n0.a.a;
-						var subViewState = _n0.b.a;
-						var _n7 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
-						var newState = _n7.a;
-						var newApp = _n7.b;
-						var newCommand = _n7.c;
+							appData,
+							{errors: _List_Nil}),
+						environment),
+					elm$core$Platform$Cmd$none);
+			case 'SyncTodoist':
+				return justRunCommand(
+					A2(
+						elm$core$Platform$Cmd$map,
+						author$project$Main$TodoistServerResponse,
+						author$project$Integrations$Todoist$fetchUpdates(appData.todoist)));
+			case 'TodoistServerResponse':
+				var response = msg.a;
+				var _n1 = A2(author$project$Integrations$Todoist$handle, response, appData);
+				var newAppData = _n1.a;
+				var whatHappened = _n1.b;
+				return _Utils_Tuple2(
+					A3(author$project$Main$Model, viewState, newAppData, environment),
+					author$project$External$Commands$toast(whatHappened));
+			case 'Link':
+				var urlRequest = msg.a;
+				if (urlRequest.$ === 'Internal') {
+					var url = urlRequest.a;
+					var _n3 = environment.navkey;
+					if (_n3.$ === 'Just') {
+						var navkey = _n3.a;
+						return justRunCommand(
+							A2(
+								elm$browser$Browser$Navigation$pushUrl,
+								navkey,
+								elm$url$Url$toString(url)));
+					} else {
+						return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+					}
+				} else {
+					var href = urlRequest.a;
+					return justRunCommand(
+						elm$browser$Browser$Navigation$load(href));
+				}
+			case 'NewUrl':
+				var url = msg.a;
+				var _n4 = A2(author$project$Main$handleUrlTriggers, url, model);
+				var modelAfter = _n4.a;
+				var effectsAfter = _n4.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						modelAfter,
+						{
+							viewState: author$project$Main$viewUrl(url)
+						}),
+					effectsAfter);
+			case 'TaskListMsg':
+				var subMsg = msg.a;
+				var subViewState = function () {
+					var _n6 = viewState.primaryView;
+					if (_n6.$ === 'TaskList') {
+						var subView = _n6.a;
+						return subView;
+					} else {
+						return author$project$TaskList$defaultView;
+					}
+				}();
+				var _n5 = A4(author$project$TaskList$update, subMsg, subViewState, appData, environment);
+				var newState = _n5.a;
+				var newApp = _n5.b;
+				var newCommand = _n5.c;
+				return _Utils_Tuple2(
+					A3(
+						author$project$Main$Model,
+						A2(
+							author$project$Main$ViewState,
+							author$project$Main$TaskList(newState),
+							0),
+						newApp,
+						environment),
+					A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
+			case 'TimeTrackerMsg':
+				var subMsg = msg.a;
+				var subViewState = function () {
+					var _n8 = viewState.primaryView;
+					if (_n8.$ === 'TimeTracker') {
+						var subView = _n8.a;
+						return subView;
+					} else {
+						return author$project$TimeTracker$defaultView;
+					}
+				}();
+				var _n7 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
+				var newState = _n7.a;
+				var newApp = _n7.b;
+				var newCommand = _n7.c;
+				return _Utils_Tuple2(
+					A3(
+						author$project$Main$Model,
+						A2(
+							author$project$Main$ViewState,
+							author$project$Main$TimeTracker(newState),
+							0),
+						newApp,
+						environment),
+					A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
+			case 'NewAppData':
+				var newJSON = msg.a;
+				var maybeNewApp = author$project$Main$appDataFromJson(newJSON);
+				switch (maybeNewApp.$) {
+					case 'Success':
+						var savedAppData = maybeNewApp.a;
+						return _Utils_Tuple2(
+							A3(author$project$Main$Model, viewState, savedAppData, environment),
+							author$project$External$Commands$toast('Synced with another browser tab!'));
+					case 'WithWarnings':
+						var warnings = maybeNewApp.a;
+						var savedAppData = maybeNewApp.b;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
-								A2(
-									author$project$Main$ViewState,
-									author$project$Main$TaskList(newState),
-									0),
-								newApp,
+								viewState,
+								A2(author$project$AppData$saveWarnings, savedAppData, warnings),
 								environment),
-							A2(elm$core$Platform$Cmd$map, author$project$Main$TaskListMsg, newCommand));
-					} else {
-						break _n0$8;
-					}
-				case 'TimeTrackerMsg':
-					if (_n0.b.$ === 'TimeTracker') {
-						var subMsg = _n0.a.a;
-						var subViewState = _n0.b.a;
-						var _n8 = A4(author$project$TimeTracker$update, subMsg, subViewState, appData, environment);
-						var newState = _n8.a;
-						var newApp = _n8.b;
-						var newCommand = _n8.c;
+							elm$core$Platform$Cmd$none);
+					case 'Errors':
+						var errors = maybeNewApp.a;
 						return _Utils_Tuple2(
 							A3(
 								author$project$Main$Model,
-								A2(
-									author$project$Main$ViewState,
-									author$project$Main$TimeTracker(newState),
-									0),
-								newApp,
+								viewState,
+								A2(author$project$AppData$saveDecodeErrors, appData, errors),
 								environment),
-							A2(elm$core$Platform$Cmd$map, author$project$Main$TimeTrackerMsg, newCommand));
-					} else {
-						break _n0$8;
-					}
-				case 'NewAppData':
-					var newJSON = _n0.a.a;
-					var maybeNewApp = author$project$Main$appDataFromJson(newJSON);
-					switch (maybeNewApp.$) {
-						case 'Success':
-							var savedAppData = maybeNewApp.a;
-							return _Utils_Tuple2(
-								A3(author$project$Main$Model, viewState, savedAppData, environment),
-								author$project$External$Commands$toast('Synced with another browser tab!'));
-						case 'WithWarnings':
-							var warnings = maybeNewApp.a;
-							var savedAppData = maybeNewApp.b;
-							return _Utils_Tuple2(
-								A3(
-									author$project$Main$Model,
-									viewState,
-									A2(author$project$AppData$saveWarnings, savedAppData, warnings),
-									environment),
-								elm$core$Platform$Cmd$none);
-						case 'Errors':
-							var errors = maybeNewApp.a;
-							return _Utils_Tuple2(
-								A3(
-									author$project$Main$Model,
-									viewState,
-									A2(author$project$AppData$saveDecodeErrors, appData, errors),
-									environment),
-								elm$core$Platform$Cmd$none);
-						default:
-							return _Utils_Tuple2(
-								A3(
-									author$project$Main$Model,
-									viewState,
-									A2(author$project$AppData$saveError, appData, 'Got bad JSON from cross-sync'),
-									environment),
-								elm$core$Platform$Cmd$none);
-					}
-				default:
-					break _n0$8;
-			}
+							elm$core$Platform$Cmd$none);
+					default:
+						return _Utils_Tuple2(
+							A3(
+								author$project$Main$Model,
+								viewState,
+								A2(author$project$AppData$saveError, appData, 'Got bad JSON from cross-sync'),
+								environment),
+							elm$core$Platform$Cmd$none);
+				}
+			default:
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
-		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 	});
 var author$project$Main$updateWithStorage = F2(
 	function (msg, model) {
@@ -17043,7 +17028,6 @@ var author$project$Main$infoFooter = A2(
 						]))
 				]))
 		]));
-var author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var author$project$TaskList$DeleteComplete = {$: 'DeleteComplete'};
 var rtfeldman$elm_css$Html$Styled$button = rtfeldman$elm_css$Html$Styled$node('button');
 var rtfeldman$elm_css$Html$Styled$Attributes$boolProperty = F2(
