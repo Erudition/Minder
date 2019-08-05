@@ -2,21 +2,13 @@ var storagefilename = "Minder/personal-data.json";
 
 try {
     // For node only. Breaks tasker
-    
+
     var Elm = require('./elm-headless.js').Elm;
     var tk = require('./tasker-fillers.js').tk;
 
     var fs = require('fs');
     tk.readFile = (file) => fs.readFileSync("/tmp/"+file, 'utf8').toString();
     tk.writeFile = (file, data, append) => fs.writeFileSync("/tmp/"+file, data);
-
-    // try {
-    //
-    // }
-    // catch (e) {
-    //     console.log("Failed to read file, " + e)
-    //     var storageContents = "";
-    // }
 
     var taskerUrl = process.argv[2];
     let fallbackUrl = "http://docket.com/?start=Nothing"; // If in node
@@ -27,11 +19,8 @@ try {
     var inTasker = false;
     // Enable above for node
 
-
 } catch (e) {
-    tk.flash("Successfully bypassed Node.js-specific code!")
     var taskerUrl = tk.local("elmurl"); // If in Tasker
-
 
     var inTasker = true;
 }
