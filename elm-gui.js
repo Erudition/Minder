@@ -14267,6 +14267,22 @@ var author$project$TaskList$defaultView = A3(
 		[author$project$TaskList$AllTasks]),
 	elm$core$Maybe$Nothing,
 	'');
+var author$project$Incubator$Todoist$Command$ItemClose = function (a) {
+	return {$: 'ItemClose', a: a};
+};
+var author$project$Incubator$Todoist$Command$RealItem = function (a) {
+	return {$: 'RealItem', a: a};
+};
+var author$project$Integrations$Todoist$sendChanges = F2(
+	function (localData, changeList) {
+		return A4(
+			author$project$Incubator$Todoist$sync,
+			localData.cache,
+			author$project$Integrations$Todoist$devSecret,
+			_List_fromArray(
+				[author$project$Incubator$Todoist$Items, author$project$Incubator$Todoist$Projects]),
+			changeList);
+	});
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -14283,6 +14299,9 @@ var author$project$Task$Task$completed = function (task) {
 		}(task));
 };
 var author$project$TaskList$NoOp = {$: 'NoOp'};
+var author$project$TaskList$TodoistServerResponse = function (a) {
+	return {$: 'TodoistServerResponse', a: a};
+};
 var elm$browser$Browser$External = function (a) {
 	return {$: 'External', a: a};
 };
@@ -14370,6 +14389,7 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 };
 var elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var elm$core$Platform$Cmd$batch = _Platform_batch;
+var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var elm$core$Task$onError = _Scheduler_onError;
 var elm$core$Task$attempt = F2(
@@ -14558,7 +14578,20 @@ var author$project$TaskList$update = F4(
 						_List_fromArray(
 							[
 								author$project$External$Commands$toast(
-								'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle))
+								'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle)),
+								A2(
+								elm$core$Platform$Cmd$map,
+								author$project$TaskList$TodoistServerResponse,
+								A2(
+									author$project$Integrations$Todoist$sendChanges,
+									app.todoist,
+									_List_fromArray(
+										[
+											_Utils_Tuple2(
+											author$project$SmartTime$Human$Moment$toStandardString(env.time),
+											author$project$Incubator$Todoist$Command$ItemClose(
+												author$project$Incubator$Todoist$Command$RealItem(id)))
+										])))
 							])) : elm$core$Platform$Cmd$none);
 			case 'FocusSlider':
 				var task = msg.a;
@@ -14768,14 +14801,7 @@ var author$project$TaskList$urlTriggers = F2(
 			[
 				_Utils_Tuple2(
 				'complete',
-				elm$core$Dict$fromList(allEntries)),
-				_Utils_Tuple2(
-				'bleh',
-				elm$core$Dict$fromList(
-					_List_fromArray(
-						[
-							_Utils_Tuple2('bleh', author$project$TaskList$NoOp)
-						])))
+				elm$core$Dict$fromList(allEntries))
 			]);
 	});
 var author$project$Activity$Activity$latestSwitch = function (timeline) {
@@ -15631,7 +15657,6 @@ var elm$core$Dict$map = F2(
 				A2(elm$core$Dict$map, func, right));
 		}
 	});
-var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$url$Url$Parser$query = function (_n0) {
 	var queryParser = _n0.a;
 	return elm$url$Url$Parser$Parser(
