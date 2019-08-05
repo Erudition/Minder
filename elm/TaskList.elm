@@ -590,9 +590,10 @@ update msg state app env =
             , if isMax new_completion then
                 Cmd.batch
                     [ Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
-                    , Cmd.map TodoistServerResponse <|
-                        Integrations.Todoist.sendChanges app.todoist
-                            [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
+
+                    -- , Cmd.map TodoistServerResponse <|
+                    --     Integrations.Todoist.sendChanges app.todoist
+                    --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
                     ]
 
               else
@@ -645,8 +646,12 @@ urlTriggers app env =
         nextTaskEntry =
             Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask app env)
 
+        noNextTaskEntry =
+            [ ( "next", NoOp ) ]
+
         allEntries =
-            Maybe.withDefault [] nextTaskEntry ++ tasksWithNames
+            Maybe.withDefault noNextTaskEntry nextTaskEntry ++ tasksWithNames
     in
     [ ( "complete", Dict.fromList allEntries )
+    , ( "bleh", Dict.fromList [ ( "bleh", NoOp ) ] )
     ]
