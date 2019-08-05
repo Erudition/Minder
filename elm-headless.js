@@ -1,4 +1,3 @@
-var XMLHttpRequest = require('node-http-xhr');
 (function(scope){
 'use strict';
 
