@@ -362,16 +362,16 @@ update msg ({ viewState, appData, environment } as model) =
         justSetEnv newEnv =
             ( Model viewState appData newEnv, Cmd.none )
     in
-    case ( msg, viewState.primaryView ) of
-        ( ClearErrors, _ ) ->
+    case msg of
+        ClearErrors ->
             ( Model viewState { appData | errors = [] } environment, Cmd.none )
 
-        ( SyncTodoist, _ ) ->
+        SyncTodoist ->
             justRunCommand <|
                 Cmd.map TodoistServerResponse <|
                     Integrations.Todoist.fetchUpdates appData.todoist
 
-        ( TodoistServerResponse response, _ ) ->
+        TodoistServerResponse response ->
             let
                 ( newAppData, whatHappened ) =
                     Integrations.Todoist.handle response appData
@@ -380,7 +380,7 @@ update msg ({ viewState, appData, environment } as model) =
             , toast whatHappened
             )
 
-        ( Link urlRequest, _ ) ->
+        Link urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
                     case environment.navkey of
@@ -395,8 +395,7 @@ update msg ({ viewState, appData, environment } as model) =
                 Browser.External href ->
                     justRunCommand <| Nav.load href
 
-        -- TODO done!
-        ( NewUrl url, _ ) ->
+        NewUrl url ->
             let
                 ( modelAfter, effectsAfter ) =
                     handleUrlTriggers url model
@@ -405,21 +404,39 @@ update msg ({ viewState, appData, environment } as model) =
             in
             ( { modelAfter | viewState = viewUrl url }, effectsAfter )
 
-        ( TaskListMsg subMsg, TaskList subViewState ) ->
+        TaskListMsg subMsg ->
             let
+                subViewState =
+                    case viewState.primaryView of
+                        -- Currently viewing the task list
+                        TaskList subView ->
+                            subView
+
+                        -- viewing something else at the time (or headless)
+                        _ ->
+                            TaskList.defaultView
+
                 ( newState, newApp, newCommand ) =
                     TaskList.update subMsg subViewState appData environment
             in
             ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
 
-        ( TimeTrackerMsg subMsg, TimeTracker subViewState ) ->
+        TimeTrackerMsg subMsg ->
             let
+                subViewState =
+                    case viewState.primaryView of
+                        TimeTracker subView ->
+                            subView
+
+                        _ ->
+                            TimeTracker.defaultView
+
                 ( newState, newApp, newCommand ) =
                     TimeTracker.update subMsg subViewState appData environment
             in
             ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
 
-        ( NewAppData newJSON, _ ) ->
+        NewAppData newJSON ->
             let
                 maybeNewApp =
                     appDataFromJson newJSON
@@ -437,7 +454,7 @@ update msg ({ viewState, appData, environment } as model) =
                 BadJson ->
                     ( Model viewState (AppData.saveError appData "Got bad JSON from cross-sync") environment, Cmd.none )
 
-        ( _, _ ) ->
+        _ ->
             ( model, Cmd.none )
 
 
@@ -549,8 +566,8 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
-                ++ List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers appData environment)
+            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers appData environment)
+                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
                 ++ [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] )
                    , ( "blowup", Dict.fromList [ ( "yes", SyncTodoist ) ] )
                    ]
