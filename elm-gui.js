@@ -14022,9 +14022,11 @@ var author$project$Incubator$Todoist$Item$fromRFC3339Date = A2(elm$core$Basics$c
 var author$project$Integrations$Todoist$calcImportance = function (_n0) {
 	var priority = _n0.priority;
 	var day_order = _n0.day_order;
+	var orderingFactor = _Utils_eq(day_order, -1) ? 0 : ((0 - (day_order * 1.0e-2)) + 0.99);
 	var _n1 = priority;
 	var _int = _n1.a;
-	return (0 - _int) + (day_order * 1.0e-2);
+	var priorityFactor = (0 - _int) + 4;
+	return priorityFactor + orderingFactor;
 };
 var author$project$Integrations$Todoist$timing = A2(
 	elm$parser$Parser$keeper,
@@ -14677,7 +14679,7 @@ var author$project$Task$Task$compareSoonness = F3(
 				return A4(author$project$SmartTime$Human$Moment$compareFuzzyBasic, zone, author$project$SmartTime$Human$Clock$endOfDay, fuzzyMomentA, fuzzyMomentB);
 			} else {
 				var _n3 = _n0.b;
-				return elm$core$Basics$GT;
+				return elm$core$Basics$LT;
 			}
 		} else {
 			if (_n0.b.$ === 'Nothing') {
@@ -14686,7 +14688,7 @@ var author$project$Task$Task$compareSoonness = F3(
 				return elm$core$Basics$EQ;
 			} else {
 				var _n4 = _n0.a;
-				return elm$core$Basics$LT;
+				return elm$core$Basics$GT;
 			}
 		}
 	});
@@ -14724,6 +14726,13 @@ var author$project$Task$Task$deepSort = F2(
 	});
 var author$project$Task$Task$prioritize = F3(
 	function (now, zone, taskList) {
+		var comparePropInverted = F3(
+			function (prop, a, b) {
+				return A2(
+					elm$core$Basics$compare,
+					prop(b),
+					prop(a));
+			});
 		var compareProp = F3(
 			function (prop, a, b) {
 				return A2(
@@ -14736,24 +14745,28 @@ var author$project$Task$Task$prioritize = F3(
 			_List_fromArray(
 				[
 					author$project$Task$Task$compareSoonness(zone),
-					compareProp(
+					comparePropInverted(
 					function ($) {
 						return $.importance;
 					})
 				]),
 			taskList);
 	});
+var elm$core$Debug$log = _Debug_log;
 var author$project$Activity$Switching$determineNextTask = F2(
 	function (app, env) {
 		return elm$core$List$head(
-			A3(
-				author$project$Task$Task$prioritize,
-				env.time,
-				env.timeZone,
-				A2(
-					elm$core$List$filter,
-					A2(elm$core$Basics$composeR, author$project$Task$Task$completed, elm$core$Basics$not),
-					elm_community$intdict$IntDict$values(app.tasks))));
+			A2(
+				elm$core$Debug$log,
+				'tasks prioritized for determineNextTask',
+				A3(
+					author$project$Task$Task$prioritize,
+					env.time,
+					env.timeZone,
+					A2(
+						elm$core$List$filter,
+						A2(elm$core$Basics$composeR, author$project$Task$Task$completed, elm$core$Basics$not),
+						elm_community$intdict$IntDict$values(app.tasks)))));
 	});
 var author$project$TaskList$UpdateProgress = F2(
 	function (a, b) {
@@ -19712,8 +19725,8 @@ var author$project$SmartTime$Human$Calendar$describeVsToday = F2(
 			}
 			var futureDays = _n0.a;
 			var pastDays = _n0.b;
-			return A3(author$project$SmartTime$Human$Calendar$intIsBetween, 0, 6, futureDays) ? ('next ' + author$project$SmartTime$Human$Calendar$Week$dayToName(
-				author$project$SmartTime$Human$Calendar$dayOfWeek(describee))) : (A3(author$project$SmartTime$Human$Calendar$intIsBetween, 0, 6, pastDays) ? ('last ' + author$project$SmartTime$Human$Calendar$Week$dayToName(
+			return A3(author$project$SmartTime$Human$Calendar$intIsBetween, 0, 6, futureDays) ? ('this coming ' + author$project$SmartTime$Human$Calendar$Week$dayToName(
+				author$project$SmartTime$Human$Calendar$dayOfWeek(describee))) : (A3(author$project$SmartTime$Human$Calendar$intIsBetween, 0, 6, pastDays) ? ('this past ' + author$project$SmartTime$Human$Calendar$Week$dayToName(
 				author$project$SmartTime$Human$Calendar$dayOfWeek(describee))) : (_Utils_eq(
 				author$project$SmartTime$Human$Calendar$year(today),
 				des.year) ? (author$project$SmartTime$Human$Calendar$Month$toName(des.month) + (' ' + elm$core$String$fromInt(
@@ -20141,11 +20154,14 @@ var author$project$TaskList$view = F3(
 		var filters = state.a;
 		var expanded = state.b;
 		var field = state.c;
-		var sortedTasks = A3(
-			author$project$Task$Task$prioritize,
-			env.time,
-			env.timeZone,
-			elm_community$intdict$IntDict$values(app.tasks));
+		var sortedTasks = A2(
+			elm$core$Debug$log,
+			'listed tasks prioritized',
+			A3(
+				author$project$Task$Task$prioritize,
+				env.time,
+				env.timeZone,
+				elm_community$intdict$IntDict$values(app.tasks)));
 		var activeFilter = A2(
 			elm$core$Maybe$withDefault,
 			author$project$TaskList$AllTasks,
