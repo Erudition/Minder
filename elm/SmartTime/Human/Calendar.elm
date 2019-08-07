@@ -895,7 +895,7 @@ dayOfWeek : CalendarDate -> DayOfWeek
 dayOfWeek (CalendarDate rd) =
     let
         dayNum =
-            case modBy rd 7 of
+            case modBy 7 rd of
                 0 ->
                     7
 
@@ -1413,10 +1413,10 @@ describeVsToday today describee =
 
         ( futureDays, pastDays ) ->
             if intIsBetween 0 6 futureDays then
-                "next " ++ Week.dayToName (dayOfWeek describee)
+                "this coming " ++ Week.dayToName (dayOfWeek describee)
 
             else if intIsBetween 0 6 pastDays then
-                "last " ++ Week.dayToName (dayOfWeek describee)
+                "this past " ++ Week.dayToName (dayOfWeek describee)
 
             else if year today == des.year then
                 Month.toName des.month
