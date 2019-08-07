@@ -261,8 +261,19 @@ calcImportance { priority, day_order } =
     let
         (Item.Priority int) =
             priority
+
+        priorityFactor =
+            -- inverts priority back to greater number = higher priority
+            (0 - toFloat int) + 4
+
+        orderingFactor =
+            if day_order == -1 then
+                0
+
+            else
+                (0 - toFloat day_order * 0.01) + 0.99
     in
-    (0 - toFloat int) + (toFloat day_order * 0.01)
+    priorityFactor + orderingFactor
 
 
 extractTiming : String -> ( String, ( Maybe HumanDuration, Maybe HumanDuration ) )

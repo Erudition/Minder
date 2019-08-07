@@ -93,7 +93,7 @@ view state app env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 sortedTasks =
-                    prioritize env.time env.timeZone <| IntDict.values app.tasks
+                    Debug.log "listed tasks prioritized" <| prioritize env.time env.timeZone <| IntDict.values app.tasks
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]

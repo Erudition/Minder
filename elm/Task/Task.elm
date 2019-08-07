@@ -218,10 +218,15 @@ type alias WithSoonness t =
 prioritize : Moment -> HumanMoment.Zone -> List Task -> List Task
 prioritize now zone taskList =
     let
+        -- lowest values first
         compareProp prop a b =
             Basics.compare (prop a) (prop b)
+
+        -- highest values first
+        comparePropInverted prop a b =
+            Basics.compare (prop b) (prop a)
     in
-    deepSort [ compareSoonness zone, compareProp .importance ] taskList
+    deepSort [ compareSoonness zone, comparePropInverted .importance ] taskList
 
 
 normalizeTitle : String -> String
@@ -264,6 +269,8 @@ deepSort compareFuncs listToSort =
     List.sortWith (deepCompare compareFuncs) listToSort
 
 
+{-| TODO this could be a Moment.Fuzzy function
+-}
 compareSoonness : HumanMoment.Zone -> CompareFunction Task
 compareSoonness zone taskA taskB =
     case ( taskA.deadline, taskB.deadline ) of
@@ -271,10 +278,13 @@ compareSoonness zone taskA taskB =
             HumanMoment.compareFuzzyBasic zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 
         ( Nothing, Nothing ) ->
+            -- whenevers can't be compared
             EQ
 
         ( Just _, Nothing ) ->
-            GT
+            -- actual times always come before whenevers
+            LT
 
         ( Nothing, Just _ ) ->
-            LT
+            -- whenevers always come after actual times
+            GT

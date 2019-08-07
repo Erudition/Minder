@@ -96,7 +96,10 @@ determineOnTask activityID app env =
 
 determineNextTask : AppData -> Environment -> Maybe Task.Task
 determineNextTask app env =
-    List.head (Task.prioritize env.time env.timeZone <| List.filter (Task.completed >> not) <| IntDict.values app.tasks)
+    List.head <|
+        Task.prioritize env.time env.timeZone <|
+            List.filter (Task.completed >> not) <|
+                IntDict.values app.tasks
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
