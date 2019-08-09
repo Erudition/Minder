@@ -292,7 +292,8 @@ toUnixTime ((Moment momentAsDur) as givenMoment) =
 
 toUnixTimeInt : Moment -> Int
 toUnixTimeInt mo =
-    truncate <| toUnixTime mo
+    -- can't use truncate because of https://github.com/elm/core/issues/1003
+    floor <| toUnixTime mo
 
 
 {-| How far is this Moment from a particular `Epoch`?
