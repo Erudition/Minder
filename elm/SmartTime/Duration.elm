@@ -1,4 +1,4 @@
-module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromMs, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isPositive, isZero, scale, subtract, zero)
+module SmartTime.Duration exposing (Duration, DurationBreakdown, aDay, aMillisecond, aMinute, aSecond, add, anHour, breakdown, combine, compare, difference, fromDays, fromHours, fromInt, fromMinutes, fromMs, fromSeconds, inDays, inDaysRounded, inHours, inHoursRounded, inMinutes, inMinutesRounded, inMs, inSeconds, inSecondsRounded, inWholeDays, inWholeHours, inWholeMinutes, inWholeSeconds, isPositive, isZero, longest, scale, shortest, subtract, zero)
 
 {-| Library for working with time and time zones.
 
@@ -322,19 +322,6 @@ difference (Duration int1) (Duration int2) =
     Duration <| abs (int1 - int2)
 
 
-{-| How do these durations compare?
-
-Works just like a normal `compare`, returning an `Order`:
-If the first value is greater than the second, returns `GT`.
-If the first value is less than the second, returns `LT`.
-If the values are equal, returns `EQ`.
-
--}
-compare : Duration -> Duration -> Order
-compare (Duration int1) (Duration int2) =
-    Basics.compare int1 int2
-
-
 {-| Get the sum of a list of durations, as a final `Duration`.
 -}
 combine : List Duration -> Duration
@@ -384,6 +371,23 @@ zero =
     Duration 0
 
 
+
+-- COMPARISONS
+
+
+{-| How do these durations compare?
+
+Works just like a normal `compare`, returning an `Order`:
+If the first value is greater than the second, returns `GT`.
+If the first value is less than the second, returns `LT`.
+If the values are equal, returns `EQ`.
+
+-}
+compare : Duration -> Duration -> Order
+compare (Duration int1) (Duration int2) =
+    Basics.compare int1 int2
+
+
 {-| Find out if a Duration is empty. Zero. Infinitesimal. Instant.
 
 Or use `not` to find out if the Duration has any substance to it.
@@ -402,6 +406,22 @@ This will rule out empty durations, and also negative ones (should they occur).
 isPositive : Duration -> Bool
 isPositive (Duration int) =
     int > 0
+
+
+{-| Returns the longest of two Durations.
+The Duration equivalent of `Basics.max`.
+-}
+longest : Duration -> Duration -> Duration
+longest (Duration durationA) (Duration durationB) =
+    Duration (Basics.max durationA durationB)
+
+
+{-| Returns the shortest of two Durations.
+The Duration equivalent of `Basics.min`.
+-}
+shortest : Duration -> Duration -> Duration
+shortest (Duration durationA) (Duration durationB) =
+    Duration (Basics.min durationA durationB)
 
 
 

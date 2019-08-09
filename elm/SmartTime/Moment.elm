@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
@@ -191,6 +191,22 @@ compare (Moment time1) (Moment time2) =
 
         EQ ->
             Coincident
+
+
+{-| Returns the earliest of two Moments - whichever comes first on the timeline.
+The Moment equivalent of `Basics.min`.
+-}
+earliest : Moment -> Moment -> Moment
+earliest (Moment durationA) (Moment durationB) =
+    Moment (Duration.shortest durationA durationB)
+
+
+{-| Returns the latest of two Moments - whichever comes later on the timeline.
+The Moment equivalent of `Basics.max`.
+-}
+latest : Moment -> Moment -> Moment
+latest (Moment durationA) (Moment durationB) =
+    Moment (Duration.longest durationA durationB)
 
 
 {-| Result of comparing Moments with `compare`.
