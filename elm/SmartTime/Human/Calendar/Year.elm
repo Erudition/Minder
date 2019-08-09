@@ -1,4 +1,4 @@
-module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, fromBCEYear, isBeforeCommonEra, isCommonEra, isLeapYear, parse4DigitYear, toBCEYear, toClassicFormalString, toFormalString, toInt, toString)
+module SmartTime.Human.Calendar.Year exposing (Year(..), compare, daysBefore, fromBCEYear, isBeforeCommonEra, isCommonEra, isLeapYear, parse4DigitYear, toAstronomicalString, toBCEYear, toClassicFormalString, toFormalString, toInt, toString)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -64,6 +64,11 @@ toFormalString ((Year yearInt) as year) =
 
     else
         String.fromInt (toBCEYear year) ++ " BCE"
+
+
+toAstronomicalString : Year -> String
+toAstronomicalString ((Year yearInt) as year) =
+    String.fromInt yearInt
 
 
 {-| Like `toFormalString`, but uses the Christian Era abbreviations instead.

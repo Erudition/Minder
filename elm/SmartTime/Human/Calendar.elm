@@ -1165,7 +1165,7 @@ toStandardString : CalendarDate -> String
 toStandardString givenDate =
     let
         yearPart =
-            padNumber 4 <| Year.toString <| year givenDate
+            padNumber 4 <| Year.toAstronomicalString <| year givenDate
 
         monthPart =
             padNumber 2 <| String.fromInt <| Month.toInt <| month givenDate
