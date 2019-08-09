@@ -59,7 +59,7 @@ scheduleReminders env timeline onTaskStatus ( activityID, newActivity ) =
         OffTask excusedLeft ->
             --TODO handle indefinitely excused
             if Duration.isPositive excusedLeft then
-                scheduleExcusedReminders env.time excusedLeft
+                scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
 
             else
                 scheduleOffTaskReminders env.time
@@ -145,33 +145,3 @@ switchPopup timeline env (( newID, new ) as newKV) ( oldID, old ) =
 currentActivityFromApp : AppData -> ActivityID
 currentActivityFromApp app =
     currentActivityID app.timeline
-
-
-scheduleOnTaskReminders : Moment -> Duration -> List Reminder
-scheduleOnTaskReminders now fromNow =
-    let
-        fractionLeft denom =
-            future now <| Duration.subtract fromNow (Duration.scale fromNow (1 / denom))
-    in
-    [ Reminder (fractionLeft 2)
-        "Half-way done!"
-        "1/2 time left for activity."
-        []
-    , Reminder (fractionLeft 3)
-        "Two-thirds done!"
-        "1/3 time left for activity."
-        []
-    , Reminder (fractionLeft 4)
-        "Three-Quarters done!"
-        "1/4 time left for activity."
-        []
-    , Reminder (future now fromNow)
-        "Time's up!"
-        "Reached maximum time allowed for this."
-        []
-    ]
-
-
-scheduleOffTaskReminders : Moment -> List Reminder
-scheduleOffTaskReminders moment =
-    []
