@@ -8,7 +8,10 @@ try {
 
     var fs = require('fs');
     tk.readFile = (file) => fs.readFileSync("/tmp/"+file, 'utf8').toString();
-    tk.writeFile = (file, data, append) => fs.writeFileSync("/tmp/"+file, data);
+    tk.writeFile = function(file, data, append) {
+        if (append) {fs.appendFileSync("/tmp/"+file, data)}
+        else {fs.writeFileSync("/tmp/"+file, data)}
+    };
 
     var taskerUrl = process.argv[2];
     let fallbackUrl = "http://docket.com/?start=Nothing"; // If in node
@@ -36,8 +39,12 @@ try {
 
 
 //var Elm = this.Elm; //trick I discovered to bypass importing
-
-var storageContents = tk.readFile(storagefilename);
+try {
+    var storageContents = tk.readFile(storagefilename);
+} catch (e) {
+    tk.writeFile(storagefilename, "", true);
+    var storageContents = tk.readFile(storagefilename);
+}
 
 
 var app = Elm.Headless.init(
