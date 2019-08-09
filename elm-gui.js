@@ -14752,21 +14752,17 @@ var author$project$Task$Task$prioritize = F3(
 				]),
 			taskList);
 	});
-var elm$core$Debug$log = _Debug_log;
 var author$project$Activity$Switching$determineNextTask = F2(
 	function (app, env) {
 		return elm$core$List$head(
-			A2(
-				elm$core$Debug$log,
-				'tasks prioritized for determineNextTask',
-				A3(
-					author$project$Task$Task$prioritize,
-					env.time,
-					env.timeZone,
-					A2(
-						elm$core$List$filter,
-						A2(elm$core$Basics$composeR, author$project$Task$Task$completed, elm$core$Basics$not),
-						elm_community$intdict$IntDict$values(app.tasks)))));
+			A3(
+				author$project$Task$Task$prioritize,
+				env.time,
+				env.timeZone,
+				A2(
+					elm$core$List$filter,
+					A2(elm$core$Basics$composeR, author$project$Task$Task$completed, elm$core$Basics$not),
+					elm_community$intdict$IntDict$values(app.tasks))));
 	});
 var author$project$TaskList$UpdateProgress = F2(
 	function (a, b) {
@@ -15307,10 +15303,12 @@ var author$project$Activity$Switching$determineOnTask = F3(
 			}
 		}
 	});
-var author$project$SmartTime$Duration$isZero = function (_n0) {
-	var _int = _n0.a;
-	return !_int;
-};
+var author$project$SmartTime$Duration$compare = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return A2(elm$core$Basics$compare, int1, int2);
+	});
 var author$project$SmartTime$Human$Duration$breakdownHM = function (duration) {
 	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
 	var minutes = _n0.minutes;
@@ -15327,80 +15325,123 @@ var author$project$SmartTime$Moment$future = F2(
 		return author$project$SmartTime$Moment$Moment(
 			A2(author$project$SmartTime$Duration$add, time, duration));
 	});
-var author$project$Activity$Reminder$scheduleExcusedReminders = F2(
-	function (now, timeLeft) {
-		var yetToPass = function (reminder) {
-			return _Utils_eq(
-				A2(author$project$SmartTime$Moment$compare, reminder.scheduledFor, now),
-				author$project$SmartTime$Moment$Later);
-		};
+var elm_community$list_extra$List$Extra$takeWhile = function (predicate) {
+	var takeWhileMemo = F2(
+		function (memo, list) {
+			takeWhileMemo:
+			while (true) {
+				if (!list.b) {
+					return elm$core$List$reverse(memo);
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					if (predicate(x)) {
+						var $temp$memo = A2(elm$core$List$cons, x, memo),
+							$temp$list = xs;
+						memo = $temp$memo;
+						list = $temp$list;
+						continue takeWhileMemo;
+					} else {
+						return elm$core$List$reverse(memo);
+					}
+				}
+			}
+		});
+	return takeWhileMemo(_List_Nil);
+};
+var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
+	function (now, excusedLimit, timeLeft) {
 		var write = function (durLeft) {
 			return author$project$SmartTime$Human$Duration$abbreviatedSpaced(
 				author$project$SmartTime$Human$Duration$breakdownHM(durLeft));
 		};
-		var thirdLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 2 / 3);
-		var quarterLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 3 / 4);
-		var halfLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
-		var fifthLeft = A2(author$project$SmartTime$Duration$scale, timeLeft, 4 / 5);
-		return (!author$project$SmartTime$Duration$isZero(timeLeft)) ? A2(
-			elm$core$List$filter,
-			yetToPass,
+		var timesUp = A2(author$project$SmartTime$Moment$future, now, timeLeft);
+		var interimReminders = _List_fromArray(
+			[
+				{
+				scheduledFor: A2(
+					author$project$SmartTime$Moment$future,
+					now,
+					author$project$SmartTime$Human$Duration$dur(
+						author$project$SmartTime$Human$Duration$Minutes(10))),
+				subtitle: 'Get back on task as soon as possible - do this later!',
+				title: 'Distraction taken care of?'
+			},
+				{
+				scheduledFor: A2(
+					author$project$SmartTime$Moment$future,
+					now,
+					author$project$SmartTime$Human$Duration$dur(
+						author$project$SmartTime$Human$Duration$Minutes(20))),
+				subtitle: 'You have important goals to meet!',
+				title: 'Ready to get back on task?'
+			},
+				{
+				scheduledFor: A2(
+					author$project$SmartTime$Moment$future,
+					now,
+					author$project$SmartTime$Human$Duration$dur(
+						author$project$SmartTime$Human$Duration$Minutes(30))),
+				subtitle: 'Why not put this in your task list for later?',
+				title: 'Can this wait?'
+			}
+			]);
+		var halfLeftThisSession = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
+		var firstIsLess = F2(
+			function (first, last) {
+				return _Utils_eq(
+					A2(author$project$SmartTime$Duration$compare, first, last),
+					elm$core$Basics$LT);
+			});
+		var firstIsGreater = F2(
+			function (first, last) {
+				return _Utils_eq(
+					A2(author$project$SmartTime$Duration$compare, first, last),
+					elm$core$Basics$GT);
+			});
+		var gettingCloseList = A2(
+			elm_community$list_extra$List$Extra$takeWhile,
+			firstIsGreater(halfLeftThisSession),
 			_List_fromArray(
 				[
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(author$project$SmartTime$Moment$future, now, halfLeft),
-					subtitle: 'Ready for you to get back on task',
-					title: write(halfLeft) + ' left'
-				},
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(author$project$SmartTime$Moment$future, now, thirdLeft),
-					subtitle: 'Save some excused time for when you really need it!',
-					title: 'Excused for ' + (write(thirdLeft) + ' more')
-				},
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(author$project$SmartTime$Moment$future, now, quarterLeft),
-					subtitle: 'Don\'t wait to get back on task',
-					title: 'Excused for ' + (write(quarterLeft) + ' more')
-				},
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(author$project$SmartTime$Moment$future, now, fifthLeft),
-					subtitle: 'Can you finish this later?',
-					title: 'Excused for ' + (write(fifthLeft) + ' more')
-				},
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(
-						author$project$SmartTime$Moment$future,
-						now,
-						author$project$SmartTime$Human$Duration$dur(
-							author$project$SmartTime$Human$Duration$Minutes(5))),
-					subtitle: 'Can you get back on task now?',
-					title: '5 minutes left!'
-				},
-					{
-					actions: _List_Nil,
-					scheduledFor: A2(
-						author$project$SmartTime$Moment$future,
-						now,
-						author$project$SmartTime$Human$Duration$dur(
-							author$project$SmartTime$Human$Duration$Minutes(1))),
-					subtitle: 'Stop now. You can come back to this later.',
-					title: '1 minute left!'
-				}
-				])) : _List_Nil;
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(1)),
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(2)),
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(3)),
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(5)),
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(10)),
+					author$project$SmartTime$Human$Duration$dur(
+					author$project$SmartTime$Human$Duration$Minutes(30))
+				]));
+		var substantialTimeLeft = A2(
+			firstIsGreater,
+			timeLeft,
+			author$project$SmartTime$Duration$fromSeconds(30.0));
+		var beforeTimesUp = function (timeBefore) {
+			return A2(author$project$SmartTime$Moment$past, timesUp, timeBefore);
+		};
+		var buildGettingCloseReminder = function (amountLeft) {
+			return {
+				actions: _List_Nil,
+				scheduledFor: beforeTimesUp(amountLeft),
+				subtitle: 'Excused for up to ' + write(excusedLimit),
+				title: 'Finish up! Only ' + (write(amountLeft) + ' left!')
+			};
+		};
+		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
-var author$project$Activity$Switching$scheduleOffTaskReminders = function (moment) {
+var author$project$Activity$Reminder$scheduleOffTaskReminders = function (moment) {
 	return _List_Nil;
 };
 var author$project$Activity$Reminder$Reminder = F4(
 	function (scheduledFor, title, subtitle, actions) {
 		return {actions: actions, scheduledFor: scheduledFor, subtitle: subtitle, title: title};
 	});
-var author$project$Activity$Switching$scheduleOnTaskReminders = F2(
+var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
 	function (now, fromNow) {
 		var fractionLeft = function (denom) {
 			return A2(
@@ -15446,10 +15487,14 @@ var author$project$Activity$Switching$scheduleReminders = F4(
 		switch (onTaskStatus.$) {
 			case 'OnTask':
 				var timeLeft = onTaskStatus.a;
-				return A2(author$project$Activity$Switching$scheduleOnTaskReminders, env.time, timeLeft);
+				return A2(author$project$Activity$Reminder$scheduleOnTaskReminders, env.time, timeLeft);
 			case 'OffTask':
 				var excusedLeft = onTaskStatus.a;
-				return author$project$SmartTime$Duration$isPositive(excusedLeft) ? A2(author$project$Activity$Reminder$scheduleExcusedReminders, env.time, excusedLeft) : author$project$Activity$Switching$scheduleOffTaskReminders(env.time);
+				return author$project$SmartTime$Duration$isPositive(excusedLeft) ? A3(
+					author$project$Activity$Reminder$scheduleExcusedReminders,
+					env.time,
+					author$project$Activity$Measure$excusableLimit(newActivity),
+					excusedLeft) : author$project$Activity$Reminder$scheduleOffTaskReminders(env.time);
 			default:
 				return _List_Nil;
 		}
@@ -19656,7 +19701,7 @@ var author$project$SmartTime$Human$Calendar$Week$numberToDay = function (n) {
 var author$project$SmartTime$Human$Calendar$dayOfWeek = function (_n0) {
 	var rd = _n0.a;
 	var dayNum = function () {
-		var _n1 = A2(elm$core$Basics$modBy, rd, 7);
+		var _n1 = A2(elm$core$Basics$modBy, 7, rd);
 		if (!_n1) {
 			return 7;
 		} else {
@@ -20122,6 +20167,7 @@ var author$project$TaskList$viewTasks = F3(
 						A2(elm$core$List$filter, isVisible, tasks)))
 				]));
 	});
+var elm$core$Debug$log = _Debug_log;
 var rtfeldman$elm_css$Css$hidden = {borderStyle: rtfeldman$elm_css$Css$Structure$Compatible, overflow: rtfeldman$elm_css$Css$Structure$Compatible, value: 'hidden', visibility: rtfeldman$elm_css$Css$Structure$Compatible};
 var rtfeldman$elm_css$Css$UnitlessFloat = {$: 'UnitlessFloat'};
 var rtfeldman$elm_css$Css$num = function (val) {
