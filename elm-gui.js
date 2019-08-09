@@ -10789,11 +10789,15 @@ var author$project$SmartTime$Human$Calendar$Month$toInt = function (givenMonth) 
 			return 12;
 	}
 };
+var author$project$SmartTime$Human$Calendar$Year$toAstronomicalString = function (year) {
+	var yearInt = year.a;
+	return elm$core$String$fromInt(yearInt);
+};
 var author$project$SmartTime$Human$Calendar$toStandardString = function (givenDate) {
 	var yearPart = A2(
 		author$project$SmartTime$Human$Calendar$padNumber,
 		4,
-		author$project$SmartTime$Human$Calendar$Year$toString(
+		author$project$SmartTime$Human$Calendar$Year$toAstronomicalString(
 			author$project$SmartTime$Human$Calendar$year(givenDate)));
 	var monthPart = A2(
 		author$project$SmartTime$Human$Calendar$padNumber,
@@ -15511,29 +15515,38 @@ var author$project$SmartTime$Moment$toUnixTime = function (givenMoment) {
 	return author$project$SmartTime$Duration$inSeconds(
 		author$project$SmartTime$Moment$utcFromLinear(momentAsDur));
 };
-var elm$core$Basics$truncate = _Basics_truncate;
 var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
-	return author$project$SmartTime$Moment$toUnixTime(mo) | 0;
+	return elm$core$Basics$floor(
+		author$project$SmartTime$Moment$toUnixTime(mo));
 };
+var elm$core$Debug$log = _Debug_log;
 var author$project$External$Commands$taskerEncodeNotification = function (reminder) {
 	return elm$core$String$concat(
 		A2(
 			elm$core$List$intersperse,
 			';',
-			_List_fromArray(
-				[
-					elm$core$String$fromInt(
-					author$project$SmartTime$Moment$toUnixTimeInt(reminder.scheduledFor)),
-					reminder.title,
-					reminder.subtitle
-				])));
+			A2(
+				elm$core$Debug$log,
+				'reminder out',
+				_List_fromArray(
+					[
+						elm$core$String$fromInt(
+						author$project$SmartTime$Moment$toUnixTimeInt(reminder.scheduledFor)),
+						reminder.title,
+						reminder.subtitle
+					]))));
 };
 var author$project$External$Commands$scheduleNotify = function (reminderList) {
+	var compareReminders = F2(
+		function (a, b) {
+			return A2(author$project$SmartTime$Moment$compareBasic, a.scheduledFor, b.scheduledFor);
+		});
+	var orderedList = A2(elm$core$List$sortWith, compareReminders, reminderList);
 	return author$project$External$Tasker$variableOut(
 		_Utils_Tuple2(
 			'Scheduled',
 			author$project$External$Commands$compileList(
-				A2(elm$core$List$map, author$project$External$Commands$taskerEncodeNotification, reminderList))));
+				A2(elm$core$List$map, author$project$External$Commands$taskerEncodeNotification, orderedList))));
 };
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityID, app, env) {
@@ -20167,7 +20180,6 @@ var author$project$TaskList$viewTasks = F3(
 						A2(elm$core$List$filter, isVisible, tasks)))
 				]));
 	});
-var elm$core$Debug$log = _Debug_log;
 var rtfeldman$elm_css$Css$hidden = {borderStyle: rtfeldman$elm_css$Css$Structure$Compatible, overflow: rtfeldman$elm_css$Css$Structure$Compatible, value: 'hidden', visibility: rtfeldman$elm_css$Css$Structure$Compatible};
 var rtfeldman$elm_css$Css$UnitlessFloat = {$: 'UnitlessFloat'};
 var rtfeldman$elm_css$Css$num = function (val) {
