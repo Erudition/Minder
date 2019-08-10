@@ -57,8 +57,12 @@ scheduleOnTaskReminders now fromNow =
 
 
 scheduleOffTaskReminders : Moment -> List Reminder
-scheduleOffTaskReminders moment =
-    []
+scheduleOffTaskReminders now =
+    [ Reminder now
+        "Get back on task now!"
+        "Off task, not excused!"
+        []
+    ]
 
 
 {-| Calculate the interim reminders before the activity expires from being excused.
