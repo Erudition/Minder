@@ -286,8 +286,8 @@ fromUnixTime float =
 
 
 toUnixTime : Moment -> Float
-toUnixTime ((Moment momentAsDur) as givenMoment) =
-    Duration.inSeconds (utcFromLinear momentAsDur)
+toUnixTime givenMoment =
+    toFloat (toInt givenMoment UTC unixEpoch) / 1000
 
 
 toUnixTimeInt : Moment -> Int
