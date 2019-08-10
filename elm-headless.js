@@ -15526,13 +15526,13 @@ var author$project$External$Commands$compileList = function (reminderList) {
 	return elm$core$String$concat(
 		A2(elm$core$List$intersperse, '§', reminderList));
 };
-var author$project$SmartTime$Duration$inSeconds = function (duration) {
-	return author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$secondLength;
-};
+var author$project$SmartTime$Moment$unixEpoch = function () {
+	var jan1st1970_rataDie = 719163;
+	return author$project$SmartTime$Moment$Moment(
+		A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aDay, jan1st1970_rataDie));
+}();
 var author$project$SmartTime$Moment$toUnixTime = function (givenMoment) {
-	var momentAsDur = givenMoment.a;
-	return author$project$SmartTime$Duration$inSeconds(
-		author$project$SmartTime$Moment$utcFromLinear(momentAsDur));
+	return A3(author$project$SmartTime$Moment$toInt, givenMoment, author$project$SmartTime$Moment$UTC, author$project$SmartTime$Moment$unixEpoch) / 1000;
 };
 var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
 	return elm$core$Basics$floor(
@@ -16145,11 +16145,6 @@ var author$project$Main$updateWithStorage = F2(
 						cmds
 					])));
 	});
-var author$project$SmartTime$Moment$unixEpoch = function () {
-	var jan1st1970_rataDie = 719163;
-	return author$project$SmartTime$Moment$Moment(
-		A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aDay, jan1st1970_rataDie));
-}();
 var author$project$SmartTime$Moment$fromElmInt = function (intMsUtc) {
 	return A3(
 		author$project$SmartTime$Moment$moment,
