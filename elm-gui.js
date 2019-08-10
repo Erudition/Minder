@@ -15438,13 +15438,16 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 		};
 		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
-var author$project$Activity$Reminder$scheduleOffTaskReminders = function (moment) {
-	return _List_Nil;
-};
 var author$project$Activity$Reminder$Reminder = F4(
 	function (scheduledFor, title, subtitle, actions) {
 		return {actions: actions, scheduledFor: scheduledFor, subtitle: subtitle, title: title};
 	});
+var author$project$Activity$Reminder$scheduleOffTaskReminders = function (now) {
+	return _List_fromArray(
+		[
+			A4(author$project$Activity$Reminder$Reminder, now, 'Get back on task now!', 'Off task, not excused!', _List_Nil)
+		]);
+};
 var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
 	function (now, fromNow) {
 		var fractionLeft = function (denom) {
