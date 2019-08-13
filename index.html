@@ -15,6 +15,8 @@
 //tk.flash("Script v6: I'm in tasker!");
 // Check for Tasker on Android
 //import * as taskerFillers from "./tasker-fillers.mjs";
+// but tasker injection doesn't work inside modules
+
 
 //tk.flash("Script v6: I'm in the embedded module!");
 try {
@@ -33,13 +35,13 @@ try {
 
 </script>
 
-
+<script src="capacitor.js"></script>
+<script type="module" src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+<script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
 <script type="application/javascript" src="elm-gui.js"></script>
 <script type="application/javascript" src="gui.js"></script>
 <!-- <script type="text/javascript" src="tasker.js"></script> -->
 
 
-<script src="capacitor.js"></script>
-<script type="module" src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
-<script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
+
 </html>
