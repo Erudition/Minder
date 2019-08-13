@@ -8,7 +8,7 @@ import * as taskerFillers from "./tasker-fillers.mjs";
 tk.flash("Script v5: I'm in gui.js!");
 try {
     // var sdk = tk.global( 'SDK' ); // BROKEN
-    tk.flash("Script v5: I'm in tasker!");
+    tk.flash("Script v5: I'm in gui.js and I know it!");
     //var inTasker = ( tk.global( 'sdk' ) > 0 );
     var inTasker = true;
 } catch (e) {
