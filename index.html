@@ -41,6 +41,15 @@ try {
 <script type="application/javascript" src="elm-gui.js"></script>
 <script type="application/javascript" src="gui.js"></script>
 <!-- <script type="text/javascript" src="tasker.js"></script> -->
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker
+           .register('/sw.js')
+           .then(function() { console.log("Service Worker Registered!"); });
+} else {
+    tk.flash("Uh oh! No service worker support! :(");
+}
+</script>
 
 
 
