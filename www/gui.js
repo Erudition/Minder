@@ -1,10 +1,11 @@
+// If this file has .mjs extension, Tasker injection will not work.
 const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
 
 
 // Check for Tasker on Android
 import * as taskerFillers from "./tasker-fillers.mjs";
 
-
+tk.flash("Script v5: I'm in gui.js!");
 try {
     // var sdk = tk.global( 'SDK' ); // BROKEN
     tk.flash("Script v5: I'm in tasker!");
