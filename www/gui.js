@@ -2,19 +2,6 @@
 const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
 
 
-// Check for Tasker on Android
-import * as taskerFillers from "./tasker-fillers.mjs";
-
-tk.flash("Script v5: I'm in gui.js!");
-try {
-    // var sdk = tk.global( 'SDK' ); // BROKEN
-    tk.flash("Script v5: I'm in gui.js and I know it!");
-    //var inTasker = ( tk.global( 'sdk' ) > 0 );
-    var inTasker = true;
-} catch (e) {
-    var tk = taskerFillers;
-    var inTasker = false;
-}
 
 
 
