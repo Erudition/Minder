@@ -11,18 +11,22 @@
 
 <body>
 </body>
-<script type="module">
-tk.flash("Script v6: I'm in tasker!");
+<script>
+//tk.flash("Script v6: I'm in tasker!");
 // Check for Tasker on Android
-import * as taskerFillers from "./tasker-fillers.mjs";
+//import * as taskerFillers from "./tasker-fillers.mjs";
 
-tk.flash("Script v6: I'm in the embedded module!");
+//tk.flash("Script v6: I'm in the embedded module!");
 try {
     // var sdk = tk.global( 'SDK' ); // BROKEN
     tk.flash("Script v6: I'm in the embedded module and I know it!");
     //var inTasker = ( tk.global( 'sdk' ) > 0 );
     var inTasker = true;
 } catch (e) {
+    var script = document.createElement('script');
+    script.src = './tasker-fillers.js';
+    script.async = false;
+    document.head.appendChild(script);
     var tk = taskerFillers;
     var inTasker = false;
 }

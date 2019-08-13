@@ -4,7 +4,7 @@
 
 
 // v1 tv5.6
-exports.tk = {
+tk = {
     alarmVol: function(a1,a2,a3){return true;},
     audioRecord: function(a1,a2,a3,a4){return true;},
     audioRecordStop: function(){return true;},
