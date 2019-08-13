@@ -44,7 +44,7 @@ try {
 <script>
 if('serviceWorker' in navigator) {
   navigator.serviceWorker
-           .register('/sw.js')
+           .register('./sw.js')
            .then(function() { console.log("Service Worker Registered!"); });
 } else {
     tk.flash("Uh oh! No service worker support! :(");
