@@ -1,7 +1,7 @@
 //log all requests
 //self.addEventListener('fetch', function(event) { console.log(event.request.url); });
 
-var CACHE_NAME = 'minder';
+var CACHE_NAME = 'minder-1';
 
 
 
