@@ -1,5 +1,5 @@
 //log all requests
-self.addEventListener('fetch', function(event) { console.log(event.request.url); });
+//self.addEventListener('fetch', function(event) { console.log(event.request.url); });
 
 var CACHE_NAME = 'minder';
 
@@ -17,8 +17,6 @@ self.addEventListener('install', function(e) {
        './elm-gui.js',
        './gui.js',
        './tasker-fillers.js',
-       './styles/sliders.css',
-       '/sounds/airhorn.mp3'
      ]);
    }, function(err) {
       // registration failed :(
