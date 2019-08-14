@@ -10,13 +10,7 @@ self.addEventListener('install', function(e) {
  e.waitUntil(
    caches.open(CACHE_NAME).then(function(cache) {
      return cache.addAll([
-       './',
        './index.html',
-       './index.html?start=nothing',
-       './capacitor.js',
-       './elm-gui.js',
-       './gui.js',
-       './tasker-fillers.js',
      ]);
    }, function(err) {
       // registration failed :(
