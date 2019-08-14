@@ -11,7 +11,7 @@
 
 <body>
     This is the body of the HTML, but it should be replaced by Elm!
-<div class="lds-ripple"><div></div><div></div></div>
+<div class="lds-ripple centered"><div></div><div></div></div>
 
     <style>
         .lds-ripple {
@@ -45,6 +45,14 @@
         height: 58px;
         opacity: 0;
       }
+    }
+
+    .centered {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      /* bring your own prefixes */
+      transform: translate(-50%, -50%);
     }
     </style>
 </body>
