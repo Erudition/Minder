@@ -27,7 +27,90 @@ type alias NotificationAction =
 
 type alias Alarm =
     { schedule : Moment
-    , action : Intent
+    , actions : List Action
+    }
+
+
+type Action
+    = Notify Notification
+    | RunTaskerTask
+    | SendIntent
+
+
+type alias Notification =
+    { id : String -- 1
+    , persistent : Bool -- 2
+    , timeout : Duration -- 3
+    , update : UpdateStrategy -- 4: not supported in autonotification variables
+    , priority : Priority -- 5
+    , privacy : Privacy -- 6: not supported in autonotification variables
+    , useHTML : Bool -- 7: not supported in autonotification variables
+    , title : String -- 8
+    , titleExpanded : String -- 9
+    , body : String -- 10 ("text")
+    , bodyExpanded : String -- 11 ("text expanded")
+    , subtext : String -- 12
+    , detail : Detail -- 13 & 14: need to be Int?
+    , ticker : String -- 15
+    , icon : String -- 16
+    , statusIcon : String -- 17
+    , statusTextSize : Int -- 18 (in sp)
+    , backgroundColor : String -- 19
+    , colorFromMedia : Bool -- 20: not supported in autonotification variables
+    , badge : BadgeType -- 21:  not supported in autonotification variables
+    , picture : String -- 22
+    , pictureCacheAllowed : Bool -- 23  not supported in autonotification variables
+    , pictureExpandedIcon : String -- 24
+    , mediaLayout : Bool -- 25 not supported in autonotification variables
+    , media : Maybe MediaInfo -- 26
+    , url : String --29
+    , time : Maybe Moment
+    , chronometer : Bool
+    , countdown : Bool
+    }
+
+
+type Priority
+    = Default
+    | Low
+    | High
+    | Min
+    | Max
+
+
+type Privacy
+    = Public
+    | Private
+    | PrivateWithPublicVersion Notification
+    | Secret
+
+
+type UpdateStrategy
+    = New
+    | Replace
+    | Append
+
+
+type Detail
+    = Number Int
+    | Info String
+
+
+type BadgeType
+    = NoBadge
+    | SmallIcon
+    | LargeIcon
+
+
+type alias MediaInfo =
+    { title : String
+    }
+
+
+type alias Events msg =
+    { onCreate : Maybe msg --27
+    , onTouch : Maybe msg --28
+    , onDismiss : Maybe msg --30
     }
 
 
