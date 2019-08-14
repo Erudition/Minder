@@ -9301,7 +9301,8 @@ var author$project$Main$bypassFakeFragment = function (url) {
 			return A2(
 				elm$core$Maybe$withDefault,
 				url,
-				elm$url$Url$fromString(front + ('/' + fakeFragment)));
+				elm$url$Url$fromString(
+					_Utils_ap(front, fakeFragment)));
 		} else {
 			return url;
 		}
