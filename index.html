@@ -33,40 +33,15 @@
     }
     </style>
 </body>
-<script>
-//tk.flash("Script v6: I'm in tasker!");
-// Check for Tasker on Android
-//import * as taskerFillers from "./tasker-fillers.mjs";
-// but tasker injection doesn't work inside modules
 
-
-//tk.flash("Script v6: I'm in the embedded module!");
-try {
-    // var sdk = tk.global( 'SDK' ); // BROKEN
-    var inTasker = ( tk.global( 'sdk' ) > 0 );
-    var inTasker = true;
-} catch (e) {
-    var script = document.createElement('script');
-    script.src = './tasker-fillers.js';
-    script.async = false;
-    document.head.appendChild(script);
-    //var tk = taskerFillers;
-    var inTasker = false;
-}
-
-var guiscript = document.createElement('script');
-guiscript.src = './gui.js';
-guiscript.async = false;
-document.body.appendChild(guiscript);
-
-</script>
 
 <script src="capacitor.js"></script>
 <script type="module" src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
 <script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
 <script type="application/javascript" src="elm-gui.js"></script>
-<!-- <script type="application/javascript" src="gui.js"></script> -->
-<!-- <script type="text/javascript" src="tasker.js"></script> -->
+<script type="text/javascript" src="tasker-fillers.js"></script>
+<script type="application/javascript" src="gui.js"></script>
+
 <script>
 if('serviceWorker' in navigator) {
   navigator.serviceWorker
