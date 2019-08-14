@@ -494,7 +494,7 @@ bypassFakeFragment url =
                     -- Url.fromString can fail, but it shouldn't here
                     Maybe.withDefault url <|
                         -- include all the rest (even later "#"s)
-                        Url.fromString (front ++ "/" ++ fakeFragment)
+                        Url.fromString (front ++ fakeFragment)
 
                 _ ->
                     url
