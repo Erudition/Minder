@@ -11,42 +11,19 @@
 
 <body>
     This is the body of the HTML, but it should be replaced by Elm!
-<div class="lds-ripple centered"><div></div><div></div></div>
+<svg class="centered" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="lds-ripple">
+    <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c1}}" ng-attr-stroke-width="{{config.width}}" stroke="#1d3f72" stroke-width="2">
+        <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
+        <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
+    </circle>
+    <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c2}}" ng-attr-stroke-width="{{config.width}}" stroke="#5699d2" stroke-width="2">
+        <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="0s" repeatCount="indefinite"></animate>
+        <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="0s" repeatCount="indefinite">
+        </animate>
+    </circle>
+</svg>
 
     <style>
-        .lds-ripple {
-      display: inline-block;
-      position: relative;
-      width: 64px;
-      height: 64px;
-    }
-    .lds-ripple div {
-      position: absolute;
-      border: 4px solid #cef;
-      opacity: 1;
-      border-radius: 50%;
-      animation: lds-ripple 1s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-    }
-    .lds-ripple div:nth-child(2) {
-      animation-delay: -0.5s;
-    }
-    @keyframes lds-ripple {
-      0% {
-        top: 28px;
-        left: 28px;
-        width: 0;
-        height: 0;
-        opacity: 1;
-      }
-      100% {
-        top: -1px;
-        left: -1px;
-        width: 58px;
-        height: 58px;
-        opacity: 0;
-      }
-    }
-
     .centered {
       position: fixed;
       top: 50%;
