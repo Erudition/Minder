@@ -326,7 +326,7 @@ describeError error =
             "Timed out. Try again later?"
 
         Http.NetworkError ->
-            "Network Error. That's all we know."
+            "Couldn't get on the network. Are you offline?"
 
         Http.BadStatus status ->
             case status of
@@ -348,6 +348,9 @@ describeError error =
                 500 ->
                     "500 Internal Server Error: Not my fault! Todoist must be having a bad day."
 
+                502 ->
+                    "502 Bad Gateway: I was trying to reach the Todoist server but I got stopped along the way. If you're definitely connected, it's probably a temporary hiccup on their side -- but if you see this a lot, check that your DNS is resolving (try todoist.com) and any proxy setup you have is working."
+
                 503 ->
                     "503 Service Unavailable: Not my fault! Todoist must be bogged down today, or perhaps experiencing a DDoS attack. :O"
 
@@ -355,7 +358,7 @@ describeError error =
                     "Got HTTP Error code " ++ String.fromInt other ++ ", not sure what that means in this case. Sorry!"
 
         Http.BadBody string ->
-            "Response says the body was bad. That's weird, because we don't send any body to Todoist servers, and the API doesn't ask you to. Here's the error: " ++ string
+            "I successfully talked with Todoist servers, but the response had some weird parts I was never trained for. Either Todoist changed something recently, or you've found a weird edge case the developer didn't know about. Either way, please report this! \n" ++ string
 
 
 pruneDeleted : IntDict { a | is_deleted : Bool } -> IntDict { a | is_deleted : Bool }
