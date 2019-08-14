@@ -61,8 +61,9 @@ function elmStartedWithTasker(app) {
 
     // TASKER STOP EXECUTING
     app.ports.exit.subscribe(function(data) {
+
         // Must be in this exact form for some reason:
-        setTimeout(() => tk.hideScene("Docket"), 10);
+        setTimeout(() => tk.flash("Trying to hide the window" + tk.hideScene("Docket")), 100);
     });
 
 }
