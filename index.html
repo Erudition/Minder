@@ -21,7 +21,7 @@
 //tk.flash("Script v6: I'm in the embedded module!");
 try {
     // var sdk = tk.global( 'SDK' ); // BROKEN
-    //var inTasker = ( tk.global( 'sdk' ) > 0 );
+    var inTasker = ( tk.global( 'sdk' ) > 0 );
     var inTasker = true;
 } catch (e) {
     var script = document.createElement('script');
@@ -35,7 +35,7 @@ try {
 var guiscript = document.createElement('script');
 guiscript.src = './gui.js';
 guiscript.async = true;
-document.head.appendChild(guiscript);
+document.body.appendChild(guiscript);
 
 </script>
 
