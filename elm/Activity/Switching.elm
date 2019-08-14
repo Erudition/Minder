@@ -46,6 +46,7 @@ switchActivity activityID app env =
         , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
         , Commands.scheduleNotify <| scheduleReminders env updatedApp.timeline onTaskStatus ( activityID, newActivity )
+        , exportNextTask app env
         ]
     )
 
@@ -100,6 +101,18 @@ determineNextTask app env =
         Task.prioritize env.time env.timeZone <|
             List.filter (Task.completed >> not) <|
                 IntDict.values app.tasks
+
+
+exportNextTask : AppData -> Environment -> Cmd msg
+exportNextTask app env =
+    let
+        next =
+            determineNextTask app env
+
+        export task =
+            Tasker.variableOut ( "NextTaskTitle", task.title )
+    in
+    Maybe.withDefault Cmd.none (Maybe.map export next)
 
 
 sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
