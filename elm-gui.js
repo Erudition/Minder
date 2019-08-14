@@ -14665,6 +14665,18 @@ var author$project$Activity$Switching$determineOnTask = F3(
 			}
 		}
 	});
+var author$project$Activity$Switching$exportNextTask = F2(
+	function (app, env) {
+		var next = A2(author$project$Activity$Switching$determineNextTask, app, env);
+		var _export = function (task) {
+			return author$project$External$Tasker$variableOut(
+				_Utils_Tuple2('NextTaskTitle', task.title));
+		};
+		return A2(
+			elm$core$Maybe$withDefault,
+			elm$core$Platform$Cmd$none,
+			A2(elm$core$Maybe$map, _export, next));
+	});
 var author$project$SmartTime$Duration$compare = F2(
 	function (_n0, _n1) {
 		var int1 = _n0.a;
@@ -14992,7 +15004,8 @@ var author$project$Activity$Switching$switchActivity = F3(
 							env,
 							updatedApp.timeline,
 							onTaskStatus,
-							_Utils_Tuple2(activityID, newActivity)))
+							_Utils_Tuple2(activityID, newActivity))),
+						A2(author$project$Activity$Switching$exportNextTask, app, env)
 					])));
 	});
 var author$project$TimeTracker$update = F4(

@@ -10099,6 +10099,7 @@ var author$project$Main$buildModel = F3(
 			viewState: author$project$Main$viewUrl(url)
 		};
 	});
+var author$project$Main$NoOp = {$: 'NoOp'};
 var author$project$Main$Tick = function (a) {
 	return {$: 'Tick', a: a};
 };
@@ -10106,1103 +10107,6 @@ var author$project$Main$Tock = F2(
 	function (a, b) {
 		return {$: 'Tock', a: a, b: b};
 	});
-var author$project$Activity$Activity$encodeCategory = function (v) {
-	switch (v.$) {
-		case 'Transit':
-			return elm$json$Json$Encode$string('Transit');
-		case 'Entertainment':
-			return elm$json$Json$Encode$string('Entertainment');
-		case 'Hygiene':
-			return elm$json$Json$Encode$string('Hygiene');
-		case 'Slacking':
-			return elm$json$Json$Encode$string('Slacking');
-		default:
-			return elm$json$Json$Encode$string('Communication');
-	}
-};
-var author$project$SmartTime$Human$Duration$dur = author$project$SmartTime$Human$Duration$toDuration;
-var elm$json$Json$Encode$int = _Json_wrap;
-var author$project$Activity$Activity$encodeHumanDuration = function (humanDuration) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Duration$inMs(
-			author$project$SmartTime$Human$Duration$dur(humanDuration)));
-};
-var author$project$Porting$homogeneousTuple2AsArray = F2(
-	function (encoder, _n0) {
-		var a = _n0.a;
-		var b = _n0.b;
-		return A2(
-			elm$json$Json$Encode$list,
-			encoder,
-			_List_fromArray(
-				[a, b]));
-	});
-var author$project$Activity$Activity$encodeDurationPerPeriod = function (tuple) {
-	return A2(author$project$Porting$homogeneousTuple2AsArray, author$project$Activity$Activity$encodeHumanDuration, tuple);
-};
-var author$project$Activity$Activity$encodeEvidence = function (v) {
-	return elm$json$Json$Encode$string('Evidence');
-};
-var author$project$Activity$Activity$encodeExcusable = function (v) {
-	switch (v.$) {
-		case 'NeverExcused':
-			return elm$json$Json$Encode$string('NeverExcused');
-		case 'TemporarilyExcused':
-			var dpp = v.a;
-			return elm$json$Json$Encode$string('TemporarilyExcused');
-		default:
-			return elm$json$Json$Encode$string('IndefinitelyExcused');
-	}
-};
-var author$project$Activity$Activity$encodeIcon = function (v) {
-	switch (v.$) {
-		case 'File':
-			var path = v.a;
-			return elm$json$Json$Encode$string('File');
-		case 'Ion':
-			return elm$json$Json$Encode$string('Ion');
-		default:
-			return elm$json$Json$Encode$string('Other');
-	}
-};
-var author$project$Activity$Template$encodeTemplate = function (v) {
-	switch (v.$) {
-		case 'DillyDally':
-			return elm$json$Json$Encode$string('DillyDally');
-		case 'Apparel':
-			return elm$json$Json$Encode$string('Apparel');
-		case 'Messaging':
-			return elm$json$Json$Encode$string('Messaging');
-		case 'Restroom':
-			return elm$json$Json$Encode$string('Restroom');
-		case 'Grooming':
-			return elm$json$Json$Encode$string('Grooming');
-		case 'Meal':
-			return elm$json$Json$Encode$string('Meal');
-		case 'Supplements':
-			return elm$json$Json$Encode$string('Supplements');
-		case 'Workout':
-			return elm$json$Json$Encode$string('Workout');
-		case 'Shower':
-			return elm$json$Json$Encode$string('Shower');
-		case 'Toothbrush':
-			return elm$json$Json$Encode$string('Toothbrush');
-		case 'Floss':
-			return elm$json$Json$Encode$string('Floss');
-		case 'Wakeup':
-			return elm$json$Json$Encode$string('Wakeup');
-		case 'Sleep':
-			return elm$json$Json$Encode$string('Sleep');
-		case 'Plan':
-			return elm$json$Json$Encode$string('Plan');
-		case 'Configure':
-			return elm$json$Json$Encode$string('Configure');
-		case 'Email':
-			return elm$json$Json$Encode$string('Email');
-		case 'Work':
-			return elm$json$Json$Encode$string('Work');
-		case 'Call':
-			return elm$json$Json$Encode$string('Call');
-		case 'Chores':
-			return elm$json$Json$Encode$string('Chores');
-		case 'Parents':
-			return elm$json$Json$Encode$string('Parents');
-		case 'Prepare':
-			return elm$json$Json$Encode$string('Prepare');
-		case 'Lover':
-			return elm$json$Json$Encode$string('Lover');
-		case 'Driving':
-			return elm$json$Json$Encode$string('Driving');
-		case 'Riding':
-			return elm$json$Json$Encode$string('Riding');
-		case 'SocialMedia':
-			return elm$json$Json$Encode$string('SocialMedia');
-		case 'Pacing':
-			return elm$json$Json$Encode$string('Pacing');
-		case 'Sport':
-			return elm$json$Json$Encode$string('Sport');
-		case 'Finance':
-			return elm$json$Json$Encode$string('Finance');
-		case 'Laundry':
-			return elm$json$Json$Encode$string('Laundry');
-		case 'Bedward':
-			return elm$json$Json$Encode$string('Bedward');
-		case 'Browse':
-			return elm$json$Json$Encode$string('Browse');
-		case 'Fiction':
-			return elm$json$Json$Encode$string('Fiction');
-		case 'Learning':
-			return elm$json$Json$Encode$string('Learning');
-		case 'BrainTrain':
-			return elm$json$Json$Encode$string('BrainTrain');
-		case 'Music':
-			return elm$json$Json$Encode$string('Music');
-		case 'Create':
-			return elm$json$Json$Encode$string('Create');
-		case 'Children':
-			return elm$json$Json$Encode$string('Children');
-		case 'Meeting':
-			return elm$json$Json$Encode$string('Meeting');
-		case 'Cinema':
-			return elm$json$Json$Encode$string('Cinema');
-		case 'FilmWatching':
-			return elm$json$Json$Encode$string('FilmWatching');
-		case 'Series':
-			return elm$json$Json$Encode$string('Series');
-		case 'Broadcast':
-			return elm$json$Json$Encode$string('Broadcast');
-		case 'Theatre':
-			return elm$json$Json$Encode$string('Theatre');
-		case 'Shopping':
-			return elm$json$Json$Encode$string('Shopping');
-		case 'VideoGaming':
-			return elm$json$Json$Encode$string('VideoGaming');
-		case 'Housekeeping':
-			return elm$json$Json$Encode$string('Housekeeping');
-		case 'MealPrep':
-			return elm$json$Json$Encode$string('MealPrep');
-		case 'Networking':
-			return elm$json$Json$Encode$string('Networking');
-		case 'Meditate':
-			return elm$json$Json$Encode$string('Meditate');
-		case 'Homework':
-			return elm$json$Json$Encode$string('Homework');
-		case 'Flight':
-			return elm$json$Json$Encode$string('Flight');
-		case 'Course':
-			return elm$json$Json$Encode$string('Course');
-		case 'Pet':
-			return elm$json$Json$Encode$string('Pet');
-		case 'Presentation':
-			return elm$json$Json$Encode$string('Presentation');
-		case 'Projects':
-			return elm$json$Json$Encode$string('Projects');
-		default:
-			return elm$json$Json$Encode$string('Research');
-	}
-};
-var author$project$ID$encode = function (_n0) {
-	var _int = _n0.a;
-	return elm$json$Json$Encode$int(_int);
-};
-var elm$core$List$maybeCons = F3(
-	function (f, mx, xs) {
-		var _n0 = f(mx);
-		if (_n0.$ === 'Just') {
-			var x = _n0.a;
-			return A2(elm$core$List$cons, x, xs);
-		} else {
-			return xs;
-		}
-	});
-var elm$core$List$filterMap = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$foldr,
-			elm$core$List$maybeCons(f),
-			_List_Nil,
-			xs);
-	});
-var author$project$Porting$encodeObjectWithoutNothings = A2(
-	elm$core$Basics$composeL,
-	elm$json$Json$Encode$object,
-	elm$core$List$filterMap(elm$core$Basics$identity));
-var author$project$Porting$normal = elm$core$Maybe$Just;
-var author$project$Porting$omittable = function (_n0) {
-	var name = _n0.a;
-	var encoder = _n0.b;
-	var fieldToCheck = _n0.c;
-	return A2(
-		elm$core$Maybe$map,
-		function (field) {
-			return _Utils_Tuple2(
-				name,
-				encoder(field));
-		},
-		fieldToCheck);
-};
-var author$project$Activity$Activity$encodeCustomizations = function (record) {
-	return author$project$Porting$encodeObjectWithoutNothings(
-		_List_fromArray(
-			[
-				author$project$Porting$normal(
-				_Utils_Tuple2(
-					'template',
-					author$project$Activity$Template$encodeTemplate(record.template))),
-				author$project$Porting$normal(
-				_Utils_Tuple2(
-					'stock',
-					author$project$ID$encode(record.id))),
-				author$project$Porting$omittable(
-				_Utils_Tuple3(
-					'names',
-					elm$json$Json$Encode$list(elm$json$Json$Encode$string),
-					record.names)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('icon', author$project$Activity$Activity$encodeIcon, record.icon)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('excusable', author$project$Activity$Activity$encodeExcusable, record.excusable)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('taskOptional', elm$json$Json$Encode$bool, record.taskOptional)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3(
-					'evidence',
-					elm$json$Json$Encode$list(author$project$Activity$Activity$encodeEvidence),
-					record.evidence)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('category', author$project$Activity$Activity$encodeCategory, record.category)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('backgroundable', elm$json$Json$Encode$bool, record.backgroundable)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('maxTime', author$project$Activity$Activity$encodeDurationPerPeriod, record.maxTime)),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('hidden', elm$json$Json$Encode$bool, record.hidden))
-			]));
-};
-var author$project$Porting$encodeTuple2 = F3(
-	function (firstEncoder, secondEncoder, _n0) {
-		var first = _n0.a;
-		var second = _n0.b;
-		return A2(
-			elm$json$Json$Encode$list,
-			elm$core$Basics$identity,
-			_List_fromArray(
-				[
-					firstEncoder(first),
-					secondEncoder(second)
-				]));
-	});
-var elm_community$intdict$IntDict$foldr = F3(
-	function (f, acc, dict) {
-		foldr:
-		while (true) {
-			switch (dict.$) {
-				case 'Empty':
-					return acc;
-				case 'Leaf':
-					var l = dict.a;
-					return A3(f, l.key, l.value, acc);
-				default:
-					var i = dict.a;
-					var $temp$f = f,
-						$temp$acc = A3(elm_community$intdict$IntDict$foldr, f, acc, i.right),
-						$temp$dict = i.left;
-					f = $temp$f;
-					acc = $temp$acc;
-					dict = $temp$dict;
-					continue foldr;
-			}
-		}
-	});
-var elm_community$intdict$IntDict$toList = function (dict) {
-	return A3(
-		elm_community$intdict$IntDict$foldr,
-		F3(
-			function (key, value, list) {
-				return A2(
-					elm$core$List$cons,
-					_Utils_Tuple2(key, value),
-					list);
-			}),
-		_List_Nil,
-		dict);
-};
-var author$project$Activity$Activity$encodeStoredActivities = function (value) {
-	return A2(
-		elm$json$Json$Encode$list,
-		A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, author$project$Activity$Activity$encodeCustomizations),
-		elm_community$intdict$IntDict$toList(value));
-};
-var author$project$SmartTime$Moment$toSmartInt = function (_n0) {
-	var dur = _n0.a;
-	return author$project$SmartTime$Duration$inMs(dur);
-};
-var author$project$Porting$encodeMoment = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Moment$toSmartInt(dur));
-};
-var author$project$Activity$Activity$encodeSwitch = function (_n0) {
-	var time = _n0.a;
-	var activityId = _n0.b;
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'Time',
-				author$project$Porting$encodeMoment(time)),
-				_Utils_Tuple2(
-				'Activity',
-				author$project$ID$encode(activityId))
-			]));
-};
-var author$project$Incubator$Todoist$encodeIncrementalSyncToken = function (_n0) {
-	var token = _n0.a;
-	return elm$json$Json$Encode$string(token);
-};
-var elm_community$json_extra$Json$Encode$Extra$maybe = function (encoder) {
-	return A2(
-		elm$core$Basics$composeR,
-		elm$core$Maybe$map(encoder),
-		elm$core$Maybe$withDefault(elm$json$Json$Encode$null));
-};
-var author$project$Incubator$Todoist$Item$encodeDue = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'date',
-				elm$json$Json$Encode$string(record.date)),
-				_Utils_Tuple2(
-				'timezone',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$string, record.timezone)),
-				_Utils_Tuple2(
-				'string',
-				elm$json$Json$Encode$string(record.string)),
-				_Utils_Tuple2(
-				'lang',
-				elm$json$Json$Encode$string(record.lang)),
-				_Utils_Tuple2(
-				'is_recurring',
-				elm$json$Json$Encode$bool(record.isRecurring))
-			]));
-};
-var author$project$Incubator$Todoist$Item$encodePriority = function (priority) {
-	switch (priority.a) {
-		case 1:
-			return elm$json$Json$Encode$int(4);
-		case 2:
-			return elm$json$Json$Encode$int(3);
-		case 3:
-			return elm$json$Json$Encode$int(2);
-		default:
-			return elm$json$Json$Encode$int(1);
-	}
-};
-var author$project$Porting$encodeBoolToInt = function (bool) {
-	if (bool) {
-		return elm$json$Json$Encode$int(1);
-	} else {
-		return elm$json$Json$Encode$int(0);
-	}
-};
-var author$project$Incubator$Todoist$Item$encodeItem = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(record.id)),
-				_Utils_Tuple2(
-				'user_id',
-				elm$json$Json$Encode$int(record.user_id)),
-				_Utils_Tuple2(
-				'project_id',
-				elm$json$Json$Encode$int(record.project_id)),
-				_Utils_Tuple2(
-				'content',
-				elm$json$Json$Encode$string(record.content)),
-				_Utils_Tuple2(
-				'due',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Incubator$Todoist$Item$encodeDue, record.due)),
-				_Utils_Tuple2(
-				'priority',
-				author$project$Incubator$Todoist$Item$encodePriority(record.priority)),
-				_Utils_Tuple2(
-				'parent_id',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent_id)),
-				_Utils_Tuple2(
-				'child_order',
-				elm$json$Json$Encode$int(record.child_order)),
-				_Utils_Tuple2(
-				'day_order',
-				elm$json$Json$Encode$int(record.day_order)),
-				_Utils_Tuple2(
-				'collapsed',
-				author$project$Porting$encodeBoolToInt(record.collapsed)),
-				_Utils_Tuple2(
-				'children',
-				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.children)),
-				_Utils_Tuple2(
-				'assigned_by_uid',
-				elm$json$Json$Encode$int(record.assigned_by_uid)),
-				_Utils_Tuple2(
-				'responsible_uid',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.responsible_uid)),
-				_Utils_Tuple2(
-				'checked',
-				author$project$Porting$encodeBoolToInt(record.checked)),
-				_Utils_Tuple2(
-				'in_history',
-				author$project$Porting$encodeBoolToInt(record.in_history)),
-				_Utils_Tuple2(
-				'is_deleted',
-				author$project$Porting$encodeBoolToInt(record.is_deleted)),
-				_Utils_Tuple2(
-				'is_archived',
-				author$project$Porting$encodeBoolToInt(record.is_archived)),
-				_Utils_Tuple2(
-				'date_added',
-				elm$json$Json$Encode$string(record.date_added))
-			]));
-};
-var author$project$Incubator$Todoist$Project$encodeProject = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(record.id)),
-				_Utils_Tuple2(
-				'name',
-				elm$json$Json$Encode$string(record.name)),
-				_Utils_Tuple2(
-				'color',
-				elm$json$Json$Encode$int(record.color)),
-				_Utils_Tuple2(
-				'parent_id',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent_id)),
-				_Utils_Tuple2(
-				'child_order',
-				elm$json$Json$Encode$int(record.child_order)),
-				_Utils_Tuple2(
-				'collapsed',
-				elm$json$Json$Encode$int(record.collapsed)),
-				_Utils_Tuple2(
-				'shared',
-				elm$json$Json$Encode$bool(record.shared)),
-				_Utils_Tuple2(
-				'is_deleted',
-				author$project$Porting$encodeBoolToInt(record.is_deleted)),
-				_Utils_Tuple2(
-				'is_archived',
-				author$project$Porting$encodeBoolToInt(record.is_archived)),
-				_Utils_Tuple2(
-				'is_favorite',
-				author$project$Porting$encodeBoolToInt(record.is_favorite)),
-				_Utils_Tuple2(
-				'inbox_project',
-				elm$json$Json$Encode$bool(record.inbox_project)),
-				_Utils_Tuple2(
-				'team_inbox',
-				elm$json$Json$Encode$bool(record.team_inbox))
-			]));
-};
-var author$project$Porting$encodeIntDict = F2(
-	function (valueEncoder, dict) {
-		return A2(
-			elm$json$Json$Encode$list,
-			A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, valueEncoder),
-			elm_community$intdict$IntDict$toList(dict));
-	});
-var author$project$Incubator$Todoist$encodeCache = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'nextSync',
-				author$project$Incubator$Todoist$encodeIncrementalSyncToken(record.nextSync)),
-				_Utils_Tuple2(
-				'items',
-				A2(author$project$Porting$encodeIntDict, author$project$Incubator$Todoist$Item$encodeItem, record.items)),
-				_Utils_Tuple2(
-				'projects',
-				A2(author$project$Porting$encodeIntDict, author$project$Incubator$Todoist$Project$encodeProject, record.projects)),
-				_Utils_Tuple2(
-				'pendingCommands',
-				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$string, record.pendingCommands))
-			]));
-};
-var author$project$AppData$encodeTodoistIntegrationData = function (data) {
-	return author$project$Porting$encodeObjectWithoutNothings(
-		_List_fromArray(
-			[
-				author$project$Porting$normal(
-				_Utils_Tuple2(
-					'cache',
-					author$project$Incubator$Todoist$encodeCache(data.cache))),
-				author$project$Porting$omittable(
-				_Utils_Tuple3('parentProjectID', elm$json$Json$Encode$int, data.parentProjectID)),
-				author$project$Porting$normal(
-				_Utils_Tuple2(
-					'activityProjectIDs',
-					A2(author$project$Porting$encodeIntDict, author$project$ID$encode, data.activityProjectIDs)))
-			]));
-};
-var author$project$Porting$encodeDuration = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Duration$inMs(dur));
-};
-var author$project$Task$Progress$getPortion = function (_n0) {
-	var part = _n0.a;
-	return part;
-};
-var author$project$Task$Progress$encodeProgress = function (progress) {
-	return elm$json$Json$Encode$int(
-		author$project$Task$Progress$getPortion(progress));
-};
-var author$project$Task$Task$encodeHistoryEntry = function (record) {
-	return elm$json$Json$Encode$object(_List_Nil);
-};
-var author$project$SmartTime$Human$Calendar$Month$next = function (givenMonth) {
-	switch (givenMonth.$) {
-		case 'Jan':
-			return author$project$SmartTime$Human$Calendar$Month$Feb;
-		case 'Feb':
-			return author$project$SmartTime$Human$Calendar$Month$Mar;
-		case 'Mar':
-			return author$project$SmartTime$Human$Calendar$Month$Apr;
-		case 'Apr':
-			return author$project$SmartTime$Human$Calendar$Month$May;
-		case 'May':
-			return author$project$SmartTime$Human$Calendar$Month$Jun;
-		case 'Jun':
-			return author$project$SmartTime$Human$Calendar$Month$Jul;
-		case 'Jul':
-			return author$project$SmartTime$Human$Calendar$Month$Aug;
-		case 'Aug':
-			return author$project$SmartTime$Human$Calendar$Month$Sep;
-		case 'Sep':
-			return author$project$SmartTime$Human$Calendar$Month$Oct;
-		case 'Oct':
-			return author$project$SmartTime$Human$Calendar$Month$Nov;
-		case 'Nov':
-			return author$project$SmartTime$Human$Calendar$Month$Dec;
-		default:
-			return author$project$SmartTime$Human$Calendar$Month$Jan;
-	}
-};
-var author$project$SmartTime$Human$Calendar$calculate = F3(
-	function (givenYear, givenMonth, dayCounter) {
-		calculate:
-		while (true) {
-			var monthsLeftToGo = !_Utils_eq(givenMonth, author$project$SmartTime$Human$Calendar$Month$Dec);
-			var monthSize = A2(author$project$SmartTime$Human$Calendar$Month$length, givenYear, givenMonth);
-			var monthOverFlow = _Utils_cmp(dayCounter, monthSize) > 0;
-			if (monthsLeftToGo && monthOverFlow) {
-				var remainingDaysToCount = dayCounter - monthSize;
-				var nextMonthToCheck = author$project$SmartTime$Human$Calendar$Month$next(givenMonth);
-				var $temp$givenYear = givenYear,
-					$temp$givenMonth = nextMonthToCheck,
-					$temp$dayCounter = remainingDaysToCount;
-				givenYear = $temp$givenYear;
-				givenMonth = $temp$givenMonth;
-				dayCounter = $temp$dayCounter;
-				continue calculate;
-			} else {
-				return {
-					day: author$project$SmartTime$Human$Calendar$Month$DayOfMonth(dayCounter),
-					month: givenMonth,
-					year: givenYear
-				};
-			}
-		}
-	});
-var author$project$SmartTime$Human$Calendar$divWithRemainder = F2(
-	function (a, b) {
-		return _Utils_Tuple2(
-			(a / b) | 0,
-			A2(elm$core$Basics$modBy, b, a));
-	});
-var author$project$SmartTime$Human$Calendar$year = function (_n0) {
-	var givenDays = _n0.a;
-	var daysInYear = 365;
-	var daysInLeapCycle = 146097;
-	var daysInFourYears = 1461;
-	var daysInCentury = 36524;
-	var _n1 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, givenDays, daysInLeapCycle);
-	var leapCyclesPassed = _n1.a;
-	var daysWithoutLeapCycles = _n1.b;
-	var yearsFromLeapCycles = leapCyclesPassed * 400;
-	var _n2 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutLeapCycles, daysInCentury);
-	var centuriesPassed = _n2.a;
-	var daysWithoutCenturies = _n2.b;
-	var yearsFromCenturies = centuriesPassed * 100;
-	var _n3 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutCenturies, daysInFourYears);
-	var fourthYearsPassed = _n3.a;
-	var daysWithoutFourthYears = _n3.b;
-	var _n4 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutFourthYears, daysInYear);
-	var wholeYears = _n4.a;
-	var daysWithoutYears = _n4.b;
-	var newYear = (!daysWithoutYears) ? 0 : 1;
-	var yearsFromFourYearBlocks = fourthYearsPassed * 4;
-	var totalYears = (((yearsFromLeapCycles + yearsFromCenturies) + yearsFromFourYearBlocks) + wholeYears) + newYear;
-	return author$project$SmartTime$Human$Calendar$Year$Year(totalYears);
-};
-var author$project$SmartTime$Human$Calendar$toOrdinalDate = function (_n0) {
-	var rd = _n0.a;
-	var givenYear = author$project$SmartTime$Human$Calendar$year(
-		author$project$SmartTime$Human$Calendar$CalendarDate(rd));
-	return {
-		ordinalDay: rd - author$project$SmartTime$Human$Calendar$Year$daysBefore(givenYear),
-		year: givenYear
-	};
-};
-var author$project$SmartTime$Human$Calendar$toParts = function (_n0) {
-	var rd = _n0.a;
-	var date = author$project$SmartTime$Human$Calendar$toOrdinalDate(
-		author$project$SmartTime$Human$Calendar$CalendarDate(rd));
-	return A3(author$project$SmartTime$Human$Calendar$calculate, date.year, author$project$SmartTime$Human$Calendar$Month$Jan, date.ordinalDay);
-};
-var author$project$SmartTime$Human$Calendar$dayOfMonth = A2(
-	elm$core$Basics$composeR,
-	author$project$SmartTime$Human$Calendar$toParts,
-	function ($) {
-		return $.day;
-	});
-var author$project$SmartTime$Human$Calendar$month = A2(
-	elm$core$Basics$composeR,
-	author$project$SmartTime$Human$Calendar$toParts,
-	function ($) {
-		return $.month;
-	});
-var elm$core$Basics$clamp = F3(
-	function (low, high, number) {
-		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
-	});
-var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3(elm$core$String$repeatHelp, n, chunk, '');
-	});
-var author$project$SmartTime$Human$Calendar$padNumber = F2(
-	function (targetLength, numString) {
-		var minLength = A3(elm$core$Basics$clamp, 1, targetLength, targetLength);
-		var zerosToAdd = minLength - elm$core$String$length(numString);
-		return _Utils_ap(
-			A2(elm$core$String$repeat, zerosToAdd, '0'),
-			numString);
-	});
-var author$project$SmartTime$Human$Calendar$Month$toInt = function (givenMonth) {
-	switch (givenMonth.$) {
-		case 'Jan':
-			return 1;
-		case 'Feb':
-			return 2;
-		case 'Mar':
-			return 3;
-		case 'Apr':
-			return 4;
-		case 'May':
-			return 5;
-		case 'Jun':
-			return 6;
-		case 'Jul':
-			return 7;
-		case 'Aug':
-			return 8;
-		case 'Sep':
-			return 9;
-		case 'Oct':
-			return 10;
-		case 'Nov':
-			return 11;
-		default:
-			return 12;
-	}
-};
-var author$project$SmartTime$Human$Calendar$Year$toAstronomicalString = function (year) {
-	var yearInt = year.a;
-	return elm$core$String$fromInt(yearInt);
-};
-var author$project$SmartTime$Human$Calendar$toStandardString = function (givenDate) {
-	var yearPart = A2(
-		author$project$SmartTime$Human$Calendar$padNumber,
-		4,
-		author$project$SmartTime$Human$Calendar$Year$toAstronomicalString(
-			author$project$SmartTime$Human$Calendar$year(givenDate)));
-	var monthPart = A2(
-		author$project$SmartTime$Human$Calendar$padNumber,
-		2,
-		elm$core$String$fromInt(
-			author$project$SmartTime$Human$Calendar$Month$toInt(
-				author$project$SmartTime$Human$Calendar$month(givenDate))));
-	var dayPart = A2(
-		author$project$SmartTime$Human$Calendar$padNumber,
-		2,
-		elm$core$String$fromInt(
-			author$project$SmartTime$Human$Calendar$Month$dayToInt(
-				author$project$SmartTime$Human$Calendar$dayOfMonth(givenDate))));
-	return yearPart + ('-' + (monthPart + ('-' + dayPart)));
-};
-var author$project$SmartTime$Human$Clock$midnight = author$project$SmartTime$Duration$zero;
-var author$project$SmartTime$Human$Moment$fromDate = F2(
-	function (zone, date) {
-		return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, author$project$SmartTime$Human$Clock$midnight);
-	});
-var author$project$SmartTime$Human$Moment$fromFuzzy = F2(
-	function (zone, fuzzy) {
-		switch (fuzzy.$) {
-			case 'DateOnly':
-				var date = fuzzy.a;
-				return A2(author$project$SmartTime$Human$Moment$fromDate, zone, date);
-			case 'Floating':
-				var _n1 = fuzzy.a;
-				var date = _n1.a;
-				var time = _n1.b;
-				return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, time);
-			default:
-				var moment = fuzzy.a;
-				return moment;
-		}
-	});
-var author$project$SmartTime$Human$Duration$breakdownHMSM = function (duration) {
-	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var days = _n0.days;
-	var hours = _n0.hours;
-	var minutes = _n0.minutes;
-	var seconds = _n0.seconds;
-	var milliseconds = _n0.milliseconds;
-	return _List_fromArray(
-		[
-			author$project$SmartTime$Human$Duration$Hours(
-			author$project$SmartTime$Duration$inWholeHours(duration)),
-			author$project$SmartTime$Human$Duration$Minutes(minutes),
-			author$project$SmartTime$Human$Duration$Seconds(seconds),
-			author$project$SmartTime$Human$Duration$Milliseconds(milliseconds)
-		]);
-};
-var author$project$SmartTime$Human$Duration$padNumber = F2(
-	function (targetLength, numString) {
-		var minLength = A3(elm$core$Basics$clamp, 1, targetLength, targetLength);
-		var zerosToAdd = minLength - elm$core$String$length(numString);
-		return _Utils_ap(
-			A2(elm$core$String$repeat, zerosToAdd, '0'),
-			numString);
-	});
-var author$project$SmartTime$Human$Duration$justNumberPadded = function (unit) {
-	switch (unit.$) {
-		case 'Milliseconds':
-			var _int = unit.a;
-			return A2(
-				author$project$SmartTime$Human$Duration$padNumber,
-				3,
-				elm$core$String$fromInt(_int));
-		case 'Seconds':
-			var _int = unit.a;
-			return A2(
-				author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				elm$core$String$fromInt(_int));
-		case 'Minutes':
-			var _int = unit.a;
-			return A2(
-				author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				elm$core$String$fromInt(_int));
-		case 'Hours':
-			var _int = unit.a;
-			return A2(
-				author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				elm$core$String$fromInt(_int));
-		default:
-			var _int = unit.a;
-			return A2(
-				author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				elm$core$String$fromInt(_int));
-	}
-};
-var elm$core$List$tail = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return elm$core$Maybe$Just(xs);
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
-};
-var elm_community$list_extra$List$Extra$init = function (items) {
-	if (!items.b) {
-		return elm$core$Maybe$Nothing;
-	} else {
-		var nonEmptyList = items;
-		return A2(
-			elm$core$Maybe$map,
-			elm$core$List$reverse,
-			elm$core$List$tail(
-				elm$core$List$reverse(nonEmptyList)));
-	}
-};
-var author$project$SmartTime$Human$Duration$colonSeparated = function (breakdownList) {
-	var separate = function (list) {
-		return elm$core$String$concat(
-			A2(
-				elm$core$List$intersperse,
-				':',
-				A2(elm$core$List$map, author$project$SmartTime$Human$Duration$justNumberPadded, list)));
-	};
-	var _n0 = elm_community$list_extra$List$Extra$last(breakdownList);
-	if ((_n0.$ === 'Just') && (_n0.a.$ === 'Milliseconds')) {
-		var ms = _n0.a.a;
-		var withoutLast = A2(
-			elm$core$Maybe$withDefault,
-			_List_Nil,
-			elm_community$list_extra$List$Extra$init(breakdownList));
-		return separate(withoutLast) + ('.' + A2(
-			author$project$SmartTime$Human$Duration$padNumber,
-			3,
-			elm$core$String$fromInt(ms)));
-	} else {
-		return separate(breakdownList);
-	}
-};
-var author$project$SmartTime$Human$Clock$toStandardString = function (timeOfDay) {
-	return author$project$SmartTime$Human$Duration$colonSeparated(
-		author$project$SmartTime$Human$Duration$breakdownHMSM(timeOfDay));
-};
-var author$project$SmartTime$Human$Moment$toStandardString = function (moment) {
-	var _n0 = A2(author$project$SmartTime$Human$Moment$humanize, author$project$SmartTime$Human$Moment$utc, moment);
-	var date = _n0.a;
-	var time = _n0.b;
-	return author$project$SmartTime$Human$Calendar$toStandardString(date) + ('T' + (author$project$SmartTime$Human$Clock$toStandardString(time) + 'Z'));
-};
-var elm$core$String$dropRight = F2(
-	function (n, string) {
-		return (n < 1) ? string : A3(elm$core$String$slice, 0, -n, string);
-	});
-var author$project$SmartTime$Human$Moment$fuzzyToString = function (fuzzyMoment) {
-	switch (fuzzyMoment.$) {
-		case 'Global':
-			var moment = fuzzyMoment.a;
-			return author$project$SmartTime$Human$Moment$toStandardString(moment);
-		case 'Floating':
-			return A2(
-				elm$core$String$dropRight,
-				1,
-				author$project$SmartTime$Human$Moment$toStandardString(
-					A2(author$project$SmartTime$Human$Moment$fromFuzzy, author$project$SmartTime$Human$Moment$utc, fuzzyMoment)));
-		default:
-			var date = fuzzyMoment.a;
-			return author$project$SmartTime$Human$Calendar$toStandardString(date);
-	}
-};
-var author$project$Task$Task$encodeTaskMoment = function (fuzzy) {
-	return elm$json$Json$Encode$string(
-		author$project$SmartTime$Human$Moment$fuzzyToString(fuzzy));
-};
-var author$project$Task$Task$encodeTask = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'title',
-				elm$json$Json$Encode$string(record.title)),
-				_Utils_Tuple2(
-				'completion',
-				author$project$Task$Progress$encodeProgress(record.completion)),
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$int(record.id)),
-				_Utils_Tuple2(
-				'minEffort',
-				author$project$Porting$encodeDuration(record.minEffort)),
-				_Utils_Tuple2(
-				'predictedEffort',
-				author$project$Porting$encodeDuration(record.predictedEffort)),
-				_Utils_Tuple2(
-				'maxEffort',
-				author$project$Porting$encodeDuration(record.maxEffort)),
-				_Utils_Tuple2(
-				'history',
-				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.history)),
-				_Utils_Tuple2(
-				'parent',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent)),
-				_Utils_Tuple2(
-				'tags',
-				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.tags)),
-				_Utils_Tuple2(
-				'activity',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$ID$encode, record.activity)),
-				_Utils_Tuple2(
-				'deadline',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.deadline)),
-				_Utils_Tuple2(
-				'plannedStart',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.plannedStart)),
-				_Utils_Tuple2(
-				'plannedFinish',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.plannedFinish)),
-				_Utils_Tuple2(
-				'relevanceStarts',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.relevanceStarts)),
-				_Utils_Tuple2(
-				'relevanceEnds',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.relevanceEnds)),
-				_Utils_Tuple2(
-				'importance',
-				elm$json$Json$Encode$float(record.importance))
-			]));
-};
-var elm$core$List$takeReverse = F3(
-	function (n, list, kept) {
-		takeReverse:
-		while (true) {
-			if (n <= 0) {
-				return kept;
-			} else {
-				if (!list.b) {
-					return kept;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs,
-						$temp$kept = A2(elm$core$List$cons, x, kept);
-					n = $temp$n;
-					list = $temp$list;
-					kept = $temp$kept;
-					continue takeReverse;
-				}
-			}
-		}
-	});
-var elm$core$List$takeTailRec = F2(
-	function (n, list) {
-		return elm$core$List$reverse(
-			A3(elm$core$List$takeReverse, n, list, _List_Nil));
-	});
-var elm$core$List$takeFast = F3(
-	function (ctr, n, list) {
-		if (n <= 0) {
-			return _List_Nil;
-		} else {
-			var _n0 = _Utils_Tuple2(n, list);
-			_n0$1:
-			while (true) {
-				_n0$5:
-				while (true) {
-					if (!_n0.b.b) {
-						return list;
-					} else {
-						if (_n0.b.b.b) {
-							switch (_n0.a) {
-								case 1:
-									break _n0$1;
-								case 2:
-									var _n2 = _n0.b;
-									var x = _n2.a;
-									var _n3 = _n2.b;
-									var y = _n3.a;
-									return _List_fromArray(
-										[x, y]);
-								case 3:
-									if (_n0.b.b.b.b) {
-										var _n4 = _n0.b;
-										var x = _n4.a;
-										var _n5 = _n4.b;
-										var y = _n5.a;
-										var _n6 = _n5.b;
-										var z = _n6.a;
-										return _List_fromArray(
-											[x, y, z]);
-									} else {
-										break _n0$5;
-									}
-								default:
-									if (_n0.b.b.b.b && _n0.b.b.b.b.b) {
-										var _n7 = _n0.b;
-										var x = _n7.a;
-										var _n8 = _n7.b;
-										var y = _n8.a;
-										var _n9 = _n8.b;
-										var z = _n9.a;
-										var _n10 = _n9.b;
-										var w = _n10.a;
-										var tl = _n10.b;
-										return (ctr > 1000) ? A2(
-											elm$core$List$cons,
-											x,
-											A2(
-												elm$core$List$cons,
-												y,
-												A2(
-													elm$core$List$cons,
-													z,
-													A2(
-														elm$core$List$cons,
-														w,
-														A2(elm$core$List$takeTailRec, n - 4, tl))))) : A2(
-											elm$core$List$cons,
-											x,
-											A2(
-												elm$core$List$cons,
-												y,
-												A2(
-													elm$core$List$cons,
-													z,
-													A2(
-														elm$core$List$cons,
-														w,
-														A3(elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
-									} else {
-										break _n0$5;
-									}
-							}
-						} else {
-							if (_n0.a === 1) {
-								break _n0$1;
-							} else {
-								break _n0$5;
-							}
-						}
-					}
-				}
-				return list;
-			}
-			var _n1 = _n0.b;
-			var x = _n1.a;
-			return _List_fromArray(
-				[x]);
-		}
-	});
-var elm$core$List$take = F2(
-	function (n, list) {
-		return A3(elm$core$List$takeFast, 0, n, list);
-	});
-var author$project$AppData$encodeAppData = function (record) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'tasks',
-				A2(author$project$Porting$encodeIntDict, author$project$Task$Task$encodeTask, record.tasks)),
-				_Utils_Tuple2(
-				'activities',
-				author$project$Activity$Activity$encodeStoredActivities(record.activities)),
-				_Utils_Tuple2(
-				'uid',
-				elm$json$Json$Encode$int(record.uid)),
-				_Utils_Tuple2(
-				'errors',
-				A2(
-					elm$json$Json$Encode$list,
-					elm$json$Json$Encode$string,
-					A2(elm$core$List$take, 100, record.errors))),
-				_Utils_Tuple2(
-				'timeline',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.timeline)),
-				_Utils_Tuple2(
-				'todoist',
-				author$project$AppData$encodeTodoistIntegrationData(record.todoist))
-			]));
-};
-var author$project$Main$appDataToJson = function (appData) {
-	return A2(
-		elm$json$Json$Encode$encode,
-		0,
-		author$project$AppData$encodeAppData(appData));
-};
-var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
 var author$project$External$Tasker$flash = _Platform_outgoingPort('flash', elm$json$Json$Encode$string);
 var author$project$External$Commands$toast = function (message) {
 	return author$project$External$Tasker$flash(message);
@@ -11452,6 +10356,7 @@ var author$project$Incubator$Todoist$encodeResources = function (resource) {
 			return elm$json$Json$Encode$string('user');
 	}
 };
+var elm$json$Json$Encode$int = _Json_wrap;
 var author$project$Incubator$Todoist$Command$encodeItemID = function (realOrTemp) {
 	if (realOrTemp.$ === 'RealItem') {
 		var intID = realOrTemp.a;
@@ -11460,6 +10365,88 @@ var author$project$Incubator$Todoist$Command$encodeItemID = function (realOrTemp
 		var tempID = realOrTemp.a;
 		return elm$json$Json$Encode$string(tempID);
 	}
+};
+var elm_community$json_extra$Json$Encode$Extra$maybe = function (encoder) {
+	return A2(
+		elm$core$Basics$composeR,
+		elm$core$Maybe$map(encoder),
+		elm$core$Maybe$withDefault(elm$json$Json$Encode$null));
+};
+var author$project$Incubator$Todoist$Item$encodeDue = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'date',
+				elm$json$Json$Encode$string(record.date)),
+				_Utils_Tuple2(
+				'timezone',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$string, record.timezone)),
+				_Utils_Tuple2(
+				'string',
+				elm$json$Json$Encode$string(record.string)),
+				_Utils_Tuple2(
+				'lang',
+				elm$json$Json$Encode$string(record.lang)),
+				_Utils_Tuple2(
+				'is_recurring',
+				elm$json$Json$Encode$bool(record.isRecurring))
+			]));
+};
+var author$project$Incubator$Todoist$Item$encodePriority = function (priority) {
+	switch (priority.a) {
+		case 1:
+			return elm$json$Json$Encode$int(4);
+		case 2:
+			return elm$json$Json$Encode$int(3);
+		case 3:
+			return elm$json$Json$Encode$int(2);
+		default:
+			return elm$json$Json$Encode$int(1);
+	}
+};
+var author$project$Porting$encodeBoolToInt = function (bool) {
+	if (bool) {
+		return elm$json$Json$Encode$int(1);
+	} else {
+		return elm$json$Json$Encode$int(0);
+	}
+};
+var elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _n0 = f(mx);
+		if (_n0.$ === 'Just') {
+			var x = _n0.a;
+			return A2(elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var author$project$Porting$encodeObjectWithoutNothings = A2(
+	elm$core$Basics$composeL,
+	elm$json$Json$Encode$object,
+	elm$core$List$filterMap(elm$core$Basics$identity));
+var author$project$Porting$normal = elm$core$Maybe$Just;
+var author$project$Porting$omittable = function (_n0) {
+	var name = _n0.a;
+	var encoder = _n0.b;
+	var fieldToCheck = _n0.c;
+	return A2(
+		elm$core$Maybe$map,
+		function (field) {
+			return _Utils_Tuple2(
+				name,
+				encoder(field));
+		},
+		fieldToCheck);
 };
 var author$project$Incubator$Todoist$Command$encodeItemChanges = function (item) {
 	return author$project$Porting$encodeObjectWithoutNothings(
@@ -11618,6 +10605,61 @@ var author$project$Incubator$Todoist$Command$encodeRecurringItemCompletion = fun
 				_Utils_Tuple3('due', elm$json$Json$Encode$string, item.due))
 			]));
 };
+var author$project$Porting$encodeTuple2 = F3(
+	function (firstEncoder, secondEncoder, _n0) {
+		var first = _n0.a;
+		var second = _n0.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					firstEncoder(first),
+					secondEncoder(second)
+				]));
+	});
+var elm_community$intdict$IntDict$foldr = F3(
+	function (f, acc, dict) {
+		foldr:
+		while (true) {
+			switch (dict.$) {
+				case 'Empty':
+					return acc;
+				case 'Leaf':
+					var l = dict.a;
+					return A3(f, l.key, l.value, acc);
+				default:
+					var i = dict.a;
+					var $temp$f = f,
+						$temp$acc = A3(elm_community$intdict$IntDict$foldr, f, acc, i.right),
+						$temp$dict = i.left;
+					f = $temp$f;
+					acc = $temp$acc;
+					dict = $temp$dict;
+					continue foldr;
+			}
+		}
+	});
+var elm_community$intdict$IntDict$toList = function (dict) {
+	return A3(
+		elm_community$intdict$IntDict$foldr,
+		F3(
+			function (key, value, list) {
+				return A2(
+					elm$core$List$cons,
+					_Utils_Tuple2(key, value),
+					list);
+			}),
+		_List_Nil,
+		dict);
+};
+var author$project$Porting$encodeIntDict = F2(
+	function (valueEncoder, dict) {
+		return A2(
+			elm$json$Json$Encode$list,
+			A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, valueEncoder),
+			elm_community$intdict$IntDict$toList(dict));
+	});
 var author$project$Incubator$Todoist$Command$encodeCommandInstance = function (_n0) {
 	var uuid = _n0.a;
 	var command = _n0.b;
@@ -12317,7 +11359,7 @@ var author$project$Incubator$Todoist$describeError = function (error) {
 		case 'Timeout':
 			return 'Timed out. Try again later?';
 		case 'NetworkError':
-			return 'Network Error. That\'s all we know.';
+			return 'Couldn\'t get on the network. Are you offline?';
 		case 'BadStatus':
 			var status = error.a;
 			switch (status) {
@@ -12333,6 +11375,8 @@ var author$project$Incubator$Todoist$describeError = function (error) {
 					return '429 Too Many Requests: Slow down, cowboy! Check out the Todoist API Docs for Usage Limits. Maybe try batching more requests into one?';
 				case 500:
 					return '500 Internal Server Error: Not my fault! Todoist must be having a bad day.';
+				case 502:
+					return '502 Bad Gateway: I was trying to reach the Todoist server but I got stopped along the way. If you\'re definitely connected, it\'s probably a temporary hiccup on their side -- but if you see this a lot, check that your DNS is resolving (try todoist.com) and any proxy setup you have is working.';
 				case 503:
 					return '503 Service Unavailable: Not my fault! Todoist must be bogged down today, or perhaps experiencing a DDoS attack. :O';
 				default:
@@ -12341,7 +11385,7 @@ var author$project$Incubator$Todoist$describeError = function (error) {
 			}
 		default:
 			var string = error.a;
-			return 'Response says the body was bad. That\'s weird, because we don\'t send any body to Todoist servers, and the API doesn\'t ask you to. Here\'s the error: ' + string;
+			return 'I successfully talked with Todoist servers, but the response had some weird parts I was never trained for. Either Todoist changed something recently, or you\'ve found a weird edge case the developer didn\'t know about. Either way, please report this! \n' + string;
 	}
 };
 var elm_community$intdict$IntDict$filter = F2(
@@ -14076,6 +13120,10 @@ var author$project$Integrations$Todoist$timing = A2(
 				elm$parser$Parser$symbol('m')),
 			elm$parser$Parser$spaces),
 		elm$parser$Parser$symbol(')')));
+var elm$core$String$dropRight = F2(
+	function (n, string) {
+		return (n < 1) ? string : A3(elm$core$String$slice, 0, -n, string);
+	});
 var author$project$Integrations$Todoist$extractTiming2 = function (input) {
 	var _default = _Utils_Tuple2(
 		input,
@@ -14308,6 +13356,315 @@ var author$project$Integrations$Todoist$sendChanges = F2(
 				[author$project$Incubator$Todoist$Items, author$project$Incubator$Todoist$Projects]),
 			changeList);
 	});
+var author$project$SmartTime$Human$Calendar$Month$next = function (givenMonth) {
+	switch (givenMonth.$) {
+		case 'Jan':
+			return author$project$SmartTime$Human$Calendar$Month$Feb;
+		case 'Feb':
+			return author$project$SmartTime$Human$Calendar$Month$Mar;
+		case 'Mar':
+			return author$project$SmartTime$Human$Calendar$Month$Apr;
+		case 'Apr':
+			return author$project$SmartTime$Human$Calendar$Month$May;
+		case 'May':
+			return author$project$SmartTime$Human$Calendar$Month$Jun;
+		case 'Jun':
+			return author$project$SmartTime$Human$Calendar$Month$Jul;
+		case 'Jul':
+			return author$project$SmartTime$Human$Calendar$Month$Aug;
+		case 'Aug':
+			return author$project$SmartTime$Human$Calendar$Month$Sep;
+		case 'Sep':
+			return author$project$SmartTime$Human$Calendar$Month$Oct;
+		case 'Oct':
+			return author$project$SmartTime$Human$Calendar$Month$Nov;
+		case 'Nov':
+			return author$project$SmartTime$Human$Calendar$Month$Dec;
+		default:
+			return author$project$SmartTime$Human$Calendar$Month$Jan;
+	}
+};
+var author$project$SmartTime$Human$Calendar$calculate = F3(
+	function (givenYear, givenMonth, dayCounter) {
+		calculate:
+		while (true) {
+			var monthsLeftToGo = !_Utils_eq(givenMonth, author$project$SmartTime$Human$Calendar$Month$Dec);
+			var monthSize = A2(author$project$SmartTime$Human$Calendar$Month$length, givenYear, givenMonth);
+			var monthOverFlow = _Utils_cmp(dayCounter, monthSize) > 0;
+			if (monthsLeftToGo && monthOverFlow) {
+				var remainingDaysToCount = dayCounter - monthSize;
+				var nextMonthToCheck = author$project$SmartTime$Human$Calendar$Month$next(givenMonth);
+				var $temp$givenYear = givenYear,
+					$temp$givenMonth = nextMonthToCheck,
+					$temp$dayCounter = remainingDaysToCount;
+				givenYear = $temp$givenYear;
+				givenMonth = $temp$givenMonth;
+				dayCounter = $temp$dayCounter;
+				continue calculate;
+			} else {
+				return {
+					day: author$project$SmartTime$Human$Calendar$Month$DayOfMonth(dayCounter),
+					month: givenMonth,
+					year: givenYear
+				};
+			}
+		}
+	});
+var author$project$SmartTime$Human$Calendar$divWithRemainder = F2(
+	function (a, b) {
+		return _Utils_Tuple2(
+			(a / b) | 0,
+			A2(elm$core$Basics$modBy, b, a));
+	});
+var author$project$SmartTime$Human$Calendar$year = function (_n0) {
+	var givenDays = _n0.a;
+	var daysInYear = 365;
+	var daysInLeapCycle = 146097;
+	var daysInFourYears = 1461;
+	var daysInCentury = 36524;
+	var _n1 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, givenDays, daysInLeapCycle);
+	var leapCyclesPassed = _n1.a;
+	var daysWithoutLeapCycles = _n1.b;
+	var yearsFromLeapCycles = leapCyclesPassed * 400;
+	var _n2 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutLeapCycles, daysInCentury);
+	var centuriesPassed = _n2.a;
+	var daysWithoutCenturies = _n2.b;
+	var yearsFromCenturies = centuriesPassed * 100;
+	var _n3 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutCenturies, daysInFourYears);
+	var fourthYearsPassed = _n3.a;
+	var daysWithoutFourthYears = _n3.b;
+	var _n4 = A2(author$project$SmartTime$Human$Calendar$divWithRemainder, daysWithoutFourthYears, daysInYear);
+	var wholeYears = _n4.a;
+	var daysWithoutYears = _n4.b;
+	var newYear = (!daysWithoutYears) ? 0 : 1;
+	var yearsFromFourYearBlocks = fourthYearsPassed * 4;
+	var totalYears = (((yearsFromLeapCycles + yearsFromCenturies) + yearsFromFourYearBlocks) + wholeYears) + newYear;
+	return author$project$SmartTime$Human$Calendar$Year$Year(totalYears);
+};
+var author$project$SmartTime$Human$Calendar$toOrdinalDate = function (_n0) {
+	var rd = _n0.a;
+	var givenYear = author$project$SmartTime$Human$Calendar$year(
+		author$project$SmartTime$Human$Calendar$CalendarDate(rd));
+	return {
+		ordinalDay: rd - author$project$SmartTime$Human$Calendar$Year$daysBefore(givenYear),
+		year: givenYear
+	};
+};
+var author$project$SmartTime$Human$Calendar$toParts = function (_n0) {
+	var rd = _n0.a;
+	var date = author$project$SmartTime$Human$Calendar$toOrdinalDate(
+		author$project$SmartTime$Human$Calendar$CalendarDate(rd));
+	return A3(author$project$SmartTime$Human$Calendar$calculate, date.year, author$project$SmartTime$Human$Calendar$Month$Jan, date.ordinalDay);
+};
+var author$project$SmartTime$Human$Calendar$dayOfMonth = A2(
+	elm$core$Basics$composeR,
+	author$project$SmartTime$Human$Calendar$toParts,
+	function ($) {
+		return $.day;
+	});
+var author$project$SmartTime$Human$Calendar$month = A2(
+	elm$core$Basics$composeR,
+	author$project$SmartTime$Human$Calendar$toParts,
+	function ($) {
+		return $.month;
+	});
+var elm$core$Basics$clamp = F3(
+	function (low, high, number) {
+		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
+	});
+var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3(elm$core$String$repeatHelp, n, chunk, '');
+	});
+var author$project$SmartTime$Human$Calendar$padNumber = F2(
+	function (targetLength, numString) {
+		var minLength = A3(elm$core$Basics$clamp, 1, targetLength, targetLength);
+		var zerosToAdd = minLength - elm$core$String$length(numString);
+		return _Utils_ap(
+			A2(elm$core$String$repeat, zerosToAdd, '0'),
+			numString);
+	});
+var author$project$SmartTime$Human$Calendar$Month$toInt = function (givenMonth) {
+	switch (givenMonth.$) {
+		case 'Jan':
+			return 1;
+		case 'Feb':
+			return 2;
+		case 'Mar':
+			return 3;
+		case 'Apr':
+			return 4;
+		case 'May':
+			return 5;
+		case 'Jun':
+			return 6;
+		case 'Jul':
+			return 7;
+		case 'Aug':
+			return 8;
+		case 'Sep':
+			return 9;
+		case 'Oct':
+			return 10;
+		case 'Nov':
+			return 11;
+		default:
+			return 12;
+	}
+};
+var author$project$SmartTime$Human$Calendar$Year$toAstronomicalString = function (year) {
+	var yearInt = year.a;
+	return elm$core$String$fromInt(yearInt);
+};
+var author$project$SmartTime$Human$Calendar$toStandardString = function (givenDate) {
+	var yearPart = A2(
+		author$project$SmartTime$Human$Calendar$padNumber,
+		4,
+		author$project$SmartTime$Human$Calendar$Year$toAstronomicalString(
+			author$project$SmartTime$Human$Calendar$year(givenDate)));
+	var monthPart = A2(
+		author$project$SmartTime$Human$Calendar$padNumber,
+		2,
+		elm$core$String$fromInt(
+			author$project$SmartTime$Human$Calendar$Month$toInt(
+				author$project$SmartTime$Human$Calendar$month(givenDate))));
+	var dayPart = A2(
+		author$project$SmartTime$Human$Calendar$padNumber,
+		2,
+		elm$core$String$fromInt(
+			author$project$SmartTime$Human$Calendar$Month$dayToInt(
+				author$project$SmartTime$Human$Calendar$dayOfMonth(givenDate))));
+	return yearPart + ('-' + (monthPart + ('-' + dayPart)));
+};
+var author$project$SmartTime$Human$Duration$breakdownHMSM = function (duration) {
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var days = _n0.days;
+	var hours = _n0.hours;
+	var minutes = _n0.minutes;
+	var seconds = _n0.seconds;
+	var milliseconds = _n0.milliseconds;
+	return _List_fromArray(
+		[
+			author$project$SmartTime$Human$Duration$Hours(
+			author$project$SmartTime$Duration$inWholeHours(duration)),
+			author$project$SmartTime$Human$Duration$Minutes(minutes),
+			author$project$SmartTime$Human$Duration$Seconds(seconds),
+			author$project$SmartTime$Human$Duration$Milliseconds(milliseconds)
+		]);
+};
+var author$project$SmartTime$Human$Duration$padNumber = F2(
+	function (targetLength, numString) {
+		var minLength = A3(elm$core$Basics$clamp, 1, targetLength, targetLength);
+		var zerosToAdd = minLength - elm$core$String$length(numString);
+		return _Utils_ap(
+			A2(elm$core$String$repeat, zerosToAdd, '0'),
+			numString);
+	});
+var author$project$SmartTime$Human$Duration$justNumberPadded = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return A2(
+				author$project$SmartTime$Human$Duration$padNumber,
+				3,
+				elm$core$String$fromInt(_int));
+		case 'Seconds':
+			var _int = unit.a;
+			return A2(
+				author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				elm$core$String$fromInt(_int));
+		case 'Minutes':
+			var _int = unit.a;
+			return A2(
+				author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				elm$core$String$fromInt(_int));
+		case 'Hours':
+			var _int = unit.a;
+			return A2(
+				author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				elm$core$String$fromInt(_int));
+		default:
+			var _int = unit.a;
+			return A2(
+				author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				elm$core$String$fromInt(_int));
+	}
+};
+var elm$core$List$tail = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return elm$core$Maybe$Just(xs);
+	} else {
+		return elm$core$Maybe$Nothing;
+	}
+};
+var elm_community$list_extra$List$Extra$init = function (items) {
+	if (!items.b) {
+		return elm$core$Maybe$Nothing;
+	} else {
+		var nonEmptyList = items;
+		return A2(
+			elm$core$Maybe$map,
+			elm$core$List$reverse,
+			elm$core$List$tail(
+				elm$core$List$reverse(nonEmptyList)));
+	}
+};
+var author$project$SmartTime$Human$Duration$colonSeparated = function (breakdownList) {
+	var separate = function (list) {
+		return elm$core$String$concat(
+			A2(
+				elm$core$List$intersperse,
+				':',
+				A2(elm$core$List$map, author$project$SmartTime$Human$Duration$justNumberPadded, list)));
+	};
+	var _n0 = elm_community$list_extra$List$Extra$last(breakdownList);
+	if ((_n0.$ === 'Just') && (_n0.a.$ === 'Milliseconds')) {
+		var ms = _n0.a.a;
+		var withoutLast = A2(
+			elm$core$Maybe$withDefault,
+			_List_Nil,
+			elm_community$list_extra$List$Extra$init(breakdownList));
+		return separate(withoutLast) + ('.' + A2(
+			author$project$SmartTime$Human$Duration$padNumber,
+			3,
+			elm$core$String$fromInt(ms)));
+	} else {
+		return separate(breakdownList);
+	}
+};
+var author$project$SmartTime$Human$Clock$toStandardString = function (timeOfDay) {
+	return author$project$SmartTime$Human$Duration$colonSeparated(
+		author$project$SmartTime$Human$Duration$breakdownHMSM(timeOfDay));
+};
+var author$project$SmartTime$Human$Moment$toStandardString = function (moment) {
+	var _n0 = A2(author$project$SmartTime$Human$Moment$humanize, author$project$SmartTime$Human$Moment$utc, moment);
+	var date = _n0.a;
+	var time = _n0.b;
+	return author$project$SmartTime$Human$Calendar$toStandardString(date) + ('T' + (author$project$SmartTime$Human$Clock$toStandardString(time) + 'Z'));
+};
+var author$project$SmartTime$Moment$toSmartInt = function (_n0) {
+	var dur = _n0.a;
+	return author$project$SmartTime$Duration$inMs(dur);
+};
+var author$project$Task$Progress$getPortion = function (_n0) {
+	var part = _n0.a;
+	return part;
+};
 var author$project$Task$Progress$getWhole = function (_n0) {
 	var unit = _n0.b;
 	return author$project$Task$Progress$unitMax(unit);
@@ -14895,6 +14252,7 @@ var author$project$Activity$Activity$excusableFor = function (activity) {
 				author$project$SmartTime$Human$Duration$Hours(24));
 	}
 };
+var author$project$SmartTime$Human$Duration$dur = author$project$SmartTime$Human$Duration$toDuration;
 var author$project$Activity$Measure$excusableLimit = function (activity) {
 	return author$project$SmartTime$Human$Duration$dur(
 		author$project$Activity$Activity$excusableFor(activity).a);
@@ -15326,6 +14684,18 @@ var author$project$Activity$Switching$determineOnTask = F3(
 			}
 		}
 	});
+var author$project$Activity$Switching$exportNextTask = F2(
+	function (app, env) {
+		var next = A2(author$project$Activity$Switching$determineNextTask, app, env);
+		var _export = function (task) {
+			return author$project$External$Tasker$variableOut(
+				_Utils_Tuple2('NextTaskTitle', task.title));
+		};
+		return A2(
+			elm$core$Maybe$withDefault,
+			elm$core$Platform$Cmd$none,
+			A2(elm$core$Maybe$map, _export, next));
+	});
 var author$project$SmartTime$Duration$compare = F2(
 	function (_n0, _n1) {
 		var int1 = _n0.a;
@@ -15653,7 +15023,8 @@ var author$project$Activity$Switching$switchActivity = F3(
 							env,
 							updatedApp.timeline,
 							onTaskStatus,
-							_Utils_Tuple2(activityID, newActivity)))
+							_Utils_Tuple2(activityID, newActivity))),
+						A2(author$project$Activity$Switching$exportNextTask, app, env)
 					])));
 	});
 var author$project$TimeTracker$update = F4(
@@ -16133,6 +15504,651 @@ var author$project$Main$update = F2(
 				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
+var author$project$Activity$Activity$encodeCategory = function (v) {
+	switch (v.$) {
+		case 'Transit':
+			return elm$json$Json$Encode$string('Transit');
+		case 'Entertainment':
+			return elm$json$Json$Encode$string('Entertainment');
+		case 'Hygiene':
+			return elm$json$Json$Encode$string('Hygiene');
+		case 'Slacking':
+			return elm$json$Json$Encode$string('Slacking');
+		default:
+			return elm$json$Json$Encode$string('Communication');
+	}
+};
+var author$project$Activity$Activity$encodeHumanDuration = function (humanDuration) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(
+			author$project$SmartTime$Human$Duration$dur(humanDuration)));
+};
+var author$project$Porting$homogeneousTuple2AsArray = F2(
+	function (encoder, _n0) {
+		var a = _n0.a;
+		var b = _n0.b;
+		return A2(
+			elm$json$Json$Encode$list,
+			encoder,
+			_List_fromArray(
+				[a, b]));
+	});
+var author$project$Activity$Activity$encodeDurationPerPeriod = function (tuple) {
+	return A2(author$project$Porting$homogeneousTuple2AsArray, author$project$Activity$Activity$encodeHumanDuration, tuple);
+};
+var author$project$Activity$Activity$encodeEvidence = function (v) {
+	return elm$json$Json$Encode$string('Evidence');
+};
+var author$project$Activity$Activity$encodeExcusable = function (v) {
+	switch (v.$) {
+		case 'NeverExcused':
+			return elm$json$Json$Encode$string('NeverExcused');
+		case 'TemporarilyExcused':
+			var dpp = v.a;
+			return elm$json$Json$Encode$string('TemporarilyExcused');
+		default:
+			return elm$json$Json$Encode$string('IndefinitelyExcused');
+	}
+};
+var author$project$Activity$Activity$encodeIcon = function (v) {
+	switch (v.$) {
+		case 'File':
+			var path = v.a;
+			return elm$json$Json$Encode$string('File');
+		case 'Ion':
+			return elm$json$Json$Encode$string('Ion');
+		default:
+			return elm$json$Json$Encode$string('Other');
+	}
+};
+var author$project$Activity$Template$encodeTemplate = function (v) {
+	switch (v.$) {
+		case 'DillyDally':
+			return elm$json$Json$Encode$string('DillyDally');
+		case 'Apparel':
+			return elm$json$Json$Encode$string('Apparel');
+		case 'Messaging':
+			return elm$json$Json$Encode$string('Messaging');
+		case 'Restroom':
+			return elm$json$Json$Encode$string('Restroom');
+		case 'Grooming':
+			return elm$json$Json$Encode$string('Grooming');
+		case 'Meal':
+			return elm$json$Json$Encode$string('Meal');
+		case 'Supplements':
+			return elm$json$Json$Encode$string('Supplements');
+		case 'Workout':
+			return elm$json$Json$Encode$string('Workout');
+		case 'Shower':
+			return elm$json$Json$Encode$string('Shower');
+		case 'Toothbrush':
+			return elm$json$Json$Encode$string('Toothbrush');
+		case 'Floss':
+			return elm$json$Json$Encode$string('Floss');
+		case 'Wakeup':
+			return elm$json$Json$Encode$string('Wakeup');
+		case 'Sleep':
+			return elm$json$Json$Encode$string('Sleep');
+		case 'Plan':
+			return elm$json$Json$Encode$string('Plan');
+		case 'Configure':
+			return elm$json$Json$Encode$string('Configure');
+		case 'Email':
+			return elm$json$Json$Encode$string('Email');
+		case 'Work':
+			return elm$json$Json$Encode$string('Work');
+		case 'Call':
+			return elm$json$Json$Encode$string('Call');
+		case 'Chores':
+			return elm$json$Json$Encode$string('Chores');
+		case 'Parents':
+			return elm$json$Json$Encode$string('Parents');
+		case 'Prepare':
+			return elm$json$Json$Encode$string('Prepare');
+		case 'Lover':
+			return elm$json$Json$Encode$string('Lover');
+		case 'Driving':
+			return elm$json$Json$Encode$string('Driving');
+		case 'Riding':
+			return elm$json$Json$Encode$string('Riding');
+		case 'SocialMedia':
+			return elm$json$Json$Encode$string('SocialMedia');
+		case 'Pacing':
+			return elm$json$Json$Encode$string('Pacing');
+		case 'Sport':
+			return elm$json$Json$Encode$string('Sport');
+		case 'Finance':
+			return elm$json$Json$Encode$string('Finance');
+		case 'Laundry':
+			return elm$json$Json$Encode$string('Laundry');
+		case 'Bedward':
+			return elm$json$Json$Encode$string('Bedward');
+		case 'Browse':
+			return elm$json$Json$Encode$string('Browse');
+		case 'Fiction':
+			return elm$json$Json$Encode$string('Fiction');
+		case 'Learning':
+			return elm$json$Json$Encode$string('Learning');
+		case 'BrainTrain':
+			return elm$json$Json$Encode$string('BrainTrain');
+		case 'Music':
+			return elm$json$Json$Encode$string('Music');
+		case 'Create':
+			return elm$json$Json$Encode$string('Create');
+		case 'Children':
+			return elm$json$Json$Encode$string('Children');
+		case 'Meeting':
+			return elm$json$Json$Encode$string('Meeting');
+		case 'Cinema':
+			return elm$json$Json$Encode$string('Cinema');
+		case 'FilmWatching':
+			return elm$json$Json$Encode$string('FilmWatching');
+		case 'Series':
+			return elm$json$Json$Encode$string('Series');
+		case 'Broadcast':
+			return elm$json$Json$Encode$string('Broadcast');
+		case 'Theatre':
+			return elm$json$Json$Encode$string('Theatre');
+		case 'Shopping':
+			return elm$json$Json$Encode$string('Shopping');
+		case 'VideoGaming':
+			return elm$json$Json$Encode$string('VideoGaming');
+		case 'Housekeeping':
+			return elm$json$Json$Encode$string('Housekeeping');
+		case 'MealPrep':
+			return elm$json$Json$Encode$string('MealPrep');
+		case 'Networking':
+			return elm$json$Json$Encode$string('Networking');
+		case 'Meditate':
+			return elm$json$Json$Encode$string('Meditate');
+		case 'Homework':
+			return elm$json$Json$Encode$string('Homework');
+		case 'Flight':
+			return elm$json$Json$Encode$string('Flight');
+		case 'Course':
+			return elm$json$Json$Encode$string('Course');
+		case 'Pet':
+			return elm$json$Json$Encode$string('Pet');
+		case 'Presentation':
+			return elm$json$Json$Encode$string('Presentation');
+		case 'Projects':
+			return elm$json$Json$Encode$string('Projects');
+		default:
+			return elm$json$Json$Encode$string('Research');
+	}
+};
+var author$project$ID$encode = function (_n0) {
+	var _int = _n0.a;
+	return elm$json$Json$Encode$int(_int);
+};
+var author$project$Activity$Activity$encodeCustomizations = function (record) {
+	return author$project$Porting$encodeObjectWithoutNothings(
+		_List_fromArray(
+			[
+				author$project$Porting$normal(
+				_Utils_Tuple2(
+					'template',
+					author$project$Activity$Template$encodeTemplate(record.template))),
+				author$project$Porting$normal(
+				_Utils_Tuple2(
+					'stock',
+					author$project$ID$encode(record.id))),
+				author$project$Porting$omittable(
+				_Utils_Tuple3(
+					'names',
+					elm$json$Json$Encode$list(elm$json$Json$Encode$string),
+					record.names)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('icon', author$project$Activity$Activity$encodeIcon, record.icon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('excusable', author$project$Activity$Activity$encodeExcusable, record.excusable)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('taskOptional', elm$json$Json$Encode$bool, record.taskOptional)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3(
+					'evidence',
+					elm$json$Json$Encode$list(author$project$Activity$Activity$encodeEvidence),
+					record.evidence)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('category', author$project$Activity$Activity$encodeCategory, record.category)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('backgroundable', elm$json$Json$Encode$bool, record.backgroundable)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('maxTime', author$project$Activity$Activity$encodeDurationPerPeriod, record.maxTime)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('hidden', elm$json$Json$Encode$bool, record.hidden))
+			]));
+};
+var author$project$Activity$Activity$encodeStoredActivities = function (value) {
+	return A2(
+		elm$json$Json$Encode$list,
+		A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, author$project$Activity$Activity$encodeCustomizations),
+		elm_community$intdict$IntDict$toList(value));
+};
+var author$project$Porting$encodeMoment = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Moment$toSmartInt(dur));
+};
+var author$project$Activity$Activity$encodeSwitch = function (_n0) {
+	var time = _n0.a;
+	var activityId = _n0.b;
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'Time',
+				author$project$Porting$encodeMoment(time)),
+				_Utils_Tuple2(
+				'Activity',
+				author$project$ID$encode(activityId))
+			]));
+};
+var author$project$Incubator$Todoist$encodeIncrementalSyncToken = function (_n0) {
+	var token = _n0.a;
+	return elm$json$Json$Encode$string(token);
+};
+var author$project$Incubator$Todoist$Item$encodeItem = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(record.id)),
+				_Utils_Tuple2(
+				'user_id',
+				elm$json$Json$Encode$int(record.user_id)),
+				_Utils_Tuple2(
+				'project_id',
+				elm$json$Json$Encode$int(record.project_id)),
+				_Utils_Tuple2(
+				'content',
+				elm$json$Json$Encode$string(record.content)),
+				_Utils_Tuple2(
+				'due',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Incubator$Todoist$Item$encodeDue, record.due)),
+				_Utils_Tuple2(
+				'priority',
+				author$project$Incubator$Todoist$Item$encodePriority(record.priority)),
+				_Utils_Tuple2(
+				'parent_id',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent_id)),
+				_Utils_Tuple2(
+				'child_order',
+				elm$json$Json$Encode$int(record.child_order)),
+				_Utils_Tuple2(
+				'day_order',
+				elm$json$Json$Encode$int(record.day_order)),
+				_Utils_Tuple2(
+				'collapsed',
+				author$project$Porting$encodeBoolToInt(record.collapsed)),
+				_Utils_Tuple2(
+				'children',
+				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.children)),
+				_Utils_Tuple2(
+				'assigned_by_uid',
+				elm$json$Json$Encode$int(record.assigned_by_uid)),
+				_Utils_Tuple2(
+				'responsible_uid',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.responsible_uid)),
+				_Utils_Tuple2(
+				'checked',
+				author$project$Porting$encodeBoolToInt(record.checked)),
+				_Utils_Tuple2(
+				'in_history',
+				author$project$Porting$encodeBoolToInt(record.in_history)),
+				_Utils_Tuple2(
+				'is_deleted',
+				author$project$Porting$encodeBoolToInt(record.is_deleted)),
+				_Utils_Tuple2(
+				'is_archived',
+				author$project$Porting$encodeBoolToInt(record.is_archived)),
+				_Utils_Tuple2(
+				'date_added',
+				elm$json$Json$Encode$string(record.date_added))
+			]));
+};
+var author$project$Incubator$Todoist$Project$encodeProject = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(record.id)),
+				_Utils_Tuple2(
+				'name',
+				elm$json$Json$Encode$string(record.name)),
+				_Utils_Tuple2(
+				'color',
+				elm$json$Json$Encode$int(record.color)),
+				_Utils_Tuple2(
+				'parent_id',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent_id)),
+				_Utils_Tuple2(
+				'child_order',
+				elm$json$Json$Encode$int(record.child_order)),
+				_Utils_Tuple2(
+				'collapsed',
+				elm$json$Json$Encode$int(record.collapsed)),
+				_Utils_Tuple2(
+				'shared',
+				elm$json$Json$Encode$bool(record.shared)),
+				_Utils_Tuple2(
+				'is_deleted',
+				author$project$Porting$encodeBoolToInt(record.is_deleted)),
+				_Utils_Tuple2(
+				'is_archived',
+				author$project$Porting$encodeBoolToInt(record.is_archived)),
+				_Utils_Tuple2(
+				'is_favorite',
+				author$project$Porting$encodeBoolToInt(record.is_favorite)),
+				_Utils_Tuple2(
+				'inbox_project',
+				elm$json$Json$Encode$bool(record.inbox_project)),
+				_Utils_Tuple2(
+				'team_inbox',
+				elm$json$Json$Encode$bool(record.team_inbox))
+			]));
+};
+var author$project$Incubator$Todoist$encodeCache = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'nextSync',
+				author$project$Incubator$Todoist$encodeIncrementalSyncToken(record.nextSync)),
+				_Utils_Tuple2(
+				'items',
+				A2(author$project$Porting$encodeIntDict, author$project$Incubator$Todoist$Item$encodeItem, record.items)),
+				_Utils_Tuple2(
+				'projects',
+				A2(author$project$Porting$encodeIntDict, author$project$Incubator$Todoist$Project$encodeProject, record.projects)),
+				_Utils_Tuple2(
+				'pendingCommands',
+				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$string, record.pendingCommands))
+			]));
+};
+var author$project$AppData$encodeTodoistIntegrationData = function (data) {
+	return author$project$Porting$encodeObjectWithoutNothings(
+		_List_fromArray(
+			[
+				author$project$Porting$normal(
+				_Utils_Tuple2(
+					'cache',
+					author$project$Incubator$Todoist$encodeCache(data.cache))),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('parentProjectID', elm$json$Json$Encode$int, data.parentProjectID)),
+				author$project$Porting$normal(
+				_Utils_Tuple2(
+					'activityProjectIDs',
+					A2(author$project$Porting$encodeIntDict, author$project$ID$encode, data.activityProjectIDs)))
+			]));
+};
+var author$project$Porting$encodeDuration = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(dur));
+};
+var author$project$Task$Progress$encodeProgress = function (progress) {
+	return elm$json$Json$Encode$int(
+		author$project$Task$Progress$getPortion(progress));
+};
+var author$project$Task$Task$encodeHistoryEntry = function (record) {
+	return elm$json$Json$Encode$object(_List_Nil);
+};
+var author$project$SmartTime$Human$Clock$midnight = author$project$SmartTime$Duration$zero;
+var author$project$SmartTime$Human$Moment$fromDate = F2(
+	function (zone, date) {
+		return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, author$project$SmartTime$Human$Clock$midnight);
+	});
+var author$project$SmartTime$Human$Moment$fromFuzzy = F2(
+	function (zone, fuzzy) {
+		switch (fuzzy.$) {
+			case 'DateOnly':
+				var date = fuzzy.a;
+				return A2(author$project$SmartTime$Human$Moment$fromDate, zone, date);
+			case 'Floating':
+				var _n1 = fuzzy.a;
+				var date = _n1.a;
+				var time = _n1.b;
+				return A3(author$project$SmartTime$Human$Moment$fromDateAndTime, zone, date, time);
+			default:
+				var moment = fuzzy.a;
+				return moment;
+		}
+	});
+var author$project$SmartTime$Human$Moment$fuzzyToString = function (fuzzyMoment) {
+	switch (fuzzyMoment.$) {
+		case 'Global':
+			var moment = fuzzyMoment.a;
+			return author$project$SmartTime$Human$Moment$toStandardString(moment);
+		case 'Floating':
+			return A2(
+				elm$core$String$dropRight,
+				1,
+				author$project$SmartTime$Human$Moment$toStandardString(
+					A2(author$project$SmartTime$Human$Moment$fromFuzzy, author$project$SmartTime$Human$Moment$utc, fuzzyMoment)));
+		default:
+			var date = fuzzyMoment.a;
+			return author$project$SmartTime$Human$Calendar$toStandardString(date);
+	}
+};
+var author$project$Task$Task$encodeTaskMoment = function (fuzzy) {
+	return elm$json$Json$Encode$string(
+		author$project$SmartTime$Human$Moment$fuzzyToString(fuzzy));
+};
+var author$project$Task$Task$encodeTask = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'title',
+				elm$json$Json$Encode$string(record.title)),
+				_Utils_Tuple2(
+				'completion',
+				author$project$Task$Progress$encodeProgress(record.completion)),
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$int(record.id)),
+				_Utils_Tuple2(
+				'minEffort',
+				author$project$Porting$encodeDuration(record.minEffort)),
+				_Utils_Tuple2(
+				'predictedEffort',
+				author$project$Porting$encodeDuration(record.predictedEffort)),
+				_Utils_Tuple2(
+				'maxEffort',
+				author$project$Porting$encodeDuration(record.maxEffort)),
+				_Utils_Tuple2(
+				'history',
+				A2(elm$json$Json$Encode$list, author$project$Task$Task$encodeHistoryEntry, record.history)),
+				_Utils_Tuple2(
+				'parent',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, elm$json$Json$Encode$int, record.parent)),
+				_Utils_Tuple2(
+				'tags',
+				A2(elm$json$Json$Encode$list, elm$json$Json$Encode$int, record.tags)),
+				_Utils_Tuple2(
+				'activity',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$ID$encode, record.activity)),
+				_Utils_Tuple2(
+				'deadline',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.deadline)),
+				_Utils_Tuple2(
+				'plannedStart',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.plannedStart)),
+				_Utils_Tuple2(
+				'plannedFinish',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.plannedFinish)),
+				_Utils_Tuple2(
+				'relevanceStarts',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.relevanceStarts)),
+				_Utils_Tuple2(
+				'relevanceEnds',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$Task$Task$encodeTaskMoment, record.relevanceEnds)),
+				_Utils_Tuple2(
+				'importance',
+				elm$json$Json$Encode$float(record.importance))
+			]));
+};
+var elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2(elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return elm$core$List$reverse(
+			A3(elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _n0 = _Utils_Tuple2(n, list);
+			_n0$1:
+			while (true) {
+				_n0$5:
+				while (true) {
+					if (!_n0.b.b) {
+						return list;
+					} else {
+						if (_n0.b.b.b) {
+							switch (_n0.a) {
+								case 1:
+									break _n0$1;
+								case 2:
+									var _n2 = _n0.b;
+									var x = _n2.a;
+									var _n3 = _n2.b;
+									var y = _n3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_n0.b.b.b.b) {
+										var _n4 = _n0.b;
+										var x = _n4.a;
+										var _n5 = _n4.b;
+										var y = _n5.a;
+										var _n6 = _n5.b;
+										var z = _n6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _n0$5;
+									}
+								default:
+									if (_n0.b.b.b.b && _n0.b.b.b.b.b) {
+										var _n7 = _n0.b;
+										var x = _n7.a;
+										var _n8 = _n7.b;
+										var y = _n8.a;
+										var _n9 = _n8.b;
+										var z = _n9.a;
+										var _n10 = _n9.b;
+										var w = _n10.a;
+										var tl = _n10.b;
+										return (ctr > 1000) ? A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A2(elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											elm$core$List$cons,
+											x,
+											A2(
+												elm$core$List$cons,
+												y,
+												A2(
+													elm$core$List$cons,
+													z,
+													A2(
+														elm$core$List$cons,
+														w,
+														A3(elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _n0$5;
+									}
+							}
+						} else {
+							if (_n0.a === 1) {
+								break _n0$1;
+							} else {
+								break _n0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _n1 = _n0.b;
+			var x = _n1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var elm$core$List$take = F2(
+	function (n, list) {
+		return A3(elm$core$List$takeFast, 0, n, list);
+	});
+var author$project$AppData$encodeAppData = function (record) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'tasks',
+				A2(author$project$Porting$encodeIntDict, author$project$Task$Task$encodeTask, record.tasks)),
+				_Utils_Tuple2(
+				'activities',
+				author$project$Activity$Activity$encodeStoredActivities(record.activities)),
+				_Utils_Tuple2(
+				'uid',
+				elm$json$Json$Encode$int(record.uid)),
+				_Utils_Tuple2(
+				'errors',
+				A2(
+					elm$json$Json$Encode$list,
+					elm$json$Json$Encode$string,
+					A2(elm$core$List$take, 100, record.errors))),
+				_Utils_Tuple2(
+				'timeline',
+				A2(elm$json$Json$Encode$list, author$project$Activity$Activity$encodeSwitch, record.timeline)),
+				_Utils_Tuple2(
+				'todoist',
+				author$project$AppData$encodeTodoistIntegrationData(record.todoist))
+			]));
+};
+var author$project$Main$appDataToJson = function (appData) {
+	return A2(
+		elm$json$Json$Encode$encode,
+		0,
+		author$project$AppData$encodeAppData(appData));
+};
+var author$project$Main$setStorage = _Platform_outgoingPort('setStorage', elm$json$Json$Encode$string);
 var author$project$Main$updateWithStorage = F2(
 	function (msg, model) {
 		var _n0 = A2(author$project$Main$update, msg, model);
@@ -16197,17 +16213,31 @@ var author$project$Main$updateWithTime = F2(
 							author$project$Main$Tock(submsg),
 							author$project$SmartTime$Moment$now));
 				case 'Tock':
-					var submsg = msg.a;
-					var time = msg.b;
-					var newEnv = _Utils_update(
-						environment,
-						{time: time});
-					return A2(
-						author$project$Main$updateWithStorage,
-						submsg,
-						_Utils_update(
-							model,
-							{environment: newEnv}));
+					if (msg.a.$ === 'NoOp') {
+						var _n1 = msg.a;
+						var time = msg.b;
+						var newEnv = _Utils_update(
+							environment,
+							{time: time});
+						return A2(
+							author$project$Main$update,
+							author$project$Main$NoOp,
+							_Utils_update(
+								model,
+								{environment: newEnv}));
+					} else {
+						var submsg = msg.a;
+						var time = msg.b;
+						var newEnv = _Utils_update(
+							environment,
+							{time: time});
+						return A2(
+							author$project$Main$updateWithStorage,
+							submsg,
+							_Utils_update(
+								model,
+								{environment: newEnv}));
+					}
 				case 'SetZoneAndTime':
 					var zone = msg.a;
 					var time = msg.b;
