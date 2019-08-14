@@ -9,17 +9,26 @@ import SmartTime.Moment as Moment
 
 scheduleNotify : List Reminder -> Cmd msg
 scheduleNotify reminderList =
-    variableOut ( "Scheduled", compileList (List.map taskerEncodeNotification reminderList) )
+    let
+        orderedList =
+            -- need to be in order for tasker implementation
+            List.sortWith compareReminders reminderList
+
+        compareReminders a b =
+            Moment.compareBasic a.scheduledFor b.scheduledFor
+    in
+    variableOut ( "Scheduled", compileList (List.map taskerEncodeNotification orderedList) )
 
 
 taskerEncodeNotification : Reminder -> String
 taskerEncodeNotification reminder =
     String.concat <|
         List.intersperse ";" <|
-            [ String.fromInt <| Moment.toUnixTimeInt reminder.scheduledFor
-            , reminder.title
-            , reminder.subtitle
-            ]
+            Debug.log "reminder out" <|
+                [ String.fromInt <| Moment.toUnixTimeInt reminder.scheduledFor
+                , reminder.title
+                , reminder.subtitle
+                ]
 
 
 compileList : List String -> String
