@@ -99,6 +99,14 @@ updateWithTime msg ({ environment } as model) =
             , Job.perform (Tock submsg) Moment.now
             )
 
+        -- no storage change, just view
+        Tock NoOp time ->
+            let
+                newEnv =
+                    { environment | time = time }
+            in
+            update NoOp { model | environment = newEnv }
+
         -- actually do the update
         Tock submsg time ->
             let
