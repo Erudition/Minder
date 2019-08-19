@@ -11,13 +11,16 @@ scheduleNotify : List Alarm -> Cmd msg
 scheduleNotify alarmList =
     let
         orderedList =
-            -- need to be in order for tasker implementation
+            -- need to be in order, for tasker implementation
             List.sortWith compareReminders alarmList
 
         compareReminders a b =
             Moment.compareBasic a.schedule b.schedule
+
+        alarmsObject =
+            Encode.object [ ( "alarms", Encode.list encodeAlarm alarmList ) ]
     in
-    variableOut ( "scheduled", Encode.encode 0 (Encode.list encodeAlarm alarmList) )
+    variableOut ( "scheduled", Encode.encode 0 alarmsObject )
 
 
 compileList : List String -> String
