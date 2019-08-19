@@ -1,4 +1,4 @@
-port module External.Commands exposing (changeActivity, hideWindow, scheduleNotify, toast)
+port module External.Commands exposing (hideWindow, scheduleNotify, toast)
 
 import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)
@@ -30,14 +30,16 @@ toast message =
     flash message
 
 
-changeActivity newName newTotal newMax oldTotal =
-    Cmd.batch
-        [ variableOut ( "OnTaskTotalSec", newTotal )
-        , variableOut ( "ExcusedTotalSec", newTotal )
-        , variableOut ( "ExcusedMaxSec", newMax )
-        , variableOut ( "ElmSelected", newName )
-        , variableOut ( "PreviousSessionTotal", oldTotal )
-        ]
+
+--
+-- changeActivity newName newTotal newMax oldTotal =
+--     Cmd.batch
+--         [ variableOut ( "OnTaskTotalSec", newTotal )
+--         , variableOut ( "ExcusedTotalSec", newTotal )
+--         , variableOut ( "ExcusedMaxSec", newMax )
+--         , variableOut ( "ElmSelected", newName )
+--         , variableOut ( "PreviousSessionTotal", oldTotal )
+--         ]
 
 
 hideWindow =
