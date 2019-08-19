@@ -15,10 +15,10 @@ scheduleNotify alarmList =
             List.sortWith compareReminders alarmList
 
         compareReminders a b =
-            Moment.compareBasic a.schedule b.schedule
+            Moment.compareLateness a.schedule b.schedule
 
         alarmsObject =
-            Encode.object [ ( "alarms", Encode.list encodeAlarm alarmList ) ]
+            Encode.object [ ( "alarms", Encode.list encodeAlarm orderedList ) ]
     in
     variableOut ( "scheduled", Encode.encode 0 alarmsObject )
 
@@ -45,5 +45,6 @@ toast message =
 --         ]
 
 
+hideWindow : Cmd msg
 hideWindow =
     exit ()
