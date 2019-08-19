@@ -4,7 +4,6 @@ import External.Notification as Notif exposing (Notification)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
 import List.Extra as List
-import Porting exposing (encodeMoment)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
@@ -46,7 +45,7 @@ type alias Alarm =
 encodeAlarm : Alarm -> Encode.Value
 encodeAlarm v =
     Encode.object
-        [ ( "schedule", encodeMoment v.schedule )
+        [ ( "schedule", Encode.int <| Moment.toUnixTimeInt v.schedule )
         , ( "actions", Encode.list encodeAction v.actions )
         ]
 
