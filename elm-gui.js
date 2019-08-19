@@ -13873,7 +13873,7 @@ var author$project$TaskList$update = F4(
 		}
 	});
 var author$project$SmartTime$Human$Clock$endOfDay = author$project$SmartTime$Duration$aDay;
-var author$project$SmartTime$Human$Calendar$compareBasic = F2(
+var author$project$SmartTime$Human$Calendar$compareLateness = F2(
 	function (_n0, _n1) {
 		var a = _n0;
 		var b = _n1;
@@ -13895,7 +13895,7 @@ var author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime = F3(
 				return moment;
 		}
 	});
-var author$project$SmartTime$Moment$compareBasic = F2(
+var author$project$SmartTime$Moment$compareLateness = F2(
 	function (_n0, _n1) {
 		var time1 = _n0;
 		var time2 = _n1;
@@ -13904,16 +13904,16 @@ var author$project$SmartTime$Moment$compareBasic = F2(
 			author$project$SmartTime$Duration$inMs(time1),
 			author$project$SmartTime$Duration$inMs(time2));
 	});
-var author$project$SmartTime$Human$Moment$compareFuzzyBasic = F4(
+var author$project$SmartTime$Human$Moment$compareFuzzyLateness = F4(
 	function (zone, defaultTime, fuzzyA, fuzzyB) {
 		var _n0 = _Utils_Tuple2(fuzzyA, fuzzyB);
 		if ((_n0.a.$ === 2) && (_n0.b.$ === 2)) {
 			var dateA = _n0.a.a;
 			var dateB = _n0.b.a;
-			return A2(author$project$SmartTime$Human$Calendar$compareBasic, dateA, dateB);
+			return A2(author$project$SmartTime$Human$Calendar$compareLateness, dateA, dateB);
 		} else {
 			return A2(
-				author$project$SmartTime$Moment$compareBasic,
+				author$project$SmartTime$Moment$compareLateness,
 				A3(author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime, zone, defaultTime, fuzzyA),
 				A3(author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime, zone, defaultTime, fuzzyB));
 		}
@@ -13925,7 +13925,7 @@ var author$project$Task$Task$compareSoonness = F3(
 			if (!_n0.b.$) {
 				var fuzzyMomentA = _n0.a.a;
 				var fuzzyMomentB = _n0.b.a;
-				return A4(author$project$SmartTime$Human$Moment$compareFuzzyBasic, zone, author$project$SmartTime$Human$Clock$endOfDay, fuzzyMomentA, fuzzyMomentB);
+				return A4(author$project$SmartTime$Human$Moment$compareFuzzyLateness, zone, author$project$SmartTime$Human$Clock$endOfDay, fuzzyMomentA, fuzzyMomentB);
 			} else {
 				var _n3 = _n0.b;
 				return 0;
@@ -15042,7 +15042,7 @@ var author$project$Activity$Reminder$encodeAlarm = function (v) {
 var author$project$External$Commands$scheduleNotify = function (alarmList) {
 	var compareReminders = F2(
 		function (a, b) {
-			return A2(author$project$SmartTime$Moment$compareBasic, a.bC, b.bC);
+			return A2(author$project$SmartTime$Moment$compareLateness, a.bC, b.bC);
 		});
 	var orderedList = A2(elm$core$List$sortWith, compareReminders, alarmList);
 	var alarmsObject = elm$json$Json$Encode$object(
@@ -15050,7 +15050,7 @@ var author$project$External$Commands$scheduleNotify = function (alarmList) {
 			[
 				_Utils_Tuple2(
 				'alarms',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, alarmList))
+				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, orderedList))
 			]));
 	return author$project$External$Tasker$variableOut(
 		_Utils_Tuple2(
