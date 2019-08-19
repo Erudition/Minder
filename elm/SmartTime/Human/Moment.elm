@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyBasic, dateFromFuzzy, deduceZoneOffset, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -656,11 +656,23 @@ compareFuzzy zone defaultTime fuzzyA fuzzyB =
 
 {-| A version of `compareFuzzy` that returns a `Basics.Order`.
 -}
-compareFuzzyBasic : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Order
-compareFuzzyBasic zone defaultTime fuzzyA fuzzyB =
+compareFuzzyLateness : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Order
+compareFuzzyLateness zone defaultTime fuzzyA fuzzyB =
     case ( fuzzyA, fuzzyB ) of
         ( DateOnly dateA, DateOnly dateB ) ->
-            Calendar.compareBasic dateA dateB
+            Calendar.compareLateness dateA dateB
 
         ( _, _ ) ->
-            Moment.compareBasic (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
+            Moment.compareLateness (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)
+
+
+{-| A version of `compareFuzzy` that returns an inverted `Basics.Order`.
+-}
+compareFuzzyEarliness : Zone -> TimeOfDay -> FuzzyMoment -> FuzzyMoment -> Order
+compareFuzzyEarliness zone defaultTime fuzzyA fuzzyB =
+    case ( fuzzyA, fuzzyB ) of
+        ( DateOnly dateA, DateOnly dateB ) ->
+            Calendar.compareEarliness dateA dateB
+
+        ( _, _ ) ->
+            Moment.compareEarliness (fromFuzzyWithDefaultTime zone defaultTime fuzzyA) (fromFuzzyWithDefaultTime zone defaultTime fuzzyB)

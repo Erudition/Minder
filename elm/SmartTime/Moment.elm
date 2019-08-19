@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareBasic, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
@@ -181,6 +181,7 @@ If the first moment is earlier than the second, returns `Earlier`.
 If the moments define the same instant in time, returns `Coincident`.
 
 -}
+compare : Moment -> Moment -> TimelineOrder
 compare (Moment time1) (Moment time2) =
     case Basics.compare (Duration.inMs time1) (Duration.inMs time2) of
         GT ->
@@ -223,15 +224,45 @@ type TimelineOrder
     | Coincident
 
 
-{-| Compare a `Moment` to another with the normal `Basics.Order` output.
-Less intuitive than `compare`, but handy for normal library functions like `sortWith`.
+{-| Compare the lateness of one `Moment` to another. Moments that come after others are later and thus will be designated `GT`, and vise versa.
+
+Returns the the normal `Basics.Order` type, so it's handy for normal library functions like `sortWith`. In this case you'd be sorting the moments from earliest (least) to latest (greatest) because `sort` functions go least -> greatest. This is chronological order. This is equivalent to a basic `compare` of the time values (later = greater).
+
 -}
-compareBasic (Moment time1) (Moment time2) =
+compareLateness : Moment -> Moment -> Order
+compareLateness (Moment time1) (Moment time2) =
     Basics.compare (Duration.inMs time1) (Duration.inMs time2)
 
 
+{-| Compare the earliness of one `Moment` to another. Moments that come before others are earlier and thus will be designated `GT`, and vise versa.
+
+Returns the the normal `Basics.Order` type, so it's handy for normal library functions like `sortWith`. In this case you'd be sorting the moments from latest (least) to earliest (greatest) because `sort` functions go least -> greatest. This is probably not what you want if you're sorting in chronological order, but it's perfect for the reverse or "newest first".
+
+compareEarliness : Moment -> Moment -> Order
+
+-}
+compareEarliness (Moment time1) (Moment time2) =
+    -- simply do it backwards
+    Basics.compare (Duration.inMs time2) (Duration.inMs time1)
+
+
+difference : Moment -> Moment -> Duration
 difference (Moment time1) (Moment time2) =
     Duration.difference time1 time2
+
+
+{-| Sort a `List Moment` in chronological order ("oldest" first, "newest" last).
+-}
+sort : List Moment -> List Moment
+sort =
+    List.sortWith compareLateness
+
+
+{-| Sort a `List Moment` in reverse chronological order ("newest" first, "oldest" last). This is more efficient than sorting a list in chronological order and then reversing it.
+sortReverse : List Moment -> List Moment
+-}
+sortReverse =
+    List.sortWith compareEarliness
 
 
 {-| As _all_ numbers in Javascript are double precision _floating point_ numbers (following the international IEEE 754 standard), that includes its internal representation of time -- yes, this means it will lose accuracy as we move into the future! (Any "integer" over 15 digits loses accuracy, so `9999999999999999 == 10000000000000000`.)
