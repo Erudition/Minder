@@ -9320,7 +9320,8 @@ var author$project$Main$bypassFakeFragment = function (url) {
 			return A2(
 				elm$core$Maybe$withDefault,
 				url,
-				elm$url$Url$fromString(front + ('/' + fakeFragment)));
+				elm$url$Url$fromString(
+					_Utils_ap(front, fakeFragment)));
 		} else {
 			return url;
 		}
@@ -14696,6 +14697,80 @@ var author$project$Activity$Switching$exportNextTask = F2(
 			elm$core$Platform$Cmd$none,
 			A2(elm$core$Maybe$map, _export, next));
 	});
+var author$project$Activity$Reminder$Notify = function (a) {
+	return {$: 'Notify', a: a};
+};
+var author$project$External$Notification$Default = {$: 'Default'};
+var author$project$External$Notification$New = {$: 'New'};
+var author$project$External$Notification$NoBadge = {$: 'NoBadge'};
+var author$project$External$Notification$Number = function (a) {
+	return {$: 'Number', a: a};
+};
+var author$project$External$Notification$Public = {$: 'Public'};
+var author$project$External$Notification$blank = {
+	background_color: '',
+	badge: author$project$External$Notification$NoBadge,
+	body: '',
+	body_expanded: '',
+	category: '',
+	chronometer: false,
+	color_from_media: false,
+	countdown: false,
+	detail: author$project$External$Notification$Number(0),
+	dismiss_on_touch: false,
+	icon: '',
+	id: '',
+	led_color: '',
+	led_off_duration: author$project$SmartTime$Duration$fromMs(1000),
+	led_on_duration: author$project$SmartTime$Duration$fromMs(1000),
+	media: elm$core$Maybe$Nothing,
+	media_layout: false,
+	on_create: '',
+	on_dismiss: '',
+	on_touch: '',
+	persistent: false,
+	phone_only: false,
+	picture: '',
+	picture_expanded_icon: '',
+	picture_skip_cache: false,
+	priority: author$project$External$Notification$Default,
+	privacy: author$project$External$Notification$Public,
+	progress_current: 0,
+	progress_indeterminate: false,
+	progress_max: 0,
+	sound: '',
+	status_icon: '',
+	status_text_size: 0,
+	subtext: '',
+	ticker: '',
+	time: elm$core$Maybe$Nothing,
+	timeout: author$project$SmartTime$Duration$zero,
+	title: '',
+	title_expanded: '',
+	update: author$project$External$Notification$New,
+	url: '',
+	useHTML: false,
+	vibration_pattern: _List_Nil
+};
+var author$project$External$Notification$basic = F2(
+	function (title, body) {
+		return _Utils_update(
+			author$project$External$Notification$blank,
+			{body: body, title: title});
+	});
+var author$project$Activity$Reminder$reminder = function (_n0) {
+	var scheduledFor = _n0.scheduledFor;
+	var title = _n0.title;
+	var subtitle = _n0.subtitle;
+	return {
+		actions: _List_fromArray(
+			[
+				author$project$Activity$Reminder$Notify(
+				A2(author$project$External$Notification$basic, title, subtitle))
+			]),
+		schedule: scheduledFor
+	};
+};
 var author$project$SmartTime$Duration$compare = F2(
 	function (_n0, _n1) {
 		var int1 = _n0.a;
@@ -14751,33 +14826,36 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 		var timesUp = A2(author$project$SmartTime$Moment$future, now, timeLeft);
 		var interimReminders = _List_fromArray(
 			[
+				author$project$Activity$Reminder$reminder(
 				{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Human$Duration$dur(
-						author$project$SmartTime$Human$Duration$Minutes(10))),
-				subtitle: 'Get back on task as soon as possible - do this later!',
-				title: 'Distraction taken care of?'
-			},
+					scheduledFor: A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Human$Duration$dur(
+							author$project$SmartTime$Human$Duration$Minutes(10))),
+					subtitle: 'Get back on task as soon as possible - do this later!',
+					title: 'Distraction taken care of?'
+				}),
+				author$project$Activity$Reminder$reminder(
 				{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Human$Duration$dur(
-						author$project$SmartTime$Human$Duration$Minutes(20))),
-				subtitle: 'You have important goals to meet!',
-				title: 'Ready to get back on task?'
-			},
+					scheduledFor: A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Human$Duration$dur(
+							author$project$SmartTime$Human$Duration$Minutes(20))),
+					subtitle: 'You have important goals to meet!',
+					title: 'Ready to get back on task?'
+				}),
+				author$project$Activity$Reminder$reminder(
 				{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Human$Duration$dur(
-						author$project$SmartTime$Human$Duration$Minutes(30))),
-				subtitle: 'Why not put this in your task list for later?',
-				title: 'Can this wait?'
-			}
+					scheduledFor: A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Human$Duration$dur(
+							author$project$SmartTime$Human$Duration$Minutes(30))),
+					subtitle: 'Why not put this in your task list for later?',
+					title: 'Can this wait?'
+				})
 			]);
 		var halfLeftThisSession = A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / 2);
 		var firstIsLess = F2(
@@ -14818,23 +14896,30 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 			return A2(author$project$SmartTime$Moment$past, timesUp, timeBefore);
 		};
 		var buildGettingCloseReminder = function (amountLeft) {
-			return {
-				actions: _List_Nil,
-				scheduledFor: beforeTimesUp(amountLeft),
-				subtitle: 'Excused for up to ' + write(excusedLimit),
-				title: 'Finish up! Only ' + (write(amountLeft) + ' left!')
-			};
+			return author$project$Activity$Reminder$reminder(
+				{
+					scheduledFor: beforeTimesUp(amountLeft),
+					subtitle: 'Excused for up to ' + write(excusedLimit),
+					title: 'Finish up! Only ' + (write(amountLeft) + ' left!')
+				});
 		};
 		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
-var author$project$Activity$Reminder$Reminder = F4(
-	function (scheduledFor, title, subtitle, actions) {
-		return {actions: actions, scheduledFor: scheduledFor, subtitle: subtitle, title: title};
+var author$project$Activity$Reminder$reminder3 = F3(
+	function (scheduledFor, title, subtitle) {
+		return {
+			actions: _List_fromArray(
+				[
+					author$project$Activity$Reminder$Notify(
+					A2(author$project$External$Notification$basic, title, subtitle))
+				]),
+			schedule: scheduledFor
+		};
 	});
 var author$project$Activity$Reminder$scheduleOffTaskReminders = function (now) {
 	return _List_fromArray(
 		[
-			A4(author$project$Activity$Reminder$Reminder, now, 'Get back on task now!', 'Off task, not excused!', _List_Nil)
+			A3(author$project$Activity$Reminder$reminder3, now, 'Get back on task now!', 'Off task, not excused!')
 		]);
 };
 var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
@@ -14850,30 +14935,26 @@ var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
 		};
 		return _List_fromArray(
 			[
-				A4(
-				author$project$Activity$Reminder$Reminder,
+				A3(
+				author$project$Activity$Reminder$reminder3,
 				fractionLeft(2),
 				'Half-way done!',
-				'1/2 time left for activity.',
-				_List_Nil),
-				A4(
-				author$project$Activity$Reminder$Reminder,
+				'1/2 time left for activity.'),
+				A3(
+				author$project$Activity$Reminder$reminder3,
 				fractionLeft(3),
 				'Two-thirds done!',
-				'1/3 time left for activity.',
-				_List_Nil),
-				A4(
-				author$project$Activity$Reminder$Reminder,
+				'1/3 time left for activity.'),
+				A3(
+				author$project$Activity$Reminder$reminder3,
 				fractionLeft(4),
 				'Three-Quarters done!',
-				'1/4 time left for activity.',
-				_List_Nil),
-				A4(
-				author$project$Activity$Reminder$Reminder,
+				'1/4 time left for activity.'),
+				A3(
+				author$project$Activity$Reminder$reminder3,
 				A2(author$project$SmartTime$Moment$future, now, fromNow),
 				'Time\'s up!',
-				'Reached maximum time allowed for this.',
-				_List_Nil)
+				'Reached maximum time allowed for this.')
 			]);
 	});
 var author$project$Activity$Switching$scheduleReminders = F4(
@@ -14895,9 +14976,40 @@ var author$project$Activity$Switching$scheduleReminders = F4(
 				return _List_Nil;
 		}
 	});
-var author$project$External$Commands$compileList = function (reminderList) {
-	return elm$core$String$concat(
-		A2(elm$core$List$intersperse, '§', reminderList));
+var author$project$External$Notification$encodeDuration = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(dur));
+};
+var author$project$External$Notification$encodeMediaInfo = function (v) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'title',
+				elm$json$Json$Encode$string(v.title))
+			]));
+};
+var author$project$External$Notification$encodePriority = function (v) {
+	switch (v.$) {
+		case 'Default':
+			return elm$json$Json$Encode$int(0);
+		case 'Low':
+			return elm$json$Json$Encode$int(-1);
+		case 'High':
+			return elm$json$Json$Encode$int(1);
+		case 'Min':
+			return elm$json$Json$Encode$int(-2);
+		default:
+			return elm$json$Json$Encode$int(2);
+	}
+};
+var author$project$External$Notification$encodeVibrationPattern = function (durs) {
+	return elm$json$Json$Encode$string(
+		elm$core$String$concat(
+			A2(
+				elm$core$List$map,
+				A2(elm$core$Basics$composeL, elm$core$String$fromInt, author$project$SmartTime$Duration$inMs),
+				durs)));
 };
 var author$project$SmartTime$Moment$unixEpoch = function () {
 	var jan1st1970_rataDie = 719163;
@@ -14911,34 +15023,234 @@ var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
 	return elm$core$Basics$floor(
 		author$project$SmartTime$Moment$toUnixTime(mo));
 };
-var elm$core$Debug$log = _Debug_log;
-var author$project$External$Commands$taskerEncodeNotification = function (reminder) {
-	return elm$core$String$concat(
-		A2(
-			elm$core$List$intersperse,
-			';',
-			A2(
-				elm$core$Debug$log,
-				'reminder out',
+var author$project$External$Notification$encodeNotification = function (v) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				elm$json$Json$Encode$string(v.id)),
+				_Utils_Tuple2(
+				'persistent',
+				elm$json$Json$Encode$bool(v.persistent)),
+				_Utils_Tuple2(
+				'timeout',
+				author$project$External$Notification$encodeDuration(v.timeout)),
+				_Utils_Tuple2(
+				'update',
+				function () {
+					var _n0 = v.update;
+					switch (_n0.$) {
+						case 'New':
+							return elm$json$Json$Encode$string('New');
+						case 'Replace':
+							return elm$json$Json$Encode$string('Replace');
+						default:
+							return elm$json$Json$Encode$string('Append');
+					}
+				}()),
+				_Utils_Tuple2(
+				'priority',
+				author$project$External$Notification$encodePriority(v.priority)),
+				_Utils_Tuple2(
+				'privacy',
+				function () {
+					var _n1 = v.privacy;
+					switch (_n1.$) {
+						case 'Public':
+							return elm$json$Json$Encode$string('Public');
+						case 'Private':
+							return elm$json$Json$Encode$string('Private');
+						case 'PrivateWithPublicVersion':
+							var publicversion = _n1.a;
+							return elm$json$Json$Encode$string('PrivateWithPublicVersion');
+						default:
+							return elm$json$Json$Encode$string('Secret');
+					}
+				}()),
+				_Utils_Tuple2(
+				'useHTML',
+				elm$json$Json$Encode$bool(v.useHTML)),
+				_Utils_Tuple2(
+				'title',
+				elm$json$Json$Encode$string(v.title)),
+				_Utils_Tuple2(
+				'title_expanded',
+				elm$json$Json$Encode$string(v.title_expanded)),
+				_Utils_Tuple2(
+				'body',
+				elm$json$Json$Encode$string(v.body)),
+				_Utils_Tuple2(
+				'body_expanded',
+				elm$json$Json$Encode$string(v.body_expanded)),
+				_Utils_Tuple2(
+				'subtext',
+				elm$json$Json$Encode$string(v.subtext)),
+				_Utils_Tuple2(
+				'detail',
+				function () {
+					var _n2 = v.detail;
+					if (_n2.$ === 'Number') {
+						var n = _n2.a;
+						return elm$json$Json$Encode$int(n);
+					} else {
+						var s = _n2.a;
+						return elm$json$Json$Encode$string(s);
+					}
+				}()),
+				_Utils_Tuple2(
+				'ticker',
+				elm$json$Json$Encode$string(v.ticker)),
+				_Utils_Tuple2(
+				'icon',
+				elm$json$Json$Encode$string(v.icon)),
+				_Utils_Tuple2(
+				'status_icon',
+				elm$json$Json$Encode$string(v.status_icon)),
+				_Utils_Tuple2(
+				'status_text_size',
+				elm$json$Json$Encode$int(v.status_text_size)),
+				_Utils_Tuple2(
+				'background_color',
+				elm$json$Json$Encode$string(v.background_color)),
+				_Utils_Tuple2(
+				'color_from_media',
+				elm$json$Json$Encode$bool(v.color_from_media)),
+				_Utils_Tuple2(
+				'badge',
+				function () {
+					var _n3 = v.badge;
+					switch (_n3.$) {
+						case 'NoBadge':
+							return elm$json$Json$Encode$string('NoBadge');
+						case 'SmallIcon':
+							return elm$json$Json$Encode$string('SmallIcon');
+						default:
+							return elm$json$Json$Encode$string('LargeIcon');
+					}
+				}()),
+				_Utils_Tuple2(
+				'picture',
+				elm$json$Json$Encode$string(v.picture)),
+				_Utils_Tuple2(
+				'picture_skip_cache',
+				elm$json$Json$Encode$bool(v.picture_skip_cache)),
+				_Utils_Tuple2(
+				'picture_expanded_icon',
+				elm$json$Json$Encode$string(v.picture_expanded_icon)),
+				_Utils_Tuple2(
+				'media_layout',
+				elm$json$Json$Encode$bool(v.media_layout)),
+				_Utils_Tuple2(
+				'media',
+				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$External$Notification$encodeMediaInfo, v.media)),
+				_Utils_Tuple2(
+				'url',
+				elm$json$Json$Encode$string(v.url)),
+				_Utils_Tuple2(
+				'on_create',
+				elm$json$Json$Encode$string(v.on_create)),
+				_Utils_Tuple2(
+				'on_touch',
+				elm$json$Json$Encode$string(v.on_touch)),
+				_Utils_Tuple2(
+				'on_dismiss',
+				elm$json$Json$Encode$string(v.on_dismiss)),
+				_Utils_Tuple2(
+				'dismiss_on_touch',
+				elm$json$Json$Encode$bool(v.dismiss_on_touch)),
+				_Utils_Tuple2(
+				'time',
+				A2(
+					elm_community$json_extra$Json$Encode$Extra$maybe,
+					elm$json$Json$Encode$int,
+					A2(elm$core$Maybe$map, author$project$SmartTime$Moment$toUnixTimeInt, v.time))),
+				_Utils_Tuple2(
+				'chronometer',
+				elm$json$Json$Encode$bool(v.chronometer)),
+				_Utils_Tuple2(
+				'countdown',
+				elm$json$Json$Encode$bool(v.countdown)),
+				_Utils_Tuple2(
+				'category',
+				elm$json$Json$Encode$string(v.category)),
+				_Utils_Tuple2(
+				'led_color',
+				elm$json$Json$Encode$string(v.led_color)),
+				_Utils_Tuple2(
+				'led_on_duration',
+				author$project$External$Notification$encodeDuration(v.led_on_duration)),
+				_Utils_Tuple2(
+				'led_off_duration',
+				author$project$External$Notification$encodeDuration(v.led_off_duration)),
+				_Utils_Tuple2(
+				'progress_max',
+				elm$json$Json$Encode$int(v.progress_max)),
+				_Utils_Tuple2(
+				'progress_current',
+				elm$json$Json$Encode$int(v.progress_current)),
+				_Utils_Tuple2(
+				'progress_indeterminate',
+				elm$json$Json$Encode$bool(v.progress_indeterminate)),
+				_Utils_Tuple2(
+				'sound',
+				elm$json$Json$Encode$string(v.sound)),
+				_Utils_Tuple2(
+				'vibration_pattern',
+				author$project$External$Notification$encodeVibrationPattern(v.vibration_pattern)),
+				_Utils_Tuple2(
+				'phone_only',
+				elm$json$Json$Encode$bool(v.phone_only))
+			]));
+};
+var author$project$Activity$Reminder$encodeAction = function (v) {
+	switch (v.$) {
+		case 'Notify':
+			var notif = v.a;
+			return elm$json$Json$Encode$object(
 				_List_fromArray(
 					[
-						elm$core$String$fromInt(
-						author$project$SmartTime$Moment$toUnixTimeInt(reminder.scheduledFor)),
-						reminder.title,
-						reminder.subtitle
-					]))));
+						_Utils_Tuple2(
+						'notify',
+						author$project$External$Notification$encodeNotification(notif))
+					]));
+		case 'RunTaskerTask':
+			var name = v.a;
+			var param = v.b;
+			return elm$json$Json$Encode$string('RunTaskerTask');
+		default:
+			return elm$json$Json$Encode$string('SendIntent');
+	}
 };
-var author$project$External$Commands$scheduleNotify = function (reminderList) {
+var author$project$Porting$encodeMoment = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Moment$toSmartInt(dur));
+};
+var author$project$Activity$Reminder$encodeAlarm = function (v) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'schedule',
+				author$project$Porting$encodeMoment(v.schedule)),
+				_Utils_Tuple2(
+				'actions',
+				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAction, v.actions))
+			]));
+};
+var author$project$External$Commands$scheduleNotify = function (alarmList) {
 	var compareReminders = F2(
 		function (a, b) {
-			return A2(author$project$SmartTime$Moment$compareBasic, a.scheduledFor, b.scheduledFor);
+			return A2(author$project$SmartTime$Moment$compareBasic, a.schedule, b.schedule);
 		});
-	var orderedList = A2(elm$core$List$sortWith, compareReminders, reminderList);
+	var orderedList = A2(elm$core$List$sortWith, compareReminders, alarmList);
 	return author$project$External$Tasker$variableOut(
 		_Utils_Tuple2(
-			'Scheduled',
-			author$project$External$Commands$compileList(
-				A2(elm$core$List$map, author$project$External$Commands$taskerEncodeNotification, orderedList))));
+			'scheduled',
+			A2(
+				elm$json$Json$Encode$encode,
+				0,
+				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, alarmList))));
 };
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityID, app, env) {
@@ -14978,7 +15290,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 							author$project$Activity$Activity$statusToString(onTaskStatus))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'ExcusedTotalSec',
+							'ExcusedUsage',
 							A3(
 								author$project$Activity$Measure$exportExcusedUsageSeconds,
 								app,
@@ -14986,7 +15298,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 								_Utils_Tuple2(activityID, newActivity)))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'OnTaskTotalSec',
+							'OnTaskUsage',
 							A3(
 								author$project$Activity$Measure$exportExcusedUsageSeconds,
 								app,
@@ -15004,13 +15316,13 @@ var author$project$Activity$Switching$switchActivity = F3(
 										_Utils_Tuple2(activityID, newActivity)))))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'ExcusedMaxSec',
+							'ExcusedLimit',
 							elm$core$String$fromInt(
 								author$project$SmartTime$Duration$inSecondsRounded(
 									author$project$Activity$Measure$excusableLimit(newActivity))))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
-							'ElmSelected',
+							'CurrentActivity',
 							author$project$Activity$Activity$getName(newActivity))),
 						author$project$External$Tasker$variableOut(
 						_Utils_Tuple2(
@@ -15724,10 +16036,6 @@ var author$project$Activity$Activity$encodeStoredActivities = function (value) {
 		elm$json$Json$Encode$list,
 		A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, author$project$Activity$Activity$encodeCustomizations),
 		elm_community$intdict$IntDict$toList(value));
-};
-var author$project$Porting$encodeMoment = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Moment$toSmartInt(dur));
 };
 var author$project$Activity$Activity$encodeSwitch = function (_n0) {
 	var time = _n0.a;
