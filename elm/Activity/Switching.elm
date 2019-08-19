@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, determineNextTask, sameActivity, switchActivity)
+module Activity.Switching exposing (currentActivityFromApp, determineNextTask, switchActivity)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
@@ -113,25 +113,6 @@ exportNextTask app env =
             Tasker.variableOut ( "NextTaskTitle", task.title )
     in
     Maybe.withDefault Cmd.none (Maybe.map export next)
-
-
-sameActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
-sameActivity activityID app env =
-    let
-        activity =
-            Activity.getActivity activityID (allActivities app.activities)
-    in
-    ( app
-    , Cmd.batch
-        [ Commands.toast (switchPopup app.timeline env ( activityID, activity ) ( activityID, activity ))
-        , Commands.changeActivity
-            (getName activity)
-            (Measure.exportExcusedUsageSeconds app env.time ( activityID, activity ))
-            (String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit activity))
-            (Measure.exportLastSession app activityID)
-        , Commands.hideWindow
-        ]
-    )
 
 
 switchPopup : Timeline -> Environment -> ( ActivityID, Activity ) -> ( ActivityID, Activity ) -> String

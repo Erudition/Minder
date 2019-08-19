@@ -223,7 +223,7 @@ update msg state app env =
             let
                 ( updatedApp, cmds ) =
                     if activityId == Switching.currentActivityFromApp app then
-                        Switching.sameActivity activityId app env
+                        ( app, toast "Switched to same activity!" )
 
                     else
                         Switching.switchActivity activityId app env
