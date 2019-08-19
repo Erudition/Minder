@@ -7,51 +7,22 @@ import Json.Encode as Encode exposing (Value, string)
 import SmartTime.Moment as Moment
 
 
-scheduleNotify : List Reminder -> Cmd msg
-scheduleNotify reminderList =
+scheduleNotify : List Alarm -> Cmd msg
+scheduleNotify alarmList =
     let
         orderedList =
             -- need to be in order for tasker implementation
-            List.sortWith compareReminders reminderList
+            List.sortWith compareReminders alarmList
 
         compareReminders a b =
-            Moment.compareBasic a.scheduledFor b.scheduledFor
+            Moment.compareBasic a.schedule b.schedule
     in
-    variableOut ( "Scheduled", compileList (List.map taskerEncodeNotification orderedList) )
-
-
-taskerEncodeNotification : Reminder -> String
-taskerEncodeNotification reminder =
-    String.concat <|
-        List.intersperse ";" <|
-            Debug.log "reminder out" <|
-                [ String.fromInt <| Moment.toUnixTimeInt reminder.scheduledFor
-                , reminder.title
-                , reminder.subtitle
-                ]
+    variableOut ( "scheduled", Encode.encode 0 (Encode.list encodeAlarm alarmList) )
 
 
 compileList : List String -> String
 compileList reminderList =
     String.concat <| List.intersperse "§" <| reminderList
-
-
-encodeNotification : Reminder -> Encode.Value
-encodeNotification v =
-    let
-        encodeNotificationButton button =
-            Encode.object
-                [ ( "label", Encode.string button.label )
-                , ( "action", Encode.string button.action )
-                , ( "icon", Encode.string button.icon )
-                ]
-    in
-    Encode.object
-        [ ( "title", Encode.string v.title )
-        , ( "subtitle", Encode.string v.subtitle )
-        , ( "scheduledFor", Encode.int (Moment.toSmartInt v.scheduledFor) )
-        , ( "actions", Encode.list encodeNotificationButton v.actions )
-        ]
 
 
 toast : String -> Cmd msg

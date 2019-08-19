@@ -38,11 +38,11 @@ switchActivity activityID app env =
     , Cmd.batch
         [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
         , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString onTaskStatus )
-        , Tasker.variableOut ( "ExcusedTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
-        , Tasker.variableOut ( "OnTaskTotalSec", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+        , Tasker.variableOut ( "ExcusedUsage", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+        , Tasker.variableOut ( "OnTaskUsage", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
         , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
-        , Tasker.variableOut ( "ExcusedMaxSec", String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit newActivity) )
-        , Tasker.variableOut ( "ElmSelected", getName newActivity )
+        , Tasker.variableOut ( "ExcusedLimit", String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit newActivity) )
+        , Tasker.variableOut ( "CurrentActivity", getName newActivity )
         , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
         , Commands.scheduleNotify <| scheduleReminders env updatedApp.timeline onTaskStatus ( activityID, newActivity )
@@ -51,7 +51,7 @@ switchActivity activityID app env =
     )
 
 
-scheduleReminders : Environment -> Timeline -> OnTaskStatus -> ( ActivityID, Activity ) -> List Reminder
+scheduleReminders : Environment -> Timeline -> OnTaskStatus -> ( ActivityID, Activity ) -> List Alarm
 scheduleReminders env timeline onTaskStatus ( activityID, newActivity ) =
     case onTaskStatus of
         OnTask timeLeft ->
