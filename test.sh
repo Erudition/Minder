@@ -9,8 +9,6 @@ elm make --output=www/elm-headless.js --optimize elm/Headless.elm
 # make a temp Minder dir if it doesn't exist
 mkdir -p /tmp/Minder
 
-# put some data in the personal file
-# echo "{"tasks":[],"activities":[],"uid":0,"errors":[],"timeline":[{"Time":63701879628159,"Activity":54}],"todoist":{"cache":{"nextSync":"*","items":[],"projects":[],"pendingCommands":[]},"activityProjectIDs":[]}}" > /tmp/Minder/personal-data.json
 
 # run node
 node --interactive www/headless-launch.js $1
