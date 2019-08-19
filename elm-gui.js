@@ -15048,13 +15048,17 @@ var author$project$External$Commands$scheduleNotify = function (alarmList) {
 			return A2(author$project$SmartTime$Moment$compareBasic, a.bC, b.bC);
 		});
 	var orderedList = A2(elm$core$List$sortWith, compareReminders, alarmList);
+	var alarmsObject = elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'alarms',
+				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, alarmList))
+			]));
 	return author$project$External$Tasker$variableOut(
 		_Utils_Tuple2(
 			'scheduled',
-			A2(
-				elm$json$Json$Encode$encode,
-				0,
-				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, alarmList))));
+			A2(elm$json$Json$Encode$encode, 0, alarmsObject)));
 };
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityID, app, env) {
