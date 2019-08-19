@@ -6,6 +6,7 @@ try {
     var Elm = require('./elm-headless.js').Elm;
     var tk = require('./tasker-fillers.js').tk;
 
+
     var fs = require('fs');
     tk.readFile = (file) => fs.readFileSync("/tmp/"+file, 'utf8').toString();
     tk.writeFile = function(file, data, append) {
@@ -17,7 +18,6 @@ try {
     let fallbackUrl = "http://docket.com/?start=Nothing"; // If in node
     var taskerUrl = (taskerUrl == null || taskerUrl == "") ? fallbackUrl : taskerUrl;
 
-    fs.readFile
 
     var inTasker = false;
     // Enable above for node
@@ -37,8 +37,6 @@ try {
 
 
 
-
-//var Elm = this.Elm; //trick I discovered to bypass importing
 try {
     var storageContents = tk.readFile(storagefilename);
 } catch (e) {
@@ -58,7 +56,7 @@ if (!inTasker) {tk.flash("running in node! 4 url: " + taskerUrl + " Elm: " + Elm
 
 // SET STORAGE
 app.ports.setStorage.subscribe(function(data) {
-    tk.writeFile(storagefilename,data,false)
+    tk.writeFile(storagefilename,data,false);
 });
 
 
@@ -70,10 +68,15 @@ app.ports.flash.subscribe(function(data) {
 
 // TASKER VARIABLE OUT
 app.ports.variableOut.subscribe(function(data) {
-      if (data[0].toLower == data[0])
+      if (data[0].toLowerCase() == data[0]) {
         tk.setLocal(data[0], data[1]);
-      else
+        console.log("\tSet local var %" + data[0] + " to \t" + data[1]);
+    }
+      else {
         tk.setGlobal(data[0], data[1]);
+        console.log("\tSet Global var %" + data[0] + " to \t" + data[1]);
+    }
+
 });
 
 // TASKER STOP EXECUTING
