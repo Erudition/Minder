@@ -15026,17 +15026,14 @@ var author$project$Activity$Reminder$encodeAction = function (v) {
 			return elm$json$Json$Encode$string('SendIntent');
 	}
 };
-var author$project$Porting$encodeMoment = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Moment$toSmartInt(dur));
-};
 var author$project$Activity$Reminder$encodeAlarm = function (v) {
 	return elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
 				'schedule',
-				author$project$Porting$encodeMoment(v.bC)),
+				elm$json$Json$Encode$int(
+					author$project$SmartTime$Moment$toUnixTimeInt(v.bC))),
 				_Utils_Tuple2(
 				'actions',
 				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAction, v.bg))
@@ -15842,6 +15839,10 @@ var author$project$Activity$Activity$encodeStoredActivities = function (value) {
 		elm$json$Json$Encode$list,
 		A2(author$project$Porting$encodeTuple2, elm$json$Json$Encode$int, author$project$Activity$Activity$encodeCustomizations),
 		elm_community$intdict$IntDict$toList(value));
+};
+var author$project$Porting$encodeMoment = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Moment$toSmartInt(dur));
 };
 var author$project$Activity$Activity$encodeSwitch = function (_n0) {
 	var time = _n0.a;
