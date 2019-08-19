@@ -2,6 +2,10 @@
     margin: 0;
     padding: 0;
     list-style: none;
+    display: grid;
+    grid-auto-flow: dense;
+    grid-template-columns: repeat(auto-fill, minmax( 100px, 1fr));
+    grid-gap: 3px;
 }
 
 .activity-list li {
