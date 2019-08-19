@@ -275,7 +275,7 @@ compareSoonness : HumanMoment.Zone -> CompareFunction Task
 compareSoonness zone taskA taskB =
     case ( taskA.deadline, taskB.deadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
-            HumanMoment.compareFuzzyBasic zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
+            HumanMoment.compareFuzzyLateness zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 
         ( Nothing, Nothing ) ->
             -- whenevers can't be compared
