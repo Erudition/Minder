@@ -238,9 +238,8 @@ compareLateness (Moment time1) (Moment time2) =
 
 Returns the the normal `Basics.Order` type, so it's handy for normal library functions like `sortWith`. In this case you'd be sorting the moments from latest (least) to earliest (greatest) because `sort` functions go least -> greatest. This is probably not what you want if you're sorting in chronological order, but it's perfect for the reverse or "newest first".
 
-compareEarliness : Moment -> Moment -> Order
-
 -}
+compareEarliness : Moment -> Moment -> Order
 compareEarliness (Moment time1) (Moment time2) =
     -- simply do it backwards
     Basics.compare (Duration.inMs time2) (Duration.inMs time1)
@@ -259,8 +258,8 @@ sort =
 
 
 {-| Sort a `List Moment` in reverse chronological order ("newest" first, "oldest" last). This is more efficient than sorting a list in chronological order and then reversing it.
-sortReverse : List Moment -> List Moment
 -}
+sortReverse : List Moment -> List Moment
 sortReverse =
     List.sortWith compareEarliness
 

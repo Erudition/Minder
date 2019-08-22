@@ -15,7 +15,7 @@ try {
     };
 
     var taskerUrl = process.argv[2];
-    let fallbackUrl = "http://docket.com/?start=Nothing"; // If in node
+    let fallbackUrl = "http://docket.com/?start=Project"; // If in node
     var taskerUrl = (taskerUrl == null || taskerUrl == "") ? fallbackUrl : taskerUrl;
 
 
