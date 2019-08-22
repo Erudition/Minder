@@ -1,4 +1,4 @@
-module Activity.Reminder exposing (Action(..), Alarm, Intent, NotificationAction, encodeAction, encodeAlarm, reminder, reminder3, scheduleExcusedReminders, scheduleOffTaskReminders, scheduleOnTaskReminders)
+module Activity.Reminder exposing (Action(..), Alarm, Intent, NotificationAction, scheduleExcusedReminders, scheduleOffTaskReminders, scheduleOnTaskReminders)
 
 import External.Notification as Notif exposing (Notification)
 import Json.Encode as Encode
@@ -17,15 +17,17 @@ reminder : { scheduledFor : Moment, title : String, subtitle : String } -> Alarm
 reminder { scheduledFor, title, subtitle } =
     { schedule = scheduledFor
     , actions =
-        [ Notify <| Notif.basic title subtitle ]
+        [ Notify <| Notif.basic "reminder" (Duration.fromMinutes 5) title subtitle ]
     }
 
 
-reminder3 : Moment -> String -> String -> Alarm
-reminder3 scheduledFor title subtitle =
+reminderZap : { scheduledFor : Moment, title : String, subtitle : String } -> Alarm
+reminderZap { scheduledFor, title, subtitle } =
     { schedule = scheduledFor
     , actions =
-        [ Notify <| Notif.basic title subtitle ]
+        [ Notify <| Notif.basic "reminder" (Duration.fromMinutes 5) title subtitle
+        , RunTaskerTask "Pavlok Zap" ""
+        ]
     }
 
 
@@ -62,8 +64,8 @@ encodeAction v =
         Notify notif ->
             Encode.object [ ( "notify", Notif.encodeNotification notif ) ]
 
-        RunTaskerTask name param ->
-            Encode.string "RunTaskerTask"
+        RunTaskerTask name parameters ->
+            Encode.object [ ( "taskName", Encode.string name ), ( "taskPar", Encode.string parameters ) ]
 
         SendIntent ->
             Encode.string "SendIntent"
@@ -75,26 +77,41 @@ scheduleOnTaskReminders now fromNow =
         fractionLeft denom =
             future now <| Duration.subtract fromNow (Duration.scale fromNow (1 / denom))
     in
-    [ reminder3 (fractionLeft 2)
-        "Half-way done!"
-        "1/2 time left for activity."
-    , reminder3 (fractionLeft 3)
-        "Two-thirds done!"
-        "1/3 time left for activity."
-    , reminder3 (fractionLeft 4)
-        "Three-Quarters done!"
-        "1/4 time left for activity."
-    , reminder3 (future now fromNow)
-        "Time's up!"
-        "Reached maximum time allowed for this."
+    [ reminder
+        { scheduledFor = fractionLeft 2
+        , title = "Half-way done!"
+        , subtitle = "1/2 time left for activity."
+        }
+    , reminder
+        { scheduledFor = fractionLeft 3
+        , title = "Two-thirds done!"
+        , subtitle = "1/3 time left for activity."
+        }
+    , reminder
+        { scheduledFor = fractionLeft 4
+        , title = "Three-Quarters done!"
+        , subtitle = "1/4 time left for activity."
+        }
+    , reminder
+        { scheduledFor = future now fromNow
+        , title = "Time's up!"
+        , subtitle = "Reached maximum time allowed for this."
+        }
     ]
 
 
 scheduleOffTaskReminders : Moment -> List Alarm
 scheduleOffTaskReminders now =
-    [ reminder3 now
-        "Get back on task now!"
-        "Off task, not excused!"
+    [ reminder
+        { scheduledFor = now
+        , title = "Off Task!"
+        , subtitle = "You can do this later"
+        }
+    , reminderZap
+        { scheduledFor = future now (Duration.fromSeconds 30.0)
+        , title = "Off Task! Warning 2"
+        , subtitle = "You have more important things to do right now!"
+        }
     ]
 
 

@@ -7,7 +7,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 
 type alias Notification =
-    { id : String -- 1
+    { id : NotificationID -- 1
     , persistent : Bool -- 2
     , timeout : Duration -- 3
     , update : UpdateStrategy -- 4: not supported in autonotification variables
@@ -106,7 +106,7 @@ encodeNotification v =
     Encode.object
         [ ( "id", Encode.string v.id )
         , ( "persistent", Encode.bool v.persistent )
-        , ( "timeout", encodeDuration v.timeout )
+        , ( "timeout", encodeTimeout v.timeout )
         , ( "update"
           , case v.update of
                 New ->
@@ -194,6 +194,10 @@ type alias Command =
     String
 
 
+type alias NotificationID =
+    String
+
+
 type alias Path =
     String
 
@@ -277,6 +281,15 @@ encodeDuration dur =
     Encode.int (Duration.inMs dur)
 
 
+type alias Timeout =
+    Duration
+
+
+encodeTimeout : Duration -> Encode.Value
+encodeTimeout dur =
+    Encode.int (Duration.inSecondsRounded dur)
+
+
 encodeVibrationPattern : List Duration -> Encode.Value
 encodeVibrationPattern durs =
     Encode.string <| String.concat <| List.map (String.fromInt << Duration.inMs) durs
@@ -286,6 +299,6 @@ encodeVibrationPattern durs =
 -- Funcs---------------------------------------------------------------------------NOTE
 
 
-basic : String -> String -> Notification
-basic title body =
-    { blank | title = title, body = body }
+basic : String -> Duration -> String -> String -> Notification
+basic id timeout title body =
+    { blank | title = title, body = body, id = id, timeout = timeout }
