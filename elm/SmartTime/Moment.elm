@@ -1,6 +1,7 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
+import Random
 import SmartTime.Duration as Duration exposing (Duration, fromInt, inMs)
 import Task as Job
 import Time as ElmTime
@@ -598,3 +599,17 @@ Just about anything recorded in civilization happened later than this, so it's a
 zero : Moment
 zero =
     Moment Duration.zero
+
+
+
+-- MISC ---------------------------------------------------------------------NOTE
+
+
+{-| You're working with the current time, somewhere deep in your program -- and you'd like a little pseudo-randomness. But you don't want to go through the pain of adding a new `Cmd` output and a new argument for the response as input, to every single function above the one you're in. Why not just use that `Moment` value you already have? No `Cmd`s required!
+
+Note: This is not cryptographically secure, but neither is the `Random` library! Only use this for perceived randomness (such as, switching up the text you display to the user to keep it interesting). Don't worry, your program is still 100% reproducible!
+
+-}
+useAsRandomSeed : Moment -> Random.Seed
+useAsRandomSeed givenMoment =
+    Random.initialSeed <| toSmartInt givenMoment
