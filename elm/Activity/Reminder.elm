@@ -67,7 +67,7 @@ encodeAction v =
             Encode.object [ ( "notify", Notif.encodeNotification notif ) ]
 
         RunTaskerTask name parameters ->
-            Encode.object [ ( "taskName", Encode.string name ), ( "taskPar", Encode.string parameters ) ]
+            Encode.object [ ( "task_name", Encode.string name ), ( "task_par", Encode.string parameters ) ]
 
         SendIntent ->
             Encode.string "SendIntent"
