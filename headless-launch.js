@@ -14,7 +14,7 @@ try {
         else {fs.writeFileSync("/tmp/"+file, data)}
     };
 
-    var taskerUrl = process.argv[2];
+    var taskerUrl = "http://docket.com/?" + process.argv[2];
     let fallbackUrl = "http://docket.com/?start=Project"; // If in node
     var taskerUrl = (taskerUrl == null || taskerUrl == "") ? fallbackUrl : taskerUrl;
 
