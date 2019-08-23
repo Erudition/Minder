@@ -4,6 +4,8 @@ import External.Notification as Notif exposing (Notification)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
 import List.Extra as List
+import List.Nonempty as Nonempty
+import Random
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
@@ -160,25 +162,35 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 }
 
         write durLeft =
-            abbreviatedSpaced <| breakdownHM durLeft
+            abbreviatedSpaced <| HumanDuration.breakdownNonzero durLeft
 
         interimReminders =
             [ reminder
                 { scheduledFor = future now (dur (Minutes 10))
                 , title = "Distraction taken care of?"
-                , subtitle = "Get back on task as soon as possible - do this later!"
+                , subtitle = pickEncouragementMessage (future now (dur (Minutes 10)))
                 }
             , reminder
                 { scheduledFor = future now (dur (Minutes 20))
                 , title = "Ready to get back on task?"
-                , subtitle = "You have important goals to meet!"
+                , subtitle = pickEncouragementMessage (future now (dur (Minutes 20)))
                 }
             , reminder
                 { scheduledFor = future now (dur (Minutes 30))
                 , title = "Can this wait?"
-                , subtitle = "Why not put this in your task list for later?"
+                , subtitle = pickEncouragementMessage (future now (dur (Minutes 30)))
                 }
             ]
+
+        pickEncouragementMessage time =
+            Tuple.first <| Random.step encouragementMessages (Moment.useAsRandomSeed time)
+
+        encouragementMessages =
+            Random.uniform
+                "Get back on task as soon as possible - do this later!"
+                [ "You have important goals to meet!"
+                , "Why not put this in your task list for later?"
+                ]
     in
     if substantialTimeLeft then
         List.map buildGettingCloseReminder gettingCloseList
