@@ -1,10 +1,10 @@
 module Activity.Reminder exposing (Action(..), Alarm, Intent, NotificationAction, scheduleExcusedReminders, scheduleOffTaskReminders, scheduleOnTaskReminders)
 
-import External.Notification as Notif exposing (Notification)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
 import List.Extra as List
 import List.Nonempty as Nonempty
+import NativeScript.Notification as Notif exposing (Notification)
 import Random
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
@@ -60,6 +60,26 @@ type Action
     | SendIntent
 
 
+scheduleNotify : List Alarm -> Cmd msg
+scheduleNotify alarmList =
+    let
+        getNotification alarm =
+            List.map forEachAction alarm.actions
+
+        forEachAction action =
+            case action of
+                Notify notif ->
+                    scheduleNotification (Notif.encodeNotification notif)
+
+                RunTaskerTask name params ->
+                    Cmd.none
+
+                SendIntent ->
+                    Cmd.none
+    in
+    Cmd.batch <| List.concat (List.map getNotification alarmList)
+
+
 encodeAction : Action -> Encode.Value
 encodeAction v =
     case v of
@@ -112,6 +132,16 @@ scheduleOffTaskReminders now =
     , reminderZap
         { scheduledFor = future now (Duration.fromSeconds 30.0)
         , title = "Off Task! Warning 2"
+        , subtitle = "You have more important things to do right now!"
+        }
+    , reminderZap
+        { scheduledFor = future now (Duration.fromSeconds 60.0)
+        , title = "Off Task! Warning 3"
+        , subtitle = "You have more important things to do right now!"
+        }
+    , reminderZap
+        { scheduledFor = future now (Duration.fromSeconds 90.0)
+        , title = "Off Task! Warning 4"
         , subtitle = "You have more important things to do right now!"
         }
     ]

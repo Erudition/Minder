@@ -1,4 +1,4 @@
-port module External.Commands exposing (hideWindow, scheduleNotify, toast)
+port module External.Commands exposing (hideWindow, toast)
 
 import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)
@@ -7,20 +7,21 @@ import Json.Encode as Encode exposing (Value, string)
 import SmartTime.Moment as Moment
 
 
-scheduleNotify : List Alarm -> Cmd msg
-scheduleNotify alarmList =
-    let
-        orderedList =
-            -- need to be in order, for tasker implementation
-            List.sortWith compareReminders alarmList
 
-        compareReminders a b =
-            Moment.compareLateness a.schedule b.schedule
-
-        alarmsObject =
-            Encode.object [ ( "alarms", Encode.list encodeAlarm orderedList ) ]
-    in
-    variableOut ( "scheduled", Encode.encode 0 alarmsObject )
+-- scheduleNotify : List Alarm -> Cmd msg
+-- scheduleNotify alarmList =
+--     let
+--         orderedList =
+--             -- need to be in order, for tasker implementation
+--             List.sortWith compareReminders alarmList
+--
+--         compareReminders a b =
+--             Moment.compareLateness a.schedule b.schedule
+--
+--         alarmsObject =
+--             Encode.object [ ( "alarms", Encode.list encodeAlarm orderedList ) ]
+--     in
+--     variableOut ( "scheduled", Encode.encode 0 alarmsObject )
 
 
 compileList : List String -> String
