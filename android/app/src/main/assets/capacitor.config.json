@@ -1,7 +1,0 @@
-{
-  "appId": "com.goodlife.docket",
-  "appName": "Docket",
-  "bundledWebRuntime": true,
-  "webDir": "www",
-  "linuxAndroidStudioPath": "/home/connor/Software/android-studio/bin/studio.sh"
-}

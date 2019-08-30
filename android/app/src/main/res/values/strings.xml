@@ -1,8 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Docket</string>
-    <string name="title_activity_main">Docket</string>
-    <string name="package_name">com.goodlife.docket</string>
-    <string name="fileprovider_authority">com.goodlife.docket.fileprovider</string>
-    <string name="custom_url_scheme">com.goodlife.docket</string>
-</resources>
