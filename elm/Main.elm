@@ -388,10 +388,10 @@ update msg ({ viewState, appData, environment } as model) =
                     Integrations.Todoist.handle response appData
 
                 blank =
-                    Notif.blank
+                    Notif.blank "Sync Status"
 
                 notification =
-                    { blank | id = Just 23, timeout = Just (Duration.fromMinutes 5), title = Just "Todoist Response", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True, channel = Just "Sync Status" }
+                    { blank | id = Just 23, timeout = Just (Duration.fromMinutes 5), title = Just "Todoist Response", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True }
             in
             ( Model viewState newAppData environment
             , notify [ notification ]

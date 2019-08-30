@@ -81,7 +81,7 @@ updateSticky : Moment -> Duration -> OnTaskStatus -> Activity -> Notification
 updateSticky moment timeLeft onTaskStatus newActivity =
     let
         blank =
-            Notif.blank
+            Notif.blank "Status"
 
         actions =
             [ { id = "sync=todoist", button = Notif.Button "Sync Tasks", launch = False }
@@ -99,7 +99,6 @@ updateSticky moment timeLeft onTaskStatus newActivity =
         , badge = Nothing
         , icon = Nothing
         , silhouetteIcon = Nothing
-        , channel = Just "Status"
         , update = Nothing
         , priority = Nothing
         , privacy = Nothing

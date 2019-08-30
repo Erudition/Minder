@@ -2,14 +2,17 @@ module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
-import Porting exposing (omittable, omittableList)
+import Porting exposing (normal, omittable, omittableList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
 type alias Notification =
-    { -- A number so you can easily distinguish your notifications. Will be generated if not set.
-      id : Maybe NotificationID
+    { -- Default is (Channel). Set the channel name for Android API >= 26, which is shown when the user longpresses a notification. (Android Only)
+      channel : ChannelID
+
+    -- A number so you can easily distinguish your notifications. Will be generated if not set.
+    , id : Maybe NotificationID
 
     -- The title which is shown in the statusbar. Default not set.
     , title : Maybe String
@@ -60,9 +63,6 @@ type alias Notification =
     -- Custom thumbnail/icon to show in the notification center (to the right) on Android, this can be either: true (if you want to use the image as the thumbnail), a resource URL (that lives in the App_Resouces/Android/drawable folders, e.g.: res://filename), or a http URL from anywhere on the web. (Android Only). Default not set.
     , thumbnail : Maybe Thumbnail
 
-    -- Default is (Channel). Set the channel name for Android API >= 26, which is shown when the user longpresses a notification. (Android Only)
-    , channel : Maybe ChannelID
-
     -- Default is false. Set to true to always show the notification. Note that on iOS < 10 this is ignored (the notification is not shown), and on newer Androids it's currently ignored as well (the notification always shows, per platform default).
     , forceShowWhenInForeground : Maybe Bool
 
@@ -104,9 +104,9 @@ type alias Notification =
     }
 
 
-blank : Notification
-blank =
-    { id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, channel = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], timeout = Nothing, update = Nothing, priority = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, dismiss_on_touch = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibration_pattern = Nothing, phone_only = Nothing }
+blank : ChannelID -> Notification
+blank channel =
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], timeout = Nothing, update = Nothing, priority = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, dismiss_on_touch = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibration_pattern = Nothing, phone_only = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -141,7 +141,7 @@ encode v =
         , omittable ( "dismiss_on_touch", Encode.bool, v.dismiss_on_touch )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "countdown", Encode.bool, v.countdown )
-        , omittable ( "channel", Encode.string, v.channel )
+        , normal ( "channel", Encode.string v.channel )
         , omittable ( "notificationLed", Encode.string, v.notificationLed )
         , omittable ( "led_on_duration", encodeDuration, v.led_on_duration )
         , omittable ( "led_off_duration", encodeDuration, v.led_off_duration )
@@ -398,9 +398,13 @@ encodeAction v =
 -- Funcs---------------------------------------------------------------------------NOTE
 
 
-basic : NotificationID -> Duration -> String -> String -> Notification
-basic id timeout title body =
-    { blank | title = Just title, body = Just body, id = Just id, timeout = Just timeout }
+basic : ChannelID -> NotificationID -> Duration -> String -> String -> Notification
+basic channel id timeout title body =
+    let
+        base =
+            blank channel
+    in
+    { base | title = Just title, body = Just body, id = Just id, timeout = Just timeout }
 
 
 type alias EncodedNotification =

@@ -15,7 +15,7 @@ reminderBase : Notification
 reminderBase =
     let
         blank =
-            Notif.blank
+            Notif.blank "Override me!"
     in
     { blank | timeout = Just (Duration.fromMinutes 1) }
 
@@ -55,7 +55,7 @@ scheduleOffTaskReminders now =
         base =
             { reminderBase
                 | id = Just 1
-                , channel = Just "Off Task Warnings"
+                , channel = "Off Task Warnings"
                 , actions = actions
             }
 
@@ -94,6 +94,17 @@ scheduleOffTaskReminders now =
 scheduleExcusedReminders : Moment -> Duration -> Duration -> List Notification
 scheduleExcusedReminders now excusedLimit timeLeft =
     let
+        base =
+            { reminderBase
+                | id = Just 7
+                , channel = "Excused Reminders"
+                , actions = actions
+            }
+
+        actions =
+            [ { id = "Done", button = Notif.Button "OK I'm Ready", launch = False }
+            ]
+
         firstIsGreater first last =
             Duration.compare first last == GT
 
@@ -137,17 +148,17 @@ scheduleExcusedReminders now excusedLimit timeLeft =
             abbreviatedSpaced <| HumanDuration.breakdownNonzero durLeft
 
         interimReminders =
-            [ { reminderBase
+            [ { base
                 | at = Just <| future now (dur (Minutes 10))
                 , title = Just "Distraction taken care of?"
                 , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 10)))
               }
-            , { reminderBase
+            , { base
                 | at = Just <| future now (dur (Minutes 20))
                 , title = Just "Ready to get back on task?"
                 , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 20)))
               }
-            , { reminderBase
+            , { base
                 | at = Just <| future now (dur (Minutes 30))
                 , title = Just "Can this wait?"
                 , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 30)))
