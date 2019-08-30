@@ -12,6 +12,7 @@ import Date
 import Dict
 import Environment exposing (..)
 import External.Commands as Commands exposing (..)
+import External.Tasker as Tasker
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -196,6 +197,22 @@ writeActivityToday app env activityID =
     Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activityID)
 
 
+exportActivityViewModel : AppData -> Environment -> Encode.Value
+exportActivityViewModel appData environment =
+    let
+        encodeActivityVM ( activityID, activity ) =
+            Encode.object
+                [ ( "name", Encode.string <| Activity.getName activity )
+                , ( "excusedUsage", Encode.string <| writeActivityUsage appData environment ( ID.tag activityID, activity ) )
+                , ( "totalToday", Encode.string <| writeActivityUsage appData environment ( ID.tag activityID, activity ) )
+                ]
+    in
+    Encode.list encodeActivityVM <|
+        IntDict.toList <|
+            IntDict.filterValues Activity.showing <|
+                allActivities appData.activities
+
+
 
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
@@ -208,6 +225,7 @@ writeActivityToday app env activityID =
 type Msg
     = NoOp
     | StartTracking ActivityID
+    | ExportVM
 
 
 update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
@@ -230,6 +248,12 @@ update msg state app env =
             in
             ( state, updatedApp, cmds )
 
+        ExportVM ->
+            ( state
+            , app
+            , Tasker.variableOut ( "activitiesVM", Encode.encode 0 <| exportActivityViewModel app env )
+            )
+
 
 urlTriggers : AppData -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
@@ -243,5 +267,5 @@ urlTriggers app =
     in
     [ ( "start", Dict.fromList activitiesWithNames )
     , ( "stop", Dict.fromList [ ( "stop", StartTracking dummy ) ] )
-    , ( "noop", Dict.fromList [ ( "noop", NoOp ) ] )
+    , ( "export", Dict.fromList [ ( "all", ExportVM ) ] )
     ]
