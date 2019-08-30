@@ -2,7 +2,7 @@ module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
-import Porting exposing (omittable)
+import Porting exposing (omittable, omittableList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -112,14 +112,15 @@ blank =
 encode : Notification -> EncodedNotification
 encode v =
     Porting.encodeObjectWithoutNothings
-        [ omittable ( "id", Encode.string, v.id )
+        [ omittable ( "id", Encode.int, v.id )
+        , omittable ( "at", Encode.float << Moment.toJSTime, v.at )
         , omittable ( "ongoing", Encode.bool, v.ongoing )
         , omittable ( "timeout", encodeTimeout, v.timeout )
         , omittable ( "priority", encodePriority, v.priority )
         , omittable ( "title", Encode.string, v.title )
         , omittable ( "title_expanded", Encode.string, v.title_expanded )
         , omittable ( "body", Encode.string, v.body )
-        , omittable ( "body_expanded", Encode.string, v.body_expanded )
+        , omittable ( "bigTextStyle", Encode.bool, v.bigTextStyle )
         , omittable ( "subtitle", Encode.string, v.subtitle )
         , omittable ( "ticker", Encode.string, v.ticker )
         , omittable ( "icon", Encode.string, v.icon )
@@ -138,16 +139,23 @@ encode v =
         , omittable ( "on_touch", Encode.string, v.on_touch )
         , omittable ( "on_dismiss", Encode.string, v.on_dismiss )
         , omittable ( "dismiss_on_touch", Encode.bool, v.dismiss_on_touch )
-        , omittable ( "time", Encode.int << Moment.toUnixTimeInt, v.at )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "countdown", Encode.bool, v.countdown )
         , omittable ( "channel", Encode.string, v.channel )
-        , omittable ( "led_color", Encode.string, v.notificationLed )
+        , omittable ( "notificationLed", Encode.string, v.notificationLed )
         , omittable ( "led_on_duration", encodeDuration, v.led_on_duration )
         , omittable ( "led_off_duration", encodeDuration, v.led_off_duration )
         , omittable ( "sound", encodeSound, v.sound )
         , omittable ( "vibration_pattern", encodeVibrationPattern, v.vibration_pattern )
         , omittable ( "phone_only", Encode.bool, v.phone_only )
+        , omittable ( "groupedMessages", Encode.list Encode.string, v.groupedMessages )
+        , omittable ( "groupSummary", Encode.string, v.groupSummary )
+        , omittable ( "interval", encodeRepeatEvery, v.interval )
+        , omittable ( "icon", Encode.string, v.icon )
+        , omittable ( "silhouetteIcon", Encode.string, v.silhouetteIcon )
+        , omittable ( "thumbnail", encodeThumbnail, v.thumbnail )
+        , omittable ( "forceShowWhenInForeground", Encode.bool, v.forceShowWhenInForeground )
+        , omittableList ( "actions", encodeAction, v.actions )
         ]
 
 
@@ -161,8 +169,25 @@ type Thumbnail
     | FromWeb WebURL
 
 
+encodeThumbnail : Thumbnail -> Encode.Value
+encodeThumbnail v =
+    case v of
+        UsePicture ->
+            Encode.bool True
+
+        FromResource link ->
+            Encode.string link
+
+        FromWeb link ->
+            Encode.string link
+
+
+
+-- TODO use URL type
+
+
 type alias NotificationID =
-    String
+    Int
 
 
 type Sound
@@ -225,6 +250,31 @@ type RepeatEvery
     | Week
     | Month
     | Year
+
+
+encodeRepeatEvery : RepeatEvery -> Encode.Value
+encodeRepeatEvery v =
+    case v of
+        Second ->
+            Encode.string "second"
+
+        Minute ->
+            Encode.string "minute"
+
+        Hour ->
+            Encode.string "hour"
+
+        Day ->
+            Encode.string "day"
+
+        Week ->
+            Encode.string "week"
+
+        Month ->
+            Encode.string "month"
+
+        Year ->
+            Encode.string "year"
 
 
 encodePriority : Priority -> Encode.Value
@@ -348,7 +398,7 @@ encodeAction v =
 -- Funcs---------------------------------------------------------------------------NOTE
 
 
-basic : String -> Duration -> String -> String -> Notification
+basic : NotificationID -> Duration -> String -> String -> Notification
 basic id timeout title body =
     { blank | title = Just title, body = Just body, id = Just id, timeout = Just timeout }
 
