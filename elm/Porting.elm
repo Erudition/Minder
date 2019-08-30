@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence)
+module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -6,6 +6,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
+import Maybe.Extra as Maybe
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 import Time.Extra exposing (Interval(..))
@@ -244,6 +245,20 @@ encodeObjectWithoutNothings =
 omittable : ( String, a -> Encode.Value, Maybe a ) -> Maybe EncodeField
 omittable ( name, encoder, fieldToCheck ) =
     Maybe.map (\field -> ( name, encoder field )) fieldToCheck
+
+
+{-| For optional field encoding, when the field is a list. Wrapping an list in `Maybe` to make it "optional" is redundant when you can use an empty list instead of Nothing. If your list is empty, the field will be omitted from the encoded object!
+
+Note: We already add an `Encode.list` for you, so leave that part out if you're going to use `omittableList` rather than `omittable`.
+
+-}
+omittableList : ( String, a -> Encode.Value, List a ) -> Maybe EncodeField
+omittableList ( name, encoder, fieldToCheck ) =
+    let
+        listToCheck =
+            Maybe.filter (not << List.isEmpty) (Just fieldToCheck)
+    in
+    Maybe.map (\field -> ( name, Encode.list encoder field )) listToCheck
 
 
 {-| Stick this in front of normal field encoder tuples, when they're in an `encodeObjectWithoutNothings` list with some `omittable` encoder tuples.
