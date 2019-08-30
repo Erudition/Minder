@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toJSTime, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import Random
@@ -273,6 +273,11 @@ If for some reason you have one of these numbers (`Float` number of milliseconds
 fromJsTime : Float -> Moment
 fromJsTime floatMsUtc =
     moment UTC unixEpoch (Duration.fromInt (round floatMsUtc))
+
+
+toJSTime : Moment -> Float
+toJSTime givenMoment =
+    toFloat (toInt givenMoment UTC unixEpoch)
 
 
 {-| Turn an Elm time (from the core `Time` library) into a Moment. If you already have the raw Int, just run `fromElmInt` on it instead.
