@@ -4,9 +4,9 @@ import Json.Encode as Encode exposing (Value, string)
 import NativeScript.Notification as Notification
 
 
-notify : Notification.Notification -> Cmd msg
+notify : List Notification.Notification -> Cmd msg
 notify notification =
-    ns_scheduleNotification (Notification.encode notification)
+    ns_notify (Encode.list Notification.encode notification)
 
 
-port ns_scheduleNotification : Encode.Value -> Cmd msg
+port ns_notify : Encode.Value -> Cmd msg
