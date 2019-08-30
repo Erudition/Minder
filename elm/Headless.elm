@@ -26,8 +26,12 @@ initHeadless ( urlAsString, maybeJson ) =
 
 urlOrElse : String -> Url.Url
 urlOrElse urlAsString =
+    let
+        finalUrlAsString =
+            String.replace "minder://" "https://internalURI.minder.app/" urlAsString
+    in
     -- since we can't pull URLs from JS
-    Maybe.withDefault fallbackUrl (Url.fromString urlAsString)
+    Maybe.withDefault fallbackUrl (Url.fromString (Debug.log "url in elm:" finalUrlAsString))
 
 
 fallbackUrl : Url.Url
