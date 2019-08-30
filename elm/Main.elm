@@ -15,6 +15,9 @@ import Incubator.Todoist as Todoist
 import Integrations.Todoist
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import NativeScript.Commands exposing (..)
+import NativeScript.Notification as Notif exposing (Notification)
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
@@ -383,9 +386,15 @@ update msg ({ viewState, appData, environment } as model) =
             let
                 ( newAppData, whatHappened ) =
                     Integrations.Todoist.handle response appData
+
+                blank =
+                    Notif.blank
+
+                notification =
+                    { blank | id = Just 23, timeout = Just (Duration.fromMinutes 5), title = Just "Todoist Response", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True }
             in
             ( Model viewState newAppData environment
-            , toast whatHappened
+            , notify [ notification ]
             )
 
         Link urlRequest ->
@@ -577,7 +586,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
             List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers appData environment)
                 ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
                 ++ [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] )
-                   , ( "blowup", Dict.fromList [ ( "yes", SyncTodoist ) ] )
+                   , ( "clearerrors", Dict.fromList [ ( "clearerrors", ClearErrors ) ] )
                    ]
 
         --TODO only remove handled triggers
