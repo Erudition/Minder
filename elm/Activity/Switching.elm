@@ -8,6 +8,8 @@ import Environment exposing (..)
 import External.Commands as Commands
 import External.Tasker as Tasker
 import IntDict
+import NativeScript.Commands exposing (..)
+import NativeScript.Notification as Notif exposing (Notification)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment exposing (..)
@@ -45,28 +47,74 @@ switchActivity activityID app env =
         , Tasker.variableOut ( "CurrentActivity", getName newActivity )
         , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
         , Commands.hideWindow
-        , Commands.scheduleNotify <| scheduleReminders env updatedApp.timeline onTaskStatus ( activityID, newActivity )
+        , scheduleReminders env updatedApp.timeline onTaskStatus ( activityID, newActivity )
         , exportNextTask app env
         ]
     )
 
 
-scheduleReminders : Environment -> Timeline -> OnTaskStatus -> ( ActivityID, Activity ) -> List Alarm
+scheduleReminders : Environment -> Timeline -> OnTaskStatus -> ( ActivityID, Activity ) -> Cmd msg
 scheduleReminders env timeline onTaskStatus ( activityID, newActivity ) =
     case onTaskStatus of
         OnTask timeLeft ->
-            scheduleOnTaskReminders env.time timeLeft
+            notify <|
+                updateSticky env.time timeLeft onTaskStatus newActivity
+                    :: scheduleOnTaskReminders env.time timeLeft
 
         OffTask excusedLeft ->
             --TODO handle indefinitely excused
             if Duration.isPositive excusedLeft then
-                scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
+                notify <|
+                    updateSticky env.time excusedLeft onTaskStatus newActivity
+                        :: scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
 
             else
-                scheduleOffTaskReminders env.time
+                notify <|
+                    updateSticky env.time excusedLeft onTaskStatus newActivity
+                        :: scheduleOffTaskReminders env.time
 
         AllDone ->
-            []
+            notify [ updateSticky env.time Duration.zero onTaskStatus newActivity ]
+
+
+updateSticky : Moment -> Duration -> OnTaskStatus -> Activity -> Notification
+updateSticky moment timeLeft onTaskStatus newActivity =
+    let
+        blank =
+            Notif.blank
+
+        actions =
+            [ { id = "sync=todoist", button = Notif.Button "Sync Tasks", launch = False }
+            ]
+    in
+    { blank
+        | id = Just 42
+        , title = Just (Activity.getName newActivity)
+        , subtitle = Just (Activity.statusToString onTaskStatus)
+        , body = Nothing
+        , ongoing = Just True
+        , bigTextStyle = Nothing
+        , groupedMessages = Nothing
+        , groupSummary = Nothing
+        , badge = Nothing
+        , icon = Nothing
+        , silhouetteIcon = Nothing
+        , channel = Just "Status"
+        , update = Nothing
+        , priority = Nothing
+        , privacy = Nothing
+        , useHTML = Nothing
+        , title_expanded = Nothing
+        , body_expanded = Nothing
+        , detail = Nothing
+        , status_icon = Nothing
+        , status_text_size = Nothing
+        , background_color = Nothing
+        , chronometer = Nothing
+        , countdown = Nothing
+        , progress = Nothing
+        , actions = actions
+    }
 
 
 determineOnTask : ActivityID -> AppData -> Environment -> OnTaskStatus
