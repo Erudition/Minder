@@ -19,7 +19,7 @@ const appSettings = require("tns-core-modules/application-settings");
 
 // appSettings.clear("appData");
 
-console.log("Got past headers! ---------------------------------");
+console.info("Got past headers! ---------------------------------");
 
 let appDataString = appSettings.getString("appData", "");
 
@@ -45,10 +45,10 @@ var launchURL = testingExport;
 // URL passed in via somewhere else on the system
 handleOpenURL(function(appURL) {
   if (!app) {
-      console.log('Launching with the supplied URL: ', appURL);
+      console.info('Launching with the supplied URL: ', appURL);
       launchURL = appURL.toString();
   } else {
-      console.log('Already running, changing URL to: ', appURL);
+      console.info('Already running, changing URL to: ', appURL);
       app.ports.headlessMsg.send(appURL.toString());
   }
 });
@@ -68,7 +68,7 @@ export var app = Elm.Headless.init(
 
 
 
-console.log("Got past Elm initialization! ---------------------------------");
+console.info("Got past Elm initialization! ---------------------------------");
 
 // ELM COMMANDS --------------------------------------------------------
 
@@ -98,7 +98,7 @@ notifications.addOnMessageReceivedCallback(
     }
 ).then(
     function() {
-      console.log("Listener added");
+      console.info("Listener added");
     }
 )
 
@@ -158,7 +158,7 @@ app.ports.ns_notify.subscribe(function(notificationList) {
         }
     );
 
-    console.log("Here are the Notifications I'll try to schedule:");
+    console.info("Here are the Notifications I'll try to schedule:");
     console.dir(correctedList);
 
     // Clean slate every time - TODO: better way
@@ -166,7 +166,7 @@ app.ports.ns_notify.subscribe(function(notificationList) {
 
     notifications.schedule(correctedList).then(
         function(scheduledIds) {
-          console.log("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
+          console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
 
         },
         function(error) {
@@ -181,18 +181,18 @@ app.ports.ns_notify.subscribe(function(notificationList) {
 // VARIABLE OUT
 app.ports.variableOut.subscribe(function(data) {
     appSettings.setString(data[0], data[1]);
-    console.log("Setting " + data[0] + " to " + data[1])
+    console.info("Setting " + data[0] + " to " + data[1])
 });
 
 
 // SET STORAGE
 app.ports.setStorage.subscribe(function(data) {
 
-    console.log(" App Data being set");
+    console.info(" App Data being set");
 
     // let lines = data.split("\\n");
     // for (var line in lines) {
-    //     console.log("Line: " + lines[line]);
+    //     console.info("Line: " + lines[line]);
     // }
 
     appSettings.setString("appData", data);
@@ -203,27 +203,31 @@ app.ports.setStorage.subscribe(function(data) {
 
 
 /// ANDROID SERVICES -------------------------------------------------------------
-//
-// android.app.IntentService.extend("app.minder.CommandListenerService" /* declared in the AndroidManifest */, {
-//    onHandleIntent: function (intent) {
-//        var action = intent.getAction();
-//        if ("ACTION_START" == action) {
-//            respondToIntent();
-//        } else if ("ACTION_STOP" == action) {
-//     /* get the system alarm manager and cancel all pending alarms, which will stop the service from executing periodically  */
-//        }
-//
-//        android.support.v4.content.WakefulBroadcastReceiver.completeWakefulIntent(intent);
-//
-//
-//    }
-// });
-//
-//
-// function respondToIntent() {
-//     app.ports.headlessMsg.send("http://minder.app/?" + "externalCommand" )
-// }
-//
+
+
+android.app.IntentService.extend("app.minder.CommandListenerService" /* declared in the AndroidManifest */, {
+   onHandleIntent: function (intent) {
+       var action = intent.getAction();
+
+       respondToIntent(action);
+
+    //    if ("ACTION_START" == action) {
+    //        respondToIntent();
+    //    } else if ("ACTION_STOP" == action) {
+    // /* get the system alarm manager and cancel all pending alarms, which will stop the service from executing periodically  */
+    //    }
+
+       // android.support.v4.content.WakefulBroadcastReceiver.completeWakefulIntent(intent);
+
+
+   }
+});
+
+
+function respondToIntent() {
+    app.ports.headlessMsg.send("http://minder.app/?" + "externalCommand" )
+}
+
 //
 // android.support.v4.content.WakefulBroadcastReceiver.extend("app.minder.broadcastreceivers.EventReceiver", {
 //    onReceive: function (context, intent) {
@@ -249,7 +253,7 @@ app.ports.setStorage.subscribe(function(data) {
 
 
 
-console.log("Done with app.js! ---------------------------------");
+console.info("Done with app.js! ---------------------------------");
 application.run({ moduleName: "app-root" });
 
 /*
