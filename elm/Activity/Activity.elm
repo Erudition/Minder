@@ -186,10 +186,10 @@ statusToString onTaskStatus =
                 "Excused, for the next " ++ say excusedLeft
 
             else
-                "Off Task"
+                "Off Task!"
 
         AllDone ->
-            "Done"
+            "All Done"
 
 
 type Excusable
