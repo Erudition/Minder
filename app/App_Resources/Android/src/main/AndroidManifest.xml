@@ -47,7 +47,7 @@
 		<service
            android:name="app.minder.CommandListenerService"
            android:enabled="true"
-           android:exported="false" />
+           android:exported="true" />
         <receiver android:name="app.minder.broadcastreceivers.EventReceiver" />
 
 	</application>
