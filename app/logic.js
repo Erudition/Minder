@@ -3,17 +3,7 @@ require('globals'); // necessary to bootstrap tns modules on the new thread
 console.log("I'm in the worker!");
 
 
-
-
-
-
-
-//var storagefilename = "Minder/personal-data.json";
-
-
-
-
-// GET ENVIRONMENT DETAILS
+// GET ENVIRONMENT DETAILS ---------------------------------------------------------
 const applicationModule = require("tns-core-modules/application");
 var androidApp = applicationModule.android
 let isPaused = androidApp.paused; // e.g. false
@@ -24,20 +14,17 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 
 
 
+// APP DATA & SETTINGS STORAGE -----------------------------------------------------
 const appSettings = require("tns-core-modules/application-settings");
 // appSettings.clear("appData");
-
-
 let appDataString = appSettings.getString("appData", "");
 
 try {
-    var finalAppData = JSON.parse(appDataString);
+    var appData = JSON.parse(appDataString);
 } catch (e) {
     console.error("Epic failure when parsing stored AppData. Here's what it was set to: ", appDataString)
-    var finalAppData = {};
+    var appData = {};
 }
-export var appData = finalAppData;
-
 
 
 // URL HANDLING ---------------------------------------------------------------
@@ -61,6 +48,8 @@ handleOpenURL(function(appURL) {
 });
 
 
+
+
 // ELM INITIALIZATION -----------------------------------------------------------
 
 var Elm = require('../www/elm-headless.js').Elm;
@@ -68,12 +57,11 @@ var Elm = require('../www/elm-headless.js').Elm;
 export var app = Elm.Headless.init(
     { flags: [launchURL, appDataString] });
 
-
 console.info("Got past Elm initialization! ---------------------------------");
 
 
 
-// BATTERY INFO UPDATE
+// BATTERY INFO UPDATE -----------------------------------------------------------
 const batteryChanged = (androidContext, intent) => {
     const level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
     const scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
@@ -83,7 +71,7 @@ const batteryChanged = (androidContext, intent) => {
 
 
 
-// EXTERNAL ELM COMMAND
+// EXTERNAL ELM COMMAND VIA INTENT BROADCAST --------------------------------------
 const secretMessageReceived = (androidContext, intent) => {
     //vm.set("batteryLife", percent.toString()); //???
     let maybeMessage = intent.getStringExtra("command");
@@ -96,26 +84,13 @@ const secretMessageReceived = (androidContext, intent) => {
     }
 };
 
-
-notifications.addOnMessageReceivedCallback(
-    function (notification) {
-      console.dir(notification);
-      app.ports.headlessMsg.send("http://minder.app/?" + notification.response );
-    }
-).then(
-    function() {
-      console.info("Listener added");
-    }
-)
-
-
-// ANDROID INTENTS AND BROADCASTS
-
 applicationModule.android.registerBroadcastReceiver(
     "app.minder.secretMessage",
     secretMessageReceived
 );
 
+
+// LISTENING FOR STANDARD SYSTEM BROADCASTS ---------------------------------------
 
 // applicationModule.android.registerBroadcastReceiver(
 //     android.content.Intent.ACTION_BATTERY_CHANGED,
@@ -124,9 +99,9 @@ applicationModule.android.registerBroadcastReceiver(
 
 
 
-
+// FLASH OR "TOAST" POPUPS ------------------------------------------
 const toasty = require('nativescript-toasty').Toasty;
-// FLASH OR TOAST
+
 app.ports.flash.subscribe(function(toast_message) {
     const toast = new toasty({
         text: toast_message,
@@ -181,17 +156,27 @@ app.ports.ns_notify.subscribe(function(notificationList) {
     )
 });
 
+notifications.addOnMessageReceivedCallback(
+    function (notification) {
+      console.dir(notification);
+      app.ports.headlessMsg.send("http://minder.app/?" + notification.response );
+    }
+).then(
+    function() {
+      console.info("Listener added");
+    }
+)
 
 
 
-// VARIABLE OUT
+// LEGACY PORT: VARIABLE OUT -------------------------------------------------------
 app.ports.variableOut.subscribe(function(data) {
     appSettings.setString(data[0], data[1]);
     console.info("Setting " + data[0] + " to " + data[1])
 });
 
 
-// SET STORAGE
+// SET STORAGE -----------------------------------------------------------------
 app.ports.setStorage.subscribe(function(data) {
 
     console.info(" App Data being set");
@@ -206,38 +191,7 @@ app.ports.setStorage.subscribe(function(data) {
 });
 
 
-
-
-/// ANDROID SERVICES -------------------------------------------------------------
-
-
-android.app.IntentService.extend("app.minder.CommandListenerService" /* declared in the AndroidManifest */, {
-   onHandleIntent: function (intent) {
-       var action = intent.getAction();
-
-       respondToIntent(action);
-
-    //    if ("ACTION_START" == action) {
-    //        respondToIntent();
-    //    } else if ("ACTION_STOP" == action) {
-    // /* get the system alarm manager and cancel all pending alarms, which will stop the service from executing periodically  */
-    //    }
-
-       // android.support.v4.content.WakefulBroadcastReceiver.completeWakefulIntent(intent);
-
-
-   }
-});
-
-
-function respondToIntent() {
-    app.ports.headlessMsg.send("http://minder.app/?" + "externalCommand" )
-}
-
-
-
-
-// UNIVERSAL MESSAGE HANDLER
+// WORKER THREAD: UNIVERSAL MESSAGE PASSSING - HANDLER ---------------------------
 
    global.onmessage = function(msg) {
        var request = msg.data;
