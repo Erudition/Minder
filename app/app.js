@@ -72,7 +72,6 @@ console.info("Got past Elm initialization! ---------------------------------");
 
 // ELM COMMANDS --------------------------------------------------------
 
-//app.ports.headlessMsg.send()
 
 // BATTERY INFO UPDATE
 const batteryChanged = (androidContext, intent) => {
@@ -85,9 +84,16 @@ const batteryChanged = (androidContext, intent) => {
 
 
 // EXTERNAL ELM COMMAND
-const externalCommandReceived = (androidContext, intent) => {
+const secretMessageReceived = (androidContext, intent) => {
     //vm.set("batteryLife", percent.toString()); //???
-    app.ports.headlessMsg.send("http://minder.app/?" + externalCommand )
+    let maybeMessage = intent.getStringExtra("command");
+    if (typeof maybeMessage === 'string' || maybeMessage instanceof String)
+    {
+        app.ports.headlessMsg.send(maybeMessage);
+        console.info("received secret message:" + maybeMessage);
+    } else {
+        console.warn("Got an secretMessage intent, but it was empty!");
+    }
 };
 
 
@@ -105,10 +111,10 @@ notifications.addOnMessageReceivedCallback(
 
 // ANDROID INTENTS AND BROADCASTS
 
-// applicationModule.android.registerBroadcastReceiver(
-//     "minder intent",
-//     externalCommandReceived
-// );
+applicationModule.android.registerBroadcastReceiver(
+    "app.minder.secretMessage",
+    secretMessageReceived
+);
 
 
 // applicationModule.android.registerBroadcastReceiver(
