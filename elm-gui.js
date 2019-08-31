@@ -13301,6 +13301,7 @@ var author$project$Integrations$Todoist$handle = F2(
 				description);
 		}
 	});
+var author$project$Main$ClearErrors = {$: 'ClearErrors'};
 var author$project$Main$Model = F3(
 	function (viewState, appData, environment) {
 		return {appData: appData, environment: environment, viewState: viewState};
@@ -13315,6 +13316,280 @@ var author$project$Main$TimeTrackerMsg = function (a) {
 var author$project$Main$TodoistServerResponse = function (a) {
 	return {$: 'TodoistServerResponse', a: a};
 };
+var author$project$NativeScript$Commands$ns_notify = _Platform_outgoingPort('ns_notify', elm$core$Basics$identity);
+var author$project$NativeScript$Notification$encodeAction = function (v) {
+	return elm$json$Json$Encode$object(
+		_Utils_ap(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					elm$json$Json$Encode$string(v.id)),
+					_Utils_Tuple2(
+					'launch',
+					elm$json$Json$Encode$bool(v.launch))
+				]),
+			function () {
+				var _n0 = v.button;
+				if (_n0.$ === 'Button') {
+					var label = _n0.a;
+					return _List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('button')),
+							_Utils_Tuple2(
+							'title',
+							elm$json$Json$Encode$string(label))
+						]);
+				} else {
+					var textPlaceholder = _n0.a;
+					var submitLabel = _n0.b;
+					return _List_fromArray(
+						[
+							_Utils_Tuple2(
+							'type',
+							elm$json$Json$Encode$string('input')),
+							_Utils_Tuple2(
+							'placeholder',
+							elm$json$Json$Encode$string(textPlaceholder)),
+							_Utils_Tuple2(
+							'submitLabel',
+							elm$json$Json$Encode$string(submitLabel))
+						]);
+				}
+			}()));
+};
+var author$project$NativeScript$Notification$encodeDuration = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inMs(dur));
+};
+var author$project$NativeScript$Notification$encodeMediaInfo = function (v) {
+	return elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'title',
+				elm$json$Json$Encode$string(v.title))
+			]));
+};
+var author$project$NativeScript$Notification$encodePriority = function (v) {
+	switch (v.$) {
+		case 'Default':
+			return elm$json$Json$Encode$int(0);
+		case 'Low':
+			return elm$json$Json$Encode$int(-1);
+		case 'High':
+			return elm$json$Json$Encode$int(1);
+		case 'Min':
+			return elm$json$Json$Encode$int(-2);
+		default:
+			return elm$json$Json$Encode$int(2);
+	}
+};
+var author$project$NativeScript$Notification$encodeRepeatEvery = function (v) {
+	switch (v.$) {
+		case 'Second':
+			return elm$json$Json$Encode$string('second');
+		case 'Minute':
+			return elm$json$Json$Encode$string('minute');
+		case 'Hour':
+			return elm$json$Json$Encode$string('hour');
+		case 'Day':
+			return elm$json$Json$Encode$string('day');
+		case 'Week':
+			return elm$json$Json$Encode$string('week');
+		case 'Month':
+			return elm$json$Json$Encode$string('month');
+		default:
+			return elm$json$Json$Encode$string('year');
+	}
+};
+var author$project$NativeScript$Notification$encodeSound = function (v) {
+	switch (v.$) {
+		case 'DefaultSound':
+			return elm$json$Json$Encode$string('default');
+		case 'Silent':
+			return elm$json$Json$Encode$null;
+		default:
+			var path = v.a;
+			return elm$json$Json$Encode$string(path);
+	}
+};
+var author$project$NativeScript$Notification$encodeThumbnail = function (v) {
+	switch (v.$) {
+		case 'UsePicture':
+			return elm$json$Json$Encode$bool(true);
+		case 'FromResource':
+			var link = v.a;
+			return elm$json$Json$Encode$string(link);
+		default:
+			var link = v.a;
+			return elm$json$Json$Encode$string(link);
+	}
+};
+var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
+	return elm$core$Basics$round(
+		author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$secondLength);
+};
+var author$project$NativeScript$Notification$encodeTimeout = function (dur) {
+	return elm$json$Json$Encode$int(
+		author$project$SmartTime$Duration$inSecondsRounded(dur));
+};
+var author$project$NativeScript$Notification$encodeVibrationPattern = function (durs) {
+	return elm$json$Json$Encode$string(
+		elm$core$String$concat(
+			A2(
+				elm$core$List$map,
+				A2(elm$core$Basics$composeL, elm$core$String$fromInt, author$project$SmartTime$Duration$inMs),
+				durs)));
+};
+var elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
+var elm_community$maybe_extra$Maybe$Extra$filter = F2(
+	function (f, m) {
+		var _n0 = A2(elm$core$Maybe$map, f, m);
+		if ((_n0.$ === 'Just') && _n0.a) {
+			return m;
+		} else {
+			return elm$core$Maybe$Nothing;
+		}
+	});
+var author$project$Porting$omittableList = function (_n0) {
+	var name = _n0.a;
+	var encoder = _n0.b;
+	var fieldToCheck = _n0.c;
+	var listToCheck = A2(
+		elm_community$maybe_extra$Maybe$Extra$filter,
+		A2(elm$core$Basics$composeL, elm$core$Basics$not, elm$core$List$isEmpty),
+		elm$core$Maybe$Just(fieldToCheck));
+	return A2(
+		elm$core$Maybe$map,
+		function (field) {
+			return _Utils_Tuple2(
+				name,
+				A2(elm$json$Json$Encode$list, encoder, field));
+		},
+		listToCheck);
+};
+var author$project$SmartTime$Moment$unixEpoch = function () {
+	var jan1st1970_rataDie = 719163;
+	return author$project$SmartTime$Moment$Moment(
+		A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aDay, jan1st1970_rataDie));
+}();
+var author$project$SmartTime$Moment$toJSTime = function (givenMoment) {
+	return A3(author$project$SmartTime$Moment$toInt, givenMoment, author$project$SmartTime$Moment$UTC, author$project$SmartTime$Moment$unixEpoch);
+};
+var author$project$NativeScript$Notification$encode = function (v) {
+	return author$project$Porting$encodeObjectWithoutNothings(
+		_List_fromArray(
+			[
+				author$project$Porting$omittable(
+				_Utils_Tuple3('id', elm$json$Json$Encode$int, v.id)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3(
+					'at',
+					A2(elm$core$Basics$composeL, elm$json$Json$Encode$float, author$project$SmartTime$Moment$toJSTime),
+					v.at)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('ongoing', elm$json$Json$Encode$bool, v.ongoing)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('timeout', author$project$NativeScript$Notification$encodeTimeout, v.timeout)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('priority', author$project$NativeScript$Notification$encodePriority, v.priority)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('title', elm$json$Json$Encode$string, v.title)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('title_expanded', elm$json$Json$Encode$string, v.title_expanded)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('body', elm$json$Json$Encode$string, v.body)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('bigTextStyle', elm$json$Json$Encode$bool, v.bigTextStyle)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('subtitle', elm$json$Json$Encode$string, v.subtitle)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('ticker', elm$json$Json$Encode$string, v.ticker)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('icon', elm$json$Json$Encode$string, v.icon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('status_icon', elm$json$Json$Encode$string, v.status_icon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('status_text_size', elm$json$Json$Encode$int, v.status_text_size)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('background_color', elm$json$Json$Encode$string, v.background_color)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('color_from_media', elm$json$Json$Encode$bool, v.color_from_media)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('badge', elm$json$Json$Encode$int, v.badge)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('image', elm$json$Json$Encode$string, v.image)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('picture_skip_cache', elm$json$Json$Encode$bool, v.picture_skip_cache)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('picture_expanded_icon', elm$json$Json$Encode$string, v.picture_expanded_icon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('media_layout', elm$json$Json$Encode$bool, v.media_layout)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('media', author$project$NativeScript$Notification$encodeMediaInfo, v.media)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('url', elm$json$Json$Encode$string, v.url)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('on_create', elm$json$Json$Encode$string, v.on_create)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('on_touch', elm$json$Json$Encode$string, v.on_touch)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('on_dismiss', elm$json$Json$Encode$string, v.on_dismiss)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('dismiss_on_touch', elm$json$Json$Encode$bool, v.dismiss_on_touch)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('chronometer', elm$json$Json$Encode$bool, v.chronometer)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('countdown', elm$json$Json$Encode$bool, v.countdown)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('channel', elm$json$Json$Encode$string, v.channel)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('notificationLed', elm$json$Json$Encode$string, v.notificationLed)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('led_on_duration', author$project$NativeScript$Notification$encodeDuration, v.led_on_duration)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('led_off_duration', author$project$NativeScript$Notification$encodeDuration, v.led_off_duration)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('sound', author$project$NativeScript$Notification$encodeSound, v.sound)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('vibration_pattern', author$project$NativeScript$Notification$encodeVibrationPattern, v.vibration_pattern)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('phone_only', elm$json$Json$Encode$bool, v.phone_only)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3(
+					'groupedMessages',
+					elm$json$Json$Encode$list(elm$json$Json$Encode$string),
+					v.groupedMessages)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('groupSummary', elm$json$Json$Encode$string, v.groupSummary)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('interval', author$project$NativeScript$Notification$encodeRepeatEvery, v.interval)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('icon', elm$json$Json$Encode$string, v.icon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('silhouetteIcon', elm$json$Json$Encode$string, v.silhouetteIcon)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('thumbnail', author$project$NativeScript$Notification$encodeThumbnail, v.thumbnail)),
+				author$project$Porting$omittable(
+				_Utils_Tuple3('forceShowWhenInForeground', elm$json$Json$Encode$bool, v.forceShowWhenInForeground)),
+				author$project$Porting$omittableList(
+				_Utils_Tuple3('actions', author$project$NativeScript$Notification$encodeAction, v.actions))
+			]));
+};
+var author$project$NativeScript$Commands$notify = function (notification) {
+	return author$project$NativeScript$Commands$ns_notify(
+		A2(elm$json$Json$Encode$list, author$project$NativeScript$Notification$encode, notification));
+};
+var author$project$NativeScript$Notification$blank = {actions: _List_Nil, at: elm$core$Maybe$Nothing, background_color: elm$core$Maybe$Nothing, badge: elm$core$Maybe$Nothing, bigTextStyle: elm$core$Maybe$Nothing, body: elm$core$Maybe$Nothing, body_expanded: elm$core$Maybe$Nothing, channel: elm$core$Maybe$Nothing, chronometer: elm$core$Maybe$Nothing, color_from_media: elm$core$Maybe$Nothing, countdown: elm$core$Maybe$Nothing, detail: elm$core$Maybe$Nothing, dismiss_on_touch: elm$core$Maybe$Nothing, forceShowWhenInForeground: elm$core$Maybe$Nothing, groupSummary: elm$core$Maybe$Nothing, groupedMessages: elm$core$Maybe$Nothing, icon: elm$core$Maybe$Nothing, id: elm$core$Maybe$Nothing, image: elm$core$Maybe$Nothing, interval: elm$core$Maybe$Nothing, led_off_duration: elm$core$Maybe$Nothing, led_on_duration: elm$core$Maybe$Nothing, media: elm$core$Maybe$Nothing, media_layout: elm$core$Maybe$Nothing, notificationLed: elm$core$Maybe$Nothing, on_create: elm$core$Maybe$Nothing, on_dismiss: elm$core$Maybe$Nothing, on_touch: elm$core$Maybe$Nothing, ongoing: elm$core$Maybe$Nothing, phone_only: elm$core$Maybe$Nothing, picture_expanded_icon: elm$core$Maybe$Nothing, picture_skip_cache: elm$core$Maybe$Nothing, priority: elm$core$Maybe$Nothing, privacy: elm$core$Maybe$Nothing, progress: elm$core$Maybe$Nothing, silhouetteIcon: elm$core$Maybe$Nothing, sound: elm$core$Maybe$Nothing, status_icon: elm$core$Maybe$Nothing, status_text_size: elm$core$Maybe$Nothing, subtitle: elm$core$Maybe$Nothing, thumbnail: elm$core$Maybe$Nothing, ticker: elm$core$Maybe$Nothing, timeout: elm$core$Maybe$Nothing, title: elm$core$Maybe$Nothing, title_expanded: elm$core$Maybe$Nothing, update: elm$core$Maybe$Nothing, url: elm$core$Maybe$Nothing, useHTML: elm$core$Maybe$Nothing, vibration_pattern: elm$core$Maybe$Nothing};
 var author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var author$project$TaskList$defaultView = A3(
 	author$project$TaskList$Normal,
@@ -14282,9 +14557,9 @@ var author$project$Activity$Activity$statusToString = function (onTaskStatus) {
 			return 'On Task, for the next ' + author$project$SmartTime$Human$Duration$say(_for);
 		case 'OffTask':
 			var excusedLeft = onTaskStatus.a;
-			return author$project$SmartTime$Duration$isPositive(excusedLeft) ? ('Excused, for the next ' + author$project$SmartTime$Human$Duration$say(excusedLeft)) : 'Off Task';
+			return author$project$SmartTime$Duration$isPositive(excusedLeft) ? ('Excused, for the next ' + author$project$SmartTime$Human$Duration$say(excusedLeft)) : 'Off Task!';
 		default:
-			return 'Done';
+			return 'All Done';
 	}
 };
 var author$project$Activity$Activity$excusableFor = function (activity) {
@@ -14467,10 +14742,6 @@ var author$project$Activity$Measure$excusedUsage = F3(
 			author$project$Activity$Activity$excusableFor(activity).a);
 		return A3(author$project$Activity$Measure$totalLive, now, lastPeriod, activityID);
 	});
-var author$project$SmartTime$Duration$inSecondsRounded = function (duration) {
-	return elm$core$Basics$round(
-		author$project$SmartTime$Duration$inMs(duration) / author$project$SmartTime$Duration$secondLength);
-};
 var author$project$Activity$Measure$exportExcusedUsageSeconds = F3(
 	function (app, now, _n0) {
 		var activityID = _n0.a;
@@ -14568,85 +14839,15 @@ var author$project$Activity$Switching$exportNextTask = F2(
 			elm$core$Platform$Cmd$none,
 			A2(elm$core$Maybe$map, _export, next));
 	});
-var author$project$Activity$Reminder$Notify = function (a) {
-	return {$: 'Notify', a: a};
-};
-var author$project$External$Notification$Default = {$: 'Default'};
-var author$project$External$Notification$New = {$: 'New'};
-var author$project$External$Notification$NoBadge = {$: 'NoBadge'};
-var author$project$External$Notification$Number = function (a) {
-	return {$: 'Number', a: a};
-};
-var author$project$External$Notification$Public = {$: 'Public'};
-var author$project$External$Notification$blank = {
-	background_color: '',
-	badge: author$project$External$Notification$NoBadge,
-	body: '',
-	body_expanded: '',
-	category: '',
-	chronometer: false,
-	color_from_media: false,
-	countdown: false,
-	detail: author$project$External$Notification$Number(0),
-	dismiss_on_touch: false,
-	icon: '',
-	id: '',
-	led_color: '',
-	led_off_duration: author$project$SmartTime$Duration$fromMs(1000),
-	led_on_duration: author$project$SmartTime$Duration$fromMs(1000),
-	media: elm$core$Maybe$Nothing,
-	media_layout: false,
-	on_create: '',
-	on_dismiss: '',
-	on_touch: '',
-	persistent: false,
-	phone_only: false,
-	picture: '',
-	picture_expanded_icon: '',
-	picture_skip_cache: false,
-	priority: author$project$External$Notification$Default,
-	privacy: author$project$External$Notification$Public,
-	progress_current: 0,
-	progress_indeterminate: false,
-	progress_max: 0,
-	sound: '',
-	status_icon: '',
-	status_text_size: 0,
-	subtext: '',
-	ticker: '',
-	time: elm$core$Maybe$Nothing,
-	timeout: author$project$SmartTime$Duration$zero,
-	title: '',
-	title_expanded: '',
-	update: author$project$External$Notification$New,
-	url: '',
-	useHTML: false,
-	vibration_pattern: _List_Nil
-};
-var author$project$External$Notification$basic = F4(
-	function (id, timeout, title, body) {
-		return _Utils_update(
-			author$project$External$Notification$blank,
-			{body: body, id: id, timeout: timeout, title: title});
-	});
-var author$project$Activity$Reminder$reminder = function (_n0) {
-	var scheduledFor = _n0.scheduledFor;
-	var title = _n0.title;
-	var subtitle = _n0.subtitle;
-	return {
-		actions: _List_fromArray(
-			[
-				author$project$Activity$Reminder$Notify(
-				A4(
-					author$project$External$Notification$basic,
-					'reminder',
-					author$project$SmartTime$Duration$fromMinutes(5),
-					title,
-					subtitle))
-			]),
-		schedule: scheduledFor
-	};
-};
+var author$project$Activity$Reminder$reminderBase = function () {
+	var blank = author$project$NativeScript$Notification$blank;
+	return _Utils_update(
+		blank,
+		{
+			timeout: elm$core$Maybe$Just(
+				author$project$SmartTime$Duration$fromMinutes(1))
+		});
+}();
 var author$project$SmartTime$Duration$compare = F2(
 	function (_n0, _n1) {
 		var int1 = _n0.a;
@@ -14853,160 +15054,243 @@ var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
 		};
 		var interimReminders = _List_fromArray(
 			[
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: A2(
-						author$project$SmartTime$Moment$future,
-						now,
-						author$project$SmartTime$Human$Duration$dur(
-							author$project$SmartTime$Human$Duration$Minutes(10))),
-					subtitle: pickEncouragementMessage(
+					at: elm$core$Maybe$Just(
 						A2(
 							author$project$SmartTime$Moment$future,
 							now,
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(10)))),
-					title: 'Distraction taken care of?'
+					subtitle: elm$core$Maybe$Just(
+						pickEncouragementMessage(
+							A2(
+								author$project$SmartTime$Moment$future,
+								now,
+								author$project$SmartTime$Human$Duration$dur(
+									author$project$SmartTime$Human$Duration$Minutes(10))))),
+					title: elm$core$Maybe$Just('Distraction taken care of?')
 				}),
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: A2(
-						author$project$SmartTime$Moment$future,
-						now,
-						author$project$SmartTime$Human$Duration$dur(
-							author$project$SmartTime$Human$Duration$Minutes(20))),
-					subtitle: pickEncouragementMessage(
+					at: elm$core$Maybe$Just(
 						A2(
 							author$project$SmartTime$Moment$future,
 							now,
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(20)))),
-					title: 'Ready to get back on task?'
+					subtitle: elm$core$Maybe$Just(
+						pickEncouragementMessage(
+							A2(
+								author$project$SmartTime$Moment$future,
+								now,
+								author$project$SmartTime$Human$Duration$dur(
+									author$project$SmartTime$Human$Duration$Minutes(20))))),
+					title: elm$core$Maybe$Just('Ready to get back on task?')
 				}),
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: A2(
-						author$project$SmartTime$Moment$future,
-						now,
-						author$project$SmartTime$Human$Duration$dur(
-							author$project$SmartTime$Human$Duration$Minutes(30))),
-					subtitle: pickEncouragementMessage(
+					at: elm$core$Maybe$Just(
 						A2(
 							author$project$SmartTime$Moment$future,
 							now,
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(30)))),
-					title: 'Can this wait?'
+					subtitle: elm$core$Maybe$Just(
+						pickEncouragementMessage(
+							A2(
+								author$project$SmartTime$Moment$future,
+								now,
+								author$project$SmartTime$Human$Duration$dur(
+									author$project$SmartTime$Human$Duration$Minutes(30))))),
+					title: elm$core$Maybe$Just('Can this wait?')
 				})
 			]);
 		var beforeTimesUp = function (timeBefore) {
 			return A2(author$project$SmartTime$Moment$past, timesUp, timeBefore);
 		};
 		var buildGettingCloseReminder = function (amountLeft) {
-			return author$project$Activity$Reminder$reminder(
+			return _Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: beforeTimesUp(amountLeft),
-					subtitle: 'Excused for up to ' + write(excusedLimit),
-					title: 'Finish up! Only ' + (write(amountLeft) + ' left!')
+					at: elm$core$Maybe$Just(
+						beforeTimesUp(amountLeft)),
+					subtitle: elm$core$Maybe$Just(
+						'Excused for up to ' + write(excusedLimit)),
+					title: elm$core$Maybe$Just(
+						'Finish up! Only ' + (write(amountLeft) + ' left!'))
 				});
 		};
 		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
-var author$project$Activity$Reminder$RunTaskerTask = F2(
-	function (a, b) {
-		return {$: 'RunTaskerTask', a: a, b: b};
-	});
-var author$project$Activity$Reminder$reminderZap = function (_n0) {
-	var scheduledFor = _n0.scheduledFor;
-	var title = _n0.title;
-	var subtitle = _n0.subtitle;
-	return {
-		actions: _List_fromArray(
-			[
-				author$project$Activity$Reminder$Notify(
-				A4(
-					author$project$External$Notification$basic,
-					'reminder',
-					author$project$SmartTime$Duration$fromMinutes(5),
-					title,
-					subtitle)),
-				A2(author$project$Activity$Reminder$RunTaskerTask, 'Pavlok Zap', '')
-			]),
-		schedule: scheduledFor
-	};
+var author$project$NativeScript$Notification$Button = function (a) {
+	return {$: 'Button', a: a};
 };
+var author$project$NativeScript$Notification$Minute = {$: 'Minute'};
 var author$project$Activity$Reminder$scheduleOffTaskReminders = function (now) {
+	var actions = _List_fromArray(
+		[
+			{
+			button: author$project$NativeScript$Notification$Button('Snooze'),
+			id: 'SnoozeButton',
+			launch: false
+		},
+			{
+			button: author$project$NativeScript$Notification$Button('Go'),
+			id: 'LaunchButton',
+			launch: true
+		},
+			{
+			button: author$project$NativeScript$Notification$Button('Zap'),
+			id: 'ZapButton',
+			launch: false
+		}
+		]);
+	var base = _Utils_update(
+		author$project$Activity$Reminder$reminderBase,
+		{
+			actions: actions,
+			channel: elm$core$Maybe$Just('Off Task Warnings'),
+			id: elm$core$Maybe$Just(1)
+		});
 	return _List_fromArray(
 		[
-			author$project$Activity$Reminder$reminder(
-			{scheduledFor: now, subtitle: 'You can do this later', title: 'Off Task!'}),
-			author$project$Activity$Reminder$reminderZap(
+			_Utils_update(
+			base,
 			{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Duration$fromSeconds(30.0)),
-				subtitle: 'You have more important things to do right now!',
-				title: 'Off Task! Warning 2'
+				at: elm$core$Maybe$Just(now),
+				subtitle: elm$core$Maybe$Just('Off Task!'),
+				title: elm$core$Maybe$Just('You can do this later')
 			}),
-			author$project$Activity$Reminder$reminderZap(
+			_Utils_update(
+			base,
 			{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Duration$fromSeconds(60.0)),
-				subtitle: 'You have more important things to do right now!',
-				title: 'Off Task! Warning 3'
+				at: elm$core$Maybe$Just(
+					A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Duration$fromSeconds(30.0))),
+				subtitle: elm$core$Maybe$Just('Off Task! Second Warning'),
+				title: elm$core$Maybe$Just('You have more important things to do right now!')
 			}),
-			author$project$Activity$Reminder$reminderZap(
+			_Utils_update(
+			base,
 			{
-				scheduledFor: A2(
-					author$project$SmartTime$Moment$future,
-					now,
-					author$project$SmartTime$Duration$fromSeconds(90.0)),
-				subtitle: 'You have more important things to do right now!',
-				title: 'Off Task! Warning 4'
+				at: elm$core$Maybe$Just(
+					A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Duration$fromSeconds(60.0))),
+				subtitle: elm$core$Maybe$Just('Off Task! Third Warning'),
+				title: elm$core$Maybe$Just('You have more important things to do right now!')
+			}),
+			_Utils_update(
+			base,
+			{
+				at: elm$core$Maybe$Just(
+					A2(
+						author$project$SmartTime$Moment$future,
+						now,
+						author$project$SmartTime$Duration$fromSeconds(90.0))),
+				interval: elm$core$Maybe$Just(author$project$NativeScript$Notification$Minute),
+				subtitle: elm$core$Maybe$Just('Off Task!'),
+				title: elm$core$Maybe$Just('You have more important things to do right now!')
 			})
 		]);
 };
 var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
-	function (now, fromNow) {
+	function (now, timeLeft) {
 		var fractionLeft = function (denom) {
 			return A2(
 				author$project$SmartTime$Moment$future,
 				now,
 				A2(
 					author$project$SmartTime$Duration$subtract,
-					fromNow,
-					A2(author$project$SmartTime$Duration$scale, fromNow, 1 / denom)));
+					timeLeft,
+					A2(author$project$SmartTime$Duration$scale, timeLeft, 1 / denom)));
 		};
 		return _List_fromArray(
 			[
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: fractionLeft(2),
-					subtitle: '1/2 time left for activity.',
-					title: 'Half-way done!'
+					at: elm$core$Maybe$Just(
+						fractionLeft(2)),
+					subtitle: elm$core$Maybe$Just('1/2 time left for activity.'),
+					title: elm$core$Maybe$Just('Half-way done!')
 				}),
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: fractionLeft(3),
-					subtitle: '1/3 time left for activity.',
-					title: 'Two-thirds done!'
+					at: elm$core$Maybe$Just(
+						fractionLeft(3)),
+					subtitle: elm$core$Maybe$Just('1/3 time left for activity.'),
+					title: elm$core$Maybe$Just('Two-thirds done!')
 				}),
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: fractionLeft(4),
-					subtitle: '1/4 time left for activity.',
-					title: 'Three-Quarters done!'
+					at: elm$core$Maybe$Just(
+						fractionLeft(4)),
+					subtitle: elm$core$Maybe$Just('1/4 time left for activity.'),
+					title: elm$core$Maybe$Just('Three-quarters done!')
 				}),
-				author$project$Activity$Reminder$reminder(
+				_Utils_update(
+				author$project$Activity$Reminder$reminderBase,
 				{
-					scheduledFor: A2(author$project$SmartTime$Moment$future, now, fromNow),
-					subtitle: 'Reached maximum time allowed for this.',
-					title: 'Time\'s up!'
+					at: elm$core$Maybe$Just(
+						A2(author$project$SmartTime$Moment$future, now, timeLeft)),
+					subtitle: elm$core$Maybe$Just('1/4 time left for activity.'),
+					title: elm$core$Maybe$Just('Three-quarters done!')
 				})
 			]);
+	});
+var author$project$Activity$Switching$updateSticky = F4(
+	function (moment, timeLeft, onTaskStatus, newActivity) {
+		var blank = author$project$NativeScript$Notification$blank;
+		var actions = _List_fromArray(
+			[
+				{
+				button: author$project$NativeScript$Notification$Button('Sync Tasks'),
+				id: 'sync=todoist',
+				launch: false
+			}
+			]);
+		return _Utils_update(
+			blank,
+			{
+				actions: actions,
+				background_color: elm$core$Maybe$Nothing,
+				badge: elm$core$Maybe$Nothing,
+				bigTextStyle: elm$core$Maybe$Nothing,
+				body: elm$core$Maybe$Nothing,
+				body_expanded: elm$core$Maybe$Nothing,
+				channel: elm$core$Maybe$Just('Status'),
+				chronometer: elm$core$Maybe$Nothing,
+				countdown: elm$core$Maybe$Nothing,
+				detail: elm$core$Maybe$Nothing,
+				groupSummary: elm$core$Maybe$Nothing,
+				groupedMessages: elm$core$Maybe$Nothing,
+				icon: elm$core$Maybe$Nothing,
+				id: elm$core$Maybe$Just(42),
+				ongoing: elm$core$Maybe$Just(true),
+				priority: elm$core$Maybe$Nothing,
+				privacy: elm$core$Maybe$Nothing,
+				progress: elm$core$Maybe$Nothing,
+				silhouetteIcon: elm$core$Maybe$Nothing,
+				status_icon: elm$core$Maybe$Nothing,
+				status_text_size: elm$core$Maybe$Nothing,
+				subtitle: elm$core$Maybe$Just(
+					author$project$Activity$Activity$statusToString(onTaskStatus)),
+				title: elm$core$Maybe$Just(
+					author$project$Activity$Activity$getName(newActivity)),
+				title_expanded: elm$core$Maybe$Nothing,
+				update: elm$core$Maybe$Nothing,
+				useHTML: elm$core$Maybe$Nothing
+			});
 	});
 var author$project$Activity$Switching$scheduleReminders = F4(
 	function (env, timeline, onTaskStatus, _n0) {
@@ -15015,16 +15299,32 @@ var author$project$Activity$Switching$scheduleReminders = F4(
 		switch (onTaskStatus.$) {
 			case 'OnTask':
 				var timeLeft = onTaskStatus.a;
-				return A2(author$project$Activity$Reminder$scheduleOnTaskReminders, env.time, timeLeft);
+				return author$project$NativeScript$Commands$notify(
+					A2(
+						elm$core$List$cons,
+						A4(author$project$Activity$Switching$updateSticky, env.time, timeLeft, onTaskStatus, newActivity),
+						A2(author$project$Activity$Reminder$scheduleOnTaskReminders, env.time, timeLeft)));
 			case 'OffTask':
 				var excusedLeft = onTaskStatus.a;
-				return author$project$SmartTime$Duration$isPositive(excusedLeft) ? A3(
-					author$project$Activity$Reminder$scheduleExcusedReminders,
-					env.time,
-					author$project$Activity$Measure$excusableLimit(newActivity),
-					excusedLeft) : author$project$Activity$Reminder$scheduleOffTaskReminders(env.time);
+				return author$project$SmartTime$Duration$isPositive(excusedLeft) ? author$project$NativeScript$Commands$notify(
+					A2(
+						elm$core$List$cons,
+						A4(author$project$Activity$Switching$updateSticky, env.time, excusedLeft, onTaskStatus, newActivity),
+						A3(
+							author$project$Activity$Reminder$scheduleExcusedReminders,
+							env.time,
+							author$project$Activity$Measure$excusableLimit(newActivity),
+							excusedLeft))) : author$project$NativeScript$Commands$notify(
+					A2(
+						elm$core$List$cons,
+						A4(author$project$Activity$Switching$updateSticky, env.time, excusedLeft, onTaskStatus, newActivity),
+						author$project$Activity$Reminder$scheduleOffTaskReminders(env.time)));
 			default:
-				return _List_Nil;
+				return author$project$NativeScript$Commands$notify(
+					_List_fromArray(
+						[
+							A4(author$project$Activity$Switching$updateSticky, env.time, author$project$SmartTime$Duration$zero, onTaskStatus, newActivity)
+						]));
 		}
 	});
 var author$project$SmartTime$Human$Duration$breakdownMS = function (duration) {
@@ -15087,296 +15387,6 @@ var author$project$External$Tasker$exit = _Platform_outgoingPort(
 		return elm$json$Json$Encode$null;
 	});
 var author$project$External$Commands$hideWindow = author$project$External$Tasker$exit(_Utils_Tuple0);
-var author$project$External$Notification$encodeDuration = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Duration$inMs(dur));
-};
-var author$project$External$Notification$encodeMediaInfo = function (v) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'title',
-				elm$json$Json$Encode$string(v.title))
-			]));
-};
-var author$project$External$Notification$encodePriority = function (v) {
-	switch (v.$) {
-		case 'Default':
-			return elm$json$Json$Encode$int(0);
-		case 'Low':
-			return elm$json$Json$Encode$int(-1);
-		case 'High':
-			return elm$json$Json$Encode$int(1);
-		case 'Min':
-			return elm$json$Json$Encode$int(-2);
-		default:
-			return elm$json$Json$Encode$int(2);
-	}
-};
-var author$project$External$Notification$encodeTimeout = function (dur) {
-	return elm$json$Json$Encode$int(
-		author$project$SmartTime$Duration$inSecondsRounded(dur));
-};
-var author$project$External$Notification$encodeVibrationPattern = function (durs) {
-	return elm$json$Json$Encode$string(
-		elm$core$String$concat(
-			A2(
-				elm$core$List$map,
-				A2(elm$core$Basics$composeL, elm$core$String$fromInt, author$project$SmartTime$Duration$inMs),
-				durs)));
-};
-var author$project$SmartTime$Moment$unixEpoch = function () {
-	var jan1st1970_rataDie = 719163;
-	return author$project$SmartTime$Moment$Moment(
-		A2(author$project$SmartTime$Duration$scale, author$project$SmartTime$Duration$aDay, jan1st1970_rataDie));
-}();
-var author$project$SmartTime$Moment$toUnixTime = function (givenMoment) {
-	return A3(author$project$SmartTime$Moment$toInt, givenMoment, author$project$SmartTime$Moment$UTC, author$project$SmartTime$Moment$unixEpoch) / 1000;
-};
-var author$project$SmartTime$Moment$toUnixTimeInt = function (mo) {
-	return elm$core$Basics$floor(
-		author$project$SmartTime$Moment$toUnixTime(mo));
-};
-var author$project$External$Notification$encodeNotification = function (v) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				elm$json$Json$Encode$string(v.id)),
-				_Utils_Tuple2(
-				'persistent',
-				elm$json$Json$Encode$bool(v.persistent)),
-				_Utils_Tuple2(
-				'timeout',
-				author$project$External$Notification$encodeTimeout(v.timeout)),
-				_Utils_Tuple2(
-				'update',
-				function () {
-					var _n0 = v.update;
-					switch (_n0.$) {
-						case 'New':
-							return elm$json$Json$Encode$string('New');
-						case 'Replace':
-							return elm$json$Json$Encode$string('Replace');
-						default:
-							return elm$json$Json$Encode$string('Append');
-					}
-				}()),
-				_Utils_Tuple2(
-				'priority',
-				author$project$External$Notification$encodePriority(v.priority)),
-				_Utils_Tuple2(
-				'privacy',
-				function () {
-					var _n1 = v.privacy;
-					switch (_n1.$) {
-						case 'Public':
-							return elm$json$Json$Encode$string('Public');
-						case 'Private':
-							return elm$json$Json$Encode$string('Private');
-						case 'PrivateWithPublicVersion':
-							var publicversion = _n1.a;
-							return elm$json$Json$Encode$string('PrivateWithPublicVersion');
-						default:
-							return elm$json$Json$Encode$string('Secret');
-					}
-				}()),
-				_Utils_Tuple2(
-				'useHTML',
-				elm$json$Json$Encode$bool(v.useHTML)),
-				_Utils_Tuple2(
-				'title',
-				elm$json$Json$Encode$string(v.title)),
-				_Utils_Tuple2(
-				'title_expanded',
-				elm$json$Json$Encode$string(v.title_expanded)),
-				_Utils_Tuple2(
-				'body',
-				elm$json$Json$Encode$string(v.body)),
-				_Utils_Tuple2(
-				'body_expanded',
-				elm$json$Json$Encode$string(v.body_expanded)),
-				_Utils_Tuple2(
-				'subtext',
-				elm$json$Json$Encode$string(v.subtext)),
-				_Utils_Tuple2(
-				'detail',
-				function () {
-					var _n2 = v.detail;
-					if (_n2.$ === 'Number') {
-						var n = _n2.a;
-						return elm$json$Json$Encode$int(n);
-					} else {
-						var s = _n2.a;
-						return elm$json$Json$Encode$string(s);
-					}
-				}()),
-				_Utils_Tuple2(
-				'ticker',
-				elm$json$Json$Encode$string(v.ticker)),
-				_Utils_Tuple2(
-				'icon',
-				elm$json$Json$Encode$string(v.icon)),
-				_Utils_Tuple2(
-				'status_icon',
-				elm$json$Json$Encode$string(v.status_icon)),
-				_Utils_Tuple2(
-				'status_text_size',
-				elm$json$Json$Encode$int(v.status_text_size)),
-				_Utils_Tuple2(
-				'background_color',
-				elm$json$Json$Encode$string(v.background_color)),
-				_Utils_Tuple2(
-				'color_from_media',
-				elm$json$Json$Encode$bool(v.color_from_media)),
-				_Utils_Tuple2(
-				'badge',
-				function () {
-					var _n3 = v.badge;
-					switch (_n3.$) {
-						case 'NoBadge':
-							return elm$json$Json$Encode$string('NoBadge');
-						case 'SmallIcon':
-							return elm$json$Json$Encode$string('SmallIcon');
-						default:
-							return elm$json$Json$Encode$string('LargeIcon');
-					}
-				}()),
-				_Utils_Tuple2(
-				'picture',
-				elm$json$Json$Encode$string(v.picture)),
-				_Utils_Tuple2(
-				'picture_skip_cache',
-				elm$json$Json$Encode$bool(v.picture_skip_cache)),
-				_Utils_Tuple2(
-				'picture_expanded_icon',
-				elm$json$Json$Encode$string(v.picture_expanded_icon)),
-				_Utils_Tuple2(
-				'media_layout',
-				elm$json$Json$Encode$bool(v.media_layout)),
-				_Utils_Tuple2(
-				'media',
-				A2(elm_community$json_extra$Json$Encode$Extra$maybe, author$project$External$Notification$encodeMediaInfo, v.media)),
-				_Utils_Tuple2(
-				'url',
-				elm$json$Json$Encode$string(v.url)),
-				_Utils_Tuple2(
-				'on_create',
-				elm$json$Json$Encode$string(v.on_create)),
-				_Utils_Tuple2(
-				'on_touch',
-				elm$json$Json$Encode$string(v.on_touch)),
-				_Utils_Tuple2(
-				'on_dismiss',
-				elm$json$Json$Encode$string(v.on_dismiss)),
-				_Utils_Tuple2(
-				'dismiss_on_touch',
-				elm$json$Json$Encode$bool(v.dismiss_on_touch)),
-				_Utils_Tuple2(
-				'time',
-				A2(
-					elm_community$json_extra$Json$Encode$Extra$maybe,
-					elm$json$Json$Encode$int,
-					A2(elm$core$Maybe$map, author$project$SmartTime$Moment$toUnixTimeInt, v.time))),
-				_Utils_Tuple2(
-				'chronometer',
-				elm$json$Json$Encode$bool(v.chronometer)),
-				_Utils_Tuple2(
-				'countdown',
-				elm$json$Json$Encode$bool(v.countdown)),
-				_Utils_Tuple2(
-				'category',
-				elm$json$Json$Encode$string(v.category)),
-				_Utils_Tuple2(
-				'led_color',
-				elm$json$Json$Encode$string(v.led_color)),
-				_Utils_Tuple2(
-				'led_on_duration',
-				author$project$External$Notification$encodeDuration(v.led_on_duration)),
-				_Utils_Tuple2(
-				'led_off_duration',
-				author$project$External$Notification$encodeDuration(v.led_off_duration)),
-				_Utils_Tuple2(
-				'progress_max',
-				elm$json$Json$Encode$int(v.progress_max)),
-				_Utils_Tuple2(
-				'progress_current',
-				elm$json$Json$Encode$int(v.progress_current)),
-				_Utils_Tuple2(
-				'progress_indeterminate',
-				elm$json$Json$Encode$bool(v.progress_indeterminate)),
-				_Utils_Tuple2(
-				'sound',
-				elm$json$Json$Encode$string(v.sound)),
-				_Utils_Tuple2(
-				'vibration_pattern',
-				author$project$External$Notification$encodeVibrationPattern(v.vibration_pattern)),
-				_Utils_Tuple2(
-				'phone_only',
-				elm$json$Json$Encode$bool(v.phone_only))
-			]));
-};
-var author$project$Activity$Reminder$encodeAction = function (v) {
-	switch (v.$) {
-		case 'Notify':
-			var notif = v.a;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'notify',
-						author$project$External$Notification$encodeNotification(notif))
-					]));
-		case 'RunTaskerTask':
-			var name = v.a;
-			var parameters = v.b;
-			return elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'task_name',
-						elm$json$Json$Encode$string(name)),
-						_Utils_Tuple2(
-						'task_par',
-						elm$json$Json$Encode$string(parameters))
-					]));
-		default:
-			return elm$json$Json$Encode$string('SendIntent');
-	}
-};
-var author$project$Activity$Reminder$encodeAlarm = function (v) {
-	return elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'schedule',
-				elm$json$Json$Encode$int(
-					author$project$SmartTime$Moment$toUnixTimeInt(v.schedule))),
-				_Utils_Tuple2(
-				'actions',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAction, v.actions))
-			]));
-};
-var author$project$External$Commands$scheduleNotify = function (alarmList) {
-	var compareReminders = F2(
-		function (a, b) {
-			return A2(author$project$SmartTime$Moment$compareLateness, a.schedule, b.schedule);
-		});
-	var orderedList = A2(elm$core$List$sortWith, compareReminders, alarmList);
-	var alarmsObject = elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'alarms',
-				A2(elm$json$Json$Encode$list, author$project$Activity$Reminder$encodeAlarm, orderedList))
-			]));
-	return author$project$External$Tasker$variableOut(
-		_Utils_Tuple2(
-			'scheduled',
-			A2(elm$json$Json$Encode$encode, 0, alarmsObject)));
-};
 var author$project$Activity$Switching$switchActivity = F3(
 	function (activityID, app, env) {
 		var updatedApp = _Utils_update(
@@ -15454,33 +15464,102 @@ var author$project$Activity$Switching$switchActivity = F3(
 							'PreviousSessionTotal',
 							A2(author$project$Activity$Measure$exportLastSession, updatedApp, oldActivityID))),
 						author$project$External$Commands$hideWindow,
-						author$project$External$Commands$scheduleNotify(
 						A4(
-							author$project$Activity$Switching$scheduleReminders,
-							env,
-							updatedApp.timeline,
-							onTaskStatus,
-							_Utils_Tuple2(activityID, newActivity))),
+						author$project$Activity$Switching$scheduleReminders,
+						env,
+						updatedApp.timeline,
+						onTaskStatus,
+						_Utils_Tuple2(activityID, newActivity)),
 						A2(author$project$Activity$Switching$exportNextTask, app, env)
 					])));
 	});
+var author$project$Activity$Activity$showing = function (activity) {
+	return !activity.hidden;
+};
+var author$project$TimeTracker$writeActivityUsage = F3(
+	function (app, env, _n0) {
+		var activityID = _n0.a;
+		var activity = _n0.b;
+		var period = activity.maxTime.b;
+		var lastPeriod = A3(author$project$Activity$Measure$relevantTimeline, app.timeline, env.time, period);
+		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activityID);
+		var totalMinutes = author$project$SmartTime$Duration$inMinutesRounded(total);
+		return (author$project$SmartTime$Duration$inMs(total) > 0) ? (elm$core$String$fromInt(totalMinutes) + ('/' + (elm$core$String$fromInt(
+			author$project$SmartTime$Duration$inMinutesRounded(
+				author$project$SmartTime$Human$Duration$toDuration(period))) + 'm'))) : '';
+	});
+var author$project$TimeTracker$exportActivityViewModel = F2(
+	function (appData, environment) {
+		var encodeActivityVM = function (_n0) {
+			var activityID = _n0.a;
+			var activity = _n0.b;
+			return elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'name',
+						elm$json$Json$Encode$string(
+							author$project$Activity$Activity$getName(activity))),
+						_Utils_Tuple2(
+						'excusedUsage',
+						elm$json$Json$Encode$string(
+							A3(
+								author$project$TimeTracker$writeActivityUsage,
+								appData,
+								environment,
+								_Utils_Tuple2(
+									author$project$ID$tag(activityID),
+									activity)))),
+						_Utils_Tuple2(
+						'totalToday',
+						elm$json$Json$Encode$string(
+							A3(
+								author$project$TimeTracker$writeActivityUsage,
+								appData,
+								environment,
+								_Utils_Tuple2(
+									author$project$ID$tag(activityID),
+									activity))))
+					]));
+		};
+		return A2(
+			elm$json$Json$Encode$list,
+			encodeActivityVM,
+			elm_community$intdict$IntDict$toList(
+				A2(
+					author$project$Incubator$IntDict$Extra$filterValues,
+					author$project$Activity$Activity$showing,
+					author$project$Activity$Activity$allActivities(appData.activities))));
+	});
 var author$project$TimeTracker$update = F4(
 	function (msg, state, app, env) {
-		if (msg.$ === 'NoOp') {
-			return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
-		} else {
-			var activityId = msg.a;
-			var _n1 = _Utils_eq(
-				activityId,
-				author$project$Activity$Switching$currentActivityFromApp(app)) ? _Utils_Tuple2(
-				app,
-				author$project$External$Commands$toast('Switched to same activity!')) : A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
-			var updatedApp = _n1.a;
-			var cmds = _n1.b;
-			return _Utils_Tuple3(state, updatedApp, cmds);
+		switch (msg.$) {
+			case 'NoOp':
+				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
+			case 'StartTracking':
+				var activityId = msg.a;
+				var _n1 = _Utils_eq(
+					activityId,
+					author$project$Activity$Switching$currentActivityFromApp(app)) ? _Utils_Tuple2(
+					app,
+					author$project$External$Commands$toast('Switched to same activity!')) : A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
+				var updatedApp = _n1.a;
+				var cmds = _n1.b;
+				return _Utils_Tuple3(state, updatedApp, cmds);
+			default:
+				return _Utils_Tuple3(
+					state,
+					app,
+					author$project$External$Tasker$variableOut(
+						_Utils_Tuple2(
+							'activitiesVM',
+							A2(
+								elm$json$Json$Encode$encode,
+								0,
+								A2(author$project$TimeTracker$exportActivityViewModel, app, env)))));
 		}
 	});
-var author$project$TimeTracker$NoOp = {$: 'NoOp'};
+var author$project$TimeTracker$ExportVM = {$: 'ExportVM'};
 var author$project$TimeTracker$StartTracking = function (a) {
 	return {$: 'StartTracking', a: a};
 };
@@ -15530,11 +15609,11 @@ var author$project$TimeTracker$urlTriggers = function (app) {
 						author$project$TimeTracker$StartTracking(author$project$Activity$Activity$dummy))
 					]))),
 			_Utils_Tuple2(
-			'noop',
+			'export',
 			elm$core$Dict$fromList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('noop', author$project$TimeTracker$NoOp)
+						_Utils_Tuple2('all', author$project$TimeTracker$ExportVM)
 					])))
 		]);
 };
@@ -15705,11 +15784,11 @@ var author$project$Main$handleUrlTriggers = F2(
 									_Utils_Tuple2('todoist', author$project$Main$SyncTodoist)
 								]))),
 						_Utils_Tuple2(
-						'blowup',
+						'clearerrors',
 						elm$core$Dict$fromList(
 							_List_fromArray(
 								[
-									_Utils_Tuple2('yes', author$project$Main$SyncTodoist)
+									_Utils_Tuple2('clearerrors', author$project$Main$ClearErrors)
 								])))
 					])));
 		var parseList = A2(
@@ -15814,12 +15893,26 @@ var author$project$Main$update = F2(
 						author$project$Integrations$Todoist$fetchUpdates(appData.todoist)));
 			case 'TodoistServerResponse':
 				var response = msg.a;
+				var blank = author$project$NativeScript$Notification$blank;
 				var _n1 = A2(author$project$Integrations$Todoist$handle, response, appData);
 				var newAppData = _n1.a;
 				var whatHappened = _n1.b;
+				var notification = _Utils_update(
+					blank,
+					{
+						bigTextStyle: elm$core$Maybe$Just(true),
+						body: elm$core$Maybe$Just(whatHappened),
+						id: elm$core$Maybe$Just(23),
+						subtitle: elm$core$Maybe$Just('Sync Status'),
+						timeout: elm$core$Maybe$Just(
+							author$project$SmartTime$Duration$fromMinutes(5)),
+						title: elm$core$Maybe$Just('Todoist Response')
+					});
 				return _Utils_Tuple2(
 					A3(author$project$Main$Model, viewState, newAppData, environment),
-					author$project$External$Commands$toast(whatHappened));
+					author$project$NativeScript$Commands$notify(
+						_List_fromArray(
+							[notification])));
 			case 'Link':
 				var urlRequest = msg.a;
 				if (urlRequest.$ === 'Internal') {
@@ -17449,7 +17542,6 @@ var author$project$Main$subscriptions = function (model) {
 				author$project$Main$storageChangedElsewhere(author$project$Main$NewAppData)
 			]));
 };
-var author$project$Main$ClearErrors = {$: 'ClearErrors'};
 var rtfeldman$elm_css$VirtualDom$Styled$Node = F3(
 	function (a, b, c) {
 		return {$: 'Node', a: a, b: b, c: c};
@@ -17760,13 +17852,6 @@ var author$project$TaskList$viewControlsFilters = function (visibilityFilters) {
 				rtfeldman$elm_css$Html$Styled$text(' '),
 				A3(author$project$TaskList$visibilitySwap, 'completed', author$project$TaskList$CompleteTasksOnly, visibilityFilters)
 			]));
-};
-var elm$core$List$isEmpty = function (xs) {
-	if (!xs.b) {
-		return true;
-	} else {
-		return false;
-	}
 };
 var elm$virtual_dom$VirtualDom$lazy2 = _VirtualDom_lazy2;
 var elm$virtual_dom$VirtualDom$node = function (tag) {
@@ -20762,9 +20847,6 @@ var author$project$TaskList$view = F3(
 						]))
 				]));
 	});
-var author$project$Activity$Activity$showing = function (activity) {
-	return !activity.hidden;
-};
 var author$project$Activity$Measure$inHoursMinutes = function (duration) {
 	var hour = 3600000;
 	var durationInMs = author$project$SmartTime$Duration$inMs(duration);
@@ -20924,18 +21006,6 @@ var author$project$TimeTracker$writeActivityToday = F3(
 	function (app, env, activityID) {
 		return author$project$Activity$Measure$inHoursMinutes(
 			A3(author$project$Activity$Measure$justTodayTotal, app.timeline, env, activityID));
-	});
-var author$project$TimeTracker$writeActivityUsage = F3(
-	function (app, env, _n0) {
-		var activityID = _n0.a;
-		var activity = _n0.b;
-		var period = activity.maxTime.b;
-		var lastPeriod = A3(author$project$Activity$Measure$relevantTimeline, app.timeline, env.time, period);
-		var total = A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activityID);
-		var totalMinutes = author$project$SmartTime$Duration$inMinutesRounded(total);
-		return (author$project$SmartTime$Duration$inMs(total) > 0) ? (elm$core$String$fromInt(totalMinutes) + ('/' + (elm$core$String$fromInt(
-			author$project$SmartTime$Duration$inMinutesRounded(
-				author$project$SmartTime$Human$Duration$toDuration(period))) + 'm'))) : '';
 	});
 var author$project$TimeTracker$viewActivity = F3(
 	function (app, env, _n0) {
