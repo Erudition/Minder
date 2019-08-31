@@ -51,6 +51,7 @@
   "devDependencies": {
     "eslint": "~5.8.0",
     "nativescript-dev-webpack": "~1.1.0",
+    "nativescript-worker-loader": "^0.9.5",
     "node-sass": "^4.7.1"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
