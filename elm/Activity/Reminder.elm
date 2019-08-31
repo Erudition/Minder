@@ -102,7 +102,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
             }
 
         actions =
-            [ { id = "Done", button = Notif.Button "OK I'm Ready", launch = False }
+            [ { id = "BackOnTask", button = Notif.Button "OK I'm Ready", launch = False }
             ]
 
         firstIsGreater first last =
@@ -138,7 +138,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 ]
 
         buildGettingCloseReminder amountLeft =
-            { reminderBase
+            { base
                 | at = Just <| beforeTimesUp amountLeft
                 , title = Just <| "Finish up! Only " ++ write amountLeft ++ " left!"
                 , subtitle = Just <| "Excused for up to " ++ write excusedLimit
