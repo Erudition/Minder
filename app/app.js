@@ -64,7 +64,7 @@ export var app = Elm.Headless.init(
 
 
 
-
+const worker = new Worker("./worker.js");
 
 
 
