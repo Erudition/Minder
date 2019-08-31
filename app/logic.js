@@ -43,7 +43,7 @@ handleOpenURL(function(appURL) {
       launchURL = appURL.toString();
   } else {
       console.info('Already running, changing URL to: ', appURL);
-      app.ports.headlessMsg.send(appURL.toString());
+      elm.ports.headlessMsg.send(appURL.toString());
   }
 });
 
@@ -52,9 +52,8 @@ handleOpenURL(function(appURL) {
 
 // ELM INITIALIZATION -----------------------------------------------------------
 
-var Elm = require('../www/elm-headless.js').Elm;
 
-export var app = Elm.Headless.init(
+var elm = require('../www/elm-headless.js').Elm.Headless.init(
     { flags: [launchURL, appDataString] });
 
 console.info("Got past Elm initialization! ---------------------------------");
@@ -66,7 +65,7 @@ const batteryChanged = (androidContext, intent) => {
     const level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
     const scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
     //vm.set("batteryLife", percent.toString()); //???
-    app.ports.headlessMsg.send("http://minder.app/?battery=" + level)
+    elm.ports.headlessMsg.send("http://minder.app/?battery=" + level)
 };
 
 
@@ -77,7 +76,7 @@ const secretMessageReceived = (androidContext, intent) => {
     let maybeMessage = intent.getStringExtra("command");
     if (typeof maybeMessage === 'string' || maybeMessage instanceof String)
     {
-        app.ports.headlessMsg.send(maybeMessage);
+        elm.ports.headlessMsg.send(maybeMessage);
         console.info("received secret message:" + maybeMessage);
     } else {
         console.warn("Got an secretMessage intent, but it was empty!");
@@ -102,7 +101,7 @@ applicationModule.android.registerBroadcastReceiver(
 // FLASH OR "TOAST" POPUPS ------------------------------------------
 const toasty = require('nativescript-toasty').Toasty;
 
-app.ports.flash.subscribe(function(toast_message) {
+elm.ports.flash.subscribe(function(toast_message) {
     const toast = new toasty({
         text: toast_message,
         //duration: ToastDuration.SHORT,
@@ -122,7 +121,7 @@ app.ports.flash.subscribe(function(toast_message) {
 // NOTIFICATIONS --------------------------------------------------------
 const notifications = require ("nativescript-local-notifications").LocalNotifications;
 
-app.ports.ns_notify.subscribe(function(notificationList) {
+elm.ports.ns_notify.subscribe(function(notificationList) {
 
     // Elm-encoded JSON object obviously can't contain the required Date() object
     var correctedList = notificationList.map(
@@ -159,7 +158,7 @@ app.ports.ns_notify.subscribe(function(notificationList) {
 notifications.addOnMessageReceivedCallback(
     function (notification) {
       console.dir(notification);
-      app.ports.headlessMsg.send("http://minder.app/?" + notification.response );
+      elm.ports.headlessMsg.send("http://minder.app/?" + notification.response );
     }
 ).then(
     function() {
@@ -170,14 +169,14 @@ notifications.addOnMessageReceivedCallback(
 
 
 // LEGACY PORT: VARIABLE OUT -------------------------------------------------------
-app.ports.variableOut.subscribe(function(data) {
+elm.ports.variableOut.subscribe(function(data) {
     appSettings.setString(data[0], data[1]);
     console.info("Setting " + data[0] + " to " + data[1])
 });
 
 
 // SET STORAGE -----------------------------------------------------------------
-app.ports.setStorage.subscribe(function(data) {
+elm.ports.setStorage.subscribe(function(data) {
 
     console.info(" App Data being set");
 
@@ -191,17 +190,14 @@ app.ports.setStorage.subscribe(function(data) {
 });
 
 
-// WORKER THREAD: UNIVERSAL MESSAGE PASSSING - HANDLER ---------------------------
+// WORKER THREAD: UNIVERSAL MESSAGE PASSING - HANDLER ---------------------------
 
-   global.onmessage = function(msg) {
-       var request = msg.data;
-       var src = request.src;
-       var mode = request.mode || 'noop'
-       var options = request.options;
+global.onmessage = function(incoming) {
+    try {
+        elm.ports[incoming.data.port].send(incoming.data.message);
+    } catch (e) {
+        console.error("Worker got a message, but couldn't act on it: " + incoming.toString());
+        console.dir(incoming);
+    }
 
-       var result = processImage(src, mode, options);
-
-       var msg = result !== undefined ? { success: true, src: result } : { }
-
-       global.postMessage(msg);
-   }
+}

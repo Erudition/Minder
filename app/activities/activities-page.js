@@ -1,6 +1,6 @@
 const ActivitiesViewModel = require("./activities-view-model");
 
-var elmApp = require("../app.js").app;
+var main = require("../app.js");
 
 
 
@@ -31,7 +31,7 @@ function onItemTapNew(args) {
     const page = view.page;
     const tappedItem = view.bindingContext;
 
-    elmApp.ports.headlessMsg.send("http://minder.app/?start=" + tappedItem.name);
+    main.tellElm("headlessMsg", "http://minder.app/?start=" + tappedItem.name);
 
     console.dir(tappedItem);
 

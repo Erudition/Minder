@@ -4,7 +4,7 @@ const worker = new ElmManager();
 
 
 // UNIVERSAL COMMUNICATION CHANNEL
-function tellElm(destinationPort, outgoingMessage) {
+export function tellElm(destinationPort, outgoingMessage) {
     worker.postMessage({port : destinationPort, message: outgoingMessage});
 }
 worker.onmessage = function(event) {
