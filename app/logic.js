@@ -60,42 +60,6 @@ console.info("Got past Elm initialization! ---------------------------------");
 
 
 
-// BATTERY INFO UPDATE -----------------------------------------------------------
-const batteryChanged = (androidContext, intent) => {
-    const level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-    const scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
-    //vm.set("batteryLife", percent.toString()); //???
-    elm.ports.headlessMsg.send("http://minder.app/?battery=" + level)
-};
-
-
-
-// EXTERNAL ELM COMMAND VIA INTENT BROADCAST --------------------------------------
-const secretMessageReceived = (androidContext, intent) => {
-    //vm.set("batteryLife", percent.toString()); //???
-    let maybeMessage = intent.getStringExtra("command");
-    if (typeof maybeMessage === 'string' || maybeMessage instanceof String)
-    {
-        elm.ports.headlessMsg.send(maybeMessage);
-        console.info("received secret message:" + maybeMessage);
-    } else {
-        console.warn("Got an secretMessage intent, but it was empty!");
-    }
-};
-
-applicationModule.android.registerBroadcastReceiver(
-    "app.minder.secretMessage",
-    secretMessageReceived
-);
-
-
-// LISTENING FOR STANDARD SYSTEM BROADCASTS ---------------------------------------
-
-// applicationModule.android.registerBroadcastReceiver(
-//     android.content.Intent.ACTION_BATTERY_CHANGED,
-//     batteryChanged
-// );
-
 
 
 // FLASH OR "TOAST" POPUPS ------------------------------------------
