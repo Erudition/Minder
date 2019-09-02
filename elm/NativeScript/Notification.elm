@@ -82,7 +82,7 @@ type alias Notification =
     , body_expanded : Maybe String -- ?
     , detail : Maybe Detail -- NOT YET SUPPORTED
     , status_icon : Maybe String -- NOT YET SUPPORTED
-    , status_text_size : Maybe Int -- NOT YET SUPPORTED (in sp)
+    , status_text_size : Maybe Int -- NOT YET SUPPORTED (in sp units)
     , background_color : Maybe String -- NOT YET SUPPORTED
     , color_from_media : Maybe Bool -- NOT YET SUPPORTED
     , picture_skip_cache : Maybe Bool -- NOT YET SUPPORTED

@@ -29,22 +29,26 @@ scheduleOnTaskReminders now timeLeft =
     [ { reminderBase
         | at = Just <| fractionLeft 2
         , title = Just "Half-way done!"
-        , subtitle = Just "1/2 time left for activity."
+        , body = Just "1/2 time left for activity."
+        , subtitle = Just "Working on: XYZ"
       }
     , { reminderBase
         | at = Just <| fractionLeft 3
         , title = Just "Two-thirds done!"
-        , subtitle = Just "1/3 time left for activity."
+        , body = Just "1/3 time left for activity."
+        , subtitle = Just "Working on: XYZ"
       }
     , { reminderBase
         | at = Just <| fractionLeft 4
         , title = Just "Three-quarters done!"
-        , subtitle = Just "1/4 time left for activity."
+        , body = Just "1/4 time left for activity."
+        , subtitle = Just "Working on: XYZ"
       }
     , { reminderBase
         | at = Just <| future now timeLeft
         , title = Just "Three-quarters done!"
-        , subtitle = Just "1/4 time left for activity."
+        , body = Just "1/4 time left for activity."
+        , subtitle = Just "Working on: XYZ"
       }
     ]
 
@@ -69,22 +73,26 @@ scheduleOffTaskReminders now =
         | at = Just <| now
         , subtitle = Just "Off Task!"
         , title = Just "You can do this later"
+        , body = Just "Should do: XYZ"
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 30.0)
         , subtitle = Just "Off Task! Second Warning"
         , title = Just "You have more important things to do right now!"
+        , body = Just "Should do: XYZ"
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 60.0)
         , subtitle = Just "Off Task! Third Warning"
         , title = Just "You have more important things to do right now!"
+        , body = Just "Should do: XYZ"
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 90.0)
         , subtitle = Just "Off Task!"
         , title = Just "You have more important things to do right now!"
         , interval = Just Notif.Minute
+        , body = Just "Should do: XYZ"
       }
     ]
 
