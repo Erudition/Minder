@@ -30,10 +30,10 @@ try {
 // URL HANDLING ---------------------------------------------------------------
 var handleOpenURL = require("nativescript-urlhandler").handleOpenURL;
 
-const testingExport = "http://minder.app/?export=all";
-const testingClearErrors = "http://minder.app/?clearerrors=clearerrors";
-const testingActivity = "http://minder.app/?start=Restroom";
-const testingSync = "http://minder.app/?sync=todoist";
+const testingExport = "https://minder.app/?export=all";
+const testingClearErrors = "https://minder.app/?clearerrors=clearerrors";
+const testingActivity = "https://minder.app/?start=Restroom";
+const testingSync = "https://minder.app/?sync=todoist";
 var launchURL = testingExport;
 
 // URL passed in via somewhere else on the system
@@ -122,7 +122,8 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
 notifications.addOnMessageReceivedCallback(
     function (notification) {
       console.dir(notification);
-      elm.ports.headlessMsg.send("http://minder.app/?" + notification.response );
+      whatHappened = notification.response ? notification.response : notification.channel
+      elm.ports.headlessMsg.send("http://minder.app/?" + whatHappened );
     }
 ).then(
     function() {

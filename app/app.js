@@ -11,8 +11,10 @@ worker.onmessage = function(event) {
     console.log(incomingMessage);
 }
 
-// Broadcasts can't be in logic.js (because worker shuts off?)
 
+// BROADCAST RECEIVERS
+// Broadcasts can't be in logic.js (because worker shuts off?)
+const applicationModule = require("tns-core-modules/application");
 // BROADCAST: BATTERY INFO UPDATE ----------------------------------------------
 
 // applicationModule.android.registerBroadcastReceiver(
@@ -35,7 +37,7 @@ const secretMessageReceived = (androidContext, intent) => {
     let maybeMessage = intent.getStringExtra("command");
     if (typeof maybeMessage === 'string' || maybeMessage instanceof String)
     {
-        tellElm(headlessMsg, maybeMessage);
+        tellElm("headlessMsg", maybeMessage);
         console.info("received secret message:" + maybeMessage);
     } else {
         console.warn("Got an secretMessage intent, but it was empty!");
