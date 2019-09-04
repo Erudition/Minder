@@ -11,18 +11,15 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), ab
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 
 
-reminderBase : Notification
-reminderBase =
-    let
-        blank =
-            Notif.blank "Override me!"
-    in
-    { blank | expiresAfter = Just (Duration.fromMinutes 1) }
-
-
 scheduleOnTaskReminders : Moment -> Duration -> List Notification
 scheduleOnTaskReminders now timeLeft =
     let
+        blank =
+            Notif.blank "Override me!"
+
+        reminderBase =
+            { blank | expiresAfter = Just (Duration.fromMinutes 1) }
+
         fractionLeft denom =
             future now <| Duration.subtract timeLeft (Duration.scale timeLeft (1 / denom))
     in
@@ -56,12 +53,23 @@ scheduleOnTaskReminders now timeLeft =
 scheduleOffTaskReminders : Moment -> List Notification
 scheduleOffTaskReminders now =
     let
+        blank =
+            Notif.blank "Override me!"
+
         base =
-            { reminderBase
+            { blank
                 | id = Just 1
                 , channel = "Off Task Warnings"
                 , actions = actions
+                , importance = Just Notif.Max
+                , expiresAfter = Just (Duration.fromMinutes 1)
             }
+
+        buzz count =
+            List.repeat count
+                ( Duration.fromMs 100
+                , Duration.fromMs 100
+                )
 
         actions =
             [ { id = "SnoozeButton", button = Notif.Button "Snooze", launch = False }
@@ -74,18 +82,21 @@ scheduleOffTaskReminders now =
         , subtitle = Just "Off Task!"
         , title = Just "You can do this later"
         , body = Just "Should do: XYZ"
+        , vibrationPattern = Just (buzz 2)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 30.0)
         , subtitle = Just "Off Task! Second Warning"
         , title = Just "You have more important things to do right now!"
         , body = Just "Should do: XYZ"
+        , vibrationPattern = Just (buzz 4)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 60.0)
         , subtitle = Just "Off Task! Third Warning"
         , title = Just "You have more important things to do right now!"
         , body = Just "Should do: XYZ"
+        , vibrationPattern = Just (buzz 8)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 90.0)
@@ -93,6 +104,7 @@ scheduleOffTaskReminders now =
         , title = Just "You have more important things to do right now!"
         , interval = Just Notif.Minute
         , body = Just "Should do: XYZ"
+        , vibrationPattern = Just (buzz 16)
       }
     ]
 
@@ -102,8 +114,11 @@ scheduleOffTaskReminders now =
 scheduleExcusedReminders : Moment -> Duration -> Duration -> List Notification
 scheduleExcusedReminders now excusedLimit timeLeft =
     let
+        blank =
+            Notif.blank "Override me!"
+
         base =
-            { reminderBase
+            { blank
                 | id = Just 7
                 , channel = "Excused Reminders"
                 , actions = actions
