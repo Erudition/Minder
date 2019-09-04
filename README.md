@@ -1,10 +1,33 @@
-# Docket
+# Minder
+The ultimate assistant for ADHD. Keeps track of what you _should be doing_ and sends effective reminders (including zaps) if you're off task.
+
+But how does Minder know what you _should be doing_?
+
+## Docket
 Todo list + Calendar + Time Tracker = Life Planner
 
-- Current focus is time tracker.
-- Auto-deploying with git hook.
-- Deploying to Github pages.
-- Integrating with Tasker.
+- The original Elm project: an actual fork of Elm's TodoMVC example.
+- Aiming to be the most powerful to-do list out there.
+- Using traditional Elm HTML output and hosted here on Github Pages
+- Not yet ready to be relied on by Minder :(
+
+
+## Tasker
+Minder is the formalization of a ton of Tasker scripts I had set up to accomplish the same task. I had been co-developing Minder with Docket, so I started to use Tasker's Javascript features to move more of Minder's logic into the Elm codebase.
+
+## Todoist
+As a temporary measure, I used Todoist to stand in for Docket until it's ready. It's proprietary, but it has an accessible API that I could even use in Tasker. Currently Todoist is still used for task management while Minder is being fleshed out.
+
+## Capacitor
+Eventually Tasker's imperative-ness and the bloat of the scripts got to be too much and I decided to create a full-blown app - but how? I wanted to use Elm, so naturally I looked at something like Cordova/PhoneGap, which displays web pages in native apps. I found a promising new kid on the block, Capacitor, and ended up using that instead. A large portion of the commit history is on the Capacitor version of the project.
+
+## NativeScript
+But Capacitor didn't really replace the Tasker functionality, like local notifications, triggering Pavlok Zaps, monitoring the apps the user spent time on for time tracking, etc. And of course using a webview is not a great start for performance, it's always better to go native.
+
+However, giving up Capacitor seemed to mean giving up iOS/Android dual-compatibility until I found NativeScript. NativeScript would run JS in the full Android environment, meaning I could eventually implement all the Tasker features myself like any other native app. Awesome! Alas, I held off on it for a long time because of a big issue: My Elm-powered app would have an awesome logical foundation, but... no webview or HTML means Elm can't put anything on the screen!
+
+Much later, seeing the power of NativeScript to easily handle my local notifications, I decided to just go for it. So I said goodbye to Capacitor for good, and even to the awkward Elm Integration with Tasker. I was now working strictly with Elm and NativeScript... and loving it. Native is great! Except I still have no solution for putting things on the screen. So I guess I'm going to learn to use NativeScript's XML-based view system for now, and have Elm in headless mode sending it all the data it needs to build the view. Ugh. One day I hope to hack the Elm VirtualDOM to work directly on the NS views though.
+
 
 
 # Dev Journal
