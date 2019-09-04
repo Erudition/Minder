@@ -1,6 +1,6 @@
 require('globals'); // necessary to bootstrap tns modules on the new thread
 
-console.log("I'm in the worker!");
+console.info("Initializing business logic");
 
 
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
@@ -13,15 +13,14 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 //let context = androidApp.context; // The current Android context
 
 
-
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
 const appSettings = require("tns-core-modules/application-settings");
 // appSettings.clear("appData");
 try {
-    let appDataString = appSettings.getString("appData", "");
+    var appDataString = appSettings.getString("appData", "");
 } catch (e) {
     console.error("Epic failure when fetching stored AppData.", e.toString());
-    let appDataString = "";
+    var appDataString = "";
 }
 
 
@@ -108,8 +107,8 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         }
     );
 
-    console.info("Here are the Notifications I'll try to schedule:");
-    console.dir(correctedList);
+    // console.info("Here are the Notifications I'll try to schedule:");
+    // console.dir(correctedList);
 
     // Clean slate every time - TODO: better way
     notifications.cancelAll();
@@ -133,17 +132,19 @@ notifications.addOnMessageReceivedCallback(
     }
 ).then(
     function() {
-      console.info("Listener added");
+      //console.info("Listener added");
     }
 )
 
 
 
-// LEGACY PORT: VARIABLE OUT -------------------------------------------------------
+// LEGACY PORT: VARIABLE OUT --------------------------------------------------
+
+
 elm.ports.variableOut.subscribe(function(data) {
-    appSettings.setString(data[0], data[1]);
-    console.info("Setting " + data[0] + " to " + data[1])
+    postMessage(data);
 });
+
 
 
 // SET STORAGE -----------------------------------------------------------------
@@ -157,7 +158,6 @@ elm.ports.setStorage.subscribe(function(data) {
     // }
 
     appSettings.setString("appData", data);
-    appData = data; //needed?
 });
 
 

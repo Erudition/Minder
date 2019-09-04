@@ -2,13 +2,45 @@
 const ElmManager = require("nativescript-worker-loader!./logic.js");
 const worker = new ElmManager();
 
+const observableModule = require("tns-core-modules/data/observable");
+global.globalViewModel = observableModule.fromObject(
+    {activities:[   {"name":"Unloaded"
+                    ,"excusedUsage": new Date().toString()
+                    ,"totalToday": "bleh"
+                    }
+                ]
+    });
 
 // UNIVERSAL COMMUNICATION CHANNEL
 export function tellElm(destinationPort, outgoingMessage) {
     worker.postMessage({port : destinationPort, message: outgoingMessage});
 }
-worker.onmessage = function(event) {
-    console.log(incomingMessage);
+worker.onmessage = function(incomingMessage) {
+    if (incomingMessage.data[0] == "activities") {
+        updateVM(incomingMessage.data);
+    } else {
+        console.info("Setting " + incomingMessage.data[0] + " to " + incomingMessage.data[1]);
+        global[incomingMessage.data[0]] = incomingMessage.data[1]
+    }
+
+}
+
+
+
+// VIEWMODEL UPDATER
+function updateVM (data) {
+    // No access to globals in worker
+    //global.globalViewModel.set(part, value);
+
+    try {
+        let newObservable = (JSON.parse(data[1]));
+        global.globalViewModel.set(data[0], newObservable);
+        // console.info("Here's the new globalViewModel:");
+        // console.dir(global.globalViewModel);
+
+    } catch (e) {
+        console.error("Unable to set viewModel " + data[0] + " because " + e.toString())
+    }
 }
 
 
@@ -50,10 +82,7 @@ applicationModule.android.registerBroadcastReceiver(
 );
 
 
-// LISTENING FOR STANDARD SYSTEM BROADCASTS ---------------------------------------
-
-
-
+// LISTENING FOR STANDARD SYSTEM BROADCASTS ------------------------------------
 
 
 
