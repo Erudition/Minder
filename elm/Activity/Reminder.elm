@@ -17,7 +17,7 @@ reminderBase =
         blank =
             Notif.blank "Override me!"
     in
-    { blank | timeout = Just (Duration.fromMinutes 1) }
+    { blank | expiresAfter = Just (Duration.fromMinutes 1) }
 
 
 scheduleOnTaskReminders : Moment -> Duration -> List Notification

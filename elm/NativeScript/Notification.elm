@@ -1,4 +1,4 @@
-module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, LEDcolor, MediaInfo, Notification, NotificationID, Path, Priority(..), Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeMediaInfo, encodePriority, encodeTimeout, encodeVibrationPattern)
+module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodeVibrationPattern)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
@@ -72,10 +72,17 @@ type alias Notification =
     -- Add an array of NotificationAction objects (see below) to add buttons or text input to a notification.
     , actions : List Action
 
-    --  That's it for the plugin
-    , timeout : Maybe Duration -- NOT YET SUPPORTED
+    ------  That's it for the original plugin support
+    , importance : Maybe Importance -- ADDED BY ME
+
+    -- Notification Timeout
+    , expiresAfter : Maybe Duration -- ADDED BY ME
+    , vibration_pattern : Maybe (List Duration) -- ADDED BY ME
+    , autoCancel : Maybe Bool -- ADDED BY ME
+    , progress : Maybe ProgressBar -- ADDED BY ME
+
+    ------ End of features added by me
     , update : Maybe UpdateStrategy -- NOT YET SUPPORTED
-    , priority : Maybe Priority -- NOT YET SUPPORTED
     , privacy : Maybe Privacy -- NOT YET SUPPORTED
     , useHTML : Maybe Bool -- NOT YET SUPPORTED
     , title_expanded : Maybe String -- ?
@@ -93,20 +100,17 @@ type alias Notification =
     , on_create : Maybe Command -- NOT YET SUPPORTED
     , on_touch : Maybe Command -- NOT YET SUPPORTED
     , on_dismiss : Maybe Command -- NOT YET SUPPORTED
-    , dismiss_on_touch : Maybe Bool -- NOT YET SUPPORTED
     , chronometer : Maybe Bool -- NOT YET SUPPORTED
     , countdown : Maybe Bool -- NOT YET SUPPORTED
     , led_on_duration : Maybe Duration -- NOT YET SUPPORTED ms
     , led_off_duration : Maybe Duration -- NOT YET SUPPORTED ms
-    , progress : Maybe ProgressBar -- NOT YET SUPPORTED
-    , vibration_pattern : Maybe (List Duration) -- NOT YET SUPPORTED
     , phone_only : Maybe Bool -- NOT YET SUPPORTED
     }
 
 
 blank : ChannelID -> Notification
 blank channel =
-    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], timeout = Nothing, update = Nothing, priority = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, dismiss_on_touch = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibration_pattern = Nothing, phone_only = Nothing }
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibration_pattern = Nothing, phone_only = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -115,8 +119,8 @@ encode v =
         [ omittable ( "id", Encode.int, v.id )
         , omittable ( "at", Encode.float << Moment.toJSTime, v.at )
         , omittable ( "ongoing", Encode.bool, v.ongoing )
-        , omittable ( "timeout", encodeTimeout, v.timeout )
-        , omittable ( "priority", encodePriority, v.priority )
+        , omittable ( "expiresAfter", encodeExpiresAfter, v.expiresAfter )
+        , omittable ( "importance", encodeImportance, v.importance )
         , omittable ( "title", Encode.string, v.title )
         , omittable ( "title_expanded", Encode.string, v.title_expanded )
         , omittable ( "body", Encode.string, v.body )
@@ -138,7 +142,7 @@ encode v =
         , omittable ( "on_create", Encode.string, v.on_create )
         , omittable ( "on_touch", Encode.string, v.on_touch )
         , omittable ( "on_dismiss", Encode.string, v.on_dismiss )
-        , omittable ( "dismiss_on_touch", Encode.bool, v.dismiss_on_touch )
+        , omittable ( "autoCancel", Encode.bool, v.autoCancel )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "countdown", Encode.bool, v.countdown )
         , normal ( "channel", Encode.string v.channel )
@@ -156,6 +160,8 @@ encode v =
         , omittable ( "thumbnail", encodeThumbnail, v.thumbnail )
         , omittable ( "forceShowWhenInForeground", Encode.bool, v.forceShowWhenInForeground )
         , omittableList ( "actions", encodeAction, v.actions )
+        , omittable ( "progress", encodeProgress, v.progress )
+        , omittable ( "progressMax", encodeProgressMax, v.progress )
         ]
 
 
@@ -229,7 +235,7 @@ type alias LEDcolor =
     String
 
 
-type Priority
+type Importance
     = Default
     | Low
     | High
@@ -237,9 +243,48 @@ type Priority
     | Max
 
 
+encodeImportance : Importance -> Encode.Value
+encodeImportance v =
+    case v of
+        Default ->
+            Encode.int 0
+
+        Low ->
+            Encode.int -1
+
+        High ->
+            Encode.int 1
+
+        Min ->
+            Encode.int -2
+
+        Max ->
+            Encode.int 2
+
+
 type ProgressBar
     = Indeterminate
     | Progress Int Int
+
+
+encodeProgress : ProgressBar -> Encode.Value
+encodeProgress v =
+    case v of
+        Indeterminate ->
+            Encode.int 0
+
+        Progress current _ ->
+            Encode.int current
+
+
+encodeProgressMax : ProgressBar -> Encode.Value
+encodeProgressMax v =
+    case v of
+        Indeterminate ->
+            Encode.null
+
+        Progress _ progressMax ->
+            Encode.int progressMax
 
 
 type RepeatEvery
@@ -275,25 +320,6 @@ encodeRepeatEvery v =
 
         Year ->
             Encode.string "year"
-
-
-encodePriority : Priority -> Encode.Value
-encodePriority v =
-    case v of
-        Default ->
-            Encode.int 0
-
-        Low ->
-            Encode.int -1
-
-        High ->
-            Encode.int 1
-
-        Min ->
-            Encode.int -2
-
-        Max ->
-            Encode.int 2
 
 
 type Privacy
@@ -348,9 +374,9 @@ type alias Timeout =
     Duration
 
 
-encodeTimeout : Duration -> Encode.Value
-encodeTimeout dur =
-    Encode.int (Duration.inSecondsRounded dur)
+encodeExpiresAfter : Duration -> Encode.Value
+encodeExpiresAfter dur =
+    Encode.int (Duration.inMs dur)
 
 
 encodeVibrationPattern : List Duration -> Encode.Value
@@ -399,12 +425,12 @@ encodeAction v =
 
 
 basic : ChannelID -> NotificationID -> Duration -> String -> String -> Notification
-basic channel id timeout title body =
+basic channel id expires title body =
     let
         base =
             blank channel
     in
-    { base | title = Just title, body = Just body, id = Just id, timeout = Just timeout }
+    { base | title = Just title, body = Just body, id = Just id, expiresAfter = Just expires }
 
 
 type alias EncodedNotification =
