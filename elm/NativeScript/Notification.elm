@@ -1,4 +1,4 @@
-module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodeVibrationPattern)
+module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodevibratePattern)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
@@ -79,7 +79,7 @@ type alias Notification =
     , expiresAfter : Maybe Duration -- ADDED BY ME
 
     -- Empty list for no vibrate, Nothing for default behavior
-    , vibrationPattern : Maybe (List ( VibratorOff, VibratorOn )) -- ADDED BY ME
+    , vibratePattern : Maybe (List ( VibratorOff, VibratorOn )) -- ADDED BY ME
     , autoCancel : Maybe Bool -- ADDED BY ME
     , progress : Maybe ProgressBar -- ADDED BY ME
     , channelDescription : Maybe String -- ADDED BY ME
@@ -113,7 +113,7 @@ type alias Notification =
 
 blank : ChannelID -> Notification
 blank channel =
-    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibrationPattern = Nothing, phone_only = Nothing, channelDescription = Nothing }
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibratePattern = Nothing, phone_only = Nothing, channelDescription = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -154,7 +154,7 @@ encode v =
         , omittable ( "led_on_duration", encodeDuration, v.led_on_duration )
         , omittable ( "led_off_duration", encodeDuration, v.led_off_duration )
         , omittable ( "sound", encodeSound, v.sound )
-        , omittable ( "vibrationPattern", encodeVibrationPattern, v.vibrationPattern )
+        , omittable ( "vibratePattern", encodevibratePattern, v.vibratePattern )
         , omittable ( "phone_only", Encode.bool, v.phone_only )
         , omittable ( "groupedMessages", Encode.list Encode.string, v.groupedMessages )
         , omittable ( "groupSummary", Encode.string, v.groupSummary )
@@ -395,8 +395,8 @@ type alias VibratorOn =
     Duration
 
 
-encodeVibrationPattern : List ( VibratorOff, VibratorOn ) -> Encode.Value
-encodeVibrationPattern durs =
+encodevibratePattern : List ( VibratorOff, VibratorOn ) -> Encode.Value
+encodevibratePattern durs =
     let
         unbundlePair ( silence, vibration ) =
             [ silence, vibration ]

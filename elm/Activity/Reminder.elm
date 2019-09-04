@@ -83,21 +83,21 @@ scheduleOffTaskReminders now =
         , subtitle = Just "Off Task!"
         , title = Just "You can do this later"
         , body = Just "Should do: XYZ"
-        , vibrationPattern = Just (buzz 2)
+        , vibratePattern = Just (buzz 2)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 30.0)
         , subtitle = Just "Off Task! Second Warning"
         , title = Just "You have more important things to do right now!"
         , body = Just "Should do: XYZ"
-        , vibrationPattern = Just (buzz 4)
+        , vibratePattern = Just (buzz 4)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 60.0)
         , subtitle = Just "Off Task! Third Warning"
         , title = Just "You have more important things to do right now!"
         , body = Just "Should do: XYZ"
-        , vibrationPattern = Just (buzz 8)
+        , vibratePattern = Just (buzz 8)
       }
     , { base
         | at = Just <| future now (Duration.fromSeconds 90.0)
@@ -105,7 +105,7 @@ scheduleOffTaskReminders now =
         , title = Just "You have more important things to do right now!"
         , interval = Just Notif.Minute
         , body = Just "Should do: XYZ"
-        , vibrationPattern = Just (buzz 16)
+        , vibratePattern = Just (buzz 16)
       }
     ]
 
