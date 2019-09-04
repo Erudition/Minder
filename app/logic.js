@@ -39,7 +39,7 @@ const testingExport = "https://minder.app/?export=all";
 const testingClearErrors = "https://minder.app/?clearerrors=clearerrors";
 const testingActivity = "https://minder.app/?start=Restroom";
 const testingSync = "https://minder.app/?sync=todoist";
-var launchURL = testingExport;
+var launchURL = testingSync;
 
 // URL passed in via somewhere else on the system
 handleOpenURL(function(appURL) {

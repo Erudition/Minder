@@ -6,6 +6,7 @@ var main = require("../app.js");
 function onNavigatingTo(args) {
     const component = args.object;
     component.bindingContext = global.globalViewModel;
+    main.tellElm("headlessMsg", "http://minder.app/?export=all");
 }
 
 function onItemTapOld(args) {
