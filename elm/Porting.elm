@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence)
+module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -285,6 +285,16 @@ normal =
 withPresence : String -> Decoder a -> Decoder (Maybe a -> b) -> Decoder b
 withPresence fieldName decoder =
     Pipeline.optional fieldName (Decode.map Just decoder) Nothing
+
+
+{-| Use this function in Decoder Pipelines, in place of functions like Pipeline.optional or Pipeline.required, to decode object fields that are Lists (arrays). A nonempty list will be decoded as usual, and a missing field will be decoded as an empty list.
+
+    See also "omittableList", which compliments this function.
+
+-}
+withPresenceList : String -> Decoder a -> Decoder (List a -> b) -> Decoder b
+withPresenceList fieldName decoder =
+    Pipeline.optional fieldName (Decode.list decoder) []
 
 
 type alias BoolFromInt =
