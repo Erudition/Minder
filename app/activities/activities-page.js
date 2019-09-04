@@ -1,4 +1,3 @@
-const ActivitiesViewModel = require("./activities-view-model");
 
 var main = require("../app.js");
 
@@ -6,7 +5,7 @@ var main = require("../app.js");
 
 function onNavigatingTo(args) {
     const component = args.object;
-    component.bindingContext = new ActivitiesViewModel();
+    component.bindingContext = global.globalViewModel;
 }
 
 function onItemTapOld(args) {
