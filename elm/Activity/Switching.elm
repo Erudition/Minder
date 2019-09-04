@@ -89,6 +89,8 @@ updateSticky moment timeLeft onTaskStatus newActivity =
     in
     { blank
         | id = Just 42
+        , channelDescription = Just "A subtle reminder of the currently tracking activity."
+        , autoCancel = Just False
         , title = Just (Activity.getName newActivity)
         , subtitle = Just (Activity.statusToString onTaskStatus)
         , body = Nothing

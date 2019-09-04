@@ -60,6 +60,7 @@ scheduleOffTaskReminders now =
             { blank
                 | id = Just 1
                 , channel = "Off Task Warnings"
+                , channelDescription = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
                 , actions = actions
                 , importance = Just Notif.Max
                 , expiresAfter = Just (Duration.fromMinutes 1)

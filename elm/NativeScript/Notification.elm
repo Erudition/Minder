@@ -82,6 +82,7 @@ type alias Notification =
     , vibrationPattern : Maybe (List ( VibratorOff, VibratorOn )) -- ADDED BY ME
     , autoCancel : Maybe Bool -- ADDED BY ME
     , progress : Maybe ProgressBar -- ADDED BY ME
+    , channelDescription : Maybe String -- ADDED BY ME
 
     ------ End of features added by me
     , update : Maybe UpdateStrategy -- NOT YET SUPPORTED
@@ -112,7 +113,7 @@ type alias Notification =
 
 blank : ChannelID -> Notification
 blank channel =
-    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibrationPattern = Nothing, phone_only = Nothing }
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibrationPattern = Nothing, phone_only = Nothing, channelDescription = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -148,6 +149,7 @@ encode v =
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "countdown", Encode.bool, v.countdown )
         , normal ( "channel", Encode.string v.channel )
+        , omittable ( "channelDescription", Encode.string, v.channelDescription )
         , omittable ( "notificationLed", Encode.string, v.notificationLed )
         , omittable ( "led_on_duration", encodeDuration, v.led_on_duration )
         , omittable ( "led_off_duration", encodeDuration, v.led_off_duration )
