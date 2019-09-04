@@ -391,7 +391,7 @@ update msg ({ viewState, appData, environment } as model) =
                     Notif.blank "Sync Status"
 
                 notification =
-                    { blank | id = Just 23, expiresAfter = Just (Duration.fromMinutes 5), title = Just "Todoist Response", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True }
+                    { blank | id = Just 23, expiresAfter = Just (Duration.fromMinutes 1), importance = Just Notif.High, title = Just "Todoist Response", channelDescription = Just "Lets you know what happened the last time we tried to sync with online servers.", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True }
             in
             ( Model viewState newAppData environment
             , notify [ notification ]
