@@ -7,6 +7,7 @@ import Main exposing (..)
 import Platform exposing (worker)
 import Task as Job
 import Time
+import TimeTracker
 import Url
 
 
@@ -17,6 +18,20 @@ main =
         , update = updateWithTime
         , subscriptions = headlessSubscriptions
         }
+
+
+updateWithVMupdate : Msg -> Model -> ( Model, Cmd Msg )
+updateWithVMupdate msg model =
+    let
+        ( newModel, cmds ) =
+            updateWithTime msg model
+
+        ( _, exportCmds ) =
+            updateWithTime (TimeTrackerMsg TimeTracker.ExportVM) model
+    in
+    ( newModel
+    , Cmd.batch [ cmds ]
+    )
 
 
 initHeadless : ( String, Maybe JsonAppDatabase ) -> ( Model, Cmd Msg )

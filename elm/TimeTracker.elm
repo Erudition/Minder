@@ -246,12 +246,18 @@ update msg state app env =
                     else
                         Switching.switchActivity activityId app env
             in
-            ( state, updatedApp, cmds )
+            ( state
+            , updatedApp
+            , Cmd.batch
+                [ cmds
+                , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel updatedApp env )
+                ]
+            )
 
         ExportVM ->
             ( state
             , app
-            , Tasker.variableOut ( "activitiesVM", Encode.encode 0 <| exportActivityViewModel app env )
+            , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app env )
             )
 
 
