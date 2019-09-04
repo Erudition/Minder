@@ -17,12 +17,18 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
 const appSettings = require("tns-core-modules/application-settings");
 // appSettings.clear("appData");
-let appDataString = appSettings.getString("appData", "");
+try {
+    let appDataString = appSettings.getString("appData", "");
+} catch (e) {
+    console.error("Epic failure when fetching stored AppData.", e.toString());
+    let appDataString = "";
+}
+
 
 try {
     var appData = JSON.parse(appDataString);
 } catch (e) {
-    console.error("Epic failure when parsing stored AppData. Here's what it was set to: ", appDataString)
+    console.error("Epic failure when parsing stored AppData. Here's what it was set to: '" + appDataString + "'");
     var appData = {};
 }
 
