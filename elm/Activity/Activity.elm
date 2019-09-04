@@ -1,5 +1,6 @@
-module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Evidence(..), Excusable(..), Icon(..), OnTaskStatus(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeEvidence, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeEvidence, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, statusToString, withTemplate)
+module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Excusable(..), Icon(..), OnTaskStatus(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, statusToString, withTemplate)
 
+import Activity.Evidence exposing (..)
 import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
@@ -55,7 +56,7 @@ type alias Customizations =
     , icon : Maybe Icon
     , excusable : Maybe Excusable
     , taskOptional : Maybe Bool
-    , evidence : Maybe (List Evidence)
+    , evidence : List Evidence
     , category : Maybe Category
     , backgroundable : Maybe Bool
     , maxTime : Maybe DurationPerPeriod
@@ -72,7 +73,7 @@ decodeCustomizations =
         |> withPresence "icon" decodeIcon
         |> withPresence "excusable" decodeExcusable
         |> withPresence "taskOptional" Decode.bool
-        |> withPresence "evidence" (Decode.list decodeEvidence)
+        |> withPresenceList "evidence" decodeEvidence
         |> withPresence "category" decodeCategory
         |> withPresence "backgroundable" Decode.bool
         |> withPresence "maxTime" decodeDurationPerPeriod
@@ -90,7 +91,7 @@ encodeCustomizations record =
         , omittable ( "icon", encodeIcon, record.icon )
         , omittable ( "excusable", encodeExcusable, record.excusable )
         , omittable ( "taskOptional", Encode.bool, record.taskOptional )
-        , omittable ( "evidence", Encode.list encodeEvidence, record.evidence )
+        , omittableList ( "evidence", encodeEvidence, record.evidence )
         , omittable ( "category", encodeCategory, record.category )
         , omittable ( "backgroundable", Encode.bool, record.backgroundable )
         , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
@@ -151,22 +152,6 @@ decodeSwitch =
 encodeSwitch : Switch -> Encode.Value
 encodeSwitch (Switch time activityId) =
     Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
-
-
-type Evidence
-    = Evidence
-
-
-decodeEvidence : Decoder Evidence
-decodeEvidence =
-    decodeCustom [ ( "Evidence", succeed Evidence ) ]
-
-
-encodeEvidence : Evidence -> Encode.Value
-encodeEvidence v =
-    case v of
-        Evidence ->
-            Encode.string "Evidence"
 
 
 type OnTaskStatus
@@ -409,7 +394,7 @@ withTemplate delta =
     , icon = over base.icon delta.icon
     , excusable = over base.excusable delta.excusable
     , taskOptional = over base.taskOptional delta.taskOptional
-    , evidence = over base.evidence delta.evidence
+    , evidence = List.append base.evidence delta.evidence
     , category = over base.category delta.category
     , backgroundable = over base.backgroundable delta.backgroundable
     , maxTime = over base.maxTime delta.maxTime
