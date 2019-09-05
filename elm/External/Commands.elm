@@ -1,6 +1,5 @@
 port module External.Commands exposing (hideWindow, toast)
 
-import Activity.Reminder exposing (..)
 import External.Capacitor exposing (..)
 import External.Tasker exposing (..)
 import Json.Encode as Encode exposing (Value, string)
