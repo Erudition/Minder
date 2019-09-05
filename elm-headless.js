@@ -15082,7 +15082,7 @@ var elm_community$list_extra$List$Extra$takeWhile = function (predicate) {
 		});
 	return takeWhileMemo(_List_Nil);
 };
-var author$project$Activity$Reminder$scheduleExcusedReminders = F3(
+var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 	function (now, excusedLimit, timeLeft) {
 		var write = function (durLeft) {
 			return author$project$SmartTime$Human$Duration$abbreviatedSpaced(
@@ -15248,7 +15248,7 @@ var elm$core$List$repeat = F2(
 	function (n, value) {
 		return A3(elm$core$List$repeatHelp, _List_Nil, n, value);
 	});
-var author$project$Activity$Reminder$scheduleOffTaskReminders = function (now) {
+var author$project$Activity$Switching$scheduleOffTaskReminders = function (now) {
 	var buzz = function (count) {
 		return A2(
 			elm$core$List$repeat,
@@ -15347,7 +15347,7 @@ var author$project$Activity$Reminder$scheduleOffTaskReminders = function (now) {
 			})
 		]);
 };
-var author$project$Activity$Reminder$scheduleOnTaskReminders = F2(
+var author$project$Activity$Switching$scheduleOnTaskReminders = F2(
 	function (now, timeLeft) {
 		var fractionLeft = function (denom) {
 			return A2(
@@ -15462,22 +15462,25 @@ var author$project$Activity$Switching$scheduleReminders = F4(
 					A2(
 						elm$core$List$cons,
 						A4(author$project$Activity$Switching$updateSticky, env.time, timeLeft, onTaskStatus, newActivity),
-						A2(author$project$Activity$Reminder$scheduleOnTaskReminders, env.time, timeLeft)));
+						A2(author$project$Activity$Switching$scheduleOnTaskReminders, env.time, timeLeft)));
 			case 'OffTask':
 				var excusedLeft = onTaskStatus.a;
 				return author$project$SmartTime$Duration$isPositive(excusedLeft) ? author$project$NativeScript$Commands$notify(
 					A2(
 						elm$core$List$cons,
 						A4(author$project$Activity$Switching$updateSticky, env.time, excusedLeft, onTaskStatus, newActivity),
-						A3(
-							author$project$Activity$Reminder$scheduleExcusedReminders,
-							env.time,
-							author$project$Activity$Measure$excusableLimit(newActivity),
-							excusedLeft))) : author$project$NativeScript$Commands$notify(
+						_Utils_ap(
+							A3(
+								author$project$Activity$Switching$scheduleExcusedReminders,
+								env.time,
+								author$project$Activity$Measure$excusableLimit(newActivity),
+								excusedLeft),
+							author$project$Activity$Switching$scheduleOffTaskReminders(
+								A2(author$project$SmartTime$Moment$future, env.time, excusedLeft))))) : author$project$NativeScript$Commands$notify(
 					A2(
 						elm$core$List$cons,
 						A4(author$project$Activity$Switching$updateSticky, env.time, excusedLeft, onTaskStatus, newActivity),
-						author$project$Activity$Reminder$scheduleOffTaskReminders(env.time)));
+						author$project$Activity$Switching$scheduleOffTaskReminders(env.time)));
 			default:
 				return author$project$NativeScript$Commands$notify(
 					_List_fromArray(
