@@ -97,6 +97,7 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         function(notifObj) {
             //wrap js time (unix ms float) with Date object
             notifObj["at"] = new Date(notifObj["at"]);
+            notifObj["when"] = new Date(notifObj["when"]);
 
             // While we're at it, check if we missed it
             if (new Date() > notifObj["at"]) {
@@ -107,8 +108,8 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         }
     );
 
-    // console.info("Here are the Notifications I'll try to schedule:");
-    // console.dir(correctedList);
+    console.info("Here are the Notifications I'll try to schedule:");
+    console.dir(correctedList);
 
     // Clean slate every time - TODO: better way
     notifications.cancelAll();
@@ -119,7 +120,7 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
 
         },
         function(error) {
-          console.error("scheduling error: " + error);
+          console.error("Minder Notif scheduling error: " + error);
         }
     )
 });
@@ -169,6 +170,7 @@ global.onmessage = function(incoming) {
     } catch (e) {
         console.error("Worker got a message, but couldn't act on it: " + incoming.toString());
         console.dir(incoming);
+        console.error(e.toString());
     }
 
 }
