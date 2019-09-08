@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Excusable(..), Icon(..), OnTaskStatus(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, statusToString, withTemplate)
+module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, withTemplate)
 
 import Activity.Evidence exposing (..)
 import Activity.Template exposing (..)
@@ -152,29 +152,6 @@ decodeSwitch =
 encodeSwitch : Switch -> Encode.Value
 encodeSwitch (Switch time activityId) =
     Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
-
-
-type OnTaskStatus
-    = OnTask Duration
-    | OffTask Duration
-    | AllDone
-
-
-statusToString : OnTaskStatus -> String
-statusToString onTaskStatus =
-    case onTaskStatus of
-        OnTask for ->
-            "On Task, for the next " ++ say for
-
-        OffTask excusedLeft ->
-            if Duration.isPositive excusedLeft then
-                "Excused, for the next " ++ say excusedLeft
-
-            else
-                "Off Task!"
-
-        AllDone ->
-            "All Done"
 
 
 type Excusable
