@@ -188,13 +188,14 @@ switchActivity newActivityID app env =
 
 
 updateSticky : Moment -> Activity -> String -> Notification
-updateSticky moment newActivity status =
+updateSticky now newActivity status =
     let
         blank =
             Notif.blank "Status"
 
         actions =
             [ { id = "sync=todoist", button = Notif.Button "Sync Tasks", launch = False }
+            , { id = "complete=next", button = Notif.Button "Complete", launch = False }
             ]
     in
     { blank
@@ -202,6 +203,8 @@ updateSticky moment newActivity status =
         , channelDescription = Just "A subtle reminder of the currently tracking activity."
         , autoCancel = Just False
         , title = Just (Activity.getName newActivity)
+        , chronometer = Just True
+        , when = Just now
         , subtitle = Just status
         , body = Nothing
         , ongoing = Just True
@@ -221,7 +224,6 @@ updateSticky moment newActivity status =
         , status_icon = Nothing
         , status_text_size = Nothing
         , background_color = Nothing
-        , chronometer = Nothing
         , countdown = Nothing
         , progress = Nothing
         , actions = actions
@@ -240,7 +242,11 @@ scheduleOnTaskReminders task now timeLeft =
             Notif.blank "Override me!"
 
         reminderBase =
-            { blank | id = Just 0, expiresAfter = Just (Duration.fromMinutes 1) }
+            { blank
+                | id = Just 0
+                , expiresAfter = Just (Duration.fromMinutes 1)
+                , when = Just (future now timeLeft)
+            }
 
         fractionLeft denom =
             future now <| Duration.subtract timeLeft (Duration.scale timeLeft (1 / denom))
@@ -287,7 +293,7 @@ scheduleOffTaskReminders nextTask now =
                 , channelDescription = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
                 , actions = actions
                 , importance = Just Notif.Max
-                , expiresAfter = Just (Duration.fromMinutes 1)
+                , expiresAfter = Just (Duration.fromSeconds 59)
                 , title = Just nextTask.title
             }
 
@@ -322,6 +328,10 @@ scheduleOffTaskReminders nextTask now =
         , body = Just <| pickEncouragementMessage now
         , vibratePattern = Just (buzz 4)
         , channel = "Off Task, First Warning"
+        , when = Just <| future now (Duration.fromSeconds 30.0)
+        , countdown = Just True
+        , chronometer = Just True
+        , expiresAfter = Just (Duration.fromSeconds 29)
       }
     , { base
         | id = Just 2
@@ -330,6 +340,10 @@ scheduleOffTaskReminders nextTask now =
         , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 30.0))
         , vibratePattern = Just (buzz 6)
         , channel = "Off Task, Second Warning"
+        , when = Just <| future now (Duration.fromSeconds 60.0)
+        , countdown = Just True
+        , chronometer = Just True
+        , expiresAfter = Just (Duration.fromSeconds 29)
       }
     , { base
         | id = Just 3
@@ -338,6 +352,10 @@ scheduleOffTaskReminders nextTask now =
         , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 60.0))
         , vibratePattern = Just (buzz 8)
         , channel = "Off Task, Third Warning"
+        , when = Just <| future now (Duration.fromSeconds 90.0)
+        , countdown = Just True
+        , chronometer = Just True
+        , expiresAfter = Just (Duration.fromSeconds 29)
       }
     , { base
         | id = Just 4
@@ -363,6 +381,9 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 | id = Just 100
                 , channel = "Excused Reminders"
                 , actions = actions
+                , when = Just timesUp
+                , countdown = Just True
+                , chronometer = Just True
             }
 
         actions =

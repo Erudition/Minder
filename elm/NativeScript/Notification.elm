@@ -83,6 +83,8 @@ type alias Notification =
     , autoCancel : Maybe Bool -- ADDED BY ME
     , progress : Maybe ProgressBar -- ADDED BY ME
     , channelDescription : Maybe String -- ADDED BY ME
+    , when : Maybe Moment -- ADDED BY ME
+    , chronometer : Maybe Bool -- ADDED BY ME
 
     ------ End of features added by me
     , update : Maybe UpdateStrategy -- NOT YET SUPPORTED
@@ -103,7 +105,6 @@ type alias Notification =
     , on_create : Maybe Command -- NOT YET SUPPORTED
     , on_touch : Maybe Command -- NOT YET SUPPORTED
     , on_dismiss : Maybe Command -- NOT YET SUPPORTED
-    , chronometer : Maybe Bool -- NOT YET SUPPORTED
     , countdown : Maybe Bool -- NOT YET SUPPORTED
     , led_on_duration : Maybe Duration -- NOT YET SUPPORTED ms
     , led_off_duration : Maybe Duration -- NOT YET SUPPORTED ms
@@ -113,7 +114,7 @@ type alias Notification =
 
 blank : ChannelID -> Notification
 blank channel =
-    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibratePattern = Nothing, phone_only = Nothing, channelDescription = Nothing }
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibratePattern = Nothing, phone_only = Nothing, channelDescription = Nothing, when = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -166,6 +167,8 @@ encode v =
         , omittableList ( "actions", encodeAction, v.actions )
         , omittable ( "progress", encodeProgress, v.progress )
         , omittable ( "progressMax", encodeProgressMax, v.progress )
+        , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
+        , omittable ( "chronometer", Encode.bool, v.chronometer )
         ]
 
 
