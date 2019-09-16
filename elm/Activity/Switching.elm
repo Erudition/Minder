@@ -295,6 +295,7 @@ scheduleOffTaskReminders nextTask now =
                 , importance = Just Notif.Max
                 , expiresAfter = Just (Duration.fromSeconds 59)
                 , title = Just nextTask.title
+                , sound = Just (Notif.CustomSound "eek.mp3")
             }
 
         buzz count =

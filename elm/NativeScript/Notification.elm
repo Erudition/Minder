@@ -206,7 +206,7 @@ type alias NotificationID =
 type Sound
     = DefaultSound
     | Silent
-    | Custom Path
+    | CustomSound Path
 
 
 encodeSound : Sound -> Encode.Value
@@ -218,7 +218,7 @@ encodeSound v =
         Silent ->
             Encode.null
 
-        Custom path ->
+        CustomSound path ->
             Encode.string path
 
 
