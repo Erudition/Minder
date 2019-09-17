@@ -47,7 +47,11 @@ switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
 switchActivity newActivityID app env =
     let
         updatedApp =
-            { app | timeline = Switch env.time newActivityID :: app.timeline }
+            if newActivityID == oldActivityID then
+                app
+
+            else
+                { app | timeline = Switch env.time newActivityID :: app.timeline }
 
         newActivity =
             Activity.getActivity newActivityID (allActivities app.activities)
@@ -59,22 +63,34 @@ switchActivity newActivityID app env =
             currentActivityFromApp app
 
         sessionTotalString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Maybe.withDefault Duration.zero (List.head (Measure.sessions app.timeline oldActivityID)))
+            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Maybe.withDefault Duration.zero (List.head (Measure.sessions updatedApp.timeline oldActivityID)))
 
         excusedUsageString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.excusedUsage app.timeline env.time ( newActivityID, newActivity ))
+            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity ))
 
         todayTotalString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.justTodayTotal app.timeline env newActivityID)
-
-        arrowThing =
-            oldName ++ " ➤ " ++ newName
+            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.justTodayTotal updatedApp.timeline env newActivityID)
 
         popup message =
             Commands.toast (multiline message)
 
         ( oldName, newName ) =
             ( getName oldActivity, getName newActivity )
+
+        cancelAll idList =
+            Cmd.batch <| List.map notifyCancel idList
+
+        offTaskReminderIDs =
+            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ]
+
+        onTaskReminderIDs =
+            [ 0 ]
+
+        excusedReminderIDs =
+            [ 100 ]
+
+        statusIDs =
+            [ 42 ]
     in
     case determineNextTask app env of
         Nothing ->
@@ -87,6 +103,7 @@ switchActivity newActivityID app env =
                     , [ "Starting from", todayTotalString, "today" ]
                     ]
                 , notify [ updateSticky env.time newActivity "✔️ All Done" ]
+                , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                 ]
             )
 
@@ -106,6 +123,7 @@ switchActivity newActivityID app env =
                             (updateSticky env.time newActivity "❌ Unknown - No Activity"
                                 :: scheduleOffTaskReminders nextTask env.time
                             )
+                        , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                         ]
                     )
 
@@ -117,7 +135,7 @@ switchActivity newActivityID app env =
                     if nextActivity == newActivityID then
                         let
                             timeSpent =
-                                Duration.zero
+                                Measure.totalLive env.time updatedApp.timeline newActivityID
 
                             timeRemaining =
                                 Duration.subtract nextTask.maxEffort timeSpent
@@ -133,6 +151,7 @@ switchActivity newActivityID app env =
                             , notify <|
                                 updateSticky env.time newActivity "✔️ On Task"
                                     :: scheduleOnTaskReminders nextTask env.time timeRemaining
+                            , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
 
@@ -149,6 +168,7 @@ switchActivity newActivityID app env =
                                 updateSticky env.time newActivity "⏸ Off Task (Excused)"
                                     :: scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
+                            , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                             ]
                         )
 
@@ -164,6 +184,7 @@ switchActivity newActivityID app env =
                             , notify <|
                                 updateSticky env.time newActivity "❌ Off Task"
                                     :: scheduleOffTaskReminders nextTask env.time
+                            , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
 
@@ -295,7 +316,7 @@ scheduleOffTaskReminders nextTask now =
                 , importance = Just Notif.Max
                 , expiresAfter = Just (Duration.fromSeconds 59)
                 , title = Just nextTask.title
-                , sound = Just (Notif.CustomSound "eek.mp3")
+                , sound = Just (Notif.CustomSound "eek")
             }
 
         buzz count =
@@ -321,6 +342,42 @@ scheduleOffTaskReminders nextTask now =
                 , "This was not part of the plan"
                 , "Get back on task now!"
                 ]
+
+        goesOffAt : Int -> Moment
+        goesOffAt reminderNum =
+            future now (Duration.fromSeconds (30 * (toFloat reminderNum - 1)))
+
+        reminderTemplate : Int -> Notification
+        reminderTemplate reminderNum =
+            { base
+                | id = Just reminderNum
+                , at = Just (goesOffAt reminderNum)
+                , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
+                , body = Just <| pickEncouragementMessage (goesOffAt reminderNum)
+                , vibratePattern = Just (buzz 10)
+                , channel = "Off Task"
+                , when = Just (goesOffAt (reminderNum + 1))
+                , countdown = Just True
+                , chronometer = Just True
+                , expiresAfter = Just (Duration.fromSeconds 29)
+            }
+
+        stopAfterCount =
+            10
+
+        giveUpNotif =
+            { base
+                | id = Just (stopAfterCount + 1)
+                , at = Just (goesOffAt (stopAfterCount + 1))
+                , subtitle = Just <| "Off Task warnings have failed."
+                , body = Just <| "Gave up after " ++ String.fromInt stopAfterCount
+                , vibratePattern = Nothing
+                , channel = "Status"
+                , when = Just (goesOffAt (stopAfterCount + 1))
+                , countdown = Just False
+                , chronometer = Just False
+                , expiresAfter = Just (Duration.fromHours 2)
+            }
     in
     [ { base
         | id = Just 1
@@ -358,15 +415,9 @@ scheduleOffTaskReminders nextTask now =
         , chronometer = Just True
         , expiresAfter = Just (Duration.fromSeconds 29)
       }
-    , { base
-        | id = Just 4
-        , at = Just <| future now (Duration.fromSeconds 90.0)
-        , subtitle = Just "Off Task!"
-        , interval = Just Notif.Minute
-        , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 90.0))
-        , vibratePattern = Just (buzz 10)
-      }
     ]
+        ++ List.map reminderTemplate (List.range 4 stopAfterCount)
+        ++ [ giveUpNotif ]
 
 
 {-| Calculate the interim reminders before the activity expires from being excused.
