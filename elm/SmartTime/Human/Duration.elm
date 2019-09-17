@@ -1,6 +1,6 @@
-module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, withAbbreviation, withLetter)
+module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, trim, withAbbreviation, withLetter)
 
-import List.Extra
+import List.Extra as List
 import SmartTime.Duration exposing (..)
 
 
@@ -292,7 +292,7 @@ inLargestExactUnits : Duration -> HumanDuration
 inLargestExactUnits duration =
     let
         smallestPartMaybe =
-            List.Extra.last (breakdownDHMSM duration)
+            List.last (breakdownDHMSM duration)
 
         smallestPart =
             Maybe.withDefault (Milliseconds 0) smallestPartMaybe
@@ -315,6 +315,34 @@ inLargestExactUnits duration =
 
         Milliseconds milliseconds ->
             Milliseconds (inMs duration)
+
+
+{-| Trim the fat off a breakdown list, just like String.trim does with whitespace. Units with value 0 will be removed from the front and back of the list, but preserved if sandwiched between nonzero units.
+-}
+trim : List HumanDuration -> List HumanDuration
+trim humanDurationList =
+    let
+        isNonzero humanDuration =
+            case humanDuration of
+                Days 0 ->
+                    False
+
+                Hours 0 ->
+                    False
+
+                Minutes 0 ->
+                    False
+
+                Seconds 0 ->
+                    False
+
+                Milliseconds 0 ->
+                    False
+
+                _ ->
+                    True
+    in
+    List.dropWhile isNonzero humanDurationList |> List.dropWhileRight isNonzero
 
 
 
@@ -364,11 +392,11 @@ colonSeparated breakdownList =
         separate list =
             String.concat <| List.intersperse ":" (List.map justNumberPadded list)
     in
-    case List.Extra.last breakdownList of
+    case List.last breakdownList of
         Just (Milliseconds ms) ->
             let
                 withoutLast =
-                    Maybe.withDefault [] <| List.Extra.init breakdownList
+                    Maybe.withDefault [] <| List.init breakdownList
             in
             separate withoutLast ++ "." ++ padNumber 3 (String.fromInt ms)
 
