@@ -14542,26 +14542,6 @@ var author$project$TaskList$urlTriggers = F2(
 				elm$core$Dict$fromList(allEntries))
 			]);
 	});
-var author$project$Activity$Activity$latestSwitch = function (timeline) {
-	return A2(
-		elm$core$Maybe$withDefault,
-		A2(
-			author$project$Activity$Activity$Switch,
-			author$project$SmartTime$Moment$zero,
-			author$project$ID$tag(0)),
-		elm$core$List$head(timeline));
-};
-var author$project$Activity$Activity$currentActivityID = function (switchList) {
-	var getId = function (_n0) {
-		var activityId = _n0.b;
-		return activityId;
-	};
-	return getId(
-		author$project$Activity$Activity$latestSwitch(switchList));
-};
-var author$project$Activity$Switching$currentActivityFromApp = function (app) {
-	return author$project$Activity$Activity$currentActivityID(app.timeline);
-};
 var author$project$ID$read = function (_n0) {
 	var _int = _n0.a;
 	return _int;
@@ -14811,6 +14791,26 @@ var author$project$Activity$Measure$justTodayTotal = F3(
 			_Utils_Tuple2(env.time, env.timeZone));
 		return A3(author$project$Activity$Measure$totalLive, env.time, lastPeriod, activityID);
 	});
+var author$project$Activity$Activity$latestSwitch = function (timeline) {
+	return A2(
+		elm$core$Maybe$withDefault,
+		A2(
+			author$project$Activity$Activity$Switch,
+			author$project$SmartTime$Moment$zero,
+			author$project$ID$tag(0)),
+		elm$core$List$head(timeline));
+};
+var author$project$Activity$Activity$currentActivityID = function (switchList) {
+	var getId = function (_n0) {
+		var activityId = _n0.b;
+		return activityId;
+	};
+	return getId(
+		author$project$Activity$Activity$latestSwitch(switchList));
+};
+var author$project$Activity$Switching$currentActivityFromApp = function (app) {
+	return author$project$Activity$Activity$currentActivityID(app.timeline);
+};
 var author$project$Activity$Switching$multiline = function (inputListOfLists) {
 	var unWords = function (wordsList) {
 		return elm$core$String$concat(
@@ -15175,8 +15175,10 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 			]);
 		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
+var author$project$NativeScript$Notification$CustomSound = function (a) {
+	return {$: 'CustomSound', a: a};
+};
 var author$project$NativeScript$Notification$Max = {$: 'Max'};
-var author$project$NativeScript$Notification$Minute = {$: 'Minute'};
 var elm$core$List$repeatHelp = F3(
 	function (result, n, value) {
 		repeatHelp:
@@ -15200,6 +15202,13 @@ var elm$core$List$repeat = F2(
 	});
 var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 	function (nextTask, now) {
+		var stopAfterCount = 10;
+		var goesOffAt = function (reminderNum) {
+			return A2(
+				author$project$SmartTime$Moment$future,
+				now,
+				author$project$SmartTime$Duration$fromSeconds(30 * (reminderNum - 1)));
+		};
 		var encouragementMessages = A2(
 			elm$random$Random$uniform,
 			'Do this later',
@@ -15247,110 +15256,141 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 				expiresAfter: elm$core$Maybe$Just(
 					author$project$SmartTime$Duration$fromSeconds(59)),
 				importance: elm$core$Maybe$Just(author$project$NativeScript$Notification$Max),
+				sound: elm$core$Maybe$Just(
+					author$project$NativeScript$Notification$CustomSound('eek')),
 				title: elm$core$Maybe$Just(nextTask.title)
 			});
-		return _List_fromArray(
-			[
-				_Utils_update(
+		var giveUpNotif = _Utils_update(
+			base,
+			{
+				at: elm$core$Maybe$Just(
+					goesOffAt(stopAfterCount + 1)),
+				body: elm$core$Maybe$Just(
+					'Gave up after ' + elm$core$String$fromInt(stopAfterCount)),
+				channel: 'Status',
+				chronometer: elm$core$Maybe$Just(false),
+				countdown: elm$core$Maybe$Just(false),
+				expiresAfter: elm$core$Maybe$Just(
+					author$project$SmartTime$Duration$fromHours(2)),
+				id: elm$core$Maybe$Just(stopAfterCount + 1),
+				subtitle: elm$core$Maybe$Just('Off Task warnings have failed.'),
+				vibratePattern: elm$core$Maybe$Nothing,
+				when: elm$core$Maybe$Just(
+					goesOffAt(stopAfterCount + 1))
+			});
+		var reminderTemplate = function (reminderNum) {
+			return _Utils_update(
 				base,
 				{
-					at: elm$core$Maybe$Just(now),
+					at: elm$core$Maybe$Just(
+						goesOffAt(reminderNum)),
 					body: elm$core$Maybe$Just(
-						pickEncouragementMessage(now)),
-					channel: 'Off Task, First Warning',
+						pickEncouragementMessage(
+							goesOffAt(reminderNum))),
+					channel: 'Off Task',
 					chronometer: elm$core$Maybe$Just(true),
 					countdown: elm$core$Maybe$Just(true),
 					expiresAfter: elm$core$Maybe$Just(
 						author$project$SmartTime$Duration$fromSeconds(29)),
-					id: elm$core$Maybe$Just(1),
-					subtitle: elm$core$Maybe$Just('Off Task!'),
+					id: elm$core$Maybe$Just(reminderNum),
+					subtitle: elm$core$Maybe$Just(
+						'Off Task! Warning ' + elm$core$String$fromInt(reminderNum)),
 					vibratePattern: elm$core$Maybe$Just(
-						buzz(4)),
+						buzz(10)),
 					when: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(30.0)))
-				}),
-				_Utils_update(
-				base,
-				{
-					at: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(30.0))),
-					body: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+						goesOffAt(reminderNum + 1))
+				});
+		};
+		return _Utils_ap(
+			_List_fromArray(
+				[
+					_Utils_update(
+					base,
+					{
+						at: elm$core$Maybe$Just(now),
+						body: elm$core$Maybe$Just(
+							pickEncouragementMessage(now)),
+						channel: 'Off Task, First Warning',
+						chronometer: elm$core$Maybe$Just(true),
+						countdown: elm$core$Maybe$Just(true),
+						expiresAfter: elm$core$Maybe$Just(
+							author$project$SmartTime$Duration$fromSeconds(29)),
+						id: elm$core$Maybe$Just(1),
+						subtitle: elm$core$Maybe$Just('Off Task!'),
+						vibratePattern: elm$core$Maybe$Just(
+							buzz(4)),
+						when: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
-								author$project$SmartTime$Duration$fromSeconds(30.0)))),
-					channel: 'Off Task, Second Warning',
-					chronometer: elm$core$Maybe$Just(true),
-					countdown: elm$core$Maybe$Just(true),
-					expiresAfter: elm$core$Maybe$Just(
-						author$project$SmartTime$Duration$fromSeconds(29)),
-					id: elm$core$Maybe$Just(2),
-					subtitle: elm$core$Maybe$Just('Off Task! Second Warning'),
-					vibratePattern: elm$core$Maybe$Just(
-						buzz(6)),
-					when: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(60.0)))
-				}),
-				_Utils_update(
-				base,
-				{
-					at: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(60.0))),
-					body: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+								author$project$SmartTime$Duration$fromSeconds(30.0)))
+					}),
+					_Utils_update(
+					base,
+					{
+						at: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
-								author$project$SmartTime$Duration$fromSeconds(60.0)))),
-					channel: 'Off Task, Third Warning',
-					chronometer: elm$core$Maybe$Just(true),
-					countdown: elm$core$Maybe$Just(true),
-					expiresAfter: elm$core$Maybe$Just(
-						author$project$SmartTime$Duration$fromSeconds(29)),
-					id: elm$core$Maybe$Just(3),
-					subtitle: elm$core$Maybe$Just('Off Task! Third Warning'),
-					vibratePattern: elm$core$Maybe$Just(
-						buzz(8)),
-					when: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(90.0)))
-				}),
-				_Utils_update(
-				base,
-				{
-					at: elm$core$Maybe$Just(
-						A2(
-							author$project$SmartTime$Moment$future,
-							now,
-							author$project$SmartTime$Duration$fromSeconds(90.0))),
-					body: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+								author$project$SmartTime$Duration$fromSeconds(30.0))),
+						body: elm$core$Maybe$Just(
+							pickEncouragementMessage(
+								A2(
+									author$project$SmartTime$Moment$future,
+									now,
+									author$project$SmartTime$Duration$fromSeconds(30.0)))),
+						channel: 'Off Task, Second Warning',
+						chronometer: elm$core$Maybe$Just(true),
+						countdown: elm$core$Maybe$Just(true),
+						expiresAfter: elm$core$Maybe$Just(
+							author$project$SmartTime$Duration$fromSeconds(29)),
+						id: elm$core$Maybe$Just(2),
+						subtitle: elm$core$Maybe$Just('Off Task! Second Warning'),
+						vibratePattern: elm$core$Maybe$Just(
+							buzz(6)),
+						when: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
-								author$project$SmartTime$Duration$fromSeconds(90.0)))),
-					id: elm$core$Maybe$Just(4),
-					interval: elm$core$Maybe$Just(author$project$NativeScript$Notification$Minute),
-					subtitle: elm$core$Maybe$Just('Off Task!'),
-					vibratePattern: elm$core$Maybe$Just(
-						buzz(10))
-				})
-			]);
+								author$project$SmartTime$Duration$fromSeconds(60.0)))
+					}),
+					_Utils_update(
+					base,
+					{
+						at: elm$core$Maybe$Just(
+							A2(
+								author$project$SmartTime$Moment$future,
+								now,
+								author$project$SmartTime$Duration$fromSeconds(60.0))),
+						body: elm$core$Maybe$Just(
+							pickEncouragementMessage(
+								A2(
+									author$project$SmartTime$Moment$future,
+									now,
+									author$project$SmartTime$Duration$fromSeconds(60.0)))),
+						channel: 'Off Task, Third Warning',
+						chronometer: elm$core$Maybe$Just(true),
+						countdown: elm$core$Maybe$Just(true),
+						expiresAfter: elm$core$Maybe$Just(
+							author$project$SmartTime$Duration$fromSeconds(29)),
+						id: elm$core$Maybe$Just(3),
+						subtitle: elm$core$Maybe$Just('Off Task! Third Warning'),
+						vibratePattern: elm$core$Maybe$Just(
+							buzz(8)),
+						when: elm$core$Maybe$Just(
+							A2(
+								author$project$SmartTime$Moment$future,
+								now,
+								author$project$SmartTime$Duration$fromSeconds(90.0)))
+					})
+				]),
+			_Utils_ap(
+				A2(
+					elm$core$List$map,
+					reminderTemplate,
+					A2(elm$core$List$range, 4, stopAfterCount)),
+				_List_fromArray(
+					[giveUpNotif])));
 	});
 var author$project$NativeScript$Notification$Progress = F2(
 	function (a, b) {
@@ -15424,8 +15464,8 @@ var author$project$Activity$Switching$scheduleOnTaskReminders = F3(
 			]);
 	});
 var author$project$NativeScript$Notification$Low = {$: 'Low'};
-var author$project$Activity$Switching$updateSticky = F3(
-	function (now, newActivity, status) {
+var author$project$Activity$Switching$updateSticky = F4(
+	function (now, todayTotal, newActivity, status) {
 		var blank = author$project$NativeScript$Notification$blank('Status');
 		var actions = _List_fromArray(
 			[
@@ -15471,9 +15511,15 @@ var author$project$Activity$Switching$updateSticky = F3(
 				title_expanded: elm$core$Maybe$Nothing,
 				update: elm$core$Maybe$Nothing,
 				useHTML: elm$core$Maybe$Nothing,
-				when: elm$core$Maybe$Just(now)
+				when: elm$core$Maybe$Just(
+					A2(author$project$SmartTime$Moment$past, now, todayTotal))
 			});
 	});
+var author$project$NativeScript$Commands$ns_notify_cancel = _Platform_outgoingPort('ns_notify_cancel', elm$core$Basics$identity);
+var author$project$NativeScript$Commands$notifyCancel = function (id) {
+	return author$project$NativeScript$Commands$ns_notify_cancel(
+		elm$json$Json$Encode$int(id));
+};
 var author$project$SmartTime$Duration$isPositive = function (_n0) {
 	var _int = _n0.a;
 	return _int > 0;
@@ -15516,7 +15562,16 @@ var author$project$SmartTime$Human$Duration$singleLetterSpaced = function (human
 };
 var author$project$Activity$Switching$switchActivity = F3(
 	function (newActivityID, app, env) {
-		var updatedApp = _Utils_update(
+		var statusIDs = _List_fromArray(
+			[42]);
+		var popup = function (message) {
+			return author$project$External$Commands$toast(
+				author$project$Activity$Switching$multiline(message));
+		};
+		var onTaskReminderIDs = _List_fromArray(
+			[0]);
+		var oldActivityID = author$project$Activity$Switching$currentActivityFromApp(app);
+		var updatedApp = _Utils_eq(newActivityID, oldActivityID) ? app : _Utils_update(
 			app,
 			{
 				timeline: A2(
@@ -15524,25 +15579,22 @@ var author$project$Activity$Switching$switchActivity = F3(
 					A2(author$project$Activity$Activity$Switch, env.time, newActivityID),
 					app.timeline)
 			});
-		var todayTotalString = author$project$SmartTime$Human$Duration$singleLetterSpaced(
-			author$project$SmartTime$Human$Duration$breakdownMS(
-				A3(author$project$Activity$Measure$justTodayTotal, app.timeline, env, newActivityID)));
-		var popup = function (message) {
-			return author$project$External$Commands$toast(
-				author$project$Activity$Switching$multiline(message));
-		};
-		var oldActivityID = author$project$Activity$Switching$currentActivityFromApp(app);
 		var sessionTotalString = author$project$SmartTime$Human$Duration$singleLetterSpaced(
 			author$project$SmartTime$Human$Duration$breakdownMS(
 				A2(
 					elm$core$Maybe$withDefault,
 					author$project$SmartTime$Duration$zero,
 					elm$core$List$head(
-						A2(author$project$Activity$Measure$sessions, app.timeline, oldActivityID)))));
+						A2(author$project$Activity$Measure$sessions, updatedApp.timeline, oldActivityID)))));
+		var todayTotal = A3(author$project$Activity$Measure$justTodayTotal, updatedApp.timeline, env, newActivityID);
+		var todayTotalString = author$project$SmartTime$Human$Duration$singleLetterSpaced(
+			author$project$SmartTime$Human$Duration$breakdownMS(todayTotal));
 		var oldActivity = A2(
 			author$project$Activity$Activity$getActivity,
 			oldActivityID,
 			author$project$Activity$Activity$allActivities(app.activities));
+		var offTaskReminderIDs = _List_fromArray(
+			[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 		var newActivity = A2(
 			author$project$Activity$Activity$getActivity,
 			newActivityID,
@@ -15551,15 +15603,20 @@ var author$project$Activity$Switching$switchActivity = F3(
 			author$project$SmartTime$Human$Duration$breakdownMS(
 				A3(
 					author$project$Activity$Measure$excusedUsage,
-					app.timeline,
+					updatedApp.timeline,
 					env.time,
 					_Utils_Tuple2(newActivityID, newActivity))));
+		var excusedReminderIDs = _List_fromArray(
+			[100]);
+		var cancelAll = function (idList) {
+			return elm$core$Platform$Cmd$batch(
+				A2(elm$core$List$map, author$project$NativeScript$Commands$notifyCancel, idList));
+		};
 		var _n0 = _Utils_Tuple2(
 			author$project$Activity$Activity$getName(oldActivity),
 			author$project$Activity$Activity$getName(newActivity));
 		var oldName = _n0.a;
 		var newName = _n0.b;
-		var arrowThing = oldName + (' ➤ ' + newName);
 		var _n1 = A2(author$project$Activity$Switching$determineNextTask, app, env);
 		if (_n1.$ === 'Nothing') {
 			return _Utils_Tuple2(
@@ -15580,8 +15637,10 @@ var author$project$Activity$Switching$switchActivity = F3(
 							author$project$NativeScript$Commands$notify(
 							_List_fromArray(
 								[
-									A3(author$project$Activity$Switching$updateSticky, env.time, newActivity, '✔️ All Done')
-								]))
+									A4(author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '✔️ All Done')
+								])),
+							cancelAll(
+							_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
 						])));
 		} else {
 			var nextTask = _n1.a;
@@ -15605,8 +15664,10 @@ var author$project$Activity$Switching$switchActivity = F3(
 								author$project$NativeScript$Commands$notify(
 								A2(
 									elm$core$List$cons,
-									A3(author$project$Activity$Switching$updateSticky, env.time, newActivity, '❌ Unknown - No Activity'),
-									A2(author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time)))
+									A4(author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '❌ Unknown - No Activity'),
+									A2(author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time))),
+								cancelAll(
+								_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
 							])));
 			} else {
 				var nextActivity = _n2.a;
@@ -15621,7 +15682,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 							newActivityID,
 							author$project$Activity$Activity$allActivities(app.activities))));
 				if (_Utils_eq(nextActivity, newActivityID)) {
-					var timeSpent = author$project$SmartTime$Duration$zero;
+					var timeSpent = A3(author$project$Activity$Measure$totalLive, env.time, updatedApp.timeline, newActivityID);
 					var timeRemaining = A2(author$project$SmartTime$Duration$subtract, nextTask.maxEffort, timeSpent);
 					return _Utils_Tuple2(
 						updatedApp,
@@ -15641,8 +15702,10 @@ var author$project$Activity$Switching$switchActivity = F3(
 									author$project$NativeScript$Commands$notify(
 									A2(
 										elm$core$List$cons,
-										A3(author$project$Activity$Switching$updateSticky, env.time, newActivity, '✔️ On Task'),
-										A3(author$project$Activity$Switching$scheduleOnTaskReminders, nextTask, env.time, timeRemaining)))
+										A4(author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '✔️ On Task'),
+										A3(author$project$Activity$Switching$scheduleOnTaskReminders, nextTask, env.time, timeRemaining))),
+									cancelAll(
+									_Utils_ap(offTaskReminderIDs, excusedReminderIDs))
 								])));
 				} else {
 					if (author$project$SmartTime$Duration$isPositive(excusedLeft)) {
@@ -15664,7 +15727,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 										author$project$NativeScript$Commands$notify(
 										A2(
 											elm$core$List$cons,
-											A3(author$project$Activity$Switching$updateSticky, env.time, newActivity, '⏸ Off Task (Excused)'),
+											A4(author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '⏸ Off Task (Excused)'),
 											_Utils_ap(
 												A3(
 													author$project$Activity$Switching$scheduleExcusedReminders,
@@ -15674,7 +15737,9 @@ var author$project$Activity$Switching$switchActivity = F3(
 												A2(
 													author$project$Activity$Switching$scheduleOffTaskReminders,
 													nextTask,
-													A2(author$project$SmartTime$Moment$future, env.time, excusedLeft)))))
+													A2(author$project$SmartTime$Moment$future, env.time, excusedLeft))))),
+										cancelAll(
+										_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
 									])));
 					} else {
 						return _Utils_Tuple2(
@@ -15695,8 +15760,10 @@ var author$project$Activity$Switching$switchActivity = F3(
 										author$project$NativeScript$Commands$notify(
 										A2(
 											elm$core$List$cons,
-											A3(author$project$Activity$Switching$updateSticky, env.time, newActivity, '❌ Off Task'),
-											A2(author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time)))
+											A4(author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '❌ Off Task'),
+											A2(author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time))),
+										cancelAll(
+										_Utils_ap(onTaskReminderIDs, excusedReminderIDs))
 									])));
 					}
 				}
@@ -15786,11 +15853,7 @@ var author$project$TimeTracker$update = F4(
 				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 			case 'StartTracking':
 				var activityId = msg.a;
-				var _n1 = _Utils_eq(
-					activityId,
-					author$project$Activity$Switching$currentActivityFromApp(app)) ? _Utils_Tuple2(
-					app,
-					author$project$External$Commands$toast('Switched to same activity!')) : A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
+				var _n1 = A3(author$project$Activity$Switching$switchActivity, activityId, app, env);
 				var updatedApp = _n1.a;
 				var cmds = _n1.b;
 				return _Utils_Tuple3(
