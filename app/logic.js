@@ -90,6 +90,11 @@ elm.ports.flash.subscribe(function(toast_message) {
 // NOTIFICATIONS --------------------------------------------------------
 const notifications = require ("nativescript-local-notifications").LocalNotifications;
 
+elm.ports.ns_notify_cancel.subscribe(function(notificationID) {
+    notifications.cancel(notificationID);
+    }
+);
+
 elm.ports.ns_notify.subscribe(function(notificationList) {
 
     // Elm-encoded JSON object obviously can't contain the required Date() object
@@ -97,7 +102,7 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         function(notifObj) {
             //wrap js time (unix ms float) with Date object
             notifObj["at"] = new Date(notifObj["at"]);
-            notifObj["when"] = new Date(notifObj["when"]);
+            //notifObj["when"] = new Date(notifObj["when"]);
 
             // While we're at it, check if we missed it
             if (new Date() > notifObj["at"]) {
@@ -112,7 +117,7 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
     console.dir(correctedList);
 
     // Clean slate every time - TODO: better way
-    notifications.cancelAll();
+    // notifications.cancelAll();
 
     notifications.schedule(correctedList).then(
         function(scheduledIds) {
@@ -168,7 +173,7 @@ global.onmessage = function(incoming) {
     try {
         elm.ports[incoming.data.port].send(incoming.data.message);
     } catch (e) {
-        console.error("Worker got a message, but couldn't act on it: " + incoming.toString());
+        console.error("Worker got a message, but couldn't act on it: " + incoming.data.toString());
         console.dir(incoming);
         console.error(e.toString());
     }
