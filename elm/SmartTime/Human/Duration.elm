@@ -322,27 +322,27 @@ inLargestExactUnits duration =
 trim : List HumanDuration -> List HumanDuration
 trim humanDurationList =
     let
-        isNonzero humanDuration =
+        isZero humanDuration =
             case humanDuration of
                 Days 0 ->
-                    False
+                    True
 
                 Hours 0 ->
-                    False
+                    True
 
                 Minutes 0 ->
-                    False
+                    True
 
                 Seconds 0 ->
-                    False
+                    True
 
                 Milliseconds 0 ->
-                    False
+                    True
 
                 _ ->
-                    True
+                    False
     in
-    List.dropWhile isNonzero humanDurationList |> List.dropWhileRight isNonzero
+    List.dropWhile isZero humanDurationList |> List.dropWhileRight isZero
 
 
 
