@@ -240,11 +240,7 @@ update msg state app env =
         StartTracking activityId ->
             let
                 ( updatedApp, cmds ) =
-                    if activityId == Switching.currentActivityFromApp app then
-                        ( app, toast "Switched to same activity!" )
-
-                    else
-                        Switching.switchActivity activityId app env
+                    Switching.switchActivity activityId app env
             in
             ( state
             , updatedApp
