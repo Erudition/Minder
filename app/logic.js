@@ -1,6 +1,6 @@
 require('globals'); // necessary to bootstrap tns modules on the new thread
 
-console.info("Initializing business logic");
+console.info("Initializing business logic in worker. -->");
 
 
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
@@ -8,7 +8,7 @@ const applicationModule = require("tns-core-modules/application");
 var androidApp = applicationModule.android
 let isPaused = androidApp.paused; // e.g. false
 let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
-let nativeApp = androidApp.nativeApp; // The native APplication reference
+let nativeApp = androidApp.nativeApp; // The native Application reference
 let foregroundActivity = androidApp.foregroundActivity; // The current Activity reference
 //let context = androidApp.context; // The current Android context
 
@@ -63,28 +63,13 @@ var elm = require('../www/elm-headless.js').Elm.Headless.init(
 
 console.info("Got past Elm initialization! ---------------------------------");
 
+const ns_hookup = require('./elm-nativescript.js');
+ns_hookup.addNativeScriptFeaturesToElm(elm);
 
 
 
 
-// FLASH OR "TOAST" POPUPS ------------------------------------------
-const toasty = require('nativescript-toasty').Toasty;
 
-elm.ports.flash.subscribe(function(toast_message) {
-    const toast = new toasty({
-        text: toast_message,
-        //duration: ToastDuration.SHORT,
-        textColor: '#fff',
-        //backgroundColor: new Color('purple'),
-        //position: ToastPosition.TOP,
-        android: { yAxisOffset: 100 },
-        ios: {
-            displayShadow: true,
-            shadowColor: '#fff000',
-            cornerRadius: 24
-        }
-    }).show();
-});
 
 
 // NOTIFICATIONS --------------------------------------------------------
@@ -144,19 +129,17 @@ notifications.addOnMessageReceivedCallback(
 
 
 
-// LEGACY PORT: VARIABLE OUT --------------------------------------------------
-
+// LEGACY PORT: VARIABLE OUT ------------------------------------------
 
 elm.ports.variableOut.subscribe(function(data) {
     postMessage(data);
 });
 
 
-
 // SET STORAGE -----------------------------------------------------------------
 elm.ports.setStorage.subscribe(function(data) {
 
-    console.info(" App Data being set");
+    console.info("App Data being set");
 
     // let lines = data.split("\\n");
     // for (var line in lines) {
@@ -179,3 +162,5 @@ global.onmessage = function(incoming) {
     }
 
 }
+
+console.info("<-- Worker initialized.");
