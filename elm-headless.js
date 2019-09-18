@@ -12002,7 +12002,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(12),
+						author$project$SmartTime$Human$Duration$Minutes(15),
 						author$project$SmartTime$Human$Duration$Hours(2))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -12037,7 +12037,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(35),
+						author$project$SmartTime$Human$Duration$Minutes(40),
 						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -12072,7 +12072,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(10),
+						author$project$SmartTime$Human$Duration$Minutes(12),
 						author$project$SmartTime$Human$Duration$Hours(3))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -12091,7 +12091,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Minutes(25),
 						author$project$SmartTime$Human$Duration$Hours(18))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -12196,7 +12196,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(25),
+						author$project$SmartTime$Human$Duration$Minutes(15),
 						author$project$SmartTime$Human$Duration$Hours(5))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
@@ -12316,7 +12316,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 					author$project$SmartTime$Human$Duration$Hours(24)),
 				names: _List_fromArray(
 					['Prepare', 'Preparing', 'Preparation']),
-				taskOptional: true,
+				taskOptional: false,
 				template: startWith
 			};
 		case 'Lover':
@@ -12416,7 +12416,10 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				backgroundable: false,
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
-				excusable: author$project$Activity$Activity$NeverExcused,
+				excusable: author$project$Activity$Activity$TemporarilyExcused(
+					_Utils_Tuple2(
+						author$project$SmartTime$Human$Duration$Minutes(20),
+						author$project$SmartTime$Human$Duration$Hours(8))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -12589,7 +12592,7 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				category: author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$NeverExcused,
-				hidden: false,
+				hidden: true,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
 					author$project$SmartTime$Human$Duration$Hours(2),
@@ -12887,8 +12890,8 @@ var author$project$Activity$Activity$defaults = function (startWith) {
 				evidence: _List_Nil,
 				excusable: author$project$Activity$Activity$TemporarilyExcused(
 					_Utils_Tuple2(
-						author$project$SmartTime$Human$Duration$Minutes(45),
-						author$project$SmartTime$Human$Duration$Hours(3))),
+						author$project$SmartTime$Human$Duration$Minutes(40),
+						author$project$SmartTime$Human$Duration$Hours(4))),
 				hidden: false,
 				icon: author$project$Activity$Activity$File('unknown.svg'),
 				maxTime: _Utils_Tuple2(
@@ -13595,7 +13598,7 @@ var author$project$NativeScript$Notification$encode = function (v) {
 				author$project$Porting$omittable(
 				_Utils_Tuple3('status_text_size', elm$json$Json$Encode$int, v.status_text_size)),
 				author$project$Porting$omittable(
-				_Utils_Tuple3('background_color', elm$json$Json$Encode$string, v.background_color)),
+				_Utils_Tuple3('color', elm$json$Json$Encode$string, v.accentColor)),
 				author$project$Porting$omittable(
 				_Utils_Tuple3('color_from_media', elm$json$Json$Encode$bool, v.color_from_media)),
 				author$project$Porting$omittable(
@@ -13688,7 +13691,7 @@ var author$project$NativeScript$Commands$notify = function (notification) {
 };
 var author$project$NativeScript$Notification$High = {$: 'High'};
 var author$project$NativeScript$Notification$blank = function (channel) {
-	return {actions: _List_Nil, at: elm$core$Maybe$Nothing, autoCancel: elm$core$Maybe$Nothing, background_color: elm$core$Maybe$Nothing, badge: elm$core$Maybe$Nothing, bigTextStyle: elm$core$Maybe$Nothing, body: elm$core$Maybe$Nothing, body_expanded: elm$core$Maybe$Nothing, channel: channel, channelDescription: elm$core$Maybe$Nothing, chronometer: elm$core$Maybe$Nothing, color_from_media: elm$core$Maybe$Nothing, countdown: elm$core$Maybe$Nothing, detail: elm$core$Maybe$Nothing, expiresAfter: elm$core$Maybe$Nothing, forceShowWhenInForeground: elm$core$Maybe$Nothing, group: elm$core$Maybe$Nothing, groupAlertBehavior: elm$core$Maybe$Nothing, groupedMessages: elm$core$Maybe$Nothing, icon: elm$core$Maybe$Nothing, id: elm$core$Maybe$Nothing, image: elm$core$Maybe$Nothing, importance: elm$core$Maybe$Nothing, interval: elm$core$Maybe$Nothing, isGroupSummary: elm$core$Maybe$Nothing, led_off_duration: elm$core$Maybe$Nothing, led_on_duration: elm$core$Maybe$Nothing, media: elm$core$Maybe$Nothing, media_layout: elm$core$Maybe$Nothing, notificationLed: elm$core$Maybe$Nothing, on_create: elm$core$Maybe$Nothing, on_dismiss: elm$core$Maybe$Nothing, on_touch: elm$core$Maybe$Nothing, ongoing: elm$core$Maybe$Nothing, phone_only: elm$core$Maybe$Nothing, picture_expanded_icon: elm$core$Maybe$Nothing, picture_skip_cache: elm$core$Maybe$Nothing, privacy: elm$core$Maybe$Nothing, progress: elm$core$Maybe$Nothing, silhouetteIcon: elm$core$Maybe$Nothing, sortKey: elm$core$Maybe$Nothing, sound: elm$core$Maybe$Nothing, status_icon: elm$core$Maybe$Nothing, status_text_size: elm$core$Maybe$Nothing, subtitle: elm$core$Maybe$Nothing, thumbnail: elm$core$Maybe$Nothing, ticker: elm$core$Maybe$Nothing, title: elm$core$Maybe$Nothing, title_expanded: elm$core$Maybe$Nothing, update: elm$core$Maybe$Nothing, url: elm$core$Maybe$Nothing, useHTML: elm$core$Maybe$Nothing, vibratePattern: elm$core$Maybe$Nothing, when: elm$core$Maybe$Nothing};
+	return {accentColor: elm$core$Maybe$Nothing, actions: _List_Nil, at: elm$core$Maybe$Nothing, autoCancel: elm$core$Maybe$Nothing, background_color: elm$core$Maybe$Nothing, badge: elm$core$Maybe$Nothing, bigTextStyle: elm$core$Maybe$Nothing, body: elm$core$Maybe$Nothing, body_expanded: elm$core$Maybe$Nothing, channel: channel, channelDescription: elm$core$Maybe$Nothing, chronometer: elm$core$Maybe$Nothing, color_from_media: elm$core$Maybe$Nothing, countdown: elm$core$Maybe$Nothing, detail: elm$core$Maybe$Nothing, expiresAfter: elm$core$Maybe$Nothing, forceShowWhenInForeground: elm$core$Maybe$Nothing, group: elm$core$Maybe$Nothing, groupAlertBehavior: elm$core$Maybe$Nothing, groupedMessages: elm$core$Maybe$Nothing, icon: elm$core$Maybe$Nothing, id: elm$core$Maybe$Nothing, image: elm$core$Maybe$Nothing, importance: elm$core$Maybe$Nothing, interval: elm$core$Maybe$Nothing, isGroupSummary: elm$core$Maybe$Nothing, led_off_duration: elm$core$Maybe$Nothing, led_on_duration: elm$core$Maybe$Nothing, media: elm$core$Maybe$Nothing, media_layout: elm$core$Maybe$Nothing, notificationLed: elm$core$Maybe$Nothing, on_create: elm$core$Maybe$Nothing, on_dismiss: elm$core$Maybe$Nothing, on_touch: elm$core$Maybe$Nothing, ongoing: elm$core$Maybe$Nothing, phone_only: elm$core$Maybe$Nothing, picture_expanded_icon: elm$core$Maybe$Nothing, picture_skip_cache: elm$core$Maybe$Nothing, privacy: elm$core$Maybe$Nothing, progress: elm$core$Maybe$Nothing, silhouetteIcon: elm$core$Maybe$Nothing, sortKey: elm$core$Maybe$Nothing, sound: elm$core$Maybe$Nothing, status_icon: elm$core$Maybe$Nothing, status_text_size: elm$core$Maybe$Nothing, subtitle: elm$core$Maybe$Nothing, thumbnail: elm$core$Maybe$Nothing, ticker: elm$core$Maybe$Nothing, title: elm$core$Maybe$Nothing, title_expanded: elm$core$Maybe$Nothing, update: elm$core$Maybe$Nothing, url: elm$core$Maybe$Nothing, useHTML: elm$core$Maybe$Nothing, vibratePattern: elm$core$Maybe$Nothing, when: elm$core$Maybe$Nothing};
 };
 var author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var author$project$TaskList$defaultView = A3(
@@ -15125,6 +15128,7 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 		var base = _Utils_update(
 			blank,
 			{
+				accentColor: elm$core$Maybe$Just('gold'),
 				actions: actions,
 				channel: 'Excused Reminders',
 				chronometer: elm$core$Maybe$Just(true),
@@ -15283,6 +15287,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 		var base = _Utils_update(
 			blank,
 			{
+				accentColor: elm$core$Maybe$Just('red'),
 				actions: actions,
 				channel: 'Off Task Warnings',
 				channelDescription: elm$core$Maybe$Just('These reminders are meant to be-in-your-face and annoying, so you don\'t ignore them.'),
@@ -15440,6 +15445,7 @@ var author$project$Activity$Switching$scheduleOnTaskReminders = F3(
 		var reminderBase = _Utils_update(
 			blank,
 			{
+				accentColor: elm$core$Maybe$Just('green'),
 				expiresAfter: elm$core$Maybe$Just(
 					author$project$SmartTime$Duration$fromMinutes(1)),
 				id: elm$core$Maybe$Just(0),
@@ -15692,16 +15698,14 @@ var author$project$Activity$Switching$switchActivity = F3(
 			author$project$Activity$Activity$getActivity,
 			newActivityID,
 			author$project$Activity$Activity$allActivities(app.activities));
+		var lastSession = A2(author$project$Activity$Measure$lastSession, updatedApp.timeline, oldActivityID);
 		var formatDuration = function (givenDur) {
 			return author$project$SmartTime$Human$Duration$singleLetterSpaced(
 				author$project$SmartTime$Human$Duration$trim(
 					author$project$SmartTime$Human$Duration$breakdownHMS(givenDur)));
 		};
 		var sessionTotalString = formatDuration(
-			A2(
-				elm$core$Maybe$withDefault,
-				author$project$SmartTime$Duration$zero,
-				A2(author$project$Activity$Measure$lastSession, updatedApp.timeline, oldActivityID)));
+			A2(elm$core$Maybe$withDefault, author$project$SmartTime$Duration$zero, lastSession));
 		var todayTotalString = formatDuration(todayTotal);
 		var excusedUsage = A3(
 			author$project$Activity$Measure$excusedUsage,
