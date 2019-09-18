@@ -30,7 +30,7 @@ multiline inputListOfLists =
 
         unLines : List String -> String
         unLines linesList =
-            String.concat (List.intersperse "\n" linesList)
+            String.concat (List.intersperse "\n" (List.filterNot String.isEmpty linesList))
     in
     unLines (List.map unWords inputListOfLists)
 
@@ -62,14 +62,29 @@ switchActivity newActivityID app env =
         oldActivityID =
             currentActivityFromApp app
 
+        formatDuration givenDur =
+            HumanDuration.singleLetterSpaced <|
+                HumanDuration.trim <|
+                    HumanDuration.breakdownHMS givenDur
+
         sessionTotalString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Maybe.withDefault Duration.zero (List.head (Measure.sessions updatedApp.timeline oldActivityID)))
+            formatDuration <| Maybe.withDefault Duration.zero lastSession
 
         excusedUsageString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity ))
+            formatDuration <| excusedUsage
+
+        lastSession =
+            Measure.lastSession updatedApp.timeline oldActivityID
+
+        excusedUsage =
+            Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
 
         todayTotalString =
-            HumanDuration.singleLetterSpaced <| (HumanDuration.breakdownMS <| Measure.justTodayTotal updatedApp.timeline env newActivityID)
+            formatDuration <|
+                todayTotal
+
+        todayTotal =
+            Measure.justTodayTotal updatedApp.timeline env newActivityID
 
         popup message =
             Commands.toast (multiline message)
@@ -91,6 +106,13 @@ switchActivity newActivityID app env =
 
         statusIDs =
             [ 42 ]
+
+        describeTodayTotal =
+            if Duration.isPositive todayTotal then
+                [ "So far", todayTotalString, "today" ]
+
+            else
+                []
     in
     case determineNextTask app env of
         Nothing ->
@@ -98,11 +120,11 @@ switchActivity newActivityID app env =
             ( updatedApp
             , Cmd.batch
                 [ popup
-                    [ [ sessionTotalString, "spent on", oldName ]
+                    [ [ oldName, "stopped:", sessionTotalString ]
                     , [ oldName, "➤", newName ]
-                    , [ "Starting from", todayTotalString, "today" ]
+                    , describeTodayTotal
                     ]
-                , notify [ updateSticky env.time newActivity "✔️ All Done" ]
+                , notify [ updateSticky env.time todayTotal newActivity "✔️ All Done" ]
                 , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                 ]
             )
@@ -116,11 +138,12 @@ switchActivity newActivityID app env =
                     , Cmd.batch
                         [ popup
                             [ [ "❌ Next Task has no Activity! " ]
-                            , [ sessionTotalString, "spent on", oldName ]
+                            , [ oldName, "stopped:", sessionTotalString ]
                             , [ oldName, "➤", newName ]
+                            , describeTodayTotal
                             ]
                         , notify
-                            (updateSticky env.time newActivity "❌ Unknown - No Activity"
+                            (updateSticky env.time todayTotal newActivity "❌ Unknown - No Activity"
                                 :: scheduleOffTaskReminders nextTask env.time
                             )
                         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
@@ -131,6 +154,13 @@ switchActivity newActivityID app env =
                     let
                         excusedLeft =
                             Measure.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities app.activities) )
+
+                        describeExcusedUsage =
+                            if Duration.isPositive excusedUsage then
+                                [ "Already used", excusedUsageString ]
+
+                            else
+                                []
                     in
                     if nextActivity == newActivityID then
                         let
@@ -144,12 +174,12 @@ switchActivity newActivityID app env =
                         ( updatedApp
                         , Cmd.batch
                             [ popup
-                                [ [ sessionTotalString, "spent on", oldName ]
+                                [ [ oldName, "stopped:", sessionTotalString ]
                                 , [ oldName, "➤", newName, "✔️" ]
-                                , [ "Starting from", todayTotalString, "today" ]
+                                , describeTodayTotal
                                 ]
                             , notify <|
-                                updateSticky env.time newActivity "✔️ On Task"
+                                updateSticky env.time todayTotal newActivity "✔️ On Task"
                                     :: scheduleOnTaskReminders nextTask env.time timeRemaining
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
@@ -160,12 +190,12 @@ switchActivity newActivityID app env =
                         ( updatedApp
                         , Cmd.batch
                             [ popup
-                                [ [ sessionTotalString, "spent on", oldName ]
+                                [ [ oldName, "stopped:", sessionTotalString ]
                                 , [ oldName, "➤", newName, "❌" ]
-                                , [ "Already used", excusedUsageString ]
+                                , describeExcusedUsage
                                 ]
                             , notify <|
-                                updateSticky env.time newActivity "⏸ Off Task (Excused)"
+                                updateSticky env.time todayTotal newActivity "⏸ Off Task (Excused)"
                                     :: scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
                             , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
@@ -177,12 +207,12 @@ switchActivity newActivityID app env =
                         ( updatedApp
                         , Cmd.batch
                             [ popup
-                                [ [ sessionTotalString, "spent on", oldName ]
+                                [ [ oldName, "stopped:", sessionTotalString ]
                                 , [ oldName, "➤", newName, "❌" ]
                                 , [ "Previously excused for", excusedUsageString ]
                                 ]
                             , notify <|
-                                updateSticky env.time newActivity "❌ Off Task"
+                                updateSticky env.time todayTotal newActivity "❌ Off Task"
                                     :: scheduleOffTaskReminders nextTask env.time
                             , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
                             ]
@@ -208,8 +238,8 @@ switchActivity newActivityID app env =
 -- )
 
 
-updateSticky : Moment -> Activity -> String -> Notification
-updateSticky now newActivity status =
+updateSticky : Moment -> Duration -> Activity -> String -> Notification
+updateSticky now todayTotal newActivity status =
     let
         blank =
             Notif.blank "Status"
@@ -225,13 +255,10 @@ updateSticky now newActivity status =
         , autoCancel = Just False
         , title = Just (Activity.getName newActivity)
         , chronometer = Just True
-        , when = Just now
+        , when = Just (past now todayTotal)
         , subtitle = Just status
         , body = Nothing
         , ongoing = Just True
-        , bigTextStyle = Nothing
-        , groupedMessages = Nothing
-        , groupSummary = Nothing
         , badge = Nothing
         , icon = Nothing
         , silhouetteIcon = Nothing
@@ -267,6 +294,7 @@ scheduleOnTaskReminders task now timeLeft =
                 | id = Just 0
                 , expiresAfter = Just (Duration.fromMinutes 1)
                 , when = Just (future now timeLeft)
+                , accentColor = Just "green"
             }
 
         fractionLeft denom =
@@ -315,8 +343,9 @@ scheduleOffTaskReminders nextTask now =
                 , actions = actions
                 , importance = Just Notif.Max
                 , expiresAfter = Just (Duration.fromSeconds 59)
-                , title = Just nextTask.title
+                , title = Just ("Do now: " ++ nextTask.title)
                 , sound = Just (Notif.CustomSound "eek")
+                , accentColor = Just "red"
             }
 
         buzz count =
@@ -436,6 +465,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 , when = Just timesUp
                 , countdown = Just True
                 , chronometer = Just True
+                , accentColor = Just "gold"
             }
 
         actions =
@@ -466,7 +496,8 @@ scheduleExcusedReminders now excusedLimit timeLeft =
 
         gettingCloseList =
             List.takeWhile (firstIsGreater halfLeftThisSession)
-                [ dur (Minutes 1)
+                [ Duration.zero
+                , dur (Minutes 1)
                 , dur (Minutes 2)
                 , dur (Minutes 3)
                 , dur (Minutes 5)
@@ -479,6 +510,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 | at = Just <| beforeTimesUp amountLeft
                 , title = Just <| "Finish up! Only " ++ write amountLeft ++ " left!"
                 , subtitle = Just <| "Excused for up to " ++ write excusedLimit
+                , progress = Just (Notif.Progress (Duration.inMs amountLeft) (Duration.inMs excusedLimit))
             }
 
         write durLeft =
