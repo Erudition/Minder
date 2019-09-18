@@ -18,3 +18,6 @@ port ns_notify : Encode.Value -> Cmd msg
 
 
 port ns_notify_cancel : Encode.Value -> Cmd msg
+
+
+port ns_toast : Encode.Value -> Cmd msg
