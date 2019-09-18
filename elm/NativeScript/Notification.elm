@@ -32,9 +32,6 @@ type alias Notification =
     -- An array of atmost 5 messages that would be displayed using android's notification inboxStyle. Note: The array would be trimed from the top if the messages exceed five. Default not set
     , groupedMessages : Maybe (List String)
 
-    -- An inboxStyle notification summary. Default empty
-    , groupSummary : Maybe String
-
     -- On Android you can show a different text in the statusbar, instead of the body. Default not set, so body is used.
     -- Now used for accesibility (screen readers)
     , ticker : Maybe String
@@ -86,6 +83,17 @@ type alias Notification =
     , when : Maybe Moment -- ADDED BY ME
     , chronometer : Maybe Bool -- ADDED BY ME
 
+    -- Newer Android: What group should this notification be bundled into? For example, if your app has a messaging system, the recent messages can be bundled together, even from different people (which could mean different notification channels), and summarized with a groupSummary-type notification. Warning: If group is not specified, Android will bundle up your notifications into one big "group" if there are more than 3 of them in the drawer. To avoid this, specify a unique group for notifications you don't want bundled.
+    , group : Maybe GroupKey
+
+    -- Specify that the notification should be used as the summary of all other notifications in its group. Notifications sharing the group may be bundled inside this one.
+    , isGroupSummary : Maybe Bool
+
+    -- Specify that the notification should be used as the summary of all other notifications in its group. Notifications sharing the group may be bundled inside this one.
+    , groupAlertBehavior : Maybe Int
+    , sortKey : Maybe String
+    , accentColor : Maybe String
+
     ------ End of features added by me
     , update : Maybe UpdateStrategy -- NOT YET SUPPORTED
     , privacy : Maybe Privacy -- NOT YET SUPPORTED
@@ -114,7 +122,7 @@ type alias Notification =
 
 blank : ChannelID -> Notification
 blank channel =
-    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, groupSummary = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibratePattern = Nothing, phone_only = Nothing, channelDescription = Nothing, when = Nothing }
+    { channel = channel, id = Nothing, title = Nothing, subtitle = Nothing, body = Nothing, ongoing = Nothing, bigTextStyle = Nothing, groupedMessages = Nothing, ticker = Nothing, at = Nothing, badge = Nothing, sound = Nothing, interval = Nothing, icon = Nothing, silhouetteIcon = Nothing, image = Nothing, thumbnail = Nothing, forceShowWhenInForeground = Nothing, notificationLed = Nothing, actions = [], expiresAfter = Nothing, update = Nothing, importance = Nothing, privacy = Nothing, useHTML = Nothing, title_expanded = Nothing, body_expanded = Nothing, detail = Nothing, status_icon = Nothing, status_text_size = Nothing, background_color = Nothing, color_from_media = Nothing, picture_skip_cache = Nothing, picture_expanded_icon = Nothing, media_layout = Nothing, media = Nothing, url = Nothing, on_create = Nothing, on_touch = Nothing, on_dismiss = Nothing, autoCancel = Nothing, chronometer = Nothing, countdown = Nothing, led_on_duration = Nothing, led_off_duration = Nothing, progress = Nothing, vibratePattern = Nothing, phone_only = Nothing, channelDescription = Nothing, when = Nothing, group = Nothing, groupAlertBehavior = Nothing, isGroupSummary = Nothing, sortKey = Nothing, accentColor = Nothing }
 
 
 encode : Notification -> EncodedNotification
@@ -134,7 +142,7 @@ encode v =
         , omittable ( "icon", Encode.string, v.icon )
         , omittable ( "status_icon", Encode.string, v.status_icon )
         , omittable ( "status_text_size", Encode.int, v.status_text_size )
-        , omittable ( "background_color", Encode.string, v.background_color )
+        , omittable ( "color", Encode.string, v.accentColor )
         , omittable ( "color_from_media", Encode.bool, v.color_from_media )
         , omittable ( "badge", Encode.int, v.badge )
         , omittable ( "image", Encode.string, v.image )
@@ -158,7 +166,7 @@ encode v =
         , omittable ( "vibratePattern", encodevibratePattern, v.vibratePattern )
         , omittable ( "phone_only", Encode.bool, v.phone_only )
         , omittable ( "groupedMessages", Encode.list Encode.string, v.groupedMessages )
-        , omittable ( "groupSummary", Encode.string, v.groupSummary )
+        , omittable ( "group", \(GroupKey s) -> Encode.string s, v.group )
         , omittable ( "interval", encodeRepeatEvery, v.interval )
         , omittable ( "icon", Encode.string, v.icon )
         , omittable ( "silhouetteIcon", Encode.string, v.silhouetteIcon )
@@ -169,6 +177,7 @@ encode v =
         , omittable ( "progressMax", encodeProgressMax, v.progress )
         , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
+        , omittable ( "sortKey", Encode.string, v.sortKey )
         ]
 
 
@@ -207,6 +216,10 @@ type Sound
     = DefaultSound
     | Silent
     | CustomSound Path
+
+
+type GroupKey
+    = GroupKey String
 
 
 encodeSound : Sound -> Encode.Value
