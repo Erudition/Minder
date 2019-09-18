@@ -1,4 +1,4 @@
-module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, exportLastSession, inHoursMinutes, justToday, justTodayTotal, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, inHoursMinutes, justToday, justTodayTotal, lastSession, relevantTimeline, sessions, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
@@ -40,17 +40,16 @@ sessions switchList activityId =
     let
         all =
             allSessions switchList
+
+        isMatchingDuration : ActivityID -> ( ActivityID, Duration ) -> Maybe Duration
+        isMatchingDuration targetId ( itemId, dur ) =
+            if itemId == targetId then
+                Just dur
+
+            else
+                Nothing
     in
     List.filterMap (isMatchingDuration activityId) all
-
-
-isMatchingDuration : ActivityID -> ( ActivityID, Duration ) -> Maybe Duration
-isMatchingDuration targetId ( itemId, dur ) =
-    if itemId == targetId then
-        Just dur
-
-    else
-        Nothing
 
 
 total : List Switch -> ActivityID -> Duration
@@ -205,13 +204,9 @@ exportExcusedLeftSeconds app now ( activityID, activity ) =
     String.fromInt <| Duration.inSecondsRounded (excusedLeft app.timeline now ( activityID, activity ))
 
 
-exportLastSession : AppData -> ActivityID -> String
-exportLastSession app old =
-    let
-        timeSpent =
-            Maybe.withDefault Duration.zero (List.head (sessions app.timeline old))
-    in
-    String.fromInt <| Duration.inMinutesRounded timeSpent
+lastSession : Timeline -> ActivityID -> Maybe Duration
+lastSession timeline old =
+    List.head (sessions timeline old)
 
 
 
