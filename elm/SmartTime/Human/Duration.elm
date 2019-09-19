@@ -1,4 +1,4 @@
-module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, trim, withAbbreviation, withLetter)
+module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, trim, trimToLarge, trimToSmall, withAbbreviation, withDefault, withLetter)
 
 import List.Extra as List
 import SmartTime.Duration exposing (..)
@@ -318,12 +318,16 @@ inLargestExactUnits duration =
 
 
 {-| Trim the fat off a breakdown list, just like String.trim does with whitespace. Units with value 0 will be removed from the front and back of the list, but preserved if sandwiched between nonzero units.
+
+Note: The `trim` function works like `String.trim`, which can trim the input down to nothing -- if your value is e.g. `[Days 0, Hours 0, Seconds 0]`, you'll get [], which may be formatted as an empty string. This could lead to broken UI text such as "You were in the call for ." if you do not check for it when formatting. This may be what you want, but if you'd rather fallback to a default unit, check out the variants `trimToSmall` and `trimToLarge`, or the `withDefault` function.
+
 -}
 trim : List HumanDuration -> List HumanDuration
 trim humanDurationList =
     let
         isZero humanDuration =
             case humanDuration of
+                -- Makes sure not to strip negative values
                 Days 0 ->
                     True
 
@@ -342,7 +346,76 @@ trim humanDurationList =
                 _ ->
                     False
     in
+    -- Feedback Wanted: This is clever and neat, but is it the most efficient?
     List.dropWhile isZero humanDurationList |> List.dropWhileRight isZero
+
+
+{-| Like `trim`, but in case all units are zero, leaves the smallest unit in the list.
+
+This answers the question of "which unit do I leave behind?" when you try to trim a list like `[Days 0, Hours 0, Seconds 0]` without leaving the list empty. With `trimToSmall` you'd get 0 seconds, with `trimToLarge` you'd get 0 days, and with `withDefault (Hours 0)` you'd get 0 hours.
+
+Note: It's still possible to get an empty list, though, by supplying an empty list. To avoid this, see `withDefault`.
+
+-}
+trimToSmall : List HumanDuration -> List HumanDuration
+trimToSmall humanDurationList =
+    let
+        trimmed =
+            trim humanDurationList
+    in
+    if List.isEmpty trimmed then
+        let
+            smallestUnit =
+                List.last humanDurationList
+
+            singletonList =
+                Maybe.map List.singleton smallestUnit
+        in
+        Maybe.withDefault [] singletonList
+
+    else
+        trimmed
+
+
+{-| Like `trim`, but in case all units are zero, leaves the largest unit in the list.
+
+This answers the question of "which unit do I leave behind?" when you try to trim a list like `[Days 0, Hours 0, Seconds 0]` without leaving the list empty. With `trimToLarge` you'd get 0 days, with `trimToSmall` you'd get 0 seconds, and with `withDefault (Hours 0)` you'd get 0 hours.
+
+Note: It's still possible to get an empty list, though, by supplying an empty list. To avoid this, see `withDefault`.
+
+-}
+trimToLarge : List HumanDuration -> List HumanDuration
+trimToLarge humanDurationList =
+    let
+        trimmed =
+            trim humanDurationList
+    in
+    if List.isEmpty trimmed then
+        let
+            largestUnit =
+                List.head humanDurationList
+
+            singletonList =
+                Maybe.map List.singleton largestUnit
+        in
+        Maybe.withDefault [] singletonList
+
+    else
+        trimmed
+
+
+{-| Substitutes a default value in case a unit list is empty.
+
+Note that most functions of this library cannot return empty lists.
+
+-}
+withDefault : HumanDuration -> List HumanDuration -> List HumanDuration
+withDefault fallback humanDurationList =
+    if List.isEmpty humanDurationList then
+        [ fallback ]
+
+    else
+        humanDurationList
 
 
 
