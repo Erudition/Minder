@@ -64,20 +64,14 @@ switchActivity newActivityID app env =
 
         formatDuration givenDur =
             HumanDuration.singleLetterSpaced <|
-                HumanDuration.trim <|
+                HumanDuration.trimToSmall <|
                     HumanDuration.breakdownHMS givenDur
 
         sessionTotalString =
             formatDuration <| Maybe.withDefault Duration.zero lastSession
 
-        excusedUsageString =
-            formatDuration <| excusedUsage
-
         lastSession =
             Measure.lastSession updatedApp.timeline oldActivityID
-
-        excusedUsage =
-            Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
 
         todayTotalString =
             formatDuration <|
@@ -152,6 +146,13 @@ switchActivity newActivityID app env =
 
                 Just nextActivity ->
                     let
+                        -- ALL EXCUSED CHECKS BELOW --
+                        excusedUsageString =
+                            formatDuration <| excusedUsage
+
+                        excusedUsage =
+                            Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
+
                         excusedLeft =
                             Measure.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities app.activities) )
 
