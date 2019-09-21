@@ -1,4 +1,4 @@
-module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodevibratePattern)
+module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), ChannelID, Command, Detail(..), EncodedNotification, Events, Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), VibratorOff, VibratorOn, WebURL, basic, blank, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodevibratePattern)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
