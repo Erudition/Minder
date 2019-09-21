@@ -90,7 +90,7 @@ switchActivity newActivityID app env =
             Cmd.batch <| List.map notifyCancel idList
 
         offTaskReminderIDs =
-            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ]
+            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
 
         onTaskReminderIDs =
             [ 0 ]
@@ -343,17 +343,10 @@ scheduleOffTaskReminders nextTask now =
                 , channelDescription = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
                 , actions = actions
                 , importance = Just Notif.Max
-                , expiresAfter = Just (Duration.fromSeconds 59)
                 , title = Just ("Do now: " ++ nextTask.title)
                 , sound = Just (Notif.CustomSound "eek")
                 , accentColor = Just "red"
             }
-
-        buzz count =
-            List.repeat count
-                ( Duration.fromMs 100
-                , Duration.fromMs 100
-                )
 
         actions =
             [ { id = "SnoozeButton", button = Notif.Button "Snooze", launch = False }
@@ -361,21 +354,9 @@ scheduleOffTaskReminders nextTask now =
             , { id = "ZapButton", button = Notif.Button "Zap", launch = False }
             ]
 
-        pickEncouragementMessage time =
-            Tuple.first <| Random.step encouragementMessages (Moment.useAsRandomSeed time)
-
-        encouragementMessages =
-            Random.uniform
-                "Do this later"
-                [ "You have important goals to meet!"
-                , "Why not put this in your task list for later?"
-                , "This was not part of the plan"
-                , "Get back on task now!"
-                ]
-
         goesOffAt : Int -> Moment
         goesOffAt reminderNum =
-            future now (Duration.fromSeconds (30 * (toFloat reminderNum - 1)))
+            future now (Duration.scale reminderDistance (toFloat reminderNum - 1))
 
         reminderTemplate : Int -> Notification
         reminderTemplate reminderNum =
@@ -384,13 +365,16 @@ scheduleOffTaskReminders nextTask now =
                 , at = Just (goesOffAt reminderNum)
                 , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
                 , body = Just <| pickEncouragementMessage (goesOffAt reminderNum)
-                , vibratePattern = Just (buzz 10)
+                , vibratePattern = Just (urgentVibe 10)
                 , channel = "Off Task"
                 , when = Just (goesOffAt (reminderNum + 1))
                 , countdown = Just True
                 , chronometer = Just True
-                , expiresAfter = Just (Duration.fromSeconds 29)
+                , expiresAfter = Just (Duration.subtract reminderDistance (Duration.fromSeconds 1))
             }
+
+        reminderDistance =
+            Duration.fromSeconds 60.0
 
         stopAfterCount =
             10
@@ -414,7 +398,7 @@ scheduleOffTaskReminders nextTask now =
         , at = Just <| now
         , subtitle = Just "Off Task!"
         , body = Just <| pickEncouragementMessage now
-        , vibratePattern = Just (buzz 4)
+        , vibratePattern = Just (urgentVibe 4)
         , channel = "Off Task, First Warning"
         , when = Just <| future now (Duration.fromSeconds 30.0)
         , countdown = Just True
@@ -426,7 +410,7 @@ scheduleOffTaskReminders nextTask now =
         , at = Just <| future now (Duration.fromSeconds 30.0)
         , subtitle = Just "Off Task! Second Warning"
         , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 30.0))
-        , vibratePattern = Just (buzz 6)
+        , vibratePattern = Just (urgentVibe 6)
         , channel = "Off Task, Second Warning"
         , when = Just <| future now (Duration.fromSeconds 60.0)
         , countdown = Just True
@@ -438,7 +422,7 @@ scheduleOffTaskReminders nextTask now =
         , at = Just <| future now (Duration.fromSeconds 60.0)
         , subtitle = Just "Off Task! Third Warning"
         , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 60.0))
-        , vibratePattern = Just (buzz 8)
+        , vibratePattern = Just (urgentVibe 8)
         , channel = "Off Task, Third Warning"
         , when = Just <| future now (Duration.fromSeconds 90.0)
         , countdown = Just True
@@ -448,6 +432,29 @@ scheduleOffTaskReminders nextTask now =
     ]
         ++ List.map reminderTemplate (List.range 4 stopAfterCount)
         ++ [ giveUpNotif ]
+
+
+urgentVibe : Int -> List ( Notif.VibratorOff, Notif.VibratorOn )
+urgentVibe count =
+    List.repeat count
+        ( Duration.fromMs 100
+        , Duration.fromMs 100
+        )
+
+
+pickEncouragementMessage : Moment -> String
+pickEncouragementMessage time =
+    let
+        encouragementMessages =
+            Random.uniform
+                "Do this later"
+                [ "You have important goals to meet!"
+                , "Why not put this in your task list for later?"
+                , "This was not part of the plan"
+                , "Get back on task now!"
+                ]
+    in
+    Tuple.first <| Random.step encouragementMessages (Moment.useAsRandomSeed time)
 
 
 {-| Calculate the interim reminders before the activity expires from being excused.
@@ -534,9 +541,6 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 30)))
               }
             ]
-
-        pickEncouragementMessage time =
-            Tuple.first <| Random.step encouragementMessages (Moment.useAsRandomSeed time)
 
         encouragementMessages =
             Random.uniform
