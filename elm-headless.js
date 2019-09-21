@@ -13703,6 +13703,9 @@ var author$project$TaskList$defaultView = A3(
 var author$project$Incubator$Todoist$Command$ItemClose = function (a) {
 	return {$: 'ItemClose', a: a};
 };
+var author$project$Incubator$Todoist$Command$ItemUncomplete = function (a) {
+	return {$: 'ItemUncomplete', a: a};
+};
 var author$project$Incubator$Todoist$Command$RealItem = function (a) {
 	return {$: 'RealItem', a: a};
 };
@@ -14299,12 +14302,72 @@ var author$project$TaskList$update = F4(
 						t,
 						{completion: new_completion});
 				};
+				var maybeGivenTask = A2(elm_community$intdict$IntDict$get, id, app.tasks);
 				var maybeTaskTitle = A2(
 					elm$core$Maybe$map,
 					function ($) {
 						return $.title;
 					},
-					A2(elm_community$intdict$IntDict$get, id, app.tasks));
+					maybeGivenTask);
+				var handleCompletion = function (givenTask) {
+					var _n5 = _Utils_Tuple2(
+						author$project$Task$Progress$isMax(givenTask.completion),
+						author$project$Task$Progress$isMax(new_completion));
+					_n5$2:
+					while (true) {
+						if (!_n5.a) {
+							if (_n5.b) {
+								return elm$core$Platform$Cmd$batch(
+									_List_fromArray(
+										[
+											author$project$External$Commands$toast(
+											'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle)),
+											A2(
+											elm$core$Platform$Cmd$map,
+											author$project$TaskList$TodoistServerResponse,
+											A2(
+												author$project$Integrations$Todoist$sendChanges,
+												app.todoist,
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														author$project$SmartTime$Human$Moment$toStandardString(env.time),
+														author$project$Incubator$Todoist$Command$ItemClose(
+															author$project$Incubator$Todoist$Command$RealItem(id)))
+													])))
+										]));
+							} else {
+								break _n5$2;
+							}
+						} else {
+							if (!_n5.b) {
+								return elm$core$Platform$Cmd$batch(
+									_List_fromArray(
+										[
+											author$project$External$Commands$toast(
+											'No longer marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle)),
+											A2(
+											elm$core$Platform$Cmd$map,
+											author$project$TaskList$TodoistServerResponse,
+											A2(
+												author$project$Integrations$Todoist$sendChanges,
+												app.todoist,
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														author$project$SmartTime$Human$Moment$toStandardString(env.time),
+														author$project$Incubator$Todoist$Command$ItemUncomplete(
+															author$project$Incubator$Todoist$Command$RealItem(id)))
+													])))
+										]));
+							} else {
+								break _n5$2;
+							}
+						}
+					}
+					return elm$core$Platform$Cmd$none;
+				};
+				var maybeHandleCompletion = A2(elm$core$Maybe$map, handleCompletion, maybeGivenTask);
 				return _Utils_Tuple3(
 					state,
 					_Utils_update(
@@ -14316,25 +14379,7 @@ var author$project$TaskList$update = F4(
 								elm$core$Maybe$map(updateTask),
 								app.tasks)
 						}),
-					author$project$Task$Progress$isMax(new_completion) ? elm$core$Platform$Cmd$batch(
-						_List_fromArray(
-							[
-								author$project$External$Commands$toast(
-								'Marked as complete: ' + A2(elm$core$Maybe$withDefault, 'unknown task', maybeTaskTitle)),
-								A2(
-								elm$core$Platform$Cmd$map,
-								author$project$TaskList$TodoistServerResponse,
-								A2(
-									author$project$Integrations$Todoist$sendChanges,
-									app.todoist,
-									_List_fromArray(
-										[
-											_Utils_Tuple2(
-											author$project$SmartTime$Human$Moment$toStandardString(env.time),
-											author$project$Incubator$Todoist$Command$ItemClose(
-												author$project$Incubator$Todoist$Command$RealItem(id)))
-										])))
-							])) : elm$core$Platform$Cmd$none);
+					A2(elm$core$Maybe$withDefault, elm$core$Platform$Cmd$none, maybeHandleCompletion));
 			case 'FocusSlider':
 				var task = msg.a;
 				var focused = msg.b;
@@ -14343,9 +14388,9 @@ var author$project$TaskList$update = F4(
 				return _Utils_Tuple3(state, app, elm$core$Platform$Cmd$none);
 			case 'TodoistServerResponse':
 				var response = msg.a;
-				var _n5 = A2(author$project$Integrations$Todoist$handle, response, app);
-				var newAppData = _n5.a;
-				var whatHappened = _n5.b;
+				var _n6 = A2(author$project$Integrations$Todoist$handle, response, app);
+				var newAppData = _n6.a;
+				var whatHappened = _n6.b;
 				return _Utils_Tuple3(
 					state,
 					newAppData,
@@ -14849,77 +14894,6 @@ var author$project$Activity$Switching$multiline = function (inputListOfLists) {
 	return unLines(
 		A2(elm$core$List$map, unWords, inputListOfLists));
 };
-var author$project$NativeScript$Notification$Button = function (a) {
-	return {$: 'Button', a: a};
-};
-var author$project$NativeScript$Notification$Progress = F2(
-	function (a, b) {
-		return {$: 'Progress', a: a, b: b};
-	});
-var author$project$SmartTime$Duration$compare = F2(
-	function (_n0, _n1) {
-		var int1 = _n0.a;
-		var int2 = _n1.a;
-		return A2(elm$core$Basics$compare, int1, int2);
-	});
-var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
-	switch (unit.$) {
-		case 'Milliseconds':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'ms';
-		case 'Seconds':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'sec';
-		case 'Minutes':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'min';
-		case 'Hours':
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'hr';
-		default:
-			var _int = unit.a;
-			return elm$core$String$fromInt(_int) + 'd';
-	}
-};
-var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
-	return elm$core$String$concat(
-		A2(
-			elm$core$List$intersperse,
-			' ',
-			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withAbbreviation, humanDurationList)));
-};
-var author$project$SmartTime$Human$Duration$breakdownNonzero = function (duration) {
-	var makeOptional = function (_n1) {
-		var tagger = _n1.a;
-		var amount = _n1.b;
-		return (amount > 0) ? elm$core$Maybe$Just(
-			tagger(amount)) : elm$core$Maybe$Nothing;
-	};
-	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
-	var days = _n0.days;
-	var hours = _n0.hours;
-	var minutes = _n0.minutes;
-	var seconds = _n0.seconds;
-	var milliseconds = _n0.milliseconds;
-	var maybeList = A2(
-		elm$core$List$map,
-		makeOptional,
-		_List_fromArray(
-			[
-				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Days, days),
-				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Hours, hours),
-				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Minutes, minutes),
-				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Seconds, seconds),
-				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Milliseconds, milliseconds)
-			]));
-	return A2(elm$core$List$filterMap, elm$core$Basics$identity, maybeList);
-};
-var author$project$SmartTime$Moment$future = F2(
-	function (_n0, duration) {
-		var time = _n0.a;
-		return author$project$SmartTime$Moment$Moment(
-			A2(author$project$SmartTime$Duration$add, time, duration));
-	});
 var elm$random$Random$Seed = F2(
 	function (a, b) {
 		return {$: 'Seed', a: a, b: b};
@@ -15035,6 +15009,88 @@ var elm$random$Random$uniform = F2(
 			elm$random$Random$addOne(value),
 			A2(elm$core$List$map, elm$random$Random$addOne, valueList));
 	});
+var author$project$Activity$Switching$pickEncouragementMessage = function (time) {
+	var encouragementMessages = A2(
+		elm$random$Random$uniform,
+		'Do this later',
+		_List_fromArray(
+			['You have important goals to meet!', 'Why not put this in your task list for later?', 'This was not part of the plan', 'Get back on task now!']));
+	return A2(
+		elm$random$Random$step,
+		encouragementMessages,
+		author$project$SmartTime$Moment$useAsRandomSeed(time)).a;
+};
+var author$project$NativeScript$Notification$Button = function (a) {
+	return {$: 'Button', a: a};
+};
+var author$project$NativeScript$Notification$Progress = F2(
+	function (a, b) {
+		return {$: 'Progress', a: a, b: b};
+	});
+var author$project$SmartTime$Duration$compare = F2(
+	function (_n0, _n1) {
+		var int1 = _n0.a;
+		var int2 = _n1.a;
+		return A2(elm$core$Basics$compare, int1, int2);
+	});
+var author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'ms';
+		case 'Seconds':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'sec';
+		case 'Minutes':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'min';
+		case 'Hours':
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'hr';
+		default:
+			var _int = unit.a;
+			return elm$core$String$fromInt(_int) + 'd';
+	}
+};
+var author$project$SmartTime$Human$Duration$abbreviatedSpaced = function (humanDurationList) {
+	return elm$core$String$concat(
+		A2(
+			elm$core$List$intersperse,
+			' ',
+			A2(elm$core$List$map, author$project$SmartTime$Human$Duration$withAbbreviation, humanDurationList)));
+};
+var author$project$SmartTime$Human$Duration$breakdownNonzero = function (duration) {
+	var makeOptional = function (_n1) {
+		var tagger = _n1.a;
+		var amount = _n1.b;
+		return (amount > 0) ? elm$core$Maybe$Just(
+			tagger(amount)) : elm$core$Maybe$Nothing;
+	};
+	var _n0 = author$project$SmartTime$Duration$breakdown(duration);
+	var days = _n0.days;
+	var hours = _n0.hours;
+	var minutes = _n0.minutes;
+	var seconds = _n0.seconds;
+	var milliseconds = _n0.milliseconds;
+	var maybeList = A2(
+		elm$core$List$map,
+		makeOptional,
+		_List_fromArray(
+			[
+				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Days, days),
+				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Hours, hours),
+				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Minutes, minutes),
+				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Seconds, seconds),
+				_Utils_Tuple2(author$project$SmartTime$Human$Duration$Milliseconds, milliseconds)
+			]));
+	return A2(elm$core$List$filterMap, elm$core$Basics$identity, maybeList);
+};
+var author$project$SmartTime$Moment$future = F2(
+	function (_n0, duration) {
+		var time = _n0.a;
+		return author$project$SmartTime$Moment$Moment(
+			A2(author$project$SmartTime$Duration$add, time, duration));
+	});
 var elm_community$list_extra$List$Extra$takeWhile = function (predicate) {
 	var takeWhileMemo = F2(
 		function (memo, list) {
@@ -15107,12 +15163,6 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 			'Get back on task as soon as possible - do this later!',
 			_List_fromArray(
 				['You have important goals to meet!', 'Why not put this in your task list for later?']));
-		var pickEncouragementMessage = function (time) {
-			return A2(
-				elm$random$Random$step,
-				encouragementMessages,
-				author$project$SmartTime$Moment$useAsRandomSeed(time)).a;
-		};
 		var blank = author$project$NativeScript$Notification$blank('Override me!');
 		var beforeTimesUp = function (timeBefore) {
 			return A2(author$project$SmartTime$Moment$past, timesUp, timeBefore);
@@ -15165,7 +15215,7 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(10)))),
 					subtitle: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+						author$project$Activity$Switching$pickEncouragementMessage(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
@@ -15183,7 +15233,7 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(20)))),
 					subtitle: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+						author$project$Activity$Switching$pickEncouragementMessage(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
@@ -15201,7 +15251,7 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 							author$project$SmartTime$Human$Duration$dur(
 								author$project$SmartTime$Human$Duration$Minutes(30)))),
 					subtitle: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+						author$project$Activity$Switching$pickEncouragementMessage(
 							A2(
 								author$project$SmartTime$Moment$future,
 								now,
@@ -15212,10 +15262,6 @@ var author$project$Activity$Switching$scheduleExcusedReminders = F3(
 			]);
 		return substantialTimeLeft ? A2(elm$core$List$map, buildGettingCloseReminder, gettingCloseList) : _List_Nil;
 	});
-var author$project$NativeScript$Notification$CustomSound = function (a) {
-	return {$: 'CustomSound', a: a};
-};
-var author$project$NativeScript$Notification$Max = {$: 'Max'};
 var elm$core$List$repeatHelp = F3(
 	function (result, n, value) {
 		repeatHelp:
@@ -15237,33 +15283,27 @@ var elm$core$List$repeat = F2(
 	function (n, value) {
 		return A3(elm$core$List$repeatHelp, _List_Nil, n, value);
 	});
+var author$project$Activity$Switching$urgentVibe = function (count) {
+	return A2(
+		elm$core$List$repeat,
+		count,
+		_Utils_Tuple2(
+			author$project$SmartTime$Duration$fromMs(100),
+			author$project$SmartTime$Duration$fromMs(100)));
+};
+var author$project$NativeScript$Notification$CustomSound = function (a) {
+	return {$: 'CustomSound', a: a};
+};
+var author$project$NativeScript$Notification$Max = {$: 'Max'};
 var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 	function (nextTask, now) {
 		var stopAfterCount = 10;
+		var reminderDistance = author$project$SmartTime$Duration$fromSeconds(60.0);
 		var goesOffAt = function (reminderNum) {
 			return A2(
 				author$project$SmartTime$Moment$future,
 				now,
-				author$project$SmartTime$Duration$fromSeconds(30 * (reminderNum - 1)));
-		};
-		var encouragementMessages = A2(
-			elm$random$Random$uniform,
-			'Do this later',
-			_List_fromArray(
-				['You have important goals to meet!', 'Why not put this in your task list for later?', 'This was not part of the plan', 'Get back on task now!']));
-		var pickEncouragementMessage = function (time) {
-			return A2(
-				elm$random$Random$step,
-				encouragementMessages,
-				author$project$SmartTime$Moment$useAsRandomSeed(time)).a;
-		};
-		var buzz = function (count) {
-			return A2(
-				elm$core$List$repeat,
-				count,
-				_Utils_Tuple2(
-					author$project$SmartTime$Duration$fromMs(100),
-					author$project$SmartTime$Duration$fromMs(100)));
+				A2(author$project$SmartTime$Duration$scale, reminderDistance, reminderNum - 1));
 		};
 		var blank = author$project$NativeScript$Notification$blank('Override me!');
 		var actions = _List_fromArray(
@@ -15291,8 +15331,6 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 				actions: actions,
 				channel: 'Off Task Warnings',
 				channelDescription: elm$core$Maybe$Just('These reminders are meant to be-in-your-face and annoying, so you don\'t ignore them.'),
-				expiresAfter: elm$core$Maybe$Just(
-					author$project$SmartTime$Duration$fromSeconds(59)),
 				importance: elm$core$Maybe$Just(author$project$NativeScript$Notification$Max),
 				sound: elm$core$Maybe$Just(
 					author$project$NativeScript$Notification$CustomSound('eek')),
@@ -15323,18 +15361,21 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 					at: elm$core$Maybe$Just(
 						goesOffAt(reminderNum)),
 					body: elm$core$Maybe$Just(
-						pickEncouragementMessage(
+						author$project$Activity$Switching$pickEncouragementMessage(
 							goesOffAt(reminderNum))),
 					channel: 'Off Task',
 					chronometer: elm$core$Maybe$Just(true),
 					countdown: elm$core$Maybe$Just(true),
 					expiresAfter: elm$core$Maybe$Just(
-						author$project$SmartTime$Duration$fromSeconds(29)),
+						A2(
+							author$project$SmartTime$Duration$subtract,
+							reminderDistance,
+							author$project$SmartTime$Duration$fromSeconds(1))),
 					id: elm$core$Maybe$Just(reminderNum),
 					subtitle: elm$core$Maybe$Just(
 						'Off Task! Warning ' + elm$core$String$fromInt(reminderNum)),
 					vibratePattern: elm$core$Maybe$Just(
-						buzz(10)),
+						author$project$Activity$Switching$urgentVibe(10)),
 					when: elm$core$Maybe$Just(
 						goesOffAt(reminderNum + 1))
 				});
@@ -15347,7 +15388,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 					{
 						at: elm$core$Maybe$Just(now),
 						body: elm$core$Maybe$Just(
-							pickEncouragementMessage(now)),
+							author$project$Activity$Switching$pickEncouragementMessage(now)),
 						channel: 'Off Task, First Warning',
 						chronometer: elm$core$Maybe$Just(true),
 						countdown: elm$core$Maybe$Just(true),
@@ -15356,7 +15397,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 						id: elm$core$Maybe$Just(1),
 						subtitle: elm$core$Maybe$Just('Off Task!'),
 						vibratePattern: elm$core$Maybe$Just(
-							buzz(4)),
+							author$project$Activity$Switching$urgentVibe(4)),
 						when: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
@@ -15372,7 +15413,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 								now,
 								author$project$SmartTime$Duration$fromSeconds(30.0))),
 						body: elm$core$Maybe$Just(
-							pickEncouragementMessage(
+							author$project$Activity$Switching$pickEncouragementMessage(
 								A2(
 									author$project$SmartTime$Moment$future,
 									now,
@@ -15385,7 +15426,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 						id: elm$core$Maybe$Just(2),
 						subtitle: elm$core$Maybe$Just('Off Task! Second Warning'),
 						vibratePattern: elm$core$Maybe$Just(
-							buzz(6)),
+							author$project$Activity$Switching$urgentVibe(6)),
 						when: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
@@ -15401,7 +15442,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 								now,
 								author$project$SmartTime$Duration$fromSeconds(60.0))),
 						body: elm$core$Maybe$Just(
-							pickEncouragementMessage(
+							author$project$Activity$Switching$pickEncouragementMessage(
 								A2(
 									author$project$SmartTime$Moment$future,
 									now,
@@ -15414,7 +15455,7 @@ var author$project$Activity$Switching$scheduleOffTaskReminders = F2(
 						id: elm$core$Maybe$Just(3),
 						subtitle: elm$core$Maybe$Just('Off Task! Third Warning'),
 						vibratePattern: elm$core$Maybe$Just(
-							buzz(8)),
+							author$project$Activity$Switching$urgentVibe(8)),
 						when: elm$core$Maybe$Just(
 							A2(
 								author$project$SmartTime$Moment$future,
@@ -15668,6 +15709,20 @@ var author$project$SmartTime$Human$Duration$trim = function (humanDurationList) 
 		isZero,
 		A2(elm_community$list_extra$List$Extra$dropWhile, isZero, humanDurationList));
 };
+var elm$core$List$singleton = function (value) {
+	return _List_fromArray(
+		[value]);
+};
+var author$project$SmartTime$Human$Duration$trimToSmall = function (humanDurationList) {
+	var trimmed = author$project$SmartTime$Human$Duration$trim(humanDurationList);
+	if (elm$core$List$isEmpty(trimmed)) {
+		var smallestUnit = elm_community$list_extra$List$Extra$last(humanDurationList);
+		var singletonList = A2(elm$core$Maybe$map, elm$core$List$singleton, smallestUnit);
+		return A2(elm$core$Maybe$withDefault, _List_Nil, singletonList);
+	} else {
+		return trimmed;
+	}
+};
 var author$project$Activity$Switching$switchActivity = F3(
 	function (newActivityID, app, env) {
 		var statusIDs = _List_fromArray(
@@ -15693,7 +15748,7 @@ var author$project$Activity$Switching$switchActivity = F3(
 			oldActivityID,
 			author$project$Activity$Activity$allActivities(app.activities));
 		var offTaskReminderIDs = _List_fromArray(
-			[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+			[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 		var newActivity = A2(
 			author$project$Activity$Activity$getActivity,
 			newActivityID,
@@ -15701,18 +15756,12 @@ var author$project$Activity$Switching$switchActivity = F3(
 		var lastSession = A2(author$project$Activity$Measure$lastSession, updatedApp.timeline, oldActivityID);
 		var formatDuration = function (givenDur) {
 			return author$project$SmartTime$Human$Duration$singleLetterSpaced(
-				author$project$SmartTime$Human$Duration$trim(
+				author$project$SmartTime$Human$Duration$trimToSmall(
 					author$project$SmartTime$Human$Duration$breakdownHMS(givenDur)));
 		};
 		var sessionTotalString = formatDuration(
 			A2(elm$core$Maybe$withDefault, author$project$SmartTime$Duration$zero, lastSession));
 		var todayTotalString = formatDuration(todayTotal);
-		var excusedUsage = A3(
-			author$project$Activity$Measure$excusedUsage,
-			updatedApp.timeline,
-			env.time,
-			_Utils_Tuple2(newActivityID, newActivity));
-		var excusedUsageString = formatDuration(excusedUsage);
 		var excusedReminderIDs = _List_fromArray(
 			[100]);
 		var describeTodayTotal = author$project$SmartTime$Duration$isPositive(todayTotal) ? _List_fromArray(
@@ -15780,6 +15829,12 @@ var author$project$Activity$Switching$switchActivity = F3(
 							])));
 			} else {
 				var nextActivity = _n2.a;
+				var excusedUsage = A3(
+					author$project$Activity$Measure$excusedUsage,
+					updatedApp.timeline,
+					env.time,
+					_Utils_Tuple2(newActivityID, newActivity));
+				var excusedUsageString = formatDuration(excusedUsage);
 				var excusedLeft = A3(
 					author$project$Activity$Measure$excusedLeft,
 					updatedApp.timeline,
