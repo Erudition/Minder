@@ -1,49 +1,49 @@
-module SmartTime.TimeSegment exposing (TimeSegment(..), between, end, fromPair, length, start)
+module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-type TimeSegment
-    = TimeSegment Moment Moment
+type Period
+    = Period Moment Moment
 
 
 
 -- CREATING PERIODS --------------------------------------------------------------NOTE
 
 
-between : Moment -> Moment -> TimeSegment
+between : Moment -> Moment -> Period
 between moment1 moment2 =
     if Moment.compare moment1 moment2 == Moment.Later then
         -- Second moment is earlier than first, moments are backwards!
-        TimeSegment moment2 moment1
+        Period moment2 moment1
 
     else
-        TimeSegment moment1 moment2
+        Period moment1 moment2
 
 
-fromStart : Moment -> Duration -> TimeSegment
+fromStart : Moment -> Duration -> Period
 fromStart startMoment duration =
     between startMoment (Moment.future startMoment duration)
 
 
-fromEnd : Moment -> Duration -> TimeSegment
+fromEnd : Moment -> Duration -> Period
 fromEnd endMoment duration =
     between (Moment.past endMoment duration) endMoment
 
 
-fromPair : ( Moment, Moment ) -> TimeSegment
+fromPair : ( Moment, Moment ) -> Period
 fromPair ( moment1, moment2 ) =
     if Moment.compare moment1 moment2 == Moment.Later then
         -- Second moment is earlier than first, moments are backwards!
-        TimeSegment moment2 moment1
+        Period moment2 moment1
 
     else
         -- they're in the correct order, or identical
-        TimeSegment moment1 moment2
+        Period moment1 moment2
 
 
-timeline : List Moment -> List TimeSegment
+timeline : List Moment -> List Period
 timeline momentList =
     let
         buildList momentsRemaining =
@@ -55,12 +55,12 @@ timeline momentList =
                     []
 
                 moment1 :: moment2 :: rest ->
-                    TimeSegment moment1 moment2 :: buildList rest
+                    Period moment1 moment2 :: buildList rest
     in
     buildList momentList
 
 
-timelineWithEnd : Moment -> List Moment -> List TimeSegment
+timelineWithEnd : Moment -> List Moment -> List Period
 timelineWithEnd defaultEnd momentList =
     let
         buildList momentsRemaining =
@@ -69,15 +69,15 @@ timelineWithEnd defaultEnd momentList =
                     []
 
                 moment1 :: moment2 :: rest ->
-                    TimeSegment moment1 moment2 :: buildList rest
+                    Period moment1 moment2 :: buildList rest
 
                 danglingMoment :: [] ->
-                    TimeSegment danglingMoment defaultEnd :: []
+                    Period danglingMoment defaultEnd :: []
     in
     buildList momentList
 
 
-timelineWithStart : Moment -> List Moment -> List TimeSegment
+timelineWithStart : Moment -> List Moment -> List Period
 timelineWithStart defaultStart momentList =
     if modBy 2 (List.length momentList) == 0 then
         timeline momentList
@@ -90,27 +90,27 @@ timelineWithStart defaultStart momentList =
 -- PROPERTIES -----------------------------------------------------------------NOTE
 
 
-start : TimeSegment -> Moment
-start (TimeSegment startMoment endMoment) =
+start : Period -> Moment
+start (Period startMoment endMoment) =
     startMoment
 
 
-end : TimeSegment -> Moment
-end (TimeSegment startMoment endMoment) =
+end : Period -> Moment
+end (Period startMoment endMoment) =
     startMoment
 
 
-length : TimeSegment -> Duration
-length (TimeSegment startMoment endMoment) =
+length : Period -> Duration
+length (Period startMoment endMoment) =
     Moment.difference startMoment endMoment
 
 
-isInstant : TimeSegment -> Bool
+isInstant : Period -> Bool
 isInstant period =
     Duration.isZero (length period)
 
 
-midpoint : TimeSegment -> Moment
+midpoint : Period -> Moment
 midpoint givenPeriod =
     Moment.future (start givenPeriod) (Duration.scale (length givenPeriod) 0.5)
 
@@ -119,23 +119,23 @@ midpoint givenPeriod =
 -- CONVERSION ----------------------------------------------------------------NOTE
 
 
-toPair : TimeSegment -> ( Moment, Moment )
-toPair (TimeSegment startMoment endMoment) =
+toPair : Period -> ( Moment, Moment )
+toPair (Period startMoment endMoment) =
     ( startMoment, endMoment )
 
 
-toStartDurPair : TimeSegment -> ( Moment, Duration )
+toStartDurPair : Period -> ( Moment, Duration )
 toStartDurPair period =
     ( start period, length period )
 
 
-splitHalves : TimeSegment -> ( TimeSegment, TimeSegment )
-splitHalves ((TimeSegment startMoment endMoment) as givenPeriod) =
-    ( TimeSegment startMoment (midpoint givenPeriod), TimeSegment (midpoint givenPeriod) endMoment )
+splitHalves : Period -> ( Period, Period )
+splitHalves ((Period startMoment endMoment) as givenPeriod) =
+    ( Period startMoment (midpoint givenPeriod), Period (midpoint givenPeriod) endMoment )
 
 
-splitThirds : TimeSegment -> ( TimeSegment, TimeSegment, TimeSegment )
-splitThirds ((TimeSegment startMoment endMoment) as givenPeriod) =
+splitThirds : Period -> ( Period, Period, Period )
+splitThirds ((Period startMoment endMoment) as givenPeriod) =
     let
         oneThirdPoint =
             Moment.future startMoment (Duration.scale (length givenPeriod) (1 / 3))
@@ -143,13 +143,13 @@ splitThirds ((TimeSegment startMoment endMoment) as givenPeriod) =
         twoThirdsPoint =
             Moment.future startMoment (Duration.scale (length givenPeriod) (2 / 3))
     in
-    ( TimeSegment startMoment oneThirdPoint
-    , TimeSegment oneThirdPoint twoThirdsPoint
-    , TimeSegment twoThirdsPoint endMoment
+    ( Period startMoment oneThirdPoint
+    , Period oneThirdPoint twoThirdsPoint
+    , Period twoThirdsPoint endMoment
     )
 
 
-split : Int -> TimeSegment -> List TimeSegment
+split : Int -> Period -> List Period
 split pieces givenPeriod =
     if pieces <= 0 then
         []
@@ -163,19 +163,19 @@ split pieces givenPeriod =
                 Duration.scale (length givenPeriod) (toFloat step / toFloat pieces)
 
             chunk step =
-                TimeSegment (Moment.future (start givenPeriod) (chunkOffset step)) (Moment.future (start givenPeriod) (chunkOffset (step + 1)))
+                Period (Moment.future (start givenPeriod) (chunkOffset step)) (Moment.future (start givenPeriod) (chunkOffset (step + 1)))
         in
         List.map chunk (List.range 0 (pieces - 1))
 
 
-{-| Split a TimeSegment into chunks of the given size -- as many as possible, always returning a list of Periods that make up the original.
+{-| Split a Period into chunks of the given size -- as many as possible, always returning a list of Periods that make up the original.
 
-Chunks are measured from the TimeSegment's beginning. If you want to ignore any remainder of the TimeSegment that does not fit into the proper chunk size, use `divide` instead.
+Chunks are measured from the Period's beginning. If you want to ignore any remainder of the Period that does not fit into the proper chunk size, use `divide` instead.
 
-So if you have a TimeSegment from 12:00 to 12:35 and split it every 10 minutes, you'd get 12:00-12:10, 12:10-12:20, 12:20-12:30, and 12:30-12:35.
+So if you have a Period from 12:00 to 12:35 and split it every 10 minutes, you'd get 12:00-12:10, 12:10-12:20, 12:20-12:30, and 12:30-12:35.
 
 -}
-splitEvery : Duration -> TimeSegment -> List TimeSegment
+splitEvery : Duration -> Period -> List Period
 splitEvery chunkLength givenPeriod =
     let
         addRemaining lastEnd currentList =
@@ -191,13 +191,13 @@ splitEvery chunkLength givenPeriod =
             in
             case nextVsFinal of
                 Moment.Earlier ->
-                    addRemaining nextEnd <| currentList ++ [ TimeSegment lastEnd nextEnd ]
+                    addRemaining nextEnd <| currentList ++ [ Period lastEnd nextEnd ]
 
                 Moment.Coincident ->
-                    currentList ++ [ TimeSegment lastEnd nextEnd ]
+                    currentList ++ [ Period lastEnd nextEnd ]
 
                 Moment.Later ->
-                    currentList ++ [ TimeSegment lastEnd finalEnd ]
+                    currentList ++ [ Period lastEnd finalEnd ]
     in
     addRemaining (start givenPeriod) []
 
@@ -206,12 +206,12 @@ splitEvery chunkLength givenPeriod =
 
 If the dividend (chunk size) fits exactly, this would be equivalent to `splitEvery`.
 
-Note that if it does not, the output Periods will not add up to the entire input TimeSegment.
+Note that if it does not, the output Periods will not add up to the entire input Period.
 
-So if you have a TimeSegment from 12:00 to 12:35 and split it every 10 minutes, you'd get 12:00-12:10, 12:10-12:20, and 12:20-12:30.
+So if you have a Period from 12:00 to 12:35 and split it every 10 minutes, you'd get 12:00-12:10, 12:10-12:20, and 12:20-12:30.
 
 -}
-divide : Duration -> TimeSegment -> List TimeSegment
+divide : Duration -> Period -> List Period
 divide chunkLength givenPeriod =
     let
         addRemaining lastEnd currentList =
@@ -227,10 +227,10 @@ divide chunkLength givenPeriod =
             in
             case nextVsFinal of
                 Moment.Earlier ->
-                    addRemaining nextEnd <| currentList ++ [ TimeSegment lastEnd nextEnd ]
+                    addRemaining nextEnd <| currentList ++ [ Period lastEnd nextEnd ]
 
                 Moment.Coincident ->
-                    currentList ++ [ TimeSegment lastEnd nextEnd ]
+                    currentList ++ [ Period lastEnd nextEnd ]
 
                 Moment.Later ->
                     currentList
@@ -242,7 +242,7 @@ divide chunkLength givenPeriod =
 -- COMPARISON -----------------------------------------------------------------NOTE
 
 
-distanceBetween : TimeSegment -> TimeSegment -> Duration
+distanceBetween : Period -> Period -> Duration
 distanceBetween periodA periodB =
     let
         comesFirst =
@@ -258,12 +258,12 @@ distanceBetween periodA periodB =
         Duration.zero
 
 
-areAdjacent : TimeSegment -> TimeSegment -> Bool
-areAdjacent (TimeSegment startA endA) (TimeSegment startB endB) =
+areAdjacent : Period -> Period -> Bool
+areAdjacent (Period startA endA) (Period startB endB) =
     startB == endA || startA == endB
 
 
-overlap : TimeSegment -> TimeSegment -> Duration
+overlap : Period -> Period -> Duration
 overlap periodA periodB =
     let
         comesFirst =
@@ -279,19 +279,19 @@ overlap periodA periodB =
         Duration.zero
 
 
-haveOverlap : TimeSegment -> TimeSegment -> Bool
+haveOverlap : Period -> Period -> Bool
 haveOverlap periodA periodB =
     not <| Duration.isZero (overlap periodA periodB)
 
 
-{-| Whether the first TimeSegment is contained by the second (A fits entirely within B).
+{-| Whether the first Period is contained by the second (A fits entirely within B).
 -}
-contains : TimeSegment -> TimeSegment -> Bool
-contains (TimeSegment startA endA) (TimeSegment startB endB) =
+contains : Period -> Period -> Bool
+contains (Period startA endA) (Period startB endB) =
     Moment.compare startA startB /= Moment.Later && Moment.compare endA endB /= Moment.Earlier
 
 
-startsEarlier : TimeSegment -> TimeSegment -> TimeSegment
+startsEarlier : Period -> Period -> Period
 startsEarlier periodA periodB =
     if Moment.compare (start periodA) (start periodB) /= Moment.Later then
         periodA
@@ -300,7 +300,7 @@ startsEarlier periodA periodB =
         periodB
 
 
-startsLater : TimeSegment -> TimeSegment -> TimeSegment
+startsLater : Period -> Period -> Period
 startsLater periodA periodB =
     if Moment.compare (start periodA) (start periodB) /= Moment.Earlier then
         periodA
@@ -309,7 +309,7 @@ startsLater periodA periodB =
         periodB
 
 
-endsEarlier : TimeSegment -> TimeSegment -> TimeSegment
+endsEarlier : Period -> Period -> Period
 endsEarlier periodA periodB =
     if Moment.compare (end periodA) (end periodB) /= Moment.Later then
         periodA
@@ -318,7 +318,7 @@ endsEarlier periodA periodB =
         periodB
 
 
-endsLater : TimeSegment -> TimeSegment -> TimeSegment
+endsLater : Period -> Period -> Period
 endsLater periodA periodB =
     if Moment.compare (end periodA) (end periodB) /= Moment.Earlier then
         periodA
@@ -331,6 +331,6 @@ endsLater periodA periodB =
 -- TESTING ---------------------------------------------------------------------NOTE
 
 
-isWithin : TimeSegment -> Moment -> Bool
-isWithin (TimeSegment startMoment endMoment) testMoment =
+isWithin : Period -> Moment -> Bool
+isWithin (Period startMoment endMoment) testMoment =
     (Moment.compare testMoment startMoment /= Moment.Earlier) && (Moment.compare testMoment endMoment /= Moment.Later)
