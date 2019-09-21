@@ -14,6 +14,7 @@ import Random
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
+import SmartTime.Period as Period exposing (Period)
 import Task.Task as Task exposing (Task)
 import Time
 import Time.Extra as Time
@@ -242,8 +243,11 @@ switchActivity newActivityID app env =
 updateSticky : Moment -> Duration -> Activity -> String -> Notification
 updateSticky now todayTotal newActivity status =
     let
+        statusChannel =
+            Notif.basicChannel "Status"
+
         blank =
-            Notif.blank "Status"
+            Notif.build statusChannel
 
         actions =
             [ { id = "sync=todoist", button = Notif.Button "Sync Tasks", launch = False }
@@ -284,11 +288,16 @@ currentActivityFromApp app =
     currentActivityID app.timeline
 
 
+onTaskChannel : Notif.Channel
+onTaskChannel =
+    { id = "Task Progress", name = "Task Progress", description = "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Notif.High, led = Nothing, vibrate = Nothing }
+
+
 scheduleOnTaskReminders : Task -> Moment -> Duration -> List Notification
 scheduleOnTaskReminders task now timeLeft =
     let
         blank =
-            Notif.blank "Override me!"
+            Notif.build onTaskChannel
 
         reminderBase =
             { blank
@@ -331,115 +340,116 @@ scheduleOnTaskReminders task now timeLeft =
     ]
 
 
+offTaskChannel : Int -> Notif.Channel
+offTaskChannel step =
+    let
+        channelName =
+            case step of
+                1 ->
+                    "Off Task, First Warning"
+
+                2 ->
+                    "Off Task! Second Warning"
+
+                3 ->
+                    "Off Task! Third Warning"
+
+                _ ->
+                    "Off Task Warnings"
+    in
+    { id = "Off Task Warnings"
+    , name = channelName
+    , description = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
+    , sound = Just (Notif.CustomSound "eek")
+    , importance = Notif.Max
+    , led = Nothing
+    , vibrate = Just (urgentVibe (5 + step))
+    }
+
+
+offTaskActions : List Notif.Action
+offTaskActions =
+    [ { id = "SnoozeButton", button = Notif.Button "Snooze", launch = False }
+    , { id = "LaunchButton", button = Notif.Button "Go", launch = True }
+    , { id = "ZapButton", button = Notif.Button "Zap", launch = False }
+    ]
+
+
 scheduleOffTaskReminders : Task -> Moment -> List Notification
 scheduleOffTaskReminders nextTask now =
     let
-        blank =
-            Notif.blank "Override me!"
-
-        base =
-            { blank
-                | channel = "Off Task Warnings"
-                , channelDescription = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
-                , actions = actions
-                , importance = Just Notif.Max
-                , title = Just ("Do now: " ++ nextTask.title)
-                , sound = Just (Notif.CustomSound "eek")
-                , accentColor = Just "red"
-            }
-
-        actions =
-            [ { id = "SnoozeButton", button = Notif.Button "Snooze", launch = False }
-            , { id = "LaunchButton", button = Notif.Button "Go", launch = True }
-            , { id = "ZapButton", button = Notif.Button "Zap", launch = False }
-            ]
-
-        goesOffAt : Int -> Moment
-        goesOffAt reminderNum =
-            future now (Duration.scale reminderDistance (toFloat reminderNum - 1))
-
-        reminderTemplate : Int -> Notification
-        reminderTemplate reminderNum =
-            { base
-                | id = Just reminderNum
-                , at = Just (goesOffAt reminderNum)
-                , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
-                , body = Just <| pickEncouragementMessage (goesOffAt reminderNum)
-                , vibratePattern = Just (urgentVibe 10)
-                , channel = "Off Task"
-                , when = Just (goesOffAt (reminderNum + 1))
-                , countdown = Just True
-                , chronometer = Just True
-                , expiresAfter = Just (Duration.subtract reminderDistance (Duration.fromSeconds 1))
-            }
-
-        reminderDistance =
-            Duration.fromSeconds 60.0
-
-        stopAfterCount =
-            10
-
-        giveUpNotif =
-            { base
-                | id = Just (stopAfterCount + 1)
-                , at = Just (goesOffAt (stopAfterCount + 1))
-                , subtitle = Just <| "Off Task warnings have failed."
-                , body = Just <| "Gave up after " ++ String.fromInt stopAfterCount
-                , vibratePattern = Nothing
-                , channel = "Status"
-                , when = Just (goesOffAt (stopAfterCount + 1))
-                , countdown = Just False
-                , chronometer = Just False
-                , expiresAfter = Just (Duration.fromHours 2)
-            }
+        title =
+            Just ("Do now: " ++ nextTask.title)
     in
-    [ { base
-        | id = Just 1
-        , at = Just <| now
-        , subtitle = Just "Off Task!"
-        , body = Just <| pickEncouragementMessage now
-        , vibratePattern = Just (urgentVibe 4)
-        , channel = "Off Task, First Warning"
-        , when = Just <| future now (Duration.fromSeconds 30.0)
-        , countdown = Just True
-        , chronometer = Just True
-        , expiresAfter = Just (Duration.fromSeconds 29)
-      }
-    , { base
-        | id = Just 2
-        , at = Just <| future now (Duration.fromSeconds 30.0)
-        , subtitle = Just "Off Task! Second Warning"
-        , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 30.0))
-        , vibratePattern = Just (urgentVibe 6)
-        , channel = "Off Task, Second Warning"
-        , when = Just <| future now (Duration.fromSeconds 60.0)
-        , countdown = Just True
-        , chronometer = Just True
-        , expiresAfter = Just (Duration.fromSeconds 29)
-      }
-    , { base
-        | id = Just 3
-        , at = Just <| future now (Duration.fromSeconds 60.0)
-        , subtitle = Just "Off Task! Third Warning"
-        , body = Just <| pickEncouragementMessage (future now (Duration.fromSeconds 60.0))
-        , vibratePattern = Just (urgentVibe 8)
-        , channel = "Off Task, Third Warning"
-        , when = Just <| future now (Duration.fromSeconds 90.0)
-        , countdown = Just True
-        , chronometer = Just True
-        , expiresAfter = Just (Duration.fromSeconds 29)
-      }
-    ]
-        ++ List.map reminderTemplate (List.range 4 stopAfterCount)
+    List.map offTaskReminder (List.range 1 stopAfterCount)
         ++ [ giveUpNotif ]
 
 
-urgentVibe : Int -> List ( Notif.VibratorOff, Notif.VibratorOn )
+offTaskReminder : Moment -> Int -> Notification
+offTaskReminder fireTime reminderNum =
+    let
+        reminderPeriod =
+            Period.fromStart fireTime (reminderDistance reminderNum)
+
+        base =
+            Notif.build (offTaskChannel reminderNum)
+    in
+    { base
+        | id = Just reminderNum
+        , at = Just (Period.start reminderPeriod)
+        , actions = offTaskActions
+        , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
+        , body = Just <| pickEncouragementMessage (Period.start reminderPeriod)
+        , accentColor = Just "red"
+        , when = Just (Period.end reminderPeriod)
+        , countdown = Just True
+        , chronometer = Just True
+        , expiresAfter = Just (Duration.subtract (Period.length reminderPeriod) (Duration.fromSeconds 1))
+    }
+
+
+giveUpNotif : Notification
+giveUpNotif =
+    { base
+        | id = Just (stopAfterCount + 1)
+        , at = Just (goesOffAt (stopAfterCount + 1))
+        , subtitle = Just <| "Off Task warnings have failed."
+        , body = Just <| "Gave up after " ++ String.fromInt stopAfterCount
+        , vibratePattern = Nothing
+        , when = Just (goesOffAt (stopAfterCount + 1))
+        , countdown = Just False
+        , chronometer = Just False
+        , expiresAfter = Just (Duration.fromHours 2)
+    }
+
+
+{-| How far apart should the reminders be?
+-}
+reminderDistance : Int -> Duration
+reminderDistance reminderNum =
+    Duration.fromSeconds 60.0
+
+
+{-| How many reminders until we give up?
+-}
+stopAfterCount : Int
+stopAfterCount =
+    10
+
+
+
+{- A single, quick vibration that is repeated rapidly the specified number of times.
+
+-}
+
+
+urgentVibe : Int -> Notif.VibrationSetting
 urgentVibe count =
-    List.repeat count
-        ( Duration.fromMs 100
-        , Duration.fromMs 100
-        )
+    Notif.CustomVibration <|
+        List.repeat count
+            ( Duration.fromMs 100
+            , Duration.fromMs 100
+            )
 
 
 pickEncouragementMessage : Moment -> String
@@ -462,11 +472,14 @@ pickEncouragementMessage time =
 scheduleExcusedReminders : Moment -> Duration -> Duration -> List Notification
 scheduleExcusedReminders now excusedLimit timeLeft =
     let
-        blank =
-            Notif.blank "Override me!"
+        excusedChannel =
+            { id = "Excused Reminders", name = "Excused Reminders", description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing }
+
+        scratch =
+            Notif.build excusedChannel
 
         base =
-            { blank
+            { scratch
                 | id = Just 100
                 , channel = "Excused Reminders"
                 , actions = actions
