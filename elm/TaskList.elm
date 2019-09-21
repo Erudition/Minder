@@ -580,23 +580,46 @@ update msg state app env =
                 updateTask t =
                     { t | completion = new_completion }
 
+                -- TODO how can we get this out of `Maybe`?
+                maybeGivenTask =
+                    IntDict.get id app.tasks
+
                 maybeTaskTitle =
-                    Maybe.map .title (IntDict.get id app.tasks)
+                    Maybe.map .title maybeGivenTask
+
+                maybeHandleCompletion =
+                    Maybe.map handleCompletion maybeGivenTask
+
+                handleCompletion givenTask =
+                    -- how does the new completion status compare to the previous?
+                    case ( isMax givenTask.completion, isMax new_completion ) of
+                        ( False, True ) ->
+                            -- It was incomplete before, completed now
+                            Cmd.batch
+                                [ Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+                                , Cmd.map TodoistServerResponse <|
+                                    Integrations.Todoist.sendChanges app.todoist
+                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
+                                ]
+
+                        ( True, False ) ->
+                            -- It was complete before, but now marked incomplete
+                            Cmd.batch
+                                [ Commands.toast ("No longer marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+                                , Cmd.map TodoistServerResponse <|
+                                    Integrations.Todoist.sendChanges app.todoist
+                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem id) ) ]
+                                ]
+
+                        _ ->
+                            -- nothing changed, completion-wise
+                            Cmd.none
             in
             ( state
             , { app
                 | tasks = IntDict.update id (Maybe.map updateTask) app.tasks
               }
-            , if isMax new_completion then
-                Cmd.batch
-                    [ Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
-                    , Cmd.map TodoistServerResponse <|
-                        Integrations.Todoist.sendChanges app.todoist
-                            [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
-                    ]
-
-              else
-                Cmd.none
+            , Maybe.withDefault Cmd.none maybeHandleCompletion
             )
 
         FocusSlider task focused ->
