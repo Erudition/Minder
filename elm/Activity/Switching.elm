@@ -256,7 +256,6 @@ updateSticky now todayTotal newActivity status =
     in
     { blank
         | id = Just 42
-        , channelDescription = Just "A subtle reminder of the currently tracking activity."
         , autoCancel = Just False
         , title = Just (Activity.getName newActivity)
         , chronometer = Just True
@@ -268,7 +267,6 @@ updateSticky now todayTotal newActivity status =
         , icon = Nothing
         , silhouetteIcon = Nothing
         , update = Nothing
-        , importance = Just Notif.Low
         , privacy = Nothing
         , useHTML = Nothing
         , title_expanded = Nothing
@@ -290,7 +288,7 @@ currentActivityFromApp app =
 
 onTaskChannel : Notif.Channel
 onTaskChannel =
-    { id = "Task Progress", name = "Task Progress", description = "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Notif.High, led = Nothing, vibrate = Nothing }
+    { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
 
 
 scheduleOnTaskReminders : Task -> Moment -> Duration -> List Notification
@@ -361,7 +359,7 @@ offTaskChannel step =
     , name = channelName
     , description = Just "These reminders are meant to be-in-your-face and annoying, so you don't ignore them."
     , sound = Just (Notif.CustomSound "eek")
-    , importance = Notif.Max
+    , importance = Just Notif.Max
     , led = Nothing
     , vibrate = Just (urgentVibe (5 + step))
     }
@@ -381,7 +379,7 @@ scheduleOffTaskReminders nextTask now =
         title =
             Just ("Do now: " ++ nextTask.title)
     in
-    List.map offTaskReminder (List.range 1 stopAfterCount)
+    List.map (offTaskReminder now) (List.range 1 stopAfterCount)
         ++ [ giveUpNotif ]
 
 

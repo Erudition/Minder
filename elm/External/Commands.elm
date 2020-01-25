@@ -1,4 +1,4 @@
-port module External.Commands exposing (hideWindow, toast)
+module External.Commands exposing (hideWindow, toast)
 
 import External.Capacitor exposing (..)
 import External.Tasker exposing (..)

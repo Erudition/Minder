@@ -1,4 +1,4 @@
-module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), Channel, ChannelID, Command, Detail(..), Events, GroupKey(..), Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), VibrationSetting(..), VibratorOff, VibratorOn, WebURL, basicChannel, build, channelWithID, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodeProgress, encodeProgressMax, encodeRepeatEvery, encodeSound, encodeThumbnail, encodeVibrationSetting, encodevibratePattern, setText, setTitle, test)
+module NativeScript.Notification exposing (Action, BadgeType(..), ButtonType(..), Channel, ChannelID, Command, Detail(..), Events, GroupKey(..), Importance(..), LEDcolor, MediaInfo, Notification, NotificationID, Path, Privacy(..), ProgressBar(..), RepeatEvery(..), ResourceURL, Sound(..), Thumbnail(..), Timeout, UpdateStrategy(..), VibrationSetting(..), VibratorOff, VibratorOn, WebURL, basicChannel, build, channelWithID, encode, encodeAction, encodeDuration, encodeExpiresAfter, encodeImportance, encodeMediaInfo, encodeProgress, encodeProgressMax, encodeRepeatEvery, encodeSound, encodeThumbnail, encodeVibrationSetting, encodevibratePattern, setText, setTitleOnly, test)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
@@ -80,14 +80,248 @@ build channel =
     }
 
 
-setTitle : Notification -> String -> Notification
-setTitle builder title =
-    { builder | title = Just title }
 
+-- Basics
 
 setText : Notification -> { title : String, subtitle : String, body : String } -> Notification
 setText builder { title, subtitle, body } =
     { builder | title = Just title, subtitle = Just subtitle, body = Just body }
+
+setTitleOnly : Notification -> String -> Notification
+setTitleOnly builder title =
+    { builder | title = Just title }
+
+
+setId : Notification -> NotificationID -> Notification
+setId givenNotif id =
+    { givenNotif | id = Just id }
+
+
+setTitle : Notification -> String -> Notification
+setTitle givenNotif title =
+    { givenNotif | title = Just title }
+
+
+setSubtitle : Notification -> String -> Notification
+setSubtitle givenNotif subtitle =
+    { givenNotif | subtitle = Just subtitle }
+
+
+setBody : Notification -> String -> Notification
+setBody givenNotif body =
+    { givenNotif | body = Just body }
+
+
+setOngoing : Notification -> Bool -> Notification
+setOngoing givenNotif ongoing =
+    { givenNotif | ongoing = Just ongoing }
+
+
+setBigTextStyle : Notification -> Bool -> Notification
+setBigTextStyle givenNotif bigTextStyle =
+    { givenNotif | bigTextStyle = Just bigTextStyle }
+
+
+setGroupedMessages : Notification -> Maybe (List String) -> Notification
+setGroupedMessages givenNotif groupedMessages =
+    { givenNotif | groupedMessages = Just groupedMessages }
+
+(List String)
+setTicker : Notification -> String -> Notification
+setTicker givenNotif ticker =
+    { givenNotif | ticker = Just ticker }
+
+
+setAt : Notification -> Moment -> Notification
+setAt givenNotif at =
+    { givenNotif | at = Just at }
+
+
+setBadge : Notification -> Int -> Notification
+setBadge givenNotif badge =
+    { givenNotif | badge = Just badge }
+
+
+setInterval : Notification -> RepeatEvery -> Notification
+setInterval givenNotif interval =
+    { givenNotif | interval = Just interval }
+
+
+setIcon : Notification -> Path -> Notification
+setIcon givenNotif icon =
+    { givenNotif | icon = Just icon }
+
+
+setSilhouetteIcon : Notification -> Path -> Notification
+setSilhouetteIcon givenNotif silhouetteIcon =
+    { givenNotif | silhouetteIcon = Just silhouetteIcon }
+
+
+setImage : Notification -> Path -> Notification
+setImage givenNotif image =
+    { givenNotif | image = Just image }
+
+
+setThumbnail : Notification -> Thumbnail -> Notification
+setThumbnail givenNotif thumbnail =
+    { givenNotif | thumbnail = Just thumbnail }
+
+
+setExpiresAfter : Notification -> Duration -> Notification
+setExpiresAfter givenNotif expiresAfter =
+    { givenNotif | expiresAfter = Just expiresAfter }
+
+
+setAutoCancel : Notification -> Bool -> Notification
+setAutoCancel givenNotif autoCancel =
+    { givenNotif | autoCancel = Just autoCancel }
+
+
+setProgress : Notification -> ProgressBar -> Notification
+setProgress givenNotif progress =
+    { givenNotif | progress = Just progress }
+
+
+setWhen : Notification -> Moment -> Notification
+setWhen givenNotif when =
+    { givenNotif | when = Just when }
+
+
+setChronometer : Notification -> Bool -> Notification
+setChronometer givenNotif chronometer =
+    { givenNotif | chronometer = Just chronometer }
+
+
+setGroup : Notification -> GroupKey -> Notification
+setGroup givenNotif group =
+    { givenNotif | group = Just group }
+
+
+setIsGroupSummary : Notification -> Bool -> Notification
+setIsGroupSummary givenNotif isGroupSummary =
+    { givenNotif | isGroupSummary = Just isGroupSummary }
+
+
+setGroupAlertBehavior : Notification -> Int -> Notification
+setGroupAlertBehavior givenNotif groupAlertBehavior =
+    { givenNotif | groupAlertBehavior = Just groupAlertBehavior }
+
+
+setSortKey : Notification -> String -> Notification
+setSortKey givenNotif sortKey =
+    { givenNotif | sortKey = Just sortKey }
+
+
+setAccentColor : Notification -> String -> Notification
+setAccentColor givenNotif accentColor =
+    { givenNotif | accentColor = Just accentColor }
+
+
+setUpdate : Notification -> UpdateStrategy -> Notification
+setUpdate givenNotif update =
+    { givenNotif | update = Just update }
+
+
+setPrivacy : Notification -> Privacy -> Notification
+setPrivacy givenNotif privacy =
+    { givenNotif | privacy = Just privacy }
+
+
+setUseHTML : Notification -> Bool -> Notification
+setUseHTML givenNotif useHTML =
+    { givenNotif | useHTML = Just useHTML }
+
+
+setTitle_expanded : Notification -> String -> Notification
+setTitle_expanded givenNotif title_expanded =
+    { givenNotif | title_expanded = Just title_expanded }
+
+
+setBody_expanded : Notification -> String -> Notification
+setBody_expanded givenNotif body_expanded =
+    { givenNotif | body_expanded = Just body_expanded }
+
+
+setDetail : Notification -> Detail -> Notification
+setDetail givenNotif detail =
+    { givenNotif | detail = Just detail }
+
+
+setStatus_icon : Notification -> String -> Notification
+setStatus_icon givenNotif status_icon =
+    { givenNotif | status_icon = Just status_icon }
+
+
+setStatus_text_size : Notification -> Int -> Notification
+setStatus_text_size givenNotif status_text_size =
+    { givenNotif | status_text_size = Just status_text_size }
+
+
+setBackground_color : Notification -> String -> Notification
+setBackground_color givenNotif background_color =
+    { givenNotif | background_color = Just background_color }
+
+
+setColor_from_media : Notification -> Bool -> Notification
+setColor_from_media givenNotif color_from_media =
+    { givenNotif | color_from_media = Just color_from_media }
+
+
+setPicture_skip_cache : Notification -> Bool -> Notification
+setPicture_skip_cache givenNotif picture_skip_cache =
+    { givenNotif | picture_skip_cache = Just picture_skip_cache }
+
+
+setPicture_expanded_icon : Notification -> String -> Notification
+setPicture_expanded_icon givenNotif picture_expanded_icon =
+    { givenNotif | picture_expanded_icon = Just picture_expanded_icon }
+
+
+setMedia_layout : Notification -> Bool -> Notification
+setMedia_layout givenNotif media_layout =
+    { givenNotif | media_layout = Just media_layout }
+
+
+setMedia : Notification -> MediaInfo -> Notification
+setMedia givenNotif media =
+    { givenNotif | media = Just media }
+
+
+setUrl : Notification -> String -> Notification
+setUrl givenNotif url =
+    { givenNotif | url = Just url }
+
+
+setOn_create : Notification -> Command -> Notification
+setOn_create givenNotif on_create =
+    { givenNotif | on_create = Just on_create }
+
+
+setOn_touch : Notification -> Command -> Notification
+setOn_touch givenNotif on_touch =
+    { givenNotif | on_touch = Just on_touch }
+
+
+setOn_dismiss : Notification -> Command -> Notification
+setOn_dismiss givenNotif on_dismiss =
+    { givenNotif | on_dismiss = Just on_dismiss }
+
+
+setCountdown : Notification -> Bool -> Notification
+setCountdown givenNotif countdown =
+    { givenNotif | countdown = Just countdown }
+
+
+setPhone_only : Notification -> Bool -> Notification
+setPhone_only givenNotif phone_only =
+    { givenNotif | phone_only = Just phone_only }
+
+
+
+
+
+
+
 
 
 
@@ -438,11 +672,11 @@ type alias Notification =
     -- Allow more than 1 line of the body text to show in the notification centre. Mutually exclusive with image. Default false. (Android Only) TODO needed?
     , bigTextStyle : Maybe Bool
 
-    -- An array of atmost 5 messages that would be displayed using android's notification inboxStyle. Note: The array would be trimed from the top if the messages exceed five. Default not set
+    -- An array of atmost 5 messages that would be displayed using android's notification inboxStyle. Note: The array would be trimmed from the top if the messages exceed five. Default not set
     , groupedMessages : Maybe (List String)
 
     -- On Android you can show a different text in the statusbar, instead of the body. Default not set, so body is used.
-    -- Now used for accesibility (screen readers)
+    -- Now used for accessibility (screen readers)
     , ticker : Maybe String
 
     -- A Moment indicating when the notification should be shown. Default not set (the notification will be shown immediately).
