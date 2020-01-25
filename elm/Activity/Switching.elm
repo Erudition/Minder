@@ -408,12 +408,24 @@ offTaskReminder fireTime reminderNum =
 
 giveUpNotif : Notification
 giveUpNotif =
+    let
+        giveUpChannel  =
+            { id = "Gave Up Trying To Alert You"
+            , name = "Gave Up Trying To Alert You"
+            , description = Just "Lets you know when a previous reminder has exceeded the maximum number of attempts to catch your attention."
+            , sound = Just (Notif.CustomSound "eek")
+            , importance = Nothing
+            , led = Nothing
+            , vibrate = Nothing
+            }
+        base =
+              Notif.build (giveUpChannel)
+    in
     { base
         | id = Just (stopAfterCount + 1)
         , at = Just (goesOffAt (stopAfterCount + 1))
         , subtitle = Just <| "Off Task warnings have failed."
         , body = Just <| "Gave up after " ++ String.fromInt stopAfterCount
-        , vibratePattern = Nothing
         , when = Just (goesOffAt (stopAfterCount + 1))
         , countdown = Just False
         , chronometer = Just False

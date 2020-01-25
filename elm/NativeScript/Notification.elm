@@ -122,11 +122,11 @@ setBigTextStyle givenNotif bigTextStyle =
     { givenNotif | bigTextStyle = Just bigTextStyle }
 
 
-setGroupedMessages : Notification -> Maybe (List String) -> Notification
+setGroupedMessages : Notification -> List String -> Notification
 setGroupedMessages givenNotif groupedMessages =
     { givenNotif | groupedMessages = Just groupedMessages }
 
-(List String)
+
 setTicker : Notification -> String -> Notification
 setTicker givenNotif ticker =
     { givenNotif | ticker = Just ticker }
