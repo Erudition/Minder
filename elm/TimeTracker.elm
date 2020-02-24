@@ -62,7 +62,7 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map Normal (s "timetracker")
+    P.map Normal (P.s "timetracker")
 
 
 defaultView : ViewState

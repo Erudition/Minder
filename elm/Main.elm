@@ -387,11 +387,19 @@ update msg ({ viewState, appData, environment } as model) =
                 ( newAppData, whatHappened ) =
                     Integrations.Todoist.handle response appData
 
-                blank =
-                    Notif.blank "Sync Status"
+                syncStatusChannel =
+                    Notif.basicChannel "Sync Status"
+                    |> Notif.setChannelDescription "Lets you know what happened the last time we tried to sync with online servers."
+                    |> Notif.setChannelImportance Notif.High
 
                 notification =
-                    { blank | id = Just 23, expiresAfter = Just (Duration.fromMinutes 1), importance = Just Notif.High, title = Just "Todoist Response", channelDescription = Just "Lets you know what happened the last time we tried to sync with online servers.", subtitle = Just "Sync Status", body = Just whatHappened, bigTextStyle = Just True }
+                    Notif.build syncStatusChannel
+                    |> Notif.setID 23
+                    |> Notif.setExpiresAfter (Duration.fromMinutes 1)
+                    |> Notif.setTitle "Todoist Response"
+                    |> Notif.setSubtitle "Sync Status"
+                    |> Notif.setBody whatHappened
+
             in
             ( Model viewState newAppData environment
             , notify [ notification ]

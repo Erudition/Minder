@@ -378,9 +378,10 @@ scheduleOffTaskReminders nextTask now =
     let
         title =
             Just ("Do now: " ++ nextTask.title)
+
     in
     List.map (offTaskReminder now) (List.range 1 stopAfterCount)
-        ++ [ giveUpNotif ]
+        ++ [ giveUpNotif now ]
 
 
 offTaskReminder : Moment -> Int -> Notification
@@ -406,9 +407,12 @@ offTaskReminder fireTime reminderNum =
     }
 
 
-giveUpNotif : Notification
-giveUpNotif =
+giveUpNotif : Moment -> Notification
+giveUpNotif fireTime =
     let
+        reminderPeriod =
+                    Period.fromStart fireTime (reminderDistance stopAfterCount)
+
         giveUpChannel  =
             { id = "Gave Up Trying To Alert You"
             , name = "Gave Up Trying To Alert You"
@@ -423,13 +427,13 @@ giveUpNotif =
     in
     { base
         | id = Just (stopAfterCount + 1)
-        , at = Just (goesOffAt (stopAfterCount + 1))
+        , at = Just (Period.end reminderPeriod)
         , subtitle = Just <| "Off Task warnings have failed."
         , body = Just <| "Gave up after " ++ String.fromInt stopAfterCount
-        , when = Just (goesOffAt (stopAfterCount + 1))
+        , when = Just (Period.end reminderPeriod)
         , countdown = Just False
         , chronometer = Just False
-        , expiresAfter = Just (Duration.fromHours 2)
+        , expiresAfter = Just (Duration.fromHours 8)
     }
 
 
@@ -491,7 +495,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
         base =
             { scratch
                 | id = Just 100
-                , channel = "Excused Reminders"
+                , channel = excusedChannel
                 , actions = actions
                 , when = Just timesUp
                 , countdown = Just True
