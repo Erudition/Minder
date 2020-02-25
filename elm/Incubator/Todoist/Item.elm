@@ -90,6 +90,7 @@ decodeItem =
         |> optionalIgnored "section_id"
         -- only shows up during deletions?
         |> optionalIgnored "due_is_recurring"
+        |> optionalIgnored "added_by_uid"
 
 
 encodeItem : Item -> Encode.Value
