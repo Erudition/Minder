@@ -12,11 +12,13 @@ var browserStorageKey = 'docket-v0.1-data';
 
 
 // START ELM
-if (inTasker) {
-    let storedState = tk.readFile(storagefilename);
-    let app = Elm.Main.init({ flags: (storedState ? storedState : null) });
+try { // Errors out if undeclared
+    if (inTasker) {
+        let storedState = tk.readFile(storagefilename);
+        let app = Elm.Main.init({ flags: (storedState ? storedState : null) });
     elmStartedWithTasker(app);
-} else {
+    }
+} catch (error) { // not inTasker
     Storage.get({ key: browserStorageKey }).then((found) => {
         let app = Elm.Main.init({ flags: (found.value ? found.value : null) });
         elmStartedWithoutTasker(app);
