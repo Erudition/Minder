@@ -1,4 +1,4 @@
-module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), defaultView, dynamicSliderThumbCss, extractDate, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
+module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Activity.Switching
 import AppData exposing (..)
@@ -27,6 +27,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Porting exposing (..)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
+import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -202,7 +203,9 @@ viewTask env task =
         [ class "task-entry"
         , classList [ ( "completed", completed task ), ( "editing", False ) ]
         , title <|
-            String.concat <|
+            -- hover tooltip
+            String.concat
+            <|
                 List.intersperse "\n" <|
                     List.filterMap identity
                         [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.activity
@@ -211,7 +214,7 @@ viewTask env task =
         ]
         [ progressSlider task
         , div
-            [ class "view" ]
+            [ class "view", class "slider-overlay" ]
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
@@ -227,12 +230,18 @@ viewTask env task =
                     )
                 ]
                 []
-            , label
-                [ onDoubleClick (EditingTitle task.id True), onClick (FocusSlider task.id True) ]
-                [ text task.title ]
-            , div
-                [ class "timing-info" ]
-                [ timingInfo env task ]
+            , div [ class "title-and-details" ]
+                [ label
+                    [ onDoubleClick (EditingTitle task.id True)
+                    , onClick (FocusSlider task.id True)
+                    , css [ fontWeight (Css.int <| Basics.round (task.importance * 200 + 200)), pointerEvents none ]
+                    , class "task-title"
+                    ]
+                    [ text task.title ]
+                , timingInfo env task
+                ]
+            , div [ class "sessions" ]
+                [ text "No plan" ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.id)
@@ -249,18 +258,19 @@ viewTask env task =
             , onEnter (EditingTitle task.id False)
             ]
             []
-        , div [ class "task-drawer", Attr.hidden False ]
-            [ label [ for "readyDate" ] [ text "Ready" ]
-            , input [ type_ "date", name "readyDate", onInput (extractDate task.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            , label [ for "startDate" ] [ text "Start" ]
-            , input [ type_ "date", name "startDate", onInput (extractDate task.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            , label [ for "finishDate" ] [ text "Finish" ]
-            , input [ type_ "date", name "finishDate", onInput (extractDate task.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            , label [ for "deadlineDate" ] [ text "Deadline" ]
-            , input [ type_ "date", name "deadlineDate", onInput (extractDate task.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            , label [ for "expiresDate" ] [ text "Expires" ]
-            , input [ type_ "date", name "expiresDate", onInput (extractDate task.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-            ]
+
+        --, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
+        --    [ label [ for "readyDate" ] [ text "Ready" ]
+        --    , input [ type_ "date", name "readyDate", onInput (extractDate task.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , label [ for "startDate" ] [ text "Start" ]
+        --    , input [ type_ "date", name "startDate", onInput (extractDate task.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , label [ for "finishDate" ] [ text "Finish" ]
+        --    , input [ type_ "date", name "finishDate", onInput (extractDate task.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , label [ for "deadlineDate" ] [ text "Deadline" ]
+        --    , input [ type_ "date", name "deadlineDate", onInput (extractDate task.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , label [ for "expiresDate" ] [ text "Expires" ]
+        --    , input [ type_ "date", name "expiresDate", onInput (extractDate task.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    ]
         ]
 
 
@@ -310,24 +320,119 @@ extractSliderInput : Task -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task.id <|
         setPortion task.completion <|
-            Maybe.withDefault 0 <|
-                String.toInt input
+            Basics.round <|
+                -- TODO not ideal. keep decimals?
+                Maybe.withDefault 0
+                <|
+                    String.toFloat input
 
 
 {-| Human-friendly text in a task summarizing the various TaskMoments (e.g. the due date)
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Environment -> Task -> Html Msg
 timingInfo env task =
     let
-        dueDescription =
-            Maybe.withDefault "whenever" <| Maybe.map (describeTaskMoment env.time env.timeZone) task.deadline
-
         effortDescription =
             describeEffort task
+
+        uniquePrefix =
+            "task-" ++ String.fromInt task.id ++ "-"
+
+        dateLabelNameAndID : String
+        dateLabelNameAndID =
+            uniquePrefix ++ "due-date-field"
+
+        dueDate_editable =
+            editableDateLabel env
+                dateLabelNameAndID
+                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.deadline)
+                (attemptDateChange env task.id task.deadline "Due")
+
+        timeLabelNameAndID =
+            uniquePrefix ++ "due-time-field"
+
+        dueTime_editable =
+            editableTimeLabel env
+                timeLabelNameAndID
+                deadlineTime
+                (attemptTimeChange env task.id task.deadline "Due")
+
+        deadlineTime =
+            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.deadline of
+                Just (Just timeOfDay) ->
+                    Just timeOfDay
+
+                _ ->
+                    Nothing
     in
-    text (effortDescription ++ dueDescription)
+    div
+        [ class "timing-info" ]
+        ([ text effortDescription ] ++ dueDate_editable ++ dueTime_editable)
+
+
+editableDateLabel : Environment -> String -> Maybe CalendarDate -> (String -> msg) -> List (Html msg)
+editableDateLabel env uniqueName givenDateMaybe changeEvent =
+    let
+        dateRelativeDescription =
+            Maybe.withDefault "whenever" <|
+                Maybe.map (Calendar.describeVsToday (HumanMoment.extractDate env.timeZone env.time)) givenDateMaybe
+
+        dateFormValue =
+            Maybe.withDefault "" <|
+                Maybe.map Calendar.toStandardString givenDateMaybe
+    in
+    [ label [ for uniqueName, css [ hover [ textDecoration underline ] ] ]
+        [ input
+            [ type_ "date"
+            , name uniqueName
+            , id uniqueName
+            , css
+                [ Css.zIndex (Css.int -1)
+                , Css.height (Css.em 1)
+                , Css.width (Css.em 2)
+                , Css.marginRight (Css.em -2)
+                , visibility Css.hidden
+                ]
+            , onInput changeEvent -- TODO use onchange instead
+            , pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+            , value dateFormValue
+            ]
+            []
+        , text dateRelativeDescription
+        ]
+    ]
+
+
+editableTimeLabel : Environment -> String -> Maybe TimeOfDay -> (String -> msg) -> List (Html msg)
+editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
+    let
+        timeDescription =
+            Maybe.withDefault "(+ add time)" <|
+                Maybe.map Clock.toShortString givenTimeMaybe
+
+        timeFormValue =
+            Maybe.withDefault "" <|
+                Maybe.map Clock.toShortString givenTimeMaybe
+    in
+    [ label
+        [ for uniqueName
+        , class "editable-time-label"
+        ]
+        [ text " at "
+        , span [ class "time-placeholder" ] [ text timeDescription ]
+        ]
+    , input
+        [ type_ "time"
+        , name uniqueName
+        , id uniqueName
+        , class "editable-time"
+        , onInput changeEvent -- TODO use onchange instead
+        , pattern "[0-9]{2}:[0-9]{2}" -- for unsupported browsers
+        , value timeFormValue
+        ]
+        []
+    ]
 
 
 describeEffort : Task -> String
@@ -356,14 +461,49 @@ describeTaskMoment now zone dueMoment =
 
 
 {-| Get the date out of a date input.
-TODO handle LocalMoments and UniversalMoments
-TODO handle times
 -}
-extractDate : TaskId -> String -> String -> Msg
-extractDate task field input =
+attemptDateChange : Environment -> TaskId -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
-        Ok date ->
-            UpdateTaskDate task field (Just (DateOnly date))
+        Ok newDate ->
+            case oldFuzzyMaybe of
+                Nothing ->
+                    UpdateTaskDate task field (Just (DateOnly newDate))
+
+                Just (DateOnly _) ->
+                    UpdateTaskDate task field (Just (DateOnly newDate))
+
+                Just (Floating ( _, oldTime )) ->
+                    UpdateTaskDate task field (Just (Floating ( newDate, oldTime )))
+
+                Just (Global oldMoment) ->
+                    UpdateTaskDate task field (Just (Global (HumanMoment.setDate newDate env.timeZone oldMoment)))
+
+        Err msg ->
+            NoOp
+
+
+{-| Get the time out of a time input.
+TODO Time Zones
+-}
+attemptTimeChange : Environment -> TaskId -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
+    case Clock.fromStandardString input of
+        Ok newTime ->
+            case oldFuzzyMaybe of
+                Nothing ->
+                    NoOp
+
+                -- can't add a time when there's no date.
+                Just (DateOnly oldDate) ->
+                    -- we're adding a time!
+                    UpdateTaskDate task whichTimeField (Just (Floating ( oldDate, newTime )))
+
+                Just (Floating ( oldDate, _ )) ->
+                    UpdateTaskDate task whichTimeField (Just (Floating ( oldDate, newTime )))
+
+                Just (Global oldMoment) ->
+                    UpdateTaskDate task whichTimeField (Just (Global (HumanMoment.setTime newTime env.timeZone oldMoment)))
 
         Err msg ->
             NoOp

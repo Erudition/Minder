@@ -47,13 +47,12 @@ input[type="checkbox"] {
 }
 
 .todoapp {
-    background: #fff;
-    margin: 130px 0 40px 0;
-    position: relative;
-    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2),
-                0 25px 50px 0 rgba(0, 0, 0, 0.1);
+	background: #fff;
+	margin: 130px auto 40px auto;
+	position: relative;
+	box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 25px 50px 0 rgba(0, 0, 0, 0.1);
+	max-width: 50em;
 }
-
 .todoapp input::-webkit-input-placeholder {
     font-style: italic;
     font-weight: 300;
@@ -211,11 +210,11 @@ label[for='toggle-all'] {
 }
 
 
-.task-list li label {
+.task-list li .title-and-details {
     flex-grow: 1;
 }
 
-.task-list li.completed label {
+.task-list li.completed .task-title {
     color: #d9d9d9;
     text-decoration: line-through;
 }
@@ -394,8 +393,8 @@ input[type="date"] {
     border:1px solid #ecf0f1;
     background:#ecf0f1;
     padding:0px;
-    display: inline-block !important;
-    visibility: visible !important;
+/*    display: inline-block !important;
+    visibility: visible !important;*/
 }
 
 input[type="date"], focus {
@@ -403,6 +402,42 @@ input[type="date"], focus {
     box-shadow: none;
     -webkit-box-shadow: none;
     -moz-box-shadow: none;
+}
+
+
+.editable-time-label .time-placeholder {
+    width: auto;
+}
+
+.time-placeholder + .editable-time:focus  {
+    width: 0;
+}
+
+.editable-time-label:hover {
+    text-decoration: underline;
+}
+
+.editable-time {
+    font-size: 10px;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: 10px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #4d4d4d;
+    font-weight: 300;
+    height: 1em;
+    overflow: hidden;
+    width: 0;
+}
+
+.editable-time:focus {
+    width: auto;
+    overflow: visible;
+}
+
+
+.editable-time:placeholder-shown {
+    opacity: 0.5;
 }
 
 /*

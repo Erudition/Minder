@@ -62,14 +62,25 @@ input[type="range"]::-ms-fill-upper {
 
 
 .task-progress {
-  z-index: -1;
+  /*z-index: -1;*/
   margin: 0;
   padding: 0;
   width:100%;
   position: absolute;
+  top: 0;
   display: block;
     height: 100%;
 }
+
+.slider-overlay {
+    pointer-events: none;
+}
+
+.slider-overlay * {
+    pointer-events: auto;
+    z-index: 3;
+}
+
 
 
 .task-progress:focus {
