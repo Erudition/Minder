@@ -35,31 +35,53 @@ parseHMS =
             round (frac * 1000)
 
         decimalOptional =
-            -- Parser.float accepts numbers like ".123"
+            -- Parser.float accepts numbers like ".123", we'll take that or nothing
             Parser.oneOf [ Parser.float, Parser.succeed 0 ]
     in
     Parser.succeed clock
-        |= Parser.backtrackable Parser.paddedInt
-        -- hour
+        |= Parser.backtrackable Parser.possiblyPaddedInt
+        -- ^hour
         |. symbol ":"
-        |= Parser.paddedInt
-        -- minute
+        |= Parser.strictLengthInt 2 2
+        -- ^minute
         |. symbol ":"
-        |= Parser.paddedInt
-        -- second
+        |= Parser.strictLengthInt 2 2
+        -- ^second
         |= Parser.map secsFracToMs decimalOptional
+
+
+parseHM : Parser TimeOfDay
+parseHM =
+    Parser.succeed clock
+        |= Parser.backtrackable Parser.possiblyPaddedInt
+        -- ^hour
+        |. symbol ":"
+        -- minute:
+        |= Parser.strictLengthInt 2 2
+        -- sec&ms:
+        |= Parser.succeed 0
+        |= Parser.succeed 0
 
 
 fromStandardString : String -> Result String TimeOfDay
 fromStandardString input =
+    -- TODO rewrite for efficiency
     let
-        parserResult =
+        parserHMSResult =
             Parser.run parseHMS input
 
-        stringErrorResult =
-            Result.mapError Parser.realDeadEndsToString parserResult
+        parserHMResult =
+            Parser.run parseHM input
+
+        bestResult =
+            case parserHMSResult of
+                Ok _ ->
+                    parserHMSResult
+
+                Err _ ->
+                    parserHMResult
     in
-    stringErrorResult
+    Result.mapError Parser.realDeadEndsToString bestResult
 
 
 {-| Represent the positions of all the hands of a clock... with a single `Int`!

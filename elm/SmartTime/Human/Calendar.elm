@@ -1160,6 +1160,8 @@ toNumberString separatorChar givenDate =
 
 
 {-| <https://tools.ietf.org/html/rfc3339>
+
+Tip: If you're populating the value of an HTML5 date picker (<input type="date">), this is the only string that will work!
 -}
 toStandardString : CalendarDate -> String
 toStandardString givenDate =
