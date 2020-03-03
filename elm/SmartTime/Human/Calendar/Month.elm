@@ -687,9 +687,9 @@ parseMonthInt =
             else
                 Parser.problem <| "A month number should be from 1 to 12, but I got " ++ String.fromInt givenInt ++ " instead?"
     in
-    Parser.paddedInt |> Parser.andThen checkMonth
+    Parser.possiblyPaddedInt |> Parser.andThen checkMonth
 
 
 parseDayOfMonth : Parser DayOfMonth
 parseDayOfMonth =
-    Parser.map DayOfMonth Parser.paddedInt
+    Parser.map DayOfMonth Parser.possiblyPaddedInt
