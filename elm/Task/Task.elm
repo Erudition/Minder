@@ -13,7 +13,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
-import Task.Progress exposing (..)
+import Task.Progress as Progress exposing (..)
 
 
 {-| Definition of a single task.
@@ -24,22 +24,22 @@ Working rules:
 
 -}
 type alias Task =
-    { title : String
+    { title : String -- Class
     , completion : Progress
-    , id : TaskId
-    , minEffort : Duration
-    , predictedEffort : Duration
-    , maxEffort : Duration
-    , history : List HistoryEntry
+    , id : TaskId -- Class and Instance
+    , minEffort : Duration -- ?
+    , predictedEffort : Duration -- ?
+    , maxEffort : Duration -- ?
+    , history : List HistoryEntry -- remove?
     , parent : Maybe TaskId
-    , tags : List TagId
-    , activity : Maybe ActivityID
-    , deadline : Maybe FuzzyMoment
-    , plannedStart : Maybe FuzzyMoment
-    , plannedFinish : Maybe FuzzyMoment
-    , relevanceStarts : Maybe FuzzyMoment
-    , relevanceEnds : Maybe FuzzyMoment
-    , importance : Float
+    , tags : List TagId -- Class
+    , activity : Maybe ActivityID -- Class
+    , deadline : Maybe FuzzyMoment -- Class
+    , plannedStart : Maybe FuzzyMoment -- PlannedSession
+    , plannedFinish : Maybe FuzzyMoment -- PlannedSession
+    , relevanceStarts : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
+    , relevanceEnds : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
+    , importance : Float -- Class
     }
 
 
