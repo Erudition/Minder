@@ -23,7 +23,7 @@ type alias Instance =
 type alias AppData =
     { uid : Instance
     , errors : List String
-    , taskClasses : IntDict TaskInstance
+    , taskClasses : IntDict TaskClass
     , taskInstances : IntDict TaskInstance
     , activities : StoredActivities
     , timeline : Timeline

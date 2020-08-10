@@ -1,4 +1,4 @@
-module Task.Task exposing (TaskChange(..), TaskClass, TaskClassID, TaskInstance, TaskInstanceID, completed, decodeTaskChange, decodeTaskInstance, encodeTaskChange, encodeTaskInstance, newTaskClass, normalizeTitle, prioritize)
+module Task.Task exposing (TaskChange(..), TaskClass, TaskClassID, TaskInstance, TaskInstanceID, completed, decodeTaskChange, decodeTaskInstance, encodeTaskChange, encodeTaskInstance, newTaskClass, newTaskInstance, normalizeTitle, prioritize)
 
 import Activity.Activity exposing (ActivityID)
 import Activity.Evidence exposing (Evidence(..))
@@ -155,26 +155,18 @@ encodeTaskInstance taskInstance =
         ]
 
 
-
---encodeTaskInstance record =
---    Encode.object
---        [ ( "title", Encode.string <| record.title )
---        , ( "completion", encodeProgress <| record.completion )
---        , ( "id", Encode.int <| record.id )
---        , ( "minEffort", encodeDuration <| record.minEffort )
---        , ( "predictedEffort", encodeDuration <| record.predictedEffort )
---        , ( "maxEffort", encodeDuration <| record.maxEffort )
---        , ( "history", Encode.list encodeHistoryEntry record.history )
---        , ( "parent", Encode2.maybe Encode.int record.parent )
---        , ( "tags", Encode.list Encode.int record.tags )
---        , ( "activity", Encode2.maybe ID.encode record.activity )
---        , ( "deadline", Encode2.maybe encodeTaskMoment record.externalDeadline )
---        , ( "plannedStart", Encode2.maybe encodeTaskMoment record.plannedStart )
---        , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
---        , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
---        , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
---        , ( "importance", Encode.float <| record.importance )
---        ]
+newTaskInstance : Int -> TaskClass -> TaskInstance
+newTaskInstance newID class =
+    { class = class.id
+    , id = newID
+    , completion = 0
+    , externalDeadline = Nothing
+    , startBy = Nothing
+    , finishBy = Nothing
+    , plannedSessions = []
+    , relevanceStarts = Nothing
+    , relevanceEnds = Nothing
+    }
 
 
 decodeTaskMoment : Decoder FuzzyMoment

@@ -650,10 +650,18 @@ update msg state app env =
                     )
 
                 Normal filters _ newTaskTitle ->
+                    let
+                        newClass =
+                            newTaskClass (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
+
+                        newInstance =
+                            newTaskInstance (Moment.toSmartInt env.time) newClass
+                    in
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | taskInstances = IntDict.insert (Moment.toSmartInt env.time) (newTaskClass (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)) app.taskInstances
+                        | taskClasses = IntDict.insert newClass.id newClass app.taskClasses
+                        , taskInstances = IntDict.insert newInstance.id newInstance app.taskInstances
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
