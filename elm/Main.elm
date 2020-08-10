@@ -389,17 +389,16 @@ update msg ({ viewState, appData, environment } as model) =
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
-                    |> Notif.setChannelDescription "Lets you know what happened the last time we tried to sync with online servers."
-                    |> Notif.setChannelImportance Notif.High
+                        |> Notif.setChannelDescription "Lets you know what happened the last time we tried to sync with online servers."
+                        |> Notif.setChannelImportance Notif.High
 
                 notification =
                     Notif.build syncStatusChannel
-                    |> Notif.setID 23
-                    |> Notif.setExpiresAfter (Duration.fromMinutes 1)
-                    |> Notif.setTitle "Todoist Response"
-                    |> Notif.setSubtitle "Sync Status"
-                    |> Notif.setBody whatHappened
-
+                        |> Notif.setID 23
+                        |> Notif.setExpiresAfter (Duration.fromMinutes 1)
+                        |> Notif.setTitle "Todoist Response"
+                        |> Notif.setSubtitle "Sync Status"
+                        |> Notif.setBody whatHappened
             in
             ( Model viewState newAppData environment
             , notify [ notification ]
@@ -492,10 +491,10 @@ update msg ({ viewState, appData, environment } as model) =
 Example: `http://localhost:8000/www/index.html#/sub/path?hey=there#yo`
 
 is normally parsed as
-`url: { fragment = Just "/sub/path?hey=there#yo", host = "localhost", path = "/www/index.html", port_ = Just 8000, protocol = Http, query = Nothing }`
+`url: { fragment = Just "/sub/path?hey=there#yo", host = "localhost", path = "/www/webapp.html", port_ = Just 8000, protocol = Http, query = Nothing }`
 
 but with this function we can pretend it was:
-`url: { fragment = Just "yo", host = "localhost", path = "/www/index.html/sub/path", port_ = Just 8000, protocol = Http, query = Just "hey=there" }`
+`url: { fragment = Just "yo", host = "localhost", path = "/www/webapp.html/sub/path", port_ = Just 8000, protocol = Http, query = Just "hey=there" }`
 
 even though that path may have resulted in a 404 on any host without fancy redirection set up (such as the development environment). Sweet!
 
