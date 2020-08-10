@@ -1,4 +1,4 @@
-module Task.Project exposing (..)
+module Task.TaskEntry exposing (..)
 
 import Activity.Activity exposing (ActivityID)
 import Date
@@ -8,7 +8,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
-import List.Nonempty exposing (Nonempty)
+import List.Nonempty exposing (Nonempty, map)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
@@ -147,25 +147,60 @@ type alias TaskClass =
 
 -- One particular time that the specific thing will be done, that can be scheduled
 -- A class could have NO instances yet - they're calculated on the fly
-{- type alias TaskInstance =
-   { class : TaskClassID
-   , completion : Progress.Portion
-   , id : TaskId -- Class and Instance
-   , deadline : Maybe FuzzyMoment
-   , plannedStart : Maybe FuzzyMoment -- PlannedSession
-   , plannedFinish : Maybe FuzzyMoment -- PlannedSession
-   , relevanceStarts : Maybe FuzzyMoment --  absolute
-   , relevanceEnds : Maybe FuzzyMoment --  absolute
-   }
--}
+
+
+type alias TaskInstance =
+    { class : TaskClassID
+    , completion : Progress.Portion
+    , id : TaskId -- Class and Instance
+    , deadline : Maybe FuzzyMoment
+    , plannedStart : Maybe FuzzyMoment -- PlannedSession
+    , plannedFinish : Maybe FuzzyMoment -- PlannedSession
+    , relevanceStarts : Maybe FuzzyMoment --  absolute
+    , relevanceEnds : Maybe FuzzyMoment --  absolute
+    }
 
 
 getEntries : List TaskEntry -> List TaskClass
 getEntries entries =
     let
-        traverse entry =
+        traverseRoot entry =
             case entry of
-                SingletonTask taskclass ->
-                    taskclass
+                SingletonTask taskClass ->
+                    [ taskClass ]
+
+                OneoffContainer constrainedParent ->
+                    traverseConstrainedParent constrainedParent
+
+                RecurrenceContainer recurringParent ->
+                    traverseRecurringParent recurringParent
+
+                NestedRecurrenceContainer unconstrainedParent ->
+                    traverseUnconstrainedParent unconstrainedParent
+
+        traverseConstrainedParent constrainedParent =
+            List.concatMap traverseConstrainedChild (List.Nonempty.toList constrainedParent.children)
+
+        traverseConstrainedChild child =
+            case child of
+                Singleton taskClass ->
+                    [ taskClass ]
+
+                Nested constrainedParent ->
+                    traverseConstrainedParent constrainedParent
+
+        traverseUnconstrainedParent unconstrainedParent =
+            List.concatMap traverseUnconstrainedChild (List.Nonempty.toList unconstrainedParent.children)
+
+        traverseUnconstrainedChild child =
+            case child of
+                RecursDeeper unconstrainedParent ->
+                    traverseUnconstrainedParent unconstrainedParent
+
+                RecursHere recurringParent ->
+                    traverseRecurringParent recurringParent
+
+        traverseRecurringParent recurringParent =
+            List.concatMap traverseConstrainedParent (List.Nonempty.toList recurringParent.children)
     in
-    List.map traverse entries
+    List.concatMap traverseRoot entries

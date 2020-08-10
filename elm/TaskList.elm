@@ -35,6 +35,7 @@ import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
 import Task.Task exposing (..)
+import Task.TaskEntry exposing (..)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
