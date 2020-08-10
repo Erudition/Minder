@@ -1,6 +1,8 @@
-module Task.Task exposing (HistoryEntry, ProjectId, Task, TaskChange(..), TaskId, completed, decodeHistoryEntry, decodeTask, decodeTaskChange, encodeHistoryEntry, encodeTask, encodeTaskChange, newTask, normalizeTitle, prioritize)
+module Task.Task exposing (TaskChange(..), TaskClass, TaskClassID, TaskInstance, TaskInstanceID, completed, decodeTaskChange, decodeTaskInstance, encodeTaskChange, encodeTaskInstance, newTaskClass, normalizeTitle, prioritize)
 
 import Activity.Activity exposing (ActivityID)
+import Activity.Evidence exposing (Evidence(..))
+import Activity.Template exposing (Template(..))
 import Date
 import ID
 import Json.Decode.Exploration as Decode exposing (..)
@@ -11,9 +13,94 @@ import List.Extra as List
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
+import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress as Progress exposing (..)
+
+
+{-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
+This way, the same task can be assigned multiple times in life (either automatic recurrence, or by manually adding a new instance) and the program is aware they are the same thing.
+
+Tasks that are only similar, e.g. "take a bath", should be separate TaskClasses.
+
+-}
+type alias TaskClass =
+    { title : String -- Class
+    , id : TaskClassID -- Class and Instance
+    , activity : Maybe ActivityID
+
+    --, template : TaskTemplate
+    , completionUnits : Progress.Unit
+    , minEffort : Duration -- Class. can always revise
+    , predictedEffort : Duration -- Class. can always revise
+    , maxEffort : Duration -- Class. can always revise
+
+    --, tags : List TagId -- Class
+    , defaultExternalDeadline : List RelativeTaskTiming
+    , defaultStartBy : List RelativeTaskTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
+    , defaultFinishBy : List RelativeTaskTiming
+    , defaultRelevanceStarts : List RelativeTaskTiming
+    , defaultRelevanceEnds : List RelativeTaskTiming
+    , importance : Float -- Class
+
+    -- future: default Session strategy
+    }
+
+
+decodeTaskClass : Decode.Decoder TaskClass
+decodeTaskClass =
+    decode TaskClass
+        |> Pipeline.required "title" Decode.string
+        |> Pipeline.required "id" decodeTaskClassID
+        |> Pipeline.required "activity" (Decode.nullable <| ID.decode)
+        |> Pipeline.required "completionUnits" Progress.decodeUnit
+        |> Pipeline.required "minEffort" decodeDuration
+        |> Pipeline.required "predictedEffort" decodeDuration
+        |> Pipeline.required "maxEffort" decodeDuration
+        |> Pipeline.required "defaultExternalDeadline" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "defaultStartBy" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "defaultFinishBy" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "defaultRelevanceStarts" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "defaultRelevanceEnds" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "importance" Decode.float
+
+
+encodeTaskClass : TaskClass -> Encode.Value
+encodeTaskClass taskClass =
+    object <|
+        [ ( "title", Encode.string taskClass.title )
+        , ( "id", Encode.int taskClass.id )
+        , ( "activity", Encode2.maybe ID.encode taskClass.activity )
+        , ( "completionUnits", Progress.encodeUnit taskClass.completionUnits )
+        , ( "minEffort", encodeDuration taskClass.minEffort )
+        , ( "predictedEffort", encodeDuration taskClass.predictedEffort )
+        , ( "maxEffort", encodeDuration taskClass.maxEffort )
+        , ( "defaultExternalDeadline", Encode.list encodeRelativeTaskTiming taskClass.defaultExternalDeadline )
+        , ( "defaultStartBy", Encode.list encodeRelativeTaskTiming taskClass.defaultStartBy )
+        , ( "defaultFinishBy", Encode.list encodeRelativeTaskTiming taskClass.defaultFinishBy )
+        , ( "defaultRelevanceStarts", Encode.list encodeRelativeTaskTiming taskClass.defaultRelevanceStarts )
+        , ( "defaultRelevanceEnds", Encode.list encodeRelativeTaskTiming taskClass.defaultRelevanceEnds )
+        , ( "importance", Encode.float taskClass.importance )
+        ]
+
+
+newTaskClass : String -> Int -> TaskClass
+newTaskClass givenTitle newID =
+    { title = givenTitle
+    , id = newID
+    , activity = Nothing
+    , completionUnits = Progress.Percent
+    , minEffort = Duration.zero
+    , predictedEffort = Duration.zero
+    , maxEffort = Duration.zero
+    , defaultExternalDeadline = []
+    , defaultStartBy = []
+    , defaultFinishBy = []
+    , defaultRelevanceStarts = []
+    , defaultRelevanceEnds = []
+    , importance = 1
+    }
 
 
 {-| Definition of a single task.
@@ -22,68 +109,72 @@ Working rules:
   - there should be no fields for storing data that can be fully derived from other fields [consistency]
   - combine related fields into a single one with a tuple value [minimalism]
 
+-- One particular time that the specific thing will be done, that can be scheduled
+-- A class could have NO instances yet - they're calculated on the fly
+
 -}
-type alias Task =
-    { title : String -- Class
-    , completion : Progress
-    , id : TaskId -- Class and Instance
-    , minEffort : Duration -- ?
-    , predictedEffort : Duration -- ?
-    , maxEffort : Duration -- ?
-    , history : List HistoryEntry -- remove?
-    , parent : Maybe TaskId
-    , tags : List TagId -- Class
-    , activity : Maybe ActivityID -- Class
-    , deadline : Maybe FuzzyMoment -- Class
-    , plannedStart : Maybe FuzzyMoment -- PlannedSession
-    , plannedFinish : Maybe FuzzyMoment -- PlannedSession
-    , relevanceStarts : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
-    , relevanceEnds : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
-    , importance : Float -- Class
+type alias TaskInstance =
+    { class : TaskClassID
+    , id : TaskInstanceID
+    , completion : Progress.Portion
+    , externalDeadline : Maybe FuzzyMoment -- *
+    , startBy : Maybe FuzzyMoment -- *
+    , finishBy : Maybe FuzzyMoment -- *
+    , plannedSessions : List PlannedSession
+    , relevanceStarts : Maybe FuzzyMoment -- *
+    , relevanceEnds : Maybe FuzzyMoment -- * (*)=An absolute FuzzyMoment if specified, otherwise generated by relative rules from class
     }
 
 
-decodeTask : Decode.Decoder Task
-decodeTask =
-    decode Task
-        |> Pipeline.required "title" Decode.string
-        |> Pipeline.required "completion" decodeProgress
-        |> Pipeline.required "id" Decode.int
-        |> Pipeline.required "minEffort" decodeDuration
-        |> Pipeline.required "predictedEffort" decodeDuration
-        |> Pipeline.required "maxEffort" decodeDuration
-        |> Pipeline.required "history" (Decode.list decodeHistoryEntry)
-        |> Pipeline.required "parent" (Decode.nullable Decode.int)
-        |> Pipeline.required "tags" (Decode.list Decode.int)
-        |> Pipeline.required "activity" (Decode.nullable ID.decode)
-        |> Pipeline.required "deadline" (Decode.nullable decodeTaskMoment)
-        |> Pipeline.required "plannedStart" (Decode.nullable decodeTaskMoment)
-        |> Pipeline.required "plannedFinish" (Decode.nullable decodeTaskMoment)
+decodeTaskInstance : Decode.Decoder TaskInstance
+decodeTaskInstance =
+    decode TaskInstance
+        |> Pipeline.required "class" decodeTaskClassID
+        |> Pipeline.required "id" decodeTaskInstanceID
+        |> Pipeline.required "completion" Decode.int
+        |> Pipeline.required "externalDeadline" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "startBy" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "finishBy" (Decode.nullable decodeTaskMoment)
+        |> Pipeline.required "plannedSessions" (Decode.list decodePlannedSession)
         |> Pipeline.required "relevanceStarts" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "relevanceEnds" (Decode.nullable decodeTaskMoment)
-        |> Pipeline.required "importance" Decode.float
 
 
-encodeTask : Task -> Encode.Value
-encodeTask record =
-    Encode.object
-        [ ( "title", Encode.string <| record.title )
-        , ( "completion", encodeProgress <| record.completion )
-        , ( "id", Encode.int <| record.id )
-        , ( "minEffort", encodeDuration <| record.minEffort )
-        , ( "predictedEffort", encodeDuration <| record.predictedEffort )
-        , ( "maxEffort", encodeDuration <| record.maxEffort )
-        , ( "history", Encode.list encodeHistoryEntry record.history )
-        , ( "parent", Encode2.maybe Encode.int record.parent )
-        , ( "tags", Encode.list Encode.int record.tags )
-        , ( "activity", Encode2.maybe ID.encode record.activity )
-        , ( "deadline", Encode2.maybe encodeTaskMoment record.deadline )
-        , ( "plannedStart", Encode2.maybe encodeTaskMoment record.plannedStart )
-        , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
-        , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
-        , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
-        , ( "importance", Encode.float <| record.importance )
+encodeTaskInstance : TaskInstance -> Encode.Value
+encodeTaskInstance taskInstance =
+    Encode.object <|
+        [ ( "class", Encode.int taskInstance.class )
+        , ( "id", Encode.int taskInstance.id )
+        , ( "completion", Encode.int taskInstance.completion )
+        , ( "externalDeadline", Encode2.maybe encodeTaskMoment taskInstance.externalDeadline )
+        , ( "startBy", Encode2.maybe encodeTaskMoment taskInstance.startBy )
+        , ( "finishBy", Encode2.maybe encodeTaskMoment taskInstance.finishBy )
+        , ( "plannedSessions", Encode.list encodePlannedSession taskInstance.plannedSessions )
+        , ( "relevanceStarts", Encode2.maybe encodeTaskMoment taskInstance.relevanceStarts )
+        , ( "relevanceEnds", Encode2.maybe encodeTaskMoment taskInstance.relevanceEnds )
         ]
+
+
+
+--encodeTaskInstance record =
+--    Encode.object
+--        [ ( "title", Encode.string <| record.title )
+--        , ( "completion", encodeProgress <| record.completion )
+--        , ( "id", Encode.int <| record.id )
+--        , ( "minEffort", encodeDuration <| record.minEffort )
+--        , ( "predictedEffort", encodeDuration <| record.predictedEffort )
+--        , ( "maxEffort", encodeDuration <| record.maxEffort )
+--        , ( "history", Encode.list encodeHistoryEntry record.history )
+--        , ( "parent", Encode2.maybe Encode.int record.parent )
+--        , ( "tags", Encode.list Encode.int record.tags )
+--        , ( "activity", Encode2.maybe ID.encode record.activity )
+--        , ( "deadline", Encode2.maybe encodeTaskMoment record.externalDeadline )
+--        , ( "plannedStart", Encode2.maybe encodeTaskMoment record.plannedStart )
+--        , ( "plannedFinish", Encode2.maybe encodeTaskMoment record.plannedFinish )
+--        , ( "relevanceStarts", Encode2.maybe encodeTaskMoment record.relevanceStarts )
+--        , ( "relevanceEnds", Encode2.maybe encodeTaskMoment record.relevanceEnds )
+--        , ( "importance", Encode.float <| record.importance )
+--        ]
 
 
 decodeTaskMoment : Decoder FuzzyMoment
@@ -98,50 +189,22 @@ encodeTaskMoment fuzzy =
     Encode.string <| HumanMoment.fuzzyToString fuzzy
 
 
-newTask : String -> Int -> Task
-newTask description id =
-    { title = description
-    , id = id
-    , completion = ( 0, Percent )
-    , parent = Nothing
-    , maxEffort = Duration.zero
-    , predictedEffort = Duration.zero
-    , minEffort = Duration.zero
-    , history = []
-    , tags = []
-    , activity = Nothing
-    , deadline = Nothing
-    , plannedStart = Nothing
-    , plannedFinish = Nothing
-    , relevanceStarts = Nothing
-    , relevanceEnds = Nothing
-    , importance = 0
-    }
-
-
 type alias TagId =
     Int
 
 
-{-| Defines a point where something changed in a task.
--}
-type alias HistoryEntry =
-    ( TaskChange, Moment )
+type alias PlannedSession =
+    ( FuzzyMoment, Duration )
 
 
-
--- TODO
-
-
-decodeHistoryEntry : Decode.Decoder HistoryEntry
-decodeHistoryEntry =
-    fail "womp"
+decodePlannedSession : Decoder PlannedSession
+decodePlannedSession =
+    Debug.todo "decode plannedSessions"
 
 
-encodeHistoryEntry : HistoryEntry -> Encode.Value
-encodeHistoryEntry record =
-    Encode.object
-        []
+encodePlannedSession : PlannedSession -> Encode.Value
+encodePlannedSession plannedSession =
+    Debug.todo "encode plannedSessions"
 
 
 {-| possible activities that can be logged about a task.
@@ -156,7 +219,7 @@ type TaskChange
     | CompletionChange Progress
     | TitleChange String
     | PredictedEffortChange Duration
-    | ParentChange TaskId
+    | ParentChange TaskClassID
     | TagsChange
     | DateChange (Maybe FuzzyMoment)
 
@@ -198,15 +261,61 @@ encodeTaskChange theTaskChange =
             Encode.object [ ( "DateChange", Encode2.maybe encodeTaskMoment taskMoment ) ]
 
 
-type alias TaskId =
+type alias TaskClassID =
     Int
 
 
-type alias ProjectId =
+decodeTaskClassID : Decoder TaskClassID
+decodeTaskClassID =
+    Decode.int
+
+
+encodeTaskClassID : TaskClassID -> Encode.Value
+encodeTaskClassID taskClassID =
+    Encode.int taskClassID
+
+
+type alias TaskInstanceID =
     Int
 
 
-completed : Task -> Bool
+decodeTaskInstanceID : Decoder TaskInstanceID
+decodeTaskInstanceID =
+    Decode.int
+
+
+encodeTaskInstanceID : TaskInstanceID -> Encode.Value
+encodeTaskInstanceID taskInstanceID =
+    Encode.int taskInstanceID
+
+
+{-| Need to be able to specify multiple of these, as some may not apply.
+-}
+type RelativeTaskTiming
+    = FromDeadline Duration
+    | FromToday Duration
+
+
+decodeRelativeTaskTiming : Decoder RelativeTaskTiming
+decodeRelativeTaskTiming =
+    Debug.todo "decode relativetasktimings"
+
+
+encodeRelativeTaskTiming : RelativeTaskTiming -> Encode.Value
+encodeRelativeTaskTiming relativeTaskTiming =
+    case relativeTaskTiming of
+        FromDeadline duration ->
+            encodeDuration duration
+
+        FromToday duration ->
+            encodeDuration duration
+
+
+
+-- TASK HELPER FUNCTIONS
+
+
+completed : TaskInstance -> Bool
 completed task =
     isMax (.completion task)
 
@@ -215,7 +324,7 @@ type alias WithSoonness t =
     { t | soonness : Duration }
 
 
-prioritize : Moment -> HumanMoment.Zone -> List Task -> List Task
+prioritize : Moment -> HumanMoment.Zone -> List TaskInstance -> List TaskInstance
 prioritize now zone taskList =
     let
         -- lowest values first
@@ -271,9 +380,9 @@ deepSort compareFuncs listToSort =
 
 {-| TODO this could be a Moment.Fuzzy function
 -}
-compareSoonness : HumanMoment.Zone -> CompareFunction Task
+compareSoonness : HumanMoment.Zone -> CompareFunction TaskInstance
 compareSoonness zone taskA taskB =
-    case ( taskA.deadline, taskB.deadline ) of
+    case ( taskA.externalDeadline, taskB.externalDeadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
             HumanMoment.compareFuzzyLateness zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 

@@ -23,7 +23,8 @@ type alias Instance =
 type alias AppData =
     { uid : Instance
     , errors : List String
-    , tasks : IntDict Task
+    , taskClasses : IntDict TaskInstance
+    , taskInstances : IntDict TaskInstance
     , activities : StoredActivities
     , timeline : Timeline
     , todoist : TodoistIntegrationData
@@ -34,7 +35,8 @@ fromScratch : AppData
 fromScratch =
     { uid = 0
     , errors = []
-    , tasks = IntDict.empty
+    , taskClasses = IntDict.empty
+    , taskInstances = IntDict.empty
     , activities = IntDict.empty
     , timeline = []
     , todoist = emptyTodoistIntegrationData
@@ -46,7 +48,8 @@ decodeAppData =
     Pipeline.decode AppData
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
-        |> optional "tasks" (Porting.decodeIntDict decodeTask) IntDict.empty
+        |> optional "taskClasses" (Porting.decodeIntDict decodeTaskClass) IntDict.empty
+        |> optional "taskInstances" (Porting.decodeIntDict decodeTaskInstance) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
@@ -55,7 +58,8 @@ decodeAppData =
 encodeAppData : AppData -> Encode.Value
 encodeAppData record =
     Encode.object
-        [ ( "tasks", Porting.encodeIntDict encodeTask record.tasks )
+        [ ( "taskClasses", Porting.encodeIntDict encodeTaskClass record.taskClasses )
+        , ( "taskInstances", Porting.encodeIntDict encodeTaskInstance record.taskInstances )
         , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )

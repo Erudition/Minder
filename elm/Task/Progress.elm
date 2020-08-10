@@ -1,4 +1,4 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, encodeProgress, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -35,6 +35,34 @@ type Unit
     | Word Int
     | Minute Int
     | CustomUnit ( String, String ) Int
+
+
+decodeUnit : Decoder Unit
+decodeUnit =
+    -- TODO
+    Decode.succeed Percent
+
+
+encodeUnit : Unit -> Encode.Value
+encodeUnit unit =
+    case unit of
+        None ->
+            Encode.string "None"
+
+        Permille ->
+            Encode.string "Permille"
+
+        Percent ->
+            Encode.string "Percent"
+
+        Word targetWordCount ->
+            Encode.int targetWordCount
+
+        Minute targetTotalMinutes ->
+            Encode.int targetTotalMinutes
+
+        CustomUnit ( string1, string2 ) int ->
+            Debug.todo "Encode CustomUnits"
 
 
 setPortion : Progress -> Int -> Progress

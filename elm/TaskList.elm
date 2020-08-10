@@ -79,7 +79,7 @@ defaultView =
 
 
 type alias ExpandedTask =
-    TaskId
+    TaskClassID
 
 
 type alias NewTaskField =
@@ -95,7 +95,7 @@ view state app env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 sortedTasks =
-                    prioritize env.time env.timeZone <| IntDict.values app.tasks
+                    prioritize env.time env.timeZone <| IntDict.values app.taskInstances
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
@@ -103,7 +103,7 @@ view state app env =
                     [ class "todoapp" ]
                     [ lazy viewInput field
                     , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
-                    , lazy2 viewControls filters (IntDict.values app.tasks)
+                    , lazy2 viewControls filters (IntDict.values app.taskInstances)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
@@ -151,7 +151,7 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Environment -> Filter -> List Task -> Html Msg
+viewTasks : Environment -> Filter -> List TaskInstance -> Html Msg
 viewTasks env filter tasks =
     let
         isVisible task =
@@ -189,7 +189,7 @@ viewTasks env filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Task -> ( String, Html Msg )
+viewKeyedTask : Environment -> TaskInstance -> ( String, Html Msg )
 viewKeyedTask env task =
     ( String.fromInt task.id, lazy2 viewTask env task )
 
@@ -198,7 +198,7 @@ viewKeyedTask env task =
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Environment -> Task -> Html Msg
+viewTask : Environment -> TaskInstance -> Html Msg
 viewTask env task =
     li
         [ class "task-entry"
@@ -277,7 +277,7 @@ viewTask env task =
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
 -}
-progressSlider : Task -> Html Msg
+progressSlider : TaskInstance -> Html Msg
 progressSlider task =
     input
         [ class "task-progress"
@@ -317,7 +317,7 @@ dynamicSliderThumbCss portion =
     css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
 
 
-extractSliderInput : Task -> String -> Msg
+extractSliderInput : TaskInstance -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task.id <|
         setPortion task.completion <|
@@ -347,8 +347,8 @@ timingInfo env task =
         dueDate_editable =
             editableDateLabel env
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.deadline)
-                (attemptDateChange env task.id task.deadline "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.externalDeadline)
+                (attemptDateChange env task.id task.externalDeadline "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -357,10 +357,10 @@ timingInfo env task =
             editableTimeLabel env
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange env task.id task.deadline "Due")
+                (attemptTimeChange env task.id task.externalDeadline "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.deadline of
+            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.externalDeadline of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -436,7 +436,7 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : Task -> String
+describeEffort : TaskInstance -> String
 describeEffort task =
     let
         sayEffort amount =
@@ -463,7 +463,7 @@ describeTaskMoment now zone dueMoment =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> TaskId -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : Environment -> TaskClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -487,7 +487,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> TaskId -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : Environment -> TaskClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -510,7 +510,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List Task -> Html Msg
+viewControls : List Filter -> List TaskInstance -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
@@ -624,14 +624,14 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle TaskId Bool
-    | UpdateTitle TaskId String
+    | EditingTitle TaskClassID Bool
+    | UpdateTitle TaskClassID String
     | Add
-    | Delete TaskId
+    | Delete TaskClassID
     | DeleteComplete
-    | UpdateProgress TaskId Progress
-    | FocusSlider TaskId Bool
-    | UpdateTaskDate TaskId String (Maybe FuzzyMoment)
+    | UpdateProgress TaskClassID Progress
+    | FocusSlider TaskClassID Bool
+    | UpdateTaskDate TaskClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
@@ -653,7 +653,7 @@ update msg state app env =
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | tasks = IntDict.insert (Moment.toSmartInt env.time) (newTask (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)) app.tasks
+                        | taskInstances = IntDict.insert (Moment.toSmartInt env.time) (newTaskClass (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)) app.taskInstances
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
@@ -680,7 +680,7 @@ update msg state app env =
                     Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
             ( state
-            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
+            , { app | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances }
             , Job.attempt (\_ -> NoOp) focus
             )
 
@@ -690,29 +690,29 @@ update msg state app env =
                     { t | title = task }
             in
             ( state
-            , { app | tasks = IntDict.update id (Maybe.map updateTitle) app.tasks }
+            , { app | taskInstances = IntDict.update id (Maybe.map updateTitle) app.taskInstances }
             , Cmd.none
             )
 
         UpdateTaskDate id field date ->
             let
                 updateTask t =
-                    { t | deadline = date }
+                    { t | externalDeadline = date }
             in
             ( state
-            , { app | tasks = IntDict.update id (Maybe.map updateTask) app.tasks }
+            , { app | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances }
             , Cmd.none
             )
 
         Delete id ->
             ( state
-            , { app | tasks = IntDict.remove id app.tasks }
+            , { app | taskInstances = IntDict.remove id app.taskInstances }
             , Cmd.none
             )
 
         DeleteComplete ->
             ( state
-            , { app | tasks = IntDict.filter (\_ t -> not (completed t)) app.tasks }
+            , { app | taskInstances = IntDict.filter (\_ t -> not (completed t)) app.taskInstances }
             , Cmd.none
             )
 
@@ -723,7 +723,7 @@ update msg state app env =
 
                 -- TODO how can we get this out of `Maybe`?
                 maybeGivenTask =
-                    IntDict.get id app.tasks
+                    IntDict.get id app.taskInstances
 
                 maybeTaskTitle =
                     Maybe.map .title maybeGivenTask
@@ -758,7 +758,7 @@ update msg state app env =
             in
             ( state
             , { app
-                | tasks = IntDict.update id (Maybe.map updateTask) app.tasks
+                | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances
               }
             , Maybe.withDefault Cmd.none maybeHandleCompletion
             )
@@ -798,7 +798,7 @@ urlTriggers : AppData -> Environment -> List ( String, Dict.Dict String Msg )
 urlTriggers app env =
     let
         tasksWithNames =
-            List.map normalizedEntry (IntDict.toList app.tasks)
+            List.map normalizedEntry (IntDict.toList app.taskInstances)
 
         normalizedEntry ( id, task ) =
             ( task.title, UpdateProgress id (maximize task.completion) )

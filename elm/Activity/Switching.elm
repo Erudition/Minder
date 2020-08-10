@@ -15,7 +15,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
-import Task.Task as Task exposing (Task)
+import Task.Task as Task exposing (TaskInstance)
 import Time
 import Time.Extra as Time
 
@@ -36,12 +36,12 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
-determineNextTask : AppData -> Environment -> Maybe Task.Task
+determineNextTask : AppData -> Environment -> Maybe Task.TaskInstance
 determineNextTask app env =
     List.head <|
         Task.prioritize env.time env.timeZone <|
             List.filter (Task.completed >> not) <|
-                IntDict.values app.tasks
+                IntDict.values app.taskInstances
 
 
 switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
@@ -291,7 +291,7 @@ onTaskChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
 
 
-scheduleOnTaskReminders : Task -> Moment -> Duration -> List Notification
+scheduleOnTaskReminders : TaskInstance -> Moment -> Duration -> List Notification
 scheduleOnTaskReminders task now timeLeft =
     let
         blank =
@@ -373,12 +373,11 @@ offTaskActions =
     ]
 
 
-scheduleOffTaskReminders : Task -> Moment -> List Notification
+scheduleOffTaskReminders : TaskInstance -> Moment -> List Notification
 scheduleOffTaskReminders nextTask now =
     let
         title =
             Just ("Do now: " ++ nextTask.title)
-
     in
     List.map (offTaskReminder now) (List.range 1 stopAfterCount)
         ++ [ giveUpNotif now ]
@@ -411,9 +410,9 @@ giveUpNotif : Moment -> Notification
 giveUpNotif fireTime =
     let
         reminderPeriod =
-                    Period.fromStart fireTime (reminderDistance stopAfterCount)
+            Period.fromStart fireTime (reminderDistance stopAfterCount)
 
-        giveUpChannel  =
+        giveUpChannel =
             { id = "Gave Up Trying To Alert You"
             , name = "Gave Up Trying To Alert You"
             , description = Just "Lets you know when a previous reminder has exceeded the maximum number of attempts to catch your attention."
@@ -422,8 +421,9 @@ giveUpNotif fireTime =
             , led = Nothing
             , vibrate = Nothing
             }
+
         base =
-              Notif.build (giveUpChannel)
+            Notif.build giveUpChannel
     in
     { base
         | id = Just (stopAfterCount + 1)

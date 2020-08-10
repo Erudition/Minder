@@ -26,7 +26,7 @@ import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress
-import Task.Task as Task exposing (Task, newTask)
+import Task.Task as Task exposing (TaskInstance, newTaskClass)
 import Url
 import Url.Builder
 
@@ -72,9 +72,9 @@ handle msg app =
             in
             ( { app
                 | todoist = newTodoistData
-                , tasks =
+                , taskInstances =
                     -- TODO figure out deleted
-                    IntDict.union convertItemsToTasks app.tasks
+                    IntDict.union convertItemsToTasks app.taskInstances
               }
             , describeSuccess changes
             )
@@ -215,7 +215,7 @@ filterActivityProjects projects activities =
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
 
 
-timetrackItemToTask : IntDict ActivityID -> Item -> Maybe Task
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe TaskInstance
 timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
@@ -228,11 +228,11 @@ timetrackItemToTask lookup item =
             Nothing
 
 
-itemToTask : Activity.ActivityID -> Item -> Task
+itemToTask : Activity.ActivityID -> Item -> TaskInstance
 itemToTask activityID item =
     let
         base =
-            newTask (Task.normalizeTitle newName) item.id
+            newTaskClass (Task.normalizeTitle newName) item.id
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
@@ -252,7 +252,7 @@ itemToTask activityID item =
         , minEffort = Maybe.withDefault base.minEffort minDur
         , maxEffort = Maybe.withDefault base.maxEffort maxDur
         , importance = calcImportance item
-        , deadline = Maybe.andThen getDueDate item.due
+        , externalDeadline = Maybe.andThen getDueDate item.due
     }
 
 

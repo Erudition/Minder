@@ -15,6 +15,7 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (..)
 import Task.Progress as Progress exposing (..)
+import Task.Task as Task exposing (..)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -24,11 +25,6 @@ type TaskEntry
     | OneoffContainer ConstrainedParent
     | RecurrenceContainer RecurringParent
     | NestedRecurrenceContainer UnconstrainedParent
-
-
-type RelativeTaskTiming
-    = FromDeadline Duration
-    | FromToday Duration
 
 
 
@@ -117,31 +113,8 @@ type ConstrainedChild
     | Nested ConstrainedParent
 
 
-
--- A very specific thing to be done, potentially multiple times in life
-
-
-type alias TaskClass =
-    { title : String -- Class
-
-    --, template : TaskTemplate
-    , completionUnits : Progress.Unit
-
-    --, id : TaskId -- Class and Instance
-    , minEffort : Duration -- Class. can always revise
-    , predictedEffort : Duration -- Class. can always revise
-    , maxEffort : Duration -- Class. can always revise
-
-    --, history : List HistoryEntry -- remove?
-    --, tags : List TagId -- Class
-    , activity : Maybe ActivityID -- Class
-    , defaultDeadline : List RelativeTaskTiming
-    , defaultPlannedStart : List RelativeTaskTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
-    , defaultPlannedFinish : List RelativeTaskTiming
-    , defaultRelevanceStarts : List RelativeTaskTiming
-    , defaultRelevanceEnds : List RelativeTaskTiming
-    , importance : Float -- Class
-    }
+type TaskClassID
+    = Id Int
 
 
 
@@ -152,7 +125,8 @@ type alias TaskClass =
 type alias TaskInstance =
     { class : TaskClassID
     , completion : Progress.Portion
-    , id : TaskId -- Class and Instance
+
+    --, id : TaskId -- Class and Instance
     , deadline : Maybe FuzzyMoment
     , plannedStart : Maybe FuzzyMoment -- PlannedSession
     , plannedFinish : Maybe FuzzyMoment -- PlannedSession
