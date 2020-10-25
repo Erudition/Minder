@@ -36,12 +36,18 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
-determineNextTask : AppData -> Environment -> Maybe Task.TaskInstance
+determineNextTask : AppData -> Environment -> Maybe Task.TaskInstanceSpec
 determineNextTask app env =
     List.head <|
         Task.prioritize env.time env.timeZone <|
             List.filter (Task.completed >> not) <|
-                IntDict.values app.taskInstances
+                instanceSpecList app
+
+
+instanceSpecList : AppData -> List Task.TaskInstanceSpec
+instanceSpecList app =
+    --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
+    Debug.todo "instanceSpecList Helper function in Switching Module"
 
 
 switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
@@ -126,7 +132,7 @@ switchActivity newActivityID app env =
 
         Just nextTask ->
             -- MORE TO BE DONE
-            case nextTask.activity of
+            case nextTask.class.activity of
                 Nothing ->
                     -- Uh oh! next task has no activity!
                     ( updatedApp
@@ -170,7 +176,7 @@ switchActivity newActivityID app env =
                                 Measure.totalLive env.time updatedApp.timeline newActivityID
 
                             timeRemaining =
-                                Duration.subtract nextTask.maxEffort timeSpent
+                                Duration.subtract nextTask.class.maxEffort timeSpent
                         in
                         -- ON TASK LOGIC ---------------------------
                         ( updatedApp
@@ -291,7 +297,7 @@ onTaskChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
 
 
-scheduleOnTaskReminders : TaskInstance -> Moment -> Duration -> List Notification
+scheduleOnTaskReminders : Task.TaskInstanceSpec -> Moment -> Duration -> List Notification
 scheduleOnTaskReminders task now timeLeft =
     let
         blank =
@@ -312,28 +318,28 @@ scheduleOnTaskReminders task now timeLeft =
         | at = Just <| fractionLeft 2
         , title = Just "Half-way done!"
         , body = Just "1/2 time left for this task."
-        , subtitle = Just task.title
+        , subtitle = Just task.class.title
         , progress = Just (Notif.Progress 1 2)
       }
     , { reminderBase
         | at = Just <| fractionLeft 3
         , title = Just "Two-thirds done!"
         , body = Just "1/3 time left for this task."
-        , subtitle = Just task.title
+        , subtitle = Just task.class.title
         , progress = Just (Notif.Progress 2 3)
       }
     , { reminderBase
         | at = Just <| fractionLeft 4
         , title = Just "Three-quarters done!"
         , body = Just "1/4 time left for this task."
-        , subtitle = Just task.title
+        , subtitle = Just task.class.title
         , progress = Just (Notif.Progress 3 4)
       }
     , { reminderBase
         | at = Just <| future now timeLeft
         , title = Just "Time's up!"
         , body = Just "You have spent all of the time reserved for this task."
-        , subtitle = Just task.title
+        , subtitle = Just task.class.title
       }
     ]
 
@@ -373,11 +379,11 @@ offTaskActions =
     ]
 
 
-scheduleOffTaskReminders : TaskInstance -> Moment -> List Notification
+scheduleOffTaskReminders : Task.TaskInstanceSpec -> Moment -> List Notification
 scheduleOffTaskReminders nextTask now =
     let
         title =
-            Just ("Do now: " ++ nextTask.title)
+            Just ("Do now: " ++ nextTask.class.title)
     in
     List.map (offTaskReminder now) (List.range 1 stopAfterCount)
         ++ [ giveUpNotif now ]

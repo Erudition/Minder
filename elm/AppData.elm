@@ -23,6 +23,7 @@ type alias Instance =
 type alias AppData =
     { uid : Instance
     , errors : List String
+    , taskEntries : List TaskEntry
     , taskClasses : IntDict TaskClass
     , taskInstances : IntDict TaskInstance
     , activities : StoredActivities
@@ -35,6 +36,7 @@ fromScratch : AppData
 fromScratch =
     { uid = 0
     , errors = []
+    , taskEntries = []
     , taskClasses = IntDict.empty
     , taskInstances = IntDict.empty
     , activities = IntDict.empty
@@ -48,6 +50,7 @@ decodeAppData =
     Pipeline.decode AppData
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
+        |> optional "taskEntries" (Decode.list decodeTaskEntry) []
         |> optional "taskClasses" (Porting.decodeIntDict decodeTaskClass) IntDict.empty
         |> optional "taskInstances" (Porting.decodeIntDict decodeTaskInstance) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty

@@ -1,4 +1,4 @@
-module Task.Task exposing (TaskChange(..), TaskClass, TaskClassID, TaskInstance, TaskInstanceID, completed, decodeTaskChange, decodeTaskClass, decodeTaskInstance, encodeTaskChange, encodeTaskClass, encodeTaskInstance, newTaskClass, newTaskInstance, normalizeTitle, prioritize)
+module Task.Task exposing (PlannedSessionSpec, TaskChange(..), TaskClass, TaskClassID, TaskClassSpec, TaskEntry, TaskInstance, TaskInstanceID, TaskInstanceSpec, completed, decodeTaskChange, decodeTaskClass, decodeTaskEntry, decodeTaskInstance, encodeTaskChange, encodeTaskClass, encodeTaskInstance, newTaskClass, newTaskInstance, normalizeTitle, prioritize)
 
 import Activity.Activity exposing (ActivityID)
 import ID
@@ -307,16 +307,16 @@ encodeRelativeTaskTiming relativeTaskTiming =
 -- TASK HELPER FUNCTIONS
 
 
-completed : ( TaskClass, TaskInstance ) -> Bool
-completed ( class, instance ) =
-    isMax ( instance.completion, class.completionUnits )
+completed : TaskInstanceSpec -> Bool
+completed spec =
+    isMax ( spec.instance.completion, spec.class.completionUnits )
 
 
 type alias WithSoonness t =
     { t | soonness : Duration }
 
 
-prioritize : Moment -> HumanMoment.Zone -> List TaskInstance -> List TaskInstance
+prioritize : Moment -> HumanMoment.Zone -> List TaskInstanceSpec -> List TaskInstanceSpec
 prioritize now zone taskList =
     let
         -- lowest values first
@@ -373,9 +373,9 @@ deepSort compareFuncs listToSort =
 
 {-| TODO this could be a Moment.Fuzzy function
 -}
-compareSoonness : HumanMoment.Zone -> CompareFunction TaskInstance
+compareSoonness : HumanMoment.Zone -> CompareFunction TaskInstanceSpec
 compareSoonness zone taskA taskB =
-    case ( taskA.externalDeadline, taskB.externalDeadline ) of
+    case ( taskA.instance.externalDeadline, taskB.instance.externalDeadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
             HumanMoment.compareFuzzyLateness zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 
@@ -412,6 +412,10 @@ type TaskEntry
     | OneoffContainer ConstrainedParent
     | RecurrenceContainer RecurringParent
     | NestedRecurrenceContainer UnconstrainedParent
+
+
+decodeTaskEntry =
+    Debug.todo "Decoding TaskEntries"
 
 
 
@@ -500,40 +504,18 @@ type ConstrainedChild
     | Nested ConstrainedParent
 
 
+{-| A fully spec'ed-out version of a TaskClass
+-}
 type alias TaskClassSpec =
-    { title : String
-    , id : TaskClassID
-    , activity : Maybe ActivityID
-    , completionUnits : Progress.Unit
-    , minEffort : Duration
-    , predictedEffort : Duration
-    , maxEffort : Duration
-    , defaultExternalDeadline : List RelativeTaskTiming
-    , defaultStartBy : List RelativeTaskTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
-    , defaultFinishBy : List RelativeTaskTiming
-    , defaultRelevanceStarts : List RelativeTaskTiming
-    , defaultRelevanceEnds : List RelativeTaskTiming
-    , importance : Float -- Class
-    , parents : List ParentProperties
+    { parents : List ParentProperties
+    , class : TaskClass
     }
 
 
 specClass : TaskClass -> List ParentProperties -> TaskClassSpec
 specClass class parentList =
-    { title = class.title
-    , id = class.id
-    , activity = class.activity
-    , completionUnits = class.completionUnits
-    , minEffort = class.minEffort
-    , predictedEffort = class.predictedEffort
-    , maxEffort = class.maxEffort
-    , defaultExternalDeadline = class.defaultExternalDeadline
-    , defaultStartBy = class.defaultStartBy
-    , defaultFinishBy = class.defaultFinishBy
-    , defaultRelevanceStarts = class.defaultRelevanceStarts
-    , defaultRelevanceEnds = class.defaultRelevanceEnds
-    , importance = class.importance
-    , parents = parentList
+    { parents = parentList
+    , class = class
     }
 
 
@@ -589,3 +571,22 @@ getEntries entries =
                     traverseRecurringParent (appendPropsIfMeaningful accumulator recurringParent.properties) recurringParent
     in
     List.concatMap traverseRoot entries
+
+
+{-| A fully spec'ed-out version of a TaskInstance
+-}
+type alias TaskInstanceSpec =
+    { parents : List ParentProperties
+    , class : TaskClass
+    , instance : TaskInstance
+    }
+
+
+{-| A fully spec'ed-out version of a PlannedSession
+-}
+type alias PlannedSessionSpec =
+    { parents : List ParentProperties
+    , class : TaskClass
+    , instance : TaskInstance
+    , session : PlannedSession
+    }

@@ -26,7 +26,7 @@ import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress
-import Task.Task as Task exposing (TaskInstance, newTaskClass)
+import Task.Task as Task exposing (TaskClass, TaskInstance, newTaskClass)
 import Url
 import Url.Builder
 
@@ -72,9 +72,11 @@ handle msg app =
             in
             ( { app
                 | todoist = newTodoistData
-                , taskInstances =
-                    -- TODO figure out deleted
-                    IntDict.union convertItemsToTasks app.taskInstances
+
+                -- , taskInstances =
+                -- TODO figure out deleted
+                --    IntDict.union newInstances app.taskInstances
+                -- TODO fix merging back in tasks
               }
             , describeSuccess changes
             )
@@ -215,7 +217,7 @@ filterActivityProjects projects activities =
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
 
 
-timetrackItemToTask : IntDict ActivityID -> Item -> Maybe TaskInstance
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( TaskClass, TaskInstance )
 timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
@@ -228,7 +230,7 @@ timetrackItemToTask lookup item =
             Nothing
 
 
-itemToTask : Activity.ActivityID -> Item -> TaskInstance
+itemToTask : Activity.ActivityID -> Item -> ( TaskClass, TaskInstance )
 itemToTask activityID item =
     let
         base =
@@ -239,21 +241,30 @@ itemToTask activityID item =
 
         getDueDate due =
             Item.fromRFC3339Date due.date
-    in
-    { base
-        | completion =
-            if item.checked then
-                Task.Progress.maximize base.completion
 
-            else
-                base.completion
-        , tags = []
-        , activity = Just activityID
-        , minEffort = Maybe.withDefault base.minEffort minDur
-        , maxEffort = Maybe.withDefault base.maxEffort maxDur
-        , importance = calcImportance item
-        , externalDeadline = Maybe.andThen getDueDate item.due
-    }
+        class =
+            { base
+                | activity = Just activityID
+                , minEffort = Maybe.withDefault base.minEffort minDur
+                , maxEffort = Maybe.withDefault base.maxEffort maxDur
+                , importance = calcImportance item
+            }
+
+        instance =
+            { newTaskInstance
+                | completion =
+                    if item.checked then
+                        Task.Progress.getPortion (Task.Progress.maximize newTaskInstance.completion)
+
+                    else
+                        newTaskInstance.completion
+                , externalDeadline = Maybe.andThen getDueDate item.due
+            }
+
+        newTaskInstance =
+            Debug.todo "generate instance from todoist task"
+    in
+    ( class, instance )
 
 
 calcImportance : Item -> Float
