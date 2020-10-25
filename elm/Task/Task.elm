@@ -1,4 +1,4 @@
-module Task.Task exposing (PlannedSessionSpec, TaskChange(..), TaskClass, TaskClassID, TaskClassSpec, TaskEntry, TaskInstance, TaskInstanceID, TaskInstanceSpec, completed, decodeTaskChange, decodeTaskClass, decodeTaskEntry, decodeTaskInstance, encodeTaskChange, encodeTaskClass, encodeTaskInstance, newTaskClass, newTaskInstance, normalizeTitle, prioritize)
+module Task.Task exposing (Change(..), Class, ClassID, Entry, FullClass, FullInstance, FullSession, Instance, InstanceID, buildFullInstanceDict, completed, decodeChange, decodeClass, decodeEntry, decodeInstance, encodeChange, encodeClass, encodeInstance, instanceProgress, makeFullClass, makeFullInstance, newClass, newInstance, normalizeTitle, prioritize)
 
 import Activity.Activity exposing (ActivityID)
 import ID
@@ -25,9 +25,9 @@ This way, the same task can be assigned multiple times in life (either automatic
 Tasks that are only similar, e.g. "take a bath", should be separate TaskClasses.
 
 -}
-type alias TaskClass =
+type alias Class =
     { title : String -- Class
-    , id : TaskClassID -- Class and Instance
+    , id : ClassID -- Class and Instance
     , activity : Maybe ActivityID
 
     --, template : TaskTemplate
@@ -37,37 +37,37 @@ type alias TaskClass =
     , maxEffort : Duration -- Class. can always revise
 
     --, tags : List TagId -- Class
-    , defaultExternalDeadline : List RelativeTaskTiming
-    , defaultStartBy : List RelativeTaskTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
-    , defaultFinishBy : List RelativeTaskTiming
-    , defaultRelevanceStarts : List RelativeTaskTiming
-    , defaultRelevanceEnds : List RelativeTaskTiming
+    , defaultExternalDeadline : List RelativeTiming
+    , defaultStartBy : List RelativeTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
+    , defaultFinishBy : List RelativeTiming
+    , defaultRelevanceStarts : List RelativeTiming
+    , defaultRelevanceEnds : List RelativeTiming
     , importance : Float -- Class
 
     -- future: default Session strategy
     }
 
 
-decodeTaskClass : Decode.Decoder TaskClass
-decodeTaskClass =
-    decode TaskClass
+decodeClass : Decode.Decoder Class
+decodeClass =
+    decode Class
         |> Pipeline.required "title" Decode.string
-        |> Pipeline.required "id" decodeTaskClassID
+        |> Pipeline.required "id" decodeClassID
         |> Pipeline.required "activity" (Decode.nullable <| ID.decode)
         |> Pipeline.required "completionUnits" Progress.decodeUnit
         |> Pipeline.required "minEffort" decodeDuration
         |> Pipeline.required "predictedEffort" decodeDuration
         |> Pipeline.required "maxEffort" decodeDuration
-        |> Pipeline.required "defaultExternalDeadline" (Decode.list decodeRelativeTaskTiming)
-        |> Pipeline.required "defaultStartBy" (Decode.list decodeRelativeTaskTiming)
-        |> Pipeline.required "defaultFinishBy" (Decode.list decodeRelativeTaskTiming)
-        |> Pipeline.required "defaultRelevanceStarts" (Decode.list decodeRelativeTaskTiming)
-        |> Pipeline.required "defaultRelevanceEnds" (Decode.list decodeRelativeTaskTiming)
+        |> Pipeline.required "defaultExternalDeadline" (Decode.list decodeRelativeTiming)
+        |> Pipeline.required "defaultStartBy" (Decode.list decodeRelativeTiming)
+        |> Pipeline.required "defaultFinishBy" (Decode.list decodeRelativeTiming)
+        |> Pipeline.required "defaultRelevanceStarts" (Decode.list decodeRelativeTiming)
+        |> Pipeline.required "defaultRelevanceEnds" (Decode.list decodeRelativeTiming)
         |> Pipeline.required "importance" Decode.float
 
 
-encodeTaskClass : TaskClass -> Encode.Value
-encodeTaskClass taskClass =
+encodeClass : Class -> Encode.Value
+encodeClass taskClass =
     object <|
         [ ( "title", Encode.string taskClass.title )
         , ( "id", Encode.int taskClass.id )
@@ -76,17 +76,17 @@ encodeTaskClass taskClass =
         , ( "minEffort", encodeDuration taskClass.minEffort )
         , ( "predictedEffort", encodeDuration taskClass.predictedEffort )
         , ( "maxEffort", encodeDuration taskClass.maxEffort )
-        , ( "defaultExternalDeadline", Encode.list encodeRelativeTaskTiming taskClass.defaultExternalDeadline )
-        , ( "defaultStartBy", Encode.list encodeRelativeTaskTiming taskClass.defaultStartBy )
-        , ( "defaultFinishBy", Encode.list encodeRelativeTaskTiming taskClass.defaultFinishBy )
-        , ( "defaultRelevanceStarts", Encode.list encodeRelativeTaskTiming taskClass.defaultRelevanceStarts )
-        , ( "defaultRelevanceEnds", Encode.list encodeRelativeTaskTiming taskClass.defaultRelevanceEnds )
+        , ( "defaultExternalDeadline", Encode.list encodeRelativeTiming taskClass.defaultExternalDeadline )
+        , ( "defaultStartBy", Encode.list encodeRelativeTiming taskClass.defaultStartBy )
+        , ( "defaultFinishBy", Encode.list encodeRelativeTiming taskClass.defaultFinishBy )
+        , ( "defaultRelevanceStarts", Encode.list encodeRelativeTiming taskClass.defaultRelevanceStarts )
+        , ( "defaultRelevanceEnds", Encode.list encodeRelativeTiming taskClass.defaultRelevanceEnds )
         , ( "importance", Encode.float taskClass.importance )
         ]
 
 
-newTaskClass : String -> Int -> TaskClass
-newTaskClass givenTitle newID =
+newClass : String -> Int -> Class
+newClass givenTitle newID =
     { title = givenTitle
     , id = newID
     , activity = Nothing
@@ -113,35 +113,35 @@ Working rules:
 -- A class could have NO instances yet - they're calculated on the fly
 
 -}
-type alias TaskInstance =
-    { class : TaskClassID
-    , id : TaskInstanceID
+type alias Instance =
+    { class : ClassID
+    , id : InstanceID
     , completion : Progress.Portion
     , externalDeadline : Maybe FuzzyMoment -- *
     , startBy : Maybe FuzzyMoment -- *
     , finishBy : Maybe FuzzyMoment -- *
-    , plannedSessions : List PlannedSession
+    , plannedSessions : List Session
     , relevanceStarts : Maybe FuzzyMoment -- *
     , relevanceEnds : Maybe FuzzyMoment -- * (*)=An absolute FuzzyMoment if specified, otherwise generated by relative rules from class
     }
 
 
-decodeTaskInstance : Decode.Decoder TaskInstance
-decodeTaskInstance =
-    decode TaskInstance
-        |> Pipeline.required "class" decodeTaskClassID
-        |> Pipeline.required "id" decodeTaskInstanceID
+decodeInstance : Decode.Decoder Instance
+decodeInstance =
+    decode Instance
+        |> Pipeline.required "class" decodeClassID
+        |> Pipeline.required "id" decodeInstanceID
         |> Pipeline.required "completion" Decode.int
         |> Pipeline.required "externalDeadline" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "startBy" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "finishBy" (Decode.nullable decodeTaskMoment)
-        |> Pipeline.required "plannedSessions" (Decode.list decodePlannedSession)
+        |> Pipeline.required "plannedSessions" (Decode.list decodeSession)
         |> Pipeline.required "relevanceStarts" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "relevanceEnds" (Decode.nullable decodeTaskMoment)
 
 
-encodeTaskInstance : TaskInstance -> Encode.Value
-encodeTaskInstance taskInstance =
+encodeInstance : Instance -> Encode.Value
+encodeInstance taskInstance =
     Encode.object <|
         [ ( "class", Encode.int taskInstance.class )
         , ( "id", Encode.int taskInstance.id )
@@ -149,14 +149,14 @@ encodeTaskInstance taskInstance =
         , ( "externalDeadline", Encode2.maybe encodeTaskMoment taskInstance.externalDeadline )
         , ( "startBy", Encode2.maybe encodeTaskMoment taskInstance.startBy )
         , ( "finishBy", Encode2.maybe encodeTaskMoment taskInstance.finishBy )
-        , ( "plannedSessions", Encode.list encodePlannedSession taskInstance.plannedSessions )
+        , ( "plannedSessions", Encode.list encodeSession taskInstance.plannedSessions )
         , ( "relevanceStarts", Encode2.maybe encodeTaskMoment taskInstance.relevanceStarts )
         , ( "relevanceEnds", Encode2.maybe encodeTaskMoment taskInstance.relevanceEnds )
         ]
 
 
-newTaskInstance : Int -> TaskClass -> TaskInstance
-newTaskInstance newID class =
+newInstance : Int -> Class -> Instance
+newInstance newID class =
     { class = class.id
     , id = newID
     , completion = 0
@@ -185,17 +185,17 @@ type alias TagId =
     Int
 
 
-type alias PlannedSession =
+type alias Session =
     ( FuzzyMoment, Duration )
 
 
-decodePlannedSession : Decoder PlannedSession
-decodePlannedSession =
+decodeSession : Decoder Session
+decodeSession =
     Debug.todo "decode plannedSessions"
 
 
-encodePlannedSession : PlannedSession -> Encode.Value
-encodePlannedSession plannedSession =
+encodeSession : Session -> Encode.Value
+encodeSession plannedSession =
     Debug.todo "encode plannedSessions"
 
 
@@ -206,18 +206,18 @@ Working rules:
   - value always includes the full value it was changed to at the time, never the delta [consistency]
 
 -}
-type TaskChange
+type Change
     = Created Moment
     | CompletionChange Progress
     | TitleChange String
     | PredictedEffortChange Duration
-    | ParentChange TaskClassID
+    | ParentChange ClassID
     | TagsChange
     | DateChange (Maybe FuzzyMoment)
 
 
-decodeTaskChange : Decode.Decoder TaskChange
-decodeTaskChange =
+decodeChange : Decode.Decoder Change
+decodeChange =
     decodeCustom
         [ ( "CompletionChange", subtype CompletionChange "progress" decodeProgress )
         , ( "Created", subtype Created "moment" decodeMoment )
@@ -228,8 +228,8 @@ decodeTaskChange =
         ]
 
 
-encodeTaskChange : TaskChange -> Encode.Value
-encodeTaskChange theTaskChange =
+encodeChange : Change -> Encode.Value
+encodeChange theTaskChange =
     case theTaskChange of
         Created moment ->
             Encode.object [ ( "Created", encodeMoment moment ) ]
@@ -253,48 +253,48 @@ encodeTaskChange theTaskChange =
             Encode.object [ ( "DateChange", Encode2.maybe encodeTaskMoment taskMoment ) ]
 
 
-type alias TaskClassID =
+type alias ClassID =
     Int
 
 
-decodeTaskClassID : Decoder TaskClassID
-decodeTaskClassID =
+decodeClassID : Decoder ClassID
+decodeClassID =
     Decode.int
 
 
-encodeTaskClassID : TaskClassID -> Encode.Value
-encodeTaskClassID taskClassID =
+encodeClassID : ClassID -> Encode.Value
+encodeClassID taskClassID =
     Encode.int taskClassID
 
 
-type alias TaskInstanceID =
+type alias InstanceID =
     Int
 
 
-decodeTaskInstanceID : Decoder TaskInstanceID
-decodeTaskInstanceID =
+decodeInstanceID : Decoder InstanceID
+decodeInstanceID =
     Decode.int
 
 
-encodeTaskInstanceID : TaskInstanceID -> Encode.Value
-encodeTaskInstanceID taskInstanceID =
+encodeInstanceID : InstanceID -> Encode.Value
+encodeInstanceID taskInstanceID =
     Encode.int taskInstanceID
 
 
 {-| Need to be able to specify multiple of these, as some may not apply.
 -}
-type RelativeTaskTiming
+type RelativeTiming
     = FromDeadline Duration
     | FromToday Duration
 
 
-decodeRelativeTaskTiming : Decoder RelativeTaskTiming
-decodeRelativeTaskTiming =
+decodeRelativeTiming : Decoder RelativeTiming
+decodeRelativeTiming =
     Debug.todo "decode relativetasktimings"
 
 
-encodeRelativeTaskTiming : RelativeTaskTiming -> Encode.Value
-encodeRelativeTaskTiming relativeTaskTiming =
+encodeRelativeTiming : RelativeTiming -> Encode.Value
+encodeRelativeTiming relativeTaskTiming =
     case relativeTaskTiming of
         FromDeadline duration ->
             encodeDuration duration
@@ -307,7 +307,7 @@ encodeRelativeTaskTiming relativeTaskTiming =
 -- TASK HELPER FUNCTIONS
 
 
-completed : TaskInstanceSpec -> Bool
+completed : FullInstance -> Bool
 completed spec =
     isMax ( spec.instance.completion, spec.class.completionUnits )
 
@@ -316,7 +316,7 @@ type alias WithSoonness t =
     { t | soonness : Duration }
 
 
-prioritize : Moment -> HumanMoment.Zone -> List TaskInstanceSpec -> List TaskInstanceSpec
+prioritize : Moment -> HumanMoment.Zone -> List FullInstance -> List FullInstance
 prioritize now zone taskList =
     let
         -- lowest values first
@@ -373,7 +373,7 @@ deepSort compareFuncs listToSort =
 
 {-| TODO this could be a Moment.Fuzzy function
 -}
-compareSoonness : HumanMoment.Zone -> CompareFunction TaskInstanceSpec
+compareSoonness : HumanMoment.Zone -> CompareFunction FullInstance
 compareSoonness zone taskA taskB =
     case ( taskA.instance.externalDeadline, taskB.instance.externalDeadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
@@ -392,7 +392,7 @@ compareSoonness zone taskA taskB =
             GT
 
 
-getRelevantInstancesOfClass : FuzzyMoment -> FuzzyMoment -> IntDict TaskClass -> IntDict TaskInstance -> List ( TaskClass, TaskInstance )
+getRelevantInstancesOfClass : FuzzyMoment -> FuzzyMoment -> IntDict Class -> IntDict Instance -> List ( Class, Instance )
 getRelevantInstancesOfClass fromWhen toWhen classes instances =
     let
         getInstances givenClass =
@@ -407,14 +407,14 @@ getRelevantInstancesOfClass fromWhen toWhen classes instances =
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
 -}
-type TaskEntry
-    = SingletonTask TaskClass
+type Entry
+    = SingletonTask Class
     | OneoffContainer ConstrainedParent
     | RecurrenceContainer RecurringParent
     | NestedRecurrenceContainer UnconstrainedParent
 
 
-decodeTaskEntry =
+decodeEntry =
     Debug.todo "Decoding TaskEntries"
 
 
@@ -500,32 +500,40 @@ type alias ConstrainedParent =
 
 
 type ConstrainedChild
-    = Singleton TaskClass
+    = Singleton Class
     | Nested ConstrainedParent
 
 
 {-| A fully spec'ed-out version of a TaskClass
 -}
-type alias TaskClassSpec =
+type alias FullClass =
     { parents : List ParentProperties
-    , class : TaskClass
+    , class : Class
     }
 
 
-specClass : TaskClass -> List ParentProperties -> TaskClassSpec
-specClass class parentList =
+makeFullClass : List ParentProperties -> Class -> FullClass
+makeFullClass parentList class =
     { parents = parentList
     , class = class
     }
 
 
-getEntries : List TaskEntry -> List TaskClassSpec
+makeFullInstance : FullClass -> Instance -> FullInstance
+makeFullInstance inheritedClass justInstance =
+    { parents = inheritedClass.parents
+    , class = inheritedClass.class
+    , instance = justInstance
+    }
+
+
+getEntries : List Entry -> List FullClass
 getEntries entries =
     let
         traverseRoot entry =
             case entry of
                 SingletonTask taskClass ->
-                    [ specClass taskClass [] ]
+                    [ makeFullClass [] taskClass ]
 
                 OneoffContainer constrainedParent ->
                     traverseConstrainedParent (appendPropsIfMeaningful [] constrainedParent.properties) constrainedParent
@@ -557,7 +565,7 @@ getEntries entries =
         traverseConstrainedChild accumulator child =
             case child of
                 Singleton taskClass ->
-                    [ specClass taskClass accumulator ]
+                    [ makeFullClass accumulator taskClass ]
 
                 Nested constrainedParent ->
                     traverseConstrainedParent (appendPropsIfMeaningful accumulator constrainedParent.properties) constrainedParent
@@ -575,18 +583,59 @@ getEntries entries =
 
 {-| A fully spec'ed-out version of a TaskInstance
 -}
-type alias TaskInstanceSpec =
+type alias FullInstance =
     { parents : List ParentProperties
-    , class : TaskClass
-    , instance : TaskInstance
+    , class : Class
+    , instance : Instance
     }
 
 
 {-| A fully spec'ed-out version of a PlannedSession
 -}
-type alias PlannedSessionSpec =
+type alias FullSession =
     { parents : List ParentProperties
-    , class : TaskClass
-    , instance : TaskInstance
-    , session : PlannedSession
+    , class : Class
+    , instance : Instance
+    , session : Session
     }
+
+
+{-| Convenience function for getting fully specced class list from appData lists.
+-}
+buildFullClassDict : ( List Entry, IntDict.IntDict Class ) -> IntDict.IntDict FullClass
+buildFullClassDict ( entries, classes ) =
+    -- TODO actually look in the entry list
+    IntDict.mapValues (makeFullClass []) classes
+
+
+{-| Convenience function for getting fully specced instance list from appData lists.
+-}
+buildFullInstanceDict : ( List Entry, IntDict.IntDict Class, IntDict.IntDict Instance ) -> IntDict.IntDict FullInstance
+buildFullInstanceDict ( entries, classes, instances ) =
+    let
+        fullClasses =
+            buildFullClassDict ( entries, classes )
+
+        findClass taskClassID =
+            IntDict.get taskClassID fullClasses
+
+        fleshOutInstanceIfClassFound taskInstance =
+            case findClass taskInstance.class of
+                Nothing ->
+                    Debug.log
+                        ("Couldn't find a matching class (ID "
+                            ++ String.fromInt taskInstance.class
+                            ++ ") for instance ID "
+                            ++ String.fromInt taskInstance.id
+                        )
+                        Nothing
+
+                Just foundClass ->
+                    Just <| makeFullInstance foundClass taskInstance
+    in
+    IntDict.filterMapValues fleshOutInstanceIfClassFound instances
+
+
+instanceProgress : FullInstance -> Progress
+instanceProgress fullInstance =
+    ( fullInstance.instance.completion, fullInstance.class.completionUnits )

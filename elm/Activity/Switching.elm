@@ -15,7 +15,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
-import Task.Task as Task exposing (TaskInstance)
+import Task.Task as Task exposing (Instance)
 import Time
 import Time.Extra as Time
 
@@ -36,7 +36,7 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
-determineNextTask : AppData -> Environment -> Maybe Task.TaskInstanceSpec
+determineNextTask : AppData -> Environment -> Maybe Task.FullInstance
 determineNextTask app env =
     List.head <|
         Task.prioritize env.time env.timeZone <|
@@ -44,7 +44,7 @@ determineNextTask app env =
                 instanceSpecList app
 
 
-instanceSpecList : AppData -> List Task.TaskInstanceSpec
+instanceSpecList : AppData -> List Task.FullInstance
 instanceSpecList app =
     --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
     Debug.todo "instanceSpecList Helper function in Switching Module"
@@ -297,7 +297,7 @@ onTaskChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
 
 
-scheduleOnTaskReminders : Task.TaskInstanceSpec -> Moment -> Duration -> List Notification
+scheduleOnTaskReminders : Task.FullInstance -> Moment -> Duration -> List Notification
 scheduleOnTaskReminders task now timeLeft =
     let
         blank =
@@ -379,7 +379,7 @@ offTaskActions =
     ]
 
 
-scheduleOffTaskReminders : Task.TaskInstanceSpec -> Moment -> List Notification
+scheduleOffTaskReminders : Task.FullInstance -> Moment -> List Notification
 scheduleOffTaskReminders nextTask now =
     let
         title =

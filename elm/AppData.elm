@@ -1,4 +1,4 @@
-module AppData exposing (AppData, Instance, TodoistIntegrationData, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
+module AppData exposing (AppData, AppInstance, TodoistIntegrationData, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
 import ID
@@ -11,21 +11,21 @@ import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Porting exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import Task.Progress exposing (..)
-import Task.Task exposing (..)
+import Task.Task as Task
 
 
 {-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
 -}
-type alias Instance =
+type alias AppInstance =
     Int
 
 
 type alias AppData =
-    { uid : Instance
+    { uid : AppInstance
     , errors : List String
-    , taskEntries : List TaskEntry
-    , taskClasses : IntDict TaskClass
-    , taskInstances : IntDict TaskInstance
+    , taskEntries : List Task.Entry
+    , taskClasses : IntDict Task.Class
+    , taskInstances : IntDict Task.Instance
     , activities : StoredActivities
     , timeline : Timeline
     , todoist : TodoistIntegrationData
@@ -50,9 +50,9 @@ decodeAppData =
     Pipeline.decode AppData
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
-        |> optional "taskEntries" (Decode.list decodeTaskEntry) []
-        |> optional "taskClasses" (Porting.decodeIntDict decodeTaskClass) IntDict.empty
-        |> optional "taskInstances" (Porting.decodeIntDict decodeTaskInstance) IntDict.empty
+        |> optional "taskEntries" (Decode.list Task.decodeEntry) []
+        |> optional "taskClasses" (Porting.decodeIntDict Task.decodeClass) IntDict.empty
+        |> optional "taskInstances" (Porting.decodeIntDict Task.decodeInstance) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
@@ -61,8 +61,8 @@ decodeAppData =
 encodeAppData : AppData -> Encode.Value
 encodeAppData record =
     Encode.object
-        [ ( "taskClasses", Porting.encodeIntDict encodeTaskClass record.taskClasses )
-        , ( "taskInstances", Porting.encodeIntDict encodeTaskInstance record.taskInstances )
+        [ ( "taskClasses", Porting.encodeIntDict Task.encodeClass record.taskClasses )
+        , ( "taskInstances", Porting.encodeIntDict Task.encodeInstance record.taskInstances )
         , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )

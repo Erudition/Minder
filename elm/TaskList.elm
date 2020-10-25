@@ -15,6 +15,7 @@ import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2)
 import ID
+import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Command as TodoistCommand
 import IntDict
@@ -34,7 +35,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
-import Task.Task exposing (..)
+import Task.Task as Task
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
@@ -78,7 +79,7 @@ defaultView =
 
 
 type alias ExpandedTask =
-    TaskClassID
+    Task.ClassID
 
 
 type alias NewTaskField =
@@ -93,8 +94,11 @@ view state app env =
                 activeFilter =
                     Maybe.withDefault AllTasks (List.head filters)
 
+                allFullTaskInstances =
+                    Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+
                 sortedTasks =
-                    prioritize env.time env.timeZone <| IntDict.values app.taskInstances
+                    Task.prioritize env.time env.timeZone <| IntDict.values allFullTaskInstances
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
@@ -102,7 +106,7 @@ view state app env =
                     [ class "todoapp" ]
                     [ lazy viewInput field
                     , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
-                    , lazy2 viewControls filters (IntDict.values app.taskInstances)
+                    , lazy2 viewControls filters (IntDict.values allFullTaskInstances)
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
@@ -150,22 +154,22 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Environment -> Filter -> List TaskInstance -> Html Msg
+viewTasks : Environment -> Filter -> List Task.FullInstance -> Html Msg
 viewTasks env filter tasks =
     let
         isVisible task =
             case filter of
                 CompleteTasksOnly ->
-                    completed task
+                    Task.completed task
 
                 IncompleteTasksOnly ->
-                    not (completed task)
+                    not (Task.completed task)
 
                 _ ->
                     True
 
         allCompleted =
-            List.all completed tasks
+            List.all Task.completed tasks
     in
     section
         [ class "main" ]
@@ -188,28 +192,28 @@ viewTasks env filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> TaskInstance -> ( String, Html Msg )
+viewKeyedTask : Environment -> Task.FullInstance -> ( String, Html Msg )
 viewKeyedTask env task =
-    ( String.fromInt task.id, lazy2 viewTask env task )
+    ( String.fromInt task.instance.id, lazy2 viewTask env task )
 
 
 
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Environment -> TaskInstance -> Html Msg
+viewTask : Environment -> Task.FullInstance -> Html Msg
 viewTask env task =
     li
         [ class "task-entry"
-        , classList [ ( "completed", completed task ), ( "editing", False ) ]
+        , classList [ ( "completed", Task.completed task ), ( "editing", False ) ]
         , title <|
             -- hover tooltip
             String.concat
             <|
                 List.intersperse "\n" <|
                     List.filterMap identity
-                        [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.activity
-                        , Just ("importance: " ++ String.fromFloat task.importance)
+                        [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.class.activity
+                        , Just ("importance: " ++ String.fromFloat task.class.importance)
                         ]
         ]
         [ progressSlider task
@@ -218,15 +222,13 @@ viewTask env task =
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
-                , Attr.checked (completed task)
+                , Attr.checked (Task.completed task)
                 , onClick
-                    (UpdateProgress task.id
-                        (if not (completed task) then
-                            maximize task.completion
+                    (if not (Task.completed task) then
+                        UpdateProgress task.instance.id (unitMax task.class.completionUnits)
 
-                         else
-                            setPortion task.completion 0
-                        )
+                     else
+                        NoOp
                     )
                 ]
                 []
@@ -276,16 +278,20 @@ viewTask env task =
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
 -}
-progressSlider : TaskInstance -> Html Msg
+progressSlider : Task.FullInstance -> Html Msg
 progressSlider task =
+    let
+        completion =
+            Task.instanceProgress task
+    in
     input
         [ class "task-progress"
         , type_ "range"
-        , value <| String.fromInt <| getPortion task.completion
+        , value <| String.fromInt <| getPortion completion
         , Attr.min "0"
-        , Attr.max <| String.fromInt <| getWhole task.completion
+        , Attr.max <| String.fromInt <| getWhole completion
         , step
-            (if isDiscrete <| getUnits task.completion then
+            (if isDiscrete <| getUnits completion then
                 "1"
 
              else
@@ -316,10 +322,10 @@ dynamicSliderThumbCss portion =
     css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
 
 
-extractSliderInput : TaskInstance -> String -> Msg
+extractSliderInput : Task.FullInstance -> String -> Msg
 extractSliderInput task input =
-    UpdateProgress task.id <|
-        setPortion task.completion <|
+    UpdateProgress task.instance.id <|
+        setPortion task.instance.completion <|
             Basics.round <|
                 -- TODO not ideal. keep decimals?
                 Maybe.withDefault 0
@@ -435,7 +441,7 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : TaskInstance -> String
+describeEffort : AppInstance -> String
 describeEffort task =
     let
         sayEffort amount =
@@ -462,7 +468,7 @@ describeTaskMoment now zone dueMoment =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> TaskClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : Environment -> Task.ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -486,7 +492,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> TaskClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : Environment -> Task.ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -509,11 +515,11 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List TaskInstance -> Html Msg
+viewControls : List Filter -> List Task.FullInstance -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
-            List.length (List.filter completed tasks)
+            List.length (List.filter Task.completed tasks)
 
         tasksLeft =
             List.length tasks - tasksCompleted
@@ -623,14 +629,14 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle TaskClassID Bool
-    | UpdateTitle TaskClassID String
+    | EditingTitle Task.ClassID Bool
+    | UpdateTitle Task.ClassID String
     | Add
-    | Delete TaskClassID
+    | Delete Task.InstanceID
     | DeleteComplete
-    | UpdateProgress TaskClassID Progress
-    | FocusSlider TaskClassID Bool
-    | UpdateTaskDate TaskClassID String (Maybe FuzzyMoment)
+    | UpdateProgress Task.InstanceID Portion
+    | FocusSlider Task.ClassID Bool
+    | UpdateTaskDate Task.ClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
@@ -650,17 +656,17 @@ update msg state app env =
 
                 Normal filters _ newTaskTitle ->
                     let
-                        newClass =
-                            newTaskClass (normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
+                        newTaskClass =
+                            Task.newClass (Task.normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
 
-                        newInstance =
-                            newTaskInstance (Moment.toSmartInt env.time) newClass
+                        newTaskInstance =
+                            Task.newInstance (Moment.toSmartInt env.time) newTaskClass
                     in
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | taskClasses = IntDict.insert newClass.id newClass app.taskClasses
-                        , taskInstances = IntDict.insert newInstance.id newInstance app.taskInstances
+                        | taskClasses = IntDict.insert newTaskClass.id newTaskClass app.taskClasses
+                        , taskInstances = IntDict.insert newTaskInstance.id newTaskInstance app.taskInstances
                       }
                       -- now using the creation time as the task ID, for sync
                     , Cmd.none
@@ -719,7 +725,7 @@ update msg state app env =
 
         DeleteComplete ->
             ( state
-            , { app | taskInstances = IntDict.filter (\_ t -> not (completed t)) app.taskInstances }
+            , { app | taskInstances = IntDict.filter (\_ t -> not (Task.completed t)) app.taskInstances }
             , Cmd.none
             )
 

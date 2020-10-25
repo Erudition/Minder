@@ -26,7 +26,7 @@ import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress
-import Task.Task as Task exposing (TaskClass, TaskInstance, newTaskClass)
+import Task.Task as Task exposing (Class, Instance, newClass)
 import Url
 import Url.Builder
 
@@ -217,7 +217,7 @@ filterActivityProjects projects activities =
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
 
 
-timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( TaskClass, TaskInstance )
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( Class, Instance )
 timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
@@ -230,11 +230,11 @@ timetrackItemToTask lookup item =
             Nothing
 
 
-itemToTask : Activity.ActivityID -> Item -> ( TaskClass, TaskInstance )
+itemToTask : Activity.ActivityID -> Item -> ( Class, Instance )
 itemToTask activityID item =
     let
         base =
-            newTaskClass (Task.normalizeTitle newName) item.id
+            newClass (Task.normalizeTitle newName) item.id
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
