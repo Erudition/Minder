@@ -1,5 +1,7 @@
 module Task.Task exposing (Change(..), Class, ClassID, Entry, FullClass, FullInstance, FullSession, Instance, InstanceID, buildFullInstanceDict, completed, decodeChange, decodeClass, decodeEntry, decodeInstance, encodeChange, encodeClass, encodeInstance, instanceProgress, makeFullClass, makeFullInstance, newClass, newInstance, normalizeTitle, prioritize)
 
+--import Json.Decode as Decode exposing (..)
+
 import Activity.Activity exposing (ActivityID)
 import ID
 import Incubator.IntDict.Extra as IntDict
@@ -191,7 +193,11 @@ type alias Session =
 
 decodeSession : Decoder Session
 decodeSession =
-    Debug.todo "decode plannedSessions"
+    let
+        decodeFuzzyMoment =
+            Porting.customDecoder Decode.string HumanMoment.fuzzyFromString
+    in
+    Porting.arrayAsTuple2 decodeFuzzyMoment decodeDuration
 
 
 encodeSession : Session -> Encode.Value
@@ -290,7 +296,7 @@ type RelativeTiming
 
 decodeRelativeTiming : Decoder RelativeTiming
 decodeRelativeTiming =
-    Debug.todo "decode relativetasktimings"
+    Decode.map FromDeadline decodeDuration
 
 
 encodeRelativeTiming : RelativeTiming -> Encode.Value
@@ -414,8 +420,27 @@ type Entry
     | NestedRecurrenceContainer UnconstrainedParent
 
 
+decodeEntry : Decoder Entry
 decodeEntry =
-    Debug.todo "Decoding TaskEntries"
+    let
+        get id =
+            case id of
+                "SingletonTask" ->
+                    Debug.todo "Cannot decode variant with params: SingletonTask"
+
+                "OneoffContainer" ->
+                    Debug.todo "Cannot decode variant with params: OneoffContainer"
+
+                "RecurrenceContainer" ->
+                    Debug.todo "Cannot decode variant with params: RecurrenceContainer"
+
+                "NestedRecurrenceContainer" ->
+                    Debug.todo "Cannot decode variant with params: NestedRecurrenceContainer"
+
+                _ ->
+                    fail ("unknown value for Entry: " ++ id)
+    in
+    Decode.string |> Decode.andThen get
 
 
 

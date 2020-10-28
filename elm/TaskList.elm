@@ -35,7 +35,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
-import Task.Task as Task
+import Task.Task as Task exposing (Instance)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
@@ -225,7 +225,7 @@ viewTask env task =
                 , Attr.checked (Task.completed task)
                 , onClick
                     (if not (Task.completed task) then
-                        UpdateProgress task.instance.id (unitMax task.class.completionUnits)
+                        UpdateProgress task (unitMax task.class.completionUnits)
 
                      else
                         NoOp
@@ -234,44 +234,44 @@ viewTask env task =
                 []
             , div [ class "title-and-details" ]
                 [ label
-                    [ onDoubleClick (EditingTitle task.id True)
-                    , onClick (FocusSlider task.id True)
-                    , css [ fontWeight (Css.int <| Basics.round (task.importance * 200 + 200)), pointerEvents none ]
+                    [ onDoubleClick (EditingTitle task.instance.id True)
+                    , onClick (FocusSlider task.instance.id True)
+                    , css [ fontWeight (Css.int <| Basics.round (task.class.importance * 200 + 200)), pointerEvents none ]
                     , class "task-title"
                     ]
-                    [ text task.title ]
+                    [ text task.class.title ]
                 , timingInfo env task
                 ]
             , div [ class "sessions" ]
                 [ text "No plan" ]
             , button
                 [ class "destroy"
-                , onClick (Delete task.id)
+                , onClick (Delete task.instance.id)
                 ]
                 [ text "×" ]
             ]
         , input
             [ class "edit"
-            , value task.title
+            , value task.class.title
             , name "title"
-            , id ("task-" ++ String.fromInt task.id)
-            , onInput (UpdateTitle task.id)
-            , onBlur (EditingTitle task.id False)
-            , onEnter (EditingTitle task.id False)
+            , id ("task-" ++ String.fromInt task.instance.id)
+            , onInput (UpdateTitle task.instance.id)
+            , onBlur (EditingTitle task.instance.id False)
+            , onEnter (EditingTitle task.instance.id False)
             ]
             []
 
         --, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
         --    [ label [ for "readyDate" ] [ text "Ready" ]
-        --    , input [ type_ "date", name "readyDate", onInput (extractDate task.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , input [ type_ "date", name "readyDate", onInput (extractDate task.instance.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    , label [ for "startDate" ] [ text "Start" ]
-        --    , input [ type_ "date", name "startDate", onInput (extractDate task.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , input [ type_ "date", name "startDate", onInput (extractDate task.instance.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    , label [ for "finishDate" ] [ text "Finish" ]
-        --    , input [ type_ "date", name "finishDate", onInput (extractDate task.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , input [ type_ "date", name "finishDate", onInput (extractDate task.instance.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    , label [ for "deadlineDate" ] [ text "Deadline" ]
-        --    , input [ type_ "date", name "deadlineDate", onInput (extractDate task.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , input [ type_ "date", name "deadlineDate", onInput (extractDate task.instance.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    , label [ for "expiresDate" ] [ text "Expires" ]
-        --    , input [ type_ "date", name "expiresDate", onInput (extractDate task.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+        --    , input [ type_ "date", name "expiresDate", onInput (extractDate task.instance.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    ]
         ]
 
@@ -298,10 +298,10 @@ progressSlider task =
                 "any"
             )
         , onInput (extractSliderInput task)
-        , onDoubleClick (EditingTitle task.id True)
-        , onFocus (FocusSlider task.id True)
-        , onBlur (FocusSlider task.id False)
-        , dynamicSliderThumbCss (getNormalizedPortion task.completion)
+        , onDoubleClick (EditingTitle task.instance.id True)
+        , onFocus (FocusSlider task.instance.id True)
+        , onBlur (FocusSlider task.instance.id False)
+        , dynamicSliderThumbCss (getNormalizedPortion (Task.instanceProgress task))
         ]
         []
 
@@ -324,26 +324,26 @@ dynamicSliderThumbCss portion =
 
 extractSliderInput : Task.FullInstance -> String -> Msg
 extractSliderInput task input =
-    UpdateProgress task.instance.id <|
-        setPortion task.instance.completion <|
-            Basics.round <|
-                -- TODO not ideal. keep decimals?
-                Maybe.withDefault 0
-                <|
-                    String.toFloat input
+    UpdateProgress task <|
+        Basics.round <|
+            -- TODO not ideal. keep decimals?
+            Maybe.withDefault 0
+            <|
+                String.toFloat input
 
 
 {-| Human-friendly text in a task summarizing the various TaskMoments (e.g. the due date)
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
+timingInfo : Environment -> Task.FullInstance -> Html Msg
 timingInfo env task =
     let
         effortDescription =
             describeEffort task
 
         uniquePrefix =
-            "task-" ++ String.fromInt task.id ++ "-"
+            "task-" ++ String.fromInt task.instance.id ++ "-"
 
         dateLabelNameAndID : String
         dateLabelNameAndID =
@@ -352,8 +352,8 @@ timingInfo env task =
         dueDate_editable =
             editableDateLabel env
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.externalDeadline)
-                (attemptDateChange env task.id task.externalDeadline "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.instance.externalDeadline)
+                (attemptDateChange env task.instance.id task.instance.externalDeadline "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -362,10 +362,10 @@ timingInfo env task =
             editableTimeLabel env
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange env task.id task.externalDeadline "Due")
+                (attemptTimeChange env task.instance.id task.instance.externalDeadline "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.externalDeadline of
+            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.instance.externalDeadline of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -441,13 +441,13 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : AppInstance -> String
+describeEffort : Task.FullInstance -> String
 describeEffort task =
     let
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort task.minEffort, sayEffort task.maxEffort ) of
+    case ( sayEffort task.class.minEffort, sayEffort task.class.maxEffort ) of
         ( [], [] ) ->
             ""
 
@@ -511,7 +511,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
                 Just (Global oldMoment) ->
                     UpdateTaskDate task whichTimeField (Just (Global (HumanMoment.setTime newTime env.timeZone oldMoment)))
 
-        Err msg ->
+        Err _ ->
             NoOp
 
 
@@ -634,7 +634,7 @@ type Msg
     | Add
     | Delete Task.InstanceID
     | DeleteComplete
-    | UpdateProgress Task.InstanceID Portion
+    | UpdateProgress Task.FullInstance Portion
     | FocusSlider Task.ClassID Bool
     | UpdateTaskDate Task.ClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
@@ -697,13 +697,13 @@ update msg state app env =
             , Job.attempt (\_ -> NoOp) focus
             )
 
-        UpdateTitle id task ->
+        UpdateTitle classID task ->
             let
                 updateTitle t =
                     { t | title = task }
             in
             ( state
-            , { app | taskInstances = IntDict.update id (Maybe.map updateTitle) app.taskInstances }
+            , { app | taskClasses = IntDict.update classID (Maybe.map updateTitle) app.taskClasses }
             , Cmd.none
             )
 
@@ -725,44 +725,38 @@ update msg state app env =
 
         DeleteComplete ->
             ( state
-            , { app | taskInstances = IntDict.filter (\_ t -> not (Task.completed t)) app.taskInstances }
+            , app
+              -- TODO { app | taskInstances = IntDict.filter (\_ t -> not (Task.completed t)) app.taskInstances }
             , Cmd.none
             )
 
-        UpdateProgress id new_completion ->
+        UpdateProgress givenTask new_completion ->
             let
                 updateTask t =
                     { t | completion = new_completion }
 
-                -- TODO how can we get this out of `Maybe`?
-                maybeGivenTask =
-                    IntDict.get id app.taskInstances
+                oldProgress =
+                    Task.instanceProgress givenTask
 
-                maybeTaskTitle =
-                    Maybe.map .title maybeGivenTask
-
-                maybeHandleCompletion =
-                    Maybe.map handleCompletion maybeGivenTask
-
-                handleCompletion givenTask =
+                handleCompletion =
                     -- how does the new completion status compare to the previous?
-                    case ( isMax givenTask.completion, isMax new_completion ) of
+                    case ( isMax oldProgress, isMax ( new_completion, getUnits oldProgress ) ) of
                         ( False, True ) ->
                             -- It was incomplete before, completed now
                             Cmd.batch
-                                [ Commands.toast ("Marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+                                [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
                                 , Cmd.map TodoistServerResponse <|
                                     Integrations.Todoist.sendChanges app.todoist
-                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem id) ) ]
+                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
                                 ]
 
                         ( True, False ) ->
                             -- It was complete before, but now marked incomplete
                             Cmd.batch
-                                [ Commands.toast ("No longer marked as complete: " ++ Maybe.withDefault "unknown task" maybeTaskTitle)
+                                [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
                                 , Cmd.map TodoistServerResponse <|
                                     Integrations.Todoist.sendChanges app.todoist
-                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem id) ) ]
+                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
                                 ]
 
                         _ ->
@@ -771,9 +765,9 @@ update msg state app env =
             in
             ( state
             , { app
-                | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances
+                | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTask) app.taskInstances
               }
-            , Maybe.withDefault Cmd.none maybeHandleCompletion
+            , handleCompletion
             )
 
         FocusSlider task focused ->
@@ -810,14 +804,17 @@ update msg state app env =
 urlTriggers : AppData -> Environment -> List ( String, Dict.Dict String Msg )
 urlTriggers app env =
     let
-        tasksWithNames =
-            List.map normalizedEntry (IntDict.toList app.taskInstances)
+        allFullTaskInstances =
+            Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
 
-        normalizedEntry ( id, task ) =
-            ( task.title, UpdateProgress id (maximize task.completion) )
+        tasksPairedWithNames =
+            List.map triggerEntry (IntDict.values allFullTaskInstances)
 
-        buildNextTaskEntry next =
-            [ ( "next", UpdateProgress next.id (maximize next.completion) ) ]
+        triggerEntry fullInstance =
+            ( fullInstance.class.title, UpdateProgress fullInstance (getWhole (Task.instanceProgress fullInstance)) )
+
+        buildNextTaskEntry nextTaskFullInstance =
+            [ ( "next", UpdateProgress nextTaskFullInstance (getWhole (Task.instanceProgress nextTaskFullInstance)) ) ]
 
         nextTaskEntry =
             Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask app env)
@@ -826,7 +823,7 @@ urlTriggers app env =
             [ ( "next", NoOp ) ]
 
         allEntries =
-            Maybe.withDefault noNextTaskEntry nextTaskEntry ++ tasksWithNames
+            Maybe.withDefault noNextTaskEntry nextTaskEntry ++ tasksPairedWithNames
     in
     [ ( "complete", Dict.fromList allEntries )
     ]

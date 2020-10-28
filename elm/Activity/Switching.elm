@@ -47,7 +47,7 @@ determineNextTask app env =
 instanceSpecList : AppData -> List Task.FullInstance
 instanceSpecList app =
     --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
-    Debug.todo "instanceSpecList Helper function in Switching Module"
+    IntDict.values <| Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
 
 
 switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
