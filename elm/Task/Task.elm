@@ -1,4 +1,4 @@
-module Task.Task exposing (Change(..), Class, ClassID, Entry, FullClass, FullInstance, FullSession, Instance, InstanceID, buildFullInstanceDict, completed, decodeChange, decodeClass, decodeEntry, decodeInstance, encodeChange, encodeClass, encodeInstance, instanceProgress, makeFullClass, makeFullInstance, newClass, newInstance, normalizeTitle, prioritize)
+module Task.Task exposing (Change(..), Class, ClassID, Entry, FullClass, FullInstance, FullSession, Instance, InstanceID, buildFullInstanceDict, completed, decodeChange, decodeClass, decodeEntry, decodeInstance, encodeChange, encodeClass, encodeInstance, getFullSessions, instanceProgress, makeFullClass, makeFullInstance, newClass, newInstance, normalizeTitle, prioritize)
 
 --import Json.Decode as Decode exposing (..)
 
@@ -187,6 +187,11 @@ type alias TagId =
     Int
 
 
+{-| One time chunk during which a task is scheduled. Most tasks are done in one session, but this allows for breaking up longer tasks into sessions and scheduling those individually.
+
+(when it starts, how long it lasts)
+
+-}
 type alias Session =
     ( FuzzyMoment, Duration )
 
@@ -623,6 +628,40 @@ type alias FullSession =
     , instance : Instance
     , session : Session
     }
+
+
+makeFullSession : FullInstance -> Session -> FullSession
+makeFullSession inherited justSession =
+    { parents = inherited.parents
+    , class = inherited.class
+    , instance = inherited.instance
+    , session = justSession
+    }
+
+
+{-| Get planned sessions for a FullInstance and build a FullSession list.
+-}
+getFullSessions : FullInstance -> List FullSession
+getFullSessions fullInstance =
+    let
+        providedSessions =
+            fullInstance.instance.plannedSessions
+
+        defaultSession =
+            nextBestTimeslot fullInstance
+
+        nextBestTimeslot =
+            Debug.todo "find next best timeslot algorithm"
+
+        fullFromInstance =
+            makeFullSession fullInstance
+    in
+    case providedSessions of
+        [] ->
+            [ fullFromInstance defaultSession ]
+
+        _ ->
+            List.map fullFromInstance providedSessions
 
 
 {-| Convenience function for getting fully specced class list from appData lists.

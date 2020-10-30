@@ -80,12 +80,19 @@ defaultView =
 
 view : ViewState -> AppData -> Environment -> Html Msg
 view state app env =
+    let
+        fullInstanceList =
+            IntDict.values <| Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+
+        sessionList =
+            List.concatMap Task.getFullSessions fullInstanceList
+    in
     case state of
         ShowSpan newStart newFinish ->
             section
                 [ id "timeline" ]
                 [ section
-                    [ class "todoapp" ]
+                    []
                     [ lazy viewInput field
                     , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
                     , lazy2 viewControls filters (IntDict.values allFullTaskInstances)
