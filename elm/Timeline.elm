@@ -1,4 +1,4 @@
-module Timeline exposing (Filter(..), ViewState(..), defaultView, routeView)
+module Timeline exposing (Filter(..), Msg, ViewState(..), defaultView, routeView, update, view)
 
 import Activity.Switching
 import AppData exposing (..)
@@ -27,11 +27,13 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Porting exposing (..)
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.Period as Period exposing (Period)
 import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
@@ -89,18 +91,94 @@ view state app env =
     in
     case state of
         ShowSpan newStart newFinish ->
+            let
+                ( start, finish ) =
+                    ( Maybe.withDefault env.time newStart, Maybe.withDefault env.time newFinish )
+
+                chunk =
+                    Period.fromStart env.time Duration.aDay
+
+                -- TODO
+            in
             section
                 [ id "timeline" ]
-                [ section
-                    []
-                    [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
-                    , lazy2 viewControls filters (IntDict.values allFullTaskInstances)
-                    ]
+                [ div
+                    [ id <| "day" ++ dayString env env.time, class "day" ]
+                    [ viewChunkOfSessions env sessionList chunk ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
                     ]
                 ]
+
+
+dayString : Environment -> Moment -> String
+dayString env moment =
+    Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
+
+
+viewChunkOfSessions : Environment -> List Task.FullSession -> Period -> Html msg
+viewChunkOfSessions env sessionList dayPeriod =
+    div
+        [ id <| "day" ++ dayString env env.time, class "day" ]
+        (List.map (viewSession env dayPeriod) sessionList)
+
+
+viewSession : Environment -> Period -> Task.FullSession -> Html msg
+viewSession env dayPeriod fullSession =
+    let
+        sessionPeriod =
+            Period.fromStart (HumanMoment.fromFuzzy env.timeZone (Tuple.first fullSession.session))
+                (Tuple.second fullSession.session)
+
+        dayWindowLength =
+            -- Duration.aDay by default
+            Period.length dayPeriod
+
+        dayRowLength =
+            -- TODO make configurable
+            Duration.anHour
+
+        dayPosition =
+            -- Where the session starts relative to the day
+            -- Subtract day start from session start, so day begins at 0
+            Moment.difference (Period.start dayPeriod) (Period.start sessionPeriod)
+
+        rowCount =
+            -- How many rows are in a day?
+            Duration.divide dayWindowLength dayRowLength
+
+        targetRow =
+            -- Which "row" (hour) does the session start in?
+            -- Divide to see how many whole rows fit in before the session starts
+            Duration.divide dayPosition dayRowLength
+
+        targetColumn =
+            -- Which "column" does the session start in?
+            -- Offset from the beginning of the row.
+            Duration.subtract dayPosition (Duration.scale dayRowLength (toFloat targetRow))
+
+        targetRowPercent =
+            (toFloat targetRow / toFloat rowCount) * 100
+
+        targetColumnPercent =
+            (toFloat (Duration.inMs dayRowLength) / toFloat (Duration.inMs targetColumn)) * 100
+    in
+    div
+        [ class "session"
+        , css
+            [ top (pct targetRowPercent)
+            , left (pct targetColumnPercent)
+            , backgroundColor (rgb 55 0 0) -- red for now
+            , borderRadius (px 20)
+            ]
+        ]
+        [ sessionActivityIcon
+        , text fullSession.class.title
+        ]
+
+
+sessionActivityIcon =
+    span [] []
 
 
 
