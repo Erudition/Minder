@@ -2,7 +2,6 @@ port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewStat
 
 import AppData exposing (..)
 import Browser
-import Browser.Dom as Dom
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Dict
@@ -18,16 +17,15 @@ import Json.Encode as Encode
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
-import Task.Progress exposing (..)
 import TaskList
 import TimeTracker exposing (..)
+import Timeline
 import Url
-import Url.Parser as P exposing ((</>), Parser, int, map, oneOf, s, string)
+import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
 
 
@@ -229,6 +227,7 @@ emptyViewState =
 type Screen
     = TaskList TaskList.ViewState
     | TimeTracker TimeTracker.ViewState
+    | Timeline Timeline.ViewState
     | Calendar
     | Features
     | Preferences
@@ -251,7 +250,7 @@ screenToViewState screen =
 
 defaultView : ViewState
 defaultView =
-    ViewState (TimeTracker TimeTracker.defaultView) 0
+    ViewState (Timeline Timeline.defaultView) 0
 
 
 view : Model -> Browser.Document Msg
@@ -268,6 +267,16 @@ view { viewState, appData, environment } =
                 , body =
                     List.map toUnstyled
                         [ H.map TaskListMsg (TaskList.view subState appData environment)
+                        , infoFooter
+                        , errorList appData.errors
+                        ]
+                }
+
+            Timeline subState ->
+                { title = "Docket - Timeline"
+                , body =
+                    List.map toUnstyled
+                        [ H.map TimelineMsg (Timeline.view subState appData environment)
                         , infoFooter
                         , errorList appData.errors
                         ]
@@ -357,6 +366,7 @@ type Msg
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
+    | TimelineMsg Timeline.Msg
     | NewAppData String
 
 
