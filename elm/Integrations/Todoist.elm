@@ -64,6 +64,11 @@ handle msg app =
                     -- ignores certain items (no Activity) during conversion
                     IntDict.filterMapValues (timetrackItemToTask projectToActivityMapping) newCache.items
 
+                ( newClasses, newInstances ) =
+                    ( IntDict.mapValues Tuple.first convertItemsToTasks
+                    , IntDict.mapValues Tuple.second convertItemsToTasks
+                    )
+
                 newTodoistData =
                     { cache = newCache
                     , parentProjectID = newMaybeParent
@@ -73,10 +78,9 @@ handle msg app =
             ( { app
                 | todoist = newTodoistData
 
-                -- , taskInstances =
                 -- TODO figure out deleted
-                --    IntDict.union newInstances app.taskInstances
-                -- TODO fix merging back in tasks
+                , taskInstances = IntDict.union newInstances app.taskInstances
+                , taskClasses = IntDict.union newClasses app.taskClasses
               }
             , describeSuccess changes
             )
@@ -254,7 +258,7 @@ itemToTask activityID item =
             { newTaskInstance
                 | completion =
                     if item.checked then
-                        Task.Progress.getPortion (Task.Progress.maximize newTaskInstance.completion)
+                        Task.Progress.unitMax class.completionUnits
 
                     else
                         newTaskInstance.completion
@@ -262,7 +266,7 @@ itemToTask activityID item =
             }
 
         newTaskInstance =
-            Debug.todo "generate instance from todoist task"
+            Task.newInstance item.id class
     in
     ( class, instance )
 
