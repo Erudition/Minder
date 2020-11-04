@@ -102,9 +102,7 @@ view state app env =
             in
             section
                 [ id "timeline" ]
-                [ div
-                    [ id <| "day" ++ dayString env env.time, class "day" ]
-                    [ viewChunkOfSessions env sessionList chunk ]
+                [ viewChunkOfSessions env sessionList chunk
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
                     ]
@@ -118,9 +116,13 @@ dayString env moment =
 
 viewChunkOfSessions : Environment -> List Task.FullSession -> Period -> Html msg
 viewChunkOfSessions env sessionList dayPeriod =
+    let
+        sessionListToday =
+            List.filter (\ses -> Period.isWithin dayPeriod (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
+    in
     div
-        [ id <| "day" ++ dayString env env.time, class "day" ]
-        (List.map (viewSession env dayPeriod) sessionList)
+        [ id <| "day" ++ dayString env env.time, class "day", style "position" "relative", style "width" "100%", style "height" "100vh" ]
+        (List.map (viewSession env dayPeriod) sessionListToday)
 
 
 viewSession : Environment -> Period -> Task.FullSession -> Html msg
@@ -152,24 +154,34 @@ viewSession env dayPeriod fullSession =
             -- Divide to see how many whole rows fit in before the session starts
             Duration.divide dayPosition dayRowLength
 
-        targetColumn =
+        targetStartColumn =
             -- Which "column" does the session start in?
             -- Offset from the beginning of the row.
             Duration.subtract dayPosition (Duration.scale dayRowLength (toFloat targetRow))
 
+        targetEndColumn =
+            -- Which "column" does the session start in?
+            -- Offset from the beginning of the row.
+            Duration.subtract (Duration.add dayPosition (Tuple.second fullSession.session)) (Duration.scale dayRowLength (toFloat targetRow))
+
         targetRowPercent =
             (toFloat targetRow / toFloat rowCount) * 100
 
-        targetColumnPercent =
-            (toFloat (Duration.inMs dayRowLength) / toFloat (Duration.inMs targetColumn)) * 100
+        targetStartColumnPercent =
+            (toFloat (Duration.inMs targetStartColumn) / toFloat (Duration.inMs dayRowLength)) * 100
+
+        targetEndColumnPercent =
+            (toFloat (Duration.inMs targetEndColumn) / toFloat (Duration.inMs dayRowLength)) * 100
     in
     div
         [ class "session"
         , css
             [ top (pct targetRowPercent)
-            , left (pct targetColumnPercent)
-            , backgroundColor (rgb 55 0 0) -- red for now
+            , left (pct targetStartColumnPercent)
+            , backgroundColor (rgb 253 184 103) -- red for now
             , borderRadius (px 20)
+            , position absolute
+            , Css.width (pct targetEndColumnPercent)
             ]
         ]
         [ sessionActivityIcon

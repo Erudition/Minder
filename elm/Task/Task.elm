@@ -12,6 +12,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (Nonempty, map)
+import Maybe.Extra
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
@@ -644,24 +645,32 @@ makeFullSession inherited justSession =
 getFullSessions : FullInstance -> List FullSession
 getFullSessions fullInstance =
     let
+        ins =
+            fullInstance.instance
+
         providedSessions =
-            fullInstance.instance.plannedSessions
+            ins.plannedSessions
 
-        defaultSession =
-            nextBestTimeslot fullInstance
+        generatedSessions =
+            let
+                sessionStart =
+                    Maybe.Extra.or ins.finishBy ins.externalDeadline
 
-        nextBestTimeslot =
-            Debug.todo "find next best timeslot algorithm"
+                taskDuration =
+                    fullInstance.class.maxEffort
+            in
+            case sessionStart of
+                Just foundStart ->
+                    [ ( foundStart, taskDuration ) ]
 
-        fullFromInstance =
+                Nothing ->
+                    Debug.log "No sessionStart found" []
+
+        attachSession =
             makeFullSession fullInstance
     in
-    case providedSessions of
-        [] ->
-            [ fullFromInstance defaultSession ]
-
-        _ ->
-            List.map fullFromInstance providedSessions
+    List.map attachSession providedSessions
+        ++ List.map attachSession generatedSessions
 
 
 {-| Convenience function for getting fully specced class list from appData lists.
