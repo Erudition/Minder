@@ -49,6 +49,7 @@ decodeProject =
         |> optionalIgnored "legacy_parent_id"
         |> optionalIgnored "legacy_id"
         |> optionalIgnored "has_more_notes"
+        |> optionalIgnored "sync_id"
 
 
 encodeProject : Project -> Encode.Value
