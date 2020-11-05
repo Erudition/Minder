@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString, truncateMinute)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -220,6 +220,15 @@ secondFractional timeSinceDayStart =
             Duration.breakdown timeSinceDayStart
     in
     toFloat parts.seconds + (toFloat parts.milliseconds / 1000)
+
+
+truncateMinute : TimeOfDay -> TimeOfDay
+truncateMinute timeSinceDayStart =
+    let
+        oldTime =
+            Duration.breakdown timeSinceDayStart
+    in
+    clock oldTime.hours oldTime.minutes 0 0
 
 
 
