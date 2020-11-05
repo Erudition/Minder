@@ -40,7 +40,13 @@ type Unit
 decodeUnit : Decoder Unit
 decodeUnit =
     -- TODO
-    Decode.succeed Percent
+    Decode.oneOf
+        [ Decode.check Decode.string "Percent" <| Decode.succeed Percent
+        , Decode.check Decode.string "Permille" <| Decode.succeed Permille
+        , Decode.check Decode.string "None" <| Decode.succeed None
+
+        -- TODO there's more possibilities
+        ]
 
 
 encodeUnit : Unit -> Encode.Value
