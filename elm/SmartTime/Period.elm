@@ -91,13 +91,13 @@ timelineWithStart defaultStart momentList =
 
 
 start : Period -> Moment
-start (Period startMoment endMoment) =
+start (Period startMoment _) =
     startMoment
 
 
 end : Period -> Moment
-end (Period startMoment endMoment) =
-    startMoment
+end (Period _ endMoment) =
+    endMoment
 
 
 length : Period -> Duration
