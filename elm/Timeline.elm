@@ -141,15 +141,33 @@ viewChunkOfSessions env sessionList dayPeriod =
                 []
                 [ text <| describeMoment <| Period.start per ]
 
-        markNow now =
-            node "now-marker" [] []
+        nowMarker =
+            let
+                markPosition =
+                    List.Nonempty.head <|
+                        getPositionInDay dayRowLength dayPeriod <|
+                            Period.fromStart env.time <|
+                                HumanDuration.toDuration (HumanDuration.Minutes 1)
+
+                centerMarker =
+                    markPosition.left - (markPosition.width / 2)
+            in
+            node "now-marker"
+                [ css
+                    [ top (pct markPosition.top)
+                    , left (pct centerMarker)
+                    , Css.height (pct markPosition.height)
+                    , Css.width (pct markPosition.width)
+                    ]
+                ]
+                []
 
         describeMoment mo =
             HumanMoment.extractTime env.timeZone mo |> Clock.toShortString
     in
     node "day"
         [ id <| "day" ++ dayString env env.time ]
-        (rowMarkers ++ List.map (viewSession env dayPeriod) sessionListToday)
+        (rowMarkers ++ List.map (viewSession env dayPeriod) sessionListToday ++ [ nowMarker ])
 
 
 viewSession : Environment -> Period -> Task.FullSession -> Html msg
@@ -239,7 +257,7 @@ getPositionInDay rowLength day givenSession =
             Duration.scale rowLength (toFloat (targetRow + 1))
 
         fitsInRow =
-            Duration.compare endTimeAsDayOffset rowEnd == LT
+            Duration.compare endTimeAsDayOffset rowEnd /= GT
 
         targetEndColumn =
             -- Which "column" does the session end in?
