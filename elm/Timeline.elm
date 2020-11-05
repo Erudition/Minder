@@ -26,6 +26,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
+import List.Nonempty exposing (Nonempty)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -140,16 +141,19 @@ viewChunkOfSessions env sessionList dayPeriod =
                 []
                 [ text <| describeMoment <| Period.start per ]
 
+        markNow now =
+            node "now-marker" [] []
+
         describeMoment mo =
             HumanMoment.extractTime env.timeZone mo |> Clock.toShortString
     in
-    div
-        [ id <| "day" ++ dayString env env.time, class "day", style "position" "relative", style "width" "100%", style "height" "100vh" ]
+    node "day"
+        [ id <| "day" ++ dayString env env.time ]
         (rowMarkers ++ List.map (viewSession env dayPeriod) sessionListToday)
 
 
 viewSession : Environment -> Period -> Task.FullSession -> Html msg
-viewSession env dayPeriod fullSession =
+viewSession env day fullSession =
     let
         ( sessionPeriodStart, sessionPeriodLength ) =
             fullSession.session
@@ -158,72 +162,129 @@ viewSession env dayPeriod fullSession =
             Period.fromStart (HumanMoment.fromFuzzy env.timeZone sessionPeriodStart)
                 sessionPeriodLength
 
-        dayWindowLength =
-            -- Duration.aDay by default
-            Period.length dayPeriod
-
         dayRowLength =
             -- TODO make configurable
             Duration.anHour
 
-        dayPosition =
-            -- Where the session starts relative to the day
-            -- Subtract day start from session start, so day begins at 0
-            Moment.difference (Period.start dayPeriod) (Period.start sessionPeriod)
+        sessionPositions =
+            getPositionInDay dayRowLength day sessionPeriod
+
+        ( ( startDate, startTime ), ( endDate, endTime ) ) =
+            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
+            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
+            )
+
+        viewSessionSegment pos =
+            node "segment"
+                [ title <|
+                    fullSession.class.title
+                        ++ "\nFrom "
+                        ++ Clock.toShortString startTime
+                        ++ " to "
+                        ++ Clock.toShortString endTime
+                        ++ " ("
+                        ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero sessionPeriodLength)
+                        ++ ")"
+                , css
+                    [ top (pct pos.top)
+                    , left (pct pos.left)
+                    , Css.width (pct pos.width)
+                    , Css.height (pct pos.height)
+                    ]
+                ]
+                [ node "activity-icon" [] []
+                , label [] [ text fullSession.class.title ]
+                ]
+    in
+    node "timeline-session"
+        [ class "future" ]
+    <|
+        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
+
+
+getPositionInDay : Duration -> Period -> Period -> Nonempty { top : Float, left : Float, height : Float, width : Float }
+getPositionInDay rowLength day givenSession =
+    let
+        rows =
+            Period.divide rowLength day
 
         rowCount =
-            -- How many rows are in a day?
-            Duration.divide dayWindowLength dayRowLength
+            -- typically 24
+            List.length rows
+
+        startTimeAsDayOffset =
+            -- Where the session starts relative to the day
+            -- Subtract day start from session start, so day begins at 0
+            Moment.difference (Period.start day) (Period.start givenSession)
+
+        endTimeAsDayOffset =
+            -- Where the session starts relative to the day
+            -- Subtract day start from session start, so day begins at 0
+            Moment.difference (Period.start day) (Period.end givenSession)
 
         targetRow =
             -- Which "row" (hour) does the session start in?
             -- Divide to see how many whole rows fit in before the session starts
-            Duration.divide dayPosition dayRowLength
+            Duration.divide startTimeAsDayOffset rowLength
+
+        rowStart =
+            Duration.scale rowLength (toFloat targetRow)
 
         targetStartColumn =
             -- Which "column" does the session start in?
             -- Offset from the beginning of the row.
-            Duration.subtract dayPosition (Duration.scale dayRowLength (toFloat targetRow))
+            Duration.subtract startTimeAsDayOffset rowStart
+
+        rowEnd =
+            Duration.scale rowLength (toFloat (targetRow + 1))
+
+        fitsInRow =
+            Duration.compare endTimeAsDayOffset rowEnd == LT
 
         targetEndColumn =
-            -- Which "column" does the session start in?
+            -- Which "column" does the session end in?
             -- Offset from the beginning of the row.
-            Duration.subtract (Duration.add dayPosition (Tuple.second fullSession.session)) (Duration.scale dayRowLength (toFloat targetRow))
+            if fitsInRow then
+                -- session fits in this row.
+                -- Offset from the beginning of the row.
+                Duration.subtract endTimeAsDayOffset rowStart
 
+            else
+                rowEnd
+
+        -- TODO intersect row list with session list instead
         targetRowPercent =
             (toFloat targetRow / toFloat rowCount) * 100
 
+        heightPercent =
+            (1 / toFloat rowCount) * 100
+
         targetStartColumnPercent =
-            (toFloat (Duration.inMs targetStartColumn) / toFloat (Duration.inMs dayRowLength)) * 100
+            (toFloat (Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
 
-        targetEndColumnPercent =
-            (toFloat (Duration.inMs targetEndColumn) / toFloat (Duration.inMs dayRowLength)) * 100
+        widthPercent =
+            (toFloat (Duration.inMs targetEndColumn - Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
 
-        ( ( startDate, startTime ), ( endDate, endTime ) ) =
-            ( HumanMoment.humanize env.timeZone (Debug.log "start" <| Period.start sessionPeriod)
-            , HumanMoment.humanize env.timeZone (Debug.log "end" <| Period.end sessionPeriod)
-            )
+        rowEndAbsolute =
+            Moment.future (Period.start day) rowEnd
+
+        restOfSession =
+            Period.fromPair ( rowEndAbsolute, Period.end givenSession )
+
+        additionalSegments =
+            if fitsInRow then
+                []
+
+            else
+                List.Nonempty.toList <| getPositionInDay rowLength day restOfSession
     in
-    node "timeline-session"
-        [ class "future"
-        , title <|
-            "From "
-                ++ Clock.toShortString startTime
-                ++ " to "
-                ++ Clock.toShortString endTime
-                ++ " ("
-                ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero sessionPeriodLength)
-                ++ ")"
-        , css
-            [ top (pct targetRowPercent)
-            , left (pct targetStartColumnPercent)
-            , backgroundColor (rgb 253 184 103) -- red for now
-            , Css.width (pct targetEndColumnPercent)
-            ]
-        ]
-        [ node "activity-icon" [] []
-        , label [] [ text fullSession.class.title ]
-        ]
+    List.Nonempty.Nonempty
+        { top = targetRowPercent
+        , left = targetStartColumnPercent
+        , height = heightPercent
+        , width = widthPercent
+        }
+        additionalSegments
 
 
 
