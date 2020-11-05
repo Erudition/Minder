@@ -96,7 +96,10 @@ view state app env =
                     ( Maybe.withDefault env.time newStart, Maybe.withDefault env.time newFinish )
 
                 chunk =
-                    Period.fromStart env.time Duration.aDay
+                    Period.fromStart dayStarted Duration.aDay
+
+                dayStarted =
+                    HumanMoment.clockTurnBack Clock.midnight env.timeZone env.time
 
                 -- TODO
             in
@@ -119,18 +122,41 @@ viewChunkOfSessions env sessionList dayPeriod =
     let
         sessionListToday =
             List.filter (\ses -> Period.isWithin dayPeriod (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
+
+        -- TODO that's the wrong place to do that
+        rowMarkers =
+            List.map markRow (Period.divide dayRowLength dayPeriod)
+
+        dayWindowLength =
+            -- Duration.aDay by default
+            Period.length dayPeriod
+
+        dayRowLength =
+            -- TODO make configurable
+            Duration.anHour
+
+        markRow per =
+            node "timeline-area"
+                []
+                [ text <| describeMoment <| Period.start per ]
+
+        describeMoment mo =
+            HumanMoment.extractTime env.timeZone mo |> Clock.toShortString
     in
     div
         [ id <| "day" ++ dayString env env.time, class "day", style "position" "relative", style "width" "100%", style "height" "100vh" ]
-        (List.map (viewSession env dayPeriod) sessionListToday)
+        (rowMarkers ++ List.map (viewSession env dayPeriod) sessionListToday)
 
 
 viewSession : Environment -> Period -> Task.FullSession -> Html msg
 viewSession env dayPeriod fullSession =
     let
+        ( sessionPeriodStart, sessionPeriodLength ) =
+            fullSession.session
+
         sessionPeriod =
-            Period.fromStart (HumanMoment.fromFuzzy env.timeZone (Tuple.first fullSession.session))
-                (Tuple.second fullSession.session)
+            Period.fromStart (HumanMoment.fromFuzzy env.timeZone sessionPeriodStart)
+                sessionPeriodLength
 
         dayWindowLength =
             -- Duration.aDay by default
@@ -172,25 +198,32 @@ viewSession env dayPeriod fullSession =
 
         targetEndColumnPercent =
             (toFloat (Duration.inMs targetEndColumn) / toFloat (Duration.inMs dayRowLength)) * 100
+
+        ( ( startDate, startTime ), ( endDate, endTime ) ) =
+            ( HumanMoment.humanize env.timeZone (Debug.log "start" <| Period.start sessionPeriod)
+            , HumanMoment.humanize env.timeZone (Debug.log "end" <| Period.end sessionPeriod)
+            )
     in
-    div
-        [ class "session"
+    node "timeline-session"
+        [ class "future"
+        , title <|
+            "From "
+                ++ Clock.toShortString startTime
+                ++ " to "
+                ++ Clock.toShortString endTime
+                ++ " ("
+                ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero sessionPeriodLength)
+                ++ ")"
         , css
             [ top (pct targetRowPercent)
             , left (pct targetStartColumnPercent)
             , backgroundColor (rgb 253 184 103) -- red for now
-            , borderRadius (px 20)
-            , position absolute
             , Css.width (pct targetEndColumnPercent)
             ]
         ]
-        [ sessionActivityIcon
-        , text fullSession.class.title
+        [ node "activity-icon" [] []
+        , label [] [ text fullSession.class.title ]
         ]
-
-
-sessionActivityIcon =
-    span [] []
 
 
 
