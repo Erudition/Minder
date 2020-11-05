@@ -250,7 +250,7 @@ itemToTask activityID item =
             { base
                 | activity = Just activityID
                 , minEffort = Maybe.withDefault base.minEffort minDur
-                , maxEffort = Maybe.withDefault base.maxEffort maxDur
+                , maxEffort = Maybe.withDefault (HumanDuration.toDuration (HumanDuration.Minutes 4)) maxDur
                 , importance = calcImportance item
             }
 
