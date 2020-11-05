@@ -46,7 +46,11 @@ subscriptions ({ appData, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          Moment.every (dur (Minutes 1)) (Tock NoOp)
+          HumanMoment.everyMinuteOnTheMinute environment.time
+            environment.timeZone
+            (Tock NoOp)
+
+        -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         , storageChangedElsewhere NewAppData
         ]
@@ -120,7 +124,7 @@ updateWithTime msg ({ environment } as model) =
             -- The only time we ever need to fetch the zone is at the start, and that's also when we need the time, so we combine them to reduce initial updates - this saves us one
             let
                 newEnv =
-                    { environment | time = time, timeZone = zone }
+                    { environment | time = time, timeZone = zone, launchTime = time }
             in
             -- no need to run updateWithStorage yet - on first run we do the first update anyway, with the passed in Msg, so skipping it here saves us another update with a storage write
             ( { model | environment = newEnv }, Cmd.none )

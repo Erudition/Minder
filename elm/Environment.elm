@@ -22,6 +22,7 @@ type alias Environment =
     { time : Moment -- current time (effectively)
     , navkey : Maybe Nav.Key -- instance-specific (can't store it)
     , timeZone : Zone -- according to browser
+    , launchTime : Moment -- when we officially started the session
     }
 
 
@@ -32,4 +33,5 @@ preInit maybeKey =
     { time = zero -- temporary placeholder
     , navkey = maybeKey -- passed from init
     , timeZone = utc -- temporary placeholder
+    , launchTime = zero -- temporary placeholder
     }
