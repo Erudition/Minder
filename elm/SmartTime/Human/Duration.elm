@@ -278,7 +278,7 @@ On the other hand, for a film of duration 1 hour 59 minutes, you'd get `Hours 1`
 -}
 inLargestWholeUnits : Duration -> HumanDuration
 inLargestWholeUnits duration =
-    Maybe.withDefault (Milliseconds 0) <| List.head (breakdownDHMSM duration)
+    Maybe.withDefault (Milliseconds 0) <| List.head (breakdownNonzero duration)
 
 
 {-| Express a duration in terms of only one unit (the largest possible), while keeping exact precision.
@@ -481,15 +481,7 @@ colonSeparated breakdownList =
 -- PER-UNIT FUNCTIONS
 
 
-{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
-
-So `Minutes 5` becomes "5m", `Hours 3` becomes "3h", etcetera.
-
-Conveniently, this form is also readable in Spanish and other languages as well!
-
-Note that this function uses a two-letter abbreviation for Milliseconds, "ms", to remove ambiguity with minutes (and because it's a more commonly accepted form).
-
--}
+{-| -}
 justNumber : HumanDuration -> String
 justNumber unit =
     case unit of
@@ -509,15 +501,7 @@ justNumber unit =
             String.fromInt int
 
 
-{-| Render a single HumanDuration in english, for mapping onto a list of `HumanDuration` values (`singleLetterSpaced` does this for you!).
-
-So `Minutes 5` becomes "5m", `Hours 3` becomes "3h", etcetera.
-
-Conveniently, this form is also readable in Spanish and other languages as well!
-
-Note that this function uses a two-letter abbreviation for Milliseconds, "ms", to remove ambiguity with minutes (and because it's a more commonly accepted form).
-
--}
+{-| -}
 justNumberPadded : HumanDuration -> String
 justNumberPadded unit =
     case unit of
