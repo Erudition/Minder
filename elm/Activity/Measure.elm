@@ -1,4 +1,4 @@
-module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, inHoursMinutes, justToday, justTodayTotal, lastSession, relevantTimeline, sessions, timelineLimit, total, totalLive)
+module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, inHoursMinutes, justToday, justTodayTotal, lastSession, relevantTimeline, sessions, switchListLiveToPeriods, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
 import AppData exposing (AppData)
@@ -8,6 +8,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (..)
+import SmartTime.Period as Period exposing (Period)
 import Time.Distance exposing (..)
 import Time.Extra
 
@@ -210,4 +211,31 @@ lastSession timeline old =
 
 
 
--- TODO use SmartTime instead
+-- ------------------------------------------------------------------------------------------------
+-- Below: Migrating to use SmartTime instead
+
+
+switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Period )
+switchListLiveToPeriods now switchList =
+    let
+        fakeSwitch =
+            Switch now (Maybe.withDefault dummy latestActivityID)
+
+        latestActivityID =
+            Maybe.map (\(Switch _ a) -> a) (List.head switchList)
+    in
+    switchListToPeriods (fakeSwitch :: switchList)
+
+
+periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Period )
+periodFromSwitchPair (Switch newer _) (Switch older activityId) =
+    ( activityId, Period.fromPair ( newer, older ) )
+
+
+switchListToPeriods : List Switch -> List ( ActivityID, Period )
+switchListToPeriods switchList =
+    let
+        offsetList =
+            List.drop 1 switchList
+    in
+    List.map2 periodFromSwitchPair switchList offsetList
