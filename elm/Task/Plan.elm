@@ -1,26 +1,13 @@
 module Task.Plan exposing (..)
 
-import Activity.Activity exposing (ActivityID)
 import Environment exposing (Environment)
-import ID
-import Incubator.IntDict.Extra as IntDict
-import IntDict exposing (IntDict)
-import Json.Decode.Exploration as Decode exposing (..)
-import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
-import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
-import List.Nonempty exposing (Nonempty, map)
-import Maybe.Extra
-import Porting exposing (..)
-import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Clock as Clock
+import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
-import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period exposing (Period)
-import Task.Progress as Progress exposing (..)
-import Task.Task exposing (Instance)
+import Task.Class as Class
+import Task.Entry as Entry
+import Task.Instance as Instance exposing (Instance)
 
 
 {-| Current Idea: Go through list of To-Be-Planned in this order
@@ -127,17 +114,19 @@ buildConstraintsList env instances growingSearchWindow =
 
         combinedList =
             preplanned ++ generated
-
-
     in
     ( combinedList, conflicts )
 
 
+
 -- take an instance, generate sessionConstraints, attempt to add it to list
-constraintsFromInstance : (List SessionConstraints, List Conflict) -> Period -> Instance -> ( List SessionConstraints, List Conflict )
-constraintsFromInstance (existingSCs, existingConflicts) searchWindow instance =
+
+
+constraintsFromInstance : ( List SessionConstraints, List Conflict ) -> Period -> Instance -> ( List SessionConstraints, List Conflict )
+constraintsFromInstance ( existingSCs, existingConflicts ) searchWindow instance =
     let
-        instances
+        instances =
+            Debug.todo "instances"
 
         newSessionConstraints =
             { instance = instance
@@ -147,7 +136,6 @@ constraintsFromInstance (existingSCs, existingConflicts) searchWindow instance =
             , chunkMinimum = dur (Minutes 20)
             , chunkIdeal = dur (Minutes 90)
             }
-
     in
     case conflictFound of
         Just conflict ->
@@ -155,9 +143,6 @@ constraintsFromInstance (existingSCs, existingConflicts) searchWindow instance =
 
         Nothing ->
             ( existingSCs ++ newSessionConstraints, existingConflicts )
-
-
-
 
 
 type alias Conflict =

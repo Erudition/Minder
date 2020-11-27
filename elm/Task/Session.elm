@@ -1,0 +1,98 @@
+module Task.Session exposing (..)
+
+import Json.Decode.Exploration as Decode exposing (..)
+import Json.Encode as Encode exposing (..)
+import Maybe.Extra
+import Porting exposing (..)
+import SmartTime.Duration exposing (Duration)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
+import Task.Class exposing (ClassSkel)
+import Task.Entry exposing (ParentProperties)
+import Task.Instance exposing (Instance, InstanceSkel)
+
+
+
+-- Session skeletons (bare minimum data, saved to disk) -----------------------------------------
+
+
+{-| One time chunk during which a task is scheduled. Most tasks are done in one session, but this allows for breaking up longer tasks into sessions and scheduling those individually.
+
+(when it starts, how long it lasts)
+
+-}
+type alias UserPlannedSession =
+    ( FuzzyMoment, Duration )
+
+
+decodeSession : Decoder UserPlannedSession
+decodeSession =
+    let
+        decodeFuzzyMoment =
+            Porting.customDecoder Decode.string HumanMoment.fuzzyFromString
+    in
+    Porting.arrayAsTuple2 decodeFuzzyMoment decodeDuration
+
+
+encodeSession : UserPlannedSession -> Encode.Value
+encodeSession plannedSession =
+    Debug.todo "encode plannedSessions"
+
+
+
+-- FULL Sessions (augmented) -----------------------------------------------------------------
+
+
+{-| A fully spec'ed-out version of a PlannedSession
+-}
+type alias FullSession =
+    { parents : List ParentProperties
+    , class : ClassSkel
+    , instance : InstanceSkel
+    , session : UserPlannedSession
+    }
+
+
+
+-- TODO replace this?
+
+
+makeFullSession : Instance -> UserPlannedSession -> FullSession
+makeFullSession inherited justSession =
+    { parents = inherited.parents
+    , class = inherited.class
+    , instance = inherited.instance
+    , session = justSession
+    }
+
+
+{-| Get planned sessions for a FullInstance and build a FullSession list.
+-}
+getFullSessions : Instance -> List FullSession
+getFullSessions fullInstance =
+    let
+        ins =
+            fullInstance.instance
+
+        providedSessions =
+            ins.plannedSessions
+
+        generatedSessions =
+            let
+                sessionStart =
+                    Maybe.Extra.or ins.finishBy ins.externalDeadline
+
+                taskDuration =
+                    fullInstance.class.maxEffort
+            in
+            case sessionStart of
+                Just foundStart ->
+                    [ ( foundStart, taskDuration ) ]
+
+                Nothing ->
+                    Debug.log "No sessionStart found" []
+
+        attachSession =
+            makeFullSession fullInstance
+    in
+    List.map attachSession providedSessions
+        ++ List.map attachSession generatedSessions
