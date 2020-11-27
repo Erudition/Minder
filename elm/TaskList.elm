@@ -35,7 +35,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
-import Task.Task as Task exposing (Instance)
+import Task.Task as Task exposing (InstanceSkel)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
@@ -95,7 +95,7 @@ view state app env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 allFullTaskInstances =
-                    Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+                    Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
 
                 sortedTasks =
                     Task.prioritize env.time env.timeZone <| IntDict.values allFullTaskInstances
@@ -154,7 +154,7 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Environment -> Filter -> List Task.FullInstance -> Html Msg
+viewTasks : Environment -> Filter -> List Task.Instance -> Html Msg
 viewTasks env filter tasks =
     let
         isVisible task =
@@ -192,7 +192,7 @@ viewTasks env filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Task.FullInstance -> ( String, Html Msg )
+viewKeyedTask : Environment -> Task.Instance -> ( String, Html Msg )
 viewKeyedTask env task =
     ( String.fromInt task.instance.id, lazy2 viewTask env task )
 
@@ -201,7 +201,7 @@ viewKeyedTask env task =
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Environment -> Task.FullInstance -> Html Msg
+viewTask : Environment -> Task.Instance -> Html Msg
 viewTask env task =
     li
         [ class "task-entry"
@@ -278,7 +278,7 @@ viewTask env task =
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
 -}
-progressSlider : Task.FullInstance -> Html Msg
+progressSlider : Task.Instance -> Html Msg
 progressSlider task =
     let
         completion =
@@ -322,7 +322,7 @@ dynamicSliderThumbCss portion =
     css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
 
 
-extractSliderInput : Task.FullInstance -> String -> Msg
+extractSliderInput : Task.Instance -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task <|
         Basics.round <|
@@ -336,7 +336,7 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Environment -> Task.FullInstance -> Html Msg
+timingInfo : Environment -> Task.Instance -> Html Msg
 timingInfo env task =
     let
         effortDescription =
@@ -441,7 +441,7 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : Task.FullInstance -> String
+describeEffort : Task.Instance -> String
 describeEffort task =
     let
         sayEffort amount =
@@ -515,7 +515,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List Task.FullInstance -> Html Msg
+viewControls : List Filter -> List Task.Instance -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
@@ -634,7 +634,7 @@ type Msg
     | Add
     | Delete Task.InstanceID
     | DeleteComplete
-    | UpdateProgress Task.FullInstance Portion
+    | UpdateProgress Task.Instance Portion
     | FocusSlider Task.ClassID Bool
     | UpdateTaskDate Task.ClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
@@ -657,10 +657,10 @@ update msg state app env =
                 Normal filters _ newTaskTitle ->
                     let
                         newTaskClass =
-                            Task.newClass (Task.normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
+                            Task.newClassSkel (Task.normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
 
                         newTaskInstance =
-                            Task.newInstance (Moment.toSmartInt env.time) newTaskClass
+                            Task.newInstanceSkel (Moment.toSmartInt env.time) newTaskClass
                     in
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
@@ -805,7 +805,7 @@ urlTriggers : AppData -> Environment -> List ( String, Dict.Dict String Msg )
 urlTriggers app env =
     let
         allFullTaskInstances =
-            Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+            Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
 
         tasksPairedWithNames =
             List.map triggerEntry (IntDict.values allFullTaskInstances)

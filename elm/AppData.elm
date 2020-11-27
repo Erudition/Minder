@@ -24,8 +24,8 @@ type alias AppData =
     { uid : AppInstance
     , errors : List String
     , taskEntries : List Task.Entry
-    , taskClasses : IntDict Task.Class
-    , taskInstances : IntDict Task.Instance
+    , taskClasses : IntDict Task.ClassSkel
+    , taskInstances : IntDict Task.InstanceSkel
     , activities : StoredActivities
     , timeline : Timeline
     , todoist : TodoistIntegrationData

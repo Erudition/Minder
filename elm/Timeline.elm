@@ -40,7 +40,7 @@ import SmartTime.Period as Period exposing (Period)
 import String.Normalize
 import Task as Job
 import Task.Progress exposing (..)
-import Task.Task as Task exposing (Instance)
+import Task.Task as Task exposing (InstanceSkel)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 
@@ -59,7 +59,7 @@ type Filter
     | CompleteTasksOnly
 
 
-type alias ChunkInfo =
+type alias ChosenDayWindow =
     { period : Period
     , rowLength : Duration
     }
@@ -93,7 +93,7 @@ view : ViewState -> AppData -> Environment -> Html Msg
 view state app env =
     let
         fullInstanceList =
-            IntDict.values <| Task.buildFullInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+            IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
 
         plannedList =
             List.concatMap Task.getFullSessions fullInstanceList
@@ -131,7 +131,7 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-viewDay : Environment -> ChunkInfo -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
+viewDay : Environment -> ChosenDayWindow -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
 viewDay env day sessionList historyList =
     let
         sessionListToday =
@@ -179,7 +179,7 @@ viewDay env day sessionList historyList =
         )
 
 
-viewSession : Environment -> ChunkInfo -> Task.FullSession -> Html msg
+viewSession : Environment -> ChosenDayWindow -> Task.FullSession -> Html msg
 viewSession env day fullSession =
     let
         ( sessionPeriodStart, sessionPeriodLength ) =
@@ -333,7 +333,7 @@ getPositionInDay rowLength day givenSession =
             additionalSegments
 
 
-viewHistorySession : Environment -> ChunkInfo -> ( Activity.ActivityID, Period ) -> Html msg
+viewHistorySession : Environment -> ChosenDayWindow -> ( Activity.ActivityID, Period ) -> Html msg
 viewHistorySession env day ( activityID, sessionPeriod ) =
     let
         sessionPositions =
