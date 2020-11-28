@@ -1,20 +1,25 @@
 module Task.Entry exposing (..)
 
+import Incubator.IntDict.Extra as IntDict
+import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (Nonempty)
 import Porting exposing (..)
 import SmartTime.Duration exposing (Duration)
-import Task.Class exposing (Class, ClassSkel, makeFullClass)
+import Task.Class exposing (Class, ClassSkel, ParentProperties, makeFullClass)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
+
+We could eliminate all the redundant wrapper containers, but for now it's easier to just say:
+
+  - Every "Entry" is a WrapperContainer.
+  - Every TaskClass is in a FollowerContainer, no matter what
+
 -}
-type Entry
-    = SingletonTask ClassSkel
-    | OneoffContainer ConstrainedParent
-    | RecurrenceContainer RecurringParent
-    | NestedRecurrenceContainer UnconstrainedParent
+type alias Entry =
+    WrapperParent
 
 
 decodeEntry : Decoder Entry
@@ -61,11 +66,6 @@ decodeEntry =
 -}
 
 
-type alias ParentProperties =
-    { title : Maybe String -- Can have no title if it's just a singleton task
-    }
-
-
 type RecurrenceRule
     = CalendarRepeat Int --TODO
 
@@ -75,24 +75,24 @@ type RecurrenceRule
 Parents that contain only a single task are transparently unwrapped to appear like single tasks - in this case, with recurrence applied. Since it doesn't make sense for a bundle of tasks that recur on some schedule to contain other bundles of tasks with their own schedule and instances, all children of RecurringParents are considered "Constrained" and cannot contain recurrence information. This ensures that only one ancestor of a task dictates its recurrence pattern.
 
 -}
-type alias RecurringParent =
+type alias LeaderParent =
     { properties : ParentProperties
     , recurrenceRules : List RecurrenceRule
-    , children : Nonempty ConstrainedParent
+    , children : Nonempty FollowerParent
     }
 
 
 {-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
 -}
-type alias UnconstrainedParent =
+type alias WrapperParent =
     { properties : ParentProperties
-    , children : Nonempty UnconstrainedChild
+    , children : Nonempty WrapperChild
     }
 
 
-type UnconstrainedChild
-    = RecursDeeper UnconstrainedParent
-    | RecursHere RecurringParent
+type WrapperChild
+    = LeaderIsDeeper WrapperParent
+    | LeaderIsHere LeaderParent
 
 
 {-| A "constrained" group of tasks has already had its recurrence rules set by one of it's ancestors, or does not recur at all. Since a task can only be in one RecurrenceParent container, its children (ConstrainedParents) can not have recurrence rules of its own (nor can any of its descendants).
@@ -100,9 +100,9 @@ type UnconstrainedChild
 Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedParents.
 
 -}
-type alias ConstrainedParent =
+type alias FollowerParent =
     { properties : ParentProperties
-    , children : Nonempty ConstrainedChild
+    , children : Nonempty FollowerChild
     }
 
 
@@ -121,27 +121,16 @@ type alias ConstrainedParent =
 -}
 
 
-type ConstrainedChild
+type FollowerChild
     = Singleton ClassSkel
-    | Nested ConstrainedParent
+    | Nested FollowerParent
 
 
 getEntries : List Entry -> List Class
 getEntries entries =
     let
         traverseRoot entry =
-            case entry of
-                SingletonTask taskClass ->
-                    [ makeFullClass [] taskClass ]
-
-                OneoffContainer constrainedParent ->
-                    traverseConstrainedParent (appendPropsIfMeaningful [] constrainedParent.properties) constrainedParent
-
-                RecurrenceContainer recurringParent ->
-                    traverseRecurringParent (appendPropsIfMeaningful [] recurringParent.properties) recurringParent
-
-                NestedRecurrenceContainer unconstrainedParent ->
-                    traverseUnconstrainedParent (appendPropsIfMeaningful [] unconstrainedParent.properties) unconstrainedParent
+            List.Nonempty.toList <| traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
 
         -- flatten the hierarchy if a container serves no purpose
         appendPropsIfMeaningful oldList newParentProps =
@@ -151,56 +140,38 @@ getEntries entries =
             else
                 oldList
 
-        traverseConstrainedParent accumulator constrainedParent =
+        traverseFollowerParent accumulator parent =
             -- TODO do we need to collect props here
-            List.concatMap (traverseConstrainedChild accumulator) (List.Nonempty.toList constrainedParent.children)
+            List.Nonempty.concatMap (traverseFollowerChild accumulator) parent.children
 
-        traverseUnconstrainedParent accumulator unconstrainedParent =
-            List.concatMap (traverseUnconstrainedChild accumulator) (List.Nonempty.toList unconstrainedParent.children)
+        traverseWrapperParent accumulator parent =
+            List.Nonempty.concatMap (traverseWrapperChild accumulator) parent.children
 
-        traverseRecurringParent accumulator recurringParent =
-            List.concatMap (traverseConstrainedParent accumulator) (List.Nonempty.toList recurringParent.children)
+        traverseLeaderParent accumulator parent =
+            List.Nonempty.concatMap (traverseFollowerParent accumulator) parent.children
 
-        traverseConstrainedChild accumulator child =
+        traverseFollowerChild accumulator child =
             case child of
                 Singleton taskClass ->
-                    [ makeFullClass accumulator taskClass ]
+                    List.Nonempty.fromElement (makeFullClass accumulator taskClass)
 
-                Nested constrainedParent ->
-                    traverseConstrainedParent (appendPropsIfMeaningful accumulator constrainedParent.properties) constrainedParent
+                Nested followerParent ->
+                    traverseFollowerParent (appendPropsIfMeaningful accumulator followerParent.properties) followerParent
 
-        traverseUnconstrainedChild accumulator child =
+        traverseWrapperChild accumulator child =
             case child of
-                RecursDeeper unconstrainedParent ->
-                    traverseUnconstrainedParent (appendPropsIfMeaningful accumulator unconstrainedParent.properties) unconstrainedParent
+                LeaderIsDeeper parent ->
+                    traverseWrapperParent (appendPropsIfMeaningful accumulator parent.properties) parent
 
-                RecursHere recurringParent ->
-                    traverseRecurringParent (appendPropsIfMeaningful accumulator recurringParent.properties) recurringParent
+                LeaderIsHere parent ->
+                    traverseLeaderParent (appendPropsIfMeaningful accumulator parent.properties) parent
     in
     List.concatMap traverseRoot entries
 
 
-
--- Task Timing functions
-
-
-{-| Need to be able to specify multiple of these, as some may not apply.
+{-| Convenience function for getting fully specced class list from appData lists.
 -}
-type RelativeTiming
-    = FromDeadline Duration
-    | FromToday Duration
-
-
-decodeRelativeTiming : Decoder RelativeTiming
-decodeRelativeTiming =
-    Decode.map FromDeadline decodeDuration
-
-
-encodeRelativeTiming : RelativeTiming -> Encode.Value
-encodeRelativeTiming relativeTaskTiming =
-    case relativeTaskTiming of
-        FromDeadline duration ->
-            encodeDuration duration
-
-        FromToday duration ->
-            encodeDuration duration
+buildFullClassDict : ( List Entry, IntDict ClassSkel ) -> IntDict Class
+buildFullClassDict ( entries, classes ) =
+    -- TODO actually look in the entry list
+    IntDict.mapValues (makeFullClass []) classes

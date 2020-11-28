@@ -4,14 +4,13 @@ import Activity.Activity exposing (ActivityID)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
-import Json.Decode.Exploration as Decode
+import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Entry as Entry exposing (Entry, ParentProperties, RelativeTiming, decodeRelativeTiming, encodeRelativeTiming)
 import Task.Progress as Progress exposing (..)
 
 
@@ -117,6 +116,11 @@ encodeClassID taskClassID =
 -- FULL Task Classes (augmented with entry data) --------------------------
 
 
+type alias ParentProperties =
+    { title : Maybe String -- Can have no title if it's just a singleton task
+    }
+
+
 {-| A fully spec'ed-out version of a TaskClass
 -}
 type alias Class =
@@ -130,14 +134,6 @@ makeFullClass parentList class =
     { parents = parentList
     , class = class
     }
-
-
-{-| Convenience function for getting fully specced class list from appData lists.
--}
-buildFullClassDict : ( List Entry, IntDict ClassSkel ) -> IntDict Class
-buildFullClassDict ( entries, classes ) =
-    -- TODO actually look in the entry list
-    IntDict.mapValues (makeFullClass []) classes
 
 
 
@@ -158,6 +154,32 @@ encodeTaskMoment fuzzy =
 
 type alias TagId =
     Int
+
+
+
+-- Task Timing functions
+
+
+{-| Need to be able to specify multiple of these, as some may not apply.
+-}
+type RelativeTiming
+    = FromDeadline Duration
+    | FromToday Duration
+
+
+decodeRelativeTiming : Decoder RelativeTiming
+decodeRelativeTiming =
+    Decode.map FromDeadline decodeDuration
+
+
+encodeRelativeTiming : RelativeTiming -> Encode.Value
+encodeRelativeTiming relativeTaskTiming =
+    case relativeTaskTiming of
+        FromDeadline duration ->
+            encodeDuration duration
+
+        FromToday duration ->
+            encodeDuration duration
 
 
 

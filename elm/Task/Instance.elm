@@ -11,7 +11,10 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment exposing (..)
 import SmartTime.Period exposing (Period)
+import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeClassID, decodeTaskMoment, encodeTaskMoment)
+import Task.Entry exposing (Entry, buildFullClassDict)
 import Task.Progress as Progress exposing (..)
+import Task.Session exposing (UserPlannedSession, decodeSession, encodeSession)
 
 
 
@@ -113,7 +116,7 @@ type alias Instance =
 
 {-| Convenience function for getting fully specced instance list from appData lists.
 -}
-buildRelevantInstanceDict : ( List Entry, IntDict.IntDict ClassSkel, IntDict.IntDict InstanceSkel ) -> Period -> IntDict.IntDict Instance
+buildRelevantInstanceDict : ( List Entry, IntDict.IntDict ClassSkel, IntDict.IntDict InstanceSkel ) -> Maybe Period -> IntDict.IntDict Instance
 buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
     let
         fullClasses =
@@ -144,7 +147,7 @@ buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
 Combine the saved instances with generated ones, to get the full picture within a period.
 
 -}
-getRelevantInstancesFromClass : Period -> Class -> List Instance
+getRelevantInstancesFromClass : Maybe Period -> Class -> List Instance
 getRelevantInstancesFromClass relevantPeriod class allSavedInstances =
     let
         -- Any & all saved instances that match this taskclass

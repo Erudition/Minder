@@ -15,7 +15,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
-import Task.Task as Task exposing (InstanceSkel)
+import Task.Instance as Task
 import Time
 import Time.Extra as Time
 
@@ -47,7 +47,7 @@ determineNextTask app env =
 instanceSpecList : AppData -> List Task.Instance
 instanceSpecList app =
     --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
-    IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+    IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances ) Nothing
 
 
 switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )

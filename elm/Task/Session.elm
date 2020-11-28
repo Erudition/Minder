@@ -6,7 +6,7 @@ import Maybe.Extra
 import Porting exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Class exposing (ClassSkel)
+import Task.Class exposing (ClassSkel, ParentProperties)
 import Task.Entry exposing (ParentProperties)
 import Task.Instance exposing (Instance, InstanceSkel)
 
