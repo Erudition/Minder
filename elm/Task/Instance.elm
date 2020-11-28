@@ -14,7 +14,7 @@ import SmartTime.Period exposing (Period)
 import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeClassID, decodeTaskMoment, encodeTaskMoment)
 import Task.Entry exposing (Entry, buildFullClassDict)
 import Task.Progress as Progress exposing (..)
-import Task.Session exposing (UserPlannedSession, decodeSession, encodeSession)
+import Task.SessionSkel exposing (UserPlannedSession, decodeSession, encodeSession)
 
 
 
@@ -147,16 +147,25 @@ buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
 Combine the saved instances with generated ones, to get the full picture within a period.
 
 -}
-getRelevantInstancesFromClass : Maybe Period -> Class -> List Instance
+getRelevantInstancesFromClass : Maybe Period -> Class -> List InstanceSkel -> List Instance
 getRelevantInstancesFromClass relevantPeriod class allSavedInstances =
     let
         -- Any & all saved instances that match this taskclass
         savedInstancesWithMatchingClass =
-            List.filter (\instance -> instance.classID == class.id) allSavedInstances
+            List.filter (\instance -> instance.class == class.class.id) allSavedInstances
+
+        savedInstancesFull =
+            List.map toFull savedInstancesWithMatchingClass
+
+        toFull instanceSkel =
+            { parents = class.parents
+            , class = class
+            , instance = instanceSkel
+            }
 
         -- Filter out instances outside the window
         relevantSavedInstances =
-            List.filter isRelevant savedInstancesWithMatchingClass
+            List.filter isRelevant savedInstancesFull
 
         isRelevant savedInstance =
             Debug.todo "If savedInstance is within period, keep"
@@ -171,19 +180,6 @@ getRelevantInstancesFromClass relevantPeriod class allSavedInstances =
 instanceProgress : Instance -> Progress
 instanceProgress fullInstance =
     ( fullInstance.instance.completion, fullInstance.class.completionUnits )
-
-
-getRelevantInstancesOfClass : FuzzyMoment -> FuzzyMoment -> IntDict ClassSkel -> IntDict InstanceSkel -> List ( ClassSkel, InstanceSkel )
-getRelevantInstancesOfClass fromWhen toWhen classes instances =
-    let
-        getInstances givenClass =
-            -- find all matching instances - instances of the same class
-            IntDict.filterValues (\ins -> ins.class == givenClass.id) instances
-
-        pairThem class =
-            List.map (Tuple.pair class) (IntDict.values (getInstances class))
-    in
-    List.concatMap pairThem (IntDict.values classes)
 
 
 
