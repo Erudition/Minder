@@ -1,5 +1,6 @@
 module Task.Entry exposing (..)
 
+import Date exposing (Date)
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -7,6 +8,9 @@ import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (Nonempty)
 import Porting exposing (..)
 import SmartTime.Duration exposing (Duration)
+import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
+import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
+import SmartTime.Moment exposing (Moment)
 import Task.Class exposing (Class, ClassSkel, ParentProperties, makeFullClass)
 
 
@@ -67,7 +71,18 @@ decodeEntry =
 
 
 type RecurrenceRule
-    = CalendarRepeat Int --TODO
+    = RawTime { amount : Duration, start : Moment }
+    | EveryNCalendarDays { n : Int, start : Date } -- Includes multiples, e.g. weeks
+    | EveryNSpecificDayOfWeek { n : Int, day : DayOfWeek, start : Date }
+    | EveryNthDayOfEachMonth { n : DayOfMonth, start : Date, ifOutOfBounds : OutOfMonthBoundsBehavior }
+    | EveryCalendarDayOfYear { n : DayOfMonth, start : Date, ifOutOfBounds : OutOfMonthBoundsBehavior }
+    | EveryNthDayOfYear { n : Int, start : Date } -- Includes multiples, e.g. weeks
+    | EveryNthWeekOfYear { n : Int, day : DayOfWeek, start : Date } -- ISO Week numbers?
+
+
+type OutOfMonthBoundsBehavior
+    = SkipMonth
+    | UseLastDay
 
 
 {-| A "Parent" task is actually a container of subtasks. A RecurringParent contains tasks (or a single task!) that repeat, all at the same time and by the same pattern. Since it doesn't make sense for individual tasks to recur in a different way from their siblings, all recurrence behavior of tasks comes from this type of parent.

@@ -82,6 +82,7 @@ handle msg app =
                 -- TODO figure out deleted
                 , taskInstances = IntDict.union newInstances app.taskInstances
                 , taskClasses = IntDict.union newClasses app.taskClasses
+                , taskEntries = app.taskEntries -- TODO merge in new entries
               }
             , describeSuccess changes
             )
