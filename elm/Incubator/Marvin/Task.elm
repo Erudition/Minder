@@ -3,6 +3,7 @@ module Incubator.Todoist.Item exposing (..)
 import Json.Decode.Exploration exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
+import Json.Encode.Extra as Encode exposing (..)
 import Porting exposing (..)
 import SmartTime.Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
@@ -85,7 +86,7 @@ encodeTask : Task -> Encode.Value
 encodeTask task =
     Encode.object <|
         [ ( "done", Encode.bool task.done )
-        , ( "day", encodeCalendarDate task.day )
+        , ( "day", Encode.maybe encodeCalendarDate task.day )
         , ( "title", Encode.string task.title )
         , ( "parentId", Encode.string task.parentId )
         , ( "labelIds", Encode.list Encode.string task.labelIds )
@@ -101,14 +102,14 @@ encodeTask task =
         , ( "isReward", Encode.bool task.isReward )
         , ( "isStarred", Encode.int task.isStarred )
         , ( "isFrogged", Encode.int task.isFrogged )
-        , ( "plannedWeek", encodeCalendarDate task.plannedWeek )
-        , ( "plannedMonth", (\( a, b ) -> Encode.list identity [ encodeYear a, encodeMonth b ]) task.plannedMonth )
+        , ( "plannedWeek", Encode.maybe encodeCalendarDate task.plannedWeek )
+        , ( "plannedMonth", encodeMonth task.plannedMonth )
         , ( "rewardPoints", Encode.float task.rewardPoints )
         , ( "rewardId", Encode.string task.rewardId )
         , ( "backburner", Encode.bool task.backburner )
         , ( "reviewDate", encodeCalendarDate task.reviewDate )
-        , ( "itemSnoozeTime", encodeMoment task.itemSnoozeTime )
-        , ( "permaSnoozeTime", encodeTimeOfDay task.permaSnoozeTime )
+        , ( "itemSnoozeTime", Encode.maybe encodeMoment task.itemSnoozeTime )
+        , ( "permaSnoozeTime", Encode.maybe encodeTimeOfDay task.permaSnoozeTime )
         , ( "timeZoneOffset", Encode.int task.timeZoneOffset )
         ]
 
@@ -186,9 +187,14 @@ essentialOrBonusDecoder =
     string |> andThen get
 
 
-encodeMonth : ( Year, Month ) -> Encode.Value
-encodeMonth ( year, month ) =
-    Encode.string (SmartTime.Human.Calendar.Year.toString year ++ (String.fromInt <| SmartTime.Human.Calendar.Month.toInt month))
+encodeMonth : Maybe ( Year, Month ) -> Encode.Value
+encodeMonth maybeMonth =
+    case maybeMonth of
+        Just ( year, month ) ->
+            Encode.string (SmartTime.Human.Calendar.Year.toString year ++ (String.fromInt <| SmartTime.Human.Calendar.Month.toInt month))
+
+        Nothing ->
+            Encode.null
 
 
 monthDecoder : Decoder ( Year, Month )
