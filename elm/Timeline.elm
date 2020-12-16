@@ -39,8 +39,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import String.Normalize
 import Task as Job
+import Task.Instance exposing (InstanceSkel)
 import Task.Progress exposing (..)
-import Task.Task as Task exposing (InstanceSkel)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 

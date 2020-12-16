@@ -114,7 +114,7 @@ type alias Instance =
     }
 
 
-{-| Convenience function for getting fully specced instance list from appData lists.
+{-| Take the skeleton data and get all relevant(within given time period) instances of every class, and return them as Full Instances.
 -}
 buildRelevantInstanceDict : ( List Entry, IntDict.IntDict ClassSkel, IntDict.IntDict InstanceSkel ) -> Maybe Period -> IntDict.IntDict Instance
 buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
@@ -137,7 +137,7 @@ buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
                         Nothing
 
                 Just foundClass ->
-                    Just <| getRelevantInstancesFromClass relevantPeriod foundClass taskInstance
+                    Just <| buildRelevantInstancesFromClass relevantPeriod foundClass instances
     in
     IntDict.filterMapValues fleshOutInstanceIfClassFound instances
 
@@ -146,16 +146,18 @@ buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
 
 Combine the saved instances with generated ones, to get the full picture within a period.
 
+TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
+
 -}
-getRelevantInstancesFromClass : Maybe Period -> Class -> List InstanceSkel -> List Instance
-getRelevantInstancesFromClass relevantPeriod class allSavedInstances =
+buildRelevantInstancesFromClass : Maybe Period -> Class -> IntDict InstanceSkel -> List Instance
+buildRelevantInstancesFromClass relevantPeriod class allSavedInstances =
     let
         -- Any & all saved instances that match this taskclass
         savedInstancesWithMatchingClass =
-            List.filter (\instance -> instance.class == class.class.id) allSavedInstances
+            IntDict.filterValues (\instance -> instance.class == class.class.id) allSavedInstances
 
         savedInstancesFull =
-            List.map toFull savedInstancesWithMatchingClass
+            IntDict.mapValues toFull savedInstancesWithMatchingClass
 
         toFull instanceSkel =
             { parents = class.parents
@@ -165,13 +167,19 @@ getRelevantInstancesFromClass relevantPeriod class allSavedInstances =
 
         -- Filter out instances outside the window
         relevantSavedInstances =
-            List.filter isRelevant savedInstancesFull
+            IntDict.filterValues isRelevant savedInstancesFull
 
+        -- TODO "If savedInstance is within period, keep"
         isRelevant savedInstance =
-            Debug.todo "If savedInstance is within period, keep"
+            True
 
+        -- TODO Fill in based on recurrence series. Int ID = order in series.
         generatedInstances =
-            Debug.todo "generate remaining instances within period"
+            IntDict.empty
+
+        -- TODO Use series order ID to filter only relevant instances
+        relevantSeriesMembers =
+            IntDict.filterKeys isRelevant generatedInstances
     in
     relevantSavedInstances
         ++ generatedInstances
