@@ -4,7 +4,6 @@ import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure exposing (..)
 import Activity.Switching as Switching
 import Activity.Template
-import AppData exposing (..)
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -27,6 +26,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -70,7 +70,7 @@ defaultView =
     Normal
 
 
-view : ViewState -> AppData -> Environment -> Html Msg
+view : ViewState -> Profile -> Environment -> Html Msg
 view state app env =
     case state of
         Normal ->
@@ -86,7 +86,7 @@ view state app env =
                 ]
 
 
-viewActivities : Environment -> AppData -> Html Msg
+viewActivities : Environment -> Profile -> Html Msg
 viewActivities env app =
     section
         [ class "main" ]
@@ -98,7 +98,7 @@ viewActivities env app =
 
 
 -- VIEW INDIVIDUAL ENTRIES
--- viewKeyedActivity : AppData -> Environment -> Activity -> ( String, Html Msg )
+-- viewKeyedActivity : Profile -> Environment -> Activity -> ( String, Html Msg )
 -- viewKeyedActivity app env activity =
 --     let
 --         key =
@@ -114,7 +114,7 @@ viewActivities env app =
 --     ( key, viewActivity app env activity )
 
 
-viewActivity : AppData -> Environment -> ( ActivityID, Activity ) -> Html Msg
+viewActivity : Profile -> Environment -> ( ActivityID, Activity ) -> Html Msg
 viewActivity app env ( activityID, activity ) =
     let
         describeSession sesh =
@@ -170,7 +170,7 @@ viewIcon icon =
             text ""
 
 
-writeActivityUsage : AppData -> Environment -> ( ActivityID, Activity ) -> String
+writeActivityUsage : Profile -> Environment -> ( ActivityID, Activity ) -> String
 writeActivityUsage app env ( activityID, activity ) =
     let
         period =
@@ -192,12 +192,12 @@ writeActivityUsage app env ( activityID, activity ) =
         ""
 
 
-writeActivityToday : AppData -> Environment -> ActivityID -> String
+writeActivityToday : Profile -> Environment -> ActivityID -> String
 writeActivityToday app env activityID =
     Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activityID)
 
 
-exportActivityViewModel : AppData -> Environment -> Encode.Value
+exportActivityViewModel : Profile -> Environment -> Encode.Value
 exportActivityViewModel appData environment =
     let
         encodeActivityVM ( activityID, activity ) =
@@ -228,7 +228,7 @@ type Msg
     | ExportVM
 
 
-update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
 update msg state app env =
     case msg of
         NoOp ->
@@ -257,7 +257,7 @@ update msg state app env =
             )
 
 
-urlTriggers : AppData -> List ( String, Dict.Dict String Msg )
+urlTriggers : Profile -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
     let
         activitiesWithNames =

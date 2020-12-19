@@ -1,6 +1,5 @@
 port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
-import AppData exposing (..)
 import Browser
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
@@ -16,6 +15,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
+import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
@@ -150,17 +150,17 @@ init maybeJson url maybeKey =
                             buildModel savedAppData url maybeKey
 
                         WithWarnings warnings savedAppData ->
-                            buildModel (AppData.saveWarnings savedAppData warnings) url maybeKey
+                            buildModel (Profile.saveWarnings savedAppData warnings) url maybeKey
 
                         Errors errors ->
-                            buildModel (AppData.saveDecodeErrors AppData.fromScratch errors) url maybeKey
+                            buildModel (Profile.saveDecodeErrors Profile.fromScratch errors) url maybeKey
 
                         BadJson ->
-                            buildModel AppData.fromScratch url maybeKey
+                            buildModel Profile.fromScratch url maybeKey
 
                 -- no json stored at all
                 Nothing ->
-                    buildModel AppData.fromScratch url maybeKey
+                    buildModel Profile.fromScratch url maybeKey
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel
@@ -188,12 +188,12 @@ Intentionally minimal - we originally went with the common elm habit of stuffing
 -}
 type alias Model =
     { viewState : ViewState
-    , appData : AppData
+    , appData : Profile
     , environment : Environment
     }
 
 
-buildModel : AppData -> Url.Url -> Maybe Nav.Key -> Model
+buildModel : Profile -> Url.Url -> Maybe Nav.Key -> Model
 buildModel appData url maybeKey =
     { viewState = viewUrl url
     , appData = appData
@@ -205,14 +205,14 @@ type alias JsonAppDatabase =
     String
 
 
-appDataFromJson : JsonAppDatabase -> DecodeResult AppData
+appDataFromJson : JsonAppDatabase -> DecodeResult Profile
 appDataFromJson incomingJson =
-    Decode.decodeString decodeAppData incomingJson
+    Decode.decodeString decodeProfile incomingJson
 
 
-appDataToJson : AppData -> JsonAppDatabase
+appDataToJson : Profile -> JsonAppDatabase
 appDataToJson appData =
-    Encode.encode 0 (encodeAppData appData)
+    Encode.encode 0 (encodeProfile appData)
 
 
 type alias ViewState =
@@ -484,13 +484,13 @@ update msg ({ viewState, appData, environment } as model) =
                     ( Model viewState savedAppData environment, toast "Synced with another browser tab!" )
 
                 WithWarnings warnings savedAppData ->
-                    ( Model viewState (AppData.saveWarnings savedAppData warnings) environment, Cmd.none )
+                    ( Model viewState (Profile.saveWarnings savedAppData warnings) environment, Cmd.none )
 
                 Errors errors ->
-                    ( Model viewState (AppData.saveDecodeErrors appData errors) environment, Cmd.none )
+                    ( Model viewState (Profile.saveDecodeErrors appData errors) environment, Cmd.none )
 
                 BadJson ->
-                    ( Model viewState (AppData.saveError appData "Got bad JSON from cross-sync") environment, Cmd.none )
+                    ( Model viewState (Profile.saveError appData "Got bad JSON from cross-sync") environment, Cmd.none )
 
         _ ->
             ( model, Cmd.none )

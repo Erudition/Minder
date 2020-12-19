@@ -1,10 +1,10 @@
 port module Headless exposing (main)
 
-import AppData exposing (AppData)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import Main exposing (..)
 import Platform exposing (worker)
+import Profile exposing (Profile)
 import Task as Job
 import Time
 import TimeTracker

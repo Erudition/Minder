@@ -1,7 +1,6 @@
 module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret, fetchUpdates, handle, itemToTask, sendChanges, timing)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
-import AppData exposing (AppData, TodoistIntegrationData, saveError)
 import Dict exposing (Dict)
 import Http
 import ID
@@ -20,6 +19,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Porting exposing (..)
+import Profile exposing (Profile, TodoistIntegrationData, saveError)
 import Set
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -47,7 +47,7 @@ devSecret =
     "0bdc5149510737ab941485bace8135c60e2d812b"
 
 
-handle : Todoist.Msg -> AppData -> ( AppData, String )
+handle : Todoist.Msg -> Profile -> ( Profile, String )
 handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
         Ok ( newCache, changes ) ->
@@ -148,7 +148,7 @@ describeSuccess report =
            )
 
 
-detectActivityProjects : Maybe Project.ProjectID -> AppData -> Todoist.Cache -> IntDict ActivityID
+detectActivityProjects : Maybe Project.ProjectID -> Profile -> Todoist.Cache -> IntDict ActivityID
 detectActivityProjects maybeParent app cache =
     case maybeParent of
         Nothing ->

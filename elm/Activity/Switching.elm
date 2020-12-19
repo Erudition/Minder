@@ -2,7 +2,6 @@ module Activity.Switching exposing (currentActivityFromApp, determineNextTask, s
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
-import AppData exposing (..)
 import Environment exposing (..)
 import External.Commands as Commands
 import External.Tasker as Tasker
@@ -10,6 +9,7 @@ import IntDict
 import List.Extra as List
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
+import Profile exposing (..)
 import Random
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
@@ -36,7 +36,7 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
-determineNextTask : AppData -> Environment -> Maybe Task.Instance
+determineNextTask : Profile -> Environment -> Maybe Task.Instance
 determineNextTask app env =
     List.head <|
         Task.prioritize env.time env.timeZone <|
@@ -44,13 +44,13 @@ determineNextTask app env =
                 instanceSpecList app
 
 
-instanceSpecList : AppData -> List Task.Instance
+instanceSpecList : Profile -> List Task.Instance
 instanceSpecList app =
     --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
     IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances ) Nothing
 
 
-switchActivity : ActivityID -> AppData -> Environment -> ( AppData, Cmd msg )
+switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchActivity newActivityID app env =
     let
         updatedApp =
@@ -287,7 +287,7 @@ updateSticky now todayTotal newActivity status =
     }
 
 
-currentActivityFromApp : AppData -> ActivityID
+currentActivityFromApp : Profile -> ActivityID
 currentActivityFromApp app =
     currentActivityID app.timeline
 

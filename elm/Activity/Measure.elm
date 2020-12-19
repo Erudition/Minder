@@ -1,9 +1,9 @@
 module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, inHoursMinutes, justToday, justTodayTotal, lastSession, relevantTimeline, sessions, switchListLiveToPeriods, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
-import AppData exposing (AppData)
 import Environment exposing (..)
 import ID
+import Profile exposing (Profile)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
@@ -195,12 +195,12 @@ excusedLeft timeline now ( activityID, activity ) =
     Duration.difference (excusableLimit activity) (excusedUsage timeline now ( activityID, activity ))
 
 
-exportExcusedUsageSeconds : AppData -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
 exportExcusedUsageSeconds app now ( activityID, activity ) =
     String.fromInt <| Duration.inSecondsRounded (excusedUsage app.timeline now ( activityID, activity ))
 
 
-exportExcusedLeftSeconds : AppData -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedLeftSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
 exportExcusedLeftSeconds app now ( activityID, activity ) =
     String.fromInt <| Duration.inSecondsRounded (excusedLeft app.timeline now ( activityID, activity ))
 

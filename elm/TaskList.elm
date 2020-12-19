@@ -1,7 +1,6 @@
 module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Activity.Switching
-import AppData exposing (..)
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -27,6 +26,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Porting exposing (..)
+import Profile exposing (..)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
@@ -86,7 +86,7 @@ type alias NewTaskField =
     String
 
 
-view : ViewState -> AppData -> Environment -> Html Msg
+view : ViewState -> Profile -> Environment -> Html Msg
 view state app env =
     case state of
         Normal filters expanded field ->
@@ -642,7 +642,7 @@ type Msg
     | TodoistServerResponse Todoist.Msg
 
 
-update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
 update msg state app env =
     case msg of
         Add ->
@@ -801,7 +801,7 @@ update msg state app env =
             )
 
 
-urlTriggers : AppData -> Environment -> List ( String, Dict.Dict String Msg )
+urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
 urlTriggers app env =
     let
         allFullTaskInstances =

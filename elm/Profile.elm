@@ -1,4 +1,4 @@
-module AppData exposing (AppData, AppInstance, TodoistIntegrationData, decodeAppData, encodeAppData, fromScratch, saveDecodeErrors, saveError, saveWarnings)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
 import ID
@@ -23,7 +23,7 @@ type alias AppInstance =
     Int
 
 
-type alias AppData =
+type alias Profile =
     { uid : AppInstance
     , errors : List String
     , taskEntries : List Task.Entry.Entry
@@ -31,11 +31,13 @@ type alias AppData =
     , taskInstances : IntDict Task.Instance.InstanceSkel
     , activities : StoredActivities
     , timeline : Timeline
+
+    --, locationHistory : IntDict LocationUpdate
     , todoist : TodoistIntegrationData
     }
 
 
-fromScratch : AppData
+fromScratch : Profile
 fromScratch =
     { uid = 0
     , errors = []
@@ -48,9 +50,9 @@ fromScratch =
     }
 
 
-decodeAppData : Decoder AppData
-decodeAppData =
-    Pipeline.decode AppData
+decodeProfile : Decoder Profile
+decodeProfile =
+    Pipeline.decode Profile
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
         |> optional "taskEntries" (Decode.list Task.Entry.decodeEntry) []
@@ -61,8 +63,8 @@ decodeAppData =
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
 
 
-encodeAppData : AppData -> Encode.Value
-encodeAppData record =
+encodeProfile : Profile -> Encode.Value
+encodeProfile record =
     Encode.object
         [ ( "taskClasses", Porting.encodeIntDict Task.Class.encodeClass record.taskClasses )
         , ( "taskInstances", Porting.encodeIntDict Task.Instance.encodeInstance record.taskInstances )
@@ -107,16 +109,16 @@ emptyTodoistIntegrationData =
 -- TODO save time of occurence along with errors?
 
 
-saveWarnings : AppData -> Decode.Warnings -> AppData
+saveWarnings : Profile -> Decode.Warnings -> Profile
 saveWarnings appData warnings =
     { appData | errors = [ Decode.warningsToString warnings ] ++ appData.errors }
 
 
-saveDecodeErrors : AppData -> Decode.Errors -> AppData
+saveDecodeErrors : Profile -> Decode.Errors -> Profile
 saveDecodeErrors appData errors =
     saveError appData (Decode.errorsToString errors)
 
 
-saveError : AppData -> String -> AppData
+saveError : Profile -> String -> Profile
 saveError appData error =
     { appData | errors = error :: appData.errors }

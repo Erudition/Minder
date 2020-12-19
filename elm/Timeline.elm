@@ -3,7 +3,6 @@ module Timeline exposing (Filter(..), Msg, ViewState(..), defaultView, routeView
 import Activity.Activity as Activity
 import Activity.Measure
 import Activity.Switching
-import AppData exposing (..)
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -30,6 +29,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Porting exposing (..)
+import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -89,7 +89,7 @@ defaultView =
     ShowSpan Nothing Nothing
 
 
-view : ViewState -> AppData -> Environment -> Html Msg
+view : ViewState -> Profile -> Environment -> Html Msg
 view state app env =
     let
         fullInstanceList =
@@ -388,7 +388,7 @@ type Msg
     = Move Moment Moment
 
 
-update : Msg -> ViewState -> AppData -> Environment -> ( ViewState, AppData, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
 update msg state app env =
     case msg of
         Move newStart newFinish ->

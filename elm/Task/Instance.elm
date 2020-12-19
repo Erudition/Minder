@@ -115,6 +115,9 @@ type alias Instance =
 
 
 {-| Take the skeleton data and get all relevant(within given time period) instances of every class, and return them as Full Instances.
+
+If no time period is given,
+
 -}
 buildRelevantInstanceDict : ( List Entry, IntDict.IntDict ClassSkel, IntDict.IntDict InstanceSkel ) -> Maybe Period -> IntDict.IntDict Instance
 buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
@@ -134,10 +137,10 @@ buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
                             ++ ") for instance ID "
                             ++ String.fromInt taskInstance.id
                         )
-                        Nothing
+                        []
 
                 Just foundClass ->
-                    Just <| buildRelevantInstancesFromClass relevantPeriod foundClass instances
+                    classToActiveInstances relevantPeriod foundClass instances
     in
     IntDict.filterMapValues fleshOutInstanceIfClassFound instances
 
@@ -149,8 +152,8 @@ Combine the saved instances with generated ones, to get the full picture within 
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
 
 -}
-buildRelevantInstancesFromClass : Maybe Period -> Class -> IntDict InstanceSkel -> List Instance
-buildRelevantInstancesFromClass relevantPeriod class allSavedInstances =
+classToActiveInstances : ( ZoneHistory, Period ) -> Class -> IntDict InstanceSkel -> List Instance
+classToActiveInstances relevantPeriod class allSavedInstances =
     let
         -- Any & all saved instances that match this taskclass
         savedInstancesWithMatchingClass =
