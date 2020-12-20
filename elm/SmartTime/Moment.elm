@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toJSTime, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, isEarlier, isLater, isSame, isSameOrEarlier, isSameOrLater, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toJSTime, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import Random
@@ -223,6 +223,53 @@ type TimelineOrder
     = Later
     | Earlier
     | Coincident
+
+
+{-| Is the first moment strictly earlier than the second?
+
+Read as an infix: is (moment1) Earlier than (moment2)
+
+-}
+isEarlier : Moment -> Moment -> Bool
+isEarlier (Moment time1) (Moment time2) =
+    Duration.inMs time1 < Duration.inMs time2
+
+
+{-| Is the first moment strictly later than the second?
+
+Read as an infix: is (moment1) Later than (moment2)
+
+-}
+isLater : Moment -> Moment -> Bool
+isLater (Moment time1) (Moment time2) =
+    Duration.inMs time1 < Duration.inMs time2
+
+
+{-| Is the first moment earlier than (or the same as) the second?
+
+Read as an infix: is (moment1) SameOrEarlier than (moment2)
+
+-}
+isSameOrEarlier : Moment -> Moment -> Bool
+isSameOrEarlier (Moment time1) (Moment time2) =
+    Duration.inMs time1 <= Duration.inMs time2
+
+
+{-| Is the first moment later than (or the same as) the second?
+
+Read as an infix: is (moment1) SameOrLater than (moment2)
+
+-}
+isSameOrLater : Moment -> Moment -> Bool
+isSameOrLater (Moment time1) (Moment time2) =
+    Duration.inMs time1 >= Duration.inMs time2
+
+
+{-| Checks if two Moments are `Coincident`.
+-}
+isSame : Moment -> Moment -> Bool
+isSame (Moment time1) (Moment time2) =
+    Duration.inMs time1 == Duration.inMs time2
 
 
 {-| Compare the lateness of one `Moment` to another. Moments that come after others are later and thus will be designated `GT`, and vise versa.
