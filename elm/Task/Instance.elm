@@ -15,6 +15,7 @@ import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeC
 import Task.Entry exposing (Entry, buildFullClassDict)
 import Task.Progress as Progress exposing (..)
 import Task.SessionSkel exposing (UserPlannedSession, decodeSession, encodeSession)
+import ZoneHistory exposing (ZoneHistory)
 
 
 
@@ -153,7 +154,7 @@ TODO: best data structure? Is Dict unnecessary here? Or should the key involve t
 
 -}
 classToActiveInstances : ( ZoneHistory, Period ) -> Class -> IntDict InstanceSkel -> List Instance
-classToActiveInstances relevantPeriod class allSavedInstances =
+classToActiveInstances ( zoneHistory, relevantPeriod ) class allSavedInstances =
     let
         -- Any & all saved instances that match this taskclass
         savedInstancesWithMatchingClass =
