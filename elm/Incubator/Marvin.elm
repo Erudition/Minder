@@ -110,6 +110,84 @@ getTrackedItem secret =
         }
 
 
+{-| Get tasks and projects scheduled today (including rollover/auto-schedule due items if enabled)
+-}
+getTodayItems : SecretToken -> Cmd Msg
+getTodayItems secret =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "todayItems"
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+{-| Get tasks and projects that are due today
+-}
+getDueItems : SecretToken -> Cmd Msg
+getDueItems secret =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "dueItems"
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+{-| Get a list of all categories
+-}
+getCategories : SecretToken -> Cmd Msg
+getCategories secret =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "categories"
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+{-| Get a list of all labels
+-}
+getLabels : SecretToken -> Cmd Msg
+getLabels secret =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "labels"
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+{-| start or stop time tracking a task by its ID
+-}
+timeTrack : SecretToken -> String -> Cmd Msg
+timeTrack secret taskID =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "time"
+        , body =
+            Http.jsonBody <|
+                Encode.object
+                    [ ( "taskId", Encode.string taskID ), ( "action", Encode.string "START" ) ]
+        , expect = Http.expectString TestResult --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
 {-| A message for you to add to your app's `Msg` type. Comes back when the sync request succeeded or failed.
 -}
 type Msg
