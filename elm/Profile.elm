@@ -15,6 +15,7 @@ import Task.Entry
 import Task.Instance
 import Task.Progress exposing (..)
 import Task.Session
+import ZoneHistory exposing (ZoneHistory)
 
 
 {-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.

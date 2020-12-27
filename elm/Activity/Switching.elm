@@ -15,7 +15,8 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
-import Task.Instance as Task
+import Task.Entry
+import Task.Instance exposing (Instance)
 import Time
 import Time.Extra as Time
 
@@ -36,18 +37,27 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
-determineNextTask : Profile -> Environment -> Maybe Task.Instance
-determineNextTask app env =
+determineNextTask : Profile -> Environment -> Maybe Instance
+determineNextTask profile env =
     List.head <|
-        Task.prioritize env.time env.timeZone <|
-            List.filter (Task.completed >> not) <|
-                instanceSpecList app
+        Task.Instance.prioritize env.time env.timeZone <|
+            List.filter (Task.Instance.completed >> not) <|
+                instanceListNow profile env
 
 
-instanceSpecList : Profile -> List Task.Instance
-instanceSpecList app =
-    --( IntDict.values app.taskClasses, IntDict.values app.taskInstances )
-    IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances ) Nothing
+instanceListNow : Profile -> Environment -> List Instance
+instanceListNow profile env =
+    let
+        ( fullClasses, warnings ) =
+            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+
+        zoneHistory =
+            Debug.todo "profile.zoneHistory"
+
+        rightNow =
+            Period.instantaneous env.time
+    in
+    Task.Instance.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
@@ -297,7 +307,7 @@ onTaskChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
 
 
-scheduleOnTaskReminders : Task.Instance -> Moment -> Duration -> List Notification
+scheduleOnTaskReminders : Instance -> Moment -> Duration -> List Notification
 scheduleOnTaskReminders task now timeLeft =
     let
         blank =
@@ -379,7 +389,7 @@ offTaskActions =
     ]
 
 
-scheduleOffTaskReminders : Task.Instance -> Moment -> List Notification
+scheduleOffTaskReminders : Instance -> Moment -> List Notification
 scheduleOffTaskReminders nextTask now =
     let
         title =
