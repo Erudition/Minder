@@ -12,6 +12,7 @@ import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
+import Task.Series exposing (RecurrenceRule)
 
 
 {-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
@@ -125,13 +126,15 @@ type alias ParentProperties =
 -}
 type alias Class =
     { parents : List ParentProperties
+    , recurrence : List RecurrenceRule
     , class : ClassSkel
     }
 
 
-makeFullClass : List ParentProperties -> ClassSkel -> Class
-makeFullClass parentList class =
+makeFullClass : List ParentProperties -> List RecurrenceRule -> ClassSkel -> Class
+makeFullClass parentList recurrenceRules class =
     { parents = parentList
+    , recurrence = recurrenceRules
     , class = class
     }
 

@@ -5,13 +5,15 @@ import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
-import List.Nonempty exposing (Nonempty)
+import List.Nonempty as Nonempty exposing (Nonempty)
 import Porting exposing (..)
+import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
-import Task.Class exposing (Class, ClassSkel, ParentProperties, makeFullClass)
+import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, makeFullClass)
+import Task.Series exposing (RecurrenceRule)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -70,21 +72,6 @@ decodeEntry =
 -}
 
 
-type RecurrenceRule
-    = RawTime { amount : Duration, start : Moment }
-    | EveryNCalendarDays { n : Int, start : Date } -- Includes multiples, e.g. weeks
-    | EveryNSpecificDayOfWeek { n : Int, day : DayOfWeek, start : Date }
-    | EveryNthDayOfEachMonth { n : DayOfMonth, start : Date, ifOutOfBounds : OutOfMonthBoundsBehavior }
-    | EveryCalendarDayOfYear { n : DayOfMonth, start : Date, ifOutOfBounds : OutOfMonthBoundsBehavior }
-    | EveryNthDayOfYear { n : Int, start : Date } -- Includes multiples, e.g. weeks
-    | EveryNthWeekOfYear { n : Int, day : DayOfWeek, start : Date } -- ISO Week numbers?
-
-
-type OutOfMonthBoundsBehavior
-    = SkipMonth
-    | UseLastDay
-
-
 {-| A "Parent" task is actually a container of subtasks. A RecurringParent contains tasks (or a single task!) that repeat, all at the same time and by the same pattern. Since it doesn't make sense for individual tasks to recur in a different way from their siblings, all recurrence behavior of tasks comes from this type of parent.
 
 Parents that contain only a single task are transparently unwrapped to appear like single tasks - in this case, with recurrence applied. Since it doesn't make sense for a bundle of tasks that recur on some schedule to contain other bundles of tasks with their own schedule and instances, all children of RecurringParents are considered "Constrained" and cannot contain recurrence information. This ensures that only one ancestor of a task dictates its recurrence pattern.
@@ -137,15 +124,17 @@ type alias FollowerParent =
 
 
 type FollowerChild
-    = Singleton ClassSkel
+    = Singleton ClassID
     | Nested FollowerParent
 
 
-getEntries : List Entry -> List Class
-getEntries entries =
+{-| Take all the Entries and flatten them into a list of Classes
+-}
+getClassesFromEntries : ( List Entry, IntDict.IntDict ClassSkel ) -> ( List Class, List Warning )
+getClassesFromEntries ( entries, classes ) =
     let
-        traverseRoot entry =
-            List.Nonempty.toList <| traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
+        traverseRootWrappers entry =
+            Nonempty.toList <| traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
 
         -- flatten the hierarchy if a container serves no purpose
         appendPropsIfMeaningful oldList newParentProps =
@@ -155,23 +144,28 @@ getEntries entries =
             else
                 oldList
 
-        traverseFollowerParent accumulator parent =
-            -- TODO do we need to collect props here
-            List.Nonempty.concatMap (traverseFollowerChild accumulator) parent.children
-
         traverseWrapperParent accumulator parent =
-            List.Nonempty.concatMap (traverseWrapperChild accumulator) parent.children
+            Nonempty.concatMap (traverseWrapperChild accumulator) parent.children
 
         traverseLeaderParent accumulator parent =
-            List.Nonempty.concatMap (traverseFollowerParent accumulator) parent.children
+            Nonempty.concatMap (traverseFollowerParent accumulator parent.recurrenceRules) parent.children
 
-        traverseFollowerChild accumulator child =
+        traverseFollowerParent accumulator recurrenceRules parent =
+            -- TODO do we need to collect props here
+            Nonempty.concatMap (traverseFollowerChild accumulator recurrenceRules) parent.children
+
+        traverseFollowerChild accumulator recurrenceRules child =
             case child of
-                Singleton taskClass ->
-                    List.Nonempty.fromElement (makeFullClass accumulator taskClass)
+                Singleton classID ->
+                    case IntDict.get classID classes of
+                        Just classSkel ->
+                            Nonempty.fromElement <| Ok <| makeFullClass accumulator recurrenceRules classSkel
+
+                        Nothing ->
+                            Nonempty.fromElement <| Err <| LookupFailure classID
 
                 Nested followerParent ->
-                    traverseFollowerParent (appendPropsIfMeaningful accumulator followerParent.properties) followerParent
+                    traverseFollowerParent (appendPropsIfMeaningful accumulator followerParent.properties) recurrenceRules followerParent
 
         traverseWrapperChild accumulator child =
             case child of
@@ -181,12 +175,8 @@ getEntries entries =
                 LeaderIsHere parent ->
                     traverseLeaderParent (appendPropsIfMeaningful accumulator parent.properties) parent
     in
-    List.concatMap traverseRoot entries
+    Result.partition <| List.concatMap traverseRootWrappers entries
 
 
-{-| Convenience function for getting fully specced class list from appData lists.
--}
-buildFullClassDict : ( List Entry, IntDict ClassSkel ) -> IntDict Class
-buildFullClassDict ( entries, classes ) =
-    -- TODO actually look in the entry list
-    IntDict.mapValues (makeFullClass []) classes
+type Warning
+    = LookupFailure ClassID

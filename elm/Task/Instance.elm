@@ -6,14 +6,16 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import SmartTime.Moment exposing (..)
 import SmartTime.Period exposing (Period)
 import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeClassID, decodeTaskMoment, encodeTaskMoment)
-import Task.Entry exposing (Entry, buildFullClassDict)
+import Task.Entry exposing (Entry, getClassesFromEntries)
 import Task.Progress as Progress exposing (..)
+import Task.Series exposing (RecurrenceRule, SeriesID)
 import Task.SessionSkel exposing (UserPlannedSession, decodeSession, encodeSession)
 import ZoneHistory exposing (ZoneHistory)
 
@@ -22,19 +24,12 @@ import ZoneHistory exposing (ZoneHistory)
 -- Instance Skeleton (bare minimum, non-derivative data, saved to disk) --------------------------------
 
 
-{-| Definition of a single task.
-Working rules:
-
-  - there should be no fields for storing data that can be fully derived from other fields [consistency]
-  - combine related fields into a single one with a tuple value [minimalism]
-
--- One particular time that the specific thing will be done, that can be scheduled
--- A class could have NO instances yet - they're calculated on the fly
-
+{-| Definition of a single instance of a single task - one particular time that the specific thing will be done, that can be scheduled. Can be thought of as an "assignment" of a task (class). There may be zero (an unassigned task), and there may be many (a repeated task) for a given class.
 -}
 type alias InstanceSkel =
     { class : ClassID
     , id : InstanceID
+    , series : Maybe SeriesID
     , completion : Progress.Portion
     , externalDeadline : Maybe FuzzyMoment -- *
     , startBy : Maybe FuzzyMoment -- *
@@ -50,6 +45,7 @@ decodeInstance =
     decode InstanceSkel
         |> Pipeline.required "class" decodeClassID
         |> Pipeline.required "id" decodeInstanceID
+        |> Pipeline.required "seriesID" (Decode.nullable Decode.int)
         |> Pipeline.required "completion" Decode.int
         |> Pipeline.required "externalDeadline" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "startBy" (Decode.nullable decodeTaskMoment)
@@ -64,6 +60,7 @@ encodeInstance taskInstance =
     Encode.object <|
         [ ( "class", Encode.int taskInstance.class )
         , ( "id", Encode.int taskInstance.id )
+        , ( "seriesID", Encode2.maybe Encode.int taskInstance.series )
         , ( "completion", Encode.int taskInstance.completion )
         , ( "externalDeadline", Encode2.maybe encodeTaskMoment taskInstance.externalDeadline )
         , ( "startBy", Encode2.maybe encodeTaskMoment taskInstance.startBy )
@@ -78,6 +75,7 @@ newInstanceSkel : Int -> ClassSkel -> InstanceSkel
 newInstanceSkel newID class =
     { class = class.id
     , id = newID
+    , series = Nothing
     , completion = 0
     , externalDeadline = Nothing
     , startBy = Nothing
@@ -115,35 +113,16 @@ type alias Instance =
     }
 
 
-{-| Take the skeleton data and get all relevant(within given time period) instances of every class, and return them as Full Instances.
+{-| Get all relevant instances of everything.
 
-If no time period is given,
+Take the skeleton data and get all relevant(within given time period) instances of every class, and return them as Full Instances.
+
+TODO organize with IDs somehow
 
 -}
-buildRelevantInstanceDict : ( List Entry, IntDict.IntDict ClassSkel, IntDict.IntDict InstanceSkel ) -> Maybe Period -> IntDict.IntDict Instance
-buildRelevantInstanceDict ( entries, classes, instances ) relevantPeriod =
-    let
-        fullClasses =
-            buildFullClassDict ( entries, classes )
-
-        findClass taskClassID =
-            IntDict.get taskClassID fullClasses
-
-        fleshOutInstanceIfClassFound taskInstance =
-            case findClass taskInstance.class of
-                Nothing ->
-                    Debug.log
-                        ("Couldn't find a matching class (ID "
-                            ++ String.fromInt taskInstance.class
-                            ++ ") for instance ID "
-                            ++ String.fromInt taskInstance.id
-                        )
-                        []
-
-                Just foundClass ->
-                    classToActiveInstances relevantPeriod foundClass instances
-    in
-    IntDict.filterMapValues fleshOutInstanceIfClassFound instances
+listAllInstances : List Class -> IntDict.IntDict InstanceSkel -> ( ZoneHistory, Period ) -> List Instance
+listAllInstances fullClasses savedInstanceSkeletons timeData =
+    List.concatMap (singleClassToActiveInstances timeData savedInstanceSkeletons) fullClasses
 
 
 {-| Take a class and return all of the instances relevant within the given period - saved or generated.
@@ -153,40 +132,44 @@ Combine the saved instances with generated ones, to get the full picture within 
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
 
 -}
-classToActiveInstances : ( ZoneHistory, Period ) -> Class -> IntDict InstanceSkel -> List Instance
-classToActiveInstances ( zoneHistory, relevantPeriod ) class allSavedInstances =
+singleClassToActiveInstances : ( ZoneHistory, Period ) -> IntDict InstanceSkel -> Class -> List Instance
+singleClassToActiveInstances ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
     let
         -- Any & all saved instances that match this taskclass
+        -- TODO more efficient way to filter?
         savedInstancesWithMatchingClass =
-            IntDict.filterValues (\instance -> instance.class == class.class.id) allSavedInstances
+            List.filter (\instance -> instance.class == fullClass.class.id) (IntDict.values allSavedInstances)
 
         savedInstancesFull =
-            IntDict.mapValues toFull savedInstancesWithMatchingClass
+            List.map toFull savedInstancesWithMatchingClass
 
+        toFull : InstanceSkel -> Instance
         toFull instanceSkel =
-            { parents = class.parents
-            , class = class
+            { parents = fullClass.parents
+            , class = fullClass.class
             , instance = instanceSkel
             }
 
         -- Filter out instances outside the window
         relevantSavedInstances =
-            IntDict.filterValues isRelevant savedInstancesFull
+            List.filter isRelevant savedInstancesFull
 
         -- TODO "If savedInstance is within period, keep"
         isRelevant savedInstance =
             True
 
         -- TODO Fill in based on recurrence series. Int ID = order in series.
-        generatedInstances =
-            IntDict.empty
-
-        -- TODO Use series order ID to filter only relevant instances
         relevantSeriesMembers =
-            IntDict.filterKeys isRelevant generatedInstances
+            List.concatMap (fillSeries ( zoneHistory, relevantPeriod ) fullClass) fullClass.recurrence
     in
     relevantSavedInstances
-        ++ generatedInstances
+        ++ relevantSeriesMembers
+
+
+fillSeries : ( ZoneHistory, Period ) -> Class -> RecurrenceRule -> List Instance
+fillSeries ( zoneHistory, relevantPeriod ) fullClass seriesRule =
+    -- TODO
+    []
 
 
 instanceProgress : Instance -> Progress
