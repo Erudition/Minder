@@ -1,4 +1,4 @@
-module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
+module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, instantaneous, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -84,6 +84,14 @@ timelineWithStart defaultStart momentList =
 
     else
         timeline (defaultStart :: momentList)
+
+
+{-| Generate a `Period` of zero length.
+Useful for functions expecting a Period, when all you have is a single `Moment`.
+-}
+instantaneous : Moment -> Period
+instantaneous moment =
+    Period moment moment
 
 
 
