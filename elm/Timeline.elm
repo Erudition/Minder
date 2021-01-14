@@ -39,10 +39,13 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import String.Normalize
 import Task as Job
-import Task.Instance exposing (InstanceSkel)
+import Task.Entry as Task
+import Task.Instance as Task exposing (Instance, InstanceSkel)
 import Task.Progress exposing (..)
+import Task.Session as Task
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
+import ZoneHistory
 
 
 
@@ -90,16 +93,16 @@ defaultView =
 
 
 view : ViewState -> Profile -> Environment -> Html Msg
-view state app env =
+view state profile env =
     let
         fullInstanceList =
-            IntDict.values <| Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+            instanceListNow profile env
 
         plannedList =
             List.concatMap Task.getFullSessions fullInstanceList
 
         historyList =
-            Activity.Measure.switchListLiveToPeriods env.time app.timeline
+            Activity.Measure.switchListLiveToPeriods env.time profile.timeline
     in
     case state of
         ShowSpan newStart newFinish ->
@@ -124,6 +127,22 @@ view state app env =
                     [ text "Everything working well? Good."
                     ]
                 ]
+
+
+instanceListNow : Profile -> Environment -> List Instance
+instanceListNow profile env =
+    let
+        ( fullClasses, warnings ) =
+            Task.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+
+        zoneHistory =
+            -- TODO
+            ZoneHistory.init env.time env.timeZone
+
+        rightNow =
+            Period.instantaneous env.time
+    in
+    Task.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
 dayString : Environment -> Moment -> String

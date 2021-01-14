@@ -55,7 +55,7 @@ fallbackUrl =
 
 
 headlessSubscriptions : Model -> Sub Msg
-headlessSubscriptions ({ appData, environment } as model) =
+headlessSubscriptions ({ profile, environment } as model) =
     Sub.batch
         [ headlessMsg (\s -> NewUrl (urlOrElse s))
 

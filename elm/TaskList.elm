@@ -32,12 +32,16 @@ import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.Instance exposing (InstanceSkel)
+import Task.Class as Task exposing (ClassID)
+import Task.Entry as Task
+import Task.Instance as Task exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress)
 import Task.Progress exposing (..)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
+import ZoneHistory
 
 
 
@@ -79,7 +83,7 @@ defaultView =
 
 
 type alias ExpandedTask =
-    Task.ClassID
+    ClassID
 
 
 type alias NewTaskField =
@@ -87,7 +91,7 @@ type alias NewTaskField =
 
 
 view : ViewState -> Profile -> Environment -> Html Msg
-view state app env =
+view state profile env =
     case state of
         Normal filters expanded field ->
             let
@@ -95,10 +99,10 @@ view state app env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 allFullTaskInstances =
-                    Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+                    instanceListNow profile env
 
                 sortedTasks =
-                    Task.prioritize env.time env.timeZone <| IntDict.values allFullTaskInstances
+                    Task.prioritize env.time env.timeZone allFullTaskInstances
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
@@ -106,12 +110,28 @@ view state app env =
                     [ class "todoapp" ]
                     [ lazy viewInput field
                     , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
-                    , lazy2 viewControls filters (IntDict.values allFullTaskInstances)
+                    , lazy2 viewControls filters allFullTaskInstances
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
                     ]
                 ]
+
+
+instanceListNow : Profile -> Environment -> List Instance
+instanceListNow profile env =
+    let
+        ( fullClasses, warnings ) =
+            Task.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+
+        zoneHistory =
+            -- TODO
+            ZoneHistory.init env.time env.timeZone
+
+        rightNow =
+            Period.instantaneous env.time
+    in
+    Task.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
 
@@ -154,22 +174,22 @@ onEnter msg =
 -- viewTasks : String -> List Task -> Html Msg
 
 
-viewTasks : Environment -> Filter -> List Task.Instance -> Html Msg
+viewTasks : Environment -> Filter -> List Instance -> Html Msg
 viewTasks env filter tasks =
     let
         isVisible task =
             case filter of
                 CompleteTasksOnly ->
-                    Task.completed task
+                    completed task
 
                 IncompleteTasksOnly ->
-                    not (Task.completed task)
+                    not (completed task)
 
                 _ ->
                     True
 
         allCompleted =
-            List.all Task.completed tasks
+            List.all completed tasks
     in
     section
         [ class "main" ]
@@ -192,7 +212,7 @@ viewTasks env filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Task.Instance -> ( String, Html Msg )
+viewKeyedTask : Environment -> Instance -> ( String, Html Msg )
 viewKeyedTask env task =
     ( String.fromInt task.instance.id, lazy2 viewTask env task )
 
@@ -201,11 +221,11 @@ viewKeyedTask env task =
 -- viewTask : Task -> Html Msg
 
 
-viewTask : Environment -> Task.Instance -> Html Msg
+viewTask : Environment -> Instance -> Html Msg
 viewTask env task =
     li
         [ class "task-entry"
-        , classList [ ( "completed", Task.completed task ), ( "editing", False ) ]
+        , classList [ ( "completed", completed task ), ( "editing", False ) ]
         , title <|
             -- hover tooltip
             String.concat
@@ -222,9 +242,9 @@ viewTask env task =
             [ input
                 [ class "toggle"
                 , type_ "checkbox"
-                , Attr.checked (Task.completed task)
+                , Attr.checked (completed task)
                 , onClick
-                    (if not (Task.completed task) then
+                    (if not (completed task) then
                         UpdateProgress task (unitMax task.class.completionUnits)
 
                      else
@@ -278,11 +298,11 @@ viewTask env task =
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
 -}
-progressSlider : Task.Instance -> Html Msg
+progressSlider : Instance -> Html Msg
 progressSlider task =
     let
         completion =
-            Task.instanceProgress task
+            instanceProgress task
     in
     input
         [ class "task-progress"
@@ -301,7 +321,7 @@ progressSlider task =
         , onDoubleClick (EditingTitle task.instance.id True)
         , onFocus (FocusSlider task.instance.id True)
         , onBlur (FocusSlider task.instance.id False)
-        , dynamicSliderThumbCss (getNormalizedPortion (Task.instanceProgress task))
+        , dynamicSliderThumbCss (getNormalizedPortion (instanceProgress task))
         ]
         []
 
@@ -322,7 +342,7 @@ dynamicSliderThumbCss portion =
     css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
 
 
-extractSliderInput : Task.Instance -> String -> Msg
+extractSliderInput : Instance -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task <|
         Basics.round <|
@@ -336,7 +356,7 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Environment -> Task.Instance -> Html Msg
+timingInfo : Environment -> Instance -> Html Msg
 timingInfo env task =
     let
         effortDescription =
@@ -441,24 +461,30 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : Task.Instance -> String
+describeEffort : Instance -> String
 describeEffort task =
     let
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort task.class.minEffort, sayEffort task.class.maxEffort ) of
-        ( [], [] ) ->
+    case ( sayEffort task.class.minEffort, sayEffort task.class.predictedEffort, sayEffort task.class.maxEffort ) of
+        ( [], [], [] ) ->
             ""
 
-        ( [], givenMax ) ->
+        ( [], [], givenMax ) ->
             "up to " ++ HumanDuration.abbreviatedSpaced givenMax ++ " by "
 
-        ( givenMin, [] ) ->
+        ( givenMin, [], [] ) ->
             "at least " ++ HumanDuration.abbreviatedSpaced givenMin ++ " by "
 
-        ( givenMin, givenMax ) ->
+        ( givenMin, [], givenMax ) ->
             HumanDuration.abbreviatedSpaced givenMin ++ " - " ++ HumanDuration.abbreviatedSpaced givenMax ++ " by "
+
+        ( [], predicted, [] ) ->
+            "~" ++ HumanDuration.abbreviatedSpaced predicted ++ " by "
+
+        ( givenMin, predicted, givenMax ) ->
+            "~" ++ HumanDuration.abbreviatedSpaced predicted ++ " (" ++ HumanDuration.abbreviatedSpaced givenMin ++ "-" ++ HumanDuration.abbreviatedSpaced givenMax ++ ") by "
 
 
 describeTaskMoment : Moment -> Zone -> FuzzyMoment -> String
@@ -468,7 +494,7 @@ describeTaskMoment now zone dueMoment =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> Task.ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : Environment -> ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -492,7 +518,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> Task.ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : Environment -> ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -515,7 +541,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List Task.Instance -> Html Msg
+viewControls : List Filter -> List Instance -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
@@ -629,14 +655,14 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle Task.ClassID Bool
-    | UpdateTitle Task.ClassID String
+    | EditingTitle ClassID Bool
+    | UpdateTitle ClassID String
     | Add
-    | Delete Task.InstanceID
+    | Delete InstanceID
     | DeleteComplete
-    | UpdateProgress Task.Instance Portion
-    | FocusSlider Task.ClassID Bool
-    | UpdateTaskDate Task.ClassID String (Maybe FuzzyMoment)
+    | UpdateProgress Instance Portion
+    | FocusSlider ClassID Bool
+    | UpdateTaskDate ClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
@@ -802,13 +828,13 @@ update msg state app env =
 
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
-urlTriggers app env =
+urlTriggers profile env =
     let
         allFullTaskInstances =
-            Task.buildRelevantInstanceDict ( app.taskEntries, app.taskClasses, app.taskInstances )
+            instanceListNow profile env
 
         tasksPairedWithNames =
-            List.map triggerEntry (IntDict.values allFullTaskInstances)
+            List.map triggerEntry allFullTaskInstances
 
         triggerEntry fullInstance =
             ( fullInstance.class.title, UpdateProgress fullInstance (getWhole (Task.instanceProgress fullInstance)) )
@@ -817,7 +843,7 @@ urlTriggers app env =
             [ ( "next", UpdateProgress nextTaskFullInstance (getWhole (Task.instanceProgress nextTaskFullInstance)) ) ]
 
         nextTaskEntry =
-            Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask app env)
+            Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask profile env)
 
         noNextTaskEntry =
             [ ( "next", NoOp ) ]

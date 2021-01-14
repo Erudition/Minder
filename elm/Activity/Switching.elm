@@ -19,6 +19,7 @@ import Task.Entry
 import Task.Instance exposing (Instance)
 import Time
 import Time.Extra as Time
+import ZoneHistory
 
 
 multiline : List (List String) -> String
@@ -52,7 +53,8 @@ instanceListNow profile env =
             Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
 
         zoneHistory =
-            Debug.todo "profile.zoneHistory"
+            -- TODO use the real thing
+            ZoneHistory.init env.time env.timeZone
 
         rightNow =
             Period.instantaneous env.time
