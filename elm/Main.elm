@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, appDataFromJson, appDataToJson, buildModel, defaultView, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, buildModel, defaultView, emptyViewState, infoFooter, init, main, profileFromJson, profileToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 import Browser
 import Browser.Events
@@ -10,6 +10,8 @@ import Html.Styled as H exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Incubator.Todoist as Todoist
+import IntDict
+import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
@@ -42,7 +44,7 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions ({ appData, environment } as model) =
+subscriptions ({ profile, environment } as model) =
     Sub.batch
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
@@ -78,7 +80,7 @@ updateWithStorage msg model =
             update msg model
     in
     ( newModel
-    , Cmd.batch [ setStorage (appDataToJson newModel.appData), cmds ]
+    , Cmd.batch [ setStorage (profileToJson newModel.profile), cmds ]
     )
 
 
@@ -145,7 +147,7 @@ init maybeJson url maybeKey =
         startingModel =
             case maybeJson of
                 Just jsonAppDatabase ->
-                    case appDataFromJson jsonAppDatabase of
+                    case profileFromJson jsonAppDatabase of
                         Success savedAppData ->
                             buildModel savedAppData url maybeKey
 
@@ -188,15 +190,15 @@ Intentionally minimal - we originally went with the common elm habit of stuffing
 -}
 type alias Model =
     { viewState : ViewState
-    , appData : Profile
+    , profile : Profile
     , environment : Environment
     }
 
 
 buildModel : Profile -> Url.Url -> Maybe Nav.Key -> Model
-buildModel appData url maybeKey =
+buildModel profile url maybeKey =
     { viewState = viewUrl url
-    , appData = appData
+    , profile = profile
     , environment = Environment.preInit maybeKey
     }
 
@@ -205,13 +207,13 @@ type alias JsonAppDatabase =
     String
 
 
-appDataFromJson : JsonAppDatabase -> DecodeResult Profile
-appDataFromJson incomingJson =
+profileFromJson : JsonAppDatabase -> DecodeResult Profile
+profileFromJson incomingJson =
     Decode.decodeString decodeProfile incomingJson
 
 
-appDataToJson : Profile -> JsonAppDatabase
-appDataToJson appData =
+profileToJson : Profile -> JsonAppDatabase
+profileToJson appData =
     Encode.encode 0 (encodeProfile appData)
 
 
@@ -258,7 +260,7 @@ defaultView =
 
 
 view : Model -> Browser.Document Msg
-view { viewState, appData, environment } =
+view { viewState, profile, environment } =
     if environment.time == Moment.zero then
         { title = "Loading..."
         , body = [ toUnstyled (H.map (\_ -> NoOp) (text "Loading")) ]
@@ -270,9 +272,9 @@ view { viewState, appData, environment } =
                 { title = "Docket - Task List"
                 , body =
                     List.map toUnstyled
-                        [ H.map TaskListMsg (TaskList.view subState appData environment)
+                        [ H.map TaskListMsg (TaskList.view subState profile environment)
                         , infoFooter
-                        , errorList appData.errors
+                        , errorList profile.errors
                         ]
                 }
 
@@ -280,9 +282,9 @@ view { viewState, appData, environment } =
                 { title = "Docket - Timeline"
                 , body =
                     List.map toUnstyled
-                        [ H.map TimelineMsg (Timeline.view subState appData environment)
+                        [ H.map TimelineMsg (Timeline.view subState profile environment)
                         , infoFooter
-                        , errorList appData.errors
+                        , errorList profile.errors
                         ]
                 }
 
@@ -290,9 +292,9 @@ view { viewState, appData, environment } =
                 { title = "Docket Time Tracker"
                 , body =
                     List.map toUnstyled
-                        [ H.map TimeTrackerMsg (TimeTracker.view subState appData environment)
+                        [ H.map TimeTrackerMsg (TimeTracker.view subState profile environment)
                         , infoFooter
-                        , errorList appData.errors
+                        , errorList profile.errors
                         ]
                 }
 
@@ -364,8 +366,8 @@ type Msg
     | Tock Msg Moment
     | SetZoneAndTime Zone Moment
     | ClearErrors
-    | SyncTodoist
-    | TodoistServerResponse Todoist.Msg
+    | ThirdPartySync ThirdPartyService
+    | ThirdPartyServerResponded ThirdPartyResponse
     | Link Browser.UrlRequest
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
@@ -374,32 +376,51 @@ type Msg
     | NewAppData String
 
 
+type ThirdPartyService
+    = Todoist
+    | Marvin
+
+
+type ThirdPartyResponse
+    = TodoistServer Todoist.Msg
+    | MarvinServer Marvin.Msg
+
+
 
 -- How we update our Model on a given Msg?
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ viewState, appData, environment } as model) =
+update msg ({ viewState, profile, environment } as model) =
     let
         justRunCommand command =
             ( model, command )
 
         justSetEnv newEnv =
-            ( Model viewState appData newEnv, Cmd.none )
+            ( Model viewState profile newEnv, Cmd.none )
     in
     case msg of
         ClearErrors ->
-            ( Model viewState { appData | errors = [] } environment, Cmd.none )
+            ( Model viewState { profile | errors = [] } environment, Cmd.none )
 
-        SyncTodoist ->
-            justRunCommand <|
-                Cmd.map TodoistServerResponse <|
-                    Integrations.Todoist.fetchUpdates appData.todoist
+        ThirdPartySync service ->
+            case service of
+                Todoist ->
+                    justRunCommand <|
+                        Cmd.map ThirdPartyServerResponded <|
+                            Cmd.map TodoistServer <|
+                                Integrations.Todoist.fetchUpdates profile.todoist
 
-        TodoistServerResponse response ->
+                Marvin ->
+                    justRunCommand <|
+                        Cmd.map ThirdPartyServerResponded <|
+                            Cmd.map MarvinServer <|
+                                Marvin.test2
+
+        ThirdPartyServerResponded (TodoistServer response) ->
             let
                 ( newAppData, whatHappened ) =
-                    Integrations.Todoist.handle response appData
+                    Integrations.Todoist.handle response profile
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
@@ -416,6 +437,25 @@ update msg ({ viewState, appData, environment } as model) =
             in
             ( Model viewState newAppData environment
             , notify [ notification ]
+            )
+
+        ThirdPartyServerResponded (MarvinServer response) ->
+            let
+                ( newItems, whatHappened ) =
+                    Marvin.handle (Moment.toSmartInt environment.time) response
+
+                newProfile1WithItems =
+                    { profile
+                        | taskEntries = profile.taskEntries ++ newItems.taskEntries
+                        , taskClasses = IntDict.union profile.taskClasses newItems.taskClasses
+                        , taskInstances = IntDict.union profile.taskInstances newItems.taskInstances
+                    }
+
+                newProfile2WithErrors =
+                    Profile.saveError newProfile1WithItems ("Here's what happened: \n" ++ whatHappened)
+            in
+            ( Model viewState newProfile2WithErrors environment
+            , Cmd.none
             )
 
         Link urlRequest ->
@@ -455,7 +495,7 @@ update msg ({ viewState, appData, environment } as model) =
                             TaskList.defaultView
 
                 ( newState, newApp, newCommand ) =
-                    TaskList.update subMsg subViewState appData environment
+                    TaskList.update subMsg subViewState profile environment
             in
             ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
 
@@ -470,14 +510,14 @@ update msg ({ viewState, appData, environment } as model) =
                             TimeTracker.defaultView
 
                 ( newState, newApp, newCommand ) =
-                    TimeTracker.update subMsg subViewState appData environment
+                    TimeTracker.update subMsg subViewState profile environment
             in
             ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
 
         NewAppData newJSON ->
             let
                 maybeNewApp =
-                    appDataFromJson newJSON
+                    profileFromJson newJSON
             in
             case maybeNewApp of
                 Success savedAppData ->
@@ -487,10 +527,10 @@ update msg ({ viewState, appData, environment } as model) =
                     ( Model viewState (Profile.saveWarnings savedAppData warnings) environment, Cmd.none )
 
                 Errors errors ->
-                    ( Model viewState (Profile.saveDecodeErrors appData errors) environment, Cmd.none )
+                    ( Model viewState (Profile.saveDecodeErrors profile errors) environment, Cmd.none )
 
                 BadJson ->
-                    ( Model viewState (Profile.saveError appData "Got bad JSON from cross-sync") environment, Cmd.none )
+                    ( Model viewState (Profile.saveError profile "Got bad JSON from cross-sync") environment, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -505,10 +545,10 @@ update msg ({ viewState, appData, environment } as model) =
 Example: `http://localhost:8000/www/index.html#/sub/path?hey=there#yo`
 
 is normally parsed as
-`url: { fragment = Just "/sub/path?hey=there#yo", host = "localhost", path = "/www/webapp.html", port_ = Just 8000, protocol = Http, query = Nothing }`
+`url: { fragment = Just "/sub/path?hey=there#yo", host = "localhost", path = "/www/index.html", port_ = Just 8000, protocol = Http, query = Nothing }`
 
 but with this function we can pretend it was:
-`url: { fragment = Just "yo", host = "localhost", path = "/www/webapp.html/sub/path", port_ = Just 8000, protocol = Http, query = Just "hey=there" }`
+`url: { fragment = Just "yo", host = "localhost", path = "/www/index.html/sub/path", port_ = Just 8000, protocol = Http, query = Just "hey=there" }`
 
 even though that path may have resulted in a 404 on any host without fancy redirection set up (such as the development environment). Sweet!
 
@@ -557,7 +597,7 @@ routeParser =
 {-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
 -}
 handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
-handleUrlTriggers rawUrl ({ appData, environment } as model) =
+handleUrlTriggers rawUrl ({ profile, environment } as model) =
     let
         url =
             bypassFakeFragment rawUrl
@@ -604,9 +644,14 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers appData environment)
-                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers appData)
-                ++ [ ( "sync", Dict.fromList [ ( "todoist", SyncTodoist ) ] )
+            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers profile environment)
+                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers profile)
+                ++ [ ( "sync"
+                     , Dict.fromList
+                        [ ( "todoist", ThirdPartySync Todoist )
+                        , ( "marvin", ThirdPartySync Marvin )
+                        ]
+                     )
                    , ( "clearerrors", Dict.fromList [ ( "clearerrors", ClearErrors ) ] )
                    ]
 
@@ -643,14 +688,14 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                                 ++ " parsers matched key and value: "
                                 ++ query
                     in
-                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
 
                 ( Just triggerMsg, Nothing ) ->
                     let
                         problemText =
                             "Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!"
                     in
-                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
 
                 ( Nothing, Nothing ) ->
                     ( model, Cmd.none )
@@ -668,7 +713,7 @@ handleUrlTriggers rawUrl ({ appData, environment } as model) =
                         problemText =
                             "URL: not sure what to do with: " ++ queriesPresent ++ ", so I just left it there. Is the trigger misspelled?"
                     in
-                    ( { model | appData = saveError appData problemText }, External.Commands.toast problemText )
+                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
 
 
 nerfUrl : Url.Url -> Url.Url
