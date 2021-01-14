@@ -1,4 +1,4 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax, zero)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -136,6 +136,11 @@ unitMax unit =
 progressFromFloat : Float -> Progress
 progressFromFloat float =
     ( round float, Percent )
+
+
+zero : Portion
+zero =
+    0
 
 
 

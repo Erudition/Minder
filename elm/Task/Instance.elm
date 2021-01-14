@@ -29,7 +29,7 @@ import ZoneHistory exposing (ZoneHistory)
 type alias InstanceSkel =
     { class : ClassID
     , id : InstanceID
-    , series : Maybe SeriesID
+    , memberOfSeries : Maybe SeriesID
     , completion : Progress.Portion
     , externalDeadline : Maybe FuzzyMoment -- *
     , startBy : Maybe FuzzyMoment -- *
@@ -45,7 +45,7 @@ decodeInstance =
     decode InstanceSkel
         |> Pipeline.required "class" decodeClassID
         |> Pipeline.required "id" decodeInstanceID
-        |> Pipeline.required "seriesID" (Decode.nullable Decode.int)
+        |> Pipeline.optional "memberOfSeries" (Decode.nullable Decode.int) Nothing
         |> Pipeline.required "completion" Decode.int
         |> Pipeline.required "externalDeadline" (Decode.nullable decodeTaskMoment)
         |> Pipeline.required "startBy" (Decode.nullable decodeTaskMoment)
@@ -60,7 +60,7 @@ encodeInstance taskInstance =
     Encode.object <|
         [ ( "class", Encode.int taskInstance.class )
         , ( "id", Encode.int taskInstance.id )
-        , ( "seriesID", Encode2.maybe Encode.int taskInstance.series )
+        , ( "memberOfSeries", Encode2.maybe Encode.int taskInstance.memberOfSeries )
         , ( "completion", Encode.int taskInstance.completion )
         , ( "externalDeadline", Encode2.maybe encodeTaskMoment taskInstance.externalDeadline )
         , ( "startBy", Encode2.maybe encodeTaskMoment taskInstance.startBy )
@@ -75,7 +75,7 @@ newInstanceSkel : Int -> ClassSkel -> InstanceSkel
 newInstanceSkel newID class =
     { class = class.id
     , id = newID
-    , series = Nothing
+    , memberOfSeries = Nothing
     , completion = 0
     , externalDeadline = Nothing
     , startBy = Nothing

@@ -28,6 +28,24 @@ type alias Entry =
     WrapperParent
 
 
+newRootEntry : ClassID -> Entry
+newRootEntry classID =
+    let
+        parentProps =
+            ParentProperties <| Just "none"
+
+        outsideWrap =
+            WrapperParent parentProps (Nonempty.fromElement (LeaderIsHere leader))
+
+        leader =
+            LeaderParent parentProps [] (Nonempty.fromElement follower)
+
+        follower =
+            FollowerParent parentProps (Nonempty.fromElement (Singleton classID))
+    in
+    outsideWrap
+
+
 decodeEntry : Decoder Entry
 decodeEntry =
     let
