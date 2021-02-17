@@ -110,8 +110,13 @@ view state profile env =
                 ( start, finish ) =
                     ( Maybe.withDefault env.time newStart, Maybe.withDefault env.time newFinish )
 
-                defaultChunk =
-                    { period = Period.fromStart dayStarted Duration.aDay
+                defaultChunk1 =
+                    { period = Period.fromStart dayStarted Duration.aDay -- today
+                    , rowLength = Duration.anHour
+                    }
+
+                defaultChunk2 =
+                    { period = Period.fromStart (Period.end defaultChunk1.period) Duration.aDay -- today and tomorrow
                     , rowLength = Duration.anHour
                     }
 
@@ -122,7 +127,8 @@ view state profile env =
             in
             section
                 [ id "timeline" ]
-                [ viewDay env defaultChunk plannedList historyList
+                [ viewDay env defaultChunk1 plannedList historyList
+                , viewDay env defaultChunk2 plannedList historyList
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
                     ]
@@ -157,13 +163,19 @@ viewDay env day sessionList historyList =
             List.filter (\ses -> Period.isWithin day.period (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
 
         -- TODO that's the wrong place to do that
+        rowPeriods =
+            Period.divide day.rowLength day.period
+
         rowMarkers =
-            List.map markRow (Period.divide day.rowLength day.period)
+            List.map markRow rowPeriods
 
         markRow per =
             node "timeline-area"
-                []
+                [ classList [ ( "midnight", isMidnightRow (Period.start per) ) ] ]
                 [ text <| describeMoment <| Period.start per ]
+
+        isMidnightRow rowPeriodStart =
+            Clock.isMidnight (HumanMoment.extractTime env.timeZone rowPeriodStart)
 
         nowMarker =
             let
@@ -193,13 +205,13 @@ viewDay env day sessionList historyList =
         [ id <| "day" ++ dayString env env.time ]
         (rowMarkers
             ++ List.map (viewHistorySession env day) historyList
-            ++ List.map (viewSession env day) sessionListToday
+            ++ List.map (viewPlannedSession env day) sessionListToday
             ++ [ nowMarker ]
         )
 
 
-viewSession : Environment -> ChosenDayWindow -> Task.FullSession -> Html msg
-viewSession env day fullSession =
+viewPlannedSession : Environment -> ChosenDayWindow -> Task.FullSession -> Html msg
+viewPlannedSession env day fullSession =
     let
         ( sessionPeriodStart, sessionPeriodLength ) =
             fullSession.session
