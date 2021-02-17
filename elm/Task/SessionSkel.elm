@@ -24,13 +24,9 @@ type alias UserPlannedSession =
 
 decodeSession : Decoder UserPlannedSession
 decodeSession =
-    let
-        decodeFuzzyMoment =
-            Porting.customDecoder Decode.string HumanMoment.fuzzyFromString
-    in
     Porting.arrayAsTuple2 decodeFuzzyMoment decodeDuration
 
 
 encodeSession : UserPlannedSession -> Encode.Value
 encodeSession plannedSession =
-    Debug.todo "encode plannedSessions"
+    Porting.encodeTuple2 Porting.encodeFuzzyMoment Porting.encodeDuration plannedSession

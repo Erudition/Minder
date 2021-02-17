@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -8,6 +8,7 @@ import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
 import Maybe.Extra as Maybe
 import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Human.Moment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (Moment)
 import Time.Extra exposing (Interval(..))
 
@@ -472,3 +473,13 @@ encodeMoment dur =
 decodeMoment : Decoder Moment
 decodeMoment =
     Decode.map Moment.fromSmartInt Decode.int
+
+
+decodeFuzzyMoment : Decoder FuzzyMoment
+decodeFuzzyMoment =
+    customDecoder Decode.string SmartTime.Human.Moment.fuzzyFromString
+
+
+encodeFuzzyMoment : FuzzyMoment -> Encode.Value
+encodeFuzzyMoment fuzzy =
+    Encode.string <| SmartTime.Human.Moment.fuzzyToString fuzzy

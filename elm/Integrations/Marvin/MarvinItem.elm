@@ -16,6 +16,7 @@ import Task.Class
 import Task.Entry
 import Task.Instance
 import Task.Progress
+import Task.SessionSkel exposing (UserPlannedSession)
 
 
 type alias ItemID =
@@ -89,6 +90,7 @@ type alias MarvinItem =
     , db : String
     , type_ : String
     , times : List Moment
+    , taskTime : Maybe TimeOfDay
     }
 
 
@@ -127,6 +129,7 @@ encodeMarvinItem task =
         , ( "db", Encode.string task.db )
         , ( "type", Encode.string task.type_ )
         , ( "times", Encode.list encodeMoment task.times )
+        , ( "taskTime", Encode.maybe encodeTimeOfDay task.taskTime )
         ]
 
 
@@ -165,12 +168,12 @@ decodeMarvinItem =
         |> required "db" string
         |> optional "type" string ""
         |> optional "times" (list decodeMoment) []
+        |> optional "taskTime" (nullable timeOfDayDecoder) Nothing
         |> optionalIgnored "subtasks"
         |> optionalIgnored "reminderTime"
         |> optionalIgnored "autoSnooze"
         |> optionalIgnored "snooze"
         |> optionalIgnored "reminderOffset"
-        |> optionalIgnored "taskTime"
         |> optionalIgnored "masterRank"
         |> optionalIgnored "fixParentId"
         --undocumented^
@@ -194,6 +197,7 @@ decodeMarvinItem =
         |> optionalIgnored "createdAt"
         |> optionalIgnored "generatedAt"
         |> optionalIgnored "sectionId"
+        |> optionalIgnored "sectionid"
         |> optionalIgnored "_rev"
         |> optionalIgnored "imported"
         |> optionalIgnored "workedOnAt"
@@ -203,6 +207,7 @@ decodeMarvinItem =
         |> optionalIgnored "dependsOn"
         |> optionalIgnored "ackedDeps"
         |> optionalIgnored "priority"
+        |> optionalIgnored "rank_43f625b3-1d08-4f0f-b21e-d0a8d2f707ea"
 
 
 encodeCalendarDate : CalendarDate -> Encode.Value
@@ -303,6 +308,16 @@ toDocketTaskNaive classCounter marvinItem =
         instanceBase =
             Task.Instance.newInstanceSkel classCounter finalClass
 
+        plannedSessionList : List UserPlannedSession
+        plannedSessionList =
+            case ( marvinItem.taskTime, marvinItem.timeEstimate, marvinItem.day ) of
+                ( Just plannedTime, Just plannedDuration, Just plannedDay ) ->
+                    -- creates a new PlannedSession
+                    List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, plannedTime ), plannedDuration )
+
+                _ ->
+                    []
+
         finalInstance =
             { instanceBase
                 | completion =
@@ -314,6 +329,7 @@ toDocketTaskNaive classCounter marvinItem =
                 , externalDeadline = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.dueDate
                 , startBy = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.startDate
                 , finishBy = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate
+                , plannedSessions = plannedSessionList
             }
     in
     { entry = entry, class = finalClass, instance = finalInstance }

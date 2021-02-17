@@ -263,7 +263,7 @@ viewTask env task =
                 , timingInfo env task
                 ]
             , div [ class "sessions" ]
-                [ text "No plan" ]
+                [ text <| describeTaskPlan env task ]
             , button
                 [ class "destroy"
                 , onClick (Delete task.instance.id)
@@ -492,6 +492,19 @@ describeTaskMoment now zone dueMoment =
     HumanMoment.fuzzyDescription now zone dueMoment
 
 
+describeTaskPlan : Environment -> Instance -> String
+describeTaskPlan env instance =
+    case instance.instance.plannedSessions of
+        [] ->
+            "No plan"
+
+        [ ( planStart, planDuration ) ] ->
+            HumanMoment.fuzzyDescription env.time env.timeZone planStart
+
+        _ ->
+            "Multiple plans"
+
+
 {-| Get the date out of a date input.
 -}
 attemptDateChange : Environment -> ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
@@ -682,8 +695,14 @@ update msg state app env =
 
                 Normal filters _ newTaskTitle ->
                     let
+                        newClassID =
+                            Moment.toSmartInt env.time
+
+                        newEntry =
+                            Task.newRootEntry newClassID
+
                         newTaskClass =
-                            Task.newClassSkel (Task.normalizeTitle newTaskTitle) (Moment.toSmartInt env.time)
+                            Task.newClassSkel (Task.normalizeTitle newTaskTitle) newClassID
 
                         newTaskInstance =
                             Task.newInstanceSkel (Moment.toSmartInt env.time) newTaskClass
@@ -691,7 +710,8 @@ update msg state app env =
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
                     , { app
-                        | taskClasses = IntDict.insert newTaskClass.id newTaskClass app.taskClasses
+                        | taskEntries = List.append app.taskEntries [ newEntry ]
+                        , taskClasses = IntDict.insert newTaskClass.id newTaskClass app.taskClasses
                         , taskInstances = IntDict.insert newTaskInstance.id newTaskInstance app.taskInstances
                       }
                       -- now using the creation time as the task ID, for sync

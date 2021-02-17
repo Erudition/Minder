@@ -564,7 +564,7 @@ nextMinute zone moment =
 
 Note: For something like a to-do list, this is best wrapped with a `Maybe` so you can have todos with no due moments!
 
-Note: As you can see, there no Floating/Universal distinction for the `DateOnly` option. That's because dates, unlike `Moment`s, are inherently `Floating` - they're pretty much always local! You never see a date with a time zone (like "2022/03/12 EST" (!?) or something) because anyone collaborating across timezones will need more precision than just a Date anyway. Anything meaningfully assigned to a Date - like holidays or birthday - is always attributed to the start of that date _in your local zone_. That's why the New Year always starts at midnight wherever you are, not midnight in Greenwhich!
+Note: As you can see, there no Floating/Universal distinction for the `DateOnly` option. That's because dates, unlike `Moment`s, are inherently `Floating` - they're pretty much always local! You never see a date with a time zone (like "2022/03/12 EST" (!?) or something) because anyone collaborating across timezones will need more precision than just a Date anyway. Anything meaningfully assigned to a Date - like holidays or birthday - is always attributed to the start of that date _in your local zone_. That's why the New Year always starts at midnight wherever you are, not midnight in Greenwich!
 
 -}
 type FuzzyMoment
