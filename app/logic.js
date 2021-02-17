@@ -58,7 +58,10 @@ handleOpenURL(function(appURL) {
 // ELM INITIALIZATION -----------------------------------------------------------
 
 
-var elm = require('../www/elm-headless.js').Elm.Headless.init(
+//var elm = require('../www/elm-headless.js').Elm.Headless.init(
+//    { flags: [launchURL, appDataString] });
+
+var elm = require('../www/elm-gui.js').Elm.Main.init(
     { flags: [launchURL, appDataString] });
 
 console.info("Got past Elm initialization! ---------------------------------");

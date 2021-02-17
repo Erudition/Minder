@@ -1,6 +1,11 @@
+require("nativescript-dom-free");
+require("@nativescript/canvas-polyfill");
+
 // START BUSINESS LOGIC THREAD
 const ElmManager = require("nativescript-worker-loader!./logic.js");
 const worker = new ElmManager();
+
+
 
 const observableModule = require("tns-core-modules/data/observable");
 global.globalViewModel = observableModule.fromObject(
@@ -85,9 +90,31 @@ applicationModule.android.registerBroadcastReceiver(
 // LISTENING FOR STANDARD SYSTEM BROADCASTS ------------------------------------
 
 
-
 // START THE APP
 const application = require("tns-core-modules/application");
+
+
+
+function launchListener (args)  {
+    console.info("Attempting Elm initialization! ---------------------------------");
+    console.log("args is " + JSON.stringify(args));
+
+//    var rootElement =  document.getElementById("root-tabview");
+//
+//    console.log("finding root element: " + document.getElementById("root-tabview"));
+//
+//    var document = {location : {href : "https://minder.app/"}, getElementById : getElementById}
+//    var elm = require('../www/elm-browserless.js').Elm.Browserless.init(
+//        { node: rootElement
+//        , flags: ["https://minder.app/", ""]
+//        });
+
+    console.info("Got past Elm initialization! ---------------------------------");
+    console.log("The app was launched!");
+}
+application.on(application.launchEvent, launchListener);
+
+
 application.run({ moduleName: "app-root" });
 
 /*

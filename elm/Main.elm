@@ -315,7 +315,16 @@ view { viewState, profile, environment } =
 infoFooter : Html Msg
 infoFooter =
     footer [ class "info" ]
-        [ p [] [ text "Here we go! Deployment is instant now!" ]
+        [ p []
+            [ text "Switch to: "
+            , a [ href "/tasks" ] [ text "Task List" ]
+            , text " ➖ "
+            , a [ href "/timetracker" ] [ text "Time Tracker" ]
+            , text " ➖ "
+            , a [ href "/timeline" ] [ text "Timeline" ]
+            , text " ➖ "
+            , a [ href "?sync=marvin" ] [ text "Sync Marvin" ]
+            ]
         , p []
             [ text "Written by "
             , a [ href "https://github.com/Erudition" ] [ text "Erudition" ]

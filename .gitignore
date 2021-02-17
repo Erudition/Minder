@@ -2,6 +2,7 @@
 hooks/
 node_modules/
 platforms/
+nsconfig.json
 
 # NativeScript Template
 *.js.map
