@@ -241,6 +241,7 @@ type Icon
     = File SvgPath
     | Ion
     | Other
+    | Emoji String
 
 
 decodeIcon : Decoder Icon
@@ -249,6 +250,7 @@ decodeIcon =
         [ ( "File", decodeFile )
         , ( "Ion", succeed Ion )
         , ( "Other", succeed Other )
+        , ( "Emoji", Decode.map Emoji Decode.string )
         ]
 
 
@@ -268,6 +270,9 @@ encodeIcon v =
 
         Other ->
             Encode.string "Other"
+
+        Emoji singleEmoji ->
+            Encode.string singleEmoji
 
 
 {-| Icon files (scalable vector graphics, please!) location
@@ -424,7 +429,7 @@ defaults startWith =
 
         Restroom ->
             { names = [ "Restroom", "Toilet", "WC", "Washroom", "Latrine", "Lavatory", "Water Closet" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🚽"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
             , taskOptional = True
             , evidence = []
@@ -437,7 +442,7 @@ defaults startWith =
 
         Grooming ->
             { names = [ "Grooming", "Tending", "Groom" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💈"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -450,7 +455,7 @@ defaults startWith =
 
         Meal ->
             { names = [ "Meal", "Eating", "Food", "Lunch", "Dinner", "Breakfast" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🍽"
             , excusable = TemporarilyExcused ( Minutes 40, Hours 3 )
             , taskOptional = True
             , evidence = []
@@ -463,7 +468,7 @@ defaults startWith =
 
         Supplements ->
             { names = [ "Supplements", "Pills", "Medication" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💊"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -476,7 +481,7 @@ defaults startWith =
 
         Workout ->
             { names = [ "Workout", "Working Out", "Work Out" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💪"
             , excusable = TemporarilyExcused ( Minutes 12, Hours 3 )
             , taskOptional = True
             , evidence = []
@@ -489,7 +494,7 @@ defaults startWith =
 
         Shower ->
             { names = [ "Shower", "Bathing", "Showering" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🚿"
             , excusable = TemporarilyExcused ( Minutes 25, Hours 18 )
             , taskOptional = True
             , evidence = []
@@ -502,7 +507,7 @@ defaults startWith =
 
         Toothbrush ->
             { names = [ "Toothbrush", "Teeth", "Brushing Teeth", "Teethbrushing" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1FAA5}"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -515,7 +520,7 @@ defaults startWith =
 
         Floss ->
             { names = [ "Floss", "Flossing" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F9B7}"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -528,7 +533,7 @@ defaults startWith =
 
         Wakeup ->
             { names = [ "Wakeup", "Waking Up", "Wakeup Walk" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F971}"
             , excusable = TemporarilyExcused ( Minutes 12, Hours 15 )
             , taskOptional = True
             , evidence = []
@@ -541,7 +546,7 @@ defaults startWith =
 
         Sleep ->
             { names = [ "Sleep", "Sleeping" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💤"
             , excusable = IndefinitelyExcused
             , taskOptional = True
             , evidence = []
@@ -554,7 +559,7 @@ defaults startWith =
 
         Plan ->
             { names = [ "Plan", "Planning", "Plans" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📅"
             , excusable = TemporarilyExcused ( Minutes 20, Hours 3 )
             , taskOptional = True
             , evidence = []
@@ -567,7 +572,7 @@ defaults startWith =
 
         Configure ->
             { names = [ "Configure", "Configuring", "Configuration" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🔧"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 5 )
             , taskOptional = True
             , evidence = []
@@ -580,7 +585,7 @@ defaults startWith =
 
         Email ->
             { names = [ "Email", "E-Mail", "E-mail", "Emailing", "E-mails", "Emails", "E-mailing" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📧"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -593,7 +598,7 @@ defaults startWith =
 
         Work ->
             { names = [ "Work", "Working", "Listings Work" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💼"
             , excusable = TemporarilyExcused ( Hours 1, Hours 12 )
             , taskOptional = True
             , evidence = []
@@ -606,7 +611,7 @@ defaults startWith =
 
         Call ->
             { names = [ "Call", "Calling", "Phone Call", "Phone", "Phone Calls", "Calling", "Voice Call", "Voice Chat", "Video Call" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🗣"
             , excusable = TemporarilyExcused ( Minutes 35, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -619,7 +624,7 @@ defaults startWith =
 
         Chores ->
             { names = [ "Chore", "Chores" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F9F9}"
             , excusable = TemporarilyExcused ( Minutes 25, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -632,7 +637,7 @@ defaults startWith =
 
         Parents ->
             { names = [ "Parents", "Parent" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "👫"
             , excusable = TemporarilyExcused ( Hours 1, Hours 12 )
             , taskOptional = True
             , evidence = []
@@ -645,7 +650,7 @@ defaults startWith =
 
         Prepare ->
             { names = [ "Prepare", "Preparing", "Preparation" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F9F3}"
             , excusable = NeverExcused
             , taskOptional = False
             , evidence = []
@@ -658,7 +663,7 @@ defaults startWith =
 
         Lover ->
             { names = [ "Lover", "S.O.", "Partner" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💋"
             , excusable = TemporarilyExcused ( Hours 2, Hours 8 )
             , taskOptional = True
             , evidence = []
@@ -671,7 +676,7 @@ defaults startWith =
 
         Driving ->
             { names = [ "Driving", "Drive" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🚗"
             , excusable = TemporarilyExcused ( Hours 1, Hours 6 )
             , taskOptional = True
             , evidence = []
@@ -684,7 +689,7 @@ defaults startWith =
 
         Riding ->
             { names = [ "Riding", "Ride", "Passenger" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💺"
             , excusable = TemporarilyExcused ( Minutes 30, Hours 8 )
             , taskOptional = True
             , evidence = []
@@ -697,7 +702,7 @@ defaults startWith =
 
         SocialMedia ->
             { names = [ "Social Media" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "👁"
             , excusable = TemporarilyExcused ( Minutes 20, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -710,7 +715,7 @@ defaults startWith =
 
         Pacing ->
             { names = [ "Pacing", "Pace" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🚶"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -723,7 +728,7 @@ defaults startWith =
 
         Sport ->
             { names = [ "Sport", "Sports", "Playing Sports" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "⛹"
             , excusable = TemporarilyExcused ( Minutes 20, Hours 8 )
             , taskOptional = True
             , evidence = []
@@ -736,7 +741,7 @@ defaults startWith =
 
         Finance ->
             { names = [ "Finance", "Financial", "Finances" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💸"
             , excusable = TemporarilyExcused ( Minutes 20, Hours 16 )
             , taskOptional = True
             , evidence = []
@@ -749,7 +754,7 @@ defaults startWith =
 
         Laundry ->
             { names = [ "Laundry" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "👕"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -762,7 +767,7 @@ defaults startWith =
 
         Bedward ->
             { names = [ "Bedward", "Bedward-bound", "Going to Bed" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🛏"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -775,7 +780,7 @@ defaults startWith =
 
         Browse ->
             { names = [ "Browse", "Browsing" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📑"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -788,7 +793,7 @@ defaults startWith =
 
         Fiction ->
             { names = [ "Fiction", "Reading Fiction" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🐉"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -801,7 +806,7 @@ defaults startWith =
 
         Learning ->
             { names = [ "Learn", "Learning", "Reading", "Read", "Book", "Books" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F9E0}"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 10 )
             , taskOptional = True
             , evidence = []
@@ -814,7 +819,7 @@ defaults startWith =
 
         BrainTrain ->
             { names = [ "Brain Training", "Braining", "Brain Train", "Mental Math Practice" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "💡"
             , excusable = TemporarilyExcused ( Minutes 30, Hours 20 )
             , taskOptional = True
             , evidence = []
@@ -827,7 +832,7 @@ defaults startWith =
 
         Music ->
             { names = [ "Music", "Music Listening" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🎧"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -840,7 +845,7 @@ defaults startWith =
 
         Create ->
             { names = [ "Create", "Creating", "Creation", "Making" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🛠"
             , excusable = TemporarilyExcused ( Minutes 35, Hours 16 )
             , taskOptional = True
             , evidence = []
@@ -853,7 +858,7 @@ defaults startWith =
 
         Children ->
             { names = [ "Children", "Kids" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🚸"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -866,7 +871,7 @@ defaults startWith =
 
         Meeting ->
             { names = [ "Meeting", "Meet", "Meetings" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "👥"
             , excusable = TemporarilyExcused ( Minutes 35, Hours 8 )
             , taskOptional = True
             , evidence = []
@@ -879,7 +884,7 @@ defaults startWith =
 
         Cinema ->
             { names = [ "Cinema", "Movies", "Movie Theatre", "Movie Theater" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🎟"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -892,7 +897,7 @@ defaults startWith =
 
         FilmWatching ->
             { names = [ "Films", "Film Watching", "Watching Movies" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🎞"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -905,7 +910,7 @@ defaults startWith =
 
         Series ->
             { names = [ "Series", "TV Shows", "TV Series" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📺"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -918,7 +923,7 @@ defaults startWith =
 
         Broadcast ->
             { names = [ "Broadcast" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📻"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -931,7 +936,7 @@ defaults startWith =
 
         Theatre ->
             { names = [ "Theatre", "Play", "Play/Musical", "Drama" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🎭"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -944,7 +949,7 @@ defaults startWith =
 
         Shopping ->
             { names = [ "Shopping", "Shop" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🛍"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -957,7 +962,7 @@ defaults startWith =
 
         VideoGaming ->
             { names = [ "Video", "Video Gaming", "Gaming" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🎮"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -970,7 +975,7 @@ defaults startWith =
 
         Housekeeping ->
             { names = [ "Housekeeping" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🏠"
             , excusable = TemporarilyExcused ( Minutes 20, Hours 6 )
             , taskOptional = True
             , evidence = []
@@ -983,7 +988,7 @@ defaults startWith =
 
         MealPrep ->
             { names = [ "Meal Prep", "Cooking", "Food making" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🍳"
             , excusable = TemporarilyExcused ( Minutes 45, Hours 6 )
             , taskOptional = True
             , evidence = []
@@ -996,7 +1001,7 @@ defaults startWith =
 
         Networking ->
             { names = [ "Networking" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F91D}"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1009,7 +1014,7 @@ defaults startWith =
 
         Meditate ->
             { names = [ "Meditate", "Meditation", "Meditating" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F9D8}"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1022,7 +1027,7 @@ defaults startWith =
 
         Homework ->
             { names = [ "Homework", "Schoolwork" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📝"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1035,7 +1040,7 @@ defaults startWith =
 
         Flight ->
             { names = [ "Flight", "Aviation", "Flying", "Airport" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "✈"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1048,7 +1053,7 @@ defaults startWith =
 
         Course ->
             { names = [ "Course", "Courses", "Classes", "Class" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📔"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1061,7 +1066,7 @@ defaults startWith =
 
         Pet ->
             { names = [ "Pet", "Pets", "Pet Care" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🐶"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1074,7 +1079,7 @@ defaults startWith =
 
         Presentation ->
             { names = [ "Presentation", "Presenting", "Present" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "📊"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1087,7 +1092,7 @@ defaults startWith =
 
         Projects ->
             { names = [ "Project", "Projects", "Project Work", "Fun Project" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "🌟"
             , excusable = TemporarilyExcused ( Minutes 40, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -1100,7 +1105,7 @@ defaults startWith =
 
         Research ->
             { names = [ "Research", "Researching", "Looking Stuff Up", "Evaluating" ]
-            , icon = File "unknown.svg"
+            , icon = Emoji "\u{1F913}"
             , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
             , taskOptional = True
             , evidence = []

@@ -169,6 +169,9 @@ viewIcon icon =
         Other ->
             text ""
 
+        Emoji singleEmoji ->
+            text singleEmoji
+
 
 writeActivityUsage : Profile -> Environment -> ( ActivityID, Activity ) -> String
 writeActivityUsage app env ( activityID, activity ) =
