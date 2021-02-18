@@ -4,6 +4,7 @@ import Json.Decode.Exploration exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode exposing (..)
+import Maybe.Extra
 import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
@@ -310,10 +311,21 @@ toDocketTaskNaive classCounter marvinItem =
 
         plannedSessionList : List UserPlannedSession
         plannedSessionList =
-            case ( marvinItem.taskTime, marvinItem.timeEstimate, marvinItem.day ) of
-                ( Just plannedTime, Just plannedDuration, Just plannedDay ) ->
-                    -- creates a new PlannedSession
-                    List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, plannedTime ), plannedDuration )
+            case ( Maybe.map Duration.isPositive marvinItem.timeEstimate, marvinItem.timeEstimate ) of
+                ( Just True, Just plannedDuration ) ->
+                    case ( marvinItem.taskTime, marvinItem.day ) of
+                        ( Just plannedTime, Just plannedDay ) ->
+                            -- creates a new PlannedSession
+                            List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, plannedTime ), plannedDuration )
+
+                        ( Just _, Nothing ) ->
+                            Debug.log ("no planned day for " ++ marvinItem.title) []
+
+                        ( Nothing, Just _ ) ->
+                            Debug.log ("no tasktime for " ++ marvinItem.title) []
+
+                        ( Nothing, Nothing ) ->
+                            Debug.log ("no tasktime or planned day for " ++ marvinItem.title) []
 
                 _ ->
                     []
@@ -328,7 +340,10 @@ toDocketTaskNaive classCounter marvinItem =
                         0
                 , externalDeadline = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.dueDate
                 , startBy = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.startDate
-                , finishBy = Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate
+                , finishBy =
+                    Maybe.Extra.or
+                        (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate)
+                        (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day)
                 , plannedSessions = plannedSessionList
             }
     in
