@@ -31,7 +31,7 @@ timeline-session segment {
     position: absolute;
    	overflow: hidden;
    	line-height: 1em;
-   	background-color: rgb(253,184,103);
+   	background-color: transparent;
 }
 
 timeline-session.planned segment {
@@ -53,14 +53,12 @@ timeline-session.planned segment:last-child {
 timeline-session.planned segment.past {
 
     border: 1px solid gray;
-    background-color: transparent;
 }
 
 
 timeline-session.history segment.past {
 
     border: 1px solid gray;
-    background-color: transparent;
 }
 
 timeline-session activity-icon {

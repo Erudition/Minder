@@ -1,6 +1,6 @@
 module Timeline exposing (Filter(..), Msg, ViewState(..), defaultView, routeView, update, view)
 
-import Activity.Activity as Activity
+import Activity.Activity as Activity exposing (..)
 import Activity.Measure
 import Activity.Switching
 import Browser
@@ -19,7 +19,7 @@ import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Command as TodoistCommand
-import IntDict
+import IntDict exposing (IntDict)
 import Integrations.Todoist
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
@@ -110,25 +110,22 @@ view state profile env =
                 ( start, finish ) =
                     ( Maybe.withDefault env.time newStart, Maybe.withDefault env.time newFinish )
 
-                defaultChunk1 =
+                defaultChunk =
                     { period = Period.fromStart dayStarted Duration.aDay -- today
-                    , rowLength = Duration.anHour
-                    }
-
-                defaultChunk2 =
-                    { period = Period.fromStart (Period.end defaultChunk1.period) Duration.aDay -- today and tomorrow
                     , rowLength = Duration.anHour
                     }
 
                 dayStarted =
                     HumanMoment.clockTurnBack Clock.midnight env.timeZone env.time
 
+                activities =
+                    Activity.allActivities profile.activities
+
                 -- TODO
             in
             section
                 [ id "timeline" ]
-                [ viewDay env defaultChunk1 plannedList historyList
-                , viewDay env defaultChunk2 plannedList historyList
+                [ viewDay env defaultChunk activities plannedList historyList
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Everything working well? Good."
                     ]
@@ -156,8 +153,8 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-viewDay : Environment -> ChosenDayWindow -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
-viewDay env day sessionList historyList =
+viewDay : Environment -> ChosenDayWindow -> IntDict Activity -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
+viewDay env day activities sessionList historyList =
     let
         sessionListToday =
             List.filter (\ses -> Period.isWithin day.period (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
@@ -204,14 +201,14 @@ viewDay env day sessionList historyList =
     node "day"
         [ id <| "day" ++ dayString env env.time ]
         (rowMarkers
-            ++ List.map (viewHistorySession env day) historyList
-            ++ List.map (viewPlannedSession env day) sessionListToday
+            ++ List.map (viewHistorySession env day activities) historyList
+            ++ List.map (viewPlannedSession env day activities) sessionListToday
             ++ [ nowMarker ]
         )
 
 
-viewPlannedSession : Environment -> ChosenDayWindow -> Task.FullSession -> Html msg
-viewPlannedSession env day fullSession =
+viewPlannedSession : Environment -> ChosenDayWindow -> IntDict Activity -> Task.FullSession -> Html msg
+viewPlannedSession env day activities fullSession =
     let
         ( sessionPeriodStart, sessionPeriodLength ) =
             fullSession.session
@@ -364,8 +361,8 @@ getPositionInDay rowLength day givenSession =
             additionalSegments
 
 
-viewHistorySession : Environment -> ChosenDayWindow -> ( Activity.ActivityID, Period ) -> Html msg
-viewHistorySession env day ( activityID, sessionPeriod ) =
+viewHistorySession : Environment -> ChosenDayWindow -> IntDict Activity -> ( Activity.ActivityID, Period ) -> Html msg
+viewHistorySession env day activities ( activityID, sessionPeriod ) =
     let
         sessionPositions =
             getPositionInDay day.rowLength day.period sessionPeriod
@@ -390,15 +387,40 @@ viewHistorySession env day ( activityID, sessionPeriod ) =
                     , left (pct pos.left)
                     , Css.width (pct pos.width)
                     , Css.height (pct pos.height)
+                    , Css.backgroundColor <| hsla (activityHue * 360) 0.5 0.5 0.5
                     ]
                 , classList
                     [ ( "past", Moment.compare env.time (Period.end sessionPeriod) /= Moment.Earlier )
                     , ( "future", Moment.compare env.time (Period.start sessionPeriod) /= Moment.Later )
                     ]
                 ]
-                [ node "activity-icon" [] []
-                , label [] [ text (String.fromInt <| ID.read activityID) ]
+                [ node "activity-icon" [] [ activityIcon ]
+                , label [] [ text activityName ]
                 ]
+
+        sessionActivity =
+            getActivity activityID activities
+
+        activityName =
+            Maybe.withDefault "Unnamed Activity" <| List.head sessionActivity.names
+
+        activityIcon =
+            case sessionActivity.icon of
+                File svgPath ->
+                    img
+                        [ class "activity-icon"
+                        , src ("media/icons/" ++ svgPath)
+                        ]
+                        []
+
+                Emoji singleEmoji ->
+                    text singleEmoji
+
+                _ ->
+                    text "⚪"
+
+        activityHue =
+            toFloat (ID.read activityID) / toFloat (IntDict.size activities)
     in
     node "timeline-session"
         [ classList [ ( "history", True ) ] ]
