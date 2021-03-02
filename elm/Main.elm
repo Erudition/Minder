@@ -233,7 +233,7 @@ emptyViewState =
 type Screen
     = TaskList TaskList.ViewState
     | TimeTracker TimeTracker.ViewState
-    | Timeline Timeline.ViewState
+    | Timeline (Maybe Timeline.ViewState)
     | Calendar
     | Features
     | Preferences
@@ -256,7 +256,7 @@ screenToViewState screen =
 
 defaultView : ViewState
 defaultView =
-    ViewState (Timeline Timeline.defaultView) 0
+    ViewState (Timeline Nothing) 0
 
 
 view : Model -> Browser.Document Msg
