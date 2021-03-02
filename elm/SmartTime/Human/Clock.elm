@@ -152,7 +152,7 @@ hourToShortString meridiemBasedHour =
 
 hourOf12 : TimeOfDay -> MeridiemBasedHour
 hourOf12 time =
-    if hour time > 12 then
+    if hour time >= 12 then
         PM (hourOf12Raw time)
 
     else
