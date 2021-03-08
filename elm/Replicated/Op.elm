@@ -1,11 +1,37 @@
 module Replicated.Op exposing (..)
 
 import Dict exposing (Dict)
+import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Atom exposing (..)
 import Replicated.Identifier exposing (..)
+import Replicated.Value exposing (Value)
 import Set exposing (Set)
+
+
+
+-- MONOLITHIC OP LOGS --------------------------
+
+
+{-| The big list of all the Ops we know about.
+-}
+type alias OpLog =
+    List Op
+
+
+{-| A raw OpLog is a big list of unparsed RawOps.
+There's no need for duplicates so we import it as a Set.
+
+A simple place to start - but rather than importing a RawOpLog, it's more performant to import on an object-by-object basis, so we can take advantage of database management systems. (See ObjectOpLog)
+
+-}
+type alias RawOpLog =
+    Set RawOp
+
+
+
+-- OPS ----------------------------------------------
 
 
 type alias Op =
@@ -14,10 +40,21 @@ type alias Op =
     }
 
 
+{-| A blob that can be parsed into an Op.
+TODO String for now, Bytes later?
+-}
+type alias RawOp =
+    Value
+
+
+
+-- PARTS OF AN OP: SPECIFIERS -----------------------
+
+
 type alias Specifier =
     -- eight 64-bit numbers
     { object : SpecObject
-    , event : SpecEvent
+    , event : Event
     }
 
 
@@ -28,14 +65,22 @@ type alias SpecObject =
     }
 
 
-type alias SpecEvent =
+type alias RawSpecObject =
+    Value
+
+
+type alias Event =
     { stamp : EventStamp -- uniquely identifies this event itself
-    , location : EventStamp -- also called "name" or "reference" or the RDT's "method"
+    , reference : EventStamp -- also called "name" or "reference" or the RDT's "method"
     }
 
 
+type alias RawSpecEvent =
+    Value
+
+
 type alias Payload =
-    List Atom
+    Value
 
 
 type OpPattern
@@ -47,29 +92,17 @@ type OpPattern
     | Annotation
 
 
-type alias Tree =
-    Set Op
+{-| A bunch of Ops that are all about the same object - consisting of, at a minimum, the object's creation Op.
+-}
+type alias Group =
+    Nonempty Op
 
 
-type alias Chunk =
-    List Op
-
-
-type alias Frame =
-    List Op
-
-
-type alias OpLog =
-    List Op
-
-
-type alias GatheredObjectOpLog =
-    List (Nonempty Op)
-
-
-gatherObjects : OpLog -> GatheredObjectOpLog
-gatherObjects opLog =
-    -- TODO - prune the SpecObject from the outputs
+{-| Groups Ops together by target object.
+For monolithic OpLogs; not needed for pre-separated logs.
+-}
+groupByObject : OpLog -> List Group
+groupByObject opLog =
     let
         sameObject : Op -> SpecObject
         sameObject op =
@@ -79,29 +112,3 @@ gatherObjects opLog =
             Nonempty head tail
     in
     List.map toNonempty (List.Extra.gatherEqualsBy sameObject opLog)
-
-
-type alias ObjectLog =
-    { id : SpecObject
-    , events : Dict ( EventStamp, EventStamp ) Payload
-    }
-
-
-toObjectLog : Nonempty Op -> ObjectLog
-toObjectLog singleObjectLog =
-    let
-        thisObject =
-            (List.Nonempty.head singleObjectLog).specifier.object
-
-        strippedObjectLog =
-            List.map toComparable (List.Nonempty.toList singleObjectLog)
-
-        objectEventsDict =
-            Dict.fromList strippedObjectLog
-
-        toComparable op =
-            ( ( op.specifier.event.stamp, op.specifier.event.location ), op.payload )
-    in
-    { id = thisObject
-    , events = objectEventsDict
-    }
