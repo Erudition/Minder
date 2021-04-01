@@ -1,10 +1,7 @@
 module Replicated.Identifier exposing (..)
 
-import SmartTime.Moment exposing (Moment)
-
-
-type alias EventStamp =
-    ( OpTimestamp, OpOrigin )
+import Replicated.Serialize as RS
+import SmartTime.Moment as Moment exposing (Moment)
 
 
 type RonUUID
@@ -47,4 +44,28 @@ type alias OpOrigin =
 
 
 type alias ReplicaID =
-    { primus : Int, peer : Int, client : Int, session : Int }
+    -- never store "session" part - generate that on every run
+    { primus : Int, peer : Int, client : Int, session : SessionID }
+
+
+replicaIDCodec : RS.Codec e ReplicaID
+replicaIDCodec =
+    RS.record ReplicaID
+        |> RS.field .primus RS.int
+        |> RS.field .peer RS.int
+        |> RS.field .client RS.int
+        |> RS.field .session sessionIDCodec
+        |> RS.finishRecord
+
+
+type SessionID
+    = SessionID Int
+
+
+sessionIDCodec : RS.Codec e SessionID
+sessionIDCodec =
+    RS.int |> RS.map SessionID (\(SessionID id) -> id)
+
+
+type alias Reducer =
+    String

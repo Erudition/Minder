@@ -17,29 +17,32 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the LWW Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type alias Record =
-    { id : RonUUID -- taken from ObjectSpec
-    , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
-    , included : Object.InclusionInfo
-    }
+type Record
+    = Record
+        { id : RonUUID -- taken from ObjectSpec
+        , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
+        , included : Object.InclusionInfo
+        }
 
 
-type alias FieldChange =
-    { stamp : EventStamp
-    , field : FieldIdentifier
-    , changedTo : FieldValue
-    }
+type FieldChange
+    = FieldChange
+        { stamp : EventStamp
+        , field : FieldIdentifier
+        , changedTo : FieldValue
+        }
 
 
-fromTree : Object.Tree -> Maybe Record
+fromTree : Object.Object -> Maybe Record
 fromTree tree =
-    case tree.root.reducer of
+    case tree.creation.reducer of
         SpecialNamed Hardcoded "LWWRecord" ->
-            Just
-                { id = tree.root.creation
-                , changeHistory = List.filterMap toFieldChange tree.events
-                , included = tree.included
-                }
+            Just <|
+                Record
+                    { id = tree.creation.creation
+                    , changeHistory = List.filterMap toFieldChange tree.events
+                    , included = tree.included
+                    }
 
         _ ->
             -- This some other type of object
@@ -56,10 +59,11 @@ toFieldChange ( eventDetails, payload ) =
             Result.toMaybe <| Value.decode payloadCodec payload
 
         convert validPayload =
-            { stamp = eventDetails.stamp
-            , field = Tuple.first validPayload
-            , changedTo = Tuple.second validPayload
-            }
+            FieldChange
+                { stamp = eventDetails.stamp
+                , field = Tuple.first validPayload
+                , changedTo = Tuple.second validPayload
+                }
     in
     Maybe.map convert interpretedPayload
 
@@ -74,10 +78,10 @@ type alias Snapshot =
 {-| Take a snapshot of the record object, since all we care about is the latest value of each field.
 -}
 latest : Record -> Snapshot
-latest { changeHistory } =
+latest (Record { changeHistory }) =
     -- TODO OPTIMIZE by stopping once we've found something for all fields (if possible)
     let
-        toKeyValuePair fieldEvent =
+        toKeyValuePair (FieldChange fieldEvent) =
             ( fieldEvent.field, fieldEvent.changedTo )
     in
     -- redundant keys in the list should overwrite previous ones, so
@@ -89,9 +93,9 @@ latest { changeHistory } =
 {-| A snapshot of what the Replicated Record looked like at some point in the past.
 -}
 asOf : Moment -> Record -> Snapshot
-asOf cutoff recordObject =
+asOf cutoff (Record recordObject) =
     let
-        isPrior fieldEvent =
+        isPrior (FieldChange fieldEvent) =
             let
                 ( eventTime, eventOrigin ) =
                     fieldEvent.stamp
@@ -101,7 +105,7 @@ asOf cutoff recordObject =
         cutoffHistory =
             List.filter isPrior recordObject.changeHistory
     in
-    latest (Record recordObject.id cutoffHistory recordObject.included)
+    latest (Record { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
 
 
 type alias FieldIdentifier =

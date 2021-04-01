@@ -1,13 +1,15 @@
 module Replicated.Op exposing (..)
 
-import Dict exposing (Dict)
 import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Atom exposing (..)
-import Replicated.Identifier exposing (..)
+import Replicated.Identifier as Identifier exposing (..)
+import Replicated.Reducer.Record as RR exposing (Record)
+import Replicated.Serialize as RS exposing (Codec)
 import Replicated.Value exposing (Value)
 import Set exposing (Set)
+import SmartTime.Moment as Moment
 
 
 
@@ -17,7 +19,7 @@ import Set exposing (Set)
 {-| The big list of all the Ops we know about.
 -}
 type alias OpLog =
-    List Op
+    Set Op
 
 
 {-| A raw OpLog is a big list of unparsed RawOps.
@@ -27,7 +29,7 @@ A simple place to start - but rather than importing a RawOpLog, it's more perfor
 
 -}
 type alias RawOpLog =
-    Set RawOp
+    List RawOp
 
 
 
@@ -36,7 +38,7 @@ type alias RawOpLog =
 
 type alias Op =
     { specifier : Specifier
-    , payload : Payload
+    , payload : UninterpretedPayload
     }
 
 
@@ -45,6 +47,18 @@ TODO String for now, Bytes later?
 -}
 type alias RawOp =
     Value
+
+
+opCodec : Codec e Op
+opCodec =
+    let
+        wrapper ( s, p ) =
+            Op s p
+
+        unwrapper op =
+            ( op.specifier, op.payload )
+    in
+    RS.tuple specifierCodec RS.string |> RS.map wrapper unwrapper
 
 
 
@@ -58,11 +72,31 @@ type alias Specifier =
     }
 
 
+specifierCodec : Codec e Specifier
+specifierCodec =
+    RS.record Specifier
+        |> RS.field .object specObjectCodec
+        |> RS.field .event eventCodec
+        |> RS.finishRecord
+
+
+type alias OpPointerString =
+    String
+
+
 type alias SpecObject =
     -- all omitted in short (closed) form, deduced via full database
-    { reducer : RonUUID -- AKA the DATATYPE (RDT) -
-    , creation : RonUUID -- Points to the creation Op of the target object.
+    { reducer : ReducerAsString -- AKA the DATATYPE (RDT) -
+    , creation : OpPointerString -- Points to the creation Op of the target object.
     }
+
+
+specObjectCodec : Codec e SpecObject
+specObjectCodec =
+    RS.record SpecObject
+        |> RS.field .reducer RS.string
+        |> RS.field .creation RS.string
+        |> RS.finishRecord
 
 
 type alias RawSpecObject =
@@ -75,12 +109,20 @@ type alias Event =
     }
 
 
-type alias RawSpecEvent =
+eventCodec : Codec e Event
+eventCodec =
+    RS.record Event
+        |> RS.field .stamp Identifier.eventStampCodec
+        |> RS.field .reference Identifier.eventStampCodec
+        |> RS.finishRecord
+
+
+type alias RawEvent =
     Value
 
 
-type alias Payload =
-    Value
+type alias UninterpretedPayload =
+    String
 
 
 type OpPattern

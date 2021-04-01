@@ -5,20 +5,36 @@ import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Atom exposing (..)
+import Replicated.Event as Event exposing (Event)
 import Replicated.Identifier exposing (..)
 import Replicated.Op as Op exposing (Op)
+import Replicated.Serialize as RS exposing (Codec)
 import Set exposing (Set)
 import SmartTime.Moment exposing (Moment)
 
 
-type alias Event =
-    ( Op.Event, Op.Payload )
-
-
-type alias Tree =
-    { root : Op.SpecObject
-    , events : List Event
+type alias Object =
+    { creation : Event.ID
+    , events : Dict Event.ID Event
     , included : InclusionInfo
+    }
+
+
+applyOpToObject : Object -> Op -> Object
+applyOpToObject oldObject newOp =
+    let
+        eventString : Event.ID
+        eventString =
+            RS.encodeToString eventInfoCodec ( newOp.specifier.event.stamp, newOp.specifier.event.reference )
+
+        parsedEventResult =
+            Event.build (newOp.specifier.event.stamp ) newOp.payload
+
+        newEventsDb = Result.withDefault oldObject.events (Dict.insert eventString () oldObject.events)
+    in
+    { root = oldObject.root
+    , events =
+    , included = oldObject.included
     }
 
 
@@ -26,7 +42,7 @@ type alias Tree =
 -}
 type alias RawObjectLog =
     { object : Op.RawSpecObject
-    , events : Set RawObjectEvent
+    , events : Set EventID
     , included : RawInclusionInfo
     }
 
@@ -43,19 +59,13 @@ type alias RawInclusionInfo =
     Op.Value
 
 
-{-| Unparsed information about an event within a known object.
--}
-type alias RawObjectEvent =
-    Op.Value
-
-
 {-| Convert a Tree (just a list of same-object Ops) to an ObjectLog.
 Removes all the redundant metadata from the Ops and stores it in one place.
 
 ObjectLogs get passed on to reducers for further interpretation.
 
 -}
-fromGroup : Op.Group -> Tree
+fromGroup : Op.Group -> Object
 fromGroup singleObjectLog =
     let
         commonObjectDetails =
