@@ -18,6 +18,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Environment exposing (..)
 import External.Commands as Commands
+import Html.Attributes
 import Html.Styled as Html
 import ID
 import Incubator.IntDict.Extra as IntDict
@@ -122,11 +123,11 @@ view maybeVState profile env =
                 layout [ width fill, height fill ] <|
                     column [ width fill, height fill ]
                         [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ text "Header will be here" ]
-                        , row [ width fill, height (fillPortion 10), scrollbarY ]
+                            [ el [ centerX ] <| text "Header will be here" ]
+                        , row [ width fill, height (fillPortion 20), scrollbarY ]
                             [ timeFlowLayout vState profile env ]
                         , row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ text "Bottom panel will be here" ]
+                            [ el [ centerX ] <| text "Bottom panel will be here" ]
                         ]
 
 
@@ -198,6 +199,7 @@ hourRowContents vState profile env rowPeriod =
         planPillSegment minutes plan =
             el [ height fill, width (fillPortion minutes), Border.rounded 10, Background.color (rgb 0 0 1) ] (text plan.title)
 
+        emptyTimeFlowSegment : Int -> Element msg
         emptyTimeFlowSegment minutes =
             el [ height fill, width (fillPortion minutes), Background.color (rgb 1 1 1) ] (text "")
 
@@ -217,10 +219,27 @@ hourRowContents vState profile env rowPeriod =
             , ( 35, Nothing )
             ]
 
+        segmentsFromFakePlans : List (Element msg)
         segmentsFromFakePlans =
             List.map fillInTimeFlowSegment fakePlans
+
+        testBulgingPlan =
+            el [ htmlAttribute (Html.Attributes.style "z-index" "10"), height (px 400), width (fillPortion 20), Border.rounded 10, Background.color (rgba 0 0 1 0.3) ] (text "Bulging")
+
+        overlayingRow =
+            row [ width fill ]
+                [ el [ width (fillPortion 20) ] (text "")
+                , testBulgingPlan
+                , el [ width (fillPortion 20) ] (text "")
+                ]
     in
-    row [ width fill, centerX, Background.color (rgb 0.5 0 0), padding 4 ]
+    row
+        [ width fill
+        , centerX
+        , Background.color (rgb 0.5 0 0)
+        , padding 4
+        , inFront overlayingRow
+        ]
         segmentsFromFakePlans
 
 
