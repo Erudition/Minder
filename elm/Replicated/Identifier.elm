@@ -69,3 +69,26 @@ sessionIDCodec =
 
 type alias Reducer =
     String
+
+
+type EventStamp
+    = EventStamp
+        { time : Moment
+        , origin : ReplicaID
+        }
+
+
+eventID eventString =
+    let
+        momentCodec =
+            RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
+    in
+    RS.decodeFromString (RS.triple momentCodec Identifier.replicaIDCodec RS.string) eventString
+
+
+type alias Payload =
+    String
+
+
+type alias Reference =
+    EventStamp

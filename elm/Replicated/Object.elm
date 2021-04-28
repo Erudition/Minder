@@ -5,7 +5,6 @@ import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Atom exposing (..)
-import Replicated.Event as Event exposing (Event)
 import Replicated.Identifier exposing (..)
 import Replicated.Op as Op exposing (Op)
 import Replicated.Serialize as RS exposing (Codec)
@@ -14,8 +13,8 @@ import SmartTime.Moment exposing (Moment)
 
 
 type alias Object =
-    { creation : Event.ID
-    , events : Dict Event.ID Event
+    { creation : EventStamp
+    , events : Dict EventID Payload
     , included : InclusionInfo
     }
 
@@ -23,7 +22,7 @@ type alias Object =
 applyOpToObject : Object -> Op -> Object
 applyOpToObject oldObject newOp =
     let
-        eventString : Event.ID
+        eventString : EventID
         eventString =
             RS.encodeToString eventInfoCodec ( newOp.specifier.event.stamp, newOp.specifier.event.reference )
 
@@ -84,3 +83,8 @@ fromGroup singleObjectLog =
     , events = eventLog
     , included = All
     }
+
+
+type alias EventID =
+    { stamp : EventStamp
+    , reference : Reference }

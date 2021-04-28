@@ -37,9 +37,16 @@ type alias RawOpLog =
 
 
 type alias Op =
-    { specifier : Specifier
+    { reducerID : ReducerID
+    , objectID : EventStampString
+    , operationID : EventStampString
+    , referenceID : EventStampString
     , payload : UninterpretedPayload
     }
+
+
+type alias EventStampString =
+    String
 
 
 {-| A blob that can be parsed into an Op.
@@ -101,20 +108,6 @@ specObjectCodec =
 
 type alias RawSpecObject =
     Value
-
-
-type alias Event =
-    { stamp : EventStamp -- uniquely identifies this event itself
-    , reference : EventStamp -- also called "name" or "reference" or the RDT's "method"
-    }
-
-
-eventCodec : Codec e Event
-eventCodec =
-    RS.record Event
-        |> RS.field .stamp Identifier.eventStampCodec
-        |> RS.field .reference Identifier.eventStampCodec
-        |> RS.finishRecord
 
 
 type alias RawEvent =

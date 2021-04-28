@@ -27,13 +27,33 @@ type alias ObjectID =
 applyOpToDb : ReplicaDb -> Op -> ReplicaDb
 applyOpToDb previous newOp =
     let
-        insertObjectByCreation oBCDict =
-            Just <| Dict.update newOp.specifier.object.creation insertObjectEvent (Maybe.withDefault Dict.empty oBCDict)
-
-        insertObjectEvent eventDict =
-            Just <| Dict.insert eventString newOp.payload (Maybe.withDefault Dict.empty eventDict)
+        updatedValue maybeOBCD =
+            -- If we've never seen this object before, we won't get a db, so make a fresh one
+            Just <| updateObject newOp (Maybe.withDefault Dict.empty maybeOBCD)
     in
-    Dict.update newOp.specifier.object.reducer insertObjectByCreation previous
+    Dict.update newOp.reducerID updatedValue previous
+
+
+updateObject : Op -> ObjectsByCreationDb -> ObjectsByCreationDb
+updateObject newOp oBCDict =
+    let
+        updatedValue maybeEventDict =
+            -- If this object has never seen an event before, we won't get a db, so make a fresh one
+            Just <| insertEvent newOp (Maybe.withDefault Dict.empty maybeEventDict)
+    in
+    -- we have an object db. Do work inside it, and return it
+    Dict.update newOp.objectID updatedValue oBCDict
+
+
+insertEvent : Op -> ObjectEvents -> ObjectEvents
+insertEvent newOp eventDict =
+    let
+        eventKey =
+            -- I see no reason why reference needs to be separate
+            newOp.operationID ++ newOp.referenceID
+    in
+    -- in the object database, so now update the nested Event dict (by adding the event to it)
+    Dict.insert eventKey newOp.payload eventDict
 
 
 type alias ReplicaDb =
@@ -41,7 +61,7 @@ type alias ReplicaDb =
 
 
 type alias ObjectsByCreationDb =
-    Dict ObjectID Object
+    Dict ObjectID ObjectEvents
 
 
 objectsByCreationCodec : Codec e ObjectsByCreationDb
