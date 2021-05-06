@@ -1,4 +1,4 @@
-module Replicated.Reducer.Record exposing (..)
+module Replicated.Reducer.LWWObject exposing (..)
 
 import Bytes.Decode
 import Bytes.Encode
@@ -6,7 +6,6 @@ import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
 import List.Nonempty exposing (Nonempty)
-import Replicated.Atom exposing (..)
 import Replicated.Identifier exposing (..)
 import Replicated.Object as Object
 import Replicated.Op as Op exposing (Op)
@@ -17,8 +16,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the LWW Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Record
-    = Record
+type LWWObject
+    = LWWObject
         { id : RonUUID -- taken from ObjectSpec
         , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
         , included : Object.InclusionInfo
@@ -31,22 +30,6 @@ type FieldChange
         , field : FieldIdentifier
         , changedTo : FieldValue
         }
-
-
-fromTree : Object.Object -> Maybe Record
-fromTree tree =
-    case tree.creation.reducer of
-        SpecialNamed Hardcoded "LWWRecord" ->
-            Just <|
-                Record
-                    { id = tree.creation.creation
-                    , changeHistory = List.filterMap toFieldChange tree.events
-                    , included = tree.included
-                    }
-
-        _ ->
-            -- This some other type of object
-            Nothing
 
 
 toFieldChange : Object.Event -> Maybe FieldChange
@@ -77,8 +60,8 @@ type alias Snapshot =
 
 {-| Take a snapshot of the record object, since all we care about is the latest value of each field.
 -}
-latest : Record -> Snapshot
-latest (Record { changeHistory }) =
+latest : LWWObject -> Snapshot
+latest (LWWObject { changeHistory }) =
     -- TODO OPTIMIZE by stopping once we've found something for all fields (if possible)
     let
         toKeyValuePair (FieldChange fieldEvent) =
@@ -92,8 +75,8 @@ latest (Record { changeHistory }) =
 
 {-| A snapshot of what the Replicated Record looked like at some point in the past.
 -}
-asOf : Moment -> Record -> Snapshot
-asOf cutoff (Record recordObject) =
+asOf : Moment -> LWWObject -> Snapshot
+asOf cutoff (LWWObject recordObject) =
     let
         isPrior (FieldChange fieldEvent) =
             let
@@ -105,7 +88,7 @@ asOf cutoff (Record recordObject) =
         cutoffHistory =
             List.filter isPrior recordObject.changeHistory
     in
-    latest (Record { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
+    latest (LWWObject { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
 
 
 type alias FieldIdentifier =
