@@ -4,6 +4,10 @@ import Replicated.Serialize as RS
 import SmartTime.Moment as Moment exposing (Moment)
 
 
+type alias ObjectID =
+    String
+
+
 type RonUUID
     = SpecialNamed NameVariety String -- "human-friendly string constants"
     | NumberOrHash NumberOrHashVariety String
@@ -67,7 +71,7 @@ sessionIDCodec =
     RS.int |> RS.map SessionID (\(SessionID id) -> id)
 
 
-type alias Reducer =
+type alias ReducerID =
     String
 
 
@@ -83,7 +87,7 @@ eventID eventString =
         momentCodec =
             RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
     in
-    RS.decodeFromString (RS.triple momentCodec Identifier.replicaIDCodec RS.string) eventString
+    RS.decodeFromString (RS.triple momentCodec replicaIDCodec RS.string) eventString
 
 
 type alias Payload =

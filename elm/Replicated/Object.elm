@@ -4,7 +4,6 @@ import Dict exposing (Dict)
 import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
-import Replicated.Atom exposing (..)
 import Replicated.Identifier exposing (..)
 import Replicated.Op as Op exposing (Op)
 import Replicated.Serialize as RS exposing (Codec)
@@ -27,12 +26,13 @@ applyOpToObject oldObject newOp =
             RS.encodeToString eventInfoCodec ( newOp.specifier.event.stamp, newOp.specifier.event.reference )
 
         parsedEventResult =
-            Event.build (newOp.specifier.event.stamp ) newOp.payload
+            Event.build newOp.specifier.event.stamp newOp.payload
 
-        newEventsDb = Result.withDefault oldObject.events (Dict.insert eventString () oldObject.events)
+        newEventsDb =
+            Result.withDefault oldObject.events (Dict.insert eventString () oldObject.events)
     in
     { root = oldObject.root
-    , events =
+    , events = Debug.todo "fixme"
     , included = oldObject.included
     }
 
@@ -87,4 +87,5 @@ fromGroup singleObjectLog =
 
 type alias EventID =
     { stamp : EventStamp
-    , reference : Reference }
+    , reference : Reference
+    }

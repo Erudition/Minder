@@ -3,9 +3,7 @@ module Replicated.Op exposing (..)
 import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
-import Replicated.Atom exposing (..)
 import Replicated.Identifier as Identifier exposing (..)
-import Replicated.Reducer.Record as RR exposing (Record)
 import Replicated.Serialize as RS exposing (Codec)
 import Replicated.Value exposing (Value)
 import Set exposing (Set)
@@ -18,8 +16,11 @@ import SmartTime.Moment as Moment
 
 {-| The big list of all the Ops we know about.
 -}
-type alias OpLog =
-    Set Op
+
+
+
+--type alias OpLog =
+--    Set Op
 
 
 {-| A raw OpLog is a big list of unparsed RawOps.

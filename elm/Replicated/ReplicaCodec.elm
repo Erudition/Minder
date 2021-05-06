@@ -3,11 +3,10 @@ module Replicated.ReplicaCodec exposing
     , Error(..)
     , string, bool, float, int, unit, bytes, byte
     , maybe, list, array, dict, set, tuple, triple, result, enum
-    , RecordCodec, record, field, finishRecord
     , CustomTypeCodec, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType, VariantEncoder
     , map, mapValid, mapError
     , lazy
-    , ReplicaCodec(..), getBytesDecoder, getEncoder, getJsonDecoder, getJsonEncoder
+    , FragileRecordCodec, NestableCodec(..), finishFragileRecord, fixedField, fragileRecord, getBytesDecoder, getEncoder, getJsonDecoder, getJsonEncoder
     )
 
 {-|
@@ -72,7 +71,8 @@ import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import Regex exposing (Regex)
-import Replicated.Replica exposing (Replica, ReplicaDb)
+import Replicated.Reducer.LWWObject exposing (LWWObject(..))
+import Replicated.Replica exposing (ObjectID, Replica, ReplicaDb)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -81,18 +81,31 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 -- DEFINITION
 
 
-{-| A value that knows how to encode and decode a replicated data structure.
+{-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
 -}
-type ReplicaCodec e a
-    = HereCodec
+type NestableCodec e a
+    = NestableCodec
         { encoder : a -> BE.Encoder
         , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
-        , jsonDecoder : JD.Decoder (Result (Error e) a)
+        , jsonDecoder : NestableJsonDecoder e a
         }
-    | ReferenceCodec
+
+
+type alias ElsewhereData =
+    Maybe ( Replica, Maybe ObjectID )
+
+
+type alias NestableJsonDecoder e a =
+    ElsewhereData -> JD.Decoder (Result (Error e) a)
+
+
+{-| A normal codec. A value that knows how to encode and decode a replicated data structure.
+-}
+type NoNestCodec e a
+    = NoNestCodec
         { encoder : a -> BE.Encoder
-        , decoder : Replica -> BD.Decoder (Result (Error e) a)
+        , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : JD.Decoder (Result (Error e) a)
         }
@@ -131,21 +144,21 @@ endian =
 
 {-| Extracts the `Decoder` contained inside the `Codec`.
 -}
-getBytesDecoder : ReplicaCodec e a -> BD.Decoder (Result (Error e) a)
-getBytesDecoder (HereCodec m) =
+getBytesDecoder : NestableCodec e a -> BD.Decoder (Result (Error e) a)
+getBytesDecoder (NestableCodec m) =
     m.decoder
 
 
 {-| Extracts the json `Decoder` contained inside the `Codec`.
 -}
-getJsonDecoder : ReplicaCodec e a -> JD.Decoder (Result (Error e) a)
-getJsonDecoder (HereCodec m) =
+getJsonDecoder : NestableCodec e a -> JD.Decoder (Result (Error e) a)
+getJsonDecoder (NestableCodec m) =
     m.jsonDecoder
 
 
 {-| Run a `Codec` to turn a sequence of bytes into an Elm value.
 -}
-decodeFromBytes : ReplicaCodec e a -> Bytes.Bytes -> Result (Error e) a
+decodeFromBytes : NestableCodec e a -> Bytes.Bytes -> Result (Error e) a
 decodeFromBytes codec bytes_ =
     let
         decoder =
@@ -172,7 +185,7 @@ decodeFromBytes codec bytes_ =
 
 {-| Run a `Codec` to turn a String encoded with `encodeToString` into an Elm value.
 -}
-decodeFromString : ReplicaCodec e a -> String -> Result (Error e) a
+decodeFromString : NestableCodec e a -> String -> Result (Error e) a
 decodeFromString codec base64 =
     case decode base64 of
         Just bytes_ ->
@@ -184,7 +197,7 @@ decodeFromString codec base64 =
 
 {-| Run a `Codec` to turn a json value encoded with `encodeToJson` into an Elm value.
 -}
-decodeFromJson : ReplicaCodec e a -> JE.Value -> Result (Error e) a
+decodeFromJson : NestableCodec e a -> JE.Value -> Result (Error e) a
 decodeFromJson codec json =
     let
         decoder =
@@ -252,21 +265,21 @@ replaceFromUrl =
 
 {-| Extracts the encoding function contained inside the `Codec`.
 -}
-getEncoder : ReplicaCodec e a -> a -> BE.Encoder
-getEncoder (HereCodec m) =
+getEncoder : NestableCodec e a -> a -> BE.Encoder
+getEncoder (NestableCodec m) =
     m.encoder
 
 
 {-| Extracts the json encoding function contained inside the `Codec`.
 -}
-getJsonEncoder : ReplicaCodec e a -> a -> JE.Value
-getJsonEncoder (HereCodec m) =
+getJsonEncoder : NestableCodec e a -> a -> JE.Value
+getJsonEncoder (NestableCodec m) =
     m.jsonEncoder
 
 
 {-| Convert an Elm value into a sequence of bytes.
 -}
-encodeToBytes : ReplicaCodec e a -> a -> Bytes.Bytes
+encodeToBytes : NestableCodec e a -> a -> Bytes.Bytes
 encodeToBytes codec value =
     BE.sequence
         [ BE.unsignedInt8 version
@@ -285,14 +298,14 @@ encodeToBytes codec value =
 and not risk generating an invalid url.
 
 -}
-encodeToString : ReplicaCodec e a -> a -> String
+encodeToString : NestableCodec e a -> a -> String
 encodeToString codec =
     encodeToBytes codec >> replaceBase64Chars
 
 
 {-| Convert an Elm value into json data.
 -}
-encodeToJson : ReplicaCodec e a -> a -> JE.Value
+encodeToJson : NestableCodec e a -> a -> JE.Value
 encodeToJson codec value =
     JE.list
         identity
@@ -327,14 +340,14 @@ replaceForUrl =
 -- BASE
 
 
-build :
+buildNoNest :
     (a -> BE.Encoder)
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
-    -> ReplicaCodec e a
-build encoder_ decoder_ jsonEncoder jsonDecoder =
-    HereCodec
+    -> NoNestCodec e a
+buildNoNest encoder_ decoder_ jsonEncoder jsonDecoder =
+    NoNestCodec
         { encoder = encoder_
         , decoder = decoder_
         , jsonEncoder = jsonEncoder
@@ -344,9 +357,9 @@ build encoder_ decoder_ jsonEncoder jsonDecoder =
 
 {-| Codec for serializing a `String`
 -}
-string : ReplicaCodec e String
+string : NoNestCodec e String
 string =
-    build
+    buildNoNest
         (\text ->
             BE.sequence
                 [ BE.unsignedInt32 endian (BE.getStringWidth text)
@@ -363,9 +376,9 @@ string =
 
 {-| Codec for serializing a `Bool`
 -}
-bool : ReplicaCodec e Bool
+bool : NoNestCodec e Bool
 bool =
-    build
+    buildNoNest
         (\value ->
             case value of
                 True ->
@@ -394,9 +407,9 @@ bool =
 
 {-| Codec for serializing an `Int`
 -}
-int : ReplicaCodec e Int
+int : NoNestCodec e Int
 int =
-    build
+    buildNoNest
         (toFloat >> BE.float64 endian)
         (BD.float64 endian |> BD.map (round >> Ok))
         JE.int
@@ -405,9 +418,9 @@ int =
 
 {-| Codec for serializing a `Float`
 -}
-float : ReplicaCodec e Float
+float : NoNestCodec e Float
 float =
-    build
+    buildNoNest
         (BE.float64 endian)
         (BD.float64 endian |> BD.map Ok)
         JE.float
@@ -416,7 +429,7 @@ float =
 
 {-| Codec for serializing a `Char`
 -}
-char : ReplicaCodec e Char
+char : NoNestCodec e Char
 char =
     let
         charEncode text =
@@ -425,7 +438,7 @@ char =
                 , BE.string text
                 ]
     in
-    build
+    buildNoNest
         (String.fromChar >> charEncode)
         (BD.unsignedInt32 endian
             |> BD.andThen (\charCount -> BD.string charCount)
@@ -453,6 +466,27 @@ char =
         )
 
 
+{-| A reference to an object somewhere else!
+-}
+objectID : NoNestCodec e ObjectID
+objectID =
+    -- currently a copy of String codec
+    NoNestCodec
+        { encoder =
+            \text ->
+                BE.sequence
+                    [ BE.unsignedInt32 endian (BE.getStringWidth text)
+                    , BE.string text
+                    ]
+        , decoder =
+            BD.unsignedInt32 endian
+                |> BD.andThen
+                    (\charCount -> BD.string charCount |> BD.map Ok)
+        , jsonEncoder = JE.string
+        , jsonDecoder = JD.string |> JD.map Ok
+        }
+
+
 
 -- DATA STRUCTURES
 
@@ -466,7 +500,7 @@ char =
         S.maybe S.int
 
 -}
-maybe : ReplicaCodec e a -> ReplicaCodec e (Maybe a)
+maybe : NestableCodec e a -> NestableCodec e (Maybe a)
 maybe justCodec =
     customType
         (\nothingEncoder justEncoder value ->
@@ -482,41 +516,67 @@ maybe justCodec =
         |> finishCustomType
 
 
-{-| Codec for serializing a `List`
-
-    import Serialize as S
-
-    listOfStringsCodec : S.Codec e (List String)
-    listOfStringsCodec =
-        S.list S.string
-
+{-| INTERNAL
+A "decoder" that looks in the replica for an RGA object.
+If found, decodes it as a list.
 -}
-list : ReplicaCodec e a -> ReplicaCodec e (List a)
+findRga : Replica -> ObjectID -> JD.Decoder (Result (Error e) (List a))
+findRga replica location =
+    case Dict.get "rga" replica.db of
+        Nothing ->
+            JD.fail "Couldn't find where RGAs are stored"
+
+        Just rgaDatabase ->
+            case Dict.get location rgaDatabase of
+                Nothing ->
+                    JD.fail ("Couldn't find an RGA object with objectID " ++ location)
+
+                Just rgaFound ->
+                    JD.succeed (Debug.todo "buildRGAfromJson" rgaFound)
+
+
+{-| A list that can't change without being replaced with a whole new list.
+-}
+list : NestableCodec e a -> NestableCodec e (List a)
 list codec =
-    build
-        (listEncode (getEncoder codec))
-        (BD.unsignedInt32 endian
-            |> BD.andThen
-                (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
-        )
-        (JE.list (getJsonEncoder codec))
-        (JD.list (getJsonDecoder codec)
-            |> JD.map
-                (List.foldr
-                    (\value state ->
-                        case ( value, state ) of
-                            ( Ok ok, Ok okState ) ->
-                                ok :: okState |> Ok
+    let
+        nestableJsonDecoder : ElsewhereData -> JD.Decoder (Result (Error e) (List a))
+        nestableJsonDecoder outer =
+            case outer of
+                Nothing ->
+                    normalJsonDecoder
 
-                            ( _, Err _ ) ->
-                                state
+                Just ( replica, locationMaybe ) ->
+                    -- TODO convert to objectID decoder
+                    JD.map (findRga replica) (Debug.todo "rgaDecoder")
 
-                            ( Err error, Ok _ ) ->
-                                Err error
+        normalJsonDecoder =
+            JD.list (getJsonDecoder codec)
+                |> JD.map
+                    (List.foldr
+                        (\value state ->
+                            case ( value, state ) of
+                                ( Ok ok, Ok okState ) ->
+                                    ok :: okState |> Ok
+
+                                ( _, Err _ ) ->
+                                    state
+
+                                ( Err error, Ok _ ) ->
+                                    Err error
+                        )
+                        (Ok [])
                     )
-                    (Ok [])
-                )
-        )
+    in
+    NestableCodec
+        { encoder = listEncode (getEncoder codec)
+        , decoder =
+            BD.unsignedInt32 endian
+                |> BD.andThen
+                    (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
+        , jsonEncoder = JE.list (getJsonEncoder codec)
+        , jsonDecoder = nestableJsonDecoder
+        }
 
 
 listEncode : (a -> BE.Encoder) -> List a -> BE.Encoder
@@ -547,7 +607,7 @@ listStep decoder_ ( n, xs ) =
 
 {-| Codec for serializing an `Array`
 -}
-array : ReplicaCodec e a -> ReplicaCodec e (Array a)
+array : NestableCodec e a -> NestableCodec e (Array a)
 array codec =
     list codec |> mapHelper (Result.map Array.fromList) Array.toList
 
@@ -564,7 +624,7 @@ array codec =
         S.dict S.string S.int
 
 -}
-dict : ReplicaCodec e comparable -> ReplicaCodec e a -> ReplicaCodec e (Dict comparable a)
+dict : NestableCodec e comparable -> NestableCodec e a -> NestableCodec e (Dict comparable a)
 dict keyCodec valueCodec =
     list (tuple keyCodec valueCodec)
         |> mapHelper (Result.map Dict.fromList) Dict.toList
@@ -572,16 +632,16 @@ dict keyCodec valueCodec =
 
 {-| Codec for serializing a `Set`
 -}
-set : ReplicaCodec e comparable -> ReplicaCodec e (Set comparable)
+set : NestableCodec e comparable -> NestableCodec e (Set comparable)
 set codec =
     list codec |> mapHelper (Result.map Set.fromList) Set.toList
 
 
 {-| Codec for serializing `()` (aka `Unit`).
 -}
-unit : ReplicaCodec e ()
+unit : NoNestCodec e ()
 unit =
-    build
+    buildNoNest
         (always (BE.sequence []))
         (BD.succeed (Ok ()))
         (\_ -> JE.int 0)
@@ -597,12 +657,12 @@ unit =
         S.tuple S.float S.float
 
 -}
-tuple : ReplicaCodec e a -> ReplicaCodec e b -> ReplicaCodec e ( a, b )
+tuple : NestableCodec e a -> NestableCodec e b -> NestableCodec e ( a, b )
 tuple codecFirst codecSecond =
-    record Tuple.pair
-        |> field Tuple.first codecFirst
-        |> field Tuple.second codecSecond
-        |> finishRecord
+    fragileRecord Tuple.pair
+        |> fixedField Tuple.first codecFirst
+        |> fixedField Tuple.second codecSecond
+        |> finishFragileRecord
 
 
 {-| Codec for serializing a tuple with 3 elements
@@ -614,18 +674,18 @@ tuple codecFirst codecSecond =
         S.tuple S.float S.float S.float
 
 -}
-triple : ReplicaCodec e a -> ReplicaCodec e b -> ReplicaCodec e c -> ReplicaCodec e ( a, b, c )
+triple : NestableCodec e a -> NestableCodec e b -> NestableCodec e c -> NestableCodec e ( a, b, c )
 triple codecFirst codecSecond codecThird =
-    record (\a b c -> ( a, b, c ))
-        |> field (\( a, _, _ ) -> a) codecFirst
-        |> field (\( _, b, _ ) -> b) codecSecond
-        |> field (\( _, _, c ) -> c) codecThird
-        |> finishRecord
+    fragileRecord (\a b c -> ( a, b, c ))
+        |> fixedField (\( a, _, _ ) -> a) codecFirst
+        |> fixedField (\( _, b, _ ) -> b) codecSecond
+        |> fixedField (\( _, _, c ) -> c) codecThird
+        |> finishFragileRecord
 
 
 {-| Codec for serializing a `Result`
 -}
-result : ReplicaCodec e error -> ReplicaCodec e value -> ReplicaCodec e (Result error value)
+result : NestableCodec e error -> NestableCodec e value -> NestableCodec e (Result error value)
 result errorCodec valueCodec =
     customType
         (\errEncoder okEncoder value ->
@@ -655,9 +715,9 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
                 Image.toPng
 
 -}
-bytes : ReplicaCodec e Bytes.Bytes
+bytes : NestableCodec e Bytes.Bytes
 bytes =
-    build
+    buildNoNest
         (\bytes_ ->
             BE.sequence
                 [ BE.unsignedInt32 endian (Bytes.width bytes_)
@@ -702,9 +762,9 @@ This is useful if you have a small integer you want to serialize and not use up 
 So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 
 -}
-byte : ReplicaCodec e Int
+byte : NestableCodec e Int
 byte =
-    build
+    buildNoNest
         BE.unsignedInt8
         (BD.unsignedInt8 |> BD.map Ok)
         (modBy 256 >> JE.int)
@@ -733,7 +793,7 @@ Note that inserting new items in the middle of the list or removing items is a b
 It's safe to add items to the end of the list though.
 
 -}
-enum : a -> List a -> ReplicaCodec e a
+enum : a -> List a -> NestableCodec e a
 enum defaultItem items =
     let
         getIndex value =
@@ -752,7 +812,7 @@ enum defaultItem items =
             else
                 getAt (index - 1) items |> Maybe.withDefault defaultItem |> Ok
     in
-    build
+    buildNoNest
         (getIndex >> BE.unsignedInt32 endian)
         (BD.unsignedInt32 endian |> BD.map getItem)
         (getIndex >> JE.int)
@@ -797,12 +857,12 @@ findIndexHelp index predicate list_ =
 
 {-| A partially built Codec for a record.
 -}
-type RecordCodec e a b
-    = RecordCodec
+type FragileRecordCodec e a b
+    = FragileRecordCodec
         { encoder : a -> List BE.Encoder
         , decoder : BD.Decoder (Result (Error e) b)
         , jsonEncoder : a -> List JE.Value
-        , jsonDecoder : JD.Decoder (Result (Error e) b)
+        , jsonDecoder : NestableJsonDecoder e b
         , fieldIndex : Int
         }
 
@@ -825,22 +885,39 @@ type RecordCodec e a b
             |> S.finishRecord
 
 -}
-record : b -> RecordCodec e a b
-record ctor =
-    RecordCodec
+fragileRecord : b -> FragileRecordCodec e a b
+fragileRecord ctor =
+    FragileRecordCodec
         { encoder = \_ -> []
         , decoder = BD.succeed (Ok ctor)
         , jsonEncoder = \_ -> []
-        , jsonDecoder = JD.succeed (Ok ctor)
+        , jsonDecoder = \_ -> JD.succeed (Ok ctor)
         , fieldIndex = 0
         }
 
 
 {-| Add a field to the record we are creating a codec for.
 -}
-field : (a -> f) -> ReplicaCodec e f -> RecordCodec e a (f -> b) -> RecordCodec e a b
-field getter codec (RecordCodec recordCodec) =
-    RecordCodec
+fixedField : (a -> f) -> NestableCodec e f -> FragileRecordCodec e a (f -> b) -> FragileRecordCodec e a b
+fixedField getter codec (FragileRecordCodec recordCodec) =
+    let
+        normalJsonDecoder =
+            JD.map2
+                (\f x ->
+                    case ( f, x ) of
+                        ( Ok fOk, Ok xOk ) ->
+                            fOk xOk |> Ok
+
+                        ( Err err, _ ) ->
+                            Err err
+
+                        ( _, Err err ) ->
+                            Err err
+                )
+                recordCodec.jsonDecoder
+                (JD.index recordCodec.fieldIndex (getJsonDecoder codec))
+    in
+    FragileRecordCodec
         { encoder = \v -> (getEncoder codec <| getter v) :: recordCodec.encoder v
         , decoder =
             BD.map2
@@ -858,35 +935,206 @@ field getter codec (RecordCodec recordCodec) =
                 recordCodec.decoder
                 (getBytesDecoder codec)
         , jsonEncoder = \v -> (getJsonEncoder codec <| getter v) :: recordCodec.jsonEncoder v
-        , jsonDecoder =
-            JD.map2
-                (\f x ->
-                    case ( f, x ) of
-                        ( Ok fOk, Ok xOk ) ->
-                            fOk xOk |> Ok
-
-                        ( Err err, _ ) ->
-                            Err err
-
-                        ( _, Err err ) ->
-                            Err err
-                )
-                recordCodec.jsonDecoder
-                (JD.index recordCodec.fieldIndex (getJsonDecoder codec))
+        , jsonDecoder = normalJsonDecoder
         , fieldIndex = recordCodec.fieldIndex + 1
         }
 
 
 {-| Finish creating a codec for a record.
 -}
-finishRecord : RecordCodec e a a -> ReplicaCodec e a
-finishRecord (RecordCodec codec) =
-    HereCodec
+finishFragileRecord : FragileRecordCodec e a a -> NestableCodec e a
+finishFragileRecord (FragileRecordCodec codec) =
+    NestableCodec
         { encoder = codec.encoder >> List.reverse >> BE.sequence
         , decoder = codec.decoder
         , jsonEncoder = codec.jsonEncoder >> List.reverse >> JE.list identity
         , jsonDecoder = codec.jsonDecoder
         }
+
+
+
+-- SMART RECORDS
+
+
+type alias FieldIdentifier =
+    ( FieldSlot, FieldName )
+
+
+fieldIdentifierCodec =
+    tuple byte string
+
+
+type alias FieldName =
+    String
+
+
+type alias FieldSlot =
+    Int
+
+
+type alias FieldValue =
+    String
+
+
+{-| A partially built Codec for a record.
+-}
+type PartialRecord errs full remaining
+    = PartialRecord
+        { encoder : full -> List BE.Encoder
+        , decoder : BD.Decoder (Result (Error errs) remaining)
+        , jsonEncoders : List ( String, full -> JE.Value )
+        , jsonArrayDecoder : NestableJsonDecoder errs remaining
+        , fieldIndex : Int
+        }
+
+
+record : remaining -> PartialRecord errs full remaining
+record remainingConstructor =
+    PartialRecord
+        { encoder = \_ -> []
+        , decoder = BD.succeed (Ok remainingConstructor)
+        , jsonEncoders = []
+        , jsonArrayDecoder = \elsewhereData -> JD.succeed (Ok remainingConstructor)
+        , fieldIndex = 0
+        }
+
+
+fieldR : FieldIdentifier -> (full -> fieldType) -> NestableCodec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
+    let
+        jsonObjectFieldKey =
+            -- For now, just stick number and name together.
+            String.fromInt fieldSlot ++ fieldName
+
+        addToPartialBytesEncoderList existingRecord =
+            -- Tack on the new encoder to the big list of all the encoders
+            (getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
+
+        addToPartialJsonEncoderList =
+            -- Tack on the new encoder to the big list of all the encoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+
+        combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Error e) fieldType -> Result (Error e) remaining
+        combineIfBothSucceed decoderA decoderB =
+            case ( decoderA, decoderB ) of
+                ( Ok aDecodedValue, Ok bDecodedValue ) ->
+                    -- is A being applied to B?
+                    Ok (aDecodedValue bDecodedValue)
+
+                ( Err a_error, _ ) ->
+                    Err a_error
+
+                ( _, Err b_error ) ->
+                    Err b_error
+    in
+    PartialRecord
+        { encoder = addToPartialBytesEncoderList
+        , decoder =
+            BD.map2
+                combineIfBothSucceed
+                recordCodecSoFar.decoder
+                (getBytesDecoder fieldValueCodec)
+        , jsonEncoders = addToPartialJsonEncoderList
+        , jsonArrayDecoder =
+            nestableJDmap2
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                recordCodecSoFar.jsonArrayDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                (nestableJsonFieldDecoder jsonObjectFieldKey fieldValueCodec)
+        , fieldIndex = recordCodecSoFar.fieldIndex + 1
+        }
+
+
+{-| Same as JD.map2, but with the elsewheredata argument built in
+-}
+nestableJDmap2 :
+    (a -> b -> value)
+    -> (ElsewhereData -> JD.Decoder a)
+    -> (ElsewhereData -> JD.Decoder b)
+    -> ElsewhereData
+    -> JD.Decoder value
+nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB elsewhereData =
+    let
+        -- typevars a and b contain the Result blob
+        decoderA : JD.Decoder a
+        decoderA =
+            nestableDecoderA elsewhereData
+
+        decoderB : JD.Decoder b
+        decoderB =
+            nestableDecoderB elsewhereData
+    in
+    JD.map2 twoArgFunction decoderA decoderB
+
+
+{-| JSON version: what to do when decoding a (potentially nested!) object field.
+-}
+nestableJsonFieldDecoder : String -> NestableCodec e fieldtype -> ElsewhereData -> JD.Decoder (Result (Error e) fieldtype)
+nestableJsonFieldDecoder jsonObjectFieldKey fieldValueCodec outer =
+    case outer of
+        -- There is no known replica. This is normal decoding.
+        Nothing ->
+            -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
+            JD.field jsonObjectFieldKey (getJsonDecoder fieldValueCodec)
+
+        -- We are working with a replica, so this object is an oplog.
+        Just ( replica, locationMaybe ) ->
+            -- TODO convert to objectID decoder
+            JD.map (findRga replica) (Debug.todo "rgaDecoder")
+
+
+{-| Finish creating a codec for a record.
+-}
+finishRecord : PartialRecord errs full full -> NestableCodec errs full
+finishRecord (PartialRecord allFieldsCodec) =
+    let
+        encodeAsJsonObject fullRecord =
+            let
+                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
+                    ( fieldKey, fieldEncoder fullRecord )
+            in
+            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+
+        encodeAsDictList fullRecord =
+            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+
+        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
+            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+
+        -- Are we running on a Json object or a replica object?
+        runJsonDecoderOnCorrectObject : Maybe ( Replica, Maybe ObjectID ) -> JD.Decoder (Result (Error errs) full)
+        runJsonDecoderOnCorrectObject elsewhereData =
+            case elsewhereData of
+                Nothing ->
+                    -- we're not working with a replica, fall back to normal behavior
+                    allFieldsCodec.jsonArrayDecoder elsewhereData
+
+                Just ( replica, turnsOutThisIsUnneeded ) ->
+                    -- we're working with a replica! Try to decode a UUID instead.
+                    -- then, if we find a LWWObject by that UUID, run the big decoder on that instead!
+                    let
+                        theObjectIDAsADecoder =
+                            JD.string
+
+                        actualObjectDecoderToRunRemotely =
+                            allFieldsCodec.jsonArrayDecoder elsewhereData
+                    in
+                    JD.map2 <| combineIfBothSucceed theObjectIDAsADecoder actualObjectDecoderToRunRemotely
+    in
+    NestableCodec
+        { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
+        , decoder = allFieldsCodec.decoder
+        , jsonEncoder = encodeAsJsonObject
+        , jsonDecoder = allFieldsCodec.jsonArrayDecoder
+        }
+
+
+{-| Does nothing but remind you not to reuse historical slots
+-}
+obsolete : List FieldIdentifier -> anything -> anything
+obsolete reservedList input =
+    input
 
 
 
@@ -1016,7 +1264,7 @@ variant0 ctor =
 -}
 variant1 :
     (a -> v)
-    -> ReplicaCodec error a
+    -> NestableCodec error a
     -> CustomTypeCodec z error ((a -> VariantEncoder) -> b) v
     -> CustomTypeCodec () error b v
 variant1 ctor m1 =
@@ -1052,8 +1300,8 @@ result1 ctor value =
 -}
 variant2 :
     (a -> b -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
+    -> NestableCodec error a
+    -> NestableCodec error b
     -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> c) v
     -> CustomTypeCodec () error c v
 variant2 ctor m1 m2 =
@@ -1103,9 +1351,9 @@ result2 ctor v1 v2 =
 -}
 variant3 :
     (a -> b -> c -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
     -> CustomTypeCodec z error ((a -> b -> c -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant3 ctor m1 m2 m3 =
@@ -1163,10 +1411,10 @@ result3 ctor v1 v2 v3 =
 -}
 variant4 :
     (a -> b -> c -> d -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
-    -> ReplicaCodec error d
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
+    -> NestableCodec error d
     -> CustomTypeCodec z error ((a -> b -> c -> d -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant4 ctor m1 m2 m3 m4 =
@@ -1232,11 +1480,11 @@ result4 ctor v1 v2 v3 v4 =
 -}
 variant5 :
     (a -> b -> c -> d -> e -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
-    -> ReplicaCodec error d
-    -> ReplicaCodec error e
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
+    -> NestableCodec error d
+    -> NestableCodec error e
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant5 ctor m1 m2 m3 m4 m5 =
@@ -1310,12 +1558,12 @@ result5 ctor v1 v2 v3 v4 v5 =
 -}
 variant6 :
     (a -> b -> c -> d -> e -> f -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
-    -> ReplicaCodec error d
-    -> ReplicaCodec error e
-    -> ReplicaCodec error f
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
+    -> NestableCodec error d
+    -> NestableCodec error e
+    -> NestableCodec error f
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant6 ctor m1 m2 m3 m4 m5 m6 =
@@ -1400,13 +1648,13 @@ result6 ctor v1 v2 v3 v4 ( v5, v6 ) =
 -}
 variant7 :
     (a -> b -> c -> d -> e -> f -> g -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
-    -> ReplicaCodec error d
-    -> ReplicaCodec error e
-    -> ReplicaCodec error f
-    -> ReplicaCodec error g
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
+    -> NestableCodec error d
+    -> NestableCodec error e
+    -> NestableCodec error f
+    -> NestableCodec error g
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant7 ctor m1 m2 m3 m4 m5 m6 m7 =
@@ -1502,14 +1750,14 @@ result7 ctor v1 v2 v3 ( v4, v5 ) ( v6, v7 ) =
 -}
 variant8 :
     (a -> b -> c -> d -> e -> f -> g -> h -> v)
-    -> ReplicaCodec error a
-    -> ReplicaCodec error b
-    -> ReplicaCodec error c
-    -> ReplicaCodec error d
-    -> ReplicaCodec error e
-    -> ReplicaCodec error f
-    -> ReplicaCodec error g
-    -> ReplicaCodec error h
+    -> NestableCodec error a
+    -> NestableCodec error b
+    -> NestableCodec error c
+    -> NestableCodec error d
+    -> NestableCodec error e
+    -> NestableCodec error f
+    -> NestableCodec error g
+    -> NestableCodec error h
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> h -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
 variant8 ctor m1 m2 m3 m4 m5 m6 m7 m8 =
@@ -1614,9 +1862,9 @@ result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
 
 {-| Finish creating a codec for a custom type.
 -}
-finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> ReplicaCodec e a
+finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> NestableCodec e a
 finishCustomType (CustomTypeCodec am) =
-    build
+    buildNoNest
         (am.match >> (\(VariantEncoder ( a, _ )) -> a))
         (BD.unsignedInt16 endian
             |> BD.andThen
@@ -1653,7 +1901,7 @@ I recommend writing tests for Codecs that use `map` to make sure you get back th
 [Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
 
 -}
-map : (a -> b) -> (b -> a) -> ReplicaCodec e a -> ReplicaCodec e b
+map : (a -> b) -> (b -> a) -> NestableCodec e a -> NestableCodec e b
 map fromBytes_ toBytes_ codec =
     mapHelper
         (\value ->
@@ -1668,9 +1916,9 @@ map fromBytes_ toBytes_ codec =
         codec
 
 
-mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> ReplicaCodec e a -> ReplicaCodec e b
+mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> NestableCodec e a -> NestableCodec e b
 mapHelper fromBytes_ toBytes_ codec =
-    build
+    buildNoNest
         (\v -> toBytes_ v |> getEncoder codec)
         (getBytesDecoder codec |> BD.map fromBytes_)
         (\v -> toBytes_ v |> getJsonEncoder codec)
@@ -1704,9 +1952,9 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 [Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
 
 -}
-mapValid : (a -> Result e b) -> (b -> a) -> ReplicaCodec e a -> ReplicaCodec e b
+mapValid : (a -> Result e b) -> (b -> a) -> NestableCodec e a -> NestableCodec e b
 mapValid fromBytes_ toBytes_ codec =
-    build
+    buildNoNest
         (\v -> toBytes_ v |> getEncoder codec)
         (getBytesDecoder codec
             |> BD.map
@@ -1735,9 +1983,9 @@ mapValid fromBytes_ toBytes_ codec =
 
 {-| Map errors generated by `mapValid`.
 -}
-mapError : (e1 -> e2) -> ReplicaCodec e1 a -> ReplicaCodec e2 a
+mapError : (e1 -> e2) -> NestableCodec e1 a -> NestableCodec e2 a
 mapError mapFunc codec =
-    build
+    buildNoNest
         (getEncoder codec)
         (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
         (getJsonEncoder codec)
@@ -1790,9 +2038,9 @@ Even if you're translating your nested data into a list before encoding, you're 
 Be careful here, and test your codecs using elm-test with larger inputs than you ever expect to see in real life.
 
 -}
-lazy : (() -> ReplicaCodec e a) -> ReplicaCodec e a
+lazy : (() -> NestableCodec e a) -> NestableCodec e a
 lazy f =
-    build
+    buildNoNest
         (\value -> getEncoder (f ()) value)
         (BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ())))
         (\value -> getJsonEncoder (f ()) value)
