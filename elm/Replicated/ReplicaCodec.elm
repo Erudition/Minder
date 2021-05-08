@@ -71,7 +71,7 @@ import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import Regex exposing (Regex)
-import Replicated.Reducer.LWWObject exposing (LWWObject(..))
+import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
 import Replicated.Replica exposing (ObjectID, Replica, ReplicaDb)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -1128,6 +1128,11 @@ finishRecord (PartialRecord allFieldsCodec) =
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = allFieldsCodec.jsonArrayDecoder
         }
+
+
+runJsonDecoderOnReplicaObject : Replica -> ObjectID -> JD.Decoder objtype
+runJsonDecoderOnReplicaObject replica objectID =
+    LWWObject.build replica objectID
 
 
 {-| Does nothing but remind you not to reuse historical slots

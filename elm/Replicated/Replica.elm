@@ -1,9 +1,7 @@
 module Replicated.Replica exposing (..)
 
 import Dict exposing (Dict)
-import Replicated.Atom exposing (..)
 import Replicated.Identifier as Identifier exposing (..)
-import Replicated.Object exposing (Object)
 import Replicated.Op exposing (Op)
 import Replicated.Reducer.LWWObject as RR exposing (LWWObject)
 import Replicated.Serialize as RS exposing (Codec)

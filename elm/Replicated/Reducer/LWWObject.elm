@@ -7,8 +7,9 @@ import Json.Decode
 import Json.Encode exposing (Value)
 import List.Nonempty exposing (Nonempty)
 import Replicated.Identifier exposing (..)
-import Replicated.Object as Object
+import Replicated.Object as Object exposing (InclusionInfo(..))
 import Replicated.Op as Op exposing (Op)
+import Replicated.Replica exposing (Replica)
 import Replicated.Serialize as RS exposing (Codec)
 import Replicated.Value as Value exposing (Value)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -18,10 +19,26 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type LWWObject
     = LWWObject
-        { id : RonUUID -- taken from ObjectSpec
+        { id : ObjectID
         , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
         , included : Object.InclusionInfo
         }
+
+
+build : Replica -> ObjectID -> LWWObject
+build replica objectID =
+    let
+        lwwDatabase =
+            Maybe.withDefault Dict.empty (Dict.get "lww" replica.db)
+
+        existingObject =
+            Maybe.withDefault Dict.empty (Dict.get objectID lwwDatabase)
+
+        history =
+            -- TODO
+            []
+    in
+    LWWObject { id = objectID, changeHistory = history, included = All }
 
 
 type FieldChange
