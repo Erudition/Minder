@@ -1,4 +1,4 @@
-module Replicated.Reducer.LWWObject exposing (..)
+module Replicated.Reducer.Record exposing (..)
 
 import Bytes.Decode
 import Bytes.Encode
