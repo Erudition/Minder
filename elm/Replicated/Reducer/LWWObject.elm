@@ -1,17 +1,15 @@
-module Replicated.Reducer.Record exposing (..)
+module Replicated.Reducer.LWWObject exposing (..)
 
 import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
-import List.Nonempty exposing (Nonempty)
 import Replicated.Identifier exposing (..)
+import Replicated.Node exposing (Node, ReplicaTree)
 import Replicated.Object as Object exposing (InclusionInfo(..))
-import Replicated.Op as Op exposing (Op)
-import Replicated.Replica exposing (Replica)
+import Replicated.Op as Op exposing (Op, Payload)
 import Replicated.Serialize as RS exposing (Codec)
-import Replicated.Value as Value exposing (Value)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -25,7 +23,7 @@ type LWWObject
         }
 
 
-build : Replica -> ObjectID -> LWWObject
+build : Node -> ObjectID -> LWWObject
 build replica objectID =
     let
         lwwDatabase =
@@ -35,8 +33,7 @@ build replica objectID =
             Maybe.withDefault Dict.empty (Dict.get objectID lwwDatabase)
 
         history =
-            -- TODO
-            []
+            List.filterMap toFieldChange (Dict.toList existingObject)
     in
     LWWObject { id = objectID, changeHistory = history, included = All }
 
@@ -49,14 +46,20 @@ type FieldChange
         }
 
 
-toFieldChange : Object.Event -> Maybe FieldChange
-toFieldChange ( eventDetails, payload ) =
+toFieldChange : ( EventString, Payload ) -> Maybe FieldChange
+toFieldChange ( eventDetailsString, payload ) =
     let
         payloadCodec =
             RS.tuple fieldIdentifierCodec RS.string
 
         interpretedPayload =
-            Result.toMaybe <| Value.decode payloadCodec payload
+            Result.toMaybe (RS.decodeFromString payloadCodec payload)
+
+        eventDetailsCodec =
+            RS.tuple RS.string RS.string
+
+        interpretedEventDetails =
+            Result.toMaybe (RS.decodeFromString eventDetailsCodec eventDetailsString)
 
         convert validPayload =
             FieldChange

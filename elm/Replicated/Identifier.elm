@@ -44,31 +44,22 @@ type alias OpTimestamp =
 
 
 type alias OpOrigin =
-    ReplicaID
+    NodeID
 
 
-type alias ReplicaID =
+type alias NodeID =
     -- never store "session" part - generate that on every run
-    { primus : Int, peer : Int, client : Int, session : SessionID }
+    { primus : Int, peer : Int, client : Int, session : Int }
 
 
-replicaIDCodec : RS.Codec e ReplicaID
-replicaIDCodec =
-    RS.record ReplicaID
+nodeIDCodec : RS.Codec e NodeID
+nodeIDCodec =
+    RS.record NodeID
         |> RS.field .primus RS.int
         |> RS.field .peer RS.int
         |> RS.field .client RS.int
-        |> RS.field .session sessionIDCodec
+        |> RS.field .session RS.int
         |> RS.finishRecord
-
-
-type SessionID
-    = SessionID Int
-
-
-sessionIDCodec : RS.Codec e SessionID
-sessionIDCodec =
-    RS.int |> RS.map SessionID (\(SessionID id) -> id)
 
 
 type alias ReducerID =
@@ -78,7 +69,7 @@ type alias ReducerID =
 type EventStamp
     = EventStamp
         { time : Moment
-        , origin : ReplicaID
+        , origin : NodeID
         }
 
 
@@ -87,12 +78,4 @@ eventID eventString =
         momentCodec =
             RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
     in
-    RS.decodeFromString (RS.triple momentCodec replicaIDCodec RS.string) eventString
-
-
-type alias Payload =
-    String
-
-
-type alias Reference =
-    EventStamp
+    RS.decodeFromString (RS.triple momentCodec nodeIDCodec RS.string) eventString

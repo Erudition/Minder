@@ -1,48 +1,39 @@
 module Replicated.Object exposing (..)
 
 import Dict exposing (Dict)
-import Json.Encode
-import List.Extra
-import List.Nonempty exposing (Nonempty)
 import Replicated.Identifier exposing (..)
-import Replicated.Op as Op exposing (Op)
-import Replicated.Serialize as RS exposing (Codec)
-import Set exposing (Set)
+import Replicated.Op exposing (EventStampString, Op, Payload)
 import SmartTime.Moment exposing (Moment)
 
 
+{-| The most generic "object", to be inherited by other replicated data types for specific functionality.
+-}
 type alias Object =
     { creation : EventStamp
-    , events : Dict EventID Payload
+    , events : Dict EventStampString Event
     , included : InclusionInfo
     }
 
 
-applyOpToObject : Object -> Op -> Object
-applyOpToObject oldObject newOp =
+type
+    Event
+    -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
+    = Event { reference : ReferenceString, payload : Payload }
+
+
+type alias ReferenceString =
+    String
+
+
+applyOp : Op -> Object -> Object
+applyOp newOp oldObject =
     let
-        eventString : EventID
-        eventString =
-            RS.encodeToString eventInfoCodec ( newOp.specifier.event.stamp, newOp.specifier.event.reference )
-
-        parsedEventResult =
-            Event.build newOp.specifier.event.stamp newOp.payload
-
-        newEventsDb =
-            Result.withDefault oldObject.events (Dict.insert eventString () oldObject.events)
+        newEvent =
+            Event { reference = newOp.referenceID, payload = newOp.payload }
     in
-    { root = oldObject.root
-    , events = Debug.todo "fixme"
+    { creation = oldObject.creation
+    , events = Dict.insert newOp.operationID newEvent oldObject.events
     , included = oldObject.included
-    }
-
-
-{-| A log of raw (unparsed) ops that we know in advance are all about the same object. For example, if we got it from a key-value database where each object gets a key.
--}
-type alias RawObjectLog =
-    { object : Op.RawSpecObject
-    , events : Set EventID
-    , included : RawInclusionInfo
     }
 
 
@@ -52,40 +43,29 @@ type InclusionInfo
     | LatestSnapshotOnly
 
 
-{-| Unparsed information about what log entries were not retrieved from the database.
--}
-type alias RawInclusionInfo =
-    Op.Value
 
-
-{-| Convert a Tree (just a list of same-object Ops) to an ObjectLog.
-Removes all the redundant metadata from the Ops and stores it in one place.
-
-ObjectLogs get passed on to reducers for further interpretation.
-
--}
-fromGroup : Op.Group -> Object
-fromGroup singleObjectLog =
-    let
-        commonObjectDetails =
-            (List.Nonempty.head singleObjectLog).specifier.object
-
-        nonCreationOps =
-            List.Nonempty.tail singleObjectLog
-
-        eventLog =
-            List.map toEvent nonCreationOps
-
-        toEvent op =
-            ( op.specifier.event, op.payload )
-    in
-    { root = commonObjectDetails
-    , events = eventLog
-    , included = All
-    }
-
-
-type alias EventID =
-    { stamp : EventStamp
-    , reference : Reference
-    }
+--{-| Convert a Tree (just a list of same-object Ops) to an ObjectLog.
+--Removes all the redundant metadata from the Ops and stores it in one place.
+--
+--ObjectLogs get passed on to reducers for further interpretation.
+--
+---}
+--fromGroup : Op.Group -> Object
+--fromGroup singleObjectLog =
+--    let
+--        commonObjectDetails =
+--            (List.Nonempty.head singleObjectLog).specifier.object
+--
+--        nonCreationOps =
+--            List.Nonempty.tail singleObjectLog
+--
+--        eventLog =
+--            List.map toEvent nonCreationOps
+--
+--        toEvent op =
+--            ( op.specifier.event, op.payload )
+--    in
+--    { root = commonObjectDetails
+--    , events = eventLog
+--    , included = All
+--    }

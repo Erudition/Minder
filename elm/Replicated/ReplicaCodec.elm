@@ -72,7 +72,7 @@ import Json.Decode as JD
 import Json.Encode as JE
 import Regex exposing (Regex)
 import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
-import Replicated.Replica exposing (ObjectID, Replica, ReplicaDb)
+import Replicated.Replica exposing (ObjectID, Node, ReplicaDb)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -93,7 +93,7 @@ type NestableCodec e a
 
 
 type alias ElsewhereData =
-    Maybe ( Replica, Maybe ObjectID )
+    Maybe ( Node, Maybe LWWObject )
 
 
 type alias NestableJsonDecoder e a =
@@ -520,7 +520,7 @@ maybe justCodec =
 A "decoder" that looks in the replica for an RGA object.
 If found, decodes it as a list.
 -}
-findRga : Replica -> ObjectID -> JD.Decoder (Result (Error e) (List a))
+findRga : Node -> ObjectID -> JD.Decoder (Result (Error e) (List a))
 findRga replica location =
     case Dict.get "rga" replica.db of
         Nothing ->
@@ -715,7 +715,7 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
                 Image.toPng
 
 -}
-bytes : NestableCodec e Bytes.Bytes
+bytes : NoNestCodec e Bytes.Bytes
 bytes =
     buildNoNest
         (\bytes_ ->
@@ -762,7 +762,7 @@ This is useful if you have a small integer you want to serialize and not use up 
 So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 
 -}
-byte : NestableCodec e Int
+byte : NoNestCodec e Int
 byte =
     buildNoNest
         BE.unsignedInt8
@@ -793,7 +793,7 @@ Note that inserting new items in the middle of the list or removing items is a b
 It's safe to add items to the end of the list though.
 
 -}
-enum : a -> List a -> NestableCodec e a
+enum : a -> List a -> NoNestCodec e a
 enum defaultItem items =
     let
         getIndex value =
@@ -1078,10 +1078,13 @@ nestableJsonFieldDecoder jsonObjectFieldKey fieldValueCodec outer =
             -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
             JD.field jsonObjectFieldKey (getJsonDecoder fieldValueCodec)
 
-        -- We are working with a replica, so this object is an oplog.
-        Just ( replica, locationMaybe ) ->
-            -- TODO convert to objectID decoder
-            JD.map (findRga replica) (Debug.todo "rgaDecoder")
+        -- We are working with an LWWObject
+        Just ( replica, lwwObject ) ->
+            let
+                desiredField =
+                    (LWWObject.latest lwwObject)
+            in
+
 
 
 {-| Finish creating a codec for a record.
@@ -1103,7 +1106,7 @@ finishRecord (PartialRecord allFieldsCodec) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
         -- Are we running on a Json object or a replica object?
-        runJsonDecoderOnCorrectObject : Maybe ( Replica, Maybe ObjectID ) -> JD.Decoder (Result (Error errs) full)
+        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe ObjectID ) -> JD.Decoder (Result (Error errs) full)
         runJsonDecoderOnCorrectObject elsewhereData =
             case elsewhereData of
                 Nothing ->
@@ -1130,9 +1133,9 @@ finishRecord (PartialRecord allFieldsCodec) =
         }
 
 
-runJsonDecoderOnReplicaObject : Replica -> ObjectID -> JD.Decoder objtype
-runJsonDecoderOnReplicaObject replica objectID =
-    LWWObject.build replica objectID
+runJsonDecoderOnReplicaObject : Node -> LWWObject -> JD.Decoder objtype -> JD.Decoder objtype
+runJsonDecoderOnReplicaObject replica targetObject jDecoder =
+    LWWObject.build replica objectID jDecoder
 
 
 {-| Does nothing but remind you not to reuse historical slots
