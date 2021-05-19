@@ -66,16 +66,23 @@ type alias ReducerID =
     String
 
 
-type EventStamp
-    = EventStamp
-        { time : Moment
-        , origin : NodeID
-        }
+type alias EventStamp =
+    { time : Moment
+    , origin : NodeID
+    }
+
+
+eventStampCodec : RS.Codec e EventStamp
+eventStampCodec =
+    RS.record EventStamp
+        |> RS.field .time momentCodec
+        |> RS.field .origin nodeIDCodec
+        |> RS.finishRecord
 
 
 eventID eventString =
-    let
-        momentCodec =
-            RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
-    in
     RS.decodeFromString (RS.triple momentCodec nodeIDCodec RS.string) eventString
+
+
+momentCodec =
+    RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt

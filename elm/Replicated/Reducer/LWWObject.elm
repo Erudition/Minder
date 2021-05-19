@@ -5,10 +5,10 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
-import Replicated.Identifier exposing (..)
+import Replicated.Identifier as Identifier exposing (..)
 import Replicated.Node exposing (Node, ReplicaTree)
-import Replicated.Object as Object exposing (InclusionInfo(..))
-import Replicated.Op as Op exposing (Op, Payload)
+import Replicated.Object as Object exposing (Object)
+import Replicated.Op as Op exposing (EventStampString, Op, Payload)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -23,19 +23,33 @@ type LWWObject
         }
 
 
-build : Node -> ObjectID -> LWWObject
-build replica objectID =
+build : Node -> ObjectID -> Maybe LWWObject
+build node objectID =
     let
         lwwDatabase =
-            Maybe.withDefault Dict.empty (Dict.get "lww" replica.db)
+            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
 
         existingObject =
-            Maybe.withDefault Dict.empty (Dict.get objectID lwwDatabase)
+            Dict.get objectID lwwDatabase
 
-        history =
-            List.filterMap toFieldChange (Dict.toList existingObject)
+        convertObjectToLWW : Object -> LWWObject
+        convertObjectToLWW obj =
+            LWWObject { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    LWWObject { id = objectID, changeHistory = history, included = All }
+    Maybe.map convertObjectToLWW existingObject
+
+
+{-| For LWW we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
+-}
+buildHistory : Dict EventStampString Object.Event -> List FieldChange
+buildHistory eventDict =
+    let
+        orderCheck : ( EventStampString, Object.Event ) -> Bool
+        orderCheck ( _, Object.Event eventDetails ) =
+            -- TODO we need to fold to actually check this, right now we just see if it's there
+            Dict.member eventDetails.reference eventDict
+    in
+    List.concatMap toFieldChange (List.filter orderCheck (Dict.toList eventDict))
 
 
 type FieldChange
@@ -46,29 +60,36 @@ type FieldChange
         }
 
 
-toFieldChange : ( EventString, Payload ) -> Maybe FieldChange
-toFieldChange ( eventDetailsString, payload ) =
+toFieldChange : ( EventStampString, Object.Event ) -> List FieldChange
+toFieldChange ( eventStampString, Object.Event eventDetails ) =
     let
         payloadCodec =
-            RS.tuple fieldIdentifierCodec RS.string
+            RS.list (RS.tuple fieldIdentifierCodec RS.string)
 
         interpretedPayload =
-            Result.toMaybe (RS.decodeFromString payloadCodec payload)
+            Result.toMaybe (RS.decodeFromString payloadCodec eventDetails.payload)
 
-        eventDetailsCodec =
-            RS.tuple RS.string RS.string
+        stampFromString =
+            Result.toMaybe (RS.decodeFromString Identifier.eventStampCodec eventStampString)
 
-        interpretedEventDetails =
-            Result.toMaybe (RS.decodeFromString eventDetailsCodec eventDetailsString)
-
-        convert validPayload =
+        convert validStamp validPayload =
             FieldChange
-                { stamp = eventDetails.stamp
+                { stamp = validStamp
                 , field = Tuple.first validPayload
                 , changedTo = Tuple.second validPayload
                 }
     in
-    Maybe.map convert interpretedPayload
+    case ( interpretedPayload, stampFromString ) of
+        ( Just payload, Just stamp ) ->
+            List.map (convert stamp) payload
+
+        _ ->
+            []
+
+
+getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
+getFieldLatest lww ( slot, name ) =
+    Debug.todo "search lww.changeHistory for matching fields and give the latest"
 
 
 {-| A sample of a Replicated Record at a given point in time - such as right now.
@@ -93,22 +114,23 @@ latest (LWWObject { changeHistory }) =
     Dict.fromList (List.map toKeyValuePair changeHistory)
 
 
-{-| A snapshot of what the Replicated Record looked like at some point in the past.
--}
-asOf : Moment -> LWWObject -> Snapshot
-asOf cutoff (LWWObject recordObject) =
-    let
-        isPrior (FieldChange fieldEvent) =
-            let
-                ( eventTime, eventOrigin ) =
-                    fieldEvent.stamp
-            in
-            Moment.isSameOrEarlier eventTime cutoff
 
-        cutoffHistory =
-            List.filter isPrior recordObject.changeHistory
-    in
-    latest (LWWObject { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
+--{-| A snapshot of what the Replicated Record looked like at some point in the past.
+---}
+--asOf : Moment -> LWWObject -> Snapshot
+--asOf cutoff (LWWObject recordObject) =
+--    let
+--        isPrior (FieldChange fieldEvent) =
+--            let
+--                ( eventTime, eventOrigin ) =
+--                    fieldEvent.stamp
+--            in
+--            Moment.isSameOrEarlier eventTime cutoff
+--
+--        cutoffHistory =
+--            List.filter isPrior recordObject.changeHistory
+--    in
+--    latest (LWWObject { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
 
 
 type alias FieldIdentifier =

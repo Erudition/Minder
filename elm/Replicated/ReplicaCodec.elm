@@ -71,8 +71,10 @@ import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import Regex exposing (Regex)
+import Replicated.Identifier exposing (ObjectID)
+import Replicated.Node exposing (Node)
 import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
-import Replicated.Replica exposing (ObjectID, Node, ReplicaDb)
+import Replicated.Replica exposing (Node, ObjectID, ReplicaDb)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -1013,19 +1015,6 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
-
-        combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Error e) fieldType -> Result (Error e) remaining
-        combineIfBothSucceed decoderA decoderB =
-            case ( decoderA, decoderB ) of
-                ( Ok aDecodedValue, Ok bDecodedValue ) ->
-                    -- is A being applied to B?
-                    Ok (aDecodedValue bDecodedValue)
-
-                ( Err a_error, _ ) ->
-                    Err a_error
-
-                ( _, Err b_error ) ->
-                    Err b_error
     in
     PartialRecord
         { encoder = addToPartialBytesEncoderList
@@ -1044,6 +1033,20 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 (nestableJsonFieldDecoder jsonObjectFieldKey fieldValueCodec)
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         }
+
+
+combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Error e) fieldType -> Result (Error e) remaining
+combineIfBothSucceed decoderA decoderB =
+    case ( decoderA, decoderB ) of
+        ( Ok aDecodedValue, Ok bDecodedValue ) ->
+            -- is A being applied to B?
+            Ok (aDecodedValue bDecodedValue)
+
+        ( Err a_error, _ ) ->
+            Err a_error
+
+        ( _, Err b_error ) ->
+            Err b_error
 
 
 {-| Same as JD.map2, but with the elsewheredata argument built in
@@ -1082,9 +1085,9 @@ nestableJsonFieldDecoder jsonObjectFieldKey fieldValueCodec outer =
         Just ( replica, lwwObject ) ->
             let
                 desiredField =
-                    (LWWObject.latest lwwObject)
+                    LWWObject.latest lwwObject
             in
-
+            Debug.todo "um"
 
 
 {-| Finish creating a codec for a record.
@@ -1106,24 +1109,37 @@ finishRecord (PartialRecord allFieldsCodec) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
         -- Are we running on a Json object or a replica object?
-        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe ObjectID ) -> JD.Decoder (Result (Error errs) full)
+        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe LWWObject ) -> JD.Decoder (Result (Error errs) full)
         runJsonDecoderOnCorrectObject elsewhereData =
             case elsewhereData of
                 Nothing ->
                     -- we're not working with a replica, fall back to normal behavior
                     allFieldsCodec.jsonArrayDecoder elsewhereData
 
-                Just ( replica, turnsOutThisIsUnneeded ) ->
+                Just ( node, Nothing ) ->
                     -- we're working with a replica! Try to decode a UUID instead.
                     -- then, if we find a LWWObject by that UUID, run the big decoder on that instead!
                     let
-                        theObjectIDAsADecoder =
+                        objectIDDecoder : JD.Decoder ObjectID
+                        objectIDDecoder =
                             JD.string
 
-                        actualObjectDecoderToRunRemotely =
-                            allFieldsCodec.jsonArrayDecoder elsewhereData
+                        objectFinder : ObjectID -> Result (Error errs) LWWObject
+                        objectFinder foundID =
+                            case LWWObject.build node foundID of
+                                Nothing ->
+                                    Err "lww not found"
+
+                                Just lww ->
+                                    Debug.todo "run LWWDecoder on found LWW"
+
+                        finderDecoder =
+                            JD.map objectFinder objectIDDecoder
                     in
-                    JD.map2 <| combineIfBothSucceed theObjectIDAsADecoder actualObjectDecoderToRunRemotely
+                    objectFinder
+
+                Just ( replica, Just lwwWeAreIn ) ->
+                    Debug.todo "yay we are in a LWW"
     in
     NestableCodec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence

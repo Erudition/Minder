@@ -59,10 +59,6 @@ type alias ReducerNameString =
     String
 
 
-type alias ObjectID =
-    String
-
-
 {-| Takes a single (e.g. newly received) Op and inserts it deep into the structure
 -}
 applyOpToDb : ReplicaTree -> Op -> ReplicaTree
