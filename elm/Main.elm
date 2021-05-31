@@ -424,7 +424,7 @@ update msg ({ viewState, profile, environment } as model) =
                     justRunCommand <|
                         Cmd.map ThirdPartyServerResponded <|
                             Cmd.map MarvinServer <|
-                                Marvin.test2
+                                Marvin.test3
 
         ThirdPartyServerResponded (TodoistServer response) ->
             let
@@ -450,14 +450,15 @@ update msg ({ viewState, profile, environment } as model) =
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
-                ( newItems, whatHappened ) =
-                    Marvin.handle (Moment.toSmartInt environment.time) response
+                ( ( newItems, newActivities ), whatHappened ) =
+                    Marvin.handle (Moment.toSmartInt environment.time) profile response
 
                 newProfile1WithItems =
                     { profile
                         | taskEntries = profile.taskEntries ++ newItems.taskEntries
                         , taskClasses = IntDict.union profile.taskClasses newItems.taskClasses
                         , taskInstances = IntDict.union profile.taskInstances newItems.taskInstances
+                        , activities = Maybe.withDefault profile.activities newActivities
                     }
 
                 newProfile2WithErrors =

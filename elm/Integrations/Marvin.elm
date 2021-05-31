@@ -3,10 +3,11 @@ module Integrations.Marvin exposing (..)
 {-| A library for interacting with the Amazing Marvin API.
 -}
 
+import Activity.Activity as Activity exposing (StoredActivities)
 import Dict exposing (Dict)
 import Http
 import IntDict exposing (IntDict)
-import Integrations.Marvin.MarvinItem exposing (MarvinItem, toDocketTaskNaive)
+import Integrations.Marvin.MarvinItem exposing (ItemType(..), MarvinItem, OutputType(..), toDocketItem, toDocketTaskNaive)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
@@ -15,6 +16,7 @@ import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Porting exposing (..)
+import Profile exposing (Profile)
 import Set exposing (Set)
 import SmartTime.Human.Moment as HumanMoment
 import Task.Class
@@ -71,47 +73,87 @@ test2 =
     getTodayItems partialAccessToken
 
 
-handle : Int -> Msg -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, String )
-handle classCounter response =
+test3 : Cmd Msg
+test3 =
+    let
+        fullAccessToken =
+            "7o0b6/c0i+zXgWx5eheuM7Eob7w="
+
+        partialAccessToken =
+            "m47dqHEwdJy56/j8tyAcXARlADg="
+    in
+    Cmd.batch [ getCategories partialAccessToken, getTodayItems partialAccessToken ]
+
+
+handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Maybe StoredActivities ), String )
+handle classCounter profile response =
     case response of
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }
+                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
                     , serversays
                     )
 
                 Err err ->
-                    ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }
+                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
                     , describeError err
                     )
 
         GotItems result ->
             case result of
                 Ok itemList ->
-                    ( importItems classCounter itemList
+                    let
+                        ( newTriplets, newActivities ) =
+                            importItems classCounter profile itemList
+                    in
+                    ( ( newTriplets, Just newActivities )
                     , Debug.toString itemList
                     )
 
                 Err err ->
-                    ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }
+                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
                     , describeError err
                     )
 
 
-importItems : Int -> List MarvinItem -> { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }
-importItems classCounter itemList =
+importItems : Int -> Profile -> List MarvinItem -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Activity.StoredActivities )
+importItems classCounter profile itemList =
     let
         toNumberedDocketTask index =
-            toDocketTaskNaive (classCounter + index)
+            toDocketItem (classCounter + index) profile
 
         bigList =
             List.indexedMap toNumberedDocketTask itemList
+
+        bigTaskList =
+            List.filterMap tasksOnly bigList
+
+        tasksOnly outputItem =
+            case outputItem of
+                ConvertedToTaskTriplet taskitem ->
+                    Just taskitem
+
+                _ ->
+                    Nothing
+
+        activitiesOnly outputItem =
+            case outputItem of
+                ConvertedToActivity activitystore ->
+                    Just activitystore
+
+                _ ->
+                    Nothing
+
+        finalActivities =
+            List.foldl IntDict.union IntDict.empty (List.filterMap activitiesOnly bigList)
     in
-    { taskEntries = List.map .entry bigList
-    , taskClasses = IntDict.fromList <| List.map (\i -> ( i.class.id, i.class )) bigList
-    , taskInstances = IntDict.fromList <| List.map (\i -> ( i.instance.id, i.instance )) bigList
-    }
+    ( { taskEntries = List.map .entry bigTaskList
+      , taskClasses = IntDict.fromList <| List.map (\i -> ( i.class.id, i.class )) bigTaskList
+      , taskInstances = IntDict.fromList <| List.map (\i -> ( i.instance.id, i.instance )) bigTaskList
+      }
+    , finalActivities
+    )
 
 
 addTask : SecretToken -> Cmd Msg
@@ -179,7 +221,7 @@ getTodayItems secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "todayItems"
         , body = Http.emptyBody
-        , expect = Http.expectJson GotItems (toClassic <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -209,7 +251,7 @@ getCategories secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "categories"
         , body = Http.emptyBody
-        , expect = Http.expectString TestResult --TODO
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
         , timeout = Nothing
         , tracker = Nothing
         }

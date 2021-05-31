@@ -36,6 +36,7 @@ type alias Activity =
     , maxTime : DurationPerPeriod
     , hidden : Bool -- The user can hide any of the "stock" activities they don't use
     , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
+    , externalIDs : Dict String String
     }
 
 
@@ -63,6 +64,7 @@ type alias Customizations =
     , hidden : Maybe Bool
     , template : Template
     , id : ActivityID
+    , externalIDs : Dict String String
     }
 
 
@@ -80,6 +82,7 @@ decodeCustomizations =
         |> withPresence "hidden" Decode.bool
         |> Pipeline.required "template" decodeTemplate
         |> Pipeline.required "id" ID.decode
+        |> Pipeline.optional "externalIDs" (Decode.dict Decode.string) Dict.empty
 
 
 encodeCustomizations : Customizations -> Encode.Value
@@ -96,6 +99,7 @@ encodeCustomizations record =
         , omittable ( "backgroundable", Encode.bool, record.backgroundable )
         , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
         , omittable ( "hidden", Encode.bool, record.hidden )
+        , normal ( "externalIDs", Encode.dict identity Encode.string record.externalIDs )
         ]
 
 
@@ -382,6 +386,7 @@ withTemplate delta =
     , maxTime = over base.maxTime delta.maxTime
     , hidden = over base.hidden delta.hidden
     , template = delta.template
+    , externalIDs = delta.externalIDs
     }
 
 
@@ -399,6 +404,7 @@ defaults startWith =
             , maxTime = ( Minutes 0, Hours 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Apparel ->
@@ -412,6 +418,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Messaging ->
@@ -425,6 +432,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Hours 5 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Restroom ->
@@ -438,10 +446,11 @@ defaults startWith =
             , maxTime = ( Minutes 20, Hours 2 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Grooming ->
-            { names = [ "Grooming", "Tending", "Groom" ]
+            { names = [ "Grooming", "Tending", "Groom", "Personal Care" ]
             , icon = Emoji "💈"
             , excusable = NeverExcused
             , taskOptional = True
@@ -451,6 +460,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Meal ->
@@ -464,6 +474,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Supplements ->
@@ -477,6 +488,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Workout ->
@@ -490,6 +502,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Shower ->
@@ -503,6 +516,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Toothbrush ->
@@ -516,6 +530,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Floss ->
@@ -529,6 +544,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Wakeup ->
@@ -542,6 +558,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Sleep ->
@@ -555,6 +572,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Plan ->
@@ -568,6 +586,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Configure ->
@@ -581,6 +600,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Email ->
@@ -594,6 +614,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Work ->
@@ -607,6 +628,7 @@ defaults startWith =
             , maxTime = ( Hours 8, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Call ->
@@ -620,6 +642,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Chores ->
@@ -633,6 +656,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Parents ->
@@ -646,6 +670,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Prepare ->
@@ -659,6 +684,7 @@ defaults startWith =
             , maxTime = ( Minutes 30, Hours 24 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Lover ->
@@ -672,6 +698,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Driving ->
@@ -685,6 +712,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Riding ->
@@ -698,6 +726,7 @@ defaults startWith =
             , maxTime = ( Minutes 30, Hours 5 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         SocialMedia ->
@@ -711,6 +740,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Pacing ->
@@ -724,6 +754,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Sport ->
@@ -737,6 +768,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Finance ->
@@ -750,6 +782,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Laundry ->
@@ -763,6 +796,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Bedward ->
@@ -776,6 +810,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Browse ->
@@ -789,6 +824,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Fiction ->
@@ -802,6 +838,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Learning ->
@@ -815,6 +852,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         BrainTrain ->
@@ -828,6 +866,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Music ->
@@ -841,6 +880,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Create ->
@@ -854,6 +894,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Children ->
@@ -867,6 +908,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = True
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Meeting ->
@@ -880,6 +922,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Cinema ->
@@ -893,6 +936,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         FilmWatching ->
@@ -906,6 +950,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Series ->
@@ -919,6 +964,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Broadcast ->
@@ -932,6 +978,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Theatre ->
@@ -945,6 +992,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Shopping ->
@@ -958,6 +1006,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         VideoGaming ->
@@ -971,6 +1020,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Housekeeping ->
@@ -984,6 +1034,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         MealPrep ->
@@ -997,6 +1048,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Networking ->
@@ -1010,6 +1062,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Meditate ->
@@ -1023,6 +1076,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Homework ->
@@ -1036,6 +1090,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Flight ->
@@ -1049,6 +1104,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Course ->
@@ -1062,6 +1118,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Pet ->
@@ -1075,6 +1132,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Presentation ->
@@ -1088,6 +1146,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Projects ->
@@ -1101,6 +1160,7 @@ defaults startWith =
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
         Research ->
@@ -1114,6 +1174,7 @@ defaults startWith =
             , maxTime = ( Hours 6, Days 1 )
             , hidden = False
             , template = startWith
+            , externalIDs = Dict.empty
             }
 
 

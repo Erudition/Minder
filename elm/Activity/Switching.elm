@@ -268,7 +268,7 @@ updateSticky now todayTotal newActivity status =
             Notif.build statusChannel
 
         actions =
-            [ { id = "sync=todoist", button = Notif.Button "Sync Tasks", launch = False }
+            [ { id = "sync=marvin", button = Notif.Button "Sync Tasks", launch = False }
             , { id = "complete=next", button = Notif.Button "Complete", launch = False }
             ]
     in

@@ -1,11 +1,17 @@
 module Integrations.Marvin.MarvinItem exposing (..)
 
+import Activity.Activity as Activity exposing (Activity, ActivityID, StoredActivities)
+import Dict
+import ID
+import IntDict
 import Json.Decode.Exploration exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode exposing (..)
+import List.Extra as List
 import Maybe.Extra
 import Porting exposing (..)
+import Profile exposing (Profile)
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
@@ -46,6 +52,45 @@ type alias TimeBlockID =
 
 type alias RewardID =
     String
+
+
+type ItemType
+    = Task
+    | Project
+    | Category
+
+
+encodeItemType : ItemType -> Value
+encodeItemType itemType =
+    case itemType of
+        Task ->
+            Encode.string "task"
+
+        Project ->
+            Encode.string "project"
+
+        Category ->
+            Encode.string "category"
+
+
+decodeItemType : Decoder ItemType
+decodeItemType =
+    let
+        get id =
+            case id of
+                "task" ->
+                    succeed Task
+
+                "project" ->
+                    succeed Project
+
+                "category" ->
+                    succeed Category
+
+                _ ->
+                    fail ("unknown value for ItemType: " ++ id)
+    in
+    string |> andThen get
 
 
 {-| Tasks - simplified API
@@ -89,7 +134,7 @@ type alias MarvinItem =
     , startDate : Maybe CalendarDate
     , endDate : Maybe CalendarDate
     , db : String
-    , type_ : String
+    , type_ : ItemType
     , times : List Moment
     , taskTime : Maybe TimeOfDay
     }
@@ -128,7 +173,7 @@ encodeMarvinItem task =
         , ( "startDate", Encode.maybe encodeCalendarDate task.startDate )
         , ( "endDate", Encode.maybe encodeCalendarDate task.endDate )
         , ( "db", Encode.string task.db )
-        , ( "type", Encode.string task.type_ )
+        , ( "type", encodeItemType task.type_ )
         , ( "times", Encode.list encodeMoment task.times )
         , ( "taskTime", Encode.maybe encodeTimeOfDay task.taskTime )
         ]
@@ -139,12 +184,12 @@ decodeMarvinItem =
     succeed MarvinItem
         |> required "_id" string
         |> optional "done" bool False
-        |> required "day" (nullable calendarDateDecoder)
+        |> optional "day" (nullable calendarDateDecoder) Nothing
         |> required "title" string
         |> optional "parentId" (oneOf [ check string "unassigned" <| succeed Nothing, nullable string ]) Nothing
         |> optional "labelIds" (list string) []
         |> optional "firstScheduled" (nullable calendarDateDecoder) Nothing
-        |> required "rank" int
+        |> optional "rank" int 0
         |> optional "dailySection" (nullable string) Nothing
         |> optional "bonusSection" essentialOrBonusDecoder Essential
         |> optional "customSection" (nullable string) Nothing
@@ -166,8 +211,8 @@ decodeMarvinItem =
         |> optional "timeZoneOffset" (nullable int) Nothing
         |> optional "startDate" (nullable calendarDateDecoder) Nothing
         |> optional "endDate" (nullable calendarDateDecoder) Nothing
-        |> required "db" string
-        |> optional "type" string ""
+        |> optional "db" string ""
+        |> optional "type" decodeItemType Task
         |> optional "times" (list decodeMoment) []
         |> optional "taskTime" (nullable timeOfDayDecoder) Nothing
         |> optionalIgnored "subtasks"
@@ -288,8 +333,68 @@ timeOfDayDecoder =
     customDecoder string SmartTime.Human.Clock.fromStandardString
 
 
-toDocketTaskNaive : Int -> MarvinItem -> { entry : Task.Entry.Entry, class : Task.Class.ClassSkel, instance : Task.Instance.InstanceSkel }
-toDocketTaskNaive classCounter marvinItem =
+toDocketItem : Int -> Profile -> MarvinItem -> OutputType
+toDocketItem classCounter profile marvinItem =
+    case marvinItem.type_ of
+        Task ->
+            ConvertedToTaskTriplet <| toDocketTaskNaive classCounter profile.activities marvinItem
+
+        Project ->
+            ConvertedToTaskTriplet <| toDocketTaskNaive classCounter profile.activities marvinItem
+
+        Category ->
+            ConvertedToActivity <| toDocketActivity profile.activities marvinItem
+
+
+type OutputType
+    = ConvertedToTaskTriplet { entry : Task.Entry.Entry, class : Task.Class.ClassSkel, instance : Task.Instance.InstanceSkel }
+    | ConvertedToActivity StoredActivities
+
+
+toDocketActivity : StoredActivities -> MarvinItem -> StoredActivities
+toDocketActivity activities marvinCategory =
+    let
+        nameMatch key value =
+            List.member marvinCategory.title value.names
+
+        matchingActivities =
+            Debug.log ("matching activity names for " ++ marvinCategory.title) <| IntDict.filter nameMatch (Activity.allActivities activities)
+
+        firstActivityMatch =
+            List.head (IntDict.toList matchingActivities)
+
+        toCustomizations : Maybe Activity.Customizations
+        toCustomizations =
+            case firstActivityMatch of
+                Just ( key, activity ) ->
+                    Just
+                        { names = Nothing
+                        , icon = Nothing
+                        , excusable = Nothing
+                        , taskOptional = Nothing
+                        , evidence = []
+                        , category = Nothing
+                        , backgroundable = Nothing
+                        , maxTime = Nothing
+                        , hidden = Nothing
+                        , template = activity.template
+                        , id = ID.tag key
+                        , externalIDs = Dict.insert "marvinCategory" marvinCategory.id activity.externalIDs
+                        }
+
+                Nothing ->
+                    Nothing
+    in
+    case toCustomizations of
+        Just customizedActivity ->
+            IntDict.insert (ID.read customizedActivity.id) customizedActivity activities
+
+        Nothing ->
+            activities
+
+
+toDocketTaskNaive : Int -> StoredActivities -> MarvinItem -> { entry : Task.Entry.Entry, class : Task.Class.ClassSkel, instance : Task.Instance.InstanceSkel }
+toDocketTaskNaive classCounter activities marvinItem =
     let
         classID =
             classCounter + 1
@@ -304,7 +409,35 @@ toDocketTaskNaive classCounter marvinItem =
             { classBase
                 | predictedEffort = Maybe.withDefault Duration.zero marvinItem.timeEstimate
                 , importance = toFloat marvinItem.isStarred
+                , activity = whichActivity
             }
+
+        whichActivity =
+            case marvinItem.parentId of
+                Just someParent ->
+                    let
+                        activitiesWithMarvinCategories =
+                            List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+
+                        getMarvinID ( intID, activity ) =
+                            ( ID.tag intID, Dict.get "marvinCategory" activity.externalIDs )
+
+                        matchingActivities : List ActivityID
+                        matchingActivities =
+                            List.filterMap
+                                (\( id, actCat ) ->
+                                    if Maybe.withDefault "nope" actCat == someParent then
+                                        Just id
+
+                                    else
+                                        Nothing
+                                )
+                                activitiesWithMarvinCategories
+                    in
+                    List.head matchingActivities
+
+                Nothing ->
+                    Nothing
 
         instanceBase =
             Task.Instance.newInstanceSkel classCounter finalClass
@@ -321,11 +454,14 @@ toDocketTaskNaive classCounter marvinItem =
                         ( Just _, Nothing ) ->
                             Debug.log ("no planned day for " ++ marvinItem.title) []
 
-                        ( Nothing, Just _ ) ->
-                            Debug.log ("no tasktime for " ++ marvinItem.title) []
+                        ( Nothing, Just plannedDay ) ->
+                            Debug.log ("no tasktime for " ++ marvinItem.title ++ ", assuming end of day") List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, SmartTime.Human.Clock.endOfDay ), plannedDuration )
 
                         ( Nothing, Nothing ) ->
                             Debug.log ("no tasktime or planned day for " ++ marvinItem.title) []
+
+                ( Just False, _ ) ->
+                    Debug.log ("no time estimate for " ++ marvinItem.title) []
 
                 _ ->
                     []
