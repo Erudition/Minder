@@ -1,17 +1,21 @@
-<Page loaded="onPageLoaded" class="page"
+<Page loaded="onPageLoaded" class="wear-os-view"
       navigatingTo="onNavigatingTo"
-      xmlns="http://schemas.nativescript.org/tns.xsd">
+      xmlns="http://schemas.nativescript.org/tns.xsd"
+      xmlns:wear="nativescript-wear-os/packages/listview"
+      actionBarHidden="true">
 
-    <ActionBar class="action-bar">
-        <Label class="action-bar-title" text="Activities"></Label>
-    </ActionBar>
-
-    <ListView items="{{ activities }}" itemTap="onItemTap" class="list-group">
-        <ListView.itemTemplate>
-            <StackLayout orientation="vertical" class="list-group-item">
-                <Label text="{{ name }}" textWrap="true"></Label>
-                <Label text="{{ excusedUsage }}" textWrap="true"></Label>
-            </StackLayout>
-        </ListView.itemTemplate>
-    </ListView>
+    <!--    <ActionBar class="action-bar">-->
+    <!--        <Label class="action-bar-title" text="Activities"></Label>-->
+    <!--    </ActionBar>-->
+    <StackLayout>
+        <wear:WearOsListView useScalingScroll="true" height="100%" items="{{ activities }}" itemTap="onItemTap">
+            <wear:WearOsListView.itemTemplate>
+                <GridLayout rows="*" columns="auto, *">
+                    <Label text="⚪" row="0" col="0"/>
+                    <Label text="{{ name }}" row="0" col="1"/>
+                    <Label text="{{ excusedUsage }}" row="0" col="2" horizontalAlignment="right"/>
+                </GridLayout>
+            </wear:WearOsListView.itemTemplate>
+        </wear:WearOsListView>
+    </StackLayout>
 </Page>

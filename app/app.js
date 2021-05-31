@@ -114,8 +114,9 @@ function launchListener (args)  {
 }
 application.on(application.launchEvent, launchListener);
 
-
-application.run({ moduleName: "app-root" });
+//TODO detect if on wear
+//application.run({ moduleName: "app-root" });
+application.run({ moduleName: "app-root-wear" });
 
 /*
 Do not place any code after the application has been started as it will not

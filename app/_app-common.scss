@@ -26,3 +26,15 @@
 ActionBar .action-bar-title {
     horizontal-align: center;
 }
+
+.wear-os-view {
+    background-color: black;
+}
+
+.wear-os-view
+Label {
+  color: #ddd;
+  font-size: 20;
+  margin: 4;
+  vertical-align: middle;
+}

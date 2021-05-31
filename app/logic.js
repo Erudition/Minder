@@ -38,7 +38,7 @@ var handleOpenURL = require("nativescript-urlhandler").handleOpenURL;
 const testingExport = "https://minder.app/?export=all";
 const testingClearErrors = "https://minder.app/?clearerrors=clearerrors";
 const testingActivity = "https://minder.app/?start=Restroom";
-const testingSync = "https://minder.app/?sync=todoist";
+const testingSync = "https://minder.app/?sync=marvin";
 var launchURL = testingSync;
 
 // URL passed in via somewhere else on the system
@@ -58,13 +58,13 @@ handleOpenURL(function(appURL) {
 // ELM INITIALIZATION -----------------------------------------------------------
 
 
-//var elm = require('../www/elm-headless.js').Elm.Headless.init(
-//    { flags: [launchURL, appDataString] });
-
-var elm = require('../www/elm-gui.js').Elm.Main.init(
+var elm = require('../www/elm-headless.js').Elm.Headless.init(
     { flags: [launchURL, appDataString] });
 
-console.info("Got past Elm initialization! ---------------------------------");
+//var elm = require('../www/elm-gui.js').Elm.Main.init(
+//    { flags: [launchURL, appDataString] });
+
+console.info("Got past Elm headless initialization! ---------------------------------");
 
 const ns_hookup = require('./elm-nativescript.js');
 ns_hookup.addNativeScriptFeaturesToElm(elm);
