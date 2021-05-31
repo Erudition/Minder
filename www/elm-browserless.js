@@ -17209,6 +17209,35 @@ var $author$project$Integrations$Marvin$marvinEndpointURL = function (endpoint) 
 			['api', endpoint]),
 		_List_Nil);
 };
+var $author$project$Porting$toClassicLoose = function (decoder) {
+	var runRealDecoder = function (value) {
+		return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$decodeValue, decoder, value);
+	};
+	var asResult = function (value) {
+		var _v0 = runRealDecoder(value);
+		switch (_v0.$) {
+			case 'BadJson':
+				return $elm$core$Result$Err('Bad JSON');
+			case 'Errors':
+				var errors = _v0.a;
+				return $elm$core$Result$Err(
+					$zwilias$json_decode_exploration$Json$Decode$Exploration$errorsToString(errors));
+			case 'WithWarnings':
+				var result = _v0.b;
+				return $elm$core$Result$Ok(result);
+			default:
+				var result = _v0.a;
+				return $elm$core$Result$Ok(result);
+		}
+	};
+	var _final = function (value) {
+		return asResult(value);
+	};
+	return A2(
+		$elm$json$Json$Decode$andThen,
+		A2($elm$core$Basics$composeL, $elm_community$json_extra$Json$Decode$Extra$fromResult, _final),
+		$elm$json$Json$Decode$value);
+};
 var $author$project$Integrations$Marvin$getTodayItems = function (secret) {
 	return $elm$http$Http$request(
 		{
@@ -17216,7 +17245,7 @@ var $author$project$Integrations$Marvin$getTodayItems = function (secret) {
 			expect: A2(
 				$elm$http$Http$expectJson,
 				$author$project$Integrations$Marvin$GotItems,
-				$author$project$Porting$toClassic(
+				$author$project$Porting$toClassicLoose(
 					$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem))),
 			headers: _List_fromArray(
 				[
@@ -19205,7 +19234,7 @@ var $author$project$Activity$Switching$updateSticky = F4(
 			[
 				{
 				button: $author$project$NativeScript$Notification$Button('Sync Tasks'),
-				id: 'sync=todoist',
+				id: 'sync=marvin',
 				launch: false
 			},
 				{
