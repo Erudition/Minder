@@ -71,3 +71,13 @@ type alias Group =
 
 type alias Frame =
     Nonempty Op
+
+
+createOp : String -> String -> String -> Op
+createOp objectID opID payload =
+    { reducerID = "lww"
+    , objectID = objectID
+    , operationID = opID
+    , referenceID = opID
+    , payload = payload
+    }

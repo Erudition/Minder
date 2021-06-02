@@ -3,7 +3,7 @@ module Replicated.Node exposing (..)
 import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op exposing (Frame, Op)
+import Replicated.Op exposing (Frame, Op, createOp)
 import Replicated.Serialize as RS exposing (Codec)
 
 
@@ -19,20 +19,20 @@ initFromSaved : String -> List Frame -> Result InitError Node
 initFromSaved foundIdentity inputDatabase =
     let
         lastIdentity =
-            RS.decodeFromString nodeIDCodec foundIdentity
+            nodeIDFromString foundIdentity
 
         bumpSessionID nodeID =
             { nodeID | session = nodeID.session + 1 }
     in
     case lastIdentity of
-        Ok oldNodeID ->
+        Just oldNodeID ->
             Ok
                 { identity = bumpSessionID oldNodeID
                 , peers = []
                 , db = Dict.empty
                 }
 
-        Err _ ->
+        Nothing ->
             Err DecodingOldIdentityProblem
 
 
@@ -43,6 +43,11 @@ type InitError
 firstSessionEver : NodeID
 firstSessionEver =
     { primus = 0, peer = 0, client = 0, session = 0 }
+
+
+blankNode : Node
+blankNode =
+    { identity = firstSessionEver, peers = [], db = Dict.empty }
 
 
 
@@ -74,7 +79,7 @@ applyOpToDb previous newOp =
 updateObject : Op -> ObjectsByCreationDb -> ObjectsByCreationDb
 updateObject newOp oBCDict =
     -- we have an object db. Do work inside it, and return it
-    Dict.update newOp.objectID (Maybe.map (Object.applyOp newOp)) oBCDict
+    Dict.update newOp.objectID (Object.applyOp newOp) oBCDict
 
 
 type alias ReplicaTree =
@@ -93,8 +98,30 @@ type alias Peer =
     { identity : NodeID }
 
 
-peerCodec : Codec e Peer
+peerCodec : Codec String Peer
 peerCodec =
     RS.record Peer
         |> RS.field .identity nodeIDCodec
         |> RS.finishRecord
+
+
+
+-- TESTING
+
+
+fakeOps : List Op
+fakeOps =
+    [ createOp "12345+0.0.0.0" "1" ""
+    , createOp "12345+0.0.0.0" "2" "payload2 here"
+    , createOp "12345+0.0.0.0" "3" "payload3 here"
+    , createOp "12+0.0.0.0" "173" ""
+    , createOp "12+0.0.0.0" "174" "payloadB2 here"
+    ]
+
+
+fakeNode =
+    let
+        apply op node =
+            { node | db = applyOpToDb node.db op }
+    in
+    List.foldl apply blankNode fakeOps

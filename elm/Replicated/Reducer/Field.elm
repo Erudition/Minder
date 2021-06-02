@@ -1,7 +1,7 @@
 module Replicated.Reducer.Field exposing (..)
 
 import List.Extra as List
-import Replicated.Reducer.LWWObject exposing (FieldChange(..), FieldValue, LWWObject)
+import Replicated.Reducer.LWWObject exposing (FieldChange(..), FieldIdentifier, FieldValue, LWWObject)
 
 
 justLatest : Int -> LWWObject -> Maybe FieldValue
@@ -30,8 +30,8 @@ type alias RWH a =
     }
 
 
-type alias Change =
-    ()
+type Change
+    = Change FieldIdentifier FieldValue
 
 
 type alias FieldHistory =

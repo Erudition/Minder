@@ -52,14 +52,30 @@ type alias NodeID =
     { primus : Int, peer : Int, client : Int, session : Int }
 
 
-nodeIDCodec : RS.Codec e NodeID
+nodeIDToString : NodeID -> String
+nodeIDToString nodeID =
+    String.fromInt nodeID.primus
+        ++ "."
+        ++ String.fromInt nodeID.peer
+        ++ "."
+        ++ String.fromInt nodeID.client
+        ++ "."
+        ++ String.fromInt nodeID.session
+
+
+nodeIDFromString : String -> Maybe NodeID
+nodeIDFromString input =
+    case List.map String.toInt (String.split "." input) of
+        [ Just first, Just second, Just third, Just fourth ] ->
+            Just (NodeID first second third fourth)
+
+        _ ->
+            Nothing
+
+
+nodeIDCodec : RS.Codec String NodeID
 nodeIDCodec =
-    RS.record NodeID
-        |> RS.field .primus RS.int
-        |> RS.field .peer RS.int
-        |> RS.field .client RS.int
-        |> RS.field .session RS.int
-        |> RS.finishRecord
+    RS.mapValid (Result.fromMaybe "" << nodeIDFromString) nodeIDToString RS.string
 
 
 type alias ReducerID =
@@ -72,16 +88,29 @@ type alias EventStamp =
     }
 
 
-eventStampCodec : RS.Codec e EventStamp
-eventStampCodec =
-    RS.record EventStamp
-        |> RS.field .time momentCodec
-        |> RS.field .origin nodeIDCodec
-        |> RS.finishRecord
+eventStampToObjectID : EventStamp -> ObjectID
+eventStampToObjectID stamp =
+    String.fromInt (Moment.toSmartInt stamp.time) ++ "+" ++ nodeIDToString stamp.origin
 
 
-eventID eventString =
-    RS.decodeFromString (RS.triple momentCodec nodeIDCodec RS.string) eventString
+objectIDFromCounter : NodeID -> Int -> ObjectID
+objectIDFromCounter nodeID counter =
+    eventStampToObjectID (EventStamp (Moment.fromSmartInt counter) nodeID)
+
+
+objectIDtoEventStamp : ObjectID -> Maybe EventStamp
+objectIDtoEventStamp objectID =
+    case String.split "+" objectID of
+        [ time, origin ] ->
+            case ( Maybe.map Moment.fromSmartInt (String.toInt time), nodeIDFromString origin ) of
+                ( Just moment, Just nodeID ) ->
+                    Just (EventStamp moment nodeID)
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 momentCodec =

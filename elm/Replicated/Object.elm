@@ -3,7 +3,8 @@ module Replicated.Object exposing (..)
 import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
 import Replicated.Op exposing (EventStampString, Op, Payload)
-import SmartTime.Moment exposing (Moment)
+import Replicated.Serialize as RS
+import SmartTime.Moment as Moment exposing (Moment)
 
 
 {-| The most generic "object", to be inherited by other replicated data types for specific functionality.
@@ -25,16 +26,32 @@ type alias ReferenceString =
     String
 
 
-applyOp : Op -> Object -> Object
-applyOp newOp oldObject =
+applyOp : Op -> Maybe Object -> Maybe Object
+applyOp newOp oldObjectMaybe =
     let
         newEvent =
             Event { reference = newOp.referenceID, payload = newOp.payload }
+
+        newCreationTry =
+            objectIDtoEventStamp newOp.objectID
     in
-    { creation = oldObject.creation
-    , events = Dict.insert newOp.operationID newEvent oldObject.events
-    , included = oldObject.included
-    }
+    case ( oldObjectMaybe, newCreationTry, newOp.payload ) of
+        ( Just oldObject, _, _ ) ->
+            Just
+                { creation = oldObject.creation
+                , events = Dict.insert newOp.operationID newEvent oldObject.events
+                , included = oldObject.included
+                }
+
+        ( Nothing, Just eventStamp, "" ) ->
+            Just
+                { creation = eventStamp
+                , events = Dict.empty
+                , included = All
+                }
+
+        _ ->
+            Nothing
 
 
 type InclusionInfo

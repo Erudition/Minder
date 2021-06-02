@@ -23,20 +23,42 @@ type LWWObject
         }
 
 
+getID (LWWObject lww) =
+    lww.id
+
+
+empty : ObjectID -> LWWObject
+empty objectID =
+    LWWObject { id = objectID, changeHistory = [], included = Object.All }
+
+
 build : Node -> ObjectID -> Maybe LWWObject
 build node objectID =
     let
-        lwwDatabase =
-            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
-
-        existingObject =
-            Dict.get objectID lwwDatabase
-
         convertObjectToLWW : Object -> LWWObject
         convertObjectToLWW obj =
             LWWObject { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    Maybe.map convertObjectToLWW existingObject
+    Maybe.map convertObjectToLWW (getObjectIfExists node objectID)
+
+
+getObjectIfExists : Node -> ObjectID -> Maybe Object
+getObjectIfExists node objectID =
+    let
+        lwwDatabase =
+            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
+    in
+    Dict.get objectID lwwDatabase
+
+
+createLWWOp : Node -> ObjectID -> Op
+createLWWOp node objectID =
+    { reducerID = "lww"
+    , objectID = objectID
+    , operationID = objectID
+    , referenceID = objectID
+    , payload = ""
+    }
 
 
 {-| For LWW we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
@@ -47,7 +69,8 @@ buildHistory eventDict =
         orderCheck : ( EventStampString, Object.Event ) -> Bool
         orderCheck ( _, Object.Event eventDetails ) =
             -- TODO we need to fold to actually check this, right now we just see if it's there
-            Dict.member eventDetails.reference eventDict
+            -- Dict.member eventDetails.reference eventDict
+            True
     in
     List.concatMap toFieldChange (List.filter orderCheck (Dict.toList eventDict))
 
@@ -63,9 +86,6 @@ type FieldChange
 toFieldChange : ( EventStampString, Object.Event ) -> List FieldChange
 toFieldChange ( eventStampString, Object.Event eventDetails ) =
     let
-        payloadCodec =
-            RS.list (RS.tuple fieldIdentifierCodec RS.string)
-
         interpretedPayload =
             Result.toMaybe (RS.decodeFromString payloadCodec eventDetails.payload)
 
@@ -85,6 +105,10 @@ toFieldChange ( eventStampString, Object.Event eventDetails ) =
 
         _ ->
             []
+
+
+payloadCodec =
+    RS.list (RS.tuple fieldIdentifierCodec RS.string)
 
 
 getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
