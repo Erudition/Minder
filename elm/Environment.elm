@@ -3,6 +3,9 @@ module Environment exposing (Environment, preInit)
 -- "Environment"
 
 import Browser.Navigation as Nav exposing (..)
+import Dict
+import Replicated.Node as Node exposing (Node, blankNode)
+import Replicated.Testing
 import SmartTime.Human.Clock
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
@@ -23,6 +26,7 @@ type alias Environment =
     , navkey : Maybe Nav.Key -- instance-specific (can't store it)
     , timeZone : Zone -- according to browser
     , launchTime : Moment -- when we officially started the session
+    , node : Node
     }
 
 
@@ -34,4 +38,5 @@ preInit maybeKey =
     , navkey = maybeKey -- passed from init
     , timeZone = utc -- temporary placeholder
     , launchTime = zero -- temporary placeholder
+    , node = Replicated.Testing.testNode
     }
