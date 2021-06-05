@@ -82,7 +82,7 @@ type Codec e a
         , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : NestableJsonDecoder e a
-        , replicaEncoder : Maybe (OpMakingDetails -> a -> List Op)
+        , ronEncoder : Maybe (RonEncoder a)
         }
 
 
@@ -305,7 +305,7 @@ getEncoder (Codec m) =
 -}
 getReplicaEncoder : Codec e a -> Maybe (OpMakingDetails -> a -> List Op)
 getReplicaEncoder (Codec m) =
-    m.replicaEncoder
+    m.ronEncoder
 
 
 {-| Extracts the json encoding function contained inside the `Codec`.
@@ -390,7 +390,7 @@ buildNoNest encoder_ decoder_ jsonEncoder jsonDecoder =
         , decoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = \_ -> jsonDecoder
-        , replicaEncoder = Nothing
+        , ronEncoder = Nothing
         }
 
 
@@ -406,7 +406,7 @@ buildNestable encoder_ decoder_ jsonEncoder jsonDecoder =
         , decoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
-        , replicaEncoder = Nothing
+        , ronEncoder = Nothing
         }
 
 
@@ -539,7 +539,7 @@ objectID =
                     (\charCount -> BD.string charCount |> BD.map Ok)
         , jsonEncoder = JE.string
         , jsonDecoder = \_ -> JD.string |> JD.map Ok
-        , replicaEncoder = Nothing
+        , ronEncoder = Nothing
         }
 
 
@@ -630,7 +630,7 @@ list codec =
                     (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = nestableJsonDecoder
-        , replicaEncoder = Nothing
+        , ronEncoder = Nothing
         }
 
 
@@ -1006,7 +1006,7 @@ finishFragileRecord (FragileRecordCodec codec) =
         , decoder = codec.decoder
         , jsonEncoder = codec.jsonEncoder >> List.reverse >> JE.list identity
         , jsonDecoder = codec.jsonDecoder
-        , replicaEncoder = Nothing
+        , ronEncoder = Nothing
         }
 
 
@@ -1030,6 +1030,14 @@ type alias FieldValue =
     String
 
 
+type alias RonEncoder a =
+    OpMakingDetails -> a -> List Op
+
+
+type alias RonFieldEncoder =
+    OpMakingDetails -> List Op
+
+
 {-| A partially built Codec for a smart record.
 -}
 type PartialRecord errs full remaining
@@ -1039,7 +1047,7 @@ type PartialRecord errs full remaining
         , jsonEncoders : List ( String, full -> JE.Value )
         , jsonArrayDecoder : NestableJsonDecoder errs remaining
         , fieldIndex : Int
-        , replicaEncoders : List (OpMakingDetails -> List Op)
+        , ronEncoders : List RonFieldEncoder
         }
 
 
@@ -1051,7 +1059,7 @@ record remainingConstructor =
         , jsonEncoders = []
         , jsonArrayDecoder = \elsewhereData -> JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
-        , replicaEncoders = []
+        , ronEncoders = []
         }
 
 
@@ -1086,7 +1094,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (nestableJsonFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec)
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , replicaEncoders = newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.replicaEncoders
+        , ronEncoders = newRonEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
         }
 
 
@@ -1235,7 +1243,7 @@ finishRecord (PartialRecord allFieldsCodec) =
         , decoder = allFieldsCodec.decoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = runJsonDecoderOnCorrectObject
-        , replicaEncoder = Just createOpForEachField
+        , ronEncoder = Just createOpForEachField
         }
 
 
@@ -1246,8 +1254,10 @@ obsolete reservedList input =
     input
 
 
-newReplicaEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> OpMakingDetails -> List Op
-newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ node, lww, counter, mode } as details) =
+{-| Adds an item to the list of replica encoders, for encoding a single LWW field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
+-}
+newRonEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> OpMakingDetails -> List Op
+newRonEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ node, lww, counter, mode } as details) =
     let
         lwwField =
             LWWObject.getFieldLatest lww ( fieldSlot, fieldName )
@@ -1260,7 +1270,7 @@ newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ 
             , payload = Debug.todo "run encoder to convert newValue to payload"
             }
 
-        fieldValueReplicaEncoder =
+        fieldValueRonEncoder =
             getReplicaEncoder fieldValueCodec
 
         interpretFieldValue encodedValue =
@@ -1279,8 +1289,8 @@ newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ 
         createObject =
             Debug.todo "op to create nested object"
 
-        passToNestedReplicaEncoder nestedReplicaEncoder =
-            nestedReplicaEncoder
+        passToNestedReplicaEncoder nestedRonEncoder =
+            nestedRonEncoder
 
         lwwOfNestedMaybe storedID =
             LWWObject.build node storedID
@@ -1291,21 +1301,22 @@ newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ 
         findNestedLWW encodedValue =
             fieldValueAsObjectIDMaybe encodedValue |> Maybe.andThen lwwOfNestedMaybe
 
-        runNestedRepEncoder valueInMemory repEncoder =
+        runNestedRonEncoder : String -> RonFieldEncoder -> List Op
+        runNestedRonEncoder valueInMemory ronEncoder =
             case findNestedLWW valueInMemory of
                 Nothing ->
                     []
 
                 Just nestedLWW ->
-                    [ repEncoder { details | lww = nestedLWW } valueInMemory ]
+                    [ ronEncoder { details | lww = nestedLWW } valueInMemory ]
     in
-    case ( lwwField, fieldValueReplicaEncoder ) of
-        ( Just foundValue, Just repEncoder ) ->
+    case ( lwwField, fieldValueRonEncoder ) of
+        ( Just foundValue, Just ronEncoder ) ->
             -- it's not empty and there's a replica-aware encoder
             let
                 encodeAsOpMaybe =
                     -- running the nested repEncoder, but it always needs a new lww context
-                    runNestedRepEncoder foundValue repEncoder
+                    runNestedRonEncoder foundValue ronEncoder
             in
             case mode of
                 MissingObjectsOnly ->
@@ -1323,7 +1334,7 @@ newReplicaEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ 
                 IncludeDefaults ->
                     encodeAsOpMaybe
 
-        ( Nothing, Just repEncoder ) ->
+        ( Nothing, Just ronEncoder ) ->
             -- no set value, but there's a replica-aware encoder
             []
 
