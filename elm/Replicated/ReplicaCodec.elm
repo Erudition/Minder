@@ -61,6 +61,7 @@ import Bytes.Encode as BE
 import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
+import List.Extra
 import Regex exposing (Regex)
 import Replicated.Identifier as Identifier exposing (ObjectID)
 import Replicated.Node exposing (Node)
@@ -1046,7 +1047,13 @@ type alias PrerequisiteOps =
 
 
 type alias RonFieldEncoder =
-    FieldOpMakingDetails -> ( ( FieldIdentifier, FieldValue ), PrerequisiteOps )
+    FieldOpMakingDetails -> RonFieldEncoderOutput
+
+
+type alias RonFieldEncoderOutput =
+    { field : ( FieldIdentifier, FieldValue )
+    , required : PrerequisiteOps
+    }
 
 
 type alias SmartJsonFieldEncoder full =
@@ -1274,7 +1281,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 objectRonEncoder : List RonFieldEncoder -> DetailsForSubObjects -> ( List Op, ObjectID )
 objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) =
     let
-        newLWW : ( LWWObject, List Op )
+        newLww : ( LWWObject, List Op )
         newLww =
             let
                 newObjectID =
@@ -1282,7 +1289,7 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
             in
             ( LWWObject.empty newObjectID, [ LWWObject.createLWWOp node newObjectID ] )
 
-        ( lww, creationOpMaybeAsList ) =
+        ( lww, creationOpMaybeSingleton ) =
             case idMaybe of
                 Just givenID ->
                     case LWWObject.build node givenID of
@@ -1295,17 +1302,25 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
                 Nothing ->
                     newLww
 
-        runEncoders =
-            List.map (\f -> f details) ronFieldEncoders
+        runFieldRonEncoders : (CreationCounter, List RonFieldEncoderOutput)
+        runFieldRonEncoders =
+            let
+                passDetailsToField : CreationCounter -> RonFieldEncoder -> (CreationCounter, RonFieldEncoderOutput)
+                passDetailsToField lastCounter fieldFunction =
+                    let
+                        run =
+                            fieldFunction { node = node, lww = lww, counter = lastCounter, mode = mode }
+                    (lastCounter + (List.length run.required), run)
+            in
+            List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
+
+        myCounter : CreationCounter
+        myCounter =
+            Tuple.first runFieldRonEncoders
 
         prerequisiteOps : List Op
         prerequisiteOps =
-            List.concat (List.map Tuple.second runEncoders)
-
-        -- get our new counter by assuming every prerequisiteOp consumed 1
-        myCounter : CreationCounter
-        myCounter =
-            counter + List.length prerequisiteOps
+            List.concat (List.map (.required) (Tuple.second runFieldRonEncoders))
 
         summaryOp : Op
         summaryOp =
@@ -1318,7 +1333,7 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
 
         -- DO NEXT: Ops for each field
     in
-    ( prerequisiteOps ++ creationOpMaybeAsList, LWWObject.getID lww )
+    ( prerequisiteOps ++ creationOpMaybeSingleton, LWWObject.getID lww )
 
 
 {-| Does nothing but remind you not to reuse historical slots
