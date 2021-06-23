@@ -66,6 +66,7 @@ import Regex exposing (Regex)
 import Replicated.Identifier as Identifier exposing (ObjectID)
 import Replicated.Node exposing (Node)
 import Replicated.Op exposing (Op)
+import Replicated.Op.NewOpCounter exposing (NewOpCounter)
 import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -88,11 +89,11 @@ type Codec e a
 
 
 type alias FieldOpMakingDetails =
-    { node : Node, lww : LWWObject, counter : CreationCounter, mode : ReplicaEncodeDepth }
+    { node : Node, lww : LWWObject, counter : NewOpCounter, mode : ReplicaEncodeDepth }
 
 
 type alias DetailsForSubObjects =
-    { node : Node, idMaybe : Maybe ObjectID, counter : CreationCounter, mode : ReplicaEncodeDepth }
+    { node : Node, idMaybe : Maybe ObjectID, counter : NewOpCounter, mode : ReplicaEncodeDepth }
 
 
 type ReplicaEncodeDepth
@@ -103,10 +104,6 @@ type ReplicaEncodeDepth
 
 type alias ElsewhereData =
     Maybe ( Node, Maybe LWWObject )
-
-
-type alias CreationCounter =
-    Int
 
 
 type alias NestableJsonDecoder e a =
@@ -1053,6 +1050,7 @@ type alias RonFieldEncoder =
 type alias RonFieldEncoderOutput =
     { field : ( FieldIdentifier, FieldValue )
     , required : PrerequisiteOps
+    , nextCounter : NewOpCounter
     }
 
 
@@ -1289,7 +1287,7 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
             in
             ( LWWObject.empty newObjectID, [ LWWObject.createLWWOp node newObjectID ] )
 
-        ( lww, creationOpMaybeSingleton ) =
+        ( lww, creationOpMaybeAsSingleton ) =
             case idMaybe of
                 Just givenID ->
                     case LWWObject.build node givenID of
@@ -1302,25 +1300,27 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
                 Nothing ->
                     newLww
 
-        runFieldRonEncoders : (CreationCounter, List RonFieldEncoderOutput)
+        runFieldRonEncoders : ( NewOpCounter, List RonFieldEncoderOutput )
         runFieldRonEncoders =
             let
-                passDetailsToField : CreationCounter -> RonFieldEncoder -> (CreationCounter, RonFieldEncoderOutput)
+                passDetailsToField : NewOpCounter -> RonFieldEncoder -> ( NewOpCounter, RonFieldEncoderOutput )
                 passDetailsToField lastCounter fieldFunction =
                     let
                         run =
                             fieldFunction { node = node, lww = lww, counter = lastCounter, mode = mode }
-                    (lastCounter + (List.length run.required), run)
+                    in
+                    ( run.nextCounter, run )
             in
+            -- Build up the list of field encoder outputs, but keep track of how many new op IDs have already been used and pass it into the next
             List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
 
-        myCounter : CreationCounter
+        myCounter : NewOpCounter
         myCounter =
             Tuple.first runFieldRonEncoders
 
         prerequisiteOps : List Op
         prerequisiteOps =
-            List.concat (List.map (.required) (Tuple.second runFieldRonEncoders))
+            List.concat (List.map .required (Tuple.second runFieldRonEncoders))
 
         summaryOp : Op
         summaryOp =
@@ -1333,7 +1333,7 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
 
         -- DO NEXT: Ops for each field
     in
-    ( prerequisiteOps ++ creationOpMaybeSingleton, LWWObject.getID lww )
+    ( prerequisiteOps ++ creationOpMaybeAsSingleton, LWWObject.getID lww )
 
 
 {-| Does nothing but remind you not to reuse historical slots

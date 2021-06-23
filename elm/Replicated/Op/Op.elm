@@ -4,18 +4,20 @@ import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Identifier as Identifier exposing (..)
+import Replicated.Op.OpID exposing (OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import Set exposing (Set)
 import SmartTime.Moment as Moment
 
 
-type alias Op =
-    { reducerID : ReducerID
-    , objectID : EventStampString
-    , operationID : EventStampString
-    , referenceID : EventStampString
-    , payload : Payload
-    }
+type Op
+    = Op
+        { reducerID : ReducerID
+        , objectID : ObjectID
+        , operationID : OpID
+        , referenceID : OpID
+        , payload : Payload
+        }
 
 
 opCodec : Codec e Op

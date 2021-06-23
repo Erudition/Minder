@@ -2,6 +2,7 @@ module Replicated.Node exposing (..)
 
 import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
+import Replicated.Node.NodeID exposing (NodeID, nodeIDCodec, nodeIDFromString)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op exposing (Frame, Op, createOp)
 import Replicated.Serialize as RS exposing (Codec)
