@@ -33,7 +33,3 @@ type NumberOrHashVariety
     | SHA3Merkle
     | RandomNumber
     | CryptoIDorFingerprint
-
-
-type alias ReducerID =
-    String

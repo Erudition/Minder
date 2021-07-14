@@ -66,7 +66,7 @@ import Regex exposing (Regex)
 import Replicated.Identifier as Identifier exposing (ObjectID)
 import Replicated.Node exposing (Node)
 import Replicated.Op exposing (Op)
-import Replicated.Op.NewOpCounter exposing (NewOpCounter)
+import Replicated.Op.OpID as OpID exposing (NewOpCounter, OpID)
 import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -1048,7 +1048,7 @@ type alias RonFieldEncoder =
 
 
 type alias RonFieldEncoderOutput =
-    { field : ( FieldIdentifier, FieldValue )
+    { op : Maybe Op -- the field's value encoded as an Op
     , required : PrerequisiteOps
     , nextCounter : NewOpCounter
     }
@@ -1322,15 +1322,6 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
         prerequisiteOps =
             List.concat (List.map .required (Tuple.second runFieldRonEncoders))
 
-        summaryOp : Op
-        summaryOp =
-            { reducerID = "lww"
-            , objectID = LWWObject.getID lww
-            , operationID = Identifier.objectIDFromCounter node.identity myCounter
-            , referenceID = Identifier.objectIDFromCounter node.identity myCounter -- FIXME
-            , payload = Debug.todo "run encoder to convert newValue to payload"
-            }
-
         -- DO NEXT: Ops for each field
     in
     ( prerequisiteOps ++ creationOpMaybeAsSingleton, LWWObject.getID lww )
@@ -1343,9 +1334,15 @@ obsolete reservedList input =
     input
 
 
+{-| Since we must first publish each RonFieldEncoderEntry's prerequisite ops before assigning an OpIDs, we use a function that will later finish the Ops off with the next safe ID.
+-}
+type alias UnfinishedOp =
+    { counter : NewOpCounter, opToReference : OpID } -> Op
+
+
 {-| Adds an item to the list of replica encoders, for encoding a single LWW field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> FieldOpMakingDetails -> List Op
+newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (FieldOpMakingDetails -> RonFieldEncoderOutput)
 newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ node, lww, counter, mode } as details) =
     let
         lwwField =
@@ -1391,6 +1388,24 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({
 
                 Just nestedLWW ->
                     ronEncoder { details | lww = nestedLWW } fieldValueCodec
+
+        opToWriteFieldIfNotDefault : Maybe UnfinishedOp
+        opToWriteFieldIfNotDefault =
+            case isAlreadyDefault of
+                True ->
+                    Nothing
+
+                False ->
+                    Just opToWriteField
+
+        opToWriteField : UnfinishedOp
+        opToWriteField { counter, opToReference } =
+            { reducerID = "lww"
+            , objectID = LWWObject.getID lww
+            , operationID = OpID.newOpID counter node.identity
+            , referenceID = opToReference
+            , payload = "run encoder to convert newValue to payload"
+            }
     in
     case ( lwwField, fieldValueRonEncoder ) of
         ( Just foundValue, Just ronEncoder ) ->

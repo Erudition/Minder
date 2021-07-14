@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (NewOpCounter, OpID)
+module Replicated.Op.OpID exposing (NewOpCounter, OpID, newOpID)
 
 import Replicated.Node.NodeID exposing (NodeID)
 import SmartTime.Moment as Moment exposing (Moment)

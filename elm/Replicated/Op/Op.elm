@@ -13,7 +13,7 @@ import SmartTime.Moment as Moment
 type Op
     = Op
         { reducerID : ReducerID
-        , objectID : ObjectID
+        , objectID : OpID
         , operationID : OpID
         , referenceID : OpID
         , payload : Payload
@@ -36,6 +36,10 @@ type alias EventStampString =
 
 
 type alias Payload =
+    String
+
+
+type alias ReducerID =
     String
 
 
