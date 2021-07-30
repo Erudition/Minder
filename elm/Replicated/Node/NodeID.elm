@@ -9,8 +9,8 @@ type alias NodeID =
     { primus : Int, peer : Int, client : Int, session : Int }
 
 
-nodeIDToString : NodeID -> String
-nodeIDToString nodeID =
+toString : NodeID -> String
+toString nodeID =
     String.fromInt nodeID.primus
         ++ "."
         ++ String.fromInt nodeID.peer
@@ -20,8 +20,8 @@ nodeIDToString nodeID =
         ++ String.fromInt nodeID.session
 
 
-nodeIDFromString : String -> Maybe NodeID
-nodeIDFromString input =
+fromString : String -> Maybe NodeID
+fromString input =
     case List.map String.toInt (String.split "." input) of
         [ Just first, Just second, Just third, Just fourth ] ->
             Just (NodeID first second third fourth)
@@ -30,6 +30,6 @@ nodeIDFromString input =
             Nothing
 
 
-nodeIDCodec : RS.Codec String NodeID
-nodeIDCodec =
-    RS.mapValid (Result.fromMaybe "" << nodeIDFromString) nodeIDToString RS.string
+codec : RS.Codec String NodeID
+codec =
+    RS.mapValid (Result.fromMaybe "" << fromString) toString RS.string

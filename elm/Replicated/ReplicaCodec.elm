@@ -63,17 +63,16 @@ import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
 import Regex exposing (Regex)
-import Replicated.Identifier as Identifier exposing (ObjectID)
 import Replicated.Node exposing (Node)
-import Replicated.Op exposing (Op)
-import Replicated.Op.OpID as OpID exposing (NewOpCounter, OpID)
+import Replicated.Op as Op exposing (Op)
+import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
 import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 
 
--- DEFINITION
+-- CODEC DEFINITIONS
 
 
 {-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
@@ -84,16 +83,16 @@ type Codec e a
         , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : NestableJsonDecoder e a
-        , ronEncoder : Maybe (RonEncoder a)
+        , ronEncoder : Maybe RonEncoder
         }
 
 
-type alias FieldOpMakingDetails =
-    { node : Node, lww : LWWObject, counter : NewOpCounter, mode : ReplicaEncodeDepth }
+
+-- RON DEFINITIONS
 
 
 type alias DetailsForSubObjects =
-    { node : Node, idMaybe : Maybe ObjectID, counter : NewOpCounter, mode : ReplicaEncodeDepth }
+    { node : Node, idMaybe : Maybe OpID.ObjectID, counter : InCounter, mode : ReplicaEncodeDepth }
 
 
 type ReplicaEncodeDepth
@@ -108,6 +107,57 @@ type alias ElsewhereData =
 
 type alias NestableJsonDecoder e a =
     ElsewhereData -> JD.Decoder (Result (Error e) a)
+
+
+type alias RonEncoder =
+    DetailsForSubObjects -> RonEncoderOutput
+
+
+type alias RonEncoderOutput =
+    { ops : List Op
+    , objectID : OpID
+    , nextCounter : OutCounter
+    }
+
+
+{-| The Ops formed by running nested ronEncoders. They always come first because the current encoder may rely on objects that have not been created yet.
+RULE: If these Ops create something that needs to be referenced by its caller, the caller will assume the newly created object has the ID of the last Op in the list.
+-}
+type alias PrerequisiteOps =
+    List Op
+
+
+type alias RonFieldEncoder =
+    RonFieldEncoderInputs -> RonFieldEncoderOutput
+
+
+type alias RonFieldEncoderInputs =
+    { node : Node
+    , lww : LWWObject
+    , counter : InCounter
+    , mode : ReplicaEncodeDepth
+    }
+
+
+type alias RonFieldEncoderOutput =
+    { required : PrerequisiteOps
+    , postPrereqCounter : OutCounter -- has only been used for prereqs & creation
+    , opToWrite : Maybe UnfinishedOp -- no counters used at first
+    }
+
+
+{-| Since we must first publish each RonFieldEncoderEntry's prerequisite ops before assigning an OpIDs, we use a function that will later finish the Ops off with the next safe ID.
+-}
+type alias UnfinishedOp =
+    { counter : InCounter, opToReference : OpID } -> ( Op, OutCounter )
+
+
+type alias SmartJsonFieldEncoder full =
+    ( String, full -> JE.Value )
+
+
+
+-- ERROR HANDLING
 
 
 {-| Possible errors that can occur when decoding.
@@ -305,8 +355,8 @@ getEncoder (Codec m) =
 
 {-| Extracts the replica encoding function contained inside the `Codec`.
 -}
-getReplicaEncoder : Codec e a -> Maybe (FieldOpMakingDetails -> a -> List Op)
-getReplicaEncoder (Codec m) =
+getRonEncoder : Codec e a -> Maybe RonEncoder
+getRonEncoder (Codec m) =
     m.ronEncoder
 
 
@@ -525,24 +575,10 @@ char =
 
 {-| A reference to an object somewhere else!
 -}
-objectID : Codec e ObjectID
-objectID =
+opID : Codec e OpID
+opID =
     -- currently a copy of String codec
-    Codec
-        { encoder =
-            \text ->
-                BE.sequence
-                    [ BE.unsignedInt32 endian (BE.getStringWidth text)
-                    , BE.string text
-                    ]
-        , decoder =
-            BD.unsignedInt32 endian
-                |> BD.andThen
-                    (\charCount -> BD.string charCount |> BD.map Ok)
-        , jsonEncoder = JE.string
-        , jsonDecoder = \_ -> JD.string |> JD.map Ok
-        , ronEncoder = Nothing
-        }
+    Debug.todo "OpID codec"
 
 
 
@@ -576,16 +612,16 @@ objectID =
 A "decoder" that looks in the replica for an RGA object.
 If found, decodes it as a list.
 -}
-findRga : Node -> ObjectID -> JD.Decoder (Result (Error e) (List a))
+findRga : Node -> OpID.ObjectID -> JD.Decoder (Result (Error e) (List a))
 findRga replica location =
     case Dict.get "rga" replica.db of
         Nothing ->
             JD.fail "Couldn't find where RGAs are stored"
 
         Just rgaDatabase ->
-            case Dict.get location rgaDatabase of
+            case Dict.get (OpID.toString location) rgaDatabase of
                 Nothing ->
-                    JD.fail ("Couldn't find an RGA object with objectID " ++ location)
+                    JD.fail ("Couldn't find an RGA object with objectID " ++ OpID.toString location)
 
                 Just rgaFound ->
                     JD.succeed (Debug.todo "buildRGAfromJson")
@@ -1032,32 +1068,6 @@ type alias FieldValue =
     String
 
 
-type alias RonEncoder =
-    DetailsForSubObjects -> ( List Op, ObjectID )
-
-
-{-| The Ops formed by running nested ronEncoders. They always come first because the current encoder may rely on objects that have not been created yet.
-RULE: If these Ops create something that needs to be referenced by its caller, the caller will assume the newly created object has the ID of the last Op in the list.
--}
-type alias PrerequisiteOps =
-    List Op
-
-
-type alias RonFieldEncoder =
-    FieldOpMakingDetails -> RonFieldEncoderOutput
-
-
-type alias RonFieldEncoderOutput =
-    { op : Maybe Op -- the field's value encoded as an Op
-    , required : PrerequisiteOps
-    , nextCounter : NewOpCounter
-    }
-
-
-type alias SmartJsonFieldEncoder full =
-    ( String, full -> JE.Value )
-
-
 {-| A partially built Codec for a smart record.
 -}
 type PartialRecord errs full remaining
@@ -1223,11 +1233,11 @@ finishRecord (PartialRecord allFieldsCodec) =
                     -- we're working with a replica! Try to decode a UUID instead.
                     -- then, if we find a LWWObject by that UUID, run the big decoder on that instead!
                     let
-                        objectIDDecoder : JD.Decoder ObjectID
+                        objectIDDecoder : JD.Decoder OpID.ObjectID
                         objectIDDecoder =
-                            JD.string
+                            OpID.jsonDecoder
 
-                        objectFinder : ObjectID -> Result (Error errs) full
+                        objectFinder : OpID.ObjectID -> Result (Error errs) full
                         objectFinder foundID =
                             case LWWObject.build node foundID of
                                 Nothing ->
@@ -1276,17 +1286,10 @@ Also returns the ObjectID so that parent objects can refer to it.
 Why not create missing Objects in the encoder? Because if it already exists, we'd need to pass the existing ObjectID in anyway. Might as well pass in a guaranteed-existing LWW (pre-created if needed)
 
 -}
-objectRonEncoder : List RonFieldEncoder -> DetailsForSubObjects -> ( List Op, ObjectID )
+objectRonEncoder : List RonFieldEncoder -> DetailsForSubObjects -> RonEncoderOutput
 objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) =
     let
-        newLww : ( LWWObject, List Op )
-        newLww =
-            let
-                newObjectID =
-                    Identifier.objectIDFromCounter node.identity myCounter
-            in
-            ( LWWObject.empty newObjectID, [ LWWObject.createLWWOp node newObjectID ] )
-
+        -- get our LWW, old or new, and if new, the creation op
         ( lww, creationOpMaybeAsSingleton ) =
             case idMaybe of
                 Just givenID ->
@@ -1300,31 +1303,71 @@ objectRonEncoder ronFieldEncoders ({ node, idMaybe, counter, mode } as details) 
                 Nothing ->
                     newLww
 
-        runFieldRonEncoders : ( NewOpCounter, List RonFieldEncoderOutput )
+        -- run each field encoder to build up our object
+        runFieldRonEncoders : ( InCounter, List RonFieldEncoderOutput )
         runFieldRonEncoders =
             let
-                passDetailsToField : NewOpCounter -> RonFieldEncoder -> ( NewOpCounter, RonFieldEncoderOutput )
-                passDetailsToField lastCounter fieldFunction =
+                passDetailsToField : InCounter -> RonFieldEncoder -> ( OutCounter, RonFieldEncoderOutput )
+                passDetailsToField thisFieldCounter fieldFunction =
                     let
                         run =
-                            fieldFunction { node = node, lww = lww, counter = lastCounter, mode = mode }
+                            fieldFunction { node = node, lww = lww, counter = thisFieldCounter, mode = mode }
                     in
-                    ( run.nextCounter, run )
+                    ( run.postPrereqCounter, run )
             in
-            -- Build up the list of field encoder outputs, but keep track of how many new op IDs have already been used and pass it into the next
+            -- keep track of how many new op IDs have already been used and pass it into the next
             List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
 
-        myCounter : NewOpCounter
-        myCounter =
+        -- this object's counter is the next one after all the field encoders have been run
+        objectReadyCounter : InCounter
+        objectReadyCounter =
             Tuple.first runFieldRonEncoders
+
+        -- how to create a new LWW object if we can't find an existing one
+        newLww : ( LWWObject, List Op )
+        newLww =
+            let
+                newObjectID =
+                    OpID.generate node.identity objectReadyCounter
+            in
+            ( LWWObject.empty newObjectID, [ LWWObject.creation node newObjectID ] )
 
         prerequisiteOps : List Op
         prerequisiteOps =
             List.concat (List.map .required (Tuple.second runFieldRonEncoders))
 
-        -- DO NEXT: Ops for each field
+        -- finally, the actual Ops that set each field
+        finishFieldOps : ( OutCounter, List Op )
+        finishFieldOps =
+            let
+                unstampedOpList =
+                    List.filterMap .opToWrite (Tuple.second runFieldRonEncoders)
+
+                finishOps : InCounter -> UnfinishedOp -> ( OutCounter, Op )
+                finishOps givenOpCounter opFinisher =
+                    let
+                        setReference =
+                            -- TODO what should we ideally reference
+                            LWWObject.getID lww
+
+                        ( finishedOp, counterToPassAlong ) =
+                            opFinisher { counter = givenOpCounter, opToReference = setReference }
+                    in
+                    ( counterToPassAlong, finishedOp )
+            in
+            List.Extra.mapAccuml finishOps counter unstampedOpList
+
+        exitCounter =
+            Tuple.first finishFieldOps
+
+        fieldSettingOps =
+            Tuple.second finishFieldOps
     in
-    ( prerequisiteOps ++ creationOpMaybeAsSingleton, LWWObject.getID lww )
+    -- spit out Ops in dependency order
+    { ops = prerequisiteOps ++ creationOpMaybeAsSingleton ++ fieldSettingOps
+    , objectID = LWWObject.getID lww
+    , nextCounter = exitCounter
+    }
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -1334,22 +1377,79 @@ obsolete reservedList input =
     input
 
 
-{-| Since we must first publish each RonFieldEncoderEntry's prerequisite ops before assigning an OpIDs, we use a function that will later finish the Ops off with the next safe ID.
--}
-type alias UnfinishedOp =
-    { counter : NewOpCounter, opToReference : OpID } -> Op
-
-
 {-| Adds an item to the list of replica encoders, for encoding a single LWW field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (FieldOpMakingDetails -> RonFieldEncoderOutput)
-newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({ node, lww, counter, mode } as details) =
+newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
+newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec details =
+    case getRonEncoder fieldValueCodec of
+        -- leaf node : nothing nested further, just a flat value
+        Nothing ->
+            ronEncoderForNoNestFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec details
+
+        Just fieldRonEncoder ->
+            ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec fieldRonEncoder details
+
+
+ronEncoderForNoNestFields : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
+ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, lww, counter, mode } as details) =
     let
+        -- attempt to find this field set in memory already
+        lwwField =
+            LWWObject.getFieldLatest lww fieldIdentifier
+
+        interpretFieldValue encodedValue =
+            Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
+
+        defaultJsonEncoded =
+            encodeToString fieldValueCodec fieldDefault
+
+        isAlreadyDefault =
+            -- missing values count as default
+            Maybe.withDefault True (Maybe.map ((==) defaultJsonEncoded) lwwField)
+
+        valueToWrite =
+            Maybe.withDefault defaultJsonEncoded lwwField
+
+        opToWriteField : UnfinishedOp
+        opToWriteField lazyInput =
+            LWWObject.fieldToOp
+                lazyInput.counter
+                node.identity
+                lww
+                lazyInput.opToReference
+                fieldIdentifier
+                valueToWrite
+
+        finalOpFilteredByRequest =
+            case mode of
+                MissingObjectsOnly ->
+                    Nothing
+
+                NonDefaultValues ->
+                    if isAlreadyDefault then
+                        Nothing
+
+                    else
+                        Just opToWriteField
+
+                IncludeDefaults ->
+                    Just opToWriteField
+    in
+    { required = []
+    , postPrereqCounter = counter -- never used because no prereqs
+    , opToWrite = finalOpFilteredByRequest
+    }
+
+
+ronEncoderForNestedFields : FieldIdentifier -> fieldType -> Codec e fieldType -> RonEncoder -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
+ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ronEncoder ({ node, lww, counter, mode } as details) =
+    let
+        -- attempt to find this field set in memory already
         lwwField =
             LWWObject.getFieldLatest lww ( fieldSlot, fieldName )
 
         fieldValueRonEncoder =
-            getReplicaEncoder fieldValueCodec
+            getRonEncoder fieldValueCodec
 
         interpretFieldValue encodedValue =
             Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
@@ -1361,24 +1461,12 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({
             -- TODO: True if stored value is same as default
             False
 
-        createNestedObjectIfMissing parentLWW =
-            Debug.todo "if found field is a UUID, look for it"
-
-        createObject =
-            Debug.todo "op to create nested object"
-
-        passToNestedReplicaEncoder nestedRonEncoder =
-            nestedRonEncoder
-
-        lwwOfNestedMaybe storedID =
+        -- is there a nested LWW? If so, dig in
+        findNestedLWW : OpID.ObjectID -> Maybe LWWObject
+        findNestedLWW storedID =
             LWWObject.build node storedID
 
-        fieldValueAsObjectIDMaybe encodedValue =
-            Result.toMaybe (decodeFromString objectID encodedValue)
-
-        findNestedLWW encodedValue =
-            fieldValueAsObjectIDMaybe encodedValue |> Maybe.andThen lwwOfNestedMaybe
-
+        -- if we found a nested LWW,
         runNestedRonEncoder : String -> RonFieldEncoder -> List Op
         runNestedRonEncoder storedObjectID ronEncoder =
             case findNestedLWW storedObjectID of
@@ -1399,26 +1487,30 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({
                     Just opToWriteField
 
         opToWriteField : UnfinishedOp
-        opToWriteField { counter, opToReference } =
-            { reducerID = "lww"
-            , objectID = LWWObject.getID lww
-            , operationID = OpID.newOpID counter node.identity
-            , referenceID = opToReference
-            , payload = "run encoder to convert newValue to payload"
-            }
-    in
-    case ( lwwField, fieldValueRonEncoder ) of
-        ( Just foundValue, Just ronEncoder ) ->
-            -- it's not empty and there's a replica-aware encoder - it must be a nested object!
+        opToWriteField { givenCounter, opToReference } =
             let
-                encodeAsOpMaybe =
-                    -- running the nested repEncoder, but it always needs a new lww context
-                    -- foundValue must be the LWW's ObjectID
-                    runNestedRonEncoder foundValue ronEncoder
+                ( myNewID, nextCounter ) =
+                    OpID.generate givenCounter node.identity
             in
+            ( { reducerID = "lww"
+              , objectID = LWWObject.getID lww
+              , operationID = myNewID
+              , referenceID = opToReference
+              , payload = "run encoder to convert newValue to payload"
+              }
+            , nextCounter
+            )
+
+        finalOutput : RonFieldEncoderOutput
+        finalOutput =
+            { opToWrite = opToWriteFieldIfNotDefault
+            , required = [] -- TODO
+            , postPrereqCounter = counter -- TODO use post-nested counter
+            }
+
+        decideToEncodeOpBasedOnMode =
             case mode of
                 MissingObjectsOnly ->
-                    -- not a missing object or there'd be no UUID
                     []
 
                 NonDefaultValues ->
@@ -1431,25 +1523,11 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ({
 
                 IncludeDefaults ->
                     encodeAsOpMaybe
-
-        ( Nothing, Just ronEncoder ) ->
-            -- no set value, but there's a replica-aware encoder
-            case mode of
-                MissingObjectsOnly ->
-                    -- this is one of those missing objects!
-                    -- run the ronEncoder to generate the default
-                    []
-
-                NonDefaultValues ->
-                    -- field set so probably non-default! check to be sure
-                    if isAlreadyDefault then
-                        []
-
-                    else
-                        encodeAsOpMaybe
-
-                IncludeDefaults ->
-                    encodeAsOpMaybe
+    in
+    { opToWrite = Nothing
+    , required = [] -- TODO
+    , postPrereqCounter = unusedCounter
+    }
 
 
 

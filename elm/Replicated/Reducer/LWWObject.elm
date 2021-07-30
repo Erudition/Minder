@@ -7,8 +7,10 @@ import Json.Decode
 import Json.Encode exposing (Value)
 import Replicated.Identifier as Identifier exposing (..)
 import Replicated.Node exposing (Node, ReplicaTree)
+import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op as Op exposing (EventStampString, Op, Payload)
+import Replicated.Op as Op exposing (Op, Payload, ReducerID)
+import Replicated.Op.OpID as OpID
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -17,22 +19,27 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type LWWObject
     = LWWObject
-        { id : ObjectID
+        { id : OpID.ObjectID
         , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
         , included : Object.InclusionInfo
         }
+
+
+reducerIDString : Op.ReducerID
+reducerIDString =
+    "lww"
 
 
 getID (LWWObject lww) =
     lww.id
 
 
-empty : ObjectID -> LWWObject
+empty : OpID.ObjectID -> LWWObject
 empty objectID =
     LWWObject { id = objectID, changeHistory = [], included = Object.All }
 
 
-build : Node -> ObjectID -> Maybe LWWObject
+build : Node -> OpID.ObjectID -> Maybe LWWObject
 build node objectID =
     let
         convertObjectToLWW : Object -> LWWObject
@@ -42,7 +49,7 @@ build node objectID =
     Maybe.map convertObjectToLWW (getObjectIfExists node objectID)
 
 
-getObjectIfExists : Node -> ObjectID -> Maybe Object
+getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
 getObjectIfExists node objectID =
     let
         lwwDatabase =
@@ -51,14 +58,30 @@ getObjectIfExists node objectID =
     Dict.get objectID lwwDatabase
 
 
-createLWWOp : Node -> ObjectID -> Op
-createLWWOp node objectID =
-    { reducerID = "lww"
+creation : Node -> OpID.ObjectID -> Op
+creation node objectID =
+    { reducerID = reducerIDString
     , objectID = objectID
     , operationID = objectID
     , referenceID = objectID
     , payload = ""
     }
+
+
+fieldToOp : OpID.InCounter -> NodeID -> LWWObject -> OpID.OpID -> FieldIdentifier -> FieldValue -> ( Op, OpID.OutCounter )
+fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
+    let
+        ( myNewID, nextCounter ) =
+            OpID.generate inCounter nodeID
+    in
+    ( Op.create
+        reducerIDString
+        (getID lww)
+        myNewID
+        opToReference
+        (RS.encodeToString payloadCodec ( fieldIdentifier, fieldValue ))
+    , nextCounter
+    )
 
 
 {-| For LWW we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
@@ -107,8 +130,9 @@ toFieldChange ( eventStampString, Object.Event eventDetails ) =
             []
 
 
+payloadCodec : Codec e LWWPayload
 payloadCodec =
-    RS.list (RS.tuple fieldIdentifierCodec RS.string)
+    RS.tuple fieldIdentifierCodec RS.string
 
 
 getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
@@ -175,6 +199,10 @@ type alias FieldSlot =
 
 type alias FieldValue =
     String
+
+
+type alias LWWPayload =
+    ( FieldIdentifier, FieldValue )
 
 
 

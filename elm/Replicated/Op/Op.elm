@@ -1,10 +1,9 @@
-module Replicated.Op exposing (..)
+module Replicated.Op exposing (Op, Payload, ReducerID, create, opCodec)
 
 import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
-import Replicated.Identifier as Identifier exposing (..)
-import Replicated.Op.OpID exposing (OpID)
+import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import Set exposing (Set)
 import SmartTime.Moment as Moment
@@ -79,11 +78,12 @@ type alias Frame =
     Nonempty Op
 
 
-createOp : String -> String -> String -> Op
-createOp objectID opID payload =
-    { reducerID = "lww"
-    , objectID = objectID
-    , operationID = opID
-    , referenceID = opID
-    , payload = payload
-    }
+create : ReducerID -> OpID.ObjectID -> OpID -> OpID -> String -> Op
+create reducer object opID reference payload =
+    Op
+        { reducerID = reducer
+        , objectID = object
+        , operationID = opID
+        , referenceID = reference
+        , payload = payload
+        }

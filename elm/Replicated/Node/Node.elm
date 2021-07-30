@@ -2,9 +2,9 @@ module Replicated.Node exposing (..)
 
 import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
-import Replicated.Node.NodeID exposing (NodeID, nodeIDCodec, nodeIDFromString)
+import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op exposing (Frame, Op, createOp)
+import Replicated.Op exposing (Frame, Op, create)
 import Replicated.Serialize as RS exposing (Codec)
 
 
@@ -20,7 +20,7 @@ initFromSaved : String -> List Frame -> Result InitError Node
 initFromSaved foundIdentity inputDatabase =
     let
         lastIdentity =
-            nodeIDFromString foundIdentity
+            fromString foundIdentity
 
         bumpSessionID nodeID =
             { nodeID | session = nodeID.session + 1 }
@@ -102,7 +102,7 @@ type alias Peer =
 peerCodec : Codec String Peer
 peerCodec =
     RS.record Peer
-        |> RS.field .identity nodeIDCodec
+        |> RS.field .identity codec
         |> RS.finishRecord
 
 
@@ -112,11 +112,11 @@ peerCodec =
 
 fakeOps : List Op
 fakeOps =
-    [ createOp "12345+0.0.0.0" "1" ""
-    , createOp "12345+0.0.0.0" "2" "payload2 here"
-    , createOp "12345+0.0.0.0" "3" "payload3 here"
-    , createOp "12+0.0.0.0" "173" ""
-    , createOp "12+0.0.0.0" "174" "payloadB2 here"
+    [ create "12345+0.0.0.0" "1" ""
+    , create "12345+0.0.0.0" "2" "payload2 here"
+    , create "12345+0.0.0.0" "3" "payload3 here"
+    , create "12+0.0.0.0" "173" ""
+    , create "12+0.0.0.0" "174" "payloadB2 here"
     ]
 
 

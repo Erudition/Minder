@@ -1,6 +1,7 @@
-module Replicated.Op.OpID exposing (NewOpCounter, OpID, newOpID)
+module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OutCounter, fromString, generate, jsonDecoder, toString)
 
-import Replicated.Node.NodeID exposing (NodeID)
+import Json.Decode as JD
+import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -30,34 +31,45 @@ type alias EventStamp =
     }
 
 
-newOpID : NewOpCounter -> NodeID -> OpID
-newOpID (NewOpCounter counter) origin =
-    OpID { time = Moment.fromSmartInt counter, origin = origin }
+generate : InCounter -> NodeID -> ( OpID, OutCounter )
+generate (NewOpCounter counter) origin =
+    ( OpID { time = Moment.fromSmartInt counter, origin = origin }, NewOpCounter (counter + 1) )
 
 
-eventStampToObjectID : EventStamp -> ObjectID
-eventStampToObjectID stamp =
-    String.fromInt (Moment.toSmartInt stamp.time) ++ "+" ++ nodeIDToString stamp.origin
+toString : OpID -> OpIDString
+toString (OpID eventStamp) =
+    let
+        nodeString =
+            NodeID.toString <| eventStamp.origin
+
+        timeString =
+            String.fromInt (Moment.toSmartInt eventStamp.time)
+    in
+    nodeString ++ "+" ++ timeString
 
 
-objectIDFromCounter : NodeID -> NewOpCounter -> ObjectID
-objectIDFromCounter nodeID counter =
-    eventStampToObjectID (EventStamp (Moment.fromSmartInt (NewOpCounter.read counter)) nodeID)
-
-
-objectIDtoEventStamp : ObjectID -> Maybe EventStamp
-objectIDtoEventStamp objectID =
-    case String.split "+" objectID of
-        [ time, origin ] ->
-            case ( Maybe.map Moment.fromSmartInt (String.toInt time), nodeIDFromString origin ) of
-                ( Just moment, Just nodeID ) ->
-                    Just (EventStamp moment nodeID)
-
-                _ ->
-                    Nothing
+fromString : String -> Maybe OpID
+fromString input =
+    case String.split "+" input of
+        [ node, time ] ->
+            Debug.todo "get opID out of string"
 
         _ ->
             Nothing
+
+
+jsonDecoder : JD.Decoder OpID
+jsonDecoder =
+    let
+        try string =
+            case fromString string of
+                Just opID ->
+                    JD.succeed opID
+
+                Nothing ->
+                    JD.fail "Not a valid OpID..."
+    in
+    JD.andThen try JD.string
 
 
 momentCodec =
@@ -77,8 +89,13 @@ type NewOpCounter
     = NewOpCounter Int
 
 
-{-| After generating an OpID using a counter, generate the next one for later use.
+{-| Reserved for passing into a function that will use a fresh counter that it has been given
 -}
-next : NewOpCounter -> NewOpCounter
-next (NewOpCounter givenCounterInt) =
-    NewOpCounter (givenCounterInt + 1)
+type alias InCounter =
+    NewOpCounter
+
+
+{-| Reserved for a counter that should not be used here but passed out to the next function
+-}
+type alias OutCounter =
+    NewOpCounter
