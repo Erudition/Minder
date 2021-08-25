@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OutCounter, fromString, generate, jsonDecoder, toString)
+module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OpIDString, OutCounter, fromString, generate, jsonDecoder, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)

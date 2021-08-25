@@ -1497,10 +1497,6 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
 
         opToWriteField : OpID.ObjectID -> UnfinishedOp
         opToWriteField childID lazyInputs =
-            let
-                ( myNewID, nextCounter ) =
-                    OpID.generate lazyInputs.counter node.identity
-            in
             LWWObject.fieldToOp
                 lazyInputs.counter
                 node.identity

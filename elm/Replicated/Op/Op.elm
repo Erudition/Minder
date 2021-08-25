@@ -1,4 +1,4 @@
-module Replicated.Op exposing (Op, Payload, ReducerID, create, opCodec)
+module Replicated.Op exposing (Op, Payload, ReducerID, create, id, opCodec, payload, reference)
 
 import Json.Encode
 import List.Extra
@@ -87,3 +87,15 @@ create reducer object opID reference payload =
         , referenceID = reference
         , payload = payload
         }
+
+
+reference (Op op) =
+    op.referenceID
+
+
+payload (Op op) =
+    op.payload
+
+
+id (Op op) =
+    op.operationID
