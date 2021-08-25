@@ -92,7 +92,11 @@ type Codec e a
 
 
 type alias DetailsForSubObjects =
-    { node : Node, idMaybe : Maybe OpID.ObjectID, counter : InCounter, mode : ReplicaEncodeDepth }
+    { node : Node
+    , idMaybe : Maybe OpID.ObjectID
+    , counter : InCounter
+    , mode : ReplicaEncodeDepth
+    }
 
 
 type ReplicaEncodeDepth
@@ -1448,11 +1452,12 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
         lwwField =
             LWWObject.getFieldLatest lww ( fieldSlot, fieldName )
 
-        fieldValueRonEncoder =
-            getRonEncoder fieldValueCodec
+        fieldValueToObjectID : FieldValue -> Maybe OpID.ObjectID
+        fieldValueToObjectID fieldValue =
+            OpID.fromString fieldValue
 
-        interpretFieldValue encodedValue =
-            Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
+        finalObjectMaybe =
+            Maybe.andThen fieldValueToObjectID lwwField
 
         defaultJsonEncoded =
             encodeToString fieldValueCodec fieldDefault
@@ -1462,71 +1467,72 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
             False
 
         -- is there a nested LWW? If so, dig in
-        findNestedLWW : OpID.ObjectID -> Maybe LWWObject
-        findNestedLWW storedID =
-            LWWObject.build node storedID
+        findNestedLWW : Maybe LWWObject
+        findNestedLWW =
+            Maybe.andThen (LWWObject.build node) finalObjectMaybe
 
         -- if we found a nested LWW,
-        runNestedRonEncoder : String -> RonFieldEncoder -> List Op
-        runNestedRonEncoder storedObjectID ronEncoder =
-            case findNestedLWW storedObjectID of
+        runNestedRonEncoder : Maybe RonEncoderOutput
+        runNestedRonEncoder =
+            case findNestedLWW of
                 Nothing ->
                     -- 1. the value was not a valid UUID?
-                    []
-
-                Just nestedLWW ->
-                    ronEncoder { details | lww = nestedLWW } fieldValueCodec
-
-        opToWriteFieldIfNotDefault : Maybe UnfinishedOp
-        opToWriteFieldIfNotDefault =
-            case isAlreadyDefault of
-                True ->
                     Nothing
 
-                False ->
-                    Just opToWriteField
+                Just nestedLWW ->
+                    Just <|
+                        ronEncoder
+                            { node = node
+                            , idMaybe = Just <| LWWObject.getID nestedLWW -- why is this a maybe again?
+                            , counter = counter -- right?
+                            , mode = mode
+                            }
 
-        opToWriteField : UnfinishedOp
-        opToWriteField { givenCounter, opToReference } =
+        finalCounter =
+            Maybe.withDefault counter (Maybe.map .nextCounter runNestedRonEncoder)
+
+        childIDMaybe : Maybe OpID.ObjectID
+        childIDMaybe =
+            Maybe.map .objectID runNestedRonEncoder
+
+        opToWriteField : OpID.ObjectID -> UnfinishedOp
+        opToWriteField childID lazyInputs =
             let
                 ( myNewID, nextCounter ) =
-                    OpID.generate givenCounter node.identity
+                    OpID.generate lazyInputs.counter node.identity
             in
-            ( { reducerID = "lww"
-              , objectID = LWWObject.getID lww
-              , operationID = myNewID
-              , referenceID = opToReference
-              , payload = "run encoder to convert newValue to payload"
-              }
-            , nextCounter
-            )
+            LWWObject.fieldToOp
+                lazyInputs.counter
+                node.identity
+                lww
+                lazyInputs.opToReference
+                ( fieldSlot, fieldName )
+                (OpID.toString childID)
 
-        finalOutput : RonFieldEncoderOutput
-        finalOutput =
-            { opToWrite = opToWriteFieldIfNotDefault
-            , required = [] -- TODO
-            , postPrereqCounter = counter -- TODO use post-nested counter
-            }
-
+        decideToEncodeOpBasedOnMode : Maybe UnfinishedOp
         decideToEncodeOpBasedOnMode =
-            case mode of
-                MissingObjectsOnly ->
-                    []
+            case ( mode, childIDMaybe ) of
+                ( MissingObjectsOnly, _ ) ->
+                    Nothing
 
-                NonDefaultValues ->
+                -- TODO how do we know it's not missing
+                ( NonDefaultValues, Just child ) ->
                     -- field set so probably non-default! check to be sure
                     if isAlreadyDefault then
-                        []
+                        Nothing
 
                     else
-                        encodeAsOpMaybe
+                        Just (opToWriteField child)
 
-                IncludeDefaults ->
-                    encodeAsOpMaybe
+                ( IncludeDefaults, Just child ) ->
+                    Just (opToWriteField child)
+
+                ( _, Nothing ) ->
+                    Debug.todo "is this possible"
     in
-    { opToWrite = Nothing
-    , required = [] -- TODO
-    , postPrereqCounter = unusedCounter
+    { opToWrite = decideToEncodeOpBasedOnMode
+    , required = Maybe.withDefault [] (Maybe.map .ops runNestedRonEncoder)
+    , postPrereqCounter = finalCounter
     }
 
 
