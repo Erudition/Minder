@@ -1,4 +1,4 @@
-module Replicated.Op exposing (Op, Payload, ReducerID, create, id, opCodec, payload, reference)
+module Replicated.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference)
 
 import Json.Encode
 import List.Extra
@@ -23,9 +23,9 @@ opCodec : Codec e Op
 opCodec =
     RS.record Op
         |> RS.field .reducerID RS.string
-        |> RS.field .objectID RS.string
-        |> RS.field .operationID RS.string
-        |> RS.field .referenceID RS.string
+        |> RS.field .objectID OpID.codec
+        |> RS.field .operationID OpID.codec
+        |> RS.field .referenceID OpID.codec
         |> RS.field .payload RS.string
         |> RS.finishRecord
 
@@ -79,18 +79,22 @@ type alias Frame =
 
 
 create : ReducerID -> OpID.ObjectID -> OpID -> OpID -> String -> Op
-create reducer object opID reference payload =
+create givenReducer givenObject opID givenReference givenPayload =
     Op
-        { reducerID = reducer
-        , objectID = object
+        { reducerID = givenReducer
+        , objectID = givenObject
         , operationID = opID
-        , referenceID = reference
-        , payload = payload
+        , referenceID = givenReference
+        , payload = givenPayload
         }
 
 
 reference (Op op) =
     op.referenceID
+
+
+reducer (Op op) =
+    op.reducerID
 
 
 payload (Op op) =
@@ -99,3 +103,7 @@ payload (Op op) =
 
 id (Op op) =
     op.operationID
+
+
+object (Op op) =
+    op.objectID

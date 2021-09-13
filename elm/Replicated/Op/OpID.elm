@@ -1,7 +1,8 @@
-module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OpIDString, OutCounter, fromString, generate, jsonDecoder, toString)
+module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OpIDString, OutCounter, codec, fromString, generate, jsonDecoder, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
+import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -56,6 +57,18 @@ fromString input =
 
         _ ->
             Nothing
+
+
+codec : Codec (RS.Error e) OpID
+codec =
+    let
+        to =
+            toString
+
+        from inputString =
+            Result.fromMaybe RS.DataCorrupted (fromString inputString)
+    in
+    RS.mapValid from to RS.string
 
 
 jsonDecoder : JD.Decoder OpID

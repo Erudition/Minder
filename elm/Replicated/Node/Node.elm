@@ -4,7 +4,8 @@ import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op exposing (Frame, Op, create)
+import Replicated.Op as Op exposing (Op, create)
+import Replicated.Op.OpID as OpID exposing (ObjectID)
 import Replicated.Serialize as RS exposing (Codec)
 
 
@@ -16,7 +17,7 @@ type alias Node =
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> List Frame -> Result InitError Node
+initFromSaved : String -> List Op -> Result InitError Node
 initFromSaved foundIdentity inputDatabase =
     let
         lastIdentity =
@@ -74,13 +75,13 @@ applyOpToDb previous newOp =
             -- If we've never seen this object before, we won't get a db, so make a fresh one
             Just <| updateObject newOp (Maybe.withDefault Dict.empty maybeOBCD)
     in
-    Dict.update newOp.reducerID updatedValue previous
+    Dict.update (Op.reducer newOp) updatedValue previous
 
 
 updateObject : Op -> ObjectsByCreationDb -> ObjectsByCreationDb
 updateObject newOp oBCDict =
     -- we have an object db. Do work inside it, and return it
-    Dict.update newOp.objectID (Object.applyOp newOp) oBCDict
+    Dict.update (OpID.toString (Op.object newOp)) (Object.applyOp newOp) oBCDict
 
 
 type alias ReplicaTree =
