@@ -1,6 +1,6 @@
 module Replicated.Testing exposing (..)
 
-import Replicated.Node as Node exposing (Node)
+import Replicated.Node.Node as Node exposing (Node)
 import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
 
 

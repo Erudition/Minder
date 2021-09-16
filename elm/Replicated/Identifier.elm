@@ -4,6 +4,11 @@ import Replicated.Serialize as RS
 import SmartTime.Moment as Moment exposing (Moment)
 
 
+type alias EventStamp =
+    -- TODO this is nothing
+    String
+
+
 type RonUUID
     = SpecialNamed NameVariety String -- "human-friendly string constants"
     | NumberOrHash NumberOrHashVariety String

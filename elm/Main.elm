@@ -18,7 +18,7 @@ import Json.Encode as Encode
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (..)
-import Replicated.Node as Node exposing (Node)
+import Replicated.Node.Node as Node exposing (Node)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)

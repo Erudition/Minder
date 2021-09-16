@@ -1,7 +1,7 @@
 module Replicated.Object exposing (..)
 
 import Dict exposing (Dict)
-import Replicated.Op as Op exposing (Op, Payload)
+import Replicated.Op.Op as Op exposing (Op, Payload)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -21,21 +21,32 @@ type
     = Event { reference : OpID, payload : Payload }
 
 
+create : Op.ReducerID -> OpID.ObjectID -> Op
+create givenReducer givenObject =
+    -- object creation Ops don't have references
+    -- objectID is OpID
+    -- Payload is not needed
+    Op.create givenReducer givenObject givenObject Nothing ""
+
+
+{-| Apply an incoming Op to an object if we have it.
+Ops must have a reference.
+-}
 applyOp : Op -> Maybe Object -> Maybe Object
 applyOp newOp oldObjectMaybe =
     let
-        newEvent =
-            Event { reference = Op.reference newOp, payload = Op.payload newOp }
+        newEvent givenRef =
+            Event { reference = givenRef, payload = Op.payload newOp }
     in
-    case ( oldObjectMaybe, Op.payload newOp ) of
-        ( Just oldObject, _ ) ->
+    case ( oldObjectMaybe, Op.reference newOp ) of
+        ( Just oldObject, Just ref ) ->
             Just
                 { creation = oldObject.creation
-                , events = Dict.insert (OpID.toString <| Op.id newOp) newEvent oldObject.events
+                , events = Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
                 , included = oldObject.included
                 }
 
-        ( Nothing, "" ) ->
+        ( Nothing, Nothing ) ->
             -- assume empty payload means object creation
             Just
                 { creation = Op.id newOp -- TODO or should it be the Op's ObjectID?

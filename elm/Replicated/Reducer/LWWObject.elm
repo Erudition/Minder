@@ -5,11 +5,10 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
-import Replicated.Identifier as Identifier exposing (..)
-import Replicated.Node exposing (Node, ReplicaTree)
+import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op as Op exposing (Op, Payload, ReducerID)
+import Replicated.Op.Op as Op exposing (Op, Payload, ReducerID)
 import Replicated.Op.OpID as OpID
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -55,17 +54,12 @@ getObjectIfExists node objectID =
         lwwDatabase =
             Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
     in
-    Dict.get objectID lwwDatabase
+    Dict.get (OpID.toString objectID) lwwDatabase
 
 
 creation : Node -> OpID.ObjectID -> Op
 creation node objectID =
-    { reducerID = reducerIDString
-    , objectID = objectID
-    , operationID = objectID
-    , referenceID = objectID
-    , payload = ""
-    }
+    Object.create reducerIDString objectID
 
 
 fieldToOp : OpID.InCounter -> NodeID -> LWWObject -> OpID.OpID -> FieldIdentifier -> FieldValue -> ( Op, OpID.OutCounter )
@@ -78,7 +72,7 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
         reducerIDString
         (getID lww)
         myNewID
-        opToReference
+        (Just opToReference)
         (RS.encodeToString payloadCodec ( fieldIdentifier, fieldValue ))
     , nextCounter
     )
@@ -86,36 +80,38 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
 
 {-| For LWW we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
 -}
-buildHistory : Dict EventStampString Object.Event -> List FieldChange
+buildHistory : Dict String Object.Event -> List FieldChange
 buildHistory eventDict =
     let
-        orderCheck : ( EventStampString, Object.Event ) -> Bool
+        orderCheck : ( String, Object.Event ) -> Bool
         orderCheck ( _, Object.Event eventDetails ) =
             -- TODO we need to fold to actually check this, right now we just see if it's there
             -- Dict.member eventDetails.reference eventDict
             True
     in
-    List.concatMap toFieldChange (List.filter orderCheck (Dict.toList eventDict))
+    List.filterMap toFieldChange (List.filter orderCheck (Dict.toList eventDict))
 
 
 type FieldChange
     = FieldChange
-        { stamp : EventStamp
+        { stamp : OpID.EventStamp
         , field : FieldIdentifier
         , changedTo : FieldValue
         }
 
 
-toFieldChange : ( EventStampString, Object.Event ) -> List FieldChange
+{-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a LWW field change item.
+-}
+toFieldChange : ( String, Object.Event ) -> Maybe FieldChange
 toFieldChange ( eventStampString, Object.Event eventDetails ) =
     let
         interpretedPayload =
             Result.toMaybe (RS.decodeFromString payloadCodec eventDetails.payload)
 
         stampFromString =
-            Result.toMaybe (RS.decodeFromString Identifier.eventStampCodec eventStampString)
+            Maybe.map OpID.getEventStamp (OpID.fromString eventStampString)
 
-        convert validStamp validPayload =
+        fieldChangeWithStamp validStamp validPayload =
             FieldChange
                 { stamp = validStamp
                 , field = Tuple.first validPayload
@@ -124,10 +120,10 @@ toFieldChange ( eventStampString, Object.Event eventDetails ) =
     in
     case ( interpretedPayload, stampFromString ) of
         ( Just payload, Just stamp ) ->
-            List.map (convert stamp) payload
+            Just (fieldChangeWithStamp stamp payload)
 
         _ ->
-            []
+            Nothing
 
 
 payloadCodec : Codec e LWWPayload

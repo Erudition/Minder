@@ -1,4 +1,4 @@
-module Replicated.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference)
+module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference)
 
 import Json.Encode
 import List.Extra
@@ -10,24 +10,31 @@ import SmartTime.Moment as Moment
 
 
 type Op
-    = Op
-        { reducerID : ReducerID
-        , objectID : OpID
-        , operationID : OpID
-        , referenceID : OpID
-        , payload : Payload
-        }
+    = Op OpRecord
 
 
-opCodec : Codec e Op
+type alias OpRecord =
+    { reducerID : ReducerID
+    , objectID : OpID
+    , operationID : OpID
+    , referenceID : Maybe OpID
+    , payload : Payload
+    }
+
+
+opCodec : Codec (RS.Error e) Op
 opCodec =
-    RS.record Op
-        |> RS.field .reducerID RS.string
-        |> RS.field .objectID OpID.codec
-        |> RS.field .operationID OpID.codec
-        |> RS.field .referenceID OpID.codec
-        |> RS.field .payload RS.string
-        |> RS.finishRecord
+    let
+        opRecordCodec =
+            RS.record OpRecord
+                |> RS.field .reducerID RS.string
+                |> RS.field .objectID OpID.codec
+                |> RS.field .operationID OpID.codec
+                |> RS.field .referenceID (RS.maybe OpID.codec)
+                |> RS.field .payload RS.string
+                |> RS.finishRecord
+    in
+    RS.map Op (\(Op opRecord) -> opRecord) opRecordCodec
 
 
 type alias EventStampString =
@@ -78,13 +85,13 @@ type alias Frame =
     Nonempty Op
 
 
-create : ReducerID -> OpID.ObjectID -> OpID -> OpID -> String -> Op
-create givenReducer givenObject opID givenReference givenPayload =
+create : ReducerID -> OpID.ObjectID -> OpID -> Maybe OpID -> String -> Op
+create givenReducer givenObject opID givenReferenceMaybe givenPayload =
     Op
         { reducerID = givenReducer
         , objectID = givenObject
         , operationID = opID
-        , referenceID = givenReference
+        , referenceID = givenReferenceMaybe
         , payload = givenPayload
         }
 

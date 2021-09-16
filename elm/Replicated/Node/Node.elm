@@ -1,11 +1,11 @@
-module Replicated.Node exposing (..)
+module Replicated.Node.Node exposing (..)
 
 import Dict exposing (Dict)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op as Op exposing (Op, create)
-import Replicated.Op.OpID as OpID exposing (ObjectID)
+import Replicated.Op.Op as Op exposing (Op, create)
+import Replicated.Op.OpID as OpID exposing (ObjectID, ObjectIDString)
 import Replicated.Serialize as RS exposing (Codec)
 
 
@@ -89,7 +89,7 @@ type alias ReplicaTree =
 
 
 type alias ObjectsByCreationDb =
-    Dict ObjectID Object
+    Dict ObjectIDString Object
 
 
 
@@ -109,21 +109,19 @@ peerCodec =
 
 
 -- TESTING
-
-
-fakeOps : List Op
-fakeOps =
-    [ create "12345+0.0.0.0" "1" ""
-    , create "12345+0.0.0.0" "2" "payload2 here"
-    , create "12345+0.0.0.0" "3" "payload3 here"
-    , create "12+0.0.0.0" "173" ""
-    , create "12+0.0.0.0" "174" "payloadB2 here"
-    ]
-
-
-fakeNode =
-    let
-        apply op node =
-            { node | db = applyOpToDb node.db op }
-    in
-    List.foldl apply blankNode fakeOps
+--fakeOps : List Op
+--fakeOps =
+--    [ create "12345+0.0.0.0" "1" ""
+--    , create "12345+0.0.0.0" "2" "payload2 here"
+--    , create "12345+0.0.0.0" "3" "payload3 here"
+--    , create "12+0.0.0.0" "173" ""
+--    , create "12+0.0.0.0" "174" "payloadB2 here"
+--    ]
+--
+--
+--fakeNode =
+--    let
+--        apply op node =
+--            { node | db = applyOpToDb node.db op }
+--    in
+--    List.foldl apply blankNode fakeOps

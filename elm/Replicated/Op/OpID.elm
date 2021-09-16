@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (InCounter, ObjectID, OpID, OpIDString, OutCounter, codec, fromString, generate, jsonDecoder, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, fromString, generate, getEventStamp, jsonDecoder, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -12,6 +12,10 @@ type OpID
 
 type alias ObjectID =
     OpID
+
+
+type alias ObjectIDString =
+    String
 
 
 type alias OpIDString =
@@ -87,6 +91,10 @@ jsonDecoder =
 
 momentCodec =
     RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
+
+
+getEventStamp (OpID stamp) =
+    stamp
 
 
 
