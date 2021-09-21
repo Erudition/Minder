@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, fromString, generate, getEventStamp, jsonDecoder, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -36,6 +36,16 @@ type alias EventStamp =
     }
 
 
+firstCounter : Moment -> NewOpCounter
+firstCounter time =
+    NewOpCounter (Moment.toSmartInt time)
+
+
+testCounter : NewOpCounter
+testCounter =
+    NewOpCounter 0
+
+
 generate : InCounter -> NodeID -> ( OpID, OutCounter )
 generate (NewOpCounter counter) origin =
     ( OpID { time = Moment.fromSmartInt counter, origin = origin }, NewOpCounter (counter + 1) )
@@ -56,8 +66,13 @@ toString (OpID eventStamp) =
 fromString : String -> Maybe OpID
 fromString input =
     case String.split "+" input of
-        [ node, time ] ->
-            Debug.todo "get opID out of string"
+        [ nodeIDString, timeString ] ->
+            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
+                ( Just nodeID, Just time ) ->
+                    Just (OpID (EventStamp time nodeID))
+
+                _ ->
+                    Nothing
 
         _ ->
             Nothing

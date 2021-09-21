@@ -7851,174 +7851,10 @@ var $author$project$Main$SetZoneAndTime = F2(
 		return {$: 'SetZoneAndTime', a: a, b: b};
 	});
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $author$project$SmartTime$Duration$Duration = function (a) {
-	return {$: 'Duration', a: a};
+var $author$project$Replicated$Op$Op$reducer = function (_v0) {
+	var op = _v0.a;
+	return op.reducerID;
 };
-var $author$project$SmartTime$Duration$millisecondLength = 1;
-var $author$project$SmartTime$Duration$secondLength = 1000 * $author$project$SmartTime$Duration$millisecondLength;
-var $author$project$SmartTime$Duration$minuteLength = 60 * $author$project$SmartTime$Duration$secondLength;
-var $elm$core$Basics$round = _Basics_round;
-var $author$project$SmartTime$Duration$fromMinutes = function (_float) {
-	return $author$project$SmartTime$Duration$Duration(
-		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$minuteLength));
-};
-var $author$project$SmartTime$Human$Moment$utc = {
-	defaultOffset: $author$project$SmartTime$Duration$fromMinutes(0),
-	history: _List_Nil,
-	name: 'Universal'
-};
-var $author$project$SmartTime$Moment$Moment = function (a) {
-	return {$: 'Moment', a: a};
-};
-var $author$project$SmartTime$Duration$zero = $author$project$SmartTime$Duration$Duration(0);
-var $author$project$SmartTime$Moment$zero = $author$project$SmartTime$Moment$Moment($author$project$SmartTime$Duration$zero);
-var $author$project$Environment$preInit = function (maybeKey) {
-	return {launchTime: $author$project$SmartTime$Moment$zero, navkey: maybeKey, time: $author$project$SmartTime$Moment$zero, timeZone: $author$project$SmartTime$Human$Moment$utc};
-};
-var $elm$url$Url$addPort = F2(
-	function (maybePort, starter) {
-		if (maybePort.$ === 'Nothing') {
-			return starter;
-		} else {
-			var port_ = maybePort.a;
-			return starter + (':' + $elm$core$String$fromInt(port_));
-		}
-	});
-var $elm$url$Url$addPrefixed = F3(
-	function (prefix, maybeSegment, starter) {
-		if (maybeSegment.$ === 'Nothing') {
-			return starter;
-		} else {
-			var segment = maybeSegment.a;
-			return _Utils_ap(
-				starter,
-				_Utils_ap(prefix, segment));
-		}
-	});
-var $elm$url$Url$toString = function (url) {
-	var http = function () {
-		var _v0 = url.protocol;
-		if (_v0.$ === 'Http') {
-			return 'http://';
-		} else {
-			return 'https://';
-		}
-	}();
-	return A3(
-		$elm$url$Url$addPrefixed,
-		'#',
-		url.fragment,
-		A3(
-			$elm$url$Url$addPrefixed,
-			'?',
-			url.query,
-			_Utils_ap(
-				A2(
-					$elm$url$Url$addPort,
-					url.port_,
-					_Utils_ap(http, url.host)),
-				url.path)));
-};
-var $author$project$Main$bypassFakeFragment = function (url) {
-	var _v0 = A2($elm$core$Maybe$map, $elm$core$String$uncons, url.fragment);
-	if (((_v0.$ === 'Just') && (_v0.a.$ === 'Just')) && ('/' === _v0.a.a.a.valueOf())) {
-		var _v1 = _v0.a.a;
-		var fakeFragment = _v1.b;
-		var _v2 = A2(
-			$elm$core$String$split,
-			'#',
-			$elm$url$Url$toString(url));
-		if (_v2.b) {
-			var front = _v2.a;
-			return A2(
-				$elm$core$Maybe$withDefault,
-				url,
-				$elm$url$Url$fromString(
-					_Utils_ap(front, fakeFragment)));
-		} else {
-			return url;
-		}
-	} else {
-		return url;
-	}
-};
-var $author$project$Main$Timeline = function (a) {
-	return {$: 'Timeline', a: a};
-};
-var $author$project$Main$ViewState = F2(
-	function (primaryView, uid) {
-		return {primaryView: primaryView, uid: uid};
-	});
-var $author$project$Main$defaultView = A2(
-	$author$project$Main$ViewState,
-	$author$project$Main$Timeline($elm$core$Maybe$Nothing),
-	0);
-var $elm$url$Url$Parser$State = F5(
-	function (visited, unvisited, params, frag, value) {
-		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
-	});
-var $elm$url$Url$Parser$getFirstMatch = function (states) {
-	getFirstMatch:
-	while (true) {
-		if (!states.b) {
-			return $elm$core$Maybe$Nothing;
-		} else {
-			var state = states.a;
-			var rest = states.b;
-			var _v1 = state.unvisited;
-			if (!_v1.b) {
-				return $elm$core$Maybe$Just(state.value);
-			} else {
-				if ((_v1.a === '') && (!_v1.b.b)) {
-					return $elm$core$Maybe$Just(state.value);
-				} else {
-					var $temp$states = rest;
-					states = $temp$states;
-					continue getFirstMatch;
-				}
-			}
-		}
-	}
-};
-var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
-	if (!segments.b) {
-		return _List_Nil;
-	} else {
-		if ((segments.a === '') && (!segments.b.b)) {
-			return _List_Nil;
-		} else {
-			var segment = segments.a;
-			var rest = segments.b;
-			return A2(
-				$elm$core$List$cons,
-				segment,
-				$elm$url$Url$Parser$removeFinalEmpty(rest));
-		}
-	}
-};
-var $elm$url$Url$Parser$preparePath = function (path) {
-	var _v0 = A2($elm$core$String$split, '/', path);
-	if (_v0.b && (_v0.a === '')) {
-		var segments = _v0.b;
-		return $elm$url$Url$Parser$removeFinalEmpty(segments);
-	} else {
-		var segments = _v0;
-		return $elm$url$Url$Parser$removeFinalEmpty(segments);
-	}
-};
-var $elm$url$Url$Parser$addToParametersHelp = F2(
-	function (value, maybeList) {
-		if (maybeList.$ === 'Nothing') {
-			return $elm$core$Maybe$Just(
-				_List_fromArray(
-					[value]));
-		} else {
-			var list = maybeList.a;
-			return $elm$core$Maybe$Just(
-				A2($elm$core$List$cons, value, list));
-		}
-	});
-var $elm$url$Url$percentDecode = _Url_percentDecode;
 var $elm$core$Dict$get = F2(
 	function (targetKey, dict) {
 		get:
@@ -8423,6 +8259,300 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
+var $author$project$Replicated$Object$All = {$: 'All'};
+var $author$project$Replicated$Object$Event = function (a) {
+	return {$: 'Event', a: a};
+};
+var $author$project$Replicated$Op$Op$id = function (_v0) {
+	var op = _v0.a;
+	return op.operationID;
+};
+var $author$project$Replicated$Op$Op$payload = function (_v0) {
+	var op = _v0.a;
+	return op.payload;
+};
+var $author$project$Replicated$Op$Op$reference = function (_v0) {
+	var op = _v0.a;
+	return op.referenceID;
+};
+var $author$project$SmartTime$Duration$inMs = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$SmartTime$Moment$toSmartInt = function (_v0) {
+	var dur = _v0.a;
+	return $author$project$SmartTime$Duration$inMs(dur);
+};
+var $author$project$Replicated$Node$NodeID$toString = function (nodeID) {
+	return $elm$core$String$fromInt(nodeID.primus) + ('.' + ($elm$core$String$fromInt(nodeID.peer) + ('.' + ($elm$core$String$fromInt(nodeID.client) + ('.' + $elm$core$String$fromInt(nodeID.session))))));
+};
+var $author$project$Replicated$Op$OpID$toString = function (_v0) {
+	var eventStamp = _v0.a;
+	var timeString = $elm$core$String$fromInt(
+		$author$project$SmartTime$Moment$toSmartInt(eventStamp.time));
+	var nodeString = $author$project$Replicated$Node$NodeID$toString(eventStamp.origin);
+	return nodeString + ('+' + timeString);
+};
+var $author$project$Replicated$Object$applyOp = F2(
+	function (newOp, oldObjectMaybe) {
+		var newEvent = function (givenRef) {
+			return $author$project$Replicated$Object$Event(
+				{
+					payload: $author$project$Replicated$Op$Op$payload(newOp),
+					reference: givenRef
+				});
+		};
+		var _v0 = _Utils_Tuple2(
+			oldObjectMaybe,
+			$author$project$Replicated$Op$Op$reference(newOp));
+		_v0$2:
+		while (true) {
+			if (_v0.a.$ === 'Just') {
+				if (_v0.b.$ === 'Just') {
+					var oldObject = _v0.a.a;
+					var ref = _v0.b.a;
+					return $elm$core$Maybe$Just(
+						{
+							creation: oldObject.creation,
+							events: A3(
+								$elm$core$Dict$insert,
+								$author$project$Replicated$Op$OpID$toString(
+									$author$project$Replicated$Op$Op$id(newOp)),
+								newEvent(ref),
+								oldObject.events),
+							included: oldObject.included
+						});
+				} else {
+					break _v0$2;
+				}
+			} else {
+				if (_v0.b.$ === 'Nothing') {
+					var _v1 = _v0.a;
+					var _v2 = _v0.b;
+					return $elm$core$Maybe$Just(
+						{
+							creation: $author$project$Replicated$Op$Op$id(newOp),
+							events: $elm$core$Dict$empty,
+							included: $author$project$Replicated$Object$All
+						});
+				} else {
+					break _v0$2;
+				}
+			}
+		}
+		return $elm$core$Maybe$Nothing;
+	});
+var $author$project$Replicated$Op$Op$object = function (_v0) {
+	var op = _v0.a;
+	return op.objectID;
+};
+var $author$project$Replicated$Node$Node$updateObject = F2(
+	function (newOp, oBCDict) {
+		return A3(
+			$elm$core$Dict$update,
+			$author$project$Replicated$Op$OpID$toString(
+				$author$project$Replicated$Op$Op$object(newOp)),
+			$author$project$Replicated$Object$applyOp(newOp),
+			oBCDict);
+	});
+var $author$project$Replicated$Node$Node$applyOpToDb = F2(
+	function (previous, newOp) {
+		var updatedValue = function (maybeOBCD) {
+			return $elm$core$Maybe$Just(
+				A2(
+					$author$project$Replicated$Node$Node$updateObject,
+					newOp,
+					A2($elm$core$Maybe$withDefault, $elm$core$Dict$empty, maybeOBCD)));
+		};
+		return A3(
+			$elm$core$Dict$update,
+			$author$project$Replicated$Op$Op$reducer(newOp),
+			updatedValue,
+			previous);
+	});
+var $author$project$Replicated$Node$Node$firstSessionEver = {client: 0, peer: 0, primus: 0, session: 0};
+var $author$project$Replicated$Node$Node$blankNode = {db: $elm$core$Dict$empty, identity: $author$project$Replicated$Node$Node$firstSessionEver, peers: _List_Nil};
+var $author$project$Replicated$Node$Node$fakeNode = function () {
+	var apply = F2(
+		function (op, node) {
+			return _Utils_update(
+				node,
+				{
+					db: A2($author$project$Replicated$Node$Node$applyOpToDb, node.db, op)
+				});
+		});
+	return A3($elm$core$List$foldl, apply, $author$project$Replicated$Node$Node$blankNode, _List_Nil);
+}();
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Replicated$Testing$testNode = A2($elm$core$Debug$log, 'here\'s my node', $author$project$Replicated$Node$Node$fakeNode);
+var $author$project$SmartTime$Duration$Duration = function (a) {
+	return {$: 'Duration', a: a};
+};
+var $author$project$SmartTime$Duration$millisecondLength = 1;
+var $author$project$SmartTime$Duration$secondLength = 1000 * $author$project$SmartTime$Duration$millisecondLength;
+var $author$project$SmartTime$Duration$minuteLength = 60 * $author$project$SmartTime$Duration$secondLength;
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$SmartTime$Duration$fromMinutes = function (_float) {
+	return $author$project$SmartTime$Duration$Duration(
+		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$minuteLength));
+};
+var $author$project$SmartTime$Human$Moment$utc = {
+	defaultOffset: $author$project$SmartTime$Duration$fromMinutes(0),
+	history: _List_Nil,
+	name: 'Universal'
+};
+var $author$project$SmartTime$Moment$Moment = function (a) {
+	return {$: 'Moment', a: a};
+};
+var $author$project$SmartTime$Duration$zero = $author$project$SmartTime$Duration$Duration(0);
+var $author$project$SmartTime$Moment$zero = $author$project$SmartTime$Moment$Moment($author$project$SmartTime$Duration$zero);
+var $author$project$Environment$preInit = function (maybeKey) {
+	return {launchTime: $author$project$SmartTime$Moment$zero, navkey: maybeKey, node: $author$project$Replicated$Testing$testNode, time: $author$project$SmartTime$Moment$zero, timeZone: $author$project$SmartTime$Human$Moment$utc};
+};
+var $elm$url$Url$addPort = F2(
+	function (maybePort, starter) {
+		if (maybePort.$ === 'Nothing') {
+			return starter;
+		} else {
+			var port_ = maybePort.a;
+			return starter + (':' + $elm$core$String$fromInt(port_));
+		}
+	});
+var $elm$url$Url$addPrefixed = F3(
+	function (prefix, maybeSegment, starter) {
+		if (maybeSegment.$ === 'Nothing') {
+			return starter;
+		} else {
+			var segment = maybeSegment.a;
+			return _Utils_ap(
+				starter,
+				_Utils_ap(prefix, segment));
+		}
+	});
+var $elm$url$Url$toString = function (url) {
+	var http = function () {
+		var _v0 = url.protocol;
+		if (_v0.$ === 'Http') {
+			return 'http://';
+		} else {
+			return 'https://';
+		}
+	}();
+	return A3(
+		$elm$url$Url$addPrefixed,
+		'#',
+		url.fragment,
+		A3(
+			$elm$url$Url$addPrefixed,
+			'?',
+			url.query,
+			_Utils_ap(
+				A2(
+					$elm$url$Url$addPort,
+					url.port_,
+					_Utils_ap(http, url.host)),
+				url.path)));
+};
+var $author$project$Main$bypassFakeFragment = function (url) {
+	var _v0 = A2($elm$core$Maybe$map, $elm$core$String$uncons, url.fragment);
+	if (((_v0.$ === 'Just') && (_v0.a.$ === 'Just')) && ('/' === _v0.a.a.a.valueOf())) {
+		var _v1 = _v0.a.a;
+		var fakeFragment = _v1.b;
+		var _v2 = A2(
+			$elm$core$String$split,
+			'#',
+			$elm$url$Url$toString(url));
+		if (_v2.b) {
+			var front = _v2.a;
+			return A2(
+				$elm$core$Maybe$withDefault,
+				url,
+				$elm$url$Url$fromString(
+					_Utils_ap(front, fakeFragment)));
+		} else {
+			return url;
+		}
+	} else {
+		return url;
+	}
+};
+var $author$project$Main$Timeline = function (a) {
+	return {$: 'Timeline', a: a};
+};
+var $author$project$Main$ViewState = F2(
+	function (primaryView, uid) {
+		return {primaryView: primaryView, uid: uid};
+	});
+var $author$project$Main$defaultView = A2(
+	$author$project$Main$ViewState,
+	$author$project$Main$Timeline($elm$core$Maybe$Nothing),
+	0);
+var $elm$url$Url$Parser$State = F5(
+	function (visited, unvisited, params, frag, value) {
+		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
+	});
+var $elm$url$Url$Parser$getFirstMatch = function (states) {
+	getFirstMatch:
+	while (true) {
+		if (!states.b) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var state = states.a;
+			var rest = states.b;
+			var _v1 = state.unvisited;
+			if (!_v1.b) {
+				return $elm$core$Maybe$Just(state.value);
+			} else {
+				if ((_v1.a === '') && (!_v1.b.b)) {
+					return $elm$core$Maybe$Just(state.value);
+				} else {
+					var $temp$states = rest;
+					states = $temp$states;
+					continue getFirstMatch;
+				}
+			}
+		}
+	}
+};
+var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
+	if (!segments.b) {
+		return _List_Nil;
+	} else {
+		if ((segments.a === '') && (!segments.b.b)) {
+			return _List_Nil;
+		} else {
+			var segment = segments.a;
+			var rest = segments.b;
+			return A2(
+				$elm$core$List$cons,
+				segment,
+				$elm$url$Url$Parser$removeFinalEmpty(rest));
+		}
+	}
+};
+var $elm$url$Url$Parser$preparePath = function (path) {
+	var _v0 = A2($elm$core$String$split, '/', path);
+	if (_v0.b && (_v0.a === '')) {
+		var segments = _v0.b;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	} else {
+		var segments = _v0;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	}
+};
+var $elm$url$Url$Parser$addToParametersHelp = F2(
+	function (value, maybeList) {
+		if (maybeList.$ === 'Nothing') {
+			return $elm$core$Maybe$Just(
+				_List_fromArray(
+					[value]));
+		} else {
+			var list = maybeList.a;
+			return $elm$core$Maybe$Just(
+				A2($elm$core$List$cons, value, list));
+		}
+	});
+var $elm$url$Url$percentDecode = _Url_percentDecode;
 var $elm$url$Url$Parser$addParam = F2(
 	function (segment, dict) {
 		var _v0 = A2($elm$core$String$split, '=', segment);
@@ -8651,10 +8781,6 @@ var $author$project$SmartTime$Human$Duration$Seconds = function (a) {
 };
 var $author$project$SmartTime$Duration$fromInt = function (_int) {
 	return $author$project$SmartTime$Duration$Duration(_int);
-};
-var $author$project$SmartTime$Duration$inMs = function (_v0) {
-	var _int = _v0.a;
-	return _int;
 };
 var $author$project$SmartTime$Duration$hourLength = 60 * $author$project$SmartTime$Duration$minuteLength;
 var $author$project$SmartTime$Duration$dayLength = 24 * $author$project$SmartTime$Duration$hourLength;
@@ -9244,10 +9370,6 @@ var $elm$time$Time$toSecond = F2(
 				$elm$time$Time$posixToMillis(time),
 				1000));
 	});
-var $author$project$SmartTime$Moment$toSmartInt = function (_v0) {
-	var dur = _v0.a;
-	return $author$project$SmartTime$Duration$inMs(dur);
-};
 var $elm$time$Time$toYear = F2(
 	function (zone, time) {
 		return $elm$time$Time$toCivil(
@@ -11540,7 +11662,9 @@ var $author$project$Activity$Activity$Customizations = function (names) {
 								return function (hidden) {
 									return function (template) {
 										return function (id) {
-											return {backgroundable: backgroundable, category: category, evidence: evidence, excusable: excusable, hidden: hidden, icon: icon, id: id, maxTime: maxTime, names: names, taskOptional: taskOptional, template: template};
+											return function (externalIDs) {
+												return {backgroundable: backgroundable, category: category, evidence: evidence, excusable: excusable, externalIDs: externalIDs, hidden: hidden, icon: icon, id: id, maxTime: maxTime, names: names, taskOptional: taskOptional, template: template};
+											};
 										};
 									};
 								};
@@ -11864,6 +11988,108 @@ var $author$project$Activity$Template$decodeTemplate = $author$project$Porting$d
 			_Utils_Tuple2('Presentation', $author$project$Activity$Template$Presentation),
 			_Utils_Tuple2('Projects', $author$project$Activity$Template$Projects)
 		]));
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
+};
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs = function (_v0) {
+	var decoderFn = _v0.a;
+	var finalize = function (_v5) {
+		var json = _v5.a;
+		var warnings = _v5.b;
+		var val = _v5.c;
+		return {
+			json: A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, json),
+			value: val,
+			warnings: warnings
+		};
+	};
+	var accumulate = F2(
+		function (_v4, acc) {
+			var key = _v4.a;
+			var val = _v4.b;
+			var _v2 = _Utils_Tuple2(
+				acc,
+				decoderFn(val));
+			if (_v2.a.$ === 'Err') {
+				if (_v2.b.$ === 'Err') {
+					var e = _v2.a.a;
+					var _new = _v2.b.a;
+					return $elm$core$Result$Err(
+						A2(
+							$mgold$elm_nonempty_list$List$Nonempty$cons,
+							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, _new),
+							e));
+				} else {
+					var e = _v2.a.a;
+					return $elm$core$Result$Err(e);
+				}
+			} else {
+				if (_v2.b.$ === 'Err') {
+					var e = _v2.b.a;
+					return $elm$core$Result$Err(
+						$mgold$elm_nonempty_list$List$Nonempty$fromElement(
+							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)));
+				} else {
+					var _v3 = _v2.a.a;
+					var jsonAcc = _v3.a;
+					var warningsAcc = _v3.b;
+					var accAcc = _v3.c;
+					var res = _v2.b.a;
+					return $elm$core$Result$Ok(
+						_Utils_Tuple3(
+							A2(
+								$elm$core$List$cons,
+								_Utils_Tuple2(key, res.json),
+								jsonAcc),
+							_Utils_ap(
+								A2(
+									$elm$core$List$map,
+									A2(
+										$elm$core$Basics$composeR,
+										$mgold$elm_nonempty_list$List$Nonempty$fromElement,
+										$zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
+									res.warnings),
+								warningsAcc),
+							A2(
+								$elm$core$List$cons,
+								_Utils_Tuple2(key, res.value),
+								accAcc)));
+				}
+			}
+		});
+	return $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
+		function (json) {
+			if (json.$ === 'Object') {
+				var kvPairs = json.b;
+				return A2(
+					$elm$core$Result$map,
+					finalize,
+					A3(
+						$elm$core$List$foldr,
+						accumulate,
+						$elm$core$Result$Ok(
+							_Utils_Tuple3(_List_Nil, _List_Nil, _List_Nil)),
+						kvPairs));
+			} else {
+				return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
+			}
+		});
+};
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$dict = function (decoder) {
+	return A2(
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
+		$elm$core$Dict$fromList,
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs(decoder));
+};
 var $author$project$Porting$withPresence = F2(
 	function (fieldName, decoder) {
 		return A3(
@@ -11880,51 +12106,56 @@ var $author$project$Porting$withPresenceList = F2(
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$list(decoder),
 			_List_Nil);
 	});
-var $author$project$Activity$Activity$decodeCustomizations = A3(
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-	'id',
-	$author$project$ID$decode,
+var $author$project$Activity$Activity$decodeCustomizations = A4(
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+	'externalIDs',
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$dict($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+	$elm$core$Dict$empty,
 	A3(
 		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-		'template',
-		$author$project$Activity$Template$decodeTemplate,
+		'id',
+		$author$project$ID$decode,
 		A3(
-			$author$project$Porting$withPresence,
-			'hidden',
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+			'template',
+			$author$project$Activity$Template$decodeTemplate,
 			A3(
 				$author$project$Porting$withPresence,
-				'maxTime',
-				$author$project$Activity$Activity$decodeDurationPerPeriod,
+				'hidden',
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 				A3(
 					$author$project$Porting$withPresence,
-					'backgroundable',
-					$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+					'maxTime',
+					$author$project$Activity$Activity$decodeDurationPerPeriod,
 					A3(
 						$author$project$Porting$withPresence,
-						'category',
-						$author$project$Activity$Activity$decodeCategory,
+						'backgroundable',
+						$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 						A3(
-							$author$project$Porting$withPresenceList,
-							'evidence',
-							$author$project$Activity$Evidence$decodeEvidence,
+							$author$project$Porting$withPresence,
+							'category',
+							$author$project$Activity$Activity$decodeCategory,
 							A3(
-								$author$project$Porting$withPresence,
-								'taskOptional',
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+								$author$project$Porting$withPresenceList,
+								'evidence',
+								$author$project$Activity$Evidence$decodeEvidence,
 								A3(
 									$author$project$Porting$withPresence,
-									'excusable',
-									$author$project$Activity$Activity$decodeExcusable,
+									'taskOptional',
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 									A3(
 										$author$project$Porting$withPresence,
-										'icon',
-										$author$project$Activity$Activity$decodeIcon,
+										'excusable',
+										$author$project$Activity$Activity$decodeExcusable,
 										A3(
 											$author$project$Porting$withPresence,
-											'names',
-											$zwilias$json_decode_exploration$Json$Decode$Exploration$list($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
-											$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Activity$Activity$Customizations))))))))))));
+											'icon',
+											$author$project$Activity$Activity$decodeIcon,
+											A3(
+												$author$project$Porting$withPresence,
+												'names',
+												$zwilias$json_decode_exploration$Json$Decode$Exploration$list($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+												$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Activity$Activity$Customizations)))))))))))));
 var $author$project$Activity$Activity$decodeStoredActivities = A2(
 	$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
 	$elm_community$intdict$IntDict$fromList,
@@ -12956,108 +13187,6 @@ var $author$project$Incubator$Todoist$Command$decodeCommandResult = $zwilias$jso
 				$elm$core$Result$Ok(_Utils_Tuple0))),
 			A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, $elm$core$Result$Err, $author$project$Incubator$Todoist$Command$decodeCommandError)
 		]));
-var $elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		$elm$core$List$foldl,
-		F2(
-			function (_v0, dict) {
-				var key = _v0.a;
-				var value = _v0.b;
-				return A3($elm$core$Dict$insert, key, value, dict);
-			}),
-		$elm$core$Dict$empty,
-		assocs);
-};
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs = function (_v0) {
-	var decoderFn = _v0.a;
-	var finalize = function (_v5) {
-		var json = _v5.a;
-		var warnings = _v5.b;
-		var val = _v5.c;
-		return {
-			json: A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, json),
-			value: val,
-			warnings: warnings
-		};
-	};
-	var accumulate = F2(
-		function (_v4, acc) {
-			var key = _v4.a;
-			var val = _v4.b;
-			var _v2 = _Utils_Tuple2(
-				acc,
-				decoderFn(val));
-			if (_v2.a.$ === 'Err') {
-				if (_v2.b.$ === 'Err') {
-					var e = _v2.a.a;
-					var _new = _v2.b.a;
-					return $elm$core$Result$Err(
-						A2(
-							$mgold$elm_nonempty_list$List$Nonempty$cons,
-							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, _new),
-							e));
-				} else {
-					var e = _v2.a.a;
-					return $elm$core$Result$Err(e);
-				}
-			} else {
-				if (_v2.b.$ === 'Err') {
-					var e = _v2.b.a;
-					return $elm$core$Result$Err(
-						$mgold$elm_nonempty_list$List$Nonempty$fromElement(
-							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)));
-				} else {
-					var _v3 = _v2.a.a;
-					var jsonAcc = _v3.a;
-					var warningsAcc = _v3.b;
-					var accAcc = _v3.c;
-					var res = _v2.b.a;
-					return $elm$core$Result$Ok(
-						_Utils_Tuple3(
-							A2(
-								$elm$core$List$cons,
-								_Utils_Tuple2(key, res.json),
-								jsonAcc),
-							_Utils_ap(
-								A2(
-									$elm$core$List$map,
-									A2(
-										$elm$core$Basics$composeR,
-										$mgold$elm_nonempty_list$List$Nonempty$fromElement,
-										$zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
-									res.warnings),
-								warningsAcc),
-							A2(
-								$elm$core$List$cons,
-								_Utils_Tuple2(key, res.value),
-								accAcc)));
-				}
-			}
-		});
-	return $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
-		function (json) {
-			if (json.$ === 'Object') {
-				var kvPairs = json.b;
-				return A2(
-					$elm$core$Result$map,
-					finalize,
-					A3(
-						$elm$core$List$foldr,
-						accumulate,
-						$elm$core$Result$Ok(
-							_Utils_Tuple3(_List_Nil, _List_Nil, _List_Nil)),
-						kvPairs));
-			} else {
-				return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
-			}
-		});
-};
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$dict = function (decoder) {
-	return A2(
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
-		$elm$core$Dict$fromList,
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs(decoder));
-};
 var $author$project$Incubator$Todoist$decodeResponse = A2(
 	$author$project$Porting$optionalIgnored,
 	'tooltips',
@@ -14126,277 +14255,11 @@ var $author$project$Integrations$Marvin$describeError = function (error) {
 			return 'I successfully talked with the servers, but the response had some weird parts I was never trained for. Either Marvin changed something recently, or you\'ve found a weird edge case the developer didn\'t know about. Either way, please report this! \n' + string;
 	}
 };
-var $author$project$SmartTime$Duration$isPositive = function (_v0) {
-	var _int = _v0.a;
-	return _int > 0;
+var $author$project$Integrations$Marvin$MarvinItem$ConvertedToActivity = function (a) {
+	return {$: 'ConvertedToActivity', a: a};
 };
-var $elm$core$Debug$log = _Debug_log;
-var $author$project$Task$Class$newClassSkel = F2(
-	function (givenTitle, newID) {
-		return {activity: $elm$core$Maybe$Nothing, completionUnits: $author$project$Task$Progress$Percent, defaultExternalDeadline: _List_Nil, defaultFinishBy: _List_Nil, defaultRelevanceEnds: _List_Nil, defaultRelevanceStarts: _List_Nil, defaultStartBy: _List_Nil, id: newID, importance: 1, maxEffort: $author$project$SmartTime$Duration$zero, minEffort: $author$project$SmartTime$Duration$zero, predictedEffort: $author$project$SmartTime$Duration$zero, title: givenTitle};
-	});
-var $author$project$Task$Instance$newInstanceSkel = F2(
-	function (newID, _class) {
-		return {_class: _class.id, completion: 0, externalDeadline: $elm$core$Maybe$Nothing, finishBy: $elm$core$Maybe$Nothing, id: newID, memberOfSeries: $elm$core$Maybe$Nothing, plannedSessions: _List_Nil, relevanceEnds: $elm$core$Maybe$Nothing, relevanceStarts: $elm$core$Maybe$Nothing, startBy: $elm$core$Maybe$Nothing};
-	});
-var $author$project$Task$Entry$FollowerParent = F2(
-	function (properties, children) {
-		return {children: children, properties: properties};
-	});
-var $author$project$Task$Entry$LeaderIsHere = function (a) {
-	return {$: 'LeaderIsHere', a: a};
-};
-var $author$project$Task$Entry$LeaderParent = F3(
-	function (properties, recurrenceRules, children) {
-		return {children: children, properties: properties, recurrenceRules: recurrenceRules};
-	});
-var $author$project$Task$Class$ParentProperties = function (title) {
-	return {title: title};
-};
-var $author$project$Task$Entry$Singleton = function (a) {
-	return {$: 'Singleton', a: a};
-};
-var $author$project$Task$Entry$WrapperParent = F2(
-	function (properties, children) {
-		return {children: children, properties: properties};
-	});
-var $author$project$Task$Entry$newRootEntry = function (classID) {
-	var parentProps = $author$project$Task$Class$ParentProperties(
-		$elm$core$Maybe$Just('none'));
-	var follower = A2(
-		$author$project$Task$Entry$FollowerParent,
-		parentProps,
-		$mgold$elm_nonempty_list$List$Nonempty$fromElement(
-			$author$project$Task$Entry$Singleton(classID)));
-	var leader = A3(
-		$author$project$Task$Entry$LeaderParent,
-		parentProps,
-		_List_Nil,
-		$mgold$elm_nonempty_list$List$Nonempty$fromElement(follower));
-	var outsideWrap = A2(
-		$author$project$Task$Entry$WrapperParent,
-		parentProps,
-		$mgold$elm_nonempty_list$List$Nonempty$fromElement(
-			$author$project$Task$Entry$LeaderIsHere(leader)));
-	return outsideWrap;
-};
-var $elm_community$maybe_extra$Maybe$Extra$or = F2(
-	function (ma, mb) {
-		if (ma.$ === 'Nothing') {
-			return mb;
-		} else {
-			return ma;
-		}
-	});
-var $author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive = F2(
-	function (classCounter, marvinItem) {
-		var plannedSessionList = function () {
-			var _v0 = _Utils_Tuple2(
-				A2($elm$core$Maybe$map, $author$project$SmartTime$Duration$isPositive, marvinItem.timeEstimate),
-				marvinItem.timeEstimate);
-			if (((_v0.a.$ === 'Just') && _v0.a.a) && (_v0.b.$ === 'Just')) {
-				var plannedDuration = _v0.b.a;
-				var _v1 = _Utils_Tuple2(marvinItem.taskTime, marvinItem.day);
-				if (_v1.a.$ === 'Just') {
-					if (_v1.b.$ === 'Just') {
-						var plannedTime = _v1.a.a;
-						var plannedDay = _v1.b.a;
-						return $elm$core$List$singleton(
-							_Utils_Tuple2(
-								$author$project$SmartTime$Human$Moment$Floating(
-									_Utils_Tuple2(plannedDay, plannedTime)),
-								plannedDuration));
-					} else {
-						var _v2 = _v1.b;
-						return A2($elm$core$Debug$log, 'no planned day for ' + marvinItem.title, _List_Nil);
-					}
-				} else {
-					if (_v1.b.$ === 'Just') {
-						var _v3 = _v1.a;
-						return A2($elm$core$Debug$log, 'no tasktime for ' + marvinItem.title, _List_Nil);
-					} else {
-						var _v4 = _v1.a;
-						var _v5 = _v1.b;
-						return A2($elm$core$Debug$log, 'no tasktime or planned day for ' + marvinItem.title, _List_Nil);
-					}
-				}
-			} else {
-				return _List_Nil;
-			}
-		}();
-		var classID = classCounter + 1;
-		var entry = $author$project$Task$Entry$newRootEntry(classID);
-		var classBase = A2($author$project$Task$Class$newClassSkel, marvinItem.title, classID);
-		var finalClass = _Utils_update(
-			classBase,
-			{
-				importance: marvinItem.isStarred,
-				predictedEffort: A2($elm$core$Maybe$withDefault, $author$project$SmartTime$Duration$zero, marvinItem.timeEstimate)
-			});
-		var instanceBase = A2($author$project$Task$Instance$newInstanceSkel, classCounter, finalClass);
-		var finalInstance = _Utils_update(
-			instanceBase,
-			{
-				completion: marvinItem.done ? 100 : 0,
-				externalDeadline: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.dueDate),
-				finishBy: A2(
-					$elm_community$maybe_extra$Maybe$Extra$or,
-					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.endDate),
-					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.day)),
-				plannedSessions: plannedSessionList,
-				startBy: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.startDate)
-			});
-		return {_class: finalClass, entry: entry, instance: finalInstance};
-	});
-var $author$project$Integrations$Marvin$importItems = F2(
-	function (classCounter, itemList) {
-		var toNumberedDocketTask = function (index) {
-			return $author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive(classCounter + index);
-		};
-		var bigList = A2($elm$core$List$indexedMap, toNumberedDocketTask, itemList);
-		return {
-			taskClasses: $elm_community$intdict$IntDict$fromList(
-				A2(
-					$elm$core$List$map,
-					function (i) {
-						return _Utils_Tuple2(i._class.id, i._class);
-					},
-					bigList)),
-			taskEntries: A2(
-				$elm$core$List$map,
-				function ($) {
-					return $.entry;
-				},
-				bigList),
-			taskInstances: $elm_community$intdict$IntDict$fromList(
-				A2(
-					$elm$core$List$map,
-					function (i) {
-						return _Utils_Tuple2(i.instance.id, i.instance);
-					},
-					bigList))
-		};
-	});
-var $elm$core$Debug$toString = _Debug_toString;
-var $author$project$Integrations$Marvin$handle = F2(
-	function (classCounter, response) {
-		if (response.$ === 'TestResult') {
-			var result = response.a;
-			if (result.$ === 'Ok') {
-				var serversays = result.a;
-				return _Utils_Tuple2(
-					{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
-					serversays);
-			} else {
-				var err = result.a;
-				return _Utils_Tuple2(
-					{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
-					$author$project$Integrations$Marvin$describeError(err));
-			}
-		} else {
-			var result = response.a;
-			if (result.$ === 'Ok') {
-				var itemList = result.a;
-				return _Utils_Tuple2(
-					A2($author$project$Integrations$Marvin$importItems, classCounter, itemList),
-					$elm$core$Debug$toString(itemList));
-			} else {
-				var err = result.a;
-				return _Utils_Tuple2(
-					{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
-					$author$project$Integrations$Marvin$describeError(err));
-			}
-		}
-	});
-var $author$project$Incubator$Todoist$describeError = function (error) {
-	switch (error.$) {
-		case 'BadUrl':
-			var msg = error.a;
-			return 'For some reason we were told the URL is bad. This should never happen, it\'s a perfectly tested working URL! The error: ' + msg;
-		case 'Timeout':
-			return 'Timed out. Try again later?';
-		case 'NetworkError':
-			return 'Couldn\'t get on the network. Are you offline?';
-		case 'BadStatus':
-			var status = error.a;
-			switch (status) {
-				case 400:
-					return '400 Bad Request: The request was incorrect.';
-				case 401:
-					return '401 Unauthorized: Authentication is required, and has failed, or has not yet been provided. Maybe your API credentials are messed up?';
-				case 403:
-					return '403 Forbidden: The request was valid, but for something that is forbidden.';
-				case 404:
-					return '404 Not Found! That should never happen, because I definitely used the right URL. Is your system or proxy blocking or messing with internet requests? Is it many years in future, where Todoist API v8 has been deprecated, obseleted, and then discontinued? Or maybe it\'s far enough in the future that Todoist doesn\'t exist anymore but for some reason you\'re still using this library?';
-				case 429:
-					return '429 Too Many Requests: Slow down, cowboy! Check out the Todoist API Docs for Usage Limits. Maybe try batching more requests into one?';
-				case 500:
-					return '500 Internal Server Error: Not my fault! Todoist must be having a bad day.';
-				case 502:
-					return '502 Bad Gateway: I was trying to reach the Todoist server but I got stopped along the way. If you\'re definitely connected, it\'s probably a temporary hiccup on their side -- but if you see this a lot, check that your DNS is resolving (try todoist.com) and any proxy setup you have is working.';
-				case 503:
-					return '503 Service Unavailable: Not my fault! Todoist must be bogged down today, or perhaps experiencing a DDoS attack. :O';
-				default:
-					var other = status;
-					return 'Got HTTP Error code ' + ($elm$core$String$fromInt(other) + ', not sure what that means in this case. Sorry!');
-			}
-		default:
-			var string = error.a;
-			return 'I successfully talked with Todoist servers, but the response had some weird parts I was never trained for. Either Todoist changed something recently, or you\'ve found a weird edge case the developer didn\'t know about. Either way, please report this! \n' + string;
-	}
-};
-var $elm$core$Dict$sizeHelp = F2(
-	function (n, dict) {
-		sizeHelp:
-		while (true) {
-			if (dict.$ === 'RBEmpty_elm_builtin') {
-				return n;
-			} else {
-				var left = dict.d;
-				var right = dict.e;
-				var $temp$n = A2($elm$core$Dict$sizeHelp, n + 1, right),
-					$temp$dict = left;
-				n = $temp$n;
-				dict = $temp$dict;
-				continue sizeHelp;
-			}
-		}
-	});
-var $elm$core$Dict$size = function (dict) {
-	return A2($elm$core$Dict$sizeHelp, 0, dict);
-};
-var $elm$core$Set$size = function (_v0) {
-	var dict = _v0.a;
-	return $elm$core$Dict$size(dict);
-};
-var $author$project$Integrations$Todoist$describeSuccess = function (report) {
-	var _v0 = _Utils_Tuple3(
-		$elm$core$Set$size(report.projectsAdded),
-		$elm$core$Set$size(report.projectsDeleted),
-		$elm$core$Set$size(report.projectsChanged));
-	var projectsAdded = _v0.a;
-	var projectsDeleted = _v0.b;
-	var projectsModified = _v0.c;
-	var totalProjectChanges = (projectsAdded + projectsDeleted) + projectsModified;
-	var projectReport = (totalProjectChanges > 0) ? $elm$core$Maybe$Just(
-		$elm$core$String$fromInt(totalProjectChanges) + (' projects updated (' + ($elm$core$String$fromInt(projectsAdded) + (' created, ' + ($elm$core$String$fromInt(projectsDeleted) + ' deleted)'))))) : $elm$core$Maybe$Nothing;
-	var _v1 = _Utils_Tuple3(
-		$elm$core$Set$size(report.itemsAdded),
-		$elm$core$Set$size(report.itemsDeleted),
-		$elm$core$Set$size(report.itemsChanged));
-	var itemsAdded = _v1.a;
-	var itemsDeleted = _v1.b;
-	var itemsModified = _v1.c;
-	var totalItemChanges = (itemsAdded + itemsDeleted) + itemsModified;
-	var itemReport = (totalItemChanges > 0) ? $elm$core$Maybe$Just(
-		$elm$core$String$fromInt(totalItemChanges) + (' items updated (' + ($elm$core$String$fromInt(itemsAdded) + (' created, ' + ($elm$core$String$fromInt(itemsDeleted) + ' deleted)'))))) : $elm$core$Maybe$Nothing;
-	var reportList = A2(
-		$elm$core$List$filterMap,
-		$elm$core$Basics$identity,
-		_List_fromArray(
-			[itemReport, projectReport]));
-	return 'Todoist sync complete: ' + ((!(totalProjectChanges + totalItemChanges)) ? 'Nothing changed since last sync.' : ($elm$core$String$concat(
-		A2($elm$core$List$intersperse, ' and ', reportList)) + '.'));
+var $author$project$Integrations$Marvin$MarvinItem$ConvertedToTaskTriplet = function (a) {
+	return {$: 'ConvertedToTaskTriplet', a: a};
 };
 var $author$project$Activity$Activity$defaults = function (startWith) {
 	switch (startWith.$) {
@@ -14406,6 +14269,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$File('shrugging-attempt.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14425,6 +14289,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(5),
 						$author$project$SmartTime$Human$Duration$Hours(3))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$File('shirt.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14444,6 +14309,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(7),
 						$author$project$SmartTime$Human$Duration$Minutes(30))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$File('messaging.svg'),
 				maxTime: _Utils_Tuple2(
@@ -14463,6 +14329,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(15),
 						$author$project$SmartTime$Human$Duration$Hours(2))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🚽'),
 				maxTime: _Utils_Tuple2(
@@ -14479,13 +14346,14 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💈'),
 				maxTime: _Utils_Tuple2(
 					$author$project$SmartTime$Human$Duration$Hours(2),
 					$author$project$SmartTime$Human$Duration$Days(1)),
 				names: _List_fromArray(
-					['Grooming', 'Tending', 'Groom']),
+					['Grooming', 'Tending', 'Groom', 'Personal Care']),
 				taskOptional: true,
 				template: startWith
 			};
@@ -14498,6 +14366,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(40),
 						$author$project$SmartTime$Human$Duration$Hours(3))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🍽'),
 				maxTime: _Utils_Tuple2(
@@ -14514,6 +14383,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💊'),
 				maxTime: _Utils_Tuple2(
@@ -14533,6 +14403,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(12),
 						$author$project$SmartTime$Human$Duration$Hours(3))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💪'),
 				maxTime: _Utils_Tuple2(
@@ -14552,6 +14423,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(25),
 						$author$project$SmartTime$Human$Duration$Hours(18))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🚿'),
 				maxTime: _Utils_Tuple2(
@@ -14568,6 +14440,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDEA5'),
 				maxTime: _Utils_Tuple2(
@@ -14584,6 +14457,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDDB7'),
 				maxTime: _Utils_Tuple2(
@@ -14603,6 +14477,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(12),
 						$author$project$SmartTime$Human$Duration$Hours(15))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDD71'),
 				maxTime: _Utils_Tuple2(
@@ -14619,6 +14494,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$IndefinitelyExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💤'),
 				maxTime: _Utils_Tuple2(
@@ -14638,6 +14514,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(20),
 						$author$project$SmartTime$Human$Duration$Hours(3))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📅'),
 				maxTime: _Utils_Tuple2(
@@ -14657,6 +14534,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(15),
 						$author$project$SmartTime$Human$Duration$Hours(5))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🔧'),
 				maxTime: _Utils_Tuple2(
@@ -14676,6 +14554,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(15),
 						$author$project$SmartTime$Human$Duration$Hours(4))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📧'),
 				maxTime: _Utils_Tuple2(
@@ -14695,6 +14574,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Hours(1),
 						$author$project$SmartTime$Human$Duration$Hours(12))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💼'),
 				maxTime: _Utils_Tuple2(
@@ -14714,6 +14594,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(35),
 						$author$project$SmartTime$Human$Duration$Hours(4))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🗣'),
 				maxTime: _Utils_Tuple2(
@@ -14733,6 +14614,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(25),
 						$author$project$SmartTime$Human$Duration$Hours(4))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDDF9'),
 				maxTime: _Utils_Tuple2(
@@ -14752,6 +14634,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Hours(1),
 						$author$project$SmartTime$Human$Duration$Hours(12))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('👫'),
 				maxTime: _Utils_Tuple2(
@@ -14768,6 +14651,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDDF3'),
 				maxTime: _Utils_Tuple2(
@@ -14787,6 +14671,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Hours(2),
 						$author$project$SmartTime$Human$Duration$Hours(8))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💋'),
 				maxTime: _Utils_Tuple2(
@@ -14806,6 +14691,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Hours(1),
 						$author$project$SmartTime$Human$Duration$Hours(6))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🚗'),
 				maxTime: _Utils_Tuple2(
@@ -14825,6 +14711,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(30),
 						$author$project$SmartTime$Human$Duration$Hours(8))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💺'),
 				maxTime: _Utils_Tuple2(
@@ -14844,6 +14731,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(20),
 						$author$project$SmartTime$Human$Duration$Hours(4))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('👁'),
 				maxTime: _Utils_Tuple2(
@@ -14860,6 +14748,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🚶'),
 				maxTime: _Utils_Tuple2(
@@ -14879,6 +14768,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(20),
 						$author$project$SmartTime$Human$Duration$Hours(8))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('⛹'),
 				maxTime: _Utils_Tuple2(
@@ -14898,6 +14788,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(20),
 						$author$project$SmartTime$Human$Duration$Hours(16))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💸'),
 				maxTime: _Utils_Tuple2(
@@ -14914,6 +14805,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('👕'),
 				maxTime: _Utils_Tuple2(
@@ -14930,6 +14822,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🛏'),
 				maxTime: _Utils_Tuple2(
@@ -14946,6 +14839,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📑'),
 				maxTime: _Utils_Tuple2(
@@ -14962,6 +14856,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🐉'),
 				maxTime: _Utils_Tuple2(
@@ -14981,6 +14876,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(15),
 						$author$project$SmartTime$Human$Duration$Hours(10))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDDE0'),
 				maxTime: _Utils_Tuple2(
@@ -15000,6 +14896,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(30),
 						$author$project$SmartTime$Human$Duration$Hours(20))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('💡'),
 				maxTime: _Utils_Tuple2(
@@ -15016,6 +14913,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🎧'),
 				maxTime: _Utils_Tuple2(
@@ -15035,6 +14933,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(35),
 						$author$project$SmartTime$Human$Duration$Hours(16))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🛠'),
 				maxTime: _Utils_Tuple2(
@@ -15051,6 +14950,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: true,
 				icon: $author$project$Activity$Activity$Emoji('🚸'),
 				maxTime: _Utils_Tuple2(
@@ -15070,6 +14970,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(35),
 						$author$project$SmartTime$Human$Duration$Hours(8))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('👥'),
 				maxTime: _Utils_Tuple2(
@@ -15086,6 +14987,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🎟'),
 				maxTime: _Utils_Tuple2(
@@ -15102,6 +15004,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🎞'),
 				maxTime: _Utils_Tuple2(
@@ -15118,6 +15021,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📺'),
 				maxTime: _Utils_Tuple2(
@@ -15134,6 +15038,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📻'),
 				maxTime: _Utils_Tuple2(
@@ -15150,6 +15055,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🎭'),
 				maxTime: _Utils_Tuple2(
@@ -15166,6 +15072,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🛍'),
 				maxTime: _Utils_Tuple2(
@@ -15182,6 +15089,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🎮'),
 				maxTime: _Utils_Tuple2(
@@ -15201,6 +15109,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(20),
 						$author$project$SmartTime$Human$Duration$Hours(6))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🏠'),
 				maxTime: _Utils_Tuple2(
@@ -15220,6 +15129,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(45),
 						$author$project$SmartTime$Human$Duration$Hours(6))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🍳'),
 				maxTime: _Utils_Tuple2(
@@ -15236,6 +15146,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDD1D'),
 				maxTime: _Utils_Tuple2(
@@ -15252,6 +15163,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDDD8'),
 				maxTime: _Utils_Tuple2(
@@ -15268,6 +15180,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📝'),
 				maxTime: _Utils_Tuple2(
@@ -15284,6 +15197,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('✈'),
 				maxTime: _Utils_Tuple2(
@@ -15300,6 +15214,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📔'),
 				maxTime: _Utils_Tuple2(
@@ -15316,6 +15231,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🐶'),
 				maxTime: _Utils_Tuple2(
@@ -15332,6 +15248,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 				category: $author$project$Activity$Activity$Slacking,
 				evidence: _List_Nil,
 				excusable: $author$project$Activity$Activity$NeverExcused,
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('📊'),
 				maxTime: _Utils_Tuple2(
@@ -15351,6 +15268,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(40),
 						$author$project$SmartTime$Human$Duration$Hours(4))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('🌟'),
 				maxTime: _Utils_Tuple2(
@@ -15370,6 +15288,7 @@ var $author$project$Activity$Activity$defaults = function (startWith) {
 					_Utils_Tuple2(
 						$author$project$SmartTime$Human$Duration$Minutes(10),
 						$author$project$SmartTime$Human$Duration$Hours(3))),
+				externalIDs: $elm$core$Dict$empty,
 				hidden: false,
 				icon: $author$project$Activity$Activity$Emoji('\uD83E\uDD13'),
 				maxTime: _Utils_Tuple2(
@@ -15601,6 +15520,7 @@ var $author$project$Activity$Activity$withTemplate = function (delta) {
 		category: A2(over, base.category, delta.category),
 		evidence: A2($elm$core$List$append, base.evidence, delta.evidence),
 		excusable: A2(over, base.excusable, delta.excusable),
+		externalIDs: delta.externalIDs,
 		hidden: A2(over, base.hidden, delta.hidden),
 		icon: A2(over, base.icon, delta.icon),
 		maxTime: A2(over, base.maxTime, delta.maxTime),
@@ -15646,6 +15566,454 @@ var $elm_community$intdict$IntDict$foldl = F3(
 			}
 		}
 	});
+var $elm_community$intdict$IntDict$filter = F2(
+	function (predicate, dict) {
+		var add = F3(
+			function (k, v, d) {
+				return A2(predicate, k, v) ? A3($elm_community$intdict$IntDict$insert, k, v, d) : d;
+			});
+		return A3($elm_community$intdict$IntDict$foldl, add, $elm_community$intdict$IntDict$empty, dict);
+	});
+var $elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			$elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
+var $author$project$ID$read = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$ID$tag = function (_int) {
+	return $author$project$ID$ID(_int);
+};
+var $author$project$Integrations$Marvin$MarvinItem$toDocketActivity = F2(
+	function (activities, marvinCategory) {
+		var nameMatch = F2(
+			function (key, value) {
+				return A2($elm$core$List$member, marvinCategory.title, value.names);
+			});
+		var matchingActivities = A2(
+			$elm$core$Debug$log,
+			'matching activity names for ' + marvinCategory.title,
+			A2(
+				$elm_community$intdict$IntDict$filter,
+				nameMatch,
+				$author$project$Activity$Activity$allActivities(activities)));
+		var firstActivityMatch = $elm$core$List$head(
+			$elm_community$intdict$IntDict$toList(matchingActivities));
+		var toCustomizations = function () {
+			if (firstActivityMatch.$ === 'Just') {
+				var _v2 = firstActivityMatch.a;
+				var key = _v2.a;
+				var activity = _v2.b;
+				return $elm$core$Maybe$Just(
+					{
+						backgroundable: $elm$core$Maybe$Nothing,
+						category: $elm$core$Maybe$Nothing,
+						evidence: _List_Nil,
+						excusable: $elm$core$Maybe$Nothing,
+						externalIDs: A3($elm$core$Dict$insert, 'marvinCategory', marvinCategory.id, activity.externalIDs),
+						hidden: $elm$core$Maybe$Nothing,
+						icon: $elm$core$Maybe$Nothing,
+						id: $author$project$ID$tag(key),
+						maxTime: $elm$core$Maybe$Nothing,
+						names: $elm$core$Maybe$Nothing,
+						taskOptional: $elm$core$Maybe$Nothing,
+						template: activity.template
+					});
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}();
+		if (toCustomizations.$ === 'Just') {
+			var customizedActivity = toCustomizations.a;
+			return A3(
+				$elm_community$intdict$IntDict$insert,
+				$author$project$ID$read(customizedActivity.id),
+				customizedActivity,
+				activities);
+		} else {
+			return activities;
+		}
+	});
+var $author$project$SmartTime$Human$Clock$endOfDay = $author$project$SmartTime$Duration$aDay;
+var $author$project$SmartTime$Duration$isPositive = function (_v0) {
+	var _int = _v0.a;
+	return _int > 0;
+};
+var $author$project$Task$Class$newClassSkel = F2(
+	function (givenTitle, newID) {
+		return {activity: $elm$core$Maybe$Nothing, completionUnits: $author$project$Task$Progress$Percent, defaultExternalDeadline: _List_Nil, defaultFinishBy: _List_Nil, defaultRelevanceEnds: _List_Nil, defaultRelevanceStarts: _List_Nil, defaultStartBy: _List_Nil, id: newID, importance: 1, maxEffort: $author$project$SmartTime$Duration$zero, minEffort: $author$project$SmartTime$Duration$zero, predictedEffort: $author$project$SmartTime$Duration$zero, title: givenTitle};
+	});
+var $author$project$Task$Instance$newInstanceSkel = F2(
+	function (newID, _class) {
+		return {_class: _class.id, completion: 0, externalDeadline: $elm$core$Maybe$Nothing, finishBy: $elm$core$Maybe$Nothing, id: newID, memberOfSeries: $elm$core$Maybe$Nothing, plannedSessions: _List_Nil, relevanceEnds: $elm$core$Maybe$Nothing, relevanceStarts: $elm$core$Maybe$Nothing, startBy: $elm$core$Maybe$Nothing};
+	});
+var $author$project$Task$Entry$FollowerParent = F2(
+	function (properties, children) {
+		return {children: children, properties: properties};
+	});
+var $author$project$Task$Entry$LeaderIsHere = function (a) {
+	return {$: 'LeaderIsHere', a: a};
+};
+var $author$project$Task$Entry$LeaderParent = F3(
+	function (properties, recurrenceRules, children) {
+		return {children: children, properties: properties, recurrenceRules: recurrenceRules};
+	});
+var $author$project$Task$Class$ParentProperties = function (title) {
+	return {title: title};
+};
+var $author$project$Task$Entry$Singleton = function (a) {
+	return {$: 'Singleton', a: a};
+};
+var $author$project$Task$Entry$WrapperParent = F2(
+	function (properties, children) {
+		return {children: children, properties: properties};
+	});
+var $author$project$Task$Entry$newRootEntry = function (classID) {
+	var parentProps = $author$project$Task$Class$ParentProperties(
+		$elm$core$Maybe$Just('none'));
+	var follower = A2(
+		$author$project$Task$Entry$FollowerParent,
+		parentProps,
+		$mgold$elm_nonempty_list$List$Nonempty$fromElement(
+			$author$project$Task$Entry$Singleton(classID)));
+	var leader = A3(
+		$author$project$Task$Entry$LeaderParent,
+		parentProps,
+		_List_Nil,
+		$mgold$elm_nonempty_list$List$Nonempty$fromElement(follower));
+	var outsideWrap = A2(
+		$author$project$Task$Entry$WrapperParent,
+		parentProps,
+		$mgold$elm_nonempty_list$List$Nonempty$fromElement(
+			$author$project$Task$Entry$LeaderIsHere(leader)));
+	return outsideWrap;
+};
+var $elm_community$maybe_extra$Maybe$Extra$or = F2(
+	function (ma, mb) {
+		if (ma.$ === 'Nothing') {
+			return mb;
+		} else {
+			return ma;
+		}
+	});
+var $author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive = F3(
+	function (classCounter, activities, marvinItem) {
+		var whichActivity = function () {
+			var _v6 = marvinItem.parentId;
+			if (_v6.$ === 'Just') {
+				var someParent = _v6.a;
+				var getMarvinID = function (_v8) {
+					var intID = _v8.a;
+					var activity = _v8.b;
+					return _Utils_Tuple2(
+						$author$project$ID$tag(intID),
+						A2($elm$core$Dict$get, 'marvinCategory', activity.externalIDs));
+				};
+				var activitiesWithMarvinCategories = A2(
+					$elm$core$List$map,
+					getMarvinID,
+					$elm_community$intdict$IntDict$toList(
+						$author$project$Activity$Activity$allActivities(activities)));
+				var matchingActivities = A2(
+					$elm$core$List$filterMap,
+					function (_v7) {
+						var id = _v7.a;
+						var actCat = _v7.b;
+						return _Utils_eq(
+							A2($elm$core$Maybe$withDefault, 'nope', actCat),
+							someParent) ? $elm$core$Maybe$Just(id) : $elm$core$Maybe$Nothing;
+					},
+					activitiesWithMarvinCategories);
+				return $elm$core$List$head(matchingActivities);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}();
+		var plannedSessionList = function () {
+			var _v0 = _Utils_Tuple2(
+				A2($elm$core$Maybe$map, $author$project$SmartTime$Duration$isPositive, marvinItem.timeEstimate),
+				marvinItem.timeEstimate);
+			_v0$2:
+			while (true) {
+				if (_v0.a.$ === 'Just') {
+					if (_v0.a.a) {
+						if (_v0.b.$ === 'Just') {
+							var plannedDuration = _v0.b.a;
+							var _v1 = _Utils_Tuple2(marvinItem.taskTime, marvinItem.day);
+							if (_v1.a.$ === 'Just') {
+								if (_v1.b.$ === 'Just') {
+									var plannedTime = _v1.a.a;
+									var plannedDay = _v1.b.a;
+									return $elm$core$List$singleton(
+										_Utils_Tuple2(
+											$author$project$SmartTime$Human$Moment$Floating(
+												_Utils_Tuple2(plannedDay, plannedTime)),
+											plannedDuration));
+								} else {
+									var _v2 = _v1.b;
+									return A2($elm$core$Debug$log, 'no planned day for ' + marvinItem.title, _List_Nil);
+								}
+							} else {
+								if (_v1.b.$ === 'Just') {
+									var _v3 = _v1.a;
+									var plannedDay = _v1.b.a;
+									return A3(
+										$elm$core$Debug$log,
+										'no tasktime for ' + (marvinItem.title + ', assuming end of day'),
+										$elm$core$List$singleton,
+										_Utils_Tuple2(
+											$author$project$SmartTime$Human$Moment$Floating(
+												_Utils_Tuple2(plannedDay, $author$project$SmartTime$Human$Clock$endOfDay)),
+											plannedDuration));
+								} else {
+									var _v4 = _v1.a;
+									var _v5 = _v1.b;
+									return A2($elm$core$Debug$log, 'no tasktime or planned day for ' + marvinItem.title, _List_Nil);
+								}
+							}
+						} else {
+							break _v0$2;
+						}
+					} else {
+						return A2($elm$core$Debug$log, 'no time estimate for ' + marvinItem.title, _List_Nil);
+					}
+				} else {
+					break _v0$2;
+				}
+			}
+			return _List_Nil;
+		}();
+		var classID = classCounter + 1;
+		var entry = $author$project$Task$Entry$newRootEntry(classID);
+		var classBase = A2($author$project$Task$Class$newClassSkel, marvinItem.title, classID);
+		var finalClass = _Utils_update(
+			classBase,
+			{
+				activity: whichActivity,
+				importance: marvinItem.isStarred,
+				predictedEffort: A2($elm$core$Maybe$withDefault, $author$project$SmartTime$Duration$zero, marvinItem.timeEstimate)
+			});
+		var instanceBase = A2($author$project$Task$Instance$newInstanceSkel, classCounter, finalClass);
+		var finalInstance = _Utils_update(
+			instanceBase,
+			{
+				completion: marvinItem.done ? 100 : 0,
+				externalDeadline: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.dueDate),
+				finishBy: A2(
+					$elm_community$maybe_extra$Maybe$Extra$or,
+					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.endDate),
+					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.day)),
+				plannedSessions: plannedSessionList,
+				startBy: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.startDate)
+			});
+		return {_class: finalClass, entry: entry, instance: finalInstance};
+	});
+var $author$project$Integrations$Marvin$MarvinItem$toDocketItem = F3(
+	function (classCounter, profile, marvinItem) {
+		var _v0 = marvinItem.type_;
+		switch (_v0.$) {
+			case 'Task':
+				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToTaskTriplet(
+					A3($author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive, classCounter, profile.activities, marvinItem));
+			case 'Project':
+				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToTaskTriplet(
+					A3($author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive, classCounter, profile.activities, marvinItem));
+			default:
+				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToActivity(
+					A2($author$project$Integrations$Marvin$MarvinItem$toDocketActivity, profile.activities, marvinItem));
+		}
+	});
+var $author$project$Integrations$Marvin$importItems = F3(
+	function (classCounter, profile, itemList) {
+		var toNumberedDocketTask = function (index) {
+			return A2($author$project$Integrations$Marvin$MarvinItem$toDocketItem, classCounter + index, profile);
+		};
+		var tasksOnly = function (outputItem) {
+			if (outputItem.$ === 'ConvertedToTaskTriplet') {
+				var taskitem = outputItem.a;
+				return $elm$core$Maybe$Just(taskitem);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		};
+		var bigList = A2($elm$core$List$indexedMap, toNumberedDocketTask, itemList);
+		var bigTaskList = A2($elm$core$List$filterMap, tasksOnly, bigList);
+		var activitiesOnly = function (outputItem) {
+			if (outputItem.$ === 'ConvertedToActivity') {
+				var activitystore = outputItem.a;
+				return $elm$core$Maybe$Just(activitystore);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		};
+		var finalActivities = A3(
+			$elm$core$List$foldl,
+			$elm_community$intdict$IntDict$union,
+			$elm_community$intdict$IntDict$empty,
+			A2($elm$core$List$filterMap, activitiesOnly, bigList));
+		return _Utils_Tuple2(
+			{
+				taskClasses: $elm_community$intdict$IntDict$fromList(
+					A2(
+						$elm$core$List$map,
+						function (i) {
+							return _Utils_Tuple2(i._class.id, i._class);
+						},
+						bigTaskList)),
+				taskEntries: A2(
+					$elm$core$List$map,
+					function ($) {
+						return $.entry;
+					},
+					bigTaskList),
+				taskInstances: $elm_community$intdict$IntDict$fromList(
+					A2(
+						$elm$core$List$map,
+						function (i) {
+							return _Utils_Tuple2(i.instance.id, i.instance);
+						},
+						bigTaskList))
+			},
+			finalActivities);
+	});
+var $elm$core$Debug$toString = _Debug_toString;
+var $author$project$Integrations$Marvin$handle = F3(
+	function (classCounter, profile, response) {
+		if (response.$ === 'TestResult') {
+			var result = response.a;
+			if (result.$ === 'Ok') {
+				var serversays = result.a;
+				return _Utils_Tuple2(
+					_Utils_Tuple2(
+						{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
+						$elm$core$Maybe$Nothing),
+					serversays);
+			} else {
+				var err = result.a;
+				return _Utils_Tuple2(
+					_Utils_Tuple2(
+						{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
+						$elm$core$Maybe$Nothing),
+					$author$project$Integrations$Marvin$describeError(err));
+			}
+		} else {
+			var result = response.a;
+			if (result.$ === 'Ok') {
+				var itemList = result.a;
+				var _v3 = A3($author$project$Integrations$Marvin$importItems, classCounter, profile, itemList);
+				var newTriplets = _v3.a;
+				var newActivities = _v3.b;
+				return _Utils_Tuple2(
+					_Utils_Tuple2(
+						newTriplets,
+						$elm$core$Maybe$Just(newActivities)),
+					$elm$core$Debug$toString(itemList));
+			} else {
+				var err = result.a;
+				return _Utils_Tuple2(
+					_Utils_Tuple2(
+						{taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty},
+						$elm$core$Maybe$Nothing),
+					$author$project$Integrations$Marvin$describeError(err));
+			}
+		}
+	});
+var $author$project$Incubator$Todoist$describeError = function (error) {
+	switch (error.$) {
+		case 'BadUrl':
+			var msg = error.a;
+			return 'For some reason we were told the URL is bad. This should never happen, it\'s a perfectly tested working URL! The error: ' + msg;
+		case 'Timeout':
+			return 'Timed out. Try again later?';
+		case 'NetworkError':
+			return 'Couldn\'t get on the network. Are you offline?';
+		case 'BadStatus':
+			var status = error.a;
+			switch (status) {
+				case 400:
+					return '400 Bad Request: The request was incorrect.';
+				case 401:
+					return '401 Unauthorized: Authentication is required, and has failed, or has not yet been provided. Maybe your API credentials are messed up?';
+				case 403:
+					return '403 Forbidden: The request was valid, but for something that is forbidden.';
+				case 404:
+					return '404 Not Found! That should never happen, because I definitely used the right URL. Is your system or proxy blocking or messing with internet requests? Is it many years in future, where Todoist API v8 has been deprecated, obseleted, and then discontinued? Or maybe it\'s far enough in the future that Todoist doesn\'t exist anymore but for some reason you\'re still using this library?';
+				case 429:
+					return '429 Too Many Requests: Slow down, cowboy! Check out the Todoist API Docs for Usage Limits. Maybe try batching more requests into one?';
+				case 500:
+					return '500 Internal Server Error: Not my fault! Todoist must be having a bad day.';
+				case 502:
+					return '502 Bad Gateway: I was trying to reach the Todoist server but I got stopped along the way. If you\'re definitely connected, it\'s probably a temporary hiccup on their side -- but if you see this a lot, check that your DNS is resolving (try todoist.com) and any proxy setup you have is working.';
+				case 503:
+					return '503 Service Unavailable: Not my fault! Todoist must be bogged down today, or perhaps experiencing a DDoS attack. :O';
+				default:
+					var other = status;
+					return 'Got HTTP Error code ' + ($elm$core$String$fromInt(other) + ', not sure what that means in this case. Sorry!');
+			}
+		default:
+			var string = error.a;
+			return 'I successfully talked with Todoist servers, but the response had some weird parts I was never trained for. Either Todoist changed something recently, or you\'ve found a weird edge case the developer didn\'t know about. Either way, please report this! \n' + string;
+	}
+};
+var $elm$core$Dict$sizeHelp = F2(
+	function (n, dict) {
+		sizeHelp:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return n;
+			} else {
+				var left = dict.d;
+				var right = dict.e;
+				var $temp$n = A2($elm$core$Dict$sizeHelp, n + 1, right),
+					$temp$dict = left;
+				n = $temp$n;
+				dict = $temp$dict;
+				continue sizeHelp;
+			}
+		}
+	});
+var $elm$core$Dict$size = function (dict) {
+	return A2($elm$core$Dict$sizeHelp, 0, dict);
+};
+var $elm$core$Set$size = function (_v0) {
+	var dict = _v0.a;
+	return $elm$core$Dict$size(dict);
+};
+var $author$project$Integrations$Todoist$describeSuccess = function (report) {
+	var _v0 = _Utils_Tuple3(
+		$elm$core$Set$size(report.projectsAdded),
+		$elm$core$Set$size(report.projectsDeleted),
+		$elm$core$Set$size(report.projectsChanged));
+	var projectsAdded = _v0.a;
+	var projectsDeleted = _v0.b;
+	var projectsModified = _v0.c;
+	var totalProjectChanges = (projectsAdded + projectsDeleted) + projectsModified;
+	var projectReport = (totalProjectChanges > 0) ? $elm$core$Maybe$Just(
+		$elm$core$String$fromInt(totalProjectChanges) + (' projects updated (' + ($elm$core$String$fromInt(projectsAdded) + (' created, ' + ($elm$core$String$fromInt(projectsDeleted) + ' deleted)'))))) : $elm$core$Maybe$Nothing;
+	var _v1 = _Utils_Tuple3(
+		$elm$core$Set$size(report.itemsAdded),
+		$elm$core$Set$size(report.itemsDeleted),
+		$elm$core$Set$size(report.itemsChanged));
+	var itemsAdded = _v1.a;
+	var itemsDeleted = _v1.b;
+	var itemsModified = _v1.c;
+	var totalItemChanges = (itemsAdded + itemsDeleted) + itemsModified;
+	var itemReport = (totalItemChanges > 0) ? $elm$core$Maybe$Just(
+		$elm$core$String$fromInt(totalItemChanges) + (' items updated (' + ($elm$core$String$fromInt(itemsAdded) + (' created, ' + ($elm$core$String$fromInt(itemsDeleted) + ' deleted)'))))) : $elm$core$Maybe$Nothing;
+	var reportList = A2(
+		$elm$core$List$filterMap,
+		$elm$core$Basics$identity,
+		_List_fromArray(
+			[itemReport, projectReport]));
+	return 'Todoist sync complete: ' + ((!(totalProjectChanges + totalItemChanges)) ? 'Nothing changed since last sync.' : ($elm$core$String$concat(
+		A2($elm$core$List$intersperse, ' and ', reportList)) + '.'));
+};
 var $author$project$Incubator$IntDict$Extra$filterMap = F2(
 	function (f, dict) {
 		return A3(
@@ -15673,18 +16041,6 @@ var $author$project$Incubator$IntDict$Extra$mapValues = F2(
 				}),
 			dict);
 	});
-var $elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			$elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
-var $author$project$ID$tag = function (_int) {
-	return $author$project$ID$ID(_int);
-};
 var $elm_community$intdict$IntDict$values = function (dict) {
 	return A3(
 		$elm_community$intdict$IntDict$foldr,
@@ -15726,14 +16082,6 @@ var $author$project$Integrations$Todoist$filterActivityProjects = F2(
 					return pickFirstMatch(p.name);
 				}),
 			projects);
-	});
-var $elm_community$intdict$IntDict$filter = F2(
-	function (predicate, dict) {
-		var add = F3(
-			function (k, v, d) {
-				return A2(predicate, k, v) ? A3($elm_community$intdict$IntDict$insert, k, v, d) : d;
-			});
-		return A3($elm_community$intdict$IntDict$foldl, add, $elm_community$intdict$IntDict$empty, dict);
 	});
 var $author$project$Incubator$IntDict$Extra$filterValues = F2(
 	function (func, dict) {
@@ -16739,7 +17087,25 @@ var $author$project$Integrations$Marvin$MarvinItem$MarvinItem = function (id) {
 		};
 	};
 };
+var $author$project$Integrations$Marvin$MarvinItem$Task = {$: 'Task'};
 var $author$project$Integrations$Marvin$MarvinItem$calendarDateDecoder = A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, $author$project$SmartTime$Human$Calendar$fromNumberString);
+var $author$project$Integrations$Marvin$MarvinItem$Category = {$: 'Category'};
+var $author$project$Integrations$Marvin$MarvinItem$Project = {$: 'Project'};
+var $author$project$Integrations$Marvin$MarvinItem$decodeItemType = function () {
+	var get = function (id) {
+		switch (id) {
+			case 'task':
+				return $zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$Task);
+			case 'project':
+				return $zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$Project);
+			case 'category':
+				return $zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$Category);
+			default:
+				return $zwilias$json_decode_exploration$Json$Decode$Exploration$fail('unknown value for ItemType: ' + id);
+		}
+	};
+	return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$andThen, get, $zwilias$json_decode_exploration$Json$Decode$Exploration$string);
+}();
 var $author$project$Integrations$Marvin$MarvinItem$Bonus = {$: 'Bonus'};
 var $author$project$Integrations$Marvin$MarvinItem$essentialOrBonusDecoder = function () {
 	var get = function (id) {
@@ -17021,12 +17387,13 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																				A4(
 																																					$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																					'type',
-																																					$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-																																					'',
-																																					A3(
-																																						$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																																					$author$project$Integrations$Marvin$MarvinItem$decodeItemType,
+																																					$author$project$Integrations$Marvin$MarvinItem$Task,
+																																					A4(
+																																						$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																						'db',
 																																						$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																																						'',
 																																						A4(
 																																							$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																							'endDate',
@@ -17150,10 +17517,11 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																																											'dailySection',
 																																																											$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
 																																																											$elm$core$Maybe$Nothing,
-																																																											A3(
-																																																												$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																																																											A4(
+																																																												$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																																												'rank',
 																																																												$zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+																																																												0,
 																																																												A4(
 																																																													$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																																													'firstScheduled',
@@ -17182,10 +17550,11 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																																																$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
 																																																																'title',
 																																																																$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-																																																																A3(
-																																																																	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																																																																A4(
+																																																																	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																																																	'day',
 																																																																	$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Integrations$Marvin$MarvinItem$calendarDateDecoder),
+																																																																	$elm$core$Maybe$Nothing,
 																																																																	A4(
 																																																																		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																																																		'done',
@@ -17238,6 +17607,25 @@ var $author$project$Porting$toClassicLoose = function (decoder) {
 		A2($elm$core$Basics$composeL, $elm_community$json_extra$Json$Decode$Extra$fromResult, _final),
 		$elm$json$Json$Decode$value);
 };
+var $author$project$Integrations$Marvin$getCategories = function (secret) {
+	return $elm$http$Http$request(
+		{
+			body: $elm$http$Http$emptyBody,
+			expect: A2(
+				$elm$http$Http$expectJson,
+				$author$project$Integrations$Marvin$GotItems,
+				$author$project$Porting$toClassicLoose(
+					$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem))),
+			headers: _List_fromArray(
+				[
+					A2($elm$http$Http$header, 'X-API-Token', secret)
+				]),
+			method: 'GET',
+			timeout: $elm$core$Maybe$Nothing,
+			tracker: $elm$core$Maybe$Nothing,
+			url: $author$project$Integrations$Marvin$marvinEndpointURL('categories')
+		});
+};
 var $author$project$Integrations$Marvin$getTodayItems = function (secret) {
 	return $elm$http$Http$request(
 		{
@@ -17257,10 +17645,15 @@ var $author$project$Integrations$Marvin$getTodayItems = function (secret) {
 			url: $author$project$Integrations$Marvin$marvinEndpointURL('todayItems')
 		});
 };
-var $author$project$Integrations$Marvin$test2 = function () {
+var $author$project$Integrations$Marvin$test3 = function () {
 	var partialAccessToken = 'm47dqHEwdJy56/j8tyAcXARlADg=';
 	var fullAccessToken = '7o0b6/c0i+zXgWx5eheuM7Eob7w=';
-	return $author$project$Integrations$Marvin$getTodayItems(partialAccessToken);
+	return $elm$core$Platform$Cmd$batch(
+		_List_fromArray(
+			[
+				$author$project$Integrations$Marvin$getCategories(partialAccessToken),
+				$author$project$Integrations$Marvin$getTodayItems(partialAccessToken)
+			]));
 }();
 var $author$project$External$Tasker$flash = _Platform_outgoingPort('flash', $elm$json$Json$Encode$string);
 var $author$project$External$Commands$toast = function (message) {
@@ -18264,7 +18657,6 @@ var $author$project$SmartTime$Human$Moment$compareFuzzyLateness = F4(
 				A3($author$project$SmartTime$Human$Moment$fromFuzzyWithDefaultTime, zone, defaultTime, fuzzyB));
 		}
 	});
-var $author$project$SmartTime$Human$Clock$endOfDay = $author$project$SmartTime$Duration$aDay;
 var $author$project$Task$Instance$compareSoonness = F3(
 	function (zone, taskA, taskB) {
 		var _v0 = _Utils_Tuple2(taskA.instance.externalDeadline, taskB.instance.externalDeadline);
@@ -18406,10 +18798,6 @@ var $author$project$SmartTime$Moment$future = F2(
 		return $author$project$SmartTime$Moment$Moment(
 			A2($author$project$SmartTime$Duration$add, time, duration));
 	});
-var $author$project$ID$read = function (_v0) {
-	var _int = _v0.a;
-	return _int;
-};
 var $author$project$Activity$Activity$getActivity = F2(
 	function (activityId, activities) {
 		var _v0 = A2(
@@ -19660,24 +20048,24 @@ var $author$project$Main$handleUrlTriggers = F2(
 		var profile = model.profile;
 		var environment = model.environment;
 		var wrapMsgs = F2(
-			function (tagger, _v27) {
-				var key = _v27.a;
-				var dict = _v27.b;
+			function (tagger, _v28) {
+				var key = _v28.a;
+				var dict = _v28.b;
 				return _Utils_Tuple2(
 					key,
 					A2(
 						$elm$core$Dict$map,
 						F2(
-							function (_v26, msg) {
+							function (_v27, msg) {
 								return tagger(msg);
 							}),
 						dict));
 			});
 		var url = $author$project$Main$bypassFakeFragment(rawUrl);
 		var removeTriggersFromUrl = function () {
-			var _v25 = environment.navkey;
-			if (_v25.$ === 'Just') {
-				var navkey = _v25.a;
+			var _v26 = environment.navkey;
+			if (_v26.$ === 'Just') {
+				var navkey = _v26.a;
 				return A2(
 					$elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -19696,27 +20084,27 @@ var $author$project$Main$handleUrlTriggers = F2(
 			fancyRecursiveParse:
 			while (true) {
 				if (checkList.b) {
-					var _v13 = checkList.a;
-					var triggerName = _v13.a;
-					var triggerValues = _v13.b;
+					var _v14 = checkList.a;
+					var triggerName = _v14.a;
+					var triggerValues = _v14.b;
 					var rest = checkList.b;
-					var _v14 = A2(
+					var _v15 = A2(
 						$elm$url$Url$Parser$parse,
 						$elm$url$Url$Parser$query(
 							A2($elm$url$Url$Parser$Query$enum, triggerName, triggerValues)),
 						normalizedUrl);
-					if (_v14.$ === 'Nothing') {
+					if (_v15.$ === 'Nothing') {
 						var $temp$checkList = rest;
 						checkList = $temp$checkList;
 						continue fancyRecursiveParse;
 					} else {
-						if (_v14.a.$ === 'Nothing') {
-							var _v15 = _v14.a;
+						if (_v15.a.$ === 'Nothing') {
+							var _v16 = _v15.a;
 							var $temp$checkList = rest;
 							checkList = $temp$checkList;
 							continue fancyRecursiveParse;
 						} else {
-							var match = _v14.a;
+							var match = _v15.a;
 							return $elm$core$Maybe$Just(match);
 						}
 					}
@@ -19725,9 +20113,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		};
-		var createQueryParsers = function (_v24) {
-			var key = _v24.a;
-			var values = _v24.b;
+		var createQueryParsers = function (_v25) {
+			var key = _v25.a;
+			var values = _v25.b;
 			return A2($elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
@@ -19770,23 +20158,23 @@ var $author$project$Main$handleUrlTriggers = F2(
 			$elm$url$Url$Parser$parse,
 			$elm$url$Url$Parser$oneOf(parseList),
 			normalizedUrl);
-		var _v16 = fancyRecursiveParse(allTriggers);
-		if (_v16.$ === 'Just') {
-			var parsedUrlSuccessfully = _v16.a;
-			var _v17 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
-			if (_v17.a.$ === 'Just') {
-				if (_v17.b.$ === 'Just') {
-					var triggerMsg = _v17.a.a;
-					var _v18 = A2($author$project$Main$update, triggerMsg, model);
-					var newModel = _v18.a;
-					var newCmd = _v18.b;
+		var _v17 = fancyRecursiveParse(allTriggers);
+		if (_v17.$ === 'Just') {
+			var parsedUrlSuccessfully = _v17.a;
+			var _v18 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
+			if (_v18.a.$ === 'Just') {
+				if (_v18.b.$ === 'Just') {
+					var triggerMsg = _v18.a.a;
+					var _v19 = A2($author$project$Main$update, triggerMsg, model);
+					var newModel = _v19.a;
+					var newCmd = _v19.b;
 					var newCmdWithUrlCleaner = $elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[newCmd, removeTriggersFromUrl]));
 					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 				} else {
-					var triggerMsg = _v17.a.a;
-					var _v20 = _v17.b;
+					var triggerMsg = _v18.a.a;
+					var _v21 = _v18.b;
 					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -19797,9 +20185,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 						$author$project$External$Commands$toast(problemText));
 				}
 			} else {
-				if (_v17.b.$ === 'Just') {
-					var _v19 = _v17.a;
-					var query = _v17.b.a;
+				if (_v18.b.$ === 'Just') {
+					var _v20 = _v18.a;
+					var query = _v18.b.a;
 					var problemText = 'Handle URL Triggers: none of  ' + ($elm$core$String$fromInt(
 						$elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
 					return _Utils_Tuple2(
@@ -19810,17 +20198,17 @@ var $author$project$Main$handleUrlTriggers = F2(
 							}),
 						$author$project$External$Commands$toast(problemText));
 				} else {
-					var _v21 = _v17.a;
-					var _v22 = _v17.b;
+					var _v22 = _v18.a;
+					var _v23 = _v18.b;
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			}
 		} else {
-			var _v23 = normalizedUrl.query;
-			if (_v23.$ === 'Nothing') {
+			var _v24 = normalizedUrl.query;
+			if (_v24.$ === 'Nothing') {
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			} else {
-				var queriesPresent = _v23.a;
+				var queriesPresent = _v24.a;
 				var problemText = 'URL: not sure what to do with: ' + (queriesPresent + ', so I just left it there. Is the trigger misspelled?');
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -19872,7 +20260,7 @@ var $author$project$Main$update = F2(
 						A2(
 							$elm$core$Platform$Cmd$map,
 							$author$project$Main$ThirdPartyServerResponded,
-							A2($elm$core$Platform$Cmd$map, $author$project$Main$MarvinServer, $author$project$Integrations$Marvin$test2)));
+							A2($elm$core$Platform$Cmd$map, $author$project$Main$MarvinServer, $author$project$Integrations$Marvin$test3)));
 				}
 			case 'ThirdPartyServerResponded':
 				if (msg.a.$ === 'TodoistServer') {
@@ -19910,15 +20298,19 @@ var $author$project$Main$update = F2(
 								[notification])));
 				} else {
 					var response = msg.a.a;
-					var _v3 = A2(
+					var _v3 = A3(
 						$author$project$Integrations$Marvin$handle,
 						$author$project$SmartTime$Moment$toSmartInt(environment.time),
+						profile,
 						response);
-					var newItems = _v3.a;
+					var _v4 = _v3.a;
+					var newItems = _v4.a;
+					var newActivities = _v4.b;
 					var whatHappened = _v3.b;
 					var newProfile1WithItems = _Utils_update(
 						profile,
 						{
+							activities: A2($elm$core$Maybe$withDefault, profile.activities, newActivities),
 							taskClasses: A2($elm_community$intdict$IntDict$union, profile.taskClasses, newItems.taskClasses),
 							taskEntries: _Utils_ap(profile.taskEntries, newItems.taskEntries),
 							taskInstances: A2($elm_community$intdict$IntDict$union, profile.taskInstances, newItems.taskInstances)
@@ -19932,9 +20324,9 @@ var $author$project$Main$update = F2(
 				var urlRequest = msg.a;
 				if (urlRequest.$ === 'Internal') {
 					var url = urlRequest.a;
-					var _v5 = environment.navkey;
-					if (_v5.$ === 'Just') {
-						var navkey = _v5.a;
+					var _v6 = environment.navkey;
+					if (_v6.$ === 'Just') {
+						var navkey = _v6.a;
 						return justRunCommand(
 							A2(
 								$elm$browser$Browser$Navigation$pushUrl,
@@ -19950,9 +20342,9 @@ var $author$project$Main$update = F2(
 				}
 			case 'NewUrl':
 				var url = msg.a;
-				var _v6 = A2($author$project$Main$handleUrlTriggers, url, model);
-				var modelAfter = _v6.a;
-				var effectsAfter = _v6.b;
+				var _v7 = A2($author$project$Main$handleUrlTriggers, url, model);
+				var modelAfter = _v7.a;
+				var effectsAfter = _v7.b;
 				return _Utils_Tuple2(
 					_Utils_update(
 						modelAfter,
@@ -19963,18 +20355,18 @@ var $author$project$Main$update = F2(
 			case 'TaskListMsg':
 				var subMsg = msg.a;
 				var subViewState = function () {
-					var _v8 = viewState.primaryView;
-					if (_v8.$ === 'TaskList') {
-						var subView = _v8.a;
+					var _v9 = viewState.primaryView;
+					if (_v9.$ === 'TaskList') {
+						var subView = _v9.a;
 						return subView;
 					} else {
 						return $author$project$TaskList$defaultView;
 					}
 				}();
-				var _v7 = A4($author$project$TaskList$update, subMsg, subViewState, profile, environment);
-				var newState = _v7.a;
-				var newApp = _v7.b;
-				var newCommand = _v7.c;
+				var _v8 = A4($author$project$TaskList$update, subMsg, subViewState, profile, environment);
+				var newState = _v8.a;
+				var newApp = _v8.b;
+				var newCommand = _v8.c;
 				return _Utils_Tuple2(
 					A3(
 						$author$project$Main$Model,
@@ -19988,18 +20380,18 @@ var $author$project$Main$update = F2(
 			case 'TimeTrackerMsg':
 				var subMsg = msg.a;
 				var subViewState = function () {
-					var _v10 = viewState.primaryView;
-					if (_v10.$ === 'TimeTracker') {
-						var subView = _v10.a;
+					var _v11 = viewState.primaryView;
+					if (_v11.$ === 'TimeTracker') {
+						var subView = _v11.a;
 						return subView;
 					} else {
 						return $author$project$TimeTracker$defaultView;
 					}
 				}();
-				var _v9 = A4($author$project$TimeTracker$update, subMsg, subViewState, profile, environment);
-				var newState = _v9.a;
-				var newApp = _v9.b;
-				var newCommand = _v9.c;
+				var _v10 = A4($author$project$TimeTracker$update, subMsg, subViewState, profile, environment);
+				var newState = _v10.a;
+				var newApp = _v10.b;
+				var newCommand = _v10.c;
 				return _Utils_Tuple2(
 					A3(
 						$author$project$Main$Model,
@@ -20224,6 +20616,22 @@ var $author$project$Task$Instance$encodeInstance = function (taskInstance) {
 				A2($elm_community$json_extra$Json$Encode$Extra$maybe, $author$project$Task$Class$encodeTaskMoment, taskInstance.relevanceEnds))
 			]));
 };
+var $elm$json$Json$Encode$dict = F3(
+	function (toKey, toValue, dictionary) {
+		return _Json_wrap(
+			A3(
+				$elm$core$Dict$foldl,
+				F3(
+					function (key, value, obj) {
+						return A3(
+							_Json_addField,
+							toKey(key),
+							toValue(value),
+							obj);
+					}),
+				_Json_emptyObject(_Utils_Tuple0),
+				dictionary));
+	});
 var $author$project$Activity$Activity$encodeCategory = function (v) {
 	switch (v.$) {
 		case 'Transit':
@@ -20437,7 +20845,11 @@ var $author$project$Activity$Activity$encodeCustomizations = function (record) {
 				$author$project$Porting$omittable(
 				_Utils_Tuple3('maxTime', $author$project$Activity$Activity$encodeDurationPerPeriod, record.maxTime)),
 				$author$project$Porting$omittable(
-				_Utils_Tuple3('hidden', $elm$json$Json$Encode$bool, record.hidden))
+				_Utils_Tuple3('hidden', $elm$json$Json$Encode$bool, record.hidden)),
+				$author$project$Porting$normal(
+				_Utils_Tuple2(
+					'externalIDs',
+					A3($elm$json$Json$Encode$dict, $elm$core$Basics$identity, $elm$json$Json$Encode$string, record.externalIDs)))
 			]));
 };
 var $author$project$Activity$Activity$encodeStoredActivities = function (value) {

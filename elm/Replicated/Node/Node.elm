@@ -109,19 +109,31 @@ peerCodec =
 
 
 -- TESTING
---fakeOps : List Op
---fakeOps =
---    [ create "12345+0.0.0.0" "1" ""
---    , create "12345+0.0.0.0" "2" "payload2 here"
---    , create "12345+0.0.0.0" "3" "payload3 here"
---    , create "12+0.0.0.0" "173" ""
---    , create "12+0.0.0.0" "174" "payloadB2 here"
---    ]
---
---
---fakeNode =
---    let
---        apply op node =
---            { node | db = applyOpToDb node.db op }
---    in
---    List.foldl apply blankNode fakeOps
+
+
+fakeOps : List Op
+fakeOps =
+    let
+        tryCreateOp reducerString objectString opIDString givenPayload =
+            case ( OpID.fromString objectString, OpID.fromString opIDString ) of
+                ( Just objectID, Just opID ) ->
+                    [ create reducerString objectID opID Nothing givenPayload ]
+
+                _ ->
+                    []
+    in
+    List.concat
+        [ tryCreateOp "lww" "12345+0.0.0.0" "1+0.0.0.0" ""
+        , tryCreateOp "lww" "12345+0.0.0.0" "2" "payload2 here"
+        , tryCreateOp "lww" "12345+0.0.0.0" "3" "payload3 here"
+        , tryCreateOp "lww" "12+0.0.0.0" "173" ""
+        , tryCreateOp "lww" "12+0.0.0.0" "174" "payloadB2 here"
+        ]
+
+
+fakeNode =
+    let
+        apply op node =
+            { node | db = applyOpToDb node.db op }
+    in
+    List.foldl apply blankNode fakeOps

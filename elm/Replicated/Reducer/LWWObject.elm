@@ -4,7 +4,7 @@ import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
 import Json.Decode
-import Json.Encode exposing (Value)
+import Json.Encode as JE exposing (Value)
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -73,7 +73,7 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
         (getID lww)
         myNewID
         (Just opToReference)
-        (RS.encodeToString payloadCodec ( fieldIdentifier, fieldValue ))
+        (JE.encode 0 <| RS.encodeToJson payloadCodec ( fieldIdentifier, fieldValue ))
     , nextCounter
     )
 
@@ -281,7 +281,7 @@ type PartialRecord errs full remaining
     = PartialRecord
         { encoder : full -> List Bytes.Encode.Encoder
         , decoder : Bytes.Decode.Decoder (Result (RS.Error errs) remaining)
-        , jsonEncoders : List ( String, full -> Json.Encode.Value )
+        , jsonEncoders : List ( String, full -> JE.Value )
         , jsonArrayDecoder : Json.Decode.Decoder (Result (RS.Error errs) remaining)
         , fieldIndex : Int
         }
@@ -356,13 +356,13 @@ finishRecord (PartialRecord allFieldsCodec) =
                 passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
                     ( fieldKey, fieldEncoder fullRecord )
             in
-            Json.Encode.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
 
         encodeAsDictList fullRecord =
-            Json.Encode.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
 
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
-            Json.Encode.list identity [ Json.Encode.string fieldKey, entryValueEncoder fullRecord ]
+            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
     in
     RS.Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> Bytes.Encode.sequence

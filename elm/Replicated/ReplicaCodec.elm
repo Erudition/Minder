@@ -193,7 +193,7 @@ version =
 -- DECODE
 
 
-{-| Run a `Codec` to turn a json value encoded with `encodeToJson` into an Elm value.
+{-| TODO
 -}
 decodeFromNode : Codec e a -> Node -> Result (Error e) a
 decodeFromNode codec node =
@@ -395,9 +395,16 @@ encodeToBytes codec value =
 and not risk generating an invalid url.
 
 -}
-encodeToString : Codec e a -> a -> String
-encodeToString codec =
+encodeToURLString : Codec e a -> a -> String
+encodeToURLString codec =
     encodeToBytes codec >> replaceBase64Chars
+
+
+{-| Gives you the raw string, for debugging
+-}
+encodeToJsonString : Codec e a -> a -> String
+encodeToJsonString codec value =
+    JE.encode 0 (getJsonEncoder codec value)
 
 
 {-| Convert an Elm value into json data.
@@ -431,6 +438,18 @@ replaceBase64Chars =
 replaceForUrl : Regex
 replaceForUrl =
     Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
+
+
+{-| Convert an Elm value into Ops.
+-}
+encodeToRon : Node -> InCounter -> Codec e a -> List Op
+encodeToRon node counter codec =
+    case getRonEncoder codec of
+        Just ronEncoder ->
+            .ops (ronEncoder { node = node, existingObjectIDMaybe = Nothing, counter = counter, mode = IncludeDefaults })
+
+        Nothing ->
+            []
 
 
 
@@ -1181,6 +1200,9 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
             -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
             JD.field (String.fromInt fieldSlot ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
 
+        Just ( replica, Nothing ) ->
+            Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
+
         -- We are working with an LWWObject
         Just ( replica, Just lwwObject ) ->
             let
@@ -1252,11 +1274,9 @@ finishRecord (PartialRecord allFieldsCodec) =
 
                                 Just lww ->
                                     case JD.decodeString (decodeWhatWeFound lww) "" of
-                                        Ok (Ok someresult) ->
-                                            someresult
-
-                                        Ok (Err someerror) ->
-                                            Err someerror
+                                        Ok nestedResult ->
+                                            -- could be Ok (Ok something) or Ok (Err something)
+                                            nestedResult
 
                                         Err someerror ->
                                             -- TODO FIXME
@@ -1310,7 +1330,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                     Nothing
 
         -- run each field encoder to build up our object
-        runFieldEncodersFirstPass : ( InCounter, List RonFieldEncoderOutput )
+        runFieldEncodersFirstPass : ( OutCounter, List RonFieldEncoderOutput )
         runFieldEncodersFirstPass =
             let
                 passDetailsToField : InCounter -> RonFieldEncoder -> ( OutCounter, RonFieldEncoderOutput )
@@ -1330,7 +1350,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             Tuple.first runFieldEncodersFirstPass
 
         -- how to create a new LWW object if we can't find an existing one
-        ( newLww, newLwwCreationOp ) =
+        ( newLww, newLwwCreationOp, counterAfterInitialization ) =
             let
                 ( newObjectID, newOutCounter ) =
                     OpID.generate objectReadyCounter node.identity
@@ -1338,7 +1358,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                 newObjectCreationOp =
                     LWWObject.creation node newObjectID
             in
-            ( LWWObject.empty newObjectID, newObjectCreationOp )
+            ( LWWObject.empty newObjectID, newObjectCreationOp, newOutCounter )
 
         newLwwCreationOpAsSingletonIfNeeded =
             case oldLwwMaybe of
@@ -1347,6 +1367,15 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
 
                 Nothing ->
                     [ newLwwCreationOp ]
+
+        counterToStartPrereqs : InCounter
+        counterToStartPrereqs =
+            case oldLwwMaybe of
+                Just _ ->
+                    objectReadyCounter
+
+                Nothing ->
+                    counterAfterInitialization
 
         prerequisiteOps : List Op
         prerequisiteOps =
@@ -1366,7 +1395,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             let
                 accumulator : ( OutCounter, OpID.OpID )
                 accumulator =
-                    ( counter, latestReference )
+                    ( counterToStartPrereqs, latestReference )
 
                 unstampedOpList =
                     List.filterMap .opToWrite (Tuple.second runFieldEncodersFirstPass)
@@ -1382,7 +1411,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             List.Extra.mapAccuml finishOps accumulator unstampedOpList
 
         exitCounter =
-            Tuple.first finishFieldOps
+            Tuple.first (Tuple.first finishFieldOps)
 
         fieldSettingOps =
             Tuple.second finishFieldOps
@@ -1390,67 +1419,6 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
     -- spit out Ops in dependency order
     { ops = prerequisiteOps ++ newLwwCreationOpAsSingletonIfNeeded ++ fieldSettingOps
     , objectID = LWWObject.getID finalLww
-    , nextCounter = exitCounter
-    }
-
-
-{-| The ron encoder when we're sure an object pre-exists.
--}
-existingObjectRonEncoder : List RonFieldEncoder -> Node -> LWWObject -> InCounter -> ReplicaEncodeDepth -> RonEncoderOutput
-existingObjectRonEncoder ronFieldEncoders node existingObject counter mode =
-    let
-        -- run each field encoder to build up our object
-        runFieldRonEncoders : ( InCounter, List RonFieldEncoderOutput )
-        runFieldRonEncoders =
-            let
-                passDetailsToField : InCounter -> RonFieldEncoder -> ( OutCounter, RonFieldEncoderOutput )
-                passDetailsToField thisFieldCounter fieldFunction =
-                    let
-                        run =
-                            fieldFunction { node = node, lwwMaybe = existingObject, counter = thisFieldCounter, mode = mode }
-                    in
-                    ( run.postPrereqCounter, run )
-            in
-            -- keep track of how many new op IDs have already been used and pass it into the next
-            List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
-
-        prerequisiteOps : List Op
-        prerequisiteOps =
-            List.concat (List.map .required (Tuple.second runFieldRonEncoders))
-
-        lwwID =
-            LWWObject.getID existingObject
-
-        -- finally, the actual Ops that set each field
-        finishFieldOps : ( OutCounter, List Op )
-        finishFieldOps =
-            let
-                unstampedOpList =
-                    List.filterMap .opToWrite (Tuple.second runFieldRonEncoders)
-
-                finishOps : InCounter -> UnfinishedOp -> ( OutCounter, Op )
-                finishOps givenOpCounter opFinisher =
-                    let
-                        setReference =
-                            -- TODO reference last Op instead
-                            lwwID
-
-                        ( finishedOp, counterToPassAlong ) =
-                            opFinisher { counter = givenOpCounter, opToReference = setReference }
-                    in
-                    ( counterToPassAlong, finishedOp )
-            in
-            List.Extra.mapAccuml finishOps counter unstampedOpList
-
-        exitCounter =
-            Tuple.first finishFieldOps
-
-        fieldSettingOps =
-            Tuple.second finishFieldOps
-    in
-    -- spit out Ops in dependency order
-    { ops = prerequisiteOps ++ fieldSettingOps
-    , objectID = lwwID
     , nextCounter = exitCounter
     }
 
@@ -1494,7 +1462,7 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
             Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
 
         defaultJsonEncoded =
-            encodeToString fieldValueCodec fieldDefault
+            Debug.log "encoding default" (encodeToJsonString fieldValueCodec fieldDefault)
 
         isAlreadyDefault =
             -- missing values count as default
@@ -1505,13 +1473,17 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
 
         opToWriteField : UnfinishedOp
         opToWriteField lazyInput =
-            LWWObject.fieldToOp
-                lazyInput.counter
-                node.identity
-                lazyInput.containingLww
-                lazyInput.opToReference
-                fieldIdentifier
-                valueToWrite
+            let
+                ( op, outCounter ) =
+                    LWWObject.fieldToOp
+                        lazyInput.counter
+                        node.identity
+                        lazyInput.containingLww
+                        lazyInput.opToReference
+                        fieldIdentifier
+                        valueToWrite
+            in
+            ( op, outCounter, Op.id op )
 
         finalOpFilteredByRequest =
             case mode of
@@ -1555,7 +1527,7 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
             Maybe.andThen fieldValueToObjectID lwwField
 
         defaultJsonEncoded =
-            encodeToString fieldValueCodec fieldDefault
+            encodeToJsonString fieldValueCodec fieldDefault
 
         isAlreadyDefault =
             -- TODO: True if stored value is same as default
@@ -1567,62 +1539,56 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
             Maybe.andThen (LWWObject.build node) finalObjectMaybe
 
         -- if we found a nested LWW,
-        runNestedRonEncoder : Maybe RonEncoderOutput
+        runNestedRonEncoder : RonEncoderOutput
         runNestedRonEncoder =
-            case findNestedLWW of
-                Nothing ->
-                    -- 1. the value was not a valid UUID?
-                    Nothing
-
-                Just nestedLWW ->
-                    Just <|
-                        ronEncoder
-                            { node = node
-                            , existingObjectIDMaybe = Just <| LWWObject.getID nestedLWW -- why is this a maybe again?
-                            , counter = counter -- right?
-                            , mode = mode
-                            }
+            ronEncoder
+                { node = node
+                , existingObjectIDMaybe = Maybe.map LWWObject.getID findNestedLWW
+                , counter = counter -- right?
+                , mode = mode
+                }
 
         finalCounter =
-            Maybe.withDefault counter (Maybe.map .nextCounter runNestedRonEncoder)
+            runNestedRonEncoder.nextCounter
 
-        childIDMaybe : Maybe OpID.ObjectID
-        childIDMaybe =
-            Maybe.map .objectID runNestedRonEncoder
+        childID : OpID.ObjectID
+        childID =
+            runNestedRonEncoder.objectID
 
-        opToWriteField : OpID.ObjectID -> UnfinishedOp
-        opToWriteField childID lazyInputs =
-            LWWObject.fieldToOp
-                lazyInputs.counter
-                node.identity
-                lwwMaybe
-                lazyInputs.opToReference
-                ( fieldSlot, fieldName )
-                (OpID.toString childID)
+        opToWriteField : UnfinishedOp
+        opToWriteField lazyInputs =
+            let
+                ( op, outCounter ) =
+                    LWWObject.fieldToOp
+                        lazyInputs.counter
+                        node.identity
+                        lazyInputs.containingLww
+                        lazyInputs.opToReference
+                        ( fieldSlot, fieldName )
+                        (OpID.toString childID)
+            in
+            ( op, outCounter, Op.id op )
 
         decideToEncodeOpBasedOnMode : Maybe UnfinishedOp
         decideToEncodeOpBasedOnMode =
-            case ( mode, childIDMaybe ) of
-                ( MissingObjectsOnly, _ ) ->
+            case mode of
+                MissingObjectsOnly ->
                     Nothing
 
                 -- TODO how do we know it's not missing
-                ( NonDefaultValues, Just child ) ->
+                NonDefaultValues ->
                     -- field set so probably non-default! check to be sure
                     if isAlreadyDefault then
                         Nothing
 
                     else
-                        Just (opToWriteField child)
+                        Just opToWriteField
 
-                ( IncludeDefaults, Just child ) ->
-                    Just (opToWriteField child)
-
-                ( _, Nothing ) ->
-                    Debug.todo "is this possible"
+                IncludeDefaults ->
+                    Just opToWriteField
     in
     { opToWrite = decideToEncodeOpBasedOnMode
-    , required = Maybe.withDefault [] (Maybe.map .ops runNestedRonEncoder)
+    , required = runNestedRonEncoder.ops
     , postPrereqCounter = finalCounter
     }
 
