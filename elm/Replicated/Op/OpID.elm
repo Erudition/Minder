@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -110,6 +110,11 @@ momentCodec =
 
 getEventStamp (OpID stamp) =
     stamp
+
+
+nextOpInChain : OpID -> OpID
+nextOpInChain (OpID stamp) =
+    OpID { stamp | time = Moment.fromSmartInt (Moment.toSmartInt stamp.time + 1) }
 
 
 

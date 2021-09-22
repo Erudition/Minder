@@ -59,6 +59,6 @@ fakeNodeWithExampleObject : Node
 fakeNodeWithExampleObject =
     let
         apply op node =
-            { node | db = Node.applyOpToDb node.db (Debug.log (OpID.toString <| Op.id op) op) }
+            { node | db = Node.applyOpToDb node.db (Debug.log (Op.toString op) op) }
     in
     List.foldl apply Node.fakeNode exampleObjectAsOpList

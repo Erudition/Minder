@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference)
+module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -114,3 +114,59 @@ id (Op op) =
 
 object (Op op) =
     op.objectID
+
+
+toString : Op -> String
+toString (Op op) =
+    let
+        opID =
+            "@" ++ OpID.toString op.operationID
+
+        ref =
+            ":" ++ OpID.toString (Maybe.withDefault op.objectID op.referenceID)
+    in
+    opID ++ " " ++ ref ++ " " ++ op.payload
+
+
+fromString : String -> Maybe Op -> Result String Op
+fromString inputString previousOpMaybe =
+    let
+        atoms =
+            String.words inputString
+
+        opIDatom =
+            List.head (List.filter (String.startsWith "@") atoms)
+
+        extractOpID atom =
+            OpID.fromString (String.dropLeft 1 atom)
+
+        opIDMaybe =
+            Maybe.withDefault (Maybe.map (id >> OpID.nextOpInChain) previousOpMaybe) (Maybe.map extractOpID opIDatom)
+
+        referenceAtom =
+            List.head (List.filter (String.startsWith ":") atoms)
+
+        referenceMaybe =
+            -- if reference is missing, it is assumed to be the previous Op's ID
+            Maybe.withDefault (Maybe.map id previousOpMaybe) (Maybe.map extractOpID referenceAtom)
+
+        otherAtoms =
+            List.Extra.filterNot (\atom -> String.startsWith ":" atom || String.startsWith "@" atom) atoms
+
+        remainderPayload =
+            String.concat otherAtoms
+    in
+    case ( opIDMaybe, otherAtoms, referenceMaybe ) of
+        ( Just opID, [], _ ) ->
+            -- no payload - must be a creation op
+            Ok (create givenReducer opID opID Nothing "")
+
+        ( Just opID, _, Just ref ) ->
+            -- there's a payload - reference is required
+            Ok (create givenReducer givenObject opID (Just ref) remainderPayload)
+
+        ( Just _, _, Nothing ) ->
+            Err <| "This op has a nonempty payload (not a creation op) but I couldn't find the required *reference* atom (:) and got no prior op in the chain to deduce it from: " ++ inputString
+
+        ( Nothing, _, _ ) ->
+            Err "Couldn't find Op's ID (@) and got no prior op to deduce it from."
