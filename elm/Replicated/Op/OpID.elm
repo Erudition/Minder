@@ -60,13 +60,13 @@ toString (OpID eventStamp) =
         timeString =
             String.fromInt (Moment.toSmartInt eventStamp.time)
     in
-    nodeString ++ "+" ++ timeString
+    timeString ++ "+" ++ nodeString
 
 
 fromString : String -> Maybe OpID
 fromString input =
     case String.split "+" input of
-        [ nodeIDString, timeString ] ->
+        [ timeString, nodeIDString ] ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
                 ( Just nodeID, Just time ) ->
                     Just (OpID (EventStamp time nodeID))

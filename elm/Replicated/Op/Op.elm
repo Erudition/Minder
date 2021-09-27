@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, id, object, opCodec, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, fromFrame, fromLog, fromString, id, object, opCodec, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -133,7 +133,7 @@ fromString : String -> Maybe Op -> Result String Op
 fromString inputString previousOpMaybe =
     let
         atoms =
-            String.words inputString
+            Debug.log " words" <| String.words inputString
 
         opIDatom =
             List.head (List.filter (String.startsWith "@") atoms)
@@ -160,14 +160,15 @@ fromString inputString previousOpMaybe =
         reducerMaybe =
             case ( referenceAtom, previousOpMaybe ) of
                 -- TODO check an actual list of known reducers
-                ( ":lww", _ ) ->
+                ( Just ":lww", _ ) ->
                     Just "lww"
 
                 ( _, Just previousOp ) ->
                     Just (reducer previousOp)
 
                 ( _, Nothing ) ->
-                    Nothing
+                    -- TODO Check the database. for now assume lww
+                    Just "lww"
 
         resultWithReducer givenReducer =
             case ( opIDMaybe, otherAtoms, referenceMaybe ) of
@@ -189,7 +190,7 @@ fromString inputString previousOpMaybe =
                     Err <| "This op has a nonempty payload (not a creation op) but I couldn't find the required *reference* atom (:) and got no prior op in the chain to deduce it from: " ++ inputString
 
                 ( Nothing, _, _ ) ->
-                    Err "Couldn't find Op's ID (@) and got no prior op to deduce it from."
+                    Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from: " ++ inputString
     in
     case reducerMaybe of
         Just foundReducer ->
@@ -208,8 +209,9 @@ fromSpan : String -> Result String (List Op)
 fromSpan span =
     let
         spanOpStrings =
-            String.split "," span
+            String.split ",\n" span
 
+        addToOpList : List String -> Result String (List Op) -> Result String (List Op)
         addToOpList unparsedOpList parsedOpListResult =
             -- Definitely a more efficient FP way to do this
             case ( unparsedOpList, parsedOpListResult ) of
@@ -227,16 +229,16 @@ fromSpan span =
 
                 ( nextUnparsedOp :: remainingUnparsedOps, Ok [] ) ->
                     -- not started yet, multiple items to parse
-                    Result.map (addToOpList remainingUnparsedOps) (fromString nextUnparsedOp Nothing)
+                    addToOpList remainingUnparsedOps (Result.map List.singleton (fromString nextUnparsedOp Nothing))
 
                 ( [ unparsedOp ], Ok [ parsedOp ] ) ->
                     -- one down, one to go
                     Result.map (\new -> new :: [ parsedOp ]) (fromString unparsedOp (Just parsedOp))
 
-                ( nextUnparsedOp :: _, Ok ((lastParsedOp :: _) as parsedOps) ) ->
+                ( nextUnparsedOp :: remainingUnparsedOps, Ok ((lastParsedOp :: _) as parsedOps) ) ->
                     -- multiple done, multiple remain
                     -- parsedOps is reversed, it's more efficient to grab a list head than the last item
-                    Result.map (\new -> new :: parsedOps) (fromString nextUnparsedOp (Just lastParsedOp))
+                    addToOpList remainingUnparsedOps <| Result.map (\new -> new :: parsedOps) (fromString nextUnparsedOp (Just lastParsedOp))
 
         finalList =
             -- recursively move from one list to the other
@@ -267,7 +269,7 @@ fromFrame : String -> Result String (List Op)
 fromFrame frame =
     let
         chunks =
-            String.split ";" frame
+            String.split " ;" frame
     in
     Result.map List.concat <| Result.Extra.combineMap fromChunk chunks
 
@@ -278,6 +280,6 @@ fromLog : String -> Result String (List Op)
 fromLog log =
     let
         frames =
-            String.split "." log
+            String.split " ." log
     in
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames

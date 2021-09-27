@@ -4349,6 +4349,285 @@ function _Browser_load(url)
 }
 
 
+// BYTES
+
+function _Bytes_width(bytes)
+{
+	return bytes.byteLength;
+}
+
+var _Bytes_getHostEndianness = F2(function(le, be)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(new Uint8Array(new Uint32Array([1]))[0] === 1 ? le : be));
+	});
+});
+
+
+// ENCODERS
+
+function _Bytes_encode(encoder)
+{
+	var mutableBytes = new DataView(new ArrayBuffer($elm$bytes$Bytes$Encode$getWidth(encoder)));
+	$elm$bytes$Bytes$Encode$write(encoder)(mutableBytes)(0);
+	return mutableBytes;
+}
+
+
+// SIGNED INTEGERS
+
+var _Bytes_write_i8  = F3(function(mb, i, n) { mb.setInt8(i, n); return i + 1; });
+var _Bytes_write_i16 = F4(function(mb, i, n, isLE) { mb.setInt16(i, n, isLE); return i + 2; });
+var _Bytes_write_i32 = F4(function(mb, i, n, isLE) { mb.setInt32(i, n, isLE); return i + 4; });
+
+
+// UNSIGNED INTEGERS
+
+var _Bytes_write_u8  = F3(function(mb, i, n) { mb.setUint8(i, n); return i + 1 ;});
+var _Bytes_write_u16 = F4(function(mb, i, n, isLE) { mb.setUint16(i, n, isLE); return i + 2; });
+var _Bytes_write_u32 = F4(function(mb, i, n, isLE) { mb.setUint32(i, n, isLE); return i + 4; });
+
+
+// FLOATS
+
+var _Bytes_write_f32 = F4(function(mb, i, n, isLE) { mb.setFloat32(i, n, isLE); return i + 4; });
+var _Bytes_write_f64 = F4(function(mb, i, n, isLE) { mb.setFloat64(i, n, isLE); return i + 8; });
+
+
+// BYTES
+
+var _Bytes_write_bytes = F3(function(mb, offset, bytes)
+{
+	for (var i = 0, len = bytes.byteLength, limit = len - 4; i <= limit; i += 4)
+	{
+		mb.setUint32(offset + i, bytes.getUint32(i));
+	}
+	for (; i < len; i++)
+	{
+		mb.setUint8(offset + i, bytes.getUint8(i));
+	}
+	return offset + len;
+});
+
+
+// STRINGS
+
+function _Bytes_getStringWidth(string)
+{
+	for (var width = 0, i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		width +=
+			(code < 0x80) ? 1 :
+			(code < 0x800) ? 2 :
+			(code < 0xD800 || 0xDBFF < code) ? 3 : (i++, 4);
+	}
+	return width;
+}
+
+var _Bytes_write_string = F3(function(mb, offset, string)
+{
+	for (var i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		offset +=
+			(code < 0x80)
+				? (mb.setUint8(offset, code)
+				, 1
+				)
+				:
+			(code < 0x800)
+				? (mb.setUint16(offset, 0xC080 /* 0b1100000010000000 */
+					| (code >>> 6 & 0x1F /* 0b00011111 */) << 8
+					| code & 0x3F /* 0b00111111 */)
+				, 2
+				)
+				:
+			(code < 0xD800 || 0xDBFF < code)
+				? (mb.setUint16(offset, 0xE080 /* 0b1110000010000000 */
+					| (code >>> 12 & 0xF /* 0b00001111 */) << 8
+					| code >>> 6 & 0x3F /* 0b00111111 */)
+				, mb.setUint8(offset + 2, 0x80 /* 0b10000000 */
+					| code & 0x3F /* 0b00111111 */)
+				, 3
+				)
+				:
+			(code = (code - 0xD800) * 0x400 + string.charCodeAt(++i) - 0xDC00 + 0x10000
+			, mb.setUint32(offset, 0xF0808080 /* 0b11110000100000001000000010000000 */
+				| (code >>> 18 & 0x7 /* 0b00000111 */) << 24
+				| (code >>> 12 & 0x3F /* 0b00111111 */) << 16
+				| (code >>> 6 & 0x3F /* 0b00111111 */) << 8
+				| code & 0x3F /* 0b00111111 */)
+			, 4
+			);
+	}
+	return offset;
+});
+
+
+// DECODER
+
+var _Bytes_decode = F2(function(decoder, bytes)
+{
+	try {
+		return $elm$core$Maybe$Just(A2(decoder, bytes, 0).b);
+	} catch(e) {
+		return $elm$core$Maybe$Nothing;
+	}
+});
+
+var _Bytes_read_i8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getInt8(offset)); });
+var _Bytes_read_i16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getInt16(offset, isLE)); });
+var _Bytes_read_i32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getInt32(offset, isLE)); });
+var _Bytes_read_u8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getUint8(offset)); });
+var _Bytes_read_u16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getUint16(offset, isLE)); });
+var _Bytes_read_u32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getUint32(offset, isLE)); });
+var _Bytes_read_f32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getFloat32(offset, isLE)); });
+var _Bytes_read_f64 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 8, bytes.getFloat64(offset, isLE)); });
+
+var _Bytes_read_bytes = F3(function(len, bytes, offset)
+{
+	return _Utils_Tuple2(offset + len, new DataView(bytes.buffer, bytes.byteOffset + offset, len));
+});
+
+var _Bytes_read_string = F3(function(len, bytes, offset)
+{
+	var string = '';
+	var end = offset + len;
+	for (; offset < end;)
+	{
+		var byte = bytes.getUint8(offset++);
+		string +=
+			(byte < 128)
+				? String.fromCharCode(byte)
+				:
+			((byte & 0xE0 /* 0b11100000 */) === 0xC0 /* 0b11000000 */)
+				? String.fromCharCode((byte & 0x1F /* 0b00011111 */) << 6 | bytes.getUint8(offset++) & 0x3F /* 0b00111111 */)
+				:
+			((byte & 0xF0 /* 0b11110000 */) === 0xE0 /* 0b11100000 */)
+				? String.fromCharCode(
+					(byte & 0xF /* 0b00001111 */) << 12
+					| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+					| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+				)
+				:
+				(byte =
+					((byte & 0x7 /* 0b00000111 */) << 18
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 12
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+						| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+					) - 0x10000
+				, String.fromCharCode(Math.floor(byte / 0x400) + 0xD800, byte % 0x400 + 0xDC00)
+				);
+	}
+	return _Utils_Tuple2(offset, string);
+});
+
+var _Bytes_decodeFailure = F2(function() { throw 0; });
+
+
+// CREATE
+
+var _Regex_never = /.^/;
+
+var _Regex_fromStringWith = F2(function(options, string)
+{
+	var flags = 'g';
+	if (options.multiline) { flags += 'm'; }
+	if (options.caseInsensitive) { flags += 'i'; }
+
+	try
+	{
+		return $elm$core$Maybe$Just(new RegExp(string, flags));
+	}
+	catch(error)
+	{
+		return $elm$core$Maybe$Nothing;
+	}
+});
+
+
+// USE
+
+var _Regex_contains = F2(function(re, string)
+{
+	return string.match(re) !== null;
+});
+
+
+var _Regex_findAtMost = F3(function(n, re, str)
+{
+	var out = [];
+	var number = 0;
+	var string = str;
+	var lastIndex = re.lastIndex;
+	var prevLastIndex = -1;
+	var result;
+	while (number++ < n && (result = re.exec(string)))
+	{
+		if (prevLastIndex == re.lastIndex) break;
+		var i = result.length - 1;
+		var subs = new Array(i);
+		while (i > 0)
+		{
+			var submatch = result[i];
+			subs[--i] = submatch
+				? $elm$core$Maybe$Just(submatch)
+				: $elm$core$Maybe$Nothing;
+		}
+		out.push(A4($elm$regex$Regex$Match, result[0], result.index, number, _List_fromArray(subs)));
+		prevLastIndex = re.lastIndex;
+	}
+	re.lastIndex = lastIndex;
+	return _List_fromArray(out);
+});
+
+
+var _Regex_replaceAtMost = F4(function(n, re, replacer, string)
+{
+	var count = 0;
+	function jsReplacer(match)
+	{
+		if (count++ >= n)
+		{
+			return match;
+		}
+		var i = arguments.length - 3;
+		var submatches = new Array(i);
+		while (i > 0)
+		{
+			var submatch = arguments[i];
+			submatches[--i] = submatch
+				? $elm$core$Maybe$Just(submatch)
+				: $elm$core$Maybe$Nothing;
+		}
+		return replacer(A4($elm$regex$Regex$Match, match, arguments[arguments.length - 2], count, _List_fromArray(submatches)));
+	}
+	return string.replace(re, jsReplacer);
+});
+
+var _Regex_splitAtMost = F3(function(n, re, str)
+{
+	var string = str;
+	var out = [];
+	var start = re.lastIndex;
+	var restoreLastIndex = re.lastIndex;
+	while (n--)
+	{
+		var result = re.exec(string);
+		if (!result) break;
+		out.push(string.slice(start, result.index));
+		start = re.lastIndex;
+	}
+	out.push(string.slice(start));
+	re.lastIndex = restoreLastIndex;
+	return _List_fromArray(out);
+});
+
+var _Regex_infinity = Infinity;
+
+
 function _Url_percentEncode(string)
 {
 	return encodeURIComponent(string);
@@ -7851,9 +8130,1022 @@ var $author$project$Main$SetZoneAndTime = F2(
 		return {$: 'SetZoneAndTime', a: a, b: b};
 	});
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $author$project$Replicated$Op$Op$reducer = function (_v0) {
-	var op = _v0.a;
-	return op.reducerID;
+var $author$project$Replicated$ReplicaCodec$IncludeDefaults = {$: 'IncludeDefaults'};
+var $author$project$Replicated$ReplicaCodec$getRonEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.ronEncoder;
+};
+var $author$project$Replicated$ReplicaCodec$encodeToRon = F3(
+	function (node, counter, codec) {
+		var _v0 = $author$project$Replicated$ReplicaCodec$getRonEncoder(codec);
+		if (_v0.$ === 'Just') {
+			var ronEncoder = _v0.a;
+			return function ($) {
+				return $.ops;
+			}(
+				ronEncoder(
+					{counter: counter, existingObjectIDMaybe: $elm$core$Maybe$Nothing, mode: $author$project$Replicated$ReplicaCodec$IncludeDefaults, node: node}));
+		} else {
+			return _List_Nil;
+		}
+	});
+var $author$project$Replicated$Testing$ExampleObject = F3(
+	function (name, address, number) {
+		return {address: address, name: name, number: number};
+	});
+var $author$project$Replicated$Testing$ExampleSubObjectName = F2(
+	function (first, last) {
+		return {first: first, last: last};
+	});
+var $author$project$Replicated$ReplicaCodec$PartialRecord = function (a) {
+	return {$: 'PartialRecord', a: a};
+};
+var $author$project$Replicated$ReplicaCodec$combineIfBothSucceed = F2(
+	function (decoderA, decoderB) {
+		var _v0 = _Utils_Tuple2(decoderA, decoderB);
+		if (_v0.a.$ === 'Ok') {
+			if (_v0.b.$ === 'Ok') {
+				var aDecodedValue = _v0.a.a;
+				var bDecodedValue = _v0.b.a;
+				return $elm$core$Result$Ok(
+					aDecodedValue(bDecodedValue));
+			} else {
+				var b_error = _v0.b.a;
+				return $elm$core$Result$Err(b_error);
+			}
+		} else {
+			var a_error = _v0.a.a;
+			return $elm$core$Result$Err(a_error);
+		}
+	});
+var $author$project$Replicated$ReplicaCodec$getBytesDecoder = function (_v0) {
+	var m = _v0.a;
+	return m.decoder;
+};
+var $author$project$Replicated$ReplicaCodec$getEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.encoder;
+};
+var $author$project$Replicated$ReplicaCodec$getJsonEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.jsonEncoder;
+};
+var $elm$bytes$Bytes$Decode$Decoder = function (a) {
+	return {$: 'Decoder', a: a};
+};
+var $elm$bytes$Bytes$Decode$map2 = F3(
+	function (func, _v0, _v1) {
+		var decodeA = _v0.a;
+		var decodeB = _v1.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v2 = A2(decodeA, bites, offset);
+					var aOffset = _v2.a;
+					var a = _v2.b;
+					var _v3 = A2(decodeB, bites, aOffset);
+					var bOffset = _v3.a;
+					var b = _v3.b;
+					return _Utils_Tuple2(
+						bOffset,
+						A2(func, a, b));
+				}));
+	});
+var $author$project$Replicated$ReplicaCodec$nestableJDmap2 = F4(
+	function (twoArgFunction, nestableDecoderA, nestableDecoderB, elsewhereData) {
+		var decoderB = nestableDecoderB(elsewhereData);
+		var decoderA = nestableDecoderA(elsewhereData);
+		return A3($elm$json$Json$Decode$map2, twoArgFunction, decoderA, decoderB);
+	});
+var $author$project$Replicated$ReplicaCodec$DataCorrupted = {$: 'DataCorrupted'};
+var $elm$json$Json$Decode$decodeString = _Json_runOnString;
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$core$Debug$todo = _Debug_todo;
+var $author$project$Replicated$Reducer$LWWObject$getFieldLatest = F2(
+	function (lww, _v0) {
+		var slot = _v0.a;
+		var name = _v0.b;
+		return _Debug_todo(
+			'Replicated.Reducer.LWWObject',
+			{
+				start: {line: 136, column: 5},
+				end: {line: 136, column: 15}
+			})('search lww.changeHistory for matching fields and give the latest');
+	});
+var $author$project$Replicated$ReplicaCodec$getJsonDecoder = F2(
+	function (_v0, elsewhereData) {
+		var m = _v0.a;
+		return m.jsonDecoder(elsewhereData);
+	});
+var $author$project$Replicated$ReplicaCodec$nestableJsonFieldDecoder = F4(
+	function (_v0, _default, fieldValueCodec, outer) {
+		var fieldSlot = _v0.a;
+		var fieldName = _v0.b;
+		if (outer.$ === 'Nothing') {
+			return A2(
+				$elm$json$Json$Decode$field,
+				_Utils_ap(
+					$elm$core$String$fromInt(fieldSlot),
+					fieldName),
+				A2($author$project$Replicated$ReplicaCodec$getJsonDecoder, fieldValueCodec, $elm$core$Maybe$Nothing));
+		} else {
+			if (outer.a.b.$ === 'Nothing') {
+				var _v2 = outer.a;
+				var replica = _v2.a;
+				var _v3 = _v2.b;
+				return _Debug_todo(
+					'Replicated.ReplicaCodec',
+					{
+						start: {line: 1204, column: 13},
+						end: {line: 1204, column: 23}
+					})('a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?');
+			} else {
+				var _v4 = outer.a;
+				var replica = _v4.a;
+				var lwwObject = _v4.b.a;
+				var desiredField = A2(
+					$author$project$Replicated$Reducer$LWWObject$getFieldLatest,
+					lwwObject,
+					_Utils_Tuple2(fieldSlot, fieldName));
+				if (desiredField.$ === 'Nothing') {
+					return $elm$json$Json$Decode$succeed(
+						$elm$core$Result$Ok(_default));
+				} else {
+					var foundField = desiredField.a;
+					var runDecoderOnFoundField = A2(
+						$elm$json$Json$Decode$decodeString,
+						A2($author$project$Replicated$ReplicaCodec$getJsonDecoder, fieldValueCodec, outer),
+						foundField);
+					var convertResult = function () {
+						if (runDecoderOnFoundField.$ === 'Ok') {
+							var something = runDecoderOnFoundField.a;
+							return something;
+						} else {
+							var problem = runDecoderOnFoundField.a;
+							return $elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted);
+						}
+					}();
+					return $elm$json$Json$Decode$succeed(convertResult);
+				}
+			}
+		}
+	});
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Replicated$Object$All = {$: 'All'};
+var $author$project$Replicated$Reducer$LWWObject$LWWObject = function (a) {
+	return {$: 'LWWObject', a: a};
+};
+var $elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _v0 = f(mx);
+		if (_v0.$ === 'Just') {
+			var x = _v0.a;
+			return A2($elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var $elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			$elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var $author$project$Replicated$Reducer$LWWObject$FieldChange = function (a) {
+	return {$: 'FieldChange', a: a};
+};
+var $author$project$Replicated$Serialize$DataCorrupted = {$: 'DataCorrupted'};
+var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
+	switch (builder.$) {
+		case 'I8':
+			return 1;
+		case 'I16':
+			return 2;
+		case 'I32':
+			return 4;
+		case 'U8':
+			return 1;
+		case 'U16':
+			return 2;
+		case 'U32':
+			return 4;
+		case 'F32':
+			return 4;
+		case 'F64':
+			return 8;
+		case 'Seq':
+			var w = builder.a;
+			return w;
+		case 'Utf8':
+			var w = builder.a;
+			return w;
+		default:
+			var bs = builder.a;
+			return _Bytes_width(bs);
+	}
+};
+var $elm$bytes$Bytes$LE = {$: 'LE'};
+var $elm$bytes$Bytes$Encode$write = F3(
+	function (builder, mb, offset) {
+		switch (builder.$) {
+			case 'I8':
+				var n = builder.a;
+				return A3(_Bytes_write_i8, mb, offset, n);
+			case 'I16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'I32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U8':
+				var n = builder.a;
+				return A3(_Bytes_write_u8, mb, offset, n);
+			case 'U16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F64':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f64,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'Seq':
+				var bs = builder.b;
+				return A3($elm$bytes$Bytes$Encode$writeSequence, bs, mb, offset);
+			case 'Utf8':
+				var s = builder.b;
+				return A3(_Bytes_write_string, mb, offset, s);
+			default:
+				var bs = builder.a;
+				return A3(_Bytes_write_bytes, mb, offset, bs);
+		}
+	});
+var $elm$bytes$Bytes$Encode$writeSequence = F3(
+	function (builders, mb, offset) {
+		writeSequence:
+		while (true) {
+			if (!builders.b) {
+				return offset;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$builders = bs,
+					$temp$mb = mb,
+					$temp$offset = A3($elm$bytes$Bytes$Encode$write, b, mb, offset);
+				builders = $temp$builders;
+				mb = $temp$mb;
+				offset = $temp$offset;
+				continue writeSequence;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Encode$encode = _Bytes_encode;
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $elm$regex$Regex$Match = F4(
+	function (match, index, number, submatches) {
+		return {index: index, match: match, number: number, submatches: submatches};
+	});
+var $elm$regex$Regex$replace = _Regex_replaceAtMost(_Regex_infinity);
+var $elm$regex$Regex$fromStringWith = _Regex_fromStringWith;
+var $elm$regex$Regex$fromString = function (string) {
+	return A2(
+		$elm$regex$Regex$fromStringWith,
+		{caseInsensitive: false, multiline: false},
+		string);
+};
+var $elm$regex$Regex$never = _Regex_never;
+var $author$project$Replicated$Serialize$replaceFromUrl = A2(
+	$elm$core$Maybe$withDefault,
+	$elm$regex$Regex$never,
+	$elm$regex$Regex$fromString('[-_]'));
+var $elm$bytes$Bytes$Encode$Seq = F2(
+	function (a, b) {
+		return {$: 'Seq', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$getWidths = F2(
+	function (width, builders) {
+		getWidths:
+		while (true) {
+			if (!builders.b) {
+				return width;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$width = width + $elm$bytes$Bytes$Encode$getWidth(b),
+					$temp$builders = bs;
+				width = $temp$width;
+				builders = $temp$builders;
+				continue getWidths;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Encode$sequence = function (builders) {
+	return A2(
+		$elm$bytes$Bytes$Encode$Seq,
+		A2($elm$bytes$Bytes$Encode$getWidths, 0, builders),
+		builders);
+};
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $elm$bytes$Bytes$BE = {$: 'BE'};
+var $danfishgold$base64_bytes$Encode$isValidChar = function (c) {
+	if ($elm$core$Char$isAlphaNum(c)) {
+		return true;
+	} else {
+		switch (c.valueOf()) {
+			case '+':
+				return true;
+			case '/':
+				return true;
+			default:
+				return false;
+		}
+	}
+};
+var $elm$core$Basics$ge = _Utils_ge;
+var $danfishgold$base64_bytes$Encode$unsafeConvertChar = function (_char) {
+	var key = $elm$core$Char$toCode(_char);
+	if ((key >= 65) && (key <= 90)) {
+		return key - 65;
+	} else {
+		if ((key >= 97) && (key <= 122)) {
+			return (key - 97) + 26;
+		} else {
+			if ((key >= 48) && (key <= 57)) {
+				return ((key - 48) + 26) + 26;
+			} else {
+				switch (_char.valueOf()) {
+					case '+':
+						return 62;
+					case '/':
+						return 63;
+					default:
+						return -1;
+				}
+			}
+		}
+	}
+};
+var $elm$bytes$Bytes$Encode$U16 = F2(
+	function (a, b) {
+		return {$: 'U16', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt16 = $elm$bytes$Bytes$Encode$U16;
+var $elm$bytes$Bytes$Encode$U8 = function (a) {
+	return {$: 'U8', a: a};
+};
+var $elm$bytes$Bytes$Encode$unsignedInt8 = $elm$bytes$Bytes$Encode$U8;
+var $danfishgold$base64_bytes$Encode$encodeCharacters = F4(
+	function (a, b, c, d) {
+		if ($danfishgold$base64_bytes$Encode$isValidChar(a) && $danfishgold$base64_bytes$Encode$isValidChar(b)) {
+			var n2 = $danfishgold$base64_bytes$Encode$unsafeConvertChar(b);
+			var n1 = $danfishgold$base64_bytes$Encode$unsafeConvertChar(a);
+			if ('=' === d.valueOf()) {
+				if ('=' === c.valueOf()) {
+					var n = (n1 << 18) | (n2 << 12);
+					var b1 = n >> 16;
+					return $elm$core$Maybe$Just(
+						$elm$bytes$Bytes$Encode$unsignedInt8(b1));
+				} else {
+					if ($danfishgold$base64_bytes$Encode$isValidChar(c)) {
+						var n3 = $danfishgold$base64_bytes$Encode$unsafeConvertChar(c);
+						var n = ((n1 << 18) | (n2 << 12)) | (n3 << 6);
+						var combined = n >> 8;
+						return $elm$core$Maybe$Just(
+							A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$BE, combined));
+					} else {
+						return $elm$core$Maybe$Nothing;
+					}
+				}
+			} else {
+				if ($danfishgold$base64_bytes$Encode$isValidChar(c) && $danfishgold$base64_bytes$Encode$isValidChar(d)) {
+					var n4 = $danfishgold$base64_bytes$Encode$unsafeConvertChar(d);
+					var n3 = $danfishgold$base64_bytes$Encode$unsafeConvertChar(c);
+					var n = ((n1 << 18) | (n2 << 12)) | ((n3 << 6) | n4);
+					var combined = n >> 8;
+					var b3 = n;
+					return $elm$core$Maybe$Just(
+						$elm$bytes$Bytes$Encode$sequence(
+							_List_fromArray(
+								[
+									A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$BE, combined),
+									$elm$bytes$Bytes$Encode$unsignedInt8(b3)
+								])));
+				} else {
+					return $elm$core$Maybe$Nothing;
+				}
+			}
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$core$String$foldr = _String_foldr;
+var $elm$core$String$toList = function (string) {
+	return A3($elm$core$String$foldr, $elm$core$List$cons, _List_Nil, string);
+};
+var $danfishgold$base64_bytes$Encode$encodeChunks = F2(
+	function (input, accum) {
+		encodeChunks:
+		while (true) {
+			var _v0 = $elm$core$String$toList(
+				A2($elm$core$String$left, 4, input));
+			_v0$4:
+			while (true) {
+				if (!_v0.b) {
+					return $elm$core$Maybe$Just(accum);
+				} else {
+					if (_v0.b.b) {
+						if (_v0.b.b.b) {
+							if (_v0.b.b.b.b) {
+								if (!_v0.b.b.b.b.b) {
+									var a = _v0.a;
+									var _v1 = _v0.b;
+									var b = _v1.a;
+									var _v2 = _v1.b;
+									var c = _v2.a;
+									var _v3 = _v2.b;
+									var d = _v3.a;
+									var _v4 = A4($danfishgold$base64_bytes$Encode$encodeCharacters, a, b, c, d);
+									if (_v4.$ === 'Just') {
+										var enc = _v4.a;
+										var $temp$input = A2($elm$core$String$dropLeft, 4, input),
+											$temp$accum = A2($elm$core$List$cons, enc, accum);
+										input = $temp$input;
+										accum = $temp$accum;
+										continue encodeChunks;
+									} else {
+										return $elm$core$Maybe$Nothing;
+									}
+								} else {
+									break _v0$4;
+								}
+							} else {
+								var a = _v0.a;
+								var _v5 = _v0.b;
+								var b = _v5.a;
+								var _v6 = _v5.b;
+								var c = _v6.a;
+								var _v7 = A4(
+									$danfishgold$base64_bytes$Encode$encodeCharacters,
+									a,
+									b,
+									c,
+									_Utils_chr('='));
+								if (_v7.$ === 'Nothing') {
+									return $elm$core$Maybe$Nothing;
+								} else {
+									var enc = _v7.a;
+									return $elm$core$Maybe$Just(
+										A2($elm$core$List$cons, enc, accum));
+								}
+							}
+						} else {
+							var a = _v0.a;
+							var _v8 = _v0.b;
+							var b = _v8.a;
+							var _v9 = A4(
+								$danfishgold$base64_bytes$Encode$encodeCharacters,
+								a,
+								b,
+								_Utils_chr('='),
+								_Utils_chr('='));
+							if (_v9.$ === 'Nothing') {
+								return $elm$core$Maybe$Nothing;
+							} else {
+								var enc = _v9.a;
+								return $elm$core$Maybe$Just(
+									A2($elm$core$List$cons, enc, accum));
+							}
+						}
+					} else {
+						break _v0$4;
+					}
+				}
+			}
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $danfishgold$base64_bytes$Encode$encoder = function (string) {
+	return A2(
+		$elm$core$Maybe$map,
+		A2($elm$core$Basics$composeR, $elm$core$List$reverse, $elm$bytes$Bytes$Encode$sequence),
+		A2($danfishgold$base64_bytes$Encode$encodeChunks, string, _List_Nil));
+};
+var $danfishgold$base64_bytes$Encode$toBytes = function (string) {
+	return A2(
+		$elm$core$Maybe$map,
+		$elm$bytes$Bytes$Encode$encode,
+		$danfishgold$base64_bytes$Encode$encoder(string));
+};
+var $danfishgold$base64_bytes$Base64$toBytes = $danfishgold$base64_bytes$Encode$toBytes;
+var $author$project$Replicated$Serialize$decode = function (base64text) {
+	var strlen = $elm$core$String$length(base64text);
+	var replaceChar = function (rematch) {
+		var _v0 = rematch.match;
+		if (_v0 === '-') {
+			return '+';
+		} else {
+			return '/';
+		}
+	};
+	if (!strlen) {
+		return $elm$core$Maybe$Just(
+			$elm$bytes$Bytes$Encode$encode(
+				$elm$bytes$Bytes$Encode$sequence(_List_Nil)));
+	} else {
+		var hanging = A2($elm$core$Basics$modBy, 4, strlen);
+		var ilen = (!hanging) ? 0 : (4 - hanging);
+		return $danfishgold$base64_bytes$Base64$toBytes(
+			A3(
+				$elm$regex$Regex$replace,
+				$author$project$Replicated$Serialize$replaceFromUrl,
+				replaceChar,
+				_Utils_ap(
+					base64text,
+					A2($elm$core$String$repeat, ilen, '='))));
+	}
+};
+var $author$project$Replicated$Serialize$SerializerOutOfDate = {$: 'SerializerOutOfDate'};
+var $elm$bytes$Bytes$Decode$andThen = F2(
+	function (callback, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var newOffset = _v1.a;
+					var a = _v1.b;
+					var _v2 = callback(a);
+					var decodeB = _v2.a;
+					return A2(decodeB, bites, newOffset);
+				}));
+	});
+var $elm$bytes$Bytes$Decode$decode = F2(
+	function (_v0, bs) {
+		var decoder = _v0.a;
+		return A2(_Bytes_decode, decoder, bs);
+	});
+var $author$project$Replicated$Serialize$getBytesDecoder = function (_v0) {
+	var m = _v0.a;
+	return m.decoder;
+};
+var $elm$bytes$Bytes$Decode$succeed = function (a) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		F2(
+			function (_v0, offset) {
+				return _Utils_Tuple2(offset, a);
+			}));
+};
+var $elm$bytes$Bytes$Decode$unsignedInt8 = $elm$bytes$Bytes$Decode$Decoder(_Bytes_read_u8);
+var $author$project$Replicated$Serialize$version = 1;
+var $author$project$Replicated$Serialize$decodeFromBytes = F2(
+	function (codec, bytes_) {
+		var decoder = A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (value) {
+				return (value <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted)) : (_Utils_eq(value, $author$project$Replicated$Serialize$version) ? $author$project$Replicated$Serialize$getBytesDecoder(codec) : $elm$bytes$Bytes$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$Serialize$SerializerOutOfDate)));
+			},
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+		var _v0 = A2($elm$bytes$Bytes$Decode$decode, decoder, bytes_);
+		if (_v0.$ === 'Just') {
+			var value = _v0.a;
+			return value;
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted);
+		}
+	});
+var $author$project$Replicated$Serialize$decodeFromString = F2(
+	function (codec, base64) {
+		var _v0 = $author$project$Replicated$Serialize$decode(base64);
+		if (_v0.$ === 'Just') {
+			var bytes_ = _v0.a;
+			return A2($author$project$Replicated$Serialize$decodeFromBytes, codec, bytes_);
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted);
+		}
+	});
+var $author$project$Replicated$Op$OpID$EventStamp = F2(
+	function (time, origin) {
+		return {origin: origin, time: time};
+	});
+var $author$project$Replicated$Op$OpID$OpID = function (a) {
+	return {$: 'OpID', a: a};
+};
+var $author$project$SmartTime$Moment$Moment = function (a) {
+	return {$: 'Moment', a: a};
+};
+var $author$project$SmartTime$Duration$Duration = function (a) {
+	return {$: 'Duration', a: a};
+};
+var $author$project$SmartTime$Duration$fromInt = function (_int) {
+	return $author$project$SmartTime$Duration$Duration(_int);
+};
+var $author$project$SmartTime$Moment$fromSmartInt = function (_int) {
+	return $author$project$SmartTime$Moment$Moment(
+		$author$project$SmartTime$Duration$fromInt(_int));
+};
+var $author$project$Replicated$Node$NodeID$NodeID = F4(
+	function (primus, peer, client, session) {
+		return {client: client, peer: peer, primus: primus, session: session};
+	});
+var $author$project$Replicated$Node$NodeID$fromString = function (input) {
+	var _v0 = A2(
+		$elm$core$List$map,
+		$elm$core$String$toInt,
+		A2($elm$core$String$split, '.', input));
+	if ((((((((_v0.b && (_v0.a.$ === 'Just')) && _v0.b.b) && (_v0.b.a.$ === 'Just')) && _v0.b.b.b) && (_v0.b.b.a.$ === 'Just')) && _v0.b.b.b.b) && (_v0.b.b.b.a.$ === 'Just')) && (!_v0.b.b.b.b.b)) {
+		var first = _v0.a.a;
+		var _v1 = _v0.b;
+		var second = _v1.a.a;
+		var _v2 = _v1.b;
+		var third = _v2.a.a;
+		var _v3 = _v2.b;
+		var fourth = _v3.a.a;
+		return $elm$core$Maybe$Just(
+			A4($author$project$Replicated$Node$NodeID$NodeID, first, second, third, fourth));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Replicated$Op$OpID$fromString = function (input) {
+	var _v0 = A2($elm$core$String$split, '+', input);
+	if ((_v0.b && _v0.b.b) && (!_v0.b.b.b)) {
+		var nodeIDString = _v0.a;
+		var _v1 = _v0.b;
+		var timeString = _v1.a;
+		var _v2 = _Utils_Tuple2(
+			$author$project$Replicated$Node$NodeID$fromString(nodeIDString),
+			A2(
+				$elm$core$Maybe$map,
+				$author$project$SmartTime$Moment$fromSmartInt,
+				$elm$core$String$toInt(timeString)));
+		if ((_v2.a.$ === 'Just') && (_v2.b.$ === 'Just')) {
+			var nodeID = _v2.a.a;
+			var time = _v2.b.a;
+			return $elm$core$Maybe$Just(
+				$author$project$Replicated$Op$OpID$OpID(
+					A2($author$project$Replicated$Op$OpID$EventStamp, time, nodeID)));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Replicated$Op$OpID$getEventStamp = function (_v0) {
+	var stamp = _v0.a;
+	return stamp;
+};
+var $author$project$Replicated$Serialize$Codec = function (a) {
+	return {$: 'Codec', a: a};
+};
+var $author$project$Replicated$Serialize$build = F4(
+	function (encoder_, decoder_, jsonEncoder, jsonDecoder) {
+		return $author$project$Replicated$Serialize$Codec(
+			{decoder: decoder_, encoder: encoder_, jsonDecoder: jsonDecoder, jsonEncoder: jsonEncoder});
+	});
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $elm$bytes$Bytes$Decode$map = F2(
+	function (func, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var aOffset = _v1.a;
+					var a = _v1.b;
+					return _Utils_Tuple2(
+						aOffset,
+						func(a));
+				}));
+	});
+var $author$project$Replicated$Serialize$byte = A4(
+	$author$project$Replicated$Serialize$build,
+	$elm$bytes$Bytes$Encode$unsignedInt8,
+	A2($elm$bytes$Bytes$Decode$map, $elm$core$Result$Ok, $elm$bytes$Bytes$Decode$unsignedInt8),
+	A2(
+		$elm$core$Basics$composeR,
+		$elm$core$Basics$modBy(256),
+		$elm$json$Json$Encode$int),
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$int));
+var $author$project$Replicated$Serialize$endian = $elm$bytes$Bytes$BE;
+var $elm$bytes$Bytes$Encode$getStringWidth = _Bytes_getStringWidth;
+var $elm$bytes$Bytes$Decode$string = function (n) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_string(n));
+};
+var $elm$bytes$Bytes$Encode$Utf8 = F2(
+	function (a, b) {
+		return {$: 'Utf8', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$string = function (str) {
+	return A2(
+		$elm$bytes$Bytes$Encode$Utf8,
+		_Bytes_getStringWidth(str),
+		str);
+};
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $elm$bytes$Bytes$Decode$unsignedInt32 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_u32(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $elm$bytes$Bytes$Encode$U32 = F2(
+	function (a, b) {
+		return {$: 'U32', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt32 = $elm$bytes$Bytes$Encode$U32;
+var $author$project$Replicated$Serialize$string = A4(
+	$author$project$Replicated$Serialize$build,
+	function (text) {
+		return $elm$bytes$Bytes$Encode$sequence(
+			_List_fromArray(
+				[
+					A2(
+					$elm$bytes$Bytes$Encode$unsignedInt32,
+					$author$project$Replicated$Serialize$endian,
+					$elm$bytes$Bytes$Encode$getStringWidth(text)),
+					$elm$bytes$Bytes$Encode$string(text)
+				]));
+	},
+	A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (charCount) {
+			return A2(
+				$elm$bytes$Bytes$Decode$map,
+				$elm$core$Result$Ok,
+				$elm$bytes$Bytes$Decode$string(charCount));
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt32($author$project$Replicated$Serialize$endian)),
+	$elm$json$Json$Encode$string,
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$string));
+var $author$project$Replicated$Serialize$RecordCodec = function (a) {
+	return {$: 'RecordCodec', a: a};
+};
+var $author$project$Replicated$Serialize$getEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.encoder;
+};
+var $author$project$Replicated$Serialize$getJsonDecoder = function (_v0) {
+	var m = _v0.a;
+	return m.jsonDecoder;
+};
+var $author$project$Replicated$Serialize$getJsonEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.jsonEncoder;
+};
+var $author$project$Replicated$Serialize$field = F3(
+	function (getter, codec, _v0) {
+		var recordCodec = _v0.a;
+		return $author$project$Replicated$Serialize$RecordCodec(
+			{
+				decoder: A3(
+					$elm$bytes$Bytes$Decode$map2,
+					F2(
+						function (f, x) {
+							var _v1 = _Utils_Tuple2(f, x);
+							if (_v1.a.$ === 'Ok') {
+								if (_v1.b.$ === 'Ok') {
+									var fOk = _v1.a.a;
+									var xOk = _v1.b.a;
+									return $elm$core$Result$Ok(
+										fOk(xOk));
+								} else {
+									var err = _v1.b.a;
+									return $elm$core$Result$Err(err);
+								}
+							} else {
+								var err = _v1.a.a;
+								return $elm$core$Result$Err(err);
+							}
+						}),
+					recordCodec.decoder,
+					$author$project$Replicated$Serialize$getBytesDecoder(codec)),
+				encoder: function (v) {
+					return A2(
+						$elm$core$List$cons,
+						A2(
+							$author$project$Replicated$Serialize$getEncoder,
+							codec,
+							getter(v)),
+						recordCodec.encoder(v));
+				},
+				fieldIndex: recordCodec.fieldIndex + 1,
+				jsonDecoder: A3(
+					$elm$json$Json$Decode$map2,
+					F2(
+						function (f, x) {
+							var _v2 = _Utils_Tuple2(f, x);
+							if (_v2.a.$ === 'Ok') {
+								if (_v2.b.$ === 'Ok') {
+									var fOk = _v2.a.a;
+									var xOk = _v2.b.a;
+									return $elm$core$Result$Ok(
+										fOk(xOk));
+								} else {
+									var err = _v2.b.a;
+									return $elm$core$Result$Err(err);
+								}
+							} else {
+								var err = _v2.a.a;
+								return $elm$core$Result$Err(err);
+							}
+						}),
+					recordCodec.jsonDecoder,
+					A2(
+						$elm$json$Json$Decode$index,
+						recordCodec.fieldIndex,
+						$author$project$Replicated$Serialize$getJsonDecoder(codec))),
+				jsonEncoder: function (v) {
+					return A2(
+						$elm$core$List$cons,
+						A2(
+							$author$project$Replicated$Serialize$getJsonEncoder,
+							codec,
+							getter(v)),
+						recordCodec.jsonEncoder(v));
+				}
+			});
+	});
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
+	});
+var $author$project$Replicated$Serialize$finishRecord = function (_v0) {
+	var codec = _v0.a;
+	return $author$project$Replicated$Serialize$Codec(
+		{
+			decoder: codec.decoder,
+			encoder: A2(
+				$elm$core$Basics$composeR,
+				codec.encoder,
+				A2($elm$core$Basics$composeR, $elm$core$List$reverse, $elm$bytes$Bytes$Encode$sequence)),
+			jsonDecoder: codec.jsonDecoder,
+			jsonEncoder: A2(
+				$elm$core$Basics$composeR,
+				codec.jsonEncoder,
+				A2(
+					$elm$core$Basics$composeR,
+					$elm$core$List$reverse,
+					$elm$json$Json$Encode$list($elm$core$Basics$identity)))
+		});
+};
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $author$project$Replicated$Serialize$record = function (ctor) {
+	return $author$project$Replicated$Serialize$RecordCodec(
+		{
+			decoder: $elm$bytes$Bytes$Decode$succeed(
+				$elm$core$Result$Ok(ctor)),
+			encoder: function (_v0) {
+				return _List_Nil;
+			},
+			fieldIndex: 0,
+			jsonDecoder: $elm$json$Json$Decode$succeed(
+				$elm$core$Result$Ok(ctor)),
+			jsonEncoder: function (_v1) {
+				return _List_Nil;
+			}
+		});
+};
+var $elm$core$Tuple$second = function (_v0) {
+	var y = _v0.b;
+	return y;
+};
+var $author$project$Replicated$Serialize$tuple = F2(
+	function (codecFirst, codecSecond) {
+		return $author$project$Replicated$Serialize$finishRecord(
+			A3(
+				$author$project$Replicated$Serialize$field,
+				$elm$core$Tuple$second,
+				codecSecond,
+				A3(
+					$author$project$Replicated$Serialize$field,
+					$elm$core$Tuple$first,
+					codecFirst,
+					$author$project$Replicated$Serialize$record($elm$core$Tuple$pair))));
+	});
+var $author$project$Replicated$Reducer$LWWObject$fieldIdentifierCodec = A2($author$project$Replicated$Serialize$tuple, $author$project$Replicated$Serialize$byte, $author$project$Replicated$Serialize$string);
+var $author$project$Replicated$Reducer$LWWObject$payloadCodec = A2($author$project$Replicated$Serialize$tuple, $author$project$Replicated$Reducer$LWWObject$fieldIdentifierCodec, $author$project$Replicated$Serialize$string);
+var $elm$core$Result$toMaybe = function (result) {
+	if (result.$ === 'Ok') {
+		var v = result.a;
+		return $elm$core$Maybe$Just(v);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Replicated$Reducer$LWWObject$toFieldChange = function (_v0) {
+	var eventStampString = _v0.a;
+	var eventDetails = _v0.b.a;
+	var stampFromString = A2(
+		$elm$core$Maybe$map,
+		$author$project$Replicated$Op$OpID$getEventStamp,
+		$author$project$Replicated$Op$OpID$fromString(eventStampString));
+	var interpretedPayload = $elm$core$Result$toMaybe(
+		A2($author$project$Replicated$Serialize$decodeFromString, $author$project$Replicated$Reducer$LWWObject$payloadCodec, eventDetails.payload));
+	var fieldChangeWithStamp = F2(
+		function (validStamp, validPayload) {
+			return $author$project$Replicated$Reducer$LWWObject$FieldChange(
+				{changedTo: validPayload.b, field: validPayload.a, stamp: validStamp});
+		});
+	var _v1 = _Utils_Tuple2(interpretedPayload, stampFromString);
+	if ((_v1.a.$ === 'Just') && (_v1.b.$ === 'Just')) {
+		var payload = _v1.a.a;
+		var stamp = _v1.b.a;
+		return $elm$core$Maybe$Just(
+			A2(fieldChangeWithStamp, stamp, payload));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Replicated$Reducer$LWWObject$buildHistory = function (eventDict) {
+	var orderCheck = function (_v0) {
+		var eventDetails = _v0.b.a;
+		return true;
+	};
+	return A2(
+		$elm$core$List$filterMap,
+		$author$project$Replicated$Reducer$LWWObject$toFieldChange,
+		A2(
+			$elm$core$List$filter,
+			orderCheck,
+			$elm$core$Dict$toList(eventDict)));
 };
 var $elm$core$Dict$get = F2(
 	function (targetKey, dict) {
@@ -7886,6 +9178,758 @@ var $elm$core$Dict$get = F2(
 			}
 		}
 	});
+var $author$project$SmartTime$Duration$inMs = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$SmartTime$Moment$toSmartInt = function (_v0) {
+	var dur = _v0.a;
+	return $author$project$SmartTime$Duration$inMs(dur);
+};
+var $author$project$Replicated$Node$NodeID$toString = function (nodeID) {
+	return $elm$core$String$fromInt(nodeID.primus) + ('.' + ($elm$core$String$fromInt(nodeID.peer) + ('.' + ($elm$core$String$fromInt(nodeID.client) + ('.' + $elm$core$String$fromInt(nodeID.session))))));
+};
+var $author$project$Replicated$Op$OpID$toString = function (_v0) {
+	var eventStamp = _v0.a;
+	var timeString = $elm$core$String$fromInt(
+		$author$project$SmartTime$Moment$toSmartInt(eventStamp.time));
+	var nodeString = $author$project$Replicated$Node$NodeID$toString(eventStamp.origin);
+	return nodeString + ('+' + timeString);
+};
+var $author$project$Replicated$Reducer$LWWObject$getObjectIfExists = F2(
+	function (node, objectID) {
+		var lwwDatabase = A2(
+			$elm$core$Maybe$withDefault,
+			$elm$core$Dict$empty,
+			A2($elm$core$Dict$get, 'lww', node.db));
+		return A2(
+			$elm$core$Dict$get,
+			$author$project$Replicated$Op$OpID$toString(objectID),
+			lwwDatabase);
+	});
+var $author$project$Replicated$Reducer$LWWObject$build = F2(
+	function (node, objectID) {
+		var convertObjectToLWW = function (obj) {
+			return $author$project$Replicated$Reducer$LWWObject$LWWObject(
+				{
+					changeHistory: $author$project$Replicated$Reducer$LWWObject$buildHistory(obj.events),
+					id: objectID,
+					included: $author$project$Replicated$Object$All
+				});
+		};
+		return A2(
+			$elm$core$Maybe$map,
+			convertObjectToLWW,
+			A2($author$project$Replicated$Reducer$LWWObject$getObjectIfExists, node, objectID));
+	});
+var $author$project$Replicated$ReplicaCodec$encodeToJsonString = F2(
+	function (codec, value) {
+		return A2(
+			$elm$json$Json$Encode$encode,
+			0,
+			A2($author$project$Replicated$ReplicaCodec$getJsonEncoder, codec, value));
+	});
+var $author$project$Replicated$Op$Op$Op = function (a) {
+	return {$: 'Op', a: a};
+};
+var $author$project$Replicated$Op$Op$create = F5(
+	function (givenReducer, givenObject, opID, givenReferenceMaybe, givenPayload) {
+		return $author$project$Replicated$Op$Op$Op(
+			{objectID: givenObject, operationID: opID, payload: givenPayload, reducerID: givenReducer, referenceID: givenReferenceMaybe});
+	});
+var $author$project$Replicated$Serialize$encodeToJson = F2(
+	function (codec, value) {
+		return A2(
+			$elm$json$Json$Encode$list,
+			$elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int($author$project$Replicated$Serialize$version),
+					A2($author$project$Replicated$Serialize$getJsonEncoder, codec, value)
+				]));
+	});
+var $author$project$Replicated$Op$OpID$NewOpCounter = function (a) {
+	return {$: 'NewOpCounter', a: a};
+};
+var $author$project$Replicated$Op$OpID$generate = F2(
+	function (_v0, origin) {
+		var counter = _v0.a;
+		return _Utils_Tuple2(
+			$author$project$Replicated$Op$OpID$OpID(
+				{
+					origin: origin,
+					time: $author$project$SmartTime$Moment$fromSmartInt(counter)
+				}),
+			$author$project$Replicated$Op$OpID$NewOpCounter(counter + 1));
+	});
+var $author$project$Replicated$Reducer$LWWObject$getID = function (_v0) {
+	var lww = _v0.a;
+	return lww.id;
+};
+var $author$project$Replicated$Reducer$LWWObject$reducerIDString = 'lww';
+var $author$project$Replicated$Reducer$LWWObject$fieldToOp = F6(
+	function (inCounter, nodeID, lww, opToReference, fieldIdentifier, fieldValue) {
+		var _v0 = A2($author$project$Replicated$Op$OpID$generate, inCounter, nodeID);
+		var myNewID = _v0.a;
+		var nextCounter = _v0.b;
+		return _Utils_Tuple2(
+			A5(
+				$author$project$Replicated$Op$Op$create,
+				$author$project$Replicated$Reducer$LWWObject$reducerIDString,
+				$author$project$Replicated$Reducer$LWWObject$getID(lww),
+				myNewID,
+				$elm$core$Maybe$Just(opToReference),
+				A2(
+					$elm$json$Json$Encode$encode,
+					0,
+					A2(
+						$author$project$Replicated$Serialize$encodeToJson,
+						$author$project$Replicated$Reducer$LWWObject$payloadCodec,
+						_Utils_Tuple2(fieldIdentifier, fieldValue)))),
+			nextCounter);
+	});
+var $author$project$Replicated$Op$Op$id = function (_v0) {
+	var op = _v0.a;
+	return op.operationID;
+};
+var $author$project$Replicated$ReplicaCodec$ronEncoderForNestedFields = F5(
+	function (_v0, fieldDefault, fieldValueCodec, ronEncoder, details) {
+		var fieldSlot = _v0.a;
+		var fieldName = _v0.b;
+		var node = details.node;
+		var lwwMaybe = details.lwwMaybe;
+		var counter = details.counter;
+		var mode = details.mode;
+		var lwwField = function () {
+			if (lwwMaybe.$ === 'Just') {
+				var lwwFound = lwwMaybe.a;
+				return A2(
+					$author$project$Replicated$Reducer$LWWObject$getFieldLatest,
+					lwwFound,
+					_Utils_Tuple2(fieldSlot, fieldName));
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}();
+		var isAlreadyDefault = false;
+		var fieldValueToObjectID = function (fieldValue) {
+			return $author$project$Replicated$Op$OpID$fromString(fieldValue);
+		};
+		var finalObjectMaybe = A2($elm$core$Maybe$andThen, fieldValueToObjectID, lwwField);
+		var findNestedLWW = A2(
+			$elm$core$Maybe$andThen,
+			$author$project$Replicated$Reducer$LWWObject$build(node),
+			finalObjectMaybe);
+		var runNestedRonEncoder = ronEncoder(
+			{
+				counter: counter,
+				existingObjectIDMaybe: A2($elm$core$Maybe$map, $author$project$Replicated$Reducer$LWWObject$getID, findNestedLWW),
+				mode: mode,
+				node: node
+			});
+		var finalCounter = runNestedRonEncoder.nextCounter;
+		var defaultJsonEncoded = A2($author$project$Replicated$ReplicaCodec$encodeToJsonString, fieldValueCodec, fieldDefault);
+		var childID = runNestedRonEncoder.objectID;
+		var opToWriteField = function (lazyInputs) {
+			var _v2 = A6(
+				$author$project$Replicated$Reducer$LWWObject$fieldToOp,
+				lazyInputs.counter,
+				node.identity,
+				lazyInputs.containingLww,
+				lazyInputs.opToReference,
+				_Utils_Tuple2(fieldSlot, fieldName),
+				$author$project$Replicated$Op$OpID$toString(childID));
+			var op = _v2.a;
+			var outCounter = _v2.b;
+			return _Utils_Tuple3(
+				op,
+				outCounter,
+				$author$project$Replicated$Op$Op$id(op));
+		};
+		var decideToEncodeOpBasedOnMode = function () {
+			switch (mode.$) {
+				case 'MissingObjectsOnly':
+					return $elm$core$Maybe$Nothing;
+				case 'NonDefaultValues':
+					return isAlreadyDefault ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(opToWriteField);
+				default:
+					return $elm$core$Maybe$Just(opToWriteField);
+			}
+		}();
+		return {opToWrite: decideToEncodeOpBasedOnMode, postPrereqCounter: finalCounter, required: runNestedRonEncoder.ops};
+	});
+var $author$project$Replicated$ReplicaCodec$replaceFromUrl = A2(
+	$elm$core$Maybe$withDefault,
+	$elm$regex$Regex$never,
+	$elm$regex$Regex$fromString('[-_]'));
+var $author$project$Replicated$ReplicaCodec$decode = function (base64text) {
+	var strlen = $elm$core$String$length(base64text);
+	var replaceChar = function (rematch) {
+		var _v0 = rematch.match;
+		if (_v0 === '-') {
+			return '+';
+		} else {
+			return '/';
+		}
+	};
+	if (!strlen) {
+		return $elm$core$Maybe$Just(
+			$elm$bytes$Bytes$Encode$encode(
+				$elm$bytes$Bytes$Encode$sequence(_List_Nil)));
+	} else {
+		var hanging = A2($elm$core$Basics$modBy, 4, strlen);
+		var ilen = (!hanging) ? 0 : (4 - hanging);
+		return $danfishgold$base64_bytes$Base64$toBytes(
+			A3(
+				$elm$regex$Regex$replace,
+				$author$project$Replicated$ReplicaCodec$replaceFromUrl,
+				replaceChar,
+				_Utils_ap(
+					base64text,
+					A2($elm$core$String$repeat, ilen, '='))));
+	}
+};
+var $author$project$Replicated$ReplicaCodec$SerializerOutOfDate = {$: 'SerializerOutOfDate'};
+var $author$project$Replicated$ReplicaCodec$version = 1;
+var $author$project$Replicated$ReplicaCodec$decodeFromBytes = F2(
+	function (codec, bytes_) {
+		var decoder = A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (value) {
+				return (value <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted)) : (_Utils_eq(value, $author$project$Replicated$ReplicaCodec$version) ? $author$project$Replicated$ReplicaCodec$getBytesDecoder(codec) : $elm$bytes$Bytes$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$ReplicaCodec$SerializerOutOfDate)));
+			},
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+		var _v0 = A2($elm$bytes$Bytes$Decode$decode, decoder, bytes_);
+		if (_v0.$ === 'Just') {
+			var value = _v0.a;
+			return value;
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted);
+		}
+	});
+var $author$project$Replicated$ReplicaCodec$decodeFromString = F2(
+	function (codec, base64) {
+		var _v0 = $author$project$Replicated$ReplicaCodec$decode(base64);
+		if (_v0.$ === 'Just') {
+			var bytes_ = _v0.a;
+			return A2($author$project$Replicated$ReplicaCodec$decodeFromBytes, codec, bytes_);
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted);
+		}
+	});
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Replicated$ReplicaCodec$ronEncoderForNoNestFields = F4(
+	function (fieldIdentifier, fieldDefault, fieldValueCodec, details) {
+		var node = details.node;
+		var lwwMaybe = details.lwwMaybe;
+		var counter = details.counter;
+		var mode = details.mode;
+		var lwwField = function () {
+			if (lwwMaybe.$ === 'Just') {
+				var existingLww = lwwMaybe.a;
+				return A2($author$project$Replicated$Reducer$LWWObject$getFieldLatest, existingLww, fieldIdentifier);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}();
+		var interpretFieldValue = function (encodedValue) {
+			return $elm$core$Result$toMaybe(
+				A2($author$project$Replicated$ReplicaCodec$decodeFromString, fieldValueCodec, encodedValue));
+		};
+		var defaultJsonEncoded = A2(
+			$elm$core$Debug$log,
+			'encoding default',
+			A2($author$project$Replicated$ReplicaCodec$encodeToJsonString, fieldValueCodec, fieldDefault));
+		var isAlreadyDefault = A2(
+			$elm$core$Maybe$withDefault,
+			true,
+			A2(
+				$elm$core$Maybe$map,
+				$elm$core$Basics$eq(defaultJsonEncoded),
+				lwwField));
+		var valueToWrite = A2($elm$core$Maybe$withDefault, defaultJsonEncoded, lwwField);
+		var opToWriteField = function (lazyInput) {
+			var _v1 = A6($author$project$Replicated$Reducer$LWWObject$fieldToOp, lazyInput.counter, node.identity, lazyInput.containingLww, lazyInput.opToReference, fieldIdentifier, valueToWrite);
+			var op = _v1.a;
+			var outCounter = _v1.b;
+			return _Utils_Tuple3(
+				op,
+				outCounter,
+				$author$project$Replicated$Op$Op$id(op));
+		};
+		var finalOpFilteredByRequest = function () {
+			switch (mode.$) {
+				case 'MissingObjectsOnly':
+					return $elm$core$Maybe$Nothing;
+				case 'NonDefaultValues':
+					return isAlreadyDefault ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(opToWriteField);
+				default:
+					return $elm$core$Maybe$Just(opToWriteField);
+			}
+		}();
+		return {opToWrite: finalOpFilteredByRequest, postPrereqCounter: counter, required: _List_Nil};
+	});
+var $author$project$Replicated$ReplicaCodec$newRonFieldEncoderEntry = F4(
+	function (_v0, fieldDefault, fieldValueCodec, details) {
+		var fieldSlot = _v0.a;
+		var fieldName = _v0.b;
+		var _v1 = $author$project$Replicated$ReplicaCodec$getRonEncoder(fieldValueCodec);
+		if (_v1.$ === 'Nothing') {
+			return A4(
+				$author$project$Replicated$ReplicaCodec$ronEncoderForNoNestFields,
+				_Utils_Tuple2(fieldSlot, fieldName),
+				fieldDefault,
+				fieldValueCodec,
+				details);
+		} else {
+			var fieldRonEncoder = _v1.a;
+			return A5(
+				$author$project$Replicated$ReplicaCodec$ronEncoderForNestedFields,
+				_Utils_Tuple2(fieldSlot, fieldName),
+				fieldDefault,
+				fieldValueCodec,
+				fieldRonEncoder,
+				details);
+		}
+	});
+var $author$project$Replicated$ReplicaCodec$fieldR = F5(
+	function (_v0, fieldGetter, fieldValueCodec, fieldDefault, _v1) {
+		var fieldSlot = _v0.a;
+		var fieldName = _v0.b;
+		var recordCodecSoFar = _v1.a;
+		var jsonObjectFieldKey = _Utils_ap(
+			$elm$core$String$fromInt(fieldSlot),
+			fieldName);
+		var addToPartialJsonEncoderList = A2(
+			$elm$core$List$cons,
+			_Utils_Tuple2(
+				jsonObjectFieldKey,
+				A2(
+					$elm$core$Basics$composeL,
+					$author$project$Replicated$ReplicaCodec$getJsonEncoder(fieldValueCodec),
+					fieldGetter)),
+			recordCodecSoFar.jsonEncoders);
+		var addToPartialBytesEncoderList = function (existingRecord) {
+			return A2(
+				$elm$core$List$cons,
+				A2(
+					$author$project$Replicated$ReplicaCodec$getEncoder,
+					fieldValueCodec,
+					fieldGetter(existingRecord)),
+				recordCodecSoFar.encoder(existingRecord));
+		};
+		return $author$project$Replicated$ReplicaCodec$PartialRecord(
+			{
+				decoder: A3(
+					$elm$bytes$Bytes$Decode$map2,
+					$author$project$Replicated$ReplicaCodec$combineIfBothSucceed,
+					recordCodecSoFar.decoder,
+					$author$project$Replicated$ReplicaCodec$getBytesDecoder(fieldValueCodec)),
+				encoder: addToPartialBytesEncoderList,
+				fieldIndex: recordCodecSoFar.fieldIndex + 1,
+				jsonArrayDecoder: A3(
+					$author$project$Replicated$ReplicaCodec$nestableJDmap2,
+					$author$project$Replicated$ReplicaCodec$combineIfBothSucceed,
+					recordCodecSoFar.jsonArrayDecoder,
+					A3(
+						$author$project$Replicated$ReplicaCodec$nestableJsonFieldDecoder,
+						_Utils_Tuple2(fieldSlot, fieldName),
+						fieldDefault,
+						fieldValueCodec)),
+				jsonEncoders: addToPartialJsonEncoderList,
+				ronEncoders: A2(
+					$elm$core$List$cons,
+					A3(
+						$author$project$Replicated$ReplicaCodec$newRonFieldEncoderEntry,
+						_Utils_Tuple2(fieldSlot, fieldName),
+						fieldDefault,
+						fieldValueCodec),
+					recordCodecSoFar.ronEncoders)
+			});
+	});
+var $author$project$Replicated$ReplicaCodec$Codec = function (a) {
+	return {$: 'Codec', a: a};
+};
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Replicated$Op$OpID$jsonDecoder = function () {
+	var _try = function (string) {
+		var _v0 = $author$project$Replicated$Op$OpID$fromString(string);
+		if (_v0.$ === 'Just') {
+			var opID = _v0.a;
+			return $elm$json$Json$Decode$succeed(opID);
+		} else {
+			return $elm$json$Json$Decode$fail('Not a valid OpID...');
+		}
+	};
+	return A2($elm$json$Json$Decode$andThen, _try, $elm$json$Json$Decode$string);
+}();
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $author$project$Replicated$Object$create = F2(
+	function (givenReducer, givenObject) {
+		return A5($author$project$Replicated$Op$Op$create, givenReducer, givenObject, givenObject, $elm$core$Maybe$Nothing, '');
+	});
+var $author$project$Replicated$Reducer$LWWObject$creation = F2(
+	function (node, objectID) {
+		return A2($author$project$Replicated$Object$create, $author$project$Replicated$Reducer$LWWObject$reducerIDString, objectID);
+	});
+var $author$project$Replicated$Reducer$LWWObject$empty = function (objectID) {
+	return $author$project$Replicated$Reducer$LWWObject$LWWObject(
+		{changeHistory: _List_Nil, id: objectID, included: $author$project$Replicated$Object$All});
+};
+var $elm_community$list_extra$List$Extra$mapAccuml = F3(
+	function (f, acc0, list) {
+		var _v0 = A3(
+			$elm$core$List$foldl,
+			F2(
+				function (x, _v1) {
+					var acc1 = _v1.a;
+					var ys = _v1.b;
+					var _v2 = A2(f, acc1, x);
+					var acc2 = _v2.a;
+					var y = _v2.b;
+					return _Utils_Tuple2(
+						acc2,
+						A2($elm$core$List$cons, y, ys));
+				}),
+			_Utils_Tuple2(acc0, _List_Nil),
+			list);
+		var accFinal = _v0.a;
+		var generatedList = _v0.b;
+		return _Utils_Tuple2(
+			accFinal,
+			$elm$core$List$reverse(generatedList));
+	});
+var $author$project$Replicated$ReplicaCodec$objectRonEncoder = F2(
+	function (ronFieldEncoders, details) {
+		var node = details.node;
+		var existingObjectIDMaybe = details.existingObjectIDMaybe;
+		var counter = details.counter;
+		var mode = details.mode;
+		var oldLwwMaybe = function () {
+			if (existingObjectIDMaybe.$ === 'Just') {
+				var givenID = existingObjectIDMaybe.a;
+				var _v7 = A2($author$project$Replicated$Reducer$LWWObject$build, node, givenID);
+				if (_v7.$ === 'Just') {
+					var oldLww = _v7.a;
+					return $elm$core$Maybe$Just(oldLww);
+				} else {
+					return A2(
+						$elm$core$Debug$log,
+						'objectRonEncoder was given ID of supposedly pre-existing LWWObject \'' + ($author$project$Replicated$Op$OpID$toString(givenID) + '\' but LWWObject.build couldn\'t find it'),
+						$elm$core$Maybe$Nothing);
+				}
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		}();
+		var runFieldEncodersFirstPass = function () {
+			var passDetailsToField = F2(
+				function (thisFieldCounter, fieldFunction) {
+					var run = fieldFunction(
+						{counter: thisFieldCounter, lwwMaybe: oldLwwMaybe, mode: mode, node: node});
+					return _Utils_Tuple2(run.postPrereqCounter, run);
+				});
+			return A3($elm_community$list_extra$List$Extra$mapAccuml, passDetailsToField, counter, ronFieldEncoders);
+		}();
+		var prerequisiteOps = $elm$core$List$concat(
+			A2(
+				$elm$core$List$map,
+				function ($) {
+					return $.required;
+				},
+				runFieldEncodersFirstPass.b));
+		var objectReadyCounter = runFieldEncodersFirstPass.a;
+		var _v0 = function () {
+			var _v1 = A2($author$project$Replicated$Op$OpID$generate, objectReadyCounter, node.identity);
+			var newObjectID = _v1.a;
+			var newOutCounter = _v1.b;
+			var newObjectCreationOp = A2($author$project$Replicated$Reducer$LWWObject$creation, node, newObjectID);
+			return _Utils_Tuple3(
+				$author$project$Replicated$Reducer$LWWObject$empty(newObjectID),
+				newObjectCreationOp,
+				newOutCounter);
+		}();
+		var newLww = _v0.a;
+		var newLwwCreationOp = _v0.b;
+		var counterAfterInitialization = _v0.c;
+		var counterToStartPrereqs = function () {
+			if (oldLwwMaybe.$ === 'Just') {
+				return objectReadyCounter;
+			} else {
+				return counterAfterInitialization;
+			}
+		}();
+		var finalLww = A2($elm$core$Maybe$withDefault, newLww, oldLwwMaybe);
+		var latestReference = $author$project$Replicated$Reducer$LWWObject$getID(finalLww);
+		var finishFieldOps = function () {
+			var unstampedOpList = A2(
+				$elm$core$List$filterMap,
+				function ($) {
+					return $.opToWrite;
+				},
+				runFieldEncodersFirstPass.b);
+			var finishOps = F2(
+				function (_v4, opFinisher) {
+					var givenOpCounter = _v4.a;
+					var priorOpID = _v4.b;
+					var _v3 = opFinisher(
+						{containingLww: finalLww, counter: givenOpCounter, opToReference: priorOpID});
+					var finishedOp = _v3.a;
+					var counterToPassAlong = _v3.b;
+					var backReference = _v3.c;
+					return _Utils_Tuple2(
+						_Utils_Tuple2(counterToPassAlong, backReference),
+						finishedOp);
+				});
+			var accumulator = _Utils_Tuple2(counterToStartPrereqs, latestReference);
+			return A3($elm_community$list_extra$List$Extra$mapAccuml, finishOps, accumulator, unstampedOpList);
+		}();
+		var exitCounter = finishFieldOps.a.a;
+		var fieldSettingOps = finishFieldOps.b;
+		var newLwwCreationOpAsSingletonIfNeeded = function () {
+			if (oldLwwMaybe.$ === 'Just') {
+				return _List_Nil;
+			} else {
+				return _List_fromArray(
+					[newLwwCreationOp]);
+			}
+		}();
+		return {
+			nextCounter: exitCounter,
+			objectID: $author$project$Replicated$Reducer$LWWObject$getID(finalLww),
+			ops: _Utils_ap(
+				prerequisiteOps,
+				_Utils_ap(newLwwCreationOpAsSingletonIfNeeded, fieldSettingOps))
+		};
+	});
+var $author$project$Replicated$ReplicaCodec$finishRecord = function (_v0) {
+	var allFieldsCodec = _v0.a;
+	var runJsonDecoderOnCorrectObject = function (elsewhereData) {
+		if (elsewhereData.$ === 'Nothing') {
+			return allFieldsCodec.jsonArrayDecoder(elsewhereData);
+		} else {
+			var _v4 = elsewhereData.a;
+			var node = _v4.a;
+			var objectIDDecoder = $author$project$Replicated$Op$OpID$jsonDecoder;
+			var decodeWhatWeFound = function (lww) {
+				return allFieldsCodec.jsonArrayDecoder(
+					$elm$core$Maybe$Just(
+						_Utils_Tuple2(
+							node,
+							$elm$core$Maybe$Just(lww))));
+			};
+			var objectFinder = function (foundID) {
+				var _v5 = A2($author$project$Replicated$Reducer$LWWObject$build, node, foundID);
+				if (_v5.$ === 'Nothing') {
+					return _Debug_todo(
+						'Replicated.ReplicaCodec',
+						{
+							start: {line: 1273, column: 37},
+							end: {line: 1273, column: 47}
+						})('lww not found');
+				} else {
+					var lww = _v5.a;
+					var _v6 = A2(
+						$elm$json$Json$Decode$decodeString,
+						decodeWhatWeFound(lww),
+						'');
+					if (_v6.$ === 'Ok') {
+						var nestedResult = _v6.a;
+						return nestedResult;
+					} else {
+						var someerror = _v6.a;
+						return $elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted);
+					}
+				}
+			};
+			var finalDecoder = A2($elm$json$Json$Decode$map, objectFinder, objectIDDecoder);
+			return finalDecoder;
+		}
+	};
+	var encodeEntryInDictList = F2(
+		function (fullRecord, _v2) {
+			var fieldKey = _v2.a;
+			var entryValueEncoder = _v2.b;
+			return A2(
+				$elm$json$Json$Encode$list,
+				$elm$core$Basics$identity,
+				_List_fromArray(
+					[
+						$elm$json$Json$Encode$string(fieldKey),
+						entryValueEncoder(fullRecord)
+					]));
+		});
+	var encodeAsJsonObject = function (fullRecord) {
+		var passFullRecordToFieldEncoder = function (_v1) {
+			var fieldKey = _v1.a;
+			var fieldEncoder = _v1.b;
+			return _Utils_Tuple2(
+				fieldKey,
+				fieldEncoder(fullRecord));
+		};
+		return $elm$json$Json$Encode$object(
+			A2($elm$core$List$map, passFullRecordToFieldEncoder, allFieldsCodec.jsonEncoders));
+	};
+	var encodeAsDictList = function (fullRecord) {
+		return A2(
+			$elm$json$Json$Encode$list,
+			encodeEntryInDictList(fullRecord),
+			allFieldsCodec.jsonEncoders);
+	};
+	return $author$project$Replicated$ReplicaCodec$Codec(
+		{
+			decoder: allFieldsCodec.decoder,
+			encoder: A2(
+				$elm$core$Basics$composeR,
+				allFieldsCodec.encoder,
+				A2($elm$core$Basics$composeR, $elm$core$List$reverse, $elm$bytes$Bytes$Encode$sequence)),
+			jsonDecoder: runJsonDecoderOnCorrectObject,
+			jsonEncoder: encodeAsJsonObject,
+			ronEncoder: $elm$core$Maybe$Just(
+				$author$project$Replicated$ReplicaCodec$objectRonEncoder(allFieldsCodec.ronEncoders))
+		});
+};
+var $author$project$Replicated$ReplicaCodec$record = function (remainingConstructor) {
+	return $author$project$Replicated$ReplicaCodec$PartialRecord(
+		{
+			decoder: $elm$bytes$Bytes$Decode$succeed(
+				$elm$core$Result$Ok(remainingConstructor)),
+			encoder: function (_v0) {
+				return _List_Nil;
+			},
+			fieldIndex: 0,
+			jsonArrayDecoder: function (elsewhereData) {
+				return $elm$json$Json$Decode$succeed(
+					$elm$core$Result$Ok(remainingConstructor));
+			},
+			jsonEncoders: _List_Nil,
+			ronEncoders: _List_Nil
+		});
+};
+var $author$project$Replicated$ReplicaCodec$buildNoNest = F4(
+	function (encoder_, decoder_, jsonEncoder, jsonDecoder) {
+		return $author$project$Replicated$ReplicaCodec$Codec(
+			{
+				decoder: decoder_,
+				encoder: encoder_,
+				jsonDecoder: function (_v0) {
+					return jsonDecoder;
+				},
+				jsonEncoder: jsonEncoder,
+				ronEncoder: $elm$core$Maybe$Nothing
+			});
+	});
+var $author$project$Replicated$ReplicaCodec$endian = $elm$bytes$Bytes$BE;
+var $author$project$Replicated$ReplicaCodec$string = A4(
+	$author$project$Replicated$ReplicaCodec$buildNoNest,
+	function (text) {
+		return $elm$bytes$Bytes$Encode$sequence(
+			_List_fromArray(
+				[
+					A2(
+					$elm$bytes$Bytes$Encode$unsignedInt32,
+					$author$project$Replicated$ReplicaCodec$endian,
+					$elm$bytes$Bytes$Encode$getStringWidth(text)),
+					$elm$bytes$Bytes$Encode$string(text)
+				]));
+	},
+	A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (charCount) {
+			return A2(
+				$elm$bytes$Bytes$Decode$map,
+				$elm$core$Result$Ok,
+				$elm$bytes$Bytes$Decode$string(charCount));
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt32($author$project$Replicated$ReplicaCodec$endian)),
+	$elm$json$Json$Encode$string,
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$string));
+var $author$project$Replicated$Testing$exampleSubObjectCodec = $author$project$Replicated$ReplicaCodec$finishRecord(
+	A5(
+		$author$project$Replicated$ReplicaCodec$fieldR,
+		_Utils_Tuple2(2, 'last'),
+		function ($) {
+			return $.last;
+		},
+		$author$project$Replicated$ReplicaCodec$string,
+		'surname',
+		A5(
+			$author$project$Replicated$ReplicaCodec$fieldR,
+			_Utils_Tuple2(1, 'first'),
+			function ($) {
+				return $.first;
+			},
+			$author$project$Replicated$ReplicaCodec$string,
+			'firstname',
+			$author$project$Replicated$ReplicaCodec$record($author$project$Replicated$Testing$ExampleSubObjectName))));
+var $elm$bytes$Bytes$Decode$float64 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_f64(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $elm$bytes$Bytes$Encode$F64 = F2(
+	function (a, b) {
+		return {$: 'F64', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$float64 = $elm$bytes$Bytes$Encode$F64;
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$Replicated$ReplicaCodec$int = A4(
+	$author$project$Replicated$ReplicaCodec$buildNoNest,
+	A2(
+		$elm$core$Basics$composeR,
+		$elm$core$Basics$toFloat,
+		$elm$bytes$Bytes$Encode$float64($author$project$Replicated$ReplicaCodec$endian)),
+	A2(
+		$elm$bytes$Bytes$Decode$map,
+		A2($elm$core$Basics$composeR, $elm$core$Basics$round, $elm$core$Result$Ok),
+		$elm$bytes$Bytes$Decode$float64($author$project$Replicated$ReplicaCodec$endian)),
+	$elm$json$Json$Encode$int,
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$int));
+var $author$project$Replicated$Testing$exampleObjectCodec = $author$project$Replicated$ReplicaCodec$finishRecord(
+	A5(
+		$author$project$Replicated$ReplicaCodec$fieldR,
+		_Utils_Tuple2(3, 'number'),
+		function ($) {
+			return $.number;
+		},
+		$author$project$Replicated$ReplicaCodec$int,
+		0,
+		A5(
+			$author$project$Replicated$ReplicaCodec$fieldR,
+			_Utils_Tuple2(2, 'address'),
+			function ($) {
+				return $.address;
+			},
+			$author$project$Replicated$ReplicaCodec$string,
+			'nowhere',
+			A5(
+				$author$project$Replicated$ReplicaCodec$fieldR,
+				_Utils_Tuple2(1, 'name'),
+				function ($) {
+					return $.name;
+				},
+				$author$project$Replicated$Testing$exampleSubObjectCodec,
+				{first: 'default first', last: 'default last'},
+				$author$project$Replicated$ReplicaCodec$record($author$project$Replicated$Testing$ExampleObject)))));
+var $author$project$Replicated$Op$OpID$testCounter = $author$project$Replicated$Op$OpID$NewOpCounter(0);
+var $author$project$Replicated$Op$Op$reducer = function (_v0) {
+	var op = _v0.a;
+	return op.reducerID;
+};
 var $elm$core$Dict$getMin = function (dict) {
 	getMin:
 	while (true) {
@@ -8259,13 +10303,8 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
-var $author$project$Replicated$Object$All = {$: 'All'};
 var $author$project$Replicated$Object$Event = function (a) {
 	return {$: 'Event', a: a};
-};
-var $author$project$Replicated$Op$Op$id = function (_v0) {
-	var op = _v0.a;
-	return op.operationID;
 };
 var $author$project$Replicated$Op$Op$payload = function (_v0) {
 	var op = _v0.a;
@@ -8274,24 +10313,6 @@ var $author$project$Replicated$Op$Op$payload = function (_v0) {
 var $author$project$Replicated$Op$Op$reference = function (_v0) {
 	var op = _v0.a;
 	return op.referenceID;
-};
-var $author$project$SmartTime$Duration$inMs = function (_v0) {
-	var _int = _v0.a;
-	return _int;
-};
-var $author$project$SmartTime$Moment$toSmartInt = function (_v0) {
-	var dur = _v0.a;
-	return $author$project$SmartTime$Duration$inMs(dur);
-};
-var $author$project$Replicated$Node$NodeID$toString = function (nodeID) {
-	return $elm$core$String$fromInt(nodeID.primus) + ('.' + ($elm$core$String$fromInt(nodeID.peer) + ('.' + ($elm$core$String$fromInt(nodeID.client) + ('.' + $elm$core$String$fromInt(nodeID.session))))));
-};
-var $author$project$Replicated$Op$OpID$toString = function (_v0) {
-	var eventStamp = _v0.a;
-	var timeString = $elm$core$String$fromInt(
-		$author$project$SmartTime$Moment$toSmartInt(eventStamp.time));
-	var nodeString = $author$project$Replicated$Node$NodeID$toString(eventStamp.origin);
-	return nodeString + ('+' + timeString);
 };
 var $author$project$Replicated$Object$applyOp = F2(
 	function (newOp, oldObjectMaybe) {
@@ -8372,6 +10393,162 @@ var $author$project$Replicated$Node$Node$applyOpToDb = F2(
 	});
 var $author$project$Replicated$Node$Node$firstSessionEver = {client: 0, peer: 0, primus: 0, session: 0};
 var $author$project$Replicated$Node$Node$blankNode = {db: $elm$core$Dict$empty, identity: $author$project$Replicated$Node$Node$firstSessionEver, peers: _List_Nil};
+var $elm$core$String$concat = function (strings) {
+	return A2($elm$core$String$join, '', strings);
+};
+var $elm_community$list_extra$List$Extra$filterNot = F2(
+	function (pred, list) {
+		return A2(
+			$elm$core$List$filter,
+			A2($elm$core$Basics$composeL, $elm$core$Basics$not, pred),
+			list);
+	});
+var $author$project$Replicated$Op$OpID$nextOpInChain = function (_v0) {
+	var stamp = _v0.a;
+	return $author$project$Replicated$Op$OpID$OpID(
+		_Utils_update(
+			stamp,
+			{
+				time: $author$project$SmartTime$Moment$fromSmartInt(
+					$author$project$SmartTime$Moment$toSmartInt(stamp.time) + 1)
+			}));
+};
+var $elm$core$String$words = _String_words;
+var $author$project$Replicated$Op$Op$fromString = F2(
+	function (inputString, previousOpMaybe) {
+		var extractOpID = function (atom) {
+			return $author$project$Replicated$Op$OpID$fromString(
+				A2($elm$core$String$dropLeft, 1, atom));
+		};
+		var atoms = $elm$core$String$words(inputString);
+		var opIDatom = $elm$core$List$head(
+			A2(
+				$elm$core$List$filter,
+				$elm$core$String$startsWith('@'),
+				atoms));
+		var opIDMaybe = A2(
+			$elm$core$Maybe$withDefault,
+			A2(
+				$elm$core$Maybe$map,
+				A2($elm$core$Basics$composeR, $author$project$Replicated$Op$Op$id, $author$project$Replicated$Op$OpID$nextOpInChain),
+				previousOpMaybe),
+			A2($elm$core$Maybe$map, extractOpID, opIDatom));
+		var otherAtoms = A2(
+			$elm_community$list_extra$List$Extra$filterNot,
+			function (atom) {
+				return A2($elm$core$String$startsWith, ':', atom) || A2($elm$core$String$startsWith, '@', atom);
+			},
+			atoms);
+		var remainderPayload = $elm$core$String$concat(otherAtoms);
+		var referenceAtom = $elm$core$List$head(
+			A2(
+				$elm$core$List$filter,
+				$elm$core$String$startsWith(':'),
+				atoms));
+		var reducerMaybe = function () {
+			var _v5 = _Utils_Tuple2(referenceAtom, previousOpMaybe);
+			_v5$0:
+			while (true) {
+				if (_v5.b.$ === 'Just') {
+					if ((_v5.a.$ === 'Just') && (_v5.a.a === ':lww')) {
+						break _v5$0;
+					} else {
+						var previousOp = _v5.b.a;
+						return $elm$core$Maybe$Just(
+							$author$project$Replicated$Op$Op$reducer(previousOp));
+					}
+				} else {
+					if ((_v5.a.$ === 'Just') && (_v5.a.a === ':lww')) {
+						break _v5$0;
+					} else {
+						var _v6 = _v5.b;
+						return $elm$core$Maybe$Just('lww');
+					}
+				}
+			}
+			return $elm$core$Maybe$Just('lww');
+		}();
+		var referenceMaybe = A2(
+			$elm$core$Maybe$withDefault,
+			A2($elm$core$Maybe$map, $author$project$Replicated$Op$Op$id, previousOpMaybe),
+			A2($elm$core$Maybe$map, extractOpID, referenceAtom));
+		var resultWithReducer = function (givenReducer) {
+			var _v1 = _Utils_Tuple3(opIDMaybe, otherAtoms, referenceMaybe);
+			_v1$0:
+			while (true) {
+				if (_v1.a.$ === 'Just') {
+					if (_v1.c.$ === 'Just') {
+						if (!_v1.b.b) {
+							break _v1$0;
+						} else {
+							var opID = _v1.a.a;
+							var ref = _v1.c.a;
+							var _v2 = A2($elm$core$Maybe$map, $author$project$Replicated$Op$Op$object, previousOpMaybe);
+							if (_v2.$ === 'Just') {
+								var objectLastTime = _v2.a;
+								return $elm$core$Result$Ok(
+									A5(
+										$author$project$Replicated$Op$Op$create,
+										givenReducer,
+										objectLastTime,
+										opID,
+										$elm$core$Maybe$Just(ref),
+										remainderPayload));
+							} else {
+								return $elm$core$Result$Err('Couldn\'t determine the object this op applies to: ' + inputString);
+							}
+						}
+					} else {
+						if (!_v1.b.b) {
+							break _v1$0;
+						} else {
+							var _v3 = _v1.c;
+							return $elm$core$Result$Err('This op has a nonempty payload (not a creation op) but I couldn\'t find the required *reference* atom (:) and got no prior op in the chain to deduce it from: ' + inputString);
+						}
+					}
+				} else {
+					var _v4 = _v1.a;
+					return $elm$core$Result$Err('Couldn\'t find Op\'s ID (@) and got no prior op to deduce it from.');
+				}
+			}
+			var opID = _v1.a.a;
+			return $elm$core$Result$Ok(
+				A5($author$project$Replicated$Op$Op$create, givenReducer, opID, opID, $elm$core$Maybe$Nothing, ''));
+		};
+		if (reducerMaybe.$ === 'Just') {
+			var foundReducer = reducerMaybe.a;
+			return resultWithReducer(foundReducer);
+		} else {
+			return $elm$core$Result$Err('No reducer found for op: ' + inputString);
+		}
+	});
+var $author$project$Replicated$Node$Node$fakeOps = function () {
+	var tryCreateOp = F4(
+		function (reducerString, objectString, opIDString, givenPayload) {
+			var _v0 = _Utils_Tuple2(
+				$author$project$Replicated$Op$OpID$fromString(objectString),
+				$author$project$Replicated$Op$OpID$fromString(opIDString));
+			if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
+				var objectID = _v0.a.a;
+				var opID = _v0.b.a;
+				return _List_fromArray(
+					[
+						A5($author$project$Replicated$Op$Op$create, reducerString, objectID, opID, $elm$core$Maybe$Nothing, givenPayload)
+					]);
+			} else {
+				return _List_Nil;
+			}
+		});
+	var importOp = function (inputString) {
+		return $elm$core$Result$toMaybe(
+			A2($author$project$Replicated$Op$Op$fromString, inputString, $elm$core$Maybe$Nothing));
+	};
+	return A2(
+		$elm$core$List$filterMap,
+		importOp,
+		_List_fromArray(
+			['@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0']));
+}();
 var $author$project$Replicated$Node$Node$fakeNode = function () {
 	var apply = F2(
 		function (op, node) {
@@ -8381,17 +10558,37 @@ var $author$project$Replicated$Node$Node$fakeNode = function () {
 					db: A2($author$project$Replicated$Node$Node$applyOpToDb, node.db, op)
 				});
 		});
-	return A3($elm$core$List$foldl, apply, $author$project$Replicated$Node$Node$blankNode, _List_Nil);
+	return A3($elm$core$List$foldl, apply, $author$project$Replicated$Node$Node$blankNode, $author$project$Replicated$Node$Node$fakeOps);
 }();
-var $elm$core$Debug$log = _Debug_log;
-var $author$project$Replicated$Testing$testNode = A2($elm$core$Debug$log, 'here\'s my node', $author$project$Replicated$Node$Node$fakeNode);
-var $author$project$SmartTime$Duration$Duration = function (a) {
-	return {$: 'Duration', a: a};
+var $author$project$Replicated$Testing$testNode = $author$project$Replicated$Node$Node$fakeNode;
+var $author$project$Replicated$Testing$exampleObjectAsOpList = A3($author$project$Replicated$ReplicaCodec$encodeToRon, $author$project$Replicated$Testing$testNode, $author$project$Replicated$Op$OpID$testCounter, $author$project$Replicated$Testing$exampleObjectCodec);
+var $author$project$Replicated$Op$Op$toString = function (_v0) {
+	var op = _v0.a;
+	var ref = ':' + $author$project$Replicated$Op$OpID$toString(
+		A2($elm$core$Maybe$withDefault, op.objectID, op.referenceID));
+	var opID = '@' + $author$project$Replicated$Op$OpID$toString(op.operationID);
+	return opID + (' ' + (ref + (' ' + op.payload)));
 };
+var $author$project$Replicated$Testing$fakeNodeWithExampleObject = function () {
+	var apply = F2(
+		function (op, node) {
+			return _Utils_update(
+				node,
+				{
+					db: A2(
+						$author$project$Replicated$Node$Node$applyOpToDb,
+						node.db,
+						A2(
+							$elm$core$Debug$log,
+							$author$project$Replicated$Op$Op$toString(op),
+							op))
+				});
+		});
+	return A3($elm$core$List$foldl, apply, $author$project$Replicated$Node$Node$fakeNode, $author$project$Replicated$Testing$exampleObjectAsOpList);
+}();
 var $author$project$SmartTime$Duration$millisecondLength = 1;
 var $author$project$SmartTime$Duration$secondLength = 1000 * $author$project$SmartTime$Duration$millisecondLength;
 var $author$project$SmartTime$Duration$minuteLength = 60 * $author$project$SmartTime$Duration$secondLength;
-var $elm$core$Basics$round = _Basics_round;
 var $author$project$SmartTime$Duration$fromMinutes = function (_float) {
 	return $author$project$SmartTime$Duration$Duration(
 		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$minuteLength));
@@ -8401,13 +10598,19 @@ var $author$project$SmartTime$Human$Moment$utc = {
 	history: _List_Nil,
 	name: 'Universal'
 };
-var $author$project$SmartTime$Moment$Moment = function (a) {
-	return {$: 'Moment', a: a};
-};
 var $author$project$SmartTime$Duration$zero = $author$project$SmartTime$Duration$Duration(0);
 var $author$project$SmartTime$Moment$zero = $author$project$SmartTime$Moment$Moment($author$project$SmartTime$Duration$zero);
 var $author$project$Environment$preInit = function (maybeKey) {
-	return {launchTime: $author$project$SmartTime$Moment$zero, navkey: maybeKey, node: $author$project$Replicated$Testing$testNode, time: $author$project$SmartTime$Moment$zero, timeZone: $author$project$SmartTime$Human$Moment$utc};
+	return {
+		launchTime: $author$project$SmartTime$Moment$zero,
+		navkey: maybeKey,
+		node: A2(
+			$elm$core$Debug$log,
+			'here\'s the node and the test object',
+			_Utils_Tuple2($author$project$Replicated$Testing$fakeNodeWithExampleObject, $author$project$Replicated$Testing$exampleObjectAsOpList)),
+		time: $author$project$SmartTime$Moment$zero,
+		timeZone: $author$project$SmartTime$Human$Moment$utc
+	};
 };
 var $elm$url$Url$addPort = F2(
 	function (maybePort, starter) {
@@ -8779,9 +10982,6 @@ var $author$project$SmartTime$Human$Duration$Minutes = function (a) {
 var $author$project$SmartTime$Human$Duration$Seconds = function (a) {
 	return {$: 'Seconds', a: a};
 };
-var $author$project$SmartTime$Duration$fromInt = function (_int) {
-	return $author$project$SmartTime$Duration$Duration(_int);
-};
 var $author$project$SmartTime$Duration$hourLength = 60 * $author$project$SmartTime$Duration$minuteLength;
 var $author$project$SmartTime$Duration$dayLength = 24 * $author$project$SmartTime$Duration$hourLength;
 var $author$project$SmartTime$Duration$aDay = $author$project$SmartTime$Duration$Duration($author$project$SmartTime$Duration$dayLength);
@@ -8930,10 +11130,6 @@ var $elm_community$list_extra$List$Extra$last = function (items) {
 };
 var $author$project$SmartTime$Moment$nineteen00 = $author$project$SmartTime$Moment$Moment(
 	$author$project$SmartTime$Duration$fromInt(0));
-var $elm$core$Tuple$second = function (_v0) {
-	var y = _v0.b;
-	return y;
-};
 var $elm_community$list_extra$List$Extra$takeWhileRight = function (p) {
 	var step = F2(
 		function (x, _v0) {
@@ -9272,7 +11468,6 @@ var $elm$time$Time$toAdjustedMinutes = F2(
 				60000),
 			eras);
 	});
-var $elm$core$Basics$ge = _Utils_ge;
 var $elm$time$Time$toCivil = function (minutes) {
 	var rawDay = A2($elm$time$Time$flooredDiv, minutes, 60 * 24) + 719468;
 	var era = (((rawDay >= 0) ? rawDay : (rawDay - 146096)) / 146097) | 0;
@@ -9499,15 +11694,6 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$Located$Here = func
 };
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$json$Json$Encode$float = _Json_wrap;
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
-	});
 var $elm$core$Tuple$mapSecond = F2(
 	function (func, _v0) {
 		var x = _v0.a;
@@ -9517,20 +11703,6 @@ var $elm$core$Tuple$mapSecond = F2(
 			func(y));
 	});
 var $elm$json$Json$Encode$null = _Json_encodeNull;
-var $elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v0, obj) {
-					var k = _v0.a;
-					var v = _v0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var $elm$json$Json$Encode$string = _Json_wrap;
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$encode = function (v) {
 	switch (v.$) {
 		case 'String':
@@ -9989,11 +12161,6 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObj
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
 	return {$: 'TObjectField', a: a};
 };
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 	function (fieldName, _v0) {
 		var decoderFn = _v0.a;
@@ -10149,7 +12316,6 @@ var $author$project$Task$Class$decodeClass = A3(
 													'title',
 													$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 													$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Task$Class$ClassSkel))))))))))))));
-var $elm$core$Debug$todo = _Debug_todo;
 var $author$project$Task$Entry$decodeEntry = function () {
 	var get = function (id) {
 		switch (id) {
@@ -10509,9 +12675,6 @@ var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
 		});
 };
 var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
-var $elm$core$String$concat = function (strings) {
-	return A2($elm$core$String$join, '', strings);
-};
 var $author$project$ParserExtra$problemToString = function (p) {
 	switch (p.$) {
 		case 'Expecting':
@@ -11070,10 +13233,6 @@ var $author$project$SmartTime$Human$Moment$fromStringHelper = F2(
 				$author$project$SmartTime$Human$Calendar$fromParts(dateparts));
 		};
 		return A2($elm$core$Result$andThen, fromAll, withNiceErrors);
-	});
-var $elm$core$Tuple$pair = F2(
-	function (a, b) {
-		return _Utils_Tuple2(a, b);
 	});
 var $elm$parser$Parser$ExpectingFloat = {$: 'ExpectingFloat'};
 var $elm$parser$Parser$Advanced$consumeBase = _Parser_consumeBase;
@@ -12165,10 +14324,6 @@ var $author$project$Activity$Activity$Switch = F2(
 	function (a, b) {
 		return {$: 'Switch', a: a, b: b};
 	});
-var $author$project$SmartTime$Moment$fromSmartInt = function (_int) {
-	return $author$project$SmartTime$Moment$Moment(
-		$author$project$SmartTime$Duration$fromInt(_int));
-};
 var $author$project$Porting$decodeMoment = A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, $author$project$SmartTime$Moment$fromSmartInt, $zwilias$json_decode_exploration$Json$Decode$Exploration$int);
 var $author$project$Porting$subtype2 = F5(
 	function (tagger, fieldName1, subType1Decoder, fieldName2, subType2Decoder) {
@@ -12585,7 +14740,6 @@ var $author$project$Profile$decodeProfile = A4(
 								$zwilias$json_decode_exploration$Json$Decode$Exploration$int,
 								$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Profile$Profile)))))))));
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$BadJson = {$: 'BadJson'};
-var $elm$json$Json$Decode$decodeString = _Json_runOnString;
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$Errors = function (a) {
 	return {$: 'Errors', a: a};
 };
@@ -12608,7 +14762,6 @@ var $elm$json$Json$Decode$lazy = function (thunk) {
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $elm$json$Json$Decode$string = _Json_decodeString;
 function $zwilias$json_decode_exploration$Json$Decode$Exploration$cyclic$annotatedDecoder() {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -13442,24 +15595,6 @@ var $elm$http$Http$onEffects = F4(
 			},
 			A3($elm$http$Http$updateReqs, router, cmds, state.reqs));
 	});
-var $elm$core$List$maybeCons = F3(
-	function (f, mx, xs) {
-		var _v0 = f(mx);
-		if (_v0.$ === 'Just') {
-			var x = _v0.a;
-			return A2($elm$core$List$cons, x, xs);
-		} else {
-			return xs;
-		}
-	});
-var $elm$core$List$filterMap = F2(
-	function (f, xs) {
-		return A3(
-			$elm$core$List$foldr,
-			$elm$core$List$maybeCons(f),
-			_List_Nil,
-			xs);
-	});
 var $elm$http$Http$maybeSend = F4(
 	function (router, desiredTracker, progress, _v0) {
 		var actualTracker = _v0.a;
@@ -13565,7 +15700,6 @@ var $author$project$Porting$encodeTuple2 = F3(
 					secondEncoder(second)
 				]));
 	});
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm_community$intdict$IntDict$foldr = F3(
 	function (f, acc, dict) {
 		foldr:
@@ -14092,7 +16226,6 @@ var $author$project$Incubator$Todoist$serverUrl = F4(
 					]),
 				_Utils_ap(withRead, withWrite)));
 	});
-var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm_community$json_extra$Json$Decode$Extra$fromResult = function (result) {
 	if (result.$ === 'Ok') {
 		var successValue = result.a;
@@ -16383,15 +18516,6 @@ var $author$project$Incubator$Todoist$handleResponse = F2(
 			return $elm$core$Result$Err(err);
 		}
 	});
-var $elm$core$Maybe$andThen = F2(
-	function (callback, maybeValue) {
-		if (maybeValue.$ === 'Just') {
-			var value = maybeValue.a;
-			return callback(value);
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
 var $author$project$Integrations$Todoist$calcImportance = function (_v0) {
 	var priority = _v0.priority;
 	var day_order = _v0.day_order;
@@ -16468,14 +18592,6 @@ var $author$project$Integrations$Todoist$extractTiming2 = function (input) {
 					$elm$core$Maybe$Just(
 						$author$project$SmartTime$Duration$fromMinutes(num2))));
 		}
-	}
-};
-var $elm$core$Result$toMaybe = function (result) {
-	if (result.$ === 'Ok') {
-		var v = result.a;
-		return $elm$core$Maybe$Just(v);
-	} else {
-		return $elm$core$Maybe$Nothing;
 	}
 };
 var $author$project$Incubator$Todoist$Item$fromRFC3339Date = A2($elm$core$Basics$composeL, $elm$core$Result$toMaybe, $author$project$SmartTime$Human$Moment$fuzzyFromString);
@@ -17736,19 +19852,6 @@ var $author$project$SmartTime$Human$Calendar$dayOfMonth = A2(
 	function ($) {
 		return $.day;
 	});
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
-	});
 var $author$project$SmartTime$Human$Calendar$padNumber = F2(
 	function (targetLength, numString) {
 		var minLength = A3($elm$core$Basics$clamp, 1, targetLength, targetLength);
@@ -18848,13 +20951,6 @@ var $author$project$Activity$Measure$lastSession = F2(
 	function (timeline, old) {
 		return $elm$core$List$head(
 			A2($author$project$Activity$Measure$sessions, timeline, old));
-	});
-var $elm_community$list_extra$List$Extra$filterNot = F2(
-	function (pred, list) {
-		return A2(
-			$elm$core$List$filter,
-			A2($elm$core$Basics$composeL, $elm$core$Basics$not, pred),
-			list);
 	});
 var $author$project$Activity$Switching$multiline = function (inputListOfLists) {
 	var unWords = function (wordsList) {
@@ -21484,7 +23580,6 @@ var $author$project$SmartTime$Human$Moment$everyMinuteOnTheMinute = F3(
 			fallbackTicker);
 	});
 var $elm$browser$Browser$Events$Document = {$: 'Document'};
-var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$browser$Browser$Events$MySub = F3(
 	function (a, b, c) {
 		return {$: 'MySub', a: a, b: b, c: c};

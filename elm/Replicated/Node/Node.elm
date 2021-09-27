@@ -114,21 +114,13 @@ peerCodec =
 fakeOps : List Op
 fakeOps =
     let
-        tryCreateOp reducerString objectString opIDString givenPayload =
-            case ( OpID.fromString objectString, OpID.fromString opIDString ) of
-                ( Just objectID, Just opID ) ->
-                    [ create reducerString objectID opID Nothing givenPayload ]
-
-                _ ->
-                    []
+        ops =
+            """
+            @1200+0.0.0.0 :lww,
+            @1244+0.0.0.0 :1200+0.0.0.0 [1,[[1,first],firstname]]
+            """
     in
-    List.concat
-        [ tryCreateOp "lww" "12345+0.0.0.0" "1+0.0.0.0" ""
-        , tryCreateOp "lww" "12345+0.0.0.0" "2" "payload2 here"
-        , tryCreateOp "lww" "12345+0.0.0.0" "3" "payload3 here"
-        , tryCreateOp "lww" "12+0.0.0.0" "173" ""
-        , tryCreateOp "lww" "12+0.0.0.0" "174" "payloadB2 here"
-        ]
+    Maybe.withDefault [] <| Result.toMaybe <| Debug.log "Importing op" <| Op.fromFrame ops
 
 
 fakeNode =
