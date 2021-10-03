@@ -6,6 +6,7 @@ import Browser.Navigation as Nav exposing (..)
 import Dict
 import Replicated.Node.Node as Node exposing (Node, blankNode)
 import Replicated.Op.Op exposing (Op)
+import Replicated.ReplicaCodec
 import Replicated.Testing
 import SmartTime.Human.Clock
 import SmartTime.Human.Moment exposing (Zone, utc)
@@ -27,7 +28,7 @@ type alias Environment =
     , navkey : Maybe Nav.Key -- instance-specific (can't store it)
     , timeZone : Zone -- according to browser
     , launchTime : Moment -- when we officially started the session
-    , node : ( Node, List Op )
+    , node : ( Node, Result (Replicated.ReplicaCodec.Error String) Replicated.Testing.ExampleObject )
     }
 
 
@@ -39,5 +40,5 @@ preInit maybeKey =
     , navkey = maybeKey -- passed from init
     , timeZone = utc -- temporary placeholder
     , launchTime = zero -- temporary placeholder
-    , node = Debug.log "here's the node and the test object" ( Replicated.Testing.fakeNodeWithExampleObject, Replicated.Testing.exampleObjectAsOpList )
+    , node = ( Debug.log "here's the node" <| Replicated.Testing.fakeNodeWithExampleObject, Debug.log "here's the example object decoded!" <| Replicated.Testing.exampleObjectReDecoded Replicated.Testing.fakeNodeWithExampleObject )
     }

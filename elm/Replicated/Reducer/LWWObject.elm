@@ -132,8 +132,21 @@ payloadCodec =
 
 
 getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
-getFieldLatest lww ( slot, name ) =
-    Debug.todo "search lww.changeHistory for matching fields and give the latest"
+getFieldLatest (LWWObject lww) ( slot, name ) =
+    let
+        changesToThisField =
+            List.filterMap thisFieldOnly lww.changeHistory
+
+        thisFieldOnly : FieldChange -> Maybe FieldValue
+        thisFieldOnly (FieldChange change) =
+            case change.field == ( slot, name ) of
+                True ->
+                    Just change.changedTo
+
+                False ->
+                    Nothing
+    in
+    List.head changesToThisField
 
 
 {-| A sample of a Replicated Record at a given point in time - such as right now.

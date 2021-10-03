@@ -8836,9 +8836,9 @@ var $author$project$Replicated$Node$NodeID$fromString = function (input) {
 var $author$project$Replicated$Op$OpID$fromString = function (input) {
 	var _v0 = A2($elm$core$String$split, '+', input);
 	if ((_v0.b && _v0.b.b) && (!_v0.b.b.b)) {
-		var nodeIDString = _v0.a;
+		var timeString = _v0.a;
 		var _v1 = _v0.b;
-		var timeString = _v1.a;
+		var nodeIDString = _v1.a;
 		var _v2 = _Utils_Tuple2(
 			$author$project$Replicated$Node$NodeID$fromString(nodeIDString),
 			A2(
@@ -9194,7 +9194,7 @@ var $author$project$Replicated$Op$OpID$toString = function (_v0) {
 	var timeString = $elm$core$String$fromInt(
 		$author$project$SmartTime$Moment$toSmartInt(eventStamp.time));
 	var nodeString = $author$project$Replicated$Node$NodeID$toString(eventStamp.origin);
-	return nodeString + ('+' + timeString);
+	return timeString + ('+' + nodeString);
 };
 var $author$project$Replicated$Reducer$LWWObject$getObjectIfExists = F2(
 	function (node, objectID) {
@@ -10393,6 +10393,33 @@ var $author$project$Replicated$Node$Node$applyOpToDb = F2(
 	});
 var $author$project$Replicated$Node$Node$firstSessionEver = {client: 0, peer: 0, primus: 0, session: 0};
 var $author$project$Replicated$Node$Node$blankNode = {db: $elm$core$Dict$empty, identity: $author$project$Replicated$Node$Node$firstSessionEver, peers: _List_Nil};
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm_community$result_extra$Result$Extra$combine = A2(
+	$elm$core$List$foldr,
+	$elm$core$Result$map2($elm$core$List$cons),
+	$elm$core$Result$Ok(_List_Nil));
+var $elm_community$result_extra$Result$Extra$combineMap = function (f) {
+	return A2(
+		$elm$core$Basics$composeL,
+		$elm_community$result_extra$Result$Extra$combine,
+		$elm$core$List$map(f));
+};
 var $elm$core$String$concat = function (strings) {
 	return A2($elm$core$String$join, '', strings);
 };
@@ -10420,7 +10447,10 @@ var $author$project$Replicated$Op$Op$fromString = F2(
 			return $author$project$Replicated$Op$OpID$fromString(
 				A2($elm$core$String$dropLeft, 1, atom));
 		};
-		var atoms = $elm$core$String$words(inputString);
+		var atoms = A2(
+			$elm$core$Debug$log,
+			' words',
+			$elm$core$String$words(inputString));
 		var opIDatom = $elm$core$List$head(
 			A2(
 				$elm$core$List$filter,
@@ -10508,7 +10538,7 @@ var $author$project$Replicated$Op$Op$fromString = F2(
 					}
 				} else {
 					var _v4 = _v1.a;
-					return $elm$core$Result$Err('Couldn\'t find Op\'s ID (@) and got no prior op to deduce it from.');
+					return $elm$core$Result$Err('Couldn\'t find Op\'s ID (@) and got no prior op to deduce it from: ' + inputString);
 				}
 			}
 			var opID = _v1.a.a;
@@ -10522,32 +10552,124 @@ var $author$project$Replicated$Op$Op$fromString = F2(
 			return $elm$core$Result$Err('No reducer found for op: ' + inputString);
 		}
 	});
-var $author$project$Replicated$Node$Node$fakeOps = function () {
-	var tryCreateOp = F4(
-		function (reducerString, objectString, opIDString, givenPayload) {
-			var _v0 = _Utils_Tuple2(
-				$author$project$Replicated$Op$OpID$fromString(objectString),
-				$author$project$Replicated$Op$OpID$fromString(opIDString));
-			if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
-				var objectID = _v0.a.a;
-				var opID = _v0.b.a;
-				return _List_fromArray(
-					[
-						A5($author$project$Replicated$Op$Op$create, reducerString, objectID, opID, $elm$core$Maybe$Nothing, givenPayload)
-					]);
-			} else {
-				return _List_Nil;
+var $elm$core$Result$map = F2(
+	function (func, ra) {
+		if (ra.$ === 'Ok') {
+			var a = ra.a;
+			return $elm$core$Result$Ok(
+				func(a));
+		} else {
+			var e = ra.a;
+			return $elm$core$Result$Err(e);
+		}
+	});
+var $author$project$Replicated$Op$Op$fromSpan = function (span) {
+	var spanOpStrings = A2($elm$core$String$split, ',\n', span);
+	var addToOpList = F2(
+		function (unparsedOpList, parsedOpListResult) {
+			addToOpList:
+			while (true) {
+				var _v0 = _Utils_Tuple2(unparsedOpList, parsedOpListResult);
+				if (_v0.b.$ === 'Err') {
+					var err = _v0.b.a;
+					return $elm$core$Result$Err(err);
+				} else {
+					if (!_v0.a.b) {
+						return $elm$core$Result$Ok(_List_Nil);
+					} else {
+						if (!_v0.b.a.b) {
+							if (!_v0.a.b.b) {
+								var _v1 = _v0.a;
+								var unparsedOp = _v1.a;
+								return A2(
+									$elm$core$Result$map,
+									$elm$core$List$singleton,
+									A2($author$project$Replicated$Op$Op$fromString, unparsedOp, $elm$core$Maybe$Nothing));
+							} else {
+								var _v2 = _v0.a;
+								var nextUnparsedOp = _v2.a;
+								var remainingUnparsedOps = _v2.b;
+								var $temp$unparsedOpList = remainingUnparsedOps,
+									$temp$parsedOpListResult = A2(
+									$elm$core$Result$map,
+									$elm$core$List$singleton,
+									A2($author$project$Replicated$Op$Op$fromString, nextUnparsedOp, $elm$core$Maybe$Nothing));
+								unparsedOpList = $temp$unparsedOpList;
+								parsedOpListResult = $temp$parsedOpListResult;
+								continue addToOpList;
+							}
+						} else {
+							if ((!_v0.a.b.b) && (!_v0.b.a.b.b)) {
+								var _v3 = _v0.a;
+								var unparsedOp = _v3.a;
+								var _v4 = _v0.b.a;
+								var parsedOp = _v4.a;
+								return A2(
+									$elm$core$Result$map,
+									function (_new) {
+										return A2(
+											$elm$core$List$cons,
+											_new,
+											_List_fromArray(
+												[parsedOp]));
+									},
+									A2(
+										$author$project$Replicated$Op$Op$fromString,
+										unparsedOp,
+										$elm$core$Maybe$Just(parsedOp)));
+							} else {
+								var _v5 = _v0.a;
+								var nextUnparsedOp = _v5.a;
+								var remainingUnparsedOps = _v5.b;
+								var parsedOps = _v0.b.a;
+								var lastParsedOp = parsedOps.a;
+								return A2(
+									addToOpList,
+									remainingUnparsedOps,
+									A2(
+										$elm$core$Result$map,
+										function (_new) {
+											return A2($elm$core$List$cons, _new, parsedOps);
+										},
+										A2(
+											$author$project$Replicated$Op$Op$fromString,
+											nextUnparsedOp,
+											$elm$core$Maybe$Just(lastParsedOp))));
+							}
+						}
+					}
+				}
 			}
 		});
-	var importOp = function (inputString) {
-		return $elm$core$Result$toMaybe(
-			A2($author$project$Replicated$Op$Op$fromString, inputString, $elm$core$Maybe$Nothing));
-	};
+	var finalList = A2(
+		addToOpList,
+		spanOpStrings,
+		$elm$core$Result$Ok(_List_Nil));
+	return A2($elm$core$Result$map, $elm$core$List$reverse, finalList);
+};
+var $author$project$Replicated$Op$Op$fromChain = function (chain) {
+	return $author$project$Replicated$Op$Op$fromSpan(chain);
+};
+var $author$project$Replicated$Op$Op$fromChunk = function (chunk) {
+	return $author$project$Replicated$Op$Op$fromChain(chunk);
+};
+var $author$project$Replicated$Op$Op$fromFrame = function (frame) {
+	var chunks = A2($elm$core$String$split, ' ;', frame);
 	return A2(
-		$elm$core$List$filterMap,
-		importOp,
-		_List_fromArray(
-			['@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0', '@12345+0.0.0.0 :1+0.0.0.0']));
+		$elm$core$Result$map,
+		$elm$core$List$concat,
+		A2($elm_community$result_extra$Result$Extra$combineMap, $author$project$Replicated$Op$Op$fromChunk, chunks));
+};
+var $author$project$Replicated$Node$Node$fakeOps = function () {
+	var ops = '\n            @1200+0.0.0.0 :lww,\n            @1244+0.0.0.0 :1200+0.0.0.0 [1,[[1,first],firstname]]\n            ';
+	return A2(
+		$elm$core$Maybe$withDefault,
+		_List_Nil,
+		$elm$core$Result$toMaybe(
+			A2(
+				$elm$core$Debug$log,
+				'Importing op',
+				$author$project$Replicated$Op$Op$fromFrame(ops))));
 }();
 var $author$project$Replicated$Node$Node$fakeNode = function () {
 	var apply = F2(
@@ -10562,6 +10684,35 @@ var $author$project$Replicated$Node$Node$fakeNode = function () {
 }();
 var $author$project$Replicated$Testing$testNode = $author$project$Replicated$Node$Node$fakeNode;
 var $author$project$Replicated$Testing$exampleObjectAsOpList = A3($author$project$Replicated$ReplicaCodec$encodeToRon, $author$project$Replicated$Testing$testNode, $author$project$Replicated$Op$OpID$testCounter, $author$project$Replicated$Testing$exampleObjectCodec);
+var $author$project$Replicated$ReplicaCodec$decodeFromNode = F2(
+	function (codec, node) {
+		var decoder = A2(
+			$elm$json$Json$Decode$andThen,
+			function (value) {
+				return (value <= 0) ? $elm$json$Json$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted)) : (_Utils_eq(value, $author$project$Replicated$ReplicaCodec$version) ? A2(
+					$elm$json$Json$Decode$index,
+					1,
+					A2(
+						$author$project$Replicated$ReplicaCodec$getJsonDecoder,
+						codec,
+						$elm$core$Maybe$Just(
+							_Utils_Tuple2(node, $elm$core$Maybe$Nothing)))) : $elm$json$Json$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$ReplicaCodec$SerializerOutOfDate)));
+			},
+			A2($elm$json$Json$Decode$index, 0, $elm$json$Json$Decode$int));
+		var _v0 = A2($elm$json$Json$Decode$decodeString, decoder, 'bogusJSON');
+		if (_v0.$ === 'Ok') {
+			var value = _v0.a;
+			return value;
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$ReplicaCodec$DataCorrupted);
+		}
+	});
+var $author$project$Replicated$Testing$exampleObjectReDecoded = function (node) {
+	return $elm$core$Result$toMaybe(
+		A2($author$project$Replicated$ReplicaCodec$decodeFromNode, $author$project$Replicated$Testing$exampleObjectCodec, node));
+};
 var $author$project$Replicated$Op$Op$toString = function (_v0) {
 	var op = _v0.a;
 	var ref = ':' + $author$project$Replicated$Op$OpID$toString(
@@ -10604,10 +10755,13 @@ var $author$project$Environment$preInit = function (maybeKey) {
 	return {
 		launchTime: $author$project$SmartTime$Moment$zero,
 		navkey: maybeKey,
-		node: A2(
-			$elm$core$Debug$log,
-			'here\'s the node and the test object',
-			_Utils_Tuple2($author$project$Replicated$Testing$fakeNodeWithExampleObject, $author$project$Replicated$Testing$exampleObjectAsOpList)),
+		node: _Utils_Tuple3(
+			A2($elm$core$Debug$log, 'here\'s the node', $author$project$Replicated$Testing$fakeNodeWithExampleObject),
+			A2($elm$core$Debug$log, 'here\'s the example object as an op list', $author$project$Replicated$Testing$exampleObjectAsOpList),
+			A2(
+				$elm$core$Debug$log,
+				'here\'s the example object decoded!',
+				$author$project$Replicated$Testing$exampleObjectReDecoded($author$project$Replicated$Testing$fakeNodeWithExampleObject))),
 		time: $author$project$SmartTime$Moment$zero,
 		timeZone: $author$project$SmartTime$Human$Moment$utc
 	};
@@ -11810,17 +11964,6 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$int = $zwilias$json
 				$elm$core$Basics$round(val)) : A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TInt, json);
 		} else {
 			return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TInt, json);
-		}
-	});
-var $elm$core$Result$map = F2(
-	function (func, ra) {
-		if (ra.$ === 'Ok') {
-			var a = ra.a;
-			return $elm$core$Result$Ok(
-				func(a));
-		} else {
-			var e = ra.a;
-			return $elm$core$Result$Err(e);
 		}
 	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$mapAcc = F2(

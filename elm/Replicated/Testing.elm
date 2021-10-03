@@ -50,15 +50,21 @@ exampleObject =
     Result.toMaybe <| decodeFromNode exampleObjectCodec testNode
 
 
-exampleObjectAsOpList : List Op
-exampleObjectAsOpList =
-    RC.encodeToRon testNode OpID.testCounter exampleObjectCodec
-
-
 fakeNodeWithExampleObject : Node
 fakeNodeWithExampleObject =
     let
+        ( exampleObjectAsOpList, rootIDMaybe ) =
+            RC.encodeToRonWithRootID testNode OpID.testCounter exampleObjectCodec
+
         apply op node =
             { node | db = Node.applyOpToDb node.db (Debug.log (Op.toString op) op) }
+
+        filledNode =
+            List.foldl apply Node.fakeNode exampleObjectAsOpList
     in
-    List.foldl apply Node.fakeNode exampleObjectAsOpList
+    { filledNode | root = rootIDMaybe }
+
+
+exampleObjectReDecoded : Node -> Result (RC.Error String) ExampleObject
+exampleObjectReDecoded node =
+    RC.decodeFromNode exampleObjectCodec node

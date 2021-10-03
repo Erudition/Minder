@@ -12,7 +12,7 @@ import Replicated.Serialize as RS exposing (Codec)
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
 -}
 type alias Node =
-    { identity : NodeID, peers : List Peer, db : ReplicaTree }
+    { identity : NodeID, peers : List Peer, db : ReplicaTree, root : Maybe ObjectID }
 
 
 {-| Start our program, persisting the identity we had last time.
@@ -32,6 +32,7 @@ initFromSaved foundIdentity inputDatabase =
                 { identity = bumpSessionID oldNodeID
                 , peers = []
                 , db = Dict.empty
+                , root = Nothing
                 }
 
         Nothing ->
@@ -49,7 +50,7 @@ firstSessionEver =
 
 blankNode : Node
 blankNode =
-    { identity = firstSessionEver, peers = [], db = Dict.empty }
+    { identity = firstSessionEver, peers = [], db = Dict.empty, root = Nothing }
 
 
 

@@ -115,6 +115,7 @@ everyMinuteOnTheMinute now zone tagger =
             Moment.difference now nextTick
 
         debugMsg =
+            -- use with (Debug.log debugMsg waitingTime)
             "it's "
                 ++ toStandardString now
                 ++ ", nextTick at "
@@ -126,12 +127,13 @@ everyMinuteOnTheMinute now zone tagger =
             Moment.every Duration.aSecond tagger
     in
     if Moment.compare now Moment.zero == Moment.Later then
-        Moment.every (Debug.log debugMsg waitingTime) tagger
+        Moment.every waitingTime tagger
 
     else
         -- falling back to Sub.none means there may be no tick to trigger the recovery
         -- so we check frequently for a fix
-        Debug.log ("Got bogus current time, " ++ toStandardString now) fallbackTicker
+        -- Debug.log ("Got bogus current time, " ++ toStandardString now) fallbackTicker
+        fallbackTicker
 
 
 {-| What is the offset from UTC, in minutes, for this `Zone` at this

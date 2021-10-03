@@ -193,12 +193,11 @@ version =
 -- DECODE
 
 
-{-| TODO
--}
+{-| -}
 decodeFromNode : Codec e a -> Node -> Result (Error e) a
 decodeFromNode codec node =
     let
-        decoder =
+        oldDecoder =
             JD.index 0 JD.int
                 |> JD.andThen
                     (\value ->
@@ -211,13 +210,22 @@ decodeFromNode codec node =
                         else
                             Err SerializerOutOfDate |> JD.succeed
                     )
-    in
-    case JD.decodeString decoder "bogusJSON" of
-        Ok value ->
-            value
 
-        Err _ ->
-            Err DataCorrupted
+        decoder =
+            getJsonDecoder codec (Just ( node, Nothing ))
+    in
+    case node.root of
+        Just rootID ->
+            -- TODO we need to get rid of those quotes, but JD.string expects them for now
+            case JD.decodeString decoder ("\"" ++ OpID.toString rootID ++ "\"") of
+                Ok value ->
+                    value
+
+                Err something ->
+                    Tuple.second ( Debug.log "problem decoding root" something, Err DataCorrupted )
+
+        Nothing ->
+            Debug.log "no root of node!" <| Err DataCorrupted
 
 
 endian : Bytes.Endianness
@@ -450,6 +458,22 @@ encodeToRon node counter codec =
 
         Nothing ->
             []
+
+
+{-| Convert an Elm value into Ops, capturing the root object's output ID.
+-}
+encodeToRonWithRootID : Node -> InCounter -> Codec e a -> ( List Op, Maybe OpID.ObjectID )
+encodeToRonWithRootID node counter codec =
+    case getRonEncoder codec of
+        Just ronEncoder ->
+            let
+                encoded =
+                    ronEncoder { node = node, existingObjectIDMaybe = Nothing, counter = counter, mode = IncludeDefaults }
+            in
+            ( .ops encoded, Just <| Debug.log "genesis ID" <| .objectID encoded )
+
+        Nothing ->
+            ( [], Nothing )
 
 
 
@@ -1273,14 +1297,14 @@ finishRecord (PartialRecord allFieldsCodec) =
                                     Debug.todo "lww not found"
 
                                 Just lww ->
-                                    case JD.decodeString (decodeWhatWeFound lww) "" of
+                                    case JD.decodeString (decodeWhatWeFound lww) "{}" of
                                         Ok nestedResult ->
                                             -- could be Ok (Ok something) or Ok (Err something)
                                             nestedResult
 
                                         Err someerror ->
                                             -- TODO FIXME
-                                            Err DataCorrupted
+                                            Tuple.second ( Debug.log "found lww but error decoding it" someerror, Err DataCorrupted )
 
                         decodeWhatWeFound : LWWObject -> JD.Decoder (Result (Error errs) full)
                         decodeWhatWeFound lww =
