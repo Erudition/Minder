@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, latest, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -140,3 +140,15 @@ type alias InCounter =
 -}
 type alias OutCounter =
     NewOpCounter
+
+
+{-| Determine which OpID is newer and return the newest one.
+-}
+latest : OpID -> OpID -> OpID
+latest (OpID firstID) (OpID secondID) =
+    case Moment.compare firstID.time secondID.time of
+        Moment.Later ->
+            OpID firstID
+
+        _ ->
+            OpID secondID

@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, Payload, ReducerID, create, fromFrame, fromLog, fromString, id, object, opCodec, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Op, Payload, PreOp(..), ReducerID, create, finishPreOp, fromFrame, fromLog, fromString, id, object, opCodec, payload, pre, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -283,3 +283,35 @@ fromLog log =
             String.split " ." log
     in
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
+
+
+
+--- PRE-OPS
+
+
+type PreOp
+    = PreOp
+        { reducerID : ReducerID
+        , objectID : OpID
+        , payload : Payload
+        }
+
+
+pre : ReducerID -> OpID.ObjectID -> String -> PreOp
+pre givenReducer givenObject givenPayload =
+    PreOp
+        { reducerID = givenReducer
+        , objectID = givenObject
+        , payload = givenPayload
+        }
+
+
+finishPreOp : OpID -> OpID -> PreOp -> Op
+finishPreOp givenReference opID (PreOp preOp) =
+    Op
+        { reducerID = preOp.reducerID
+        , objectID = preOp.objectID
+        , operationID = opID
+        , referenceID = Just givenReference
+        , payload = preOp.payload
+        }

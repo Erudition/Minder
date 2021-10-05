@@ -66,7 +66,7 @@ import Regex exposing (Regex)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
-import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..))
+import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..), RW, buildRW)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -1140,6 +1140,62 @@ record remainingConstructor =
         , jsonArrayDecoder = \elsewhereData -> JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
         , ronEncoders = []
+        }
+
+
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
+    let
+        wrappedFieldValueCodec objectID =
+            map (rwWrapper objectID) .get fieldValueCodec
+
+        jsonObjectFieldKey =
+            -- For now, just stick number and name together.
+            String.fromInt fieldSlot ++ fieldName
+
+        addToPartialBytesEncoderList existingRecord =
+            -- Tack on the new encoder to the big list of all the encoders
+            (getEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.encoder existingRecord
+
+        addToPartialJsonEncoderList =
+            -- Tack on the new encoder to the big list of all the encoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
+
+        rwWrapper objectID =
+            buildRW objectID ( fieldSlot, fieldName ) (encodeToJsonString fieldValueCodec)
+
+        wrappedNestableJsonFieldDecoder : ElsewhereData -> JD.Decoder (Result (Error errs) (RW fieldType))
+        wrappedNestableJsonFieldDecoder elsewheredata =
+            let
+                lwwObjectMaybe =
+                    Maybe.andThen Tuple.second elsewheredata
+            in
+            case lwwObjectMaybe of
+                Nothing ->
+                    -- TODO should still work as readable for JSON encoding
+                    JD.fail "No ObjectID to give to RW writer"
+
+                Just lwwObject ->
+                    nestableJsonFieldDecoder ( fieldSlot, fieldName ) (rwWrapper (LWWObject.getID lwwObject) fieldDefault) (wrappedFieldValueCodec (LWWObject.getID lwwObject)) elsewheredata
+    in
+    PartialRecord
+        { encoder = addToPartialBytesEncoderList
+        , decoder =
+            BD.map2
+                combineIfBothSucceed
+                recordCodecSoFar.decoder
+                -- (getBytesDecoder wrappedFieldValueCodec)
+                BD.fail
+        , jsonEncoders = addToPartialJsonEncoderList
+        , jsonArrayDecoder =
+            nestableJDmap2
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                recordCodecSoFar.jsonArrayDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                wrappedNestableJsonFieldDecoder
+        , fieldIndex = recordCodecSoFar.fieldIndex + 1
+        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
         }
 
 

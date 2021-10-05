@@ -8,7 +8,7 @@ import Json.Encode as JE exposing (Value)
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Op, Payload, ReducerID)
+import Replicated.Op.Op as Op exposing (Op, Payload, PreOp, ReducerID)
 import Replicated.Op.OpID as OpID
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -24,8 +24,8 @@ type LWWObject
         }
 
 
-reducerIDString : Op.ReducerID
-reducerIDString =
+reducerID : Op.ReducerID
+reducerID =
     "lww"
 
 
@@ -59,7 +59,7 @@ getObjectIfExists node objectID =
 
 creation : Node -> OpID.ObjectID -> Op
 creation node objectID =
-    Object.create reducerIDString objectID
+    Object.create reducerID objectID
 
 
 fieldToOp : OpID.InCounter -> NodeID -> LWWObject -> OpID.OpID -> FieldIdentifier -> FieldValue -> ( Op, OpID.OutCounter )
@@ -69,7 +69,7 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
             OpID.generate inCounter nodeID
     in
     ( Op.create
-        reducerIDString
+        reducerID
         (getID lww)
         myNewID
         (Just opToReference)
@@ -248,31 +248,27 @@ type alias LWWPayload =
 --set : Field fieldtype -> Op
 --set field =
 --    Op ()
-
-
-type alias UserExample =
-    { personID : Int
-    , name : String
-    , address : String
-    }
-
-
-
+--
+--type alias UserExample =
+--    { personID : Int
+--    , name : String
+--    , address : String
+--    }
+--
 --buildExampleObject : Record -> UserExample
 --buildExampleObject object =
 --    { person = get object 1 S.int 0
 --    , name = get object 2 S.string ""
 --    }
-
-
-exampleCodec : RS.Codec e UserExample
-exampleCodec =
-    record UserExample
-        |> field ( 1, "personID" ) .personID RS.int 17
-        |> field ( 2, "name" ) .name RS.string "John Doe"
-        |> field ( 3, "address" ) .address RS.string "Nowhere"
-        |> obsolete []
-        |> finishRecord
+--
+--exampleCodec : RS.Codec e UserExample
+--exampleCodec =
+--    record UserExample
+--        |> field ( 1, "personID" ) .personID RS.int 17
+--        |> field ( 2, "name" ) .name RS.string "John Doe"
+--        |> field ( 3, "address" ) .address RS.string "Nowhere"
+--        |> obsolete []
+--        |> finishRecord
 
 
 type alias RecordDict =
@@ -286,103 +282,101 @@ decodeFromDict =
 
 
 --- DOING IT MY WAY -- RIPPED FROM SERIALIZE LIBRARY
-
-
-{-| A partially built Codec for a record.
--}
-type PartialRecord errs full remaining
-    = PartialRecord
-        { encoder : full -> List Bytes.Encode.Encoder
-        , decoder : Bytes.Decode.Decoder (Result (RS.Error errs) remaining)
-        , jsonEncoders : List ( String, full -> JE.Value )
-        , jsonArrayDecoder : Json.Decode.Decoder (Result (RS.Error errs) remaining)
-        , fieldIndex : Int
-        }
-
-
-record : remaining -> PartialRecord errs full remaining
-record remainingConstructor =
-    PartialRecord
-        { encoder = \_ -> []
-        , decoder = Bytes.Decode.succeed (Ok remainingConstructor)
-        , jsonEncoders = []
-        , jsonArrayDecoder = Json.Decode.succeed (Ok remainingConstructor)
-        , fieldIndex = 0
-        }
-
-
-field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
-field ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
-    let
-        jsonObjectFieldKey =
-            -- For now, just stick number and name together.
-            String.fromInt fieldSlot ++ fieldName
-
-        addToPartialBytesEncoderList existingRecord =
-            -- Tack on the new encoder to the big list of all the encoders
-            (RS.getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
-
-        addToPartialJsonEncoderList =
-            -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, RS.getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
-
-        combineIfBothSucceed decoderA decoderB =
-            case ( decoderA, decoderB ) of
-                ( Ok aDecodedValue, Ok bDecodedValue ) ->
-                    -- is A being applied to B?
-                    Ok (aDecodedValue bDecodedValue)
-
-                ( Err a_error, _ ) ->
-                    Err a_error
-
-                ( _, Err b_error ) ->
-                    Err b_error
-
-        fieldJsonObjectDecoder =
-            -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
-            Json.Decode.field jsonObjectFieldKey (RS.getJsonDecoder fieldValueCodec)
-    in
-    PartialRecord
-        { encoder = addToPartialBytesEncoderList
-        , decoder =
-            Bytes.Decode.map2
-                combineIfBothSucceed
-                recordCodecSoFar.decoder
-                (RS.getBytesDecoder fieldValueCodec)
-        , jsonEncoders = addToPartialJsonEncoderList
-        , jsonArrayDecoder =
-            Json.Decode.map2
-                combineIfBothSucceed
-                recordCodecSoFar.jsonArrayDecoder
-                fieldJsonObjectDecoder
-        , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        }
-
-
-{-| Finish creating a codec for a record.
--}
-finishRecord : PartialRecord errs full full -> Codec errs full
-finishRecord (PartialRecord allFieldsCodec) =
-    let
-        encodeAsJsonObject fullRecord =
-            let
-                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
-                    ( fieldKey, fieldEncoder fullRecord )
-            in
-            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
-
-        encodeAsDictList fullRecord =
-            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
-
-        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
-            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
-    in
-    RS.Codec
-        { encoder = allFieldsCodec.encoder >> List.reverse >> Bytes.Encode.sequence
-        , decoder = allFieldsCodec.decoder
-        , jsonEncoder = encodeAsJsonObject
-        , jsonDecoder = allFieldsCodec.jsonArrayDecoder
-        }
+--{-| A partially built Codec for a record.
+---}
+--type PartialRecord errs full remaining
+--    = PartialRecord
+--        { encoder : full -> List Bytes.Encode.Encoder
+--        , decoder : Bytes.Decode.Decoder (Result (RS.Error errs) remaining)
+--        , jsonEncoders : List ( String, full -> JE.Value )
+--        , jsonArrayDecoder : Json.Decode.Decoder (Result (RS.Error errs) remaining)
+--        , fieldIndex : Int
+--        }
+--
+--
+--record : remaining -> PartialRecord errs full remaining
+--record remainingConstructor =
+--    PartialRecord
+--        { encoder = \_ -> []
+--        , decoder = Bytes.Decode.succeed (Ok remainingConstructor)
+--        , jsonEncoders = []
+--        , jsonArrayDecoder = Json.Decode.succeed (Ok remainingConstructor)
+--        , fieldIndex = 0
+--        }
+--
+--
+--field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+--field ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
+--    let
+--        jsonObjectFieldKey =
+--            -- For now, just stick number and name together.
+--            String.fromInt fieldSlot ++ fieldName
+--
+--        addToPartialBytesEncoderList existingRecord =
+--            -- Tack on the new encoder to the big list of all the encoders
+--            (RS.getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
+--
+--        addToPartialJsonEncoderList =
+--            -- Tack on the new encoder to the big list of all the encoders
+--            ( jsonObjectFieldKey, RS.getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+--
+--        combineIfBothSucceed decoderA decoderB =
+--            case ( decoderA, decoderB ) of
+--                ( Ok aDecodedValue, Ok bDecodedValue ) ->
+--                    -- is A being applied to B?
+--                    Ok (aDecodedValue bDecodedValue)
+--
+--                ( Err a_error, _ ) ->
+--                    Err a_error
+--
+--                ( _, Err b_error ) ->
+--                    Err b_error
+--
+--        fieldJsonObjectDecoder =
+--            -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
+--            Json.Decode.field jsonObjectFieldKey (RS.getJsonDecoder fieldValueCodec)
+--    in
+--    PartialRecord
+--        { encoder = addToPartialBytesEncoderList
+--        , decoder =
+--            Bytes.Decode.map2
+--                combineIfBothSucceed
+--                recordCodecSoFar.decoder
+--                (RS.getBytesDecoder fieldValueCodec)
+--        , jsonEncoders = addToPartialJsonEncoderList
+--        , jsonArrayDecoder =
+--            Json.Decode.map2
+--                combineIfBothSucceed
+--                recordCodecSoFar.jsonArrayDecoder
+--                fieldJsonObjectDecoder
+--        , fieldIndex = recordCodecSoFar.fieldIndex + 1
+--        }
+--
+--
+--{-| Finish creating a codec for a record.
+---}
+--finishRecord : PartialRecord errs full full -> Codec errs full
+--finishRecord (PartialRecord allFieldsCodec) =
+--    let
+--        encodeAsJsonObject fullRecord =
+--            let
+--                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
+--                    ( fieldKey, fieldEncoder fullRecord )
+--            in
+--            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+--
+--        encodeAsDictList fullRecord =
+--            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+--
+--        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
+--            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+--    in
+--    RS.Codec
+--        { encoder = allFieldsCodec.encoder >> List.reverse >> Bytes.Encode.sequence
+--        , decoder = allFieldsCodec.decoder
+--        , jsonEncoder = encodeAsJsonObject
+--        , jsonDecoder = allFieldsCodec.jsonArrayDecoder
+--        }
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -390,3 +384,25 @@ finishRecord (PartialRecord allFieldsCodec) =
 obsolete : List FieldIdentifier -> anything -> anything
 obsolete reservedList input =
     input
+
+
+type alias RW yourtype =
+    { get : yourtype
+    , set : yourtype -> PreOp
+    }
+
+
+changeField : OpID.ObjectID -> FieldIdentifier -> String -> PreOp
+changeField objectID fieldIdentifier newValueEncoded =
+    let
+        newPayload =
+            RS.encodeToString payloadCodec ( fieldIdentifier, newValueEncoded )
+    in
+    Op.pre reducerID objectID newPayload
+
+
+buildRW : OpID.ObjectID -> FieldIdentifier -> (a -> String) -> a -> RW a
+buildRW objectID fieldIdentifier stringifier thing =
+    { get = thing
+    , set = \new -> changeField objectID fieldIdentifier (stringifier new)
+    }

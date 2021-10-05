@@ -12,6 +12,7 @@ type alias Object =
     { creation : ObjectID
     , events : Dict OpIDString Event
     , included : InclusionInfo
+    , latest : OpID
     }
 
 
@@ -44,6 +45,7 @@ applyOp newOp oldObjectMaybe =
                 { creation = oldObject.creation
                 , events = Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
                 , included = oldObject.included
+                , latest = OpID.latest oldObject.latest (Op.id newOp)
                 }
 
         ( Nothing, Nothing ) ->
@@ -52,6 +54,7 @@ applyOp newOp oldObjectMaybe =
                 { creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
                 , events = Dict.empty
                 , included = All
+                , latest = Op.id newOp
                 }
 
         _ ->

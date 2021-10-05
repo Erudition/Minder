@@ -1,12 +1,14 @@
 module Replicated.Node.Node exposing (..)
 
 import Dict exposing (Dict)
+import List.Extra
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Op, create)
-import Replicated.Op.OpID as OpID exposing (ObjectID, ObjectIDString)
+import Replicated.Op.Op as Op exposing (Op, PreOp, ReducerID, create)
+import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import Replicated.Serialize as RS exposing (Codec)
+import SmartTime.Moment exposing (Moment)
 
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
@@ -53,18 +55,47 @@ blankNode =
     { identity = firstSessionEver, peers = [], db = Dict.empty, root = Nothing }
 
 
+applyLocalChanges : Moment -> Node -> List PreOp -> ( List Op, Node )
+applyLocalChanges time node preOps =
+    let
+        counterAtStart =
+            OpID.firstCounter time
 
---replicaCodec : RS.Codec e Node
---replicaCodec =
---    RS.record Node
---        |> RS.field .identity nodeIDCodec
---        |> RS.field .peers (RS.list peerCodec)
---        |> RS.field .db (RS.dict RS.string objectsByCreationCodec)
---        |> RS.finishRecord
+        finishOp : InCounter -> PreOp -> ( OutCounter, Op )
+        finishOp inCounter (Op.PreOp preOp) =
+            let
+                ( newID, outCounter ) =
+                    OpID.generate inCounter node.identity
+            in
+            ( outCounter, Op.finishPreOp (getReference node preOp.reducerID preOp.objectID) newID (Op.PreOp preOp) )
+
+        ( finalCounter, finishedOps ) =
+            List.Extra.mapAccuml finishOp counterAtStart preOps
+
+        updatedNode =
+            List.foldl updateNodeWithSingleOp node finishedOps
+    in
+    ( finishedOps, updatedNode )
+
+
+getReference : Node -> ReducerID -> ObjectID -> OpID
+getReference node reducer objectID =
+    let
+        relevantObjectTypeDatabase =
+            Maybe.withDefault Dict.empty <| Dict.get reducer node.db
+
+        relevantObject =
+            Dict.get (OpID.toString objectID) relevantObjectTypeDatabase
+    in
+    Maybe.withDefault objectID <| Maybe.map .latest relevantObject
 
 
 type alias ReducerNameString =
     String
+
+
+updateNodeWithSingleOp op node =
+    { node | db = applyOpToDb node.db (Debug.log (Op.toString op) op) }
 
 
 {-| Takes a single (e.g. newly received) Op and inserts it deep into the structure
@@ -125,8 +156,4 @@ fakeOps =
 
 
 fakeNode =
-    let
-        apply op node =
-            { node | db = applyOpToDb node.db op }
-    in
-    List.foldl apply blankNode fakeOps
+    List.foldl updateNodeWithSingleOp blankNode fakeOps

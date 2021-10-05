@@ -40,5 +40,5 @@ preInit maybeKey =
     , navkey = maybeKey -- passed from init
     , timeZone = utc -- temporary placeholder
     , launchTime = zero -- temporary placeholder
-    , node = ( Debug.log "here's the node" <| Replicated.Testing.fakeNodeWithExampleObject, Debug.log "here's the example object decoded!" <| Replicated.Testing.exampleObjectReDecoded Replicated.Testing.fakeNodeWithExampleObject )
+    , node = ( Debug.log "here's the node" <| Replicated.Testing.fakeNodeWithModifications, Debug.log "here's the example object decoded!" <| Replicated.Testing.exampleObjectReDecoded Replicated.Testing.fakeNodeWithModifications )
     }

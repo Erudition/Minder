@@ -3,7 +3,9 @@ module Replicated.Testing exposing (..)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
+import Replicated.Reducer.LWWObject exposing (RW)
 import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
+import SmartTime.Moment as Moment
 
 
 testNode : Node
@@ -16,18 +18,18 @@ testNode =
 
 
 type alias ExampleObject =
-    { name : ExampleSubObjectName
-    , address : String
-    , number : Int
+    { name : RW ExampleSubObjectName
+    , address : RW String
+    , number : RW Int
     }
 
 
 exampleObjectCodec : Codec e ExampleObject
 exampleObjectCodec =
     RC.record ExampleObject
-        |> RC.fieldR ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
-        |> RC.fieldR ( 2, "address" ) .address RC.string "nowhere"
-        |> RC.fieldR ( 3, "number" ) .number RC.int 0
+        |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
+        |> RC.fieldRW ( 2, "address" ) .address RC.string "default address"
+        |> RC.fieldRW ( 3, "number" ) .number RC.int 0
         |> RC.finishRecord
 
 
@@ -63,6 +65,26 @@ fakeNodeWithExampleObject =
             List.foldl apply Node.fakeNode exampleObjectAsOpList
     in
     { filledNode | root = rootIDMaybe }
+
+
+fakeNodeWithModifications =
+    let
+        exampleObjectMaybe =
+            Result.toMaybe (exampleObjectReDecoded fakeNodeWithExampleObject)
+    in
+    case exampleObjectMaybe of
+        Just exampleObjectFound ->
+            let
+                preOpList =
+                    [ exampleObjectFound.address.set "1234 candy lane" ]
+
+                ( outputOps, updatedNode ) =
+                    Node.applyLocalChanges (Moment.fromSmartInt 1000000) fakeNodeWithExampleObject preOpList
+            in
+            updatedNode
+
+        Nothing ->
+            fakeNodeWithExampleObject
 
 
 exampleObjectReDecoded : Node -> Result (RC.Error String) ExampleObject
