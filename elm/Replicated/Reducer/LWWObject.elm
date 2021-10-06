@@ -3,8 +3,9 @@ module Replicated.Reducer.LWWObject exposing (..)
 import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
-import Json.Decode
+import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
+import Porting
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -73,7 +74,7 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
         (getID lww)
         myNewID
         (Just opToReference)
-        (JE.encode 0 <| RS.encodeToJson payloadCodec ( fieldIdentifier, fieldValue ))
+        (JE.encode 0 <| encodePayload ( fieldIdentifier, fieldValue ))
     , nextCounter
     )
 
@@ -106,7 +107,7 @@ toFieldChange : ( String, Object.Event ) -> Maybe FieldChange
 toFieldChange ( eventStampString, Object.Event eventDetails ) =
     let
         interpretedPayload =
-            Result.toMaybe (RS.decodeFromString payloadCodec eventDetails.payload)
+            Result.toMaybe (Debug.log "Decoding payload " <| JD.decodeString decodePayload eventDetails.payload)
 
         stampFromString =
             Maybe.map OpID.getEventStamp (OpID.fromString eventStampString)
@@ -126,9 +127,10 @@ toFieldChange ( eventStampString, Object.Event eventDetails ) =
             Nothing
 
 
-payloadCodec : Codec e LWWPayload
-payloadCodec =
-    RS.tuple fieldIdentifierCodec RS.string
+
+--payloadCodec : Codec e LWWPayload
+--payloadCodec =
+--    RS.tuple fieldIdentifierCodec RS.string
 
 
 getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
@@ -139,7 +141,9 @@ getFieldLatest (LWWObject lww) ( slot, name ) =
 
         thisFieldOnly : FieldChange -> Maybe FieldValue
         thisFieldOnly (FieldChange change) =
-            case change.field == ( slot, name ) of
+            case Tuple.first change.field == slot of
+                -- only the slot needs to match
+                -- TODO check string as fallback?
                 True ->
                     Just change.changedTo
 
@@ -194,8 +198,37 @@ type alias FieldIdentifier =
     ( FieldSlot, FieldName )
 
 
-fieldIdentifierCodec =
-    RS.tuple RS.byte RS.string
+encodeFieldIdentifier : FieldIdentifier -> JE.Value
+encodeFieldIdentifier ( slot, name ) =
+    JE.string (String.fromInt slot ++ "_" ++ name)
+
+
+decodeFieldIdentifier : JD.Decoder FieldIdentifier
+decodeFieldIdentifier =
+    let
+        customDecoderFunction inputString =
+            let
+                splitUp =
+                    String.split "_" inputString
+
+                firstNumber =
+                    Maybe.andThen String.toInt (List.head splitUp)
+
+                errMsg =
+                    "Could not determine the slot (integer ID) of this field: " ++ inputString
+            in
+            Result.fromMaybe errMsg firstNumber
+    in
+    JD.andThen
+        (\a ->
+            case customDecoderFunction a of
+                Ok slot ->
+                    JD.succeed ( slot, "imported" )
+
+                Err err ->
+                    JD.fail err
+        )
+        JD.string
 
 
 type alias FieldName =
@@ -212,6 +245,21 @@ type alias FieldValue =
 
 type alias LWWPayload =
     ( FieldIdentifier, FieldValue )
+
+
+decodePayload : JD.Decoder LWWPayload
+decodePayload =
+    JD.index 0 decodeFieldIdentifier
+        |> JD.andThen
+            (\aVal ->
+                JD.index 1 JD.string
+                    |> JD.andThen (\bVal -> JD.succeed ( aVal, bVal ))
+            )
+
+
+encodePayload : LWWPayload -> JE.Value
+encodePayload ( fieldID, fieldValue ) =
+    JE.list identity [ encodeFieldIdentifier fieldID, JE.string fieldValue ]
 
 
 
@@ -275,12 +323,10 @@ type alias RecordDict =
     Dict FieldIdentifier FieldValue
 
 
-decodeFromDict : Codec e RecordDict
-decodeFromDict =
-    RS.dict fieldIdentifierCodec RS.string
 
-
-
+--decodeFromDict : Codec e RecordDict
+--decodeFromDict =
+--    RS.dict fieldIdentifierCodec RS.string
 --- DOING IT MY WAY -- RIPPED FROM SERIALIZE LIBRARY
 --{-| A partially built Codec for a record.
 ---}
@@ -396,7 +442,7 @@ changeField : OpID.ObjectID -> FieldIdentifier -> String -> PreOp
 changeField objectID fieldIdentifier newValueEncoded =
     let
         newPayload =
-            RS.encodeToString payloadCodec ( fieldIdentifier, newValueEncoded )
+            JE.encode 0 <| encodePayload ( fieldIdentifier, newValueEncoded )
     in
     Op.pre reducerID objectID newPayload
 

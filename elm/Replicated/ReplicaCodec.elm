@@ -1278,7 +1278,7 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
         -- There is no known replica. This is normal decoding.
         Nothing ->
             -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
-            JD.field (String.fromInt fieldSlot ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
+            JD.field (String.fromInt fieldSlot ++ "_" ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
 
         Just ( replica, Nothing ) ->
             Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
@@ -1297,7 +1297,7 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
                     let
                         runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
                         runDecoderOnFoundField =
-                            JD.decodeString (getJsonDecoder fieldValueCodec outer) foundField
+                            Debug.log "trying to decode found field" <| JD.decodeString (getJsonDecoder fieldValueCodec outer) (Debug.log "found" (prepDecoder foundField))
 
                         convertResult : Result (Error e) fieldtype
                         convertResult =
@@ -1310,6 +1310,16 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
                                     Err DataCorrupted
                     in
                     JD.succeed convertResult
+
+
+prepDecoder : String -> String
+prepDecoder inputString =
+    case String.startsWith "{" inputString of
+        True ->
+            "\"" ++ String.dropLeft 1 (String.dropRight 1 inputString) ++ "\""
+
+        False ->
+            inputString
 
 
 {-| Finish creating a codec for a record.
@@ -1645,7 +1655,7 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
                         lazyInputs.containingLww
                         lazyInputs.opToReference
                         ( fieldSlot, fieldName )
-                        (OpID.toString childID)
+                        ("{" ++ OpID.toString childID ++ "}")
             in
             ( op, outCounter, Op.id op )
 

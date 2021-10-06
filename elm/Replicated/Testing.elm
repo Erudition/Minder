@@ -76,10 +76,10 @@ fakeNodeWithModifications =
         Just exampleObjectFound ->
             let
                 preOpList =
-                    [ exampleObjectFound.address.set "1234 candy lane" ]
+                    [ exampleObjectFound.address.set "candylane" ]
 
                 ( outputOps, updatedNode ) =
-                    Node.applyLocalChanges (Moment.fromSmartInt 1000000) fakeNodeWithExampleObject preOpList
+                    Node.applyLocalChanges (Moment.fromSmartInt 1000) fakeNodeWithExampleObject preOpList
             in
             updatedNode
 
