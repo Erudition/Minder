@@ -5,7 +5,7 @@ import Fuzz exposing (Fuzzer, int, list, string)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
-import Replicated.Reducer.LWWObject exposing (RW)
+import Replicated.Reducer.Register exposing (RW)
 import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
 import SmartTime.Moment as Moment
 import Test exposing (..)

@@ -66,7 +66,7 @@ import Regex exposing (Regex)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
-import Replicated.Reducer.LWWObject as LWWObject exposing (LWWObject(..), RW, buildRW)
+import Replicated.Reducer.Register as Register exposing (RW, Register(..), buildRW)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -106,7 +106,7 @@ type ReplicaEncodeDepth
 
 
 type alias ElsewhereData =
-    Maybe ( Node, Maybe LWWObject )
+    Maybe ( Node, Maybe Register )
 
 
 type alias NestableJsonDecoder e a =
@@ -137,7 +137,7 @@ type alias RonFieldEncoder =
 
 type alias RonFieldEncoderInputs =
     { node : Node
-    , lwwMaybe : Maybe LWWObject -- no this MAY NOT exist yet, but it doesn't matter because
+    , registerMaybe : Maybe Register -- no this MAY NOT exist yet, but it doesn't matter because
     , counter : InCounter
     , mode : ReplicaEncodeDepth
     }
@@ -156,7 +156,7 @@ spits out OpID for next op to reference
 
 -}
 type alias UnfinishedOp =
-    { counter : InCounter, opToReference : OpID, containingLww : LWWObject } -> ( Op, OutCounter, OpID )
+    { counter : InCounter, opToReference : OpID, containingRegister : Register } -> ( Op, OutCounter, OpID )
 
 
 type alias SmartJsonFieldEncoder full =
@@ -1167,16 +1167,16 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
         wrappedNestableJsonFieldDecoder : ElsewhereData -> JD.Decoder (Result (Error errs) (RW fieldType))
         wrappedNestableJsonFieldDecoder elsewheredata =
             let
-                lwwObjectMaybe =
+                registerObjectMaybe =
                     Maybe.andThen Tuple.second elsewheredata
             in
-            case lwwObjectMaybe of
+            case registerObjectMaybe of
                 Nothing ->
                     -- TODO should still work as readable for JSON encoding
                     JD.fail "No ObjectID to give to RW writer"
 
-                Just lwwObject ->
-                    nestableJsonFieldDecoder ( fieldSlot, fieldName ) (rwWrapper (LWWObject.getID lwwObject) fieldDefault) (wrappedFieldValueCodec (LWWObject.getID lwwObject)) elsewheredata
+                Just registerObject ->
+                    nestableJsonFieldDecoder ( fieldSlot, fieldName ) (rwWrapper (Register.getID registerObject) fieldDefault) (wrappedFieldValueCodec (Register.getID registerObject)) elsewheredata
     in
     PartialRecord
         { encoder = addToPartialBytesEncoderList
@@ -1283,11 +1283,11 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
         Just ( replica, Nothing ) ->
             Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
 
-        -- We are working with an LWWObject
-        Just ( replica, Just lwwObject ) ->
+        -- We are working with an Register
+        Just ( replica, Just registerObject ) ->
             let
                 desiredField =
-                    LWWObject.getFieldLatest lwwObject ( fieldSlot, fieldName )
+                    Register.getFieldLatest registerObject ( fieldSlot, fieldName )
             in
             case desiredField of
                 Nothing ->
@@ -1341,7 +1341,7 @@ finishRecord (PartialRecord allFieldsCodec) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
         -- Are we running on a Json object or a replica object?
-        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe LWWObject ) -> JD.Decoder (Result (Error errs) full)
+        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe Register ) -> JD.Decoder (Result (Error errs) full)
         runJsonDecoderOnCorrectObject elsewhereData =
             case elsewhereData of
                 Nothing ->
@@ -1350,7 +1350,7 @@ finishRecord (PartialRecord allFieldsCodec) =
 
                 Just ( node, _ ) ->
                     -- we're working with a replica! Try to decode a UUID instead.
-                    -- then, if we find a LWWObject by that UUID, run the big decoder on that instead!
+                    -- then, if we find a Register by that UUID, run the big decoder on that instead!
                     let
                         objectIDDecoder : JD.Decoder OpID.ObjectID
                         objectIDDecoder =
@@ -1358,26 +1358,26 @@ finishRecord (PartialRecord allFieldsCodec) =
 
                         objectFinder : OpID.ObjectID -> Result (Error errs) full
                         objectFinder foundID =
-                            case LWWObject.build node foundID of
+                            case Register.build node foundID of
                                 Nothing ->
-                                    Debug.todo "lww not found"
+                                    Debug.todo "register not found"
 
-                                Just lww ->
-                                    case JD.decodeString (decodeWhatWeFound lww) "{}" of
+                                Just register ->
+                                    case JD.decodeString (decodeWhatWeFound register) "{}" of
                                         Ok nestedResult ->
                                             -- could be Ok (Ok something) or Ok (Err something)
                                             nestedResult
 
                                         Err someerror ->
                                             -- TODO FIXME
-                                            Tuple.second ( Debug.log "found lww but error decoding it" someerror, Err DataCorrupted )
+                                            Tuple.second ( Debug.log "found register but error decoding it" someerror, Err DataCorrupted )
 
-                        decodeWhatWeFound : LWWObject -> JD.Decoder (Result (Error errs) full)
-                        decodeWhatWeFound lww =
-                            allFieldsCodec.jsonArrayDecoder (Just ( node, Just lww ))
+                        decodeWhatWeFound : Register -> JD.Decoder (Result (Error errs) full)
+                        decodeWhatWeFound register =
+                            allFieldsCodec.jsonArrayDecoder (Just ( node, Just register ))
 
                         finalDecoder =
-                            -- take our found ObjectID and convert it to a LWW decoder
+                            -- take our found ObjectID and convert it to a Register decoder
                             JD.map objectFinder objectIDDecoder
                     in
                     finalDecoder
@@ -1400,21 +1400,21 @@ For each field:
 
 Also returns the ObjectID so that parent objects can refer to it.
 
-Why not create missing Objects in the encoder? Because if it already exists, we'd need to pass the existing ObjectID in anyway. Might as well pass in a guaranteed-existing LWW (pre-created if needed)
+Why not create missing Objects in the encoder? Because if it already exists, we'd need to pass the existing ObjectID in anyway. Might as well pass in a guaranteed-existing Register (pre-created if needed)
 
 -}
 objectRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonEncoderOutput
 objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode } as details) =
     let
-        oldLwwMaybe =
+        oldRegisterMaybe =
             case existingObjectIDMaybe of
                 Just givenID ->
-                    case LWWObject.build node givenID of
-                        Just oldLww ->
-                            Just oldLww
+                    case Register.build node givenID of
+                        Just oldRegister ->
+                            Just oldRegister
 
                         Nothing ->
-                            Debug.log ("objectRonEncoder was given ID of supposedly pre-existing LWWObject '" ++ OpID.toString givenID ++ "' but LWWObject.build couldn't find it") Nothing
+                            Debug.log ("objectRonEncoder was given ID of supposedly pre-existing Register '" ++ OpID.toString givenID ++ "' but Register.build couldn't find it") Nothing
 
                 Nothing ->
                     Nothing
@@ -1427,7 +1427,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                 passDetailsToField thisFieldCounter fieldFunction =
                     let
                         run =
-                            fieldFunction { node = node, lwwMaybe = oldLwwMaybe, counter = thisFieldCounter, mode = mode }
+                            fieldFunction { node = node, registerMaybe = oldRegisterMaybe, counter = thisFieldCounter, mode = mode }
                     in
                     ( run.postPrereqCounter, run )
             in
@@ -1439,28 +1439,28 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
         objectReadyCounter =
             Tuple.first runFieldEncodersFirstPass
 
-        -- how to create a new LWW object if we can't find an existing one
-        ( newLww, newLwwCreationOp, counterAfterInitialization ) =
+        -- how to create a new Register object if we can't find an existing one
+        ( newRegister, newRegisterCreationOp, counterAfterInitialization ) =
             let
                 ( newObjectID, newOutCounter ) =
                     OpID.generate objectReadyCounter node.identity
 
                 newObjectCreationOp =
-                    LWWObject.creation node newObjectID
+                    Register.creation node newObjectID
             in
-            ( LWWObject.empty newObjectID, newObjectCreationOp, newOutCounter )
+            ( Register.empty newObjectID, newObjectCreationOp, newOutCounter )
 
-        newLwwCreationOpAsSingletonIfNeeded =
-            case oldLwwMaybe of
+        newRegisterCreationOpAsSingletonIfNeeded =
+            case oldRegisterMaybe of
                 Just _ ->
                     []
 
                 Nothing ->
-                    [ newLwwCreationOp ]
+                    [ newRegisterCreationOp ]
 
         counterToStartPrereqs : InCounter
         counterToStartPrereqs =
-            case oldLwwMaybe of
+            case oldRegisterMaybe of
                 Just _ ->
                     objectReadyCounter
 
@@ -1471,13 +1471,13 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
         prerequisiteOps =
             List.concat (List.map .required (Tuple.second runFieldEncodersFirstPass))
 
-        finalLww =
-            Maybe.withDefault newLww oldLwwMaybe
+        finalRegister =
+            Maybe.withDefault newRegister oldRegisterMaybe
 
         latestReference =
             -- TODO if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
-            -- LWWObject.getLatestReference finalLww
-            LWWObject.getID finalLww
+            -- Register.getLatestReference finalRegister
+            Register.getID finalRegister
 
         -- finally, the actual Ops that set each field
         finishFieldOps : ( ( OutCounter, OpID.OpID ), List Op )
@@ -1494,7 +1494,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                 finishOps ( givenOpCounter, priorOpID ) opFinisher =
                     let
                         ( finishedOp, counterToPassAlong, backReference ) =
-                            opFinisher { counter = givenOpCounter, opToReference = priorOpID, containingLww = finalLww }
+                            opFinisher { counter = givenOpCounter, opToReference = priorOpID, containingRegister = finalRegister }
                     in
                     ( ( counterToPassAlong, backReference ), finishedOp )
             in
@@ -1507,8 +1507,8 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             Tuple.second finishFieldOps
     in
     -- spit out Ops in dependency order
-    { ops = prerequisiteOps ++ newLwwCreationOpAsSingletonIfNeeded ++ fieldSettingOps
-    , objectID = LWWObject.getID finalLww
+    { ops = prerequisiteOps ++ newRegisterCreationOpAsSingletonIfNeeded ++ fieldSettingOps
+    , objectID = Register.getID finalRegister
     , nextCounter = exitCounter
     }
 
@@ -1520,7 +1520,7 @@ obsolete reservedList input =
     input
 
 
-{-| Adds an item to the list of replica encoders, for encoding a single LWW field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
+{-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
 
 Updated to separate cases where the object needs to be created.
 
@@ -1537,13 +1537,13 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec de
 
 
 ronEncoderForNoNestFields : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
-ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, lwwMaybe, counter, mode } as details) =
+ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, registerMaybe, counter, mode } as details) =
     let
         -- attempt to find this field set in memory already
-        lwwField =
-            case lwwMaybe of
-                Just existingLww ->
-                    LWWObject.getFieldLatest existingLww fieldIdentifier
+        registerField =
+            case registerMaybe of
+                Just existingRegister ->
+                    Register.getFieldLatest existingRegister fieldIdentifier
 
                 Nothing ->
                     Nothing
@@ -1556,19 +1556,19 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
 
         isAlreadyDefault =
             -- missing values count as default
-            Maybe.withDefault True (Maybe.map ((==) defaultJsonEncoded) lwwField)
+            Maybe.withDefault True (Maybe.map ((==) defaultJsonEncoded) registerField)
 
         valueToWrite =
-            Maybe.withDefault defaultJsonEncoded lwwField
+            Maybe.withDefault defaultJsonEncoded registerField
 
         opToWriteField : UnfinishedOp
         opToWriteField lazyInput =
             let
                 ( op, outCounter ) =
-                    LWWObject.fieldToOp
+                    Register.fieldToOp
                         lazyInput.counter
                         node.identity
-                        lazyInput.containingLww
+                        lazyInput.containingRegister
                         lazyInput.opToReference
                         fieldIdentifier
                         valueToWrite
@@ -1597,14 +1597,14 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
 
 
 ronEncoderForNestedFields : FieldIdentifier -> fieldType -> Codec e fieldType -> RonEncoder -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
-ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ronEncoder ({ node, lwwMaybe, counter, mode } as details) =
+ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ronEncoder ({ node, registerMaybe, counter, mode } as details) =
     let
         -- attempt to find this field set in memory already
-        lwwField =
-            case lwwMaybe of
-                Just lwwFound ->
+        registerField =
+            case registerMaybe of
+                Just registerFound ->
                     -- still returns a maybe
-                    LWWObject.getFieldLatest lwwFound ( fieldSlot, fieldName )
+                    Register.getFieldLatest registerFound ( fieldSlot, fieldName )
 
                 Nothing ->
                     Nothing
@@ -1614,7 +1614,7 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
             OpID.fromString fieldValue
 
         finalObjectMaybe =
-            Maybe.andThen fieldValueToObjectID lwwField
+            Maybe.andThen fieldValueToObjectID registerField
 
         defaultJsonEncoded =
             encodeToJsonString fieldValueCodec fieldDefault
@@ -1623,17 +1623,17 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
             -- TODO: True if stored value is same as default
             False
 
-        -- is there a nested LWW? If so, dig in
-        findNestedLWW : Maybe LWWObject
-        findNestedLWW =
-            Maybe.andThen (LWWObject.build node) finalObjectMaybe
+        -- is there a nested Register? If so, dig in
+        findNestedRegister : Maybe Register
+        findNestedRegister =
+            Maybe.andThen (Register.build node) finalObjectMaybe
 
-        -- if we found a nested LWW,
+        -- if we found a nested Register,
         runNestedRonEncoder : RonEncoderOutput
         runNestedRonEncoder =
             ronEncoder
                 { node = node
-                , existingObjectIDMaybe = Maybe.map LWWObject.getID findNestedLWW
+                , existingObjectIDMaybe = Maybe.map Register.getID findNestedRegister
                 , counter = counter -- right?
                 , mode = mode
                 }
@@ -1649,10 +1649,10 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
         opToWriteField lazyInputs =
             let
                 ( op, outCounter ) =
-                    LWWObject.fieldToOp
+                    Register.fieldToOp
                         lazyInputs.counter
                         node.identity
-                        lazyInputs.containingLww
+                        lazyInputs.containingRegister
                         lazyInputs.opToReference
                         ( fieldSlot, fieldName )
                         ("{" ++ OpID.toString childID ++ "}")

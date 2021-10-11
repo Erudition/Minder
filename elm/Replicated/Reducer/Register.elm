@@ -1,4 +1,4 @@
-module Replicated.Reducer.LWWObject exposing (..)
+module Replicated.Reducer.Register exposing (..)
 
 import Bytes.Decode
 import Bytes.Encode
@@ -15,10 +15,10 @@ import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-{-| Parsed out of an ObjectLog tree, when reducer is set to the LWW Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
+{-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type LWWObject
-    = LWWObject
+type Register
+    = Register
         { id : OpID.ObjectID
         , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
         , included : Object.InclusionInfo
@@ -30,32 +30,32 @@ reducerID =
     "lww"
 
 
-getID (LWWObject lww) =
-    lww.id
+getID (Register register) =
+    register.id
 
 
-empty : OpID.ObjectID -> LWWObject
+empty : OpID.ObjectID -> Register
 empty objectID =
-    LWWObject { id = objectID, changeHistory = [], included = Object.All }
+    Register { id = objectID, changeHistory = [], included = Object.All }
 
 
-build : Node -> OpID.ObjectID -> Maybe LWWObject
+build : Node -> OpID.ObjectID -> Maybe Register
 build node objectID =
     let
-        convertObjectToLWW : Object -> LWWObject
-        convertObjectToLWW obj =
-            LWWObject { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
+        convertObjectToRegister : Object -> Register
+        convertObjectToRegister obj =
+            Register { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    Maybe.map convertObjectToLWW (getObjectIfExists node objectID)
+    Maybe.map convertObjectToRegister (getObjectIfExists node objectID)
 
 
 getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
 getObjectIfExists node objectID =
     let
-        lwwDatabase =
+        registerDatabase =
             Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
     in
-    Dict.get (OpID.toString objectID) lwwDatabase
+    Dict.get (OpID.toString objectID) registerDatabase
 
 
 creation : Node -> OpID.ObjectID -> Op
@@ -63,15 +63,15 @@ creation node objectID =
     Object.create reducerID objectID
 
 
-fieldToOp : OpID.InCounter -> NodeID -> LWWObject -> OpID.OpID -> FieldIdentifier -> FieldValue -> ( Op, OpID.OutCounter )
-fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
+fieldToOp : OpID.InCounter -> NodeID -> Register -> OpID.OpID -> FieldIdentifier -> FieldValue -> ( Op, OpID.OutCounter )
+fieldToOp inCounter nodeID register opToReference fieldIdentifier fieldValue =
     let
         ( myNewID, nextCounter ) =
             OpID.generate inCounter nodeID
     in
     ( Op.create
         reducerID
-        (getID lww)
+        (getID register)
         myNewID
         (Just opToReference)
         (JE.encode 0 <| encodePayload ( fieldIdentifier, fieldValue ))
@@ -79,7 +79,7 @@ fieldToOp inCounter nodeID lww opToReference fieldIdentifier fieldValue =
     )
 
 
-{-| For LWW we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
+{-| For Register we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
 -}
 buildHistory : Dict String Object.Event -> List FieldChange
 buildHistory eventDict =
@@ -101,7 +101,7 @@ type FieldChange
         }
 
 
-{-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a LWW field change item.
+{-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a Register field change item.
 -}
 toFieldChange : ( String, Object.Event ) -> Maybe FieldChange
 toFieldChange ( eventStampString, Object.Event eventDetails ) =
@@ -128,16 +128,16 @@ toFieldChange ( eventStampString, Object.Event eventDetails ) =
 
 
 
---payloadCodec : Codec e LWWPayload
+--payloadCodec : Codec e RegisterPayload
 --payloadCodec =
 --    RS.tuple fieldIdentifierCodec RS.string
 
 
-getFieldLatest : LWWObject -> ( FieldSlot, FieldName ) -> Maybe FieldValue
-getFieldLatest (LWWObject lww) ( slot, name ) =
+getFieldLatest : Register -> ( FieldSlot, FieldName ) -> Maybe FieldValue
+getFieldLatest (Register register) ( slot, name ) =
     let
         changesToThisField =
-            List.filterMap thisFieldOnly lww.changeHistory
+            List.filterMap thisFieldOnly register.changeHistory
 
         thisFieldOnly : FieldChange -> Maybe FieldValue
         thisFieldOnly (FieldChange change) =
@@ -162,8 +162,8 @@ type alias Snapshot =
 
 {-| Take a snapshot of the record object, since all we care about is the latest value of each field.
 -}
-latest : LWWObject -> Snapshot
-latest (LWWObject { changeHistory }) =
+latest : Register -> Snapshot
+latest (Register { changeHistory }) =
     -- TODO OPTIMIZE by stopping once we've found something for all fields (if possible)
     let
         toKeyValuePair (FieldChange fieldEvent) =
@@ -178,8 +178,8 @@ latest (LWWObject { changeHistory }) =
 
 --{-| A snapshot of what the Replicated Record looked like at some point in the past.
 ---}
---asOf : Moment -> LWWObject -> Snapshot
---asOf cutoff (LWWObject recordObject) =
+--asOf : Moment -> RegisterObject -> Snapshot
+--asOf cutoff (RegisterObject recordObject) =
 --    let
 --        isPrior (FieldChange fieldEvent) =
 --            let
@@ -191,7 +191,7 @@ latest (LWWObject { changeHistory }) =
 --        cutoffHistory =
 --            List.filter isPrior recordObject.changeHistory
 --    in
---    latest (LWWObject { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
+--    latest (RegisterObject { id = recordObject.id, changeHistory = cutoffHistory, included = recordObject.included })
 
 
 type alias FieldIdentifier =
@@ -243,11 +243,11 @@ type alias FieldValue =
     String
 
 
-type alias LWWPayload =
+type alias RegisterPayload =
     ( FieldIdentifier, FieldValue )
 
 
-decodePayload : JD.Decoder LWWPayload
+decodePayload : JD.Decoder RegisterPayload
 decodePayload =
     JD.index 0 decodeFieldIdentifier
         |> JD.andThen
@@ -257,7 +257,7 @@ decodePayload =
             )
 
 
-encodePayload : LWWPayload -> JE.Value
+encodePayload : RegisterPayload -> JE.Value
 encodePayload ( fieldID, fieldValue ) =
     JE.list identity [ encodeFieldIdentifier fieldID, JE.string fieldValue ]
 
