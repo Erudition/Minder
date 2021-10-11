@@ -137,23 +137,3 @@ peerCodec =
     RS.record Peer
         |> RS.field .identity codec
         |> RS.finishRecord
-
-
-
--- TESTING
-
-
-fakeOps : List Op
-fakeOps =
-    let
-        ops =
-            """
-            @1200+0.0.0.0 :lww,
-            @1244+0.0.0.0 :1200+0.0.0.0 [1,[[1,first],firstname]]
-            """
-    in
-    Maybe.withDefault [] <| Result.toMaybe <| Debug.log "Importing op" <| Op.fromFrame ops
-
-
-fakeNode =
-    List.foldl updateNodeWithSingleOp blankNode fakeOps
