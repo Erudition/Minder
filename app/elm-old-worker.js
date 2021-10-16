@@ -135,7 +135,14 @@ notifications.addOnMessageReceivedCallback(
 // LEGACY PORT: VARIABLE OUT ------------------------------------------
 
 elm.ports.variableOut.subscribe(function(data) {
+    // are we a worker?
+    if (typeof postMessage !== 'undefined') {
     postMessage(data);
+    } else {
+    //messageFromElm();
+    }
+
+
 });
 
 
@@ -159,11 +166,22 @@ global.onmessage = function(incoming) {
     try {
         elm.ports[incoming.data.port].send(incoming.data.message);
     } catch (e) {
-        console.error("Worker got a message, but couldn't act on it: " + incoming.data.toString());
+        console.error("Elm got a message, but couldn't act on it: " + incoming.data.toString());
         console.dir(incoming);
         console.error(e.toString());
     }
+}
 
+//for foreground or background
+export function elmGotMessage(incomingMessage) {
+
+    try {
+        elm.ports[incomingMessage.port].send(incomingMessage.message);
+    } catch (e) {
+        console.error("Elm got a message, but couldn't act on it: " + incomingMessage.toString());
+        console.dir(incomingMessage);
+        console.error(e.toString());
+    }
 }
 
 console.info("<-- Worker initialized.");
