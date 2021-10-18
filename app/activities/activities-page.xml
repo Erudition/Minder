@@ -8,9 +8,9 @@
     <!--        <Label class="action-bar-title" text="Activities"></Label>-->
     <!--    </ActionBar>-->
     <StackLayout>
-        <wear:WearOsListView useScalingScroll="true" height="100%" items="{{ activities }}" itemTap="onItemTap">
+        <wear:WearOsListView useScalingScroll="false" height="100%" items="{{ activities }}" itemTap="onItemTap">
             <wear:WearOsListView.itemTemplate>
-                <GridLayout rows="*" columns="auto, *">
+                <GridLayout rows="auto" columns="auto, *">
                     <Label text="⚪" row="0" col="0"/>
                     <Label text="{{ name }}" row="0" col="1"/>
                     <Label text="{{ excusedUsage }}" row="0" col="2" horizontalAlignment="right"/>

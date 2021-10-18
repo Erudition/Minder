@@ -133,7 +133,7 @@ notifications.addOnMessageReceivedCallback(
     }
 )
 
-
+require("./nativehelpers/wearDataLayer.js");
 
 // LEGACY PORT: VARIABLE OUT ------------------------------------------
 
@@ -187,35 +187,8 @@ export function messageFromElm(incomingMessage) {
 //worker.onmessage = function(messageFromElm(incomingMessage));
 
 
-//if (global.isAndroid) {
-//  const bm = Utils.android
-//    .getApplicationContext()
-//    .getSystemService(android.content.Context.BATTERY_SERVICE)
-//  const batLevel = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-//}
-//FusedLocationProviderClient client =
-//        LocationServices.getFusedLocationProviderClient(this);
 
 
-// WEAR OS DATA CLIENT
-
-import { Utils, Device } from '@nativescript/core'
-
-if (global.isAndroid) {
-    const wearable = com.google.android.gms.wearable.Wearable
-    let dataClient =  wearable.getDataClient(Utils.android.getApplicationContext());
-    let getItemsTask = dataClient.getDataItems();
-
-    let myListener = com.google.android.gms.tasks.OnSuccessListener.extend( {
-         onSuccess : function (dataItemBuffer) {
-             console.log("task completed successfully")
-         }
-    });
-
-    getItemsTask.addOnSuccessListener(myListener);
-
-    console.log("data items " + allItems);
-}
 
 // VIEWMODEL UPDATER
 function updateVM (data) {
@@ -270,6 +243,11 @@ applicationModule.android.registerBroadcastReceiver(
     "app.minder.secretMessage",
     secretMessageReceived
 );
+
+
+
+
+require("./nativehelpers/peer2peer.js");
 
 
 // LISTENING FOR STANDARD SYSTEM BROADCASTS ------------------------------------
