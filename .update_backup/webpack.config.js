@@ -140,10 +140,16 @@ module.exports = env => {
         node: {
             // Disable node shims that conflict with NativeScript
             "http": false,
-            "timers": false,
+            "timers": "empty", // I changed from "false"
             "setImmediate": false,
             "fs": "empty",
             "__dirname": false,
+            // added by minder dev - fixes libp2p deps expecting node builtins even on browser
+            "net": "empty",
+            "tls": "empty",
+            "dns": "empty",
+            "dgram": "empty",
+            "child_process": "empty"
         },
         devtool: hiddenSourceMap ? "hidden-source-map" : (sourceMap ? "inline-source-map" : "none"),
         optimization: {
@@ -239,17 +245,19 @@ module.exports = env => {
                 "process": "global.process",
             }),
             // Remove all files from the out dir.
-            new CleanWebpackPlugin({ 
+            new CleanWebpackPlugin({
               cleanOnceBeforeBuildPatterns: itemsToClean,
               verbose: !!verbose
             }),
             // Copy assets
-            new CopyWebpackPlugin([
-                { from: { glob: 'assets/**', dot: false } },
-                { from: { glob: 'fonts/**', dot: false } },
-                { from: { glob: '**/*.jpg', dot: false } },
-                { from: { glob: '**/*.png', dot: false } },
-            ], copyIgnore),
+            new CopyWebpackPlugin({
+              patterns: [
+                { from: 'assets/**', noErrorOnMissing: true, globOptions: { dot: false, ...copyIgnore } },
+                { from: 'fonts/**', noErrorOnMissing: true, globOptions: { dot: false, ...copyIgnore } },
+                { from: '**/*.jpg', noErrorOnMissing: true, globOptions: { dot: false, ...copyIgnore } },
+                { from: '**/*.png', noErrorOnMissing: true, globOptions: { dot: false, ...copyIgnore } },
+              ],
+            }),
             new nsWebpack.GenerateNativeScriptEntryPointsPlugin("bundle"),
 
             // For instructions on how to set up workers with webpack
