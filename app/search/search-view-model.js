@@ -1,5 +1,5 @@
-const observableModule = require("tns-core-modules/data/observable");
-const appSettings = require("tns-core-modules/application-settings");
+const observableModule = require("@nativescript/core/data/observable");
+const appSettings = require("@nativescript/core/application-settings");
 
 let settingsString = appSettings.getString("appData", "{}");
 var appData = JSON.parse(settingsString);

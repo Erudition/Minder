@@ -65,7 +65,7 @@ module.exports = env => {
       appFullPath = resolve(projectRoot, 'app');
     }
     const hasRootLevelScopedModules = nsWebpack.hasRootLevelScopedModules({ projectDir: projectRoot });
-    let coreModulesPackageName = "tns-core-modules";
+    let coreModulesPackageName = "@nativescript/core";
     const alias = env.alias || {};
     alias['~/package.json'] = resolve(projectRoot, 'package.json');
     alias['~'] = appFullPath;

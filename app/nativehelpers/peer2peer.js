@@ -1,6 +1,5 @@
 //https://docs.libp2p.io/tutorials/getting-started/javascript/
 
-require("nativescript-nodeify");
 
 const Libp2p = require('libp2p');
 const multiaddr = require('multiaddr');

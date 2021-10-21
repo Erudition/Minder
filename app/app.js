@@ -1,5 +1,4 @@
 require("nativescript-dom-free");
-require("@nativescript/canvas-polyfill");
 
 // START BUSINESS LOGIC THREAD
 //const ElmManager = require("nativescript-worker-loader!./elm-background.js");
@@ -7,7 +6,7 @@ require("@nativescript/canvas-polyfill");
 
 
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
-const applicationModule = require("tns-core-modules/application");
+const applicationModule = require("@nativescript/core/application");
 var androidApp = applicationModule.android
 let isPaused = androidApp.paused; // e.g. false
 let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
@@ -17,7 +16,7 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 
 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
-const appSettings = require("tns-core-modules/application-settings");
+const appSettings = require("@nativescript/core/application-settings");
 // appSettings.clear("appData");
 try {
     var appDataString = appSettings.getString("appData", "");
@@ -165,7 +164,7 @@ elm.ports.setStorage.subscribe(function(data) {
 
 
 
-const observableModule = require("tns-core-modules/data/observable");
+const observableModule = require("@nativescript/core/data/observable");
 global.globalViewModel = observableModule.fromObject(
     {activities:[ ]
     });
@@ -209,7 +208,7 @@ function updateVM (data) {
 
 // BROADCAST RECEIVERS
 // Broadcasts can't be in logic.js (because worker shuts off?)
-//const applicationModule = require("tns-core-modules/application");
+//const applicationModule = require("@nativescript/core/application");
 // BROADCAST: BATTERY INFO UPDATE ----------------------------------------------
 
 // applicationModule.android.registerBroadcastReceiver(
@@ -254,7 +253,7 @@ require("./nativehelpers/peer2peer.js");
 
 
 // START THE APP
-//const application = require("tns-core-modules/application");
+//const application = require("@nativescript/core/application");
 
 
 

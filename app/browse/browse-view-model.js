@@ -1,4 +1,4 @@
-const observableModule = require("tns-core-modules/data/observable");
+const observableModule = require("@nativescript/core/data/observable");
 
 function BrowseViewModel() {
     const viewModel = observableModule.fromObject({

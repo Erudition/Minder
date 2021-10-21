@@ -1,6 +1,10 @@
 // Place any CSS rules you want to apply on both iOS and Android here.
 // This is where the vast majority of your CSS code goes.
+
+@import '_app-variables.scss'; // added this because error in webpack 5 that vars are undefined
+
 // Font icon class
+
 .fa {
    font-family: "FontAwesome";
 }

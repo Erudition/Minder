@@ -1,7 +1,11 @@
 const webpack = require("@nativescript/webpack");
 
+const { IgnorePlugin } = require('webpack');
+
 module.exports = (env) => {
 	webpack.init(env);
+
+//config.resolve.alias.set('tns-core-modules', '@nativescript/core');
 
 	// Learn how to customize:
 	// https://docs.nativescript.org/webpack
@@ -12,6 +16,7 @@ module.exports = (env) => {
         // return the object to be merged
         return {
           resolve: {
+              alias: { "tns-core-modules": "@nativescript/core" }, //somehow still necessary for old node modules
               fallback: {
 //                assert: require.resolve('assert'),
 //                buffer: require.resolve('buffer'),
@@ -36,17 +41,24 @@ module.exports = (env) => {
 //                util: require.resolve('util'),
                 vm: require.resolve('vm-browserify'),
                 zlib: require.resolve('browserify-zlib'),
-                fs: "empty",
-                child_process: "empty",
-                net: "empty",
-                tls: "empty",
-                dns: "empty",
-                dgram: "empty",
+                "fs": false,
+                "child_process": false,
+                "net": false,
+                "tls": false,
+                "dns": false,
+                "dgram": false,
+                "_stream_transform": require.resolve("readable-stream"),
               },
             }
         }
       })
 
+
+
+      // using the IgnorePlugin so we don't get errors from direc
+      webpack.chainWebpack(config => {
+        // we add the plugin
+        config.plugin('IgnorePlugin').use(IgnorePlugin, [{ resourceRegExp: /backup/ }]) });
 
 
 	return webpack.resolveConfig();

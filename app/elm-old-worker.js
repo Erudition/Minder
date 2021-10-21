@@ -4,7 +4,7 @@ console.info("Initializing business logic in worker. -->");
 
 
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
-const applicationModule = require("tns-core-modules/application");
+const applicationModule = require("@nativescript/core/application");
 var androidApp = applicationModule.android
 let isPaused = androidApp.paused; // e.g. false
 let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
@@ -14,7 +14,7 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 
 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
-const appSettings = require("tns-core-modules/application-settings");
+const appSettings = require("@nativescript/core/application-settings");
 // appSettings.clear("appData");
 try {
     var appDataString = appSettings.getString("appData", "");

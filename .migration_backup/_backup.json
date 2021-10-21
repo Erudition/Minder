@@ -11,6 +11,12 @@
     "package.json",
     "app/package.json",
     "package.json",
-    "app/package.json"
+    "app/package.json",
+    "hooks",
+    "webpack.config.js",
+    "package.json",
+    "package-lock.json",
+    "webpack.config.js",
+    "package.json"
   ]
 }
