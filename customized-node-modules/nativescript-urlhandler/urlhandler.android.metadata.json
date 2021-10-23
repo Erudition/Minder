@@ -1,0 +1,19 @@
+[
+  {
+    "__symbolic": "module",
+    "version": 4,
+    "metadata": {
+      "handleIntent": {
+        "__symbolic": "function"
+      }
+    },
+    "exports": [
+      {
+        "from": "./urlhandler.common",
+        "export": [
+          "handleOpenURL"
+        ]
+      }
+    ]
+  }
+]

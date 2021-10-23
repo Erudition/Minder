@@ -1,0 +1,11 @@
+[
+  {
+    "__symbolic": "module",
+    "version": 4,
+    "metadata": {
+      "getAppDelegate": {
+        "__symbolic": "function"
+      }
+    }
+  }
+]

@@ -1,0 +1,91 @@
+{
+  "_from": "nativescript-crypto",
+  "_id": "nativescript-crypto@0.9.11",
+  "_inBundle": false,
+  "_integrity": "sha1-FNbTD0D+h6XDHu25vULc9ojUedE=",
+  "_location": "/nativescript-crypto",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "nativescript-crypto",
+    "name": "nativescript-crypto",
+    "escapedName": "nativescript-crypto",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/nativescript-crypto/-/nativescript-crypto-0.9.11.tgz",
+  "_shasum": "14d6d30f40fe87a5c31eedb9bd42dcf688d479d1",
+  "_spec": "nativescript-crypto",
+  "_where": "/home/adroit/Projects/Minder",
+  "author": {
+    "name": "Tomé Vardasca",
+    "email": "tome@vardas.ca"
+  },
+  "bootstrapper": "nativescript-plugin-seed",
+  "bugs": {
+    "url": "https://github.com/tomvardasca/nativescript-crypto/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "Cryptographic functions and utilities using libsodium and native RSA and AES-GCM.",
+  "devDependencies": {
+    "concurrently": "^3.5.0",
+    "prompt": "^1.0.0",
+    "rimraf": "^2.5.0",
+    "tns-core-modules": "^3.0.0",
+    "tns-platform-declarations": "^3.0.0",
+    "tslint": "^5.0.0",
+    "typescript": "^2.2.2"
+  },
+  "homepage": "https://github.com/tomvardasca/nativescript-crypto",
+  "keywords": [
+    "NativeScript",
+    "JavaScript",
+    "TypeScript",
+    "Crypto",
+    "Cryptography",
+    "libsodiun",
+    "RSA",
+    "AES",
+    "Android",
+    "iOS"
+  ],
+  "license": "Apache-2.0",
+  "main": "crypto",
+  "name": "nativescript-crypto",
+  "nativescript": {
+    "platforms": {
+      "android": "3.0.0",
+      "ios": "3.0.0"
+    }
+  },
+  "peerDependencies": {
+    "tns-core-modules": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomvardasca/nativescript-crypto.git"
+  },
+  "scripts": {
+    "demo.android": "npm i && npm run tsc && cd ../demo && tns run android --syncAllFiles",
+    "demo.ios": "npm i && npm run tsc && cd ../demo && tns run ios --syncAllFiles",
+    "plugin.link": "npm link && cd ../demo && npm link nativescript-crypto && cd ../src",
+    "plugin.tscwatch": "npm run tsc -- -w",
+    "postclone": "npm i && node scripts/postclone.js && cd ../demo && npm i && cd ../src && npm run plugin.link",
+    "test.android": "npm i && npm run tsc && npm run tslint && cd ../demo && tns build android && tns test android --justlaunch",
+    "test.ios": "npm i && npm run tsc && npm run tslint && cd ../demo && tns build ios && tns test ios --justlaunch",
+    "tsc": "tsc -skipLibCheck",
+    "tslint": "cd .. && tslint \"**/*.ts\" --config tslint.json --exclude \"**/node_modules/**\"",
+    "w-demo.android": "concurrently 'npm run demo.android' 'npm run plugin.tscwatch'",
+    "w-demo.ios": "concurrently 'npm run demo.ios' 'npm run plugin.tscwatch'"
+  },
+  "typings": "index.d.ts",
+  "version": "0.9.11"
+}

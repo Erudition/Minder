@@ -10,7 +10,7 @@
 // create a file named before-plugins.gradle in the current directory and place it there
 
 dependencies {
-  implementation 'com.google.android.gms:play-services-wearable:17.1.0'
+  compileOnly 'com.google.android.gms:play-services-wearable:17.1.0'
 }
 
 

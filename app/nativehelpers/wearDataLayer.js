@@ -34,9 +34,11 @@ if (global.isAndroid) {
              let foundNodes = dataItemBuffer.getCount();
              console.log("Found " + foundNodes + " data items.");
 
-             let dataItemZero = dataItemBuffer.get(0);
-             let storedData = dataItemZero.getData();
-             console.log("data item 0 is stored as: " + storedData);
+             if (foundNodes > 0) {
+                 let dataItemZero = dataItemBuffer.get(0);
+                 let storedData = dataItemZero.getData();
+                 console.log("data item 0 is stored as: " + storedData);
+             }
          }
     });
 

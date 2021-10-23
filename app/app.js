@@ -1,4 +1,9 @@
-require("nativescript-dom-free");
+console.info("Loading app.js.");
+//require("nativescript-dom-free");
+
+//require("./nativehelpers/wearDataLayer.js");
+require("./nativehelpers/peer2peer.js");
+
 
 // START BUSINESS LOGIC THREAD
 //const ElmManager = require("nativescript-worker-loader!./elm-background.js");
@@ -12,7 +17,7 @@ let isPaused = androidApp.paused; // e.g. false
 let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
 let nativeApp = androidApp.nativeApp; // The native Application reference
 let foregroundActivity = androidApp.foregroundActivity; // The current Activity reference
-//let context = androidApp.context; // The current Android context
+let context = androidApp.context; // The current Android context
 
 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
@@ -39,9 +44,9 @@ var handleOpenURL = require("nativescript-urlhandler").handleOpenURL;
 
 const testingExport = "https://minder.app/?export=all";
 const testingClearErrors = "https://minder.app/?clearerrors=clearerrors";
-const testingActivity = "https://minder.app/?start=Restroom";
+const testingActivity = "https://minder.app/?start=Project";
 const testingSync = "https://minder.app/?sync=marvin";
-var launchURL = testingSync;
+var launchURL = testingActivity;
 
 // URL passed in via somewhere else on the system
 handleOpenURL(function(appURL) {
@@ -59,11 +64,11 @@ handleOpenURL(function(appURL) {
 
 // ELM INITIALIZATION -----------------------------------------------------------
 
-
+console.info("starting Elm headless.");
 var elm = require('../www/elm-headless.js').Elm.Headless.init(
     { flags: [launchURL, appDataString] });
 
-console.info("Got past Elm headless initialization! ---------------------------------");
+console.info("Elm headless initialized.");
 
 const ns_hookup = require('./elm-nativescript.js');
 ns_hookup.addNativeScriptFeaturesToElm(elm);
@@ -108,7 +113,7 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
 
     notifications.schedule(correctedList).then(
         function(scheduledIds) {
-          console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
+          //console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
 
         },
         function(error) {
@@ -132,7 +137,7 @@ notifications.addOnMessageReceivedCallback(
     }
 )
 
-require("./nativehelpers/wearDataLayer.js");
+
 
 // LEGACY PORT: VARIABLE OUT ------------------------------------------
 
@@ -246,7 +251,7 @@ applicationModule.android.registerBroadcastReceiver(
 
 
 
-require("./nativehelpers/peer2peer.js");
+
 
 
 // LISTENING FOR STANDARD SYSTEM BROADCASTS ------------------------------------
@@ -258,8 +263,8 @@ require("./nativehelpers/peer2peer.js");
 
 
 function launchListener (args)  {
-    console.info("Attempting Elm initialization! ---------------------------------");
-    console.log("args is " + JSON.stringify(args));
+//    console.info("Attempting Elm initialization! ---------------------------------");
+//    console.log("args is " + JSON.stringify(args));
 
 //    var rootElement =  document.getElementById("root-tabview");
 //
@@ -270,15 +275,22 @@ function launchListener (args)  {
 //        { node: rootElement
 //        , flags: ["https://minder.app/", ""]
 //        });
-
-    console.info("Got past Elm initialization! ---------------------------------");
+//
+//    console.info("Got past Elm initialization! ---------------------------------");
     console.log("The app was launched!");
 }
 applicationModule.on(applicationModule.launchEvent, launchListener);
 
-//TODO detect if on wear
-//application.run({ moduleName: "app-root" });
-applicationModule.run({ moduleName: "app-root-wear" });
+
+
+// Choose launch screen based on watch or not
+if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+    applicationModule.run({ moduleName: "app-root-wear" });
+} else {
+    application.run({ moduleName: "app-root" });
+}
+
+
 
 /*
 Do not place any code after the application has been started as it will not

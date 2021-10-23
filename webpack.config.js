@@ -16,13 +16,20 @@ module.exports = (env) => {
         // return the object to be merged
         return {
           resolve: {
-              alias: { "tns-core-modules": "@nativescript/core" }, //somehow still necessary for old node modules
+              mainFields: ['module', 'main', 'browser'],
+              alias: { "tns-core-modules": "@nativescript/core", //somehow still necessary for old node modules
+                        "url": "whatwg-url", //better replacement
+                        "randombytes" : "nativescript-randombytes", // for crypto library
+                        "nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
+                        "nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
+                        "it-ws" : "/customized-node-modules/it-ws",
+                        "crypto" : '/customized-node-modules/nativescript-crypto'
+                        },
               fallback: {
 //                assert: require.resolve('assert'),
 //                buffer: require.resolve('buffer'),
                 console: require.resolve('console-browserify'),
                 constants: require.resolve('constants-browserify'),
-                crypto: require.resolve('crypto-browserify'),
 //                domain: require.resolve('domain-browser'),
                 events: require.resolve('events'),
                 http: require.resolve('stream-http'),
@@ -37,8 +44,8 @@ module.exports = (env) => {
 //                sys: require.resolve('util'),
                 timers: require.resolve('timers-browserify'),
                 tty: require.resolve('tty-browserify'),
-                url: require.resolve('url'),
-//                util: require.resolve('util'),
+                url: require.resolve('whatwg-url'),
+                util: require.resolve('util'),
                 vm: require.resolve('vm-browserify'),
                 zlib: require.resolve('browserify-zlib'),
                 "fs": false,
