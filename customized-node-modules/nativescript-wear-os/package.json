@@ -1,0 +1,103 @@
+{
+  "_args": [
+    [
+      "nativescript-wear-os@3.0.0",
+      "/home/adroit/Projects/Minder"
+    ]
+  ],
+  "_from": "nativescript-wear-os@3.0.0",
+  "_id": "nativescript-wear-os@3.0.0",
+  "_inBundle": false,
+  "_integrity": "sha512-iI0J8mg0SKwyouGJ3LnSKVP2R24QrOx2dJzzCUp0DwaFQkYxssYUEqPlC/PI3TGADu6rP9LYg4IJA9tJJmA9kw==",
+  "_location": "/nativescript-wear-os",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "nativescript-wear-os@3.0.0",
+    "name": "nativescript-wear-os",
+    "escapedName": "nativescript-wear-os",
+    "rawSpec": "3.0.0",
+    "saveSpec": null,
+    "fetchSpec": "3.0.0"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/nativescript-wear-os/-/nativescript-wear-os-3.0.0.tgz",
+  "_spec": "3.0.0",
+  "_where": "/home/adroit/Projects/Minder",
+  "author": {
+    "name": "Brad Martin",
+    "email": "bradwaynemartin@gmail.com"
+  },
+  "bugs": {
+    "url": "https://github.com/bradmartin/nativescript-wear-os/issues"
+  },
+  "description": "NativeScript plugin that implements Wear OS specific components and layouts.",
+  "devDependencies": {
+    "@nativescript/core": "^7.0.0",
+    "@nativescript/types": "^7.0.0",
+    "@nativescript/webpack": "~3.0.4",
+    "husky": "^4.2.5",
+    "lint-staged": "^10.2.13",
+    "prettier": "^2.1.1",
+    "rimraf": "^3.0.2",
+    "ts-node": "^9.0.0",
+    "ts-patch": "^1.3.0",
+    "tslint": "~6.1.3",
+    "typescript": "~3.9.0"
+  },
+  "homepage": "https://github.com/bradmartin/nativescript-wear-os",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "keywords": [
+    "NativeScript",
+    "JavaScript",
+    "Android",
+    "Wear OS",
+    "watches",
+    "wearables",
+    "listview",
+    "box inset",
+    "recycler view",
+    "layout"
+  ],
+  "license": "Apache-2.0",
+  "lint-staged": {
+    "*.ts, *.js, *.json, *.scss, *.css, *.html, *.xml, *.md": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "main": "index",
+  "name": "nativescript-wear-os",
+  "nativescript": {
+    "platforms": {
+      "android": "5.0.0",
+      "ios": "5.0.0"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bradmartin/nativescript-wear-os.git"
+  },
+  "scripts": {
+    "build": "npm i && ts-patch install && tsc -skipLibCheck",
+    "build.native": "node scripts/build-native.js",
+    "ci.tslint": "npm i && tslint '**/*.ts' --config '../tslint.json' --exclude '**/node_modules/**' --exclude '**/typings/**'",
+    "clean.demo": "cd ../demo && ns clean",
+    "clean.src": "rimraf node_modules package-lock.json",
+    "demo.android": "cd ../demo && tns run android",
+    "demo.ios": "cd ../demo && tns run ios",
+    "make-changelog": "cd ../ && github_changelog_generator -u bradmartin -p nativescript-wear-os --token=TOKEN",
+    "test.android": "npm i && npm run tsc && npm run tslint && cd ../demo && tns build android && tns test android --justlaunch",
+    "test.ios": "npm i && npm run tsc && npm run tslint && cd ../demo && tns build ios && tns test ios --justlaunch",
+    "tslint": "cd .. && tslint \"**/*.ts\" --config tslint.json --exclude \"**/node_modules/**\" --exclude \"*demo*/platforms/**\" --exclude \"**/typings/**\""
+  },
+  "typings": "index.d.ts",
+  "version": "3.0.0"
+}

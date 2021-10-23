@@ -2,7 +2,7 @@ console.info("Loading app.js.");
 //require("nativescript-dom-free");
 
 //require("./nativehelpers/wearDataLayer.js");
-require("./nativehelpers/peer2peer.js");
+//require("./nativehelpers/peer2peer.js");
 
 
 // START BUSINESS LOGIC THREAD
@@ -17,7 +17,6 @@ let isPaused = androidApp.paused; // e.g. false
 let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
 let nativeApp = androidApp.nativeApp; // The native Application reference
 let foregroundActivity = androidApp.foregroundActivity; // The current Activity reference
-let context = androidApp.context; // The current Android context
 
 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
@@ -278,17 +277,21 @@ function launchListener (args)  {
 //
 //    console.info("Got past Elm initialization! ---------------------------------");
     console.log("The app was launched!");
+
+    // Choose launch screen based on watch or not
+    const applicationModule2 = require("@nativescript/core/application");
+    var PackageManager = android.content.pm.PackageManager;
+    if (applicationModule2.android.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+        applicationModule2.run({ moduleName: "app-root-wear" });
+    }
+
+
 }
 applicationModule.on(applicationModule.launchEvent, launchListener);
 
 
+applicationModule.run({ moduleName: "app-root" });
 
-// Choose launch screen based on watch or not
-if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-    applicationModule.run({ moduleName: "app-root-wear" });
-} else {
-    application.run({ moduleName: "app-root" });
-}
 
 
 

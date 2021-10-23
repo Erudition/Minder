@@ -23,7 +23,8 @@ module.exports = (env) => {
                         "nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
                         "nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
                         "it-ws" : "/customized-node-modules/it-ws",
-                        "crypto" : '/customized-node-modules/nativescript-crypto'
+                        "crypto" : '/customized-node-modules/nativescript-crypto',
+                        "nativescript-wear-os" : '/customized-node-modules/nativescript-wear-os'
                         },
               fallback: {
 //                assert: require.resolve('assert'),

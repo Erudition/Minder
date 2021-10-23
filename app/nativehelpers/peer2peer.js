@@ -13,7 +13,10 @@ const multiaddr = require('multiaddr');
 // TRANSPORT modules:
 //const TCP = require('libp2p-tcp'); // requires node - may try in future
 const WebSockets = require('libp2p-websockets');
-const TCP = require('libp2p-tcp');
+//const WebRTCStar = require('libp2p-webrtc-star');
+
+//const webrtcSupport = require('wrtc');
+//const webstar = new WStar({ wrtc: webrtcSupport })
 
 // CRYPTO (connection encryption) modules:
 const { NOISE } = require('libp2p-noise');
@@ -24,9 +27,11 @@ const MPLEX = require('libp2p-mplex');
 // PEER DISCOVERY modules:
 const MDNS = require('libp2p-mdns');
 
+
+// SETTINGS
 let nodeSettings = {
    addresses: {
-     listen: ['/ip4/127.0.0.1/tcp/8000/ws']
+     listen: ['/ip4/127.0.0.1/tcp/9090/ws', '/ip4/127.0.0.1/tcp/0/ws', '/ip4/188.166.203.82/tcp/20000/wss/p2p-webrtc-star/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSooo2a']
    },
    modules: {
      transport: [WebSockets],
@@ -72,16 +77,18 @@ function nodeStartSucceeded(node) {
 //console.log("Looking at the node...");
 //  console.dir(node);
 
-   console.log("Looking at the transport manager...");
+//   console.log("Looking at the transport manager...");
   const transman = node.transportManager;
-  console.dir(transman);
-    console.log("looked it in the eyes! getting addresses...");
+//  console.dir(transman);
+//    console.log("looked it in the eyes! getting addresses...");
 
   const listenAddrs = transman.getAddrs()
-  console.log('libp2p is listening on the following addresses: ');
+  console.log('libp2p is listening on the following addresses: ', listenAddrs);
 
-  const advertiseAddrs = node.multiaddrs
-  console.log('libp2p is advertising the following addresses: ', advertiseAddrs)
+  console.log("getting advertising addresses...");
+
+//  const advertiseAddrs = node.multiaddrs
+  console.log('libp2p is advertising the following addresses: ', node.multiaddrs)
 }
 
 

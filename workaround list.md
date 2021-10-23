@@ -68,3 +68,7 @@ android.js mentions "application", should be @nativescript/core/application
     - upgrading gradle versions.
     - not confident this fix is permanent, since ./platforms is not included in the git repo
 
+# Nativescript-wearos
+
+- include.gradle needs BradMartin library changed from "implementation" to "compileOnly"
+
