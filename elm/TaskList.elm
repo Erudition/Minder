@@ -795,7 +795,6 @@ update msg state app env =
                                 , Cmd.map TodoistServerResponse <|
                                     Integrations.Todoist.sendChanges app.todoist
                                         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                                , Marvin.
                                 ]
 
                         ( True, False ) ->

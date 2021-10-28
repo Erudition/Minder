@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Category(..), Customizations, DurationPerPeriod, Excusable(..), Icon(..), StoredActivities, SvgPath, Switch(..), Timeline, allActivities, currentActivity, currentActivityID, decodeCategory, decodeCustomizations, decodeDurationPerPeriod, decodeExcusable, decodeFile, decodeHumanDuration, decodeIcon, decodeStoredActivities, decodeSwitch, defaults, dummy, encodeCategory, encodeCustomizations, encodeDurationPerPeriod, encodeExcusable, encodeHumanDuration, encodeIcon, encodeStoredActivities, encodeSwitch, excusableFor, getActivity, getName, latestSwitch, showing, withTemplate)
+module Activity.Activity exposing (..)
 
 import Activity.Evidence exposing (..)
 import Activity.Template exposing (..)
@@ -142,20 +142,6 @@ dummy =
 dummyActivity : Activity
 dummyActivity =
     defaults DillyDally
-
-
-type Switch
-    = Switch Moment ActivityID
-
-
-decodeSwitch : Decoder Switch
-decodeSwitch =
-    subtype2 Switch "Time" decodeMoment "Activity" ID.decode
-
-
-encodeSwitch : Switch -> Encode.Value
-encodeSwitch (Switch time activityId) =
-    Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
 
 
 type Excusable
@@ -1186,29 +1172,6 @@ showing activity =
 getName : Activity -> String
 getName activity =
     Maybe.withDefault "?" (List.head activity.names)
-
-
-type alias Timeline =
-    List Switch
-
-
-latestSwitch : Timeline -> Switch
-latestSwitch timeline =
-    Maybe.withDefault (Switch Moment.zero (ID.tag 0)) (List.head timeline)
-
-
-currentActivityID : Timeline -> ActivityID
-currentActivityID switchList =
-    let
-        getId (Switch _ activityId) =
-            activityId
-    in
-    getId (latestSwitch switchList)
-
-
-currentActivity : IntDict Activity -> Timeline -> Activity
-currentActivity activities switchList =
-    getActivity (currentActivityID switchList) activities
 
 
 getActivity : ActivityID -> IntDict Activity -> Activity

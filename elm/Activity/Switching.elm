@@ -2,6 +2,8 @@ module Activity.Switching exposing (currentActivityFromApp, determineNextTask, s
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
+import Activity.Switch exposing (Switch(..))
+import Activity.Timeline exposing (currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
 import External.Tasker as Tasker

@@ -1,6 +1,8 @@
 module Activity.Measure exposing (excusableLimit, excusedLeft, excusedUsage, exportExcusedUsageSeconds, inHoursMinutes, justToday, justTodayTotal, lastSession, relevantTimeline, sessions, switchListLiveToPeriods, timelineLimit, total, totalLive)
 
 import Activity.Activity as Activity exposing (..)
+import Activity.Switch as Switch exposing (..)
+import Activity.Timeline as Timeline exposing (..)
 import Environment exposing (..)
 import ID
 import Profile exposing (Profile)

@@ -1,6 +1,8 @@
 module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
+import Activity.Switch exposing (decodeSwitch, encodeSwitch)
+import Activity.Timeline exposing (Timeline)
 import ID
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Project as TodoistProject
