@@ -15,7 +15,7 @@ import SmartTime.Period exposing (Period)
 import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeClassID, decodeTaskMoment, encodeTaskMoment)
 import Task.Entry exposing (Entry, getClassesFromEntries)
 import Task.Progress as Progress exposing (..)
-import Task.Series exposing (RecurrenceRule, SeriesID)
+import Task.Series exposing (Series, SeriesID)
 import Task.SessionSkel exposing (UserPlannedSession, decodeSession, encodeSession)
 import ZoneHistory exposing (ZoneHistory)
 
@@ -160,13 +160,13 @@ singleClassToActiveInstances ( zoneHistory, relevantPeriod ) allSavedInstances f
 
         -- TODO Fill in based on recurrence series. Int ID = order in series.
         relevantSeriesMembers =
-            List.concatMap (fillSeries ( zoneHistory, relevantPeriod ) fullClass) fullClass.recurrence
+            fillSeries ( zoneHistory, relevantPeriod ) fullClass fullClass.recurrence
     in
     relevantSavedInstances
         ++ relevantSeriesMembers
 
 
-fillSeries : ( ZoneHistory, Period ) -> Class -> RecurrenceRule -> List Instance
+fillSeries : ( ZoneHistory, Period ) -> Class -> Maybe Series -> List Instance
 fillSeries ( zoneHistory, relevantPeriod ) fullClass seriesRule =
     -- TODO
     []
@@ -184,6 +184,11 @@ instanceProgress fullInstance =
 completed : Instance -> Bool
 completed spec =
     isMax ( spec.instance.completion, spec.class.completionUnits )
+
+
+partiallyCompleted : Instance -> Bool
+partiallyCompleted spec =
+    spec.instance.completion > 0
 
 
 type alias WithSoonness t =

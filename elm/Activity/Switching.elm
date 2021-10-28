@@ -17,6 +17,7 @@ import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
 import Task.Entry
 import Task.Instance exposing (Instance)
+import Task.Progress
 import Time
 import Time.Extra as Time
 import ZoneHistory
@@ -38,12 +39,17 @@ multiline inputListOfLists =
     unLines (List.map unWords inputListOfLists)
 
 
+prioritizeTasks : Profile -> Environment -> List Instance
+prioritizeTasks profile env =
+    Task.Instance.prioritize env.time env.timeZone <|
+        List.filter (Task.Instance.completed >> not) <|
+            instanceListNow profile env
+
+
 determineNextTask : Profile -> Environment -> Maybe Instance
 determineNextTask profile env =
     List.head <|
-        Task.Instance.prioritize env.time env.timeZone <|
-            List.filter (Task.Instance.completed >> not) <|
-                instanceListNow profile env
+        prioritizeTasks profile env
 
 
 instanceListNow : Profile -> Environment -> List Instance
@@ -126,6 +132,9 @@ switchActivity newActivityID app env =
 
             else
                 []
+
+        suggestions =
+            suggestedTasks app env
     in
     case determineNextTask app env of
         Nothing ->
@@ -137,7 +146,7 @@ switchActivity newActivityID app env =
                     , [ oldName, "➤", newName ]
                     , describeTodayTotal
                     ]
-                , notify [ updateSticky env.time todayTotal newActivity "✔️ All Done" ]
+                , notify <| [ updateSticky env.time todayTotal newActivity "✔️ All Done" Nothing ] ++ suggestions
                 , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                 ]
             )
@@ -155,10 +164,10 @@ switchActivity newActivityID app env =
                             , [ oldName, "➤", newName ]
                             , describeTodayTotal
                             ]
-                        , notify
-                            (updateSticky env.time todayTotal newActivity "❌ Unknown - No Activity"
-                                :: scheduleOffTaskReminders nextTask env.time
-                            )
+                        , notify <|
+                            [ updateSticky env.time todayTotal newActivity "❌ Unknown - No Activity" (Just nextTask) ]
+                                ++ scheduleOffTaskReminders nextTask env.time
+                                ++ suggestions
                         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                         ]
                     )
@@ -199,8 +208,9 @@ switchActivity newActivityID app env =
                                 , describeTodayTotal
                                 ]
                             , notify <|
-                                updateSticky env.time todayTotal newActivity "✔️ On Task"
-                                    :: scheduleOnTaskReminders nextTask env.time timeRemaining
+                                [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
+                                    ++ scheduleOnTaskReminders nextTask env.time timeRemaining
+                                    ++ suggestions
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -215,9 +225,10 @@ switchActivity newActivityID app env =
                                 , describeExcusedUsage
                                 ]
                             , notify <|
-                                updateSticky env.time todayTotal newActivity "⏸ Off Task (Excused)"
-                                    :: scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
+                                [ updateSticky env.time todayTotal newActivity "⏸ Off Task (Excused)" (Just nextTask) ]
+                                    ++ scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
+                                    ++ suggestions
                             , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                             ]
                         )
@@ -232,8 +243,9 @@ switchActivity newActivityID app env =
                                 , [ "Previously excused for", excusedUsageString ]
                                 ]
                             , notify <|
-                                updateSticky env.time todayTotal newActivity "❌ Off Task"
-                                    :: scheduleOffTaskReminders nextTask env.time
+                                [ updateSticky env.time todayTotal newActivity "❌ Off Task" (Just nextTask) ]
+                                    ++ scheduleOffTaskReminders nextTask env.time
+                                    ++ suggestions
                             , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -258,8 +270,8 @@ switchActivity newActivityID app env =
 -- )
 
 
-updateSticky : Moment -> Duration -> Activity -> String -> Notification
-updateSticky now todayTotal newActivity status =
+updateSticky : Moment -> Duration -> Activity -> String -> Maybe Instance -> Notification
+updateSticky now todayTotal newActivity status nextTaskMaybe =
     let
         statusChannel =
             Notif.basicChannel "Status"
@@ -279,7 +291,7 @@ updateSticky now todayTotal newActivity status =
         , chronometer = Just True
         , when = Just (past now todayTotal)
         , subtitle = Just status
-        , body = Nothing
+        , body = Maybe.map (\nt -> "Up next:" ++ nt.class.title) nextTaskMaybe
         , ongoing = Just True
         , badge = Nothing
         , icon = Nothing
@@ -397,7 +409,7 @@ scheduleOffTaskReminders nextTask now =
         title =
             Just ("Do now: " ++ nextTask.class.title)
     in
-    List.map (offTaskReminder now) (List.range 1 stopAfterCount)
+    List.map (offTaskReminder now) (List.range 0 stopAfterCount)
         ++ [ giveUpNotif now ]
 
 
@@ -412,7 +424,7 @@ offTaskReminder fireTime reminderNum =
     in
     { base
         | id = Just reminderNum
-        , at = Just (Period.start reminderPeriod)
+        , at = Just (Period.end reminderPeriod)
         , actions = offTaskActions
         , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
         , body = Just <| pickEncouragementMessage (Period.start reminderPeriod)
@@ -459,7 +471,7 @@ giveUpNotif fireTime =
 -}
 reminderDistance : Int -> Duration
 reminderDistance reminderNum =
-    Duration.fromSeconds 60.0
+    Duration.fromSeconds <| toFloat (60 * reminderNum)
 
 
 {-| How many reminders until we give up?
@@ -599,3 +611,47 @@ scheduleExcusedReminders now excusedLimit timeLeft =
 
     else
         []
+
+
+suggestedTasksChannel : Notif.Channel
+suggestedTasksChannel =
+    { id = "Suggested Tasks", name = "Suggested Tasks", description = Just "Other tasks you could start right now.", sound = Nothing, importance = Just Notif.Low, led = Nothing, vibrate = Nothing }
+
+
+suggestedTasksGroup : Notif.GroupKey
+suggestedTasksGroup =
+    Notif.GroupKey "suggestions"
+
+
+suggestedTaskNotif : Moment -> Instance -> Notification
+suggestedTaskNotif now taskInstance =
+    let
+        base =
+            Notif.build suggestedTasksChannel
+    in
+    { base
+        | id = Just (9000 + taskInstance.class.id)
+        , group = Just suggestedTasksGroup
+        , at = Just now
+        , title = Just <| taskInstance.class.title
+        , body = Nothing
+        , when = Nothing
+        , countdown = Just False
+        , chronometer = Just False
+        , expiresAfter = Just (Duration.fromHours 8)
+        , progress =
+            --if Task.Instance.partiallyCompleted taskInstance then
+            --    Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.Instance.instanceProgress taskInstance))
+            --
+            --else
+            Nothing
+    }
+
+
+suggestedTasks : Profile -> Environment -> List Notification
+suggestedTasks profile env =
+    let
+        tasks =
+            prioritizeTasks profile env
+    in
+    List.map (suggestedTaskNotif env.time) (List.take 5 tasks)

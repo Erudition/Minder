@@ -89,7 +89,7 @@ encodeCustomizations : Customizations -> Encode.Value
 encodeCustomizations record =
     encodeObjectWithoutNothings
         [ normal ( "template", encodeTemplate record.template )
-        , normal ( "stock", ID.encode record.id )
+        , normal ( "id", ID.encode record.id )
         , omittable ( "names", Encode.list Encode.string, record.names )
         , omittable ( "icon", encodeIcon, record.icon )
         , omittable ( "excusable", encodeExcusable, record.excusable )

@@ -16,6 +16,7 @@ import Task.Entry
 import Task.Instance
 import Task.Progress exposing (..)
 import Task.Session
+import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
 
 
@@ -36,6 +37,7 @@ type alias Profile =
 
     --, locationHistory : IntDict LocationUpdate
     , todoist : TodoistIntegrationData
+    , timeBlocks : List TimeBlock
     }
 
 
@@ -49,6 +51,7 @@ fromScratch =
     , activities = IntDict.empty
     , timeline = []
     , todoist = emptyTodoistIntegrationData
+    , timeBlocks = []
     }
 
 
@@ -78,6 +81,7 @@ decodeProfile =
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
+        |> optional "timeBlocks" (Decode.list TimeBlock.decodeTimeBlock) []
 
 
 encodeProfile : Profile -> Encode.Value
@@ -90,6 +94,7 @@ encodeProfile record =
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
         , ( "timeline", Encode.list encodeSwitch record.timeline )
         , ( "todoist", encodeTodoistIntegrationData record.todoist )
+        , ( "timeBlocks", Encode.list TimeBlock.encodeTimeBlock record.timeBlocks )
         ]
 
 

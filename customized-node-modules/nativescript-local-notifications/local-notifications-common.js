@@ -43,7 +43,7 @@ var LocalNotificationsCommon = (function () {
         ongoing: false,
         groupSummary: null,
         bigTextStyle: false,
-        channel: "Channel",
+        channel: "Default Channel",
         forceShowWhenInForeground: false
     };
     return LocalNotificationsCommon;

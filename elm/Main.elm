@@ -423,9 +423,12 @@ update msg ({ viewState, profile, environment } as model) =
 
                 Marvin ->
                     justRunCommand <|
-                        Cmd.map ThirdPartyServerResponded <|
-                            Cmd.map MarvinServer <|
-                                Marvin.test3
+                        Cmd.batch
+                            [ Cmd.map ThirdPartyServerResponded <|
+                                Cmd.map MarvinServer <|
+                                    Marvin.getLabelsCmd
+                            , External.Commands.toast "Reached out to Marvin server..."
+                            ]
 
         ThirdPartyServerResponded (TodoistServer response) ->
             let
@@ -451,7 +454,7 @@ update msg ({ viewState, profile, environment } as model) =
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
-                ( ( newItems, newActivities ), whatHappened ) =
+                ( ( newItems, newActivities ), whatHappened, nextStep ) =
                     Marvin.handle (Moment.toSmartInt environment.time) profile response
 
                 newProfile1WithItems =
@@ -466,7 +469,10 @@ update msg ({ viewState, profile, environment } as model) =
                     Profile.saveError newProfile1WithItems ("Here's what happened: \n" ++ whatHappened)
             in
             ( Model viewState newProfile2WithErrors environment
-            , Cmd.none
+            , Cmd.batch
+                [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
+                , External.Commands.toast "Got Response from Marvin."
+                ]
             )
 
         Link urlRequest ->

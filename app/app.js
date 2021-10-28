@@ -2,7 +2,7 @@ console.info("Loading app.js.");
 //require("nativescript-dom-free");
 
 //require("./nativehelpers/wearDataLayer.js");
-//require("./nativehelpers/peer2peer.js");
+
 
 
 // START BUSINESS LOGIC THREAD
@@ -45,7 +45,7 @@ const testingExport = "https://minder.app/?export=all";
 const testingClearErrors = "https://minder.app/?clearerrors=clearerrors";
 const testingActivity = "https://minder.app/?start=Project";
 const testingSync = "https://minder.app/?sync=marvin";
-var launchURL = testingActivity;
+var launchURL = testingSync;
 
 // URL passed in via somewhere else on the system
 handleOpenURL(function(appURL) {
@@ -299,4 +299,8 @@ applicationModule.run({ moduleName: "app-root" });
 Do not place any code after the application has been started as it will not
 be executed on iOS.
 */
+
+global.startP2P = function() {require("./nativehelpers/peer2peer.js");};
+
+
 

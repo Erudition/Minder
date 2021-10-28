@@ -4,10 +4,12 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity exposing (StoredActivities)
+import Base64
+import Bytes.Encode
 import Dict exposing (Dict)
 import Http
 import IntDict exposing (IntDict)
-import Integrations.Marvin.MarvinItem exposing (ItemType(..), MarvinItem, OutputType(..), toDocketItem, toDocketTaskNaive)
+import Integrations.Marvin.MarvinItem exposing (ItemType(..), MarvinItem, MarvinLabel, OutputType(..), labelToDocketActivity, toDocketItem, toDocketTaskNaive)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
@@ -48,6 +50,125 @@ marvinDocURL docID =
         [ Url.Builder.string "id" docID ]
 
 
+marvinCloudantDatabaseUrl directories params =
+    Url.Builder.crossOrigin
+        "https://512940bf-6e0c-4d7b-884b-9fc66185836b-bluemix.cloudant.com"
+        directories
+        params
+
+
+{-| Builds an authorization header based on provided username and password.
+This can be put directly into the Http.request headers array.
+-}
+buildAuthorizationHeader : String -> String -> Http.Header
+buildAuthorizationHeader username password =
+    Http.header "Authorization" ("Basic " ++ buildAuthorizationToken username password)
+
+
+{-| Builds just the authorization token based on provided username and password.
+Use this if you need just the token for some reason.
+Use buildAuthorizationHeader if you need the header anyway.
+-}
+buildAuthorizationToken : String -> String -> String
+buildAuthorizationToken username password =
+    Bytes.Encode.string (username ++ ":" ++ password)
+        |> Bytes.Encode.encode
+        |> Base64.fromBytes
+        |> Maybe.withDefault ""
+
+
+syncDatabase =
+    "u32410002"
+
+
+syncUser =
+    "tuddereartheirceirleacco"
+
+
+syncPassword =
+    "3c749548fd996396c2bfefdb44bd140fc9d25de8"
+
+
+couchLogin =
+    Http.request
+        { method = "POST"
+        , headers =
+            [ Http.header "Accept" "application/json"
+            , Http.header "Content-Type" "application/json"
+            , buildAuthorizationHeader syncUser syncPassword
+            ]
+        , url = marvinCloudantDatabaseUrl [ "_session" ] []
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "name", Encode.string syncUser )
+                    , ( "password", Encode.string syncPassword )
+                    ]
+                )
+        , expect = Http.expectString AuthResult
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+couchSessionInfo : Cmd Msg
+couchSessionInfo =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "Accept" "application/json" ]
+        , url = marvinCloudantDatabaseUrl [ "_session" ] []
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+testCouch : Cmd Msg
+testCouch =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase ] []
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+couchEverything : Cmd Msg
+couchEverything =
+    Http.request
+        { method = "GET"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase, "_all_docs" ] [ Url.Builder.string "include_docs" "true" ]
+        , body = Http.emptyBody
+        , expect = Http.expectString TestResult
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+getTimeBlocks : Cmd Msg
+getTimeBlocks =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase, "_find" ] []
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "selector", Encode.object [ ( "db", Encode.string "PlannerItems" ) ] )
+                    , ( "fields", Encode.list Encode.string [ "title", "date", "time", "duration", "cancelDates", "exceptions" ] )
+                    ]
+                )
+        , expect = Http.expectJson GotTimeBlocks (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinTimeBlock)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
 test : SecretToken -> Cmd Msg
 test secret =
     Http.request
@@ -63,41 +184,51 @@ test secret =
 
 test2 : Cmd Msg
 test2 =
-    let
-        fullAccessToken =
-            "7o0b6/c0i+zXgWx5eheuM7Eob7w="
-
-        partialAccessToken =
-            "m47dqHEwdJy56/j8tyAcXARlADg="
-    in
     getTodayItems partialAccessToken
 
 
-test3 : Cmd Msg
-test3 =
-    let
-        fullAccessToken =
-            "7o0b6/c0i+zXgWx5eheuM7Eob7w="
-
-        partialAccessToken =
-            "m47dqHEwdJy56/j8tyAcXARlADg="
-    in
-    Cmd.batch [ getCategories partialAccessToken, getTodayItems partialAccessToken ]
+fullAccessToken =
+    "7o0b6/c0i+zXgWx5eheuM7Eob7w="
 
 
-handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Maybe StoredActivities ), String )
+partialAccessToken =
+    "m47dqHEwdJy56/j8tyAcXARlADg="
+
+
+getLabelsCmd : Cmd Msg
+getLabelsCmd =
+    Cmd.batch [ getLabels partialAccessToken ]
+
+
+handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Maybe StoredActivities ), String, Cmd Msg )
 handle classCounter profile response =
     case response of
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
+                    ( ( blankTriplet, Nothing )
                     , serversays
+                    , Cmd.none
                     )
 
                 Err err ->
-                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
+                    ( ( blankTriplet, Nothing )
                     , describeError err
+                    , Cmd.none
+                    )
+
+        AuthResult result ->
+            case result of
+                Ok serversays ->
+                    ( ( blankTriplet, Nothing )
+                    , serversays
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( ( blankTriplet, Nothing )
+                    , describeError err
+                    , Cmd.none
                     )
 
         GotItems result ->
@@ -109,12 +240,50 @@ handle classCounter profile response =
                     in
                     ( ( newTriplets, Just newActivities )
                     , Debug.toString itemList
+                    , Cmd.none
                     )
 
                 Err err ->
-                    ( ( { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }, Nothing )
+                    ( ( blankTriplet, Nothing )
                     , describeError err
+                    , Cmd.none
                     )
+
+        GotLabels result ->
+            case result of
+                Ok labelList ->
+                    let
+                        newActivities =
+                            importLabels profile labelList
+                    in
+                    ( ( blankTriplet, Just newActivities )
+                    , Debug.toString labelList
+                    , getTasks partialAccessToken
+                    )
+
+                Err err ->
+                    ( ( blankTriplet, Nothing )
+                    , describeError err
+                    , Cmd.none
+                    )
+
+        GotTimeBlocks result ->
+            case result of
+                Ok timeBlockList ->
+                    ( ( blankTriplet, Nothing )
+                    , Debug.toString timeBlockList
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( ( blankTriplet, Nothing )
+                    , describeError err
+                    , Cmd.none
+                    )
+
+
+blankTriplet =
+    { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }
 
 
 importItems : Int -> Profile -> List MarvinItem -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Activity.StoredActivities )
@@ -154,6 +323,18 @@ importItems classCounter profile itemList =
       }
     , finalActivities
     )
+
+
+importLabels : Profile -> List MarvinLabel -> Activity.StoredActivities
+importLabels profile labels =
+    let
+        activities =
+            List.map (labelToDocketActivity profile.activities) labels
+
+        finalActivities =
+            List.foldl IntDict.union IntDict.empty activities
+    in
+    finalActivities
 
 
 addTask : SecretToken -> Cmd Msg
@@ -242,6 +423,49 @@ getDueItems secret =
         }
 
 
+{-| Get tasks and projects that are due today
+-}
+getTasks : SecretToken -> Cmd Msg
+getTasks secret =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase, "_find" ] []
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "selector"
+                      , Encode.object
+                            [ ( "db", Encode.string "Tasks" )
+                            , ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
+                            , ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
+                            , ( "labelIds", Encode.object [ ( "$not", Encode.object [ ( "$size", Encode.int 0 ) ] ) ] )
+                            ]
+                      )
+                    , ( "fields"
+                      , Encode.list Encode.string
+                            [ "_id"
+                            , "done"
+                            , "day"
+                            , "title"
+                            , "parentID"
+                            , "labelIds"
+                            , "dueDate"
+                            , "timeEstimate"
+                            , "startDate"
+                            , "endDate"
+                            , "times"
+                            , "taskTime"
+                            ]
+                      )
+                    ]
+                )
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
 {-| Get a list of all categories
 -}
 getCategories : SecretToken -> Cmd Msg
@@ -266,7 +490,7 @@ getLabels secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "labels"
         , body = Http.emptyBody
-        , expect = Http.expectString TestResult --TODO
+        , expect = Http.expectJson GotLabels (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinLabel)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -294,7 +518,10 @@ timeTrack secret taskID =
 -}
 type Msg
     = TestResult (Result Http.Error String)
+    | AuthResult (Result Http.Error String)
     | GotItems (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinItem))
+    | GotLabels (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinLabel))
+    | GotTimeBlocks (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinTimeBlock))
 
 
 

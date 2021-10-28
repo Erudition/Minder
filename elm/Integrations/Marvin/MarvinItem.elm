@@ -4,7 +4,7 @@ import Activity.Activity as Activity exposing (Activity, ActivityID, StoredActiv
 import Dict
 import ID
 import IntDict
-import Json.Decode.Exploration exposing (..)
+import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode exposing (..)
@@ -15,6 +15,7 @@ import Profile exposing (Profile)
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
+import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Human.Calendar.Year exposing (Year(..))
 import SmartTime.Human.Clock exposing (TimeOfDay)
 import SmartTime.Human.Moment
@@ -184,7 +185,7 @@ decodeMarvinItem =
     succeed MarvinItem
         |> required "_id" string
         |> optional "done" bool False
-        |> optional "day" (nullable calendarDateDecoder) Nothing
+        |> optional "day" (oneOf [ check string "unassigned" <| succeed Nothing, nullable calendarDateDecoder ]) Nothing
         |> required "title" string
         |> optional "parentId" (oneOf [ check string "unassigned" <| succeed Nothing, nullable string ]) Nothing
         |> optional "labelIds" (list string) []
@@ -195,7 +196,7 @@ decodeMarvinItem =
         |> optional "customSection" (nullable string) Nothing
         |> optional "timeBlockSection" (nullable string) Nothing
         |> optional "note" (nullable string) Nothing
-        |> optional "dueDate" (nullable calendarDateDecoder) Nothing
+        |> optional "dueDate" (oneOf [ check string "" <| succeed Nothing, nullable calendarDateDecoder ]) Nothing
         |> optional "timeEstimate" (nullable decodeDuration) Nothing
         |> optional "isReward" bool False
         |> optional "isStarred" (oneOf [ check bool False <| succeed 0, int ]) 0
@@ -343,7 +344,7 @@ toDocketItem classCounter profile marvinItem =
             ConvertedToTaskTriplet <| toDocketTaskNaive classCounter profile.activities marvinItem
 
         Category ->
-            ConvertedToActivity <| toDocketActivity profile.activities marvinItem
+            ConvertedToActivity <| projectToDocketActivity profile.activities marvinItem
 
 
 type OutputType
@@ -351,8 +352,8 @@ type OutputType
     | ConvertedToActivity StoredActivities
 
 
-toDocketActivity : StoredActivities -> MarvinItem -> StoredActivities
-toDocketActivity activities marvinCategory =
+projectToDocketActivity : StoredActivities -> MarvinItem -> StoredActivities
+projectToDocketActivity activities marvinCategory =
     let
         nameMatch key value =
             List.member marvinCategory.title value.names
@@ -413,8 +414,8 @@ toDocketTaskNaive classCounter activities marvinItem =
             }
 
         whichActivity =
-            case marvinItem.parentId of
-                Just someParent ->
+            case ( marvinItem.parentId, marvinItem.labelIds ) of
+                ( Just someParent, [] ) ->
                     let
                         activitiesWithMarvinCategories =
                             List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
@@ -436,8 +437,32 @@ toDocketTaskNaive classCounter activities marvinItem =
                     in
                     List.head matchingActivities
 
-                Nothing ->
-                    Nothing
+                ( _, labels ) ->
+                    let
+                        activitiesWithMarvinLabels =
+                            List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+
+                        getMarvinID ( intID, activity ) =
+                            ( ID.tag intID, Dict.get "marvinLabel" activity.externalIDs )
+
+                        matchingActivities : List ActivityID
+                        matchingActivities =
+                            List.filterMap
+                                (\( id, associatedLabelMaybe ) ->
+                                    case associatedLabelMaybe of
+                                        Just associatedLabel ->
+                                            if List.member associatedLabel labels then
+                                                Just id
+
+                                            else
+                                                Nothing
+
+                                        Nothing ->
+                                            Nothing
+                                )
+                                activitiesWithMarvinLabels
+                    in
+                    List.head matchingActivities
 
         instanceBase =
             Task.Instance.newInstanceSkel classCounter finalClass
@@ -484,3 +509,110 @@ toDocketTaskNaive classCounter activities marvinItem =
             }
     in
     { entry = entry, class = finalClass, instance = finalInstance }
+
+
+type alias MarvinLabel =
+    { id : String
+    , title : String
+    , color : String
+    }
+
+
+decodeMarvinLabel : Decoder MarvinLabel
+decodeMarvinLabel =
+    succeed MarvinLabel
+        |> required "_id" string
+        |> required "title" string
+        |> optional "color" string ""
+        |> optionalIgnored "_rev"
+
+
+labelToDocketActivity : StoredActivities -> MarvinLabel -> StoredActivities
+labelToDocketActivity activities label =
+    let
+        nameMatch key value =
+            List.member label.title value.names || List.member (String.toLower label.title) (List.map (String.toLower << String.trim) value.names)
+
+        matchingActivities =
+            Debug.log ("matching activity names for " ++ label.title) <| IntDict.filter nameMatch (Activity.allActivities activities)
+
+        firstActivityMatch =
+            List.head (IntDict.toList matchingActivities)
+
+        toCustomizations : Maybe Activity.Customizations
+        toCustomizations =
+            case firstActivityMatch of
+                Just ( key, activity ) ->
+                    Just
+                        { names = Nothing
+                        , icon = Nothing
+                        , excusable = Nothing
+                        , taskOptional = Nothing
+                        , evidence = []
+                        , category = Nothing
+                        , backgroundable = Nothing
+                        , maxTime = Nothing
+                        , hidden = Nothing
+                        , template = activity.template
+                        , id = ID.tag key
+                        , externalIDs = Dict.insert "marvinLabel" label.id activity.externalIDs
+                        }
+
+                Nothing ->
+                    Nothing
+    in
+    case toCustomizations of
+        Just customizedActivity ->
+            IntDict.insert (ID.read customizedActivity.id) customizedActivity activities
+
+        Nothing ->
+            activities
+
+
+type alias MarvinTimeBlock =
+    { title : String
+    , date : CalendarDate
+    , time : TimeOfDay
+    , duration : Duration
+    , isSection : Bool
+    , cancelDates : List CalendarDate
+
+    --, exceptions : List RecurrenceException
+    , recurrence : List RecurrencePattern
+    }
+
+
+decodeMarvinTimeBlock : Decoder MarvinTimeBlock
+decodeMarvinTimeBlock =
+    succeed MarvinTimeBlock
+        |> required "title" string
+        |> required "date" calendarDateDecoder
+        |> required "time" timeOfDayDecoder
+        |> required "duration" decodeDuration
+        |> optional "isSection" bool True
+        |> optionalIgnored "exceptions"
+        |> optional "cancelDates" decodeCancelDates []
+        --|> optional "exceptions" (nullable decodeExceptions) Nothing
+        |> optional "recurrence" (list decodeRecurrencePattern) []
+        |> optionalIgnored "_rev"
+
+
+decodeCancelDates : Decoder (List CalendarDate)
+decodeCancelDates =
+    Decode.list calendarDateDecoder
+
+
+type RecurrencePattern
+    = Daily
+    | Weekly (List DayOfWeek)
+    | Other
+
+
+decodeRecurrencePattern : Decoder RecurrencePattern
+decodeRecurrencePattern =
+    let
+        interpreted string =
+            --Result.map interpretRecurrenceRule (getRawRecurrencePattern string)
+            Err "NYI"
+    in
+    Porting.customDecoder string interpreted

@@ -1,6 +1,23 @@
 const webpack = require("@nativescript/webpack");
 
+const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { IgnorePlugin } = require('webpack');
+
+
+const configuredCircularPlugin = new CircularDependencyPlugin(
+{
+ // exclude detection of files based on a RegExp
+ exclude: /a\.js|node_modules|node_modules\/@nativescript\/.*/,
+ // include specific files based on a RegExp
+ include: /dir/,
+ // add errors to webpack instead of warnings
+ failOnError: false,
+ // allow import cycles that include an asyncronous import,
+ // e.g. via import(/* webpackMode: "weak" */ './file.js')
+ allowAsyncCycles: true,
+ // set the current working directory for displaying module paths
+ cwd: process.cwd(),
+});
 
 module.exports = (env) => {
 	webpack.init(env);
@@ -22,7 +39,7 @@ module.exports = (env) => {
                         "randombytes" : "nativescript-randombytes", // for crypto library
                         "nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
                         "nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
-                        "it-ws" : "/customized-node-modules/it-ws",
+                        "ipfs-utils" : "/customized-node-modules/ipfs-utils",
                         "crypto" : '/customized-node-modules/nativescript-crypto',
                         "nativescript-wear-os" : '/customized-node-modules/nativescript-wear-os'
                         },
@@ -66,7 +83,10 @@ module.exports = (env) => {
       // using the IgnorePlugin so we don't get errors from direc
       webpack.chainWebpack(config => {
         // we add the plugin
-        config.plugin('IgnorePlugin').use(IgnorePlugin, [{ resourceRegExp: /backup/ }]) });
+        config.plugin('IgnorePlugin').use(IgnorePlugin, [{ resourceRegExp: /backup/ }])
+        config.plugin('CircularDependencyPlugin').use(CircularDependencyPlugin, [configuredCircularPlugin])
+
+      });
 
 
 	return webpack.resolveConfig();

@@ -53,11 +53,8 @@ android.js mentions "application", should be @nativescript/core/application
   should expand that? adding direct file path in webpack config
 - `libp2p-websockets` tries to create an http server but our stand-in http module, `http-stream`, is only for client
   stuff - no `createServer` function.
-  - found package `@rill/http` that gives us this function just like node!
-  - expects node if not in browser so we have to require deeply: `var http = require('@rill/http/dist/client/index.js')`
-    but the module can stay stock!
-  - currently putting that line into `it-ws/server.js` directly (replaces line 3) because our current http module is
-    probably better for everything else, so moving it-ws to customized for now
+  - can't create servers in a browser either, so needed to customize `ipfs-utils` package (`env` script) to manually
+    detect that we're not node (nor a browser, I chose to pretend to be a WebWorker)
 
 # Google play services: wear os
 

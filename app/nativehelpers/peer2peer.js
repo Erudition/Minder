@@ -13,10 +13,9 @@ const multiaddr = require('multiaddr');
 // TRANSPORT modules:
 //const TCP = require('libp2p-tcp'); // requires node - may try in future
 const WebSockets = require('libp2p-websockets');
-//const WebRTCStar = require('libp2p-webrtc-star');
+const WebRTCStar = require('libp2p-webrtc-star');
 
-//const webrtcSupport = require('wrtc');
-//const webstar = new WStar({ wrtc: webrtcSupport })
+import { WebRTC } from 'nativescript-webrtc-plugin';
 
 // CRYPTO (connection encryption) modules:
 const { NOISE } = require('libp2p-noise');
@@ -27,23 +26,33 @@ const MPLEX = require('libp2p-mplex');
 // PEER DISCOVERY modules:
 const MDNS = require('libp2p-mdns');
 
-
+const transportKey = WebRTCStar.prototype[Symbol.toStringTag];
 // SETTINGS
 let nodeSettings = {
    addresses: {
-     listen: ['/ip4/127.0.0.1/tcp/9090/ws', '/ip4/127.0.0.1/tcp/0/ws', '/ip4/188.166.203.82/tcp/20000/wss/p2p-webrtc-star/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSooo2a']
+     listen: ['/ip4/188.166.203.82/tcp/20000/wss/p2p-webrtc-star/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSooo2a',
+     '/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star', '/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star']
    },
    modules: {
-     transport: [WebSockets],
+     transport: [WebSockets, WebRTCStar],
      connEncryption: [NOISE],
      streamMuxer: [MPLEX]
-   }
+   },
+   config: {
+       transport: {
+         [transportKey]: {
+           wrtc: WebRTC
+         }
+       }
+     }
  };
 
 
 // STEP 1 - create
 
 console.log("Initializing libp2p node.");
+
+
 let myLibp2pNode = Libp2p.create(nodeSettings).then(nodeCreationSucceeded, nodeCreationFailed);
 
 
@@ -59,8 +68,8 @@ function nodeCreationFailed(error) {
 
 function nodeCreationSucceeded(node) {
   console.log("Successfully created Libp2p node! Starting it now.");
-//  console.log("Looking at the node..." + node);
-//    console.dir(node);
+
+debugger;
   node.start().then(result => nodeStartSucceeded(node), nodeStartFailed);
 }
 
@@ -74,8 +83,6 @@ function nodeStartFailed(error) {
 function nodeStartSucceeded(node) {
   console.log("Successfully started Libp2p node.");
 
-//console.log("Looking at the node...");
-//  console.dir(node);
 
 //   console.log("Looking at the transport manager...");
   const transman = node.transportManager;

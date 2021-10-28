@@ -234,6 +234,7 @@ viewTask env task =
                     List.filterMap identity
                         [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.class.activity
                         , Just ("importance: " ++ String.fromFloat task.class.importance)
+                        , Just ("progress: " ++ String.fromInt task.instance.completion)
                         ]
         ]
         [ progressSlider task
@@ -794,6 +795,7 @@ update msg state app env =
                                 , Cmd.map TodoistServerResponse <|
                                     Integrations.Todoist.sendChanges app.todoist
                                         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
+                                , Marvin.
                                 ]
 
                         ( True, False ) ->

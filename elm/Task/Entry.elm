@@ -13,7 +13,7 @@ import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
 import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, makeFullClass)
-import Task.Series exposing (RecurrenceRule)
+import Task.Series exposing (Series)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -38,7 +38,7 @@ newRootEntry classID =
             WrapperParent parentProps (Nonempty.fromElement (LeaderIsHere leader))
 
         leader =
-            LeaderParent parentProps [] (Nonempty.fromElement follower)
+            LeaderParent parentProps Nothing (Nonempty.fromElement follower)
 
         follower =
             FollowerParent parentProps (Nonempty.fromElement (Singleton classID))
@@ -97,7 +97,7 @@ Parents that contain only a single task are transparently unwrapped to appear li
 -}
 type alias LeaderParent =
     { properties : ParentProperties
-    , recurrenceRules : List RecurrenceRule
+    , recurrenceRules : Maybe Series
     , children : Nonempty FollowerParent
     }
 
