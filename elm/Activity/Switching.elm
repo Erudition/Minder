@@ -2,7 +2,7 @@ module Activity.Switching exposing (currentActivityFromApp, determineNextTask, s
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
-import Activity.Switch exposing (Switch(..))
+import Activity.Switch exposing (Switch(..), switchToActivity)
 import Activity.Timeline exposing (currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
@@ -78,7 +78,7 @@ switchActivity newActivityID app env =
                 app
 
             else
-                { app | timeline = Switch env.time newActivityID :: app.timeline }
+                { app | timeline = switchToActivity env.time newActivityID :: app.timeline }
 
         newActivity =
             Activity.getActivity newActivityID (allActivities app.activities)

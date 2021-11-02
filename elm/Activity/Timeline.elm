@@ -2,7 +2,7 @@ module Activity.Timeline exposing (..)
 
 import Activity.Activity exposing (Activity, ActivityID, getActivity)
 import Activity.Evidence exposing (..)
-import Activity.Switch as Switch exposing (Switch(..))
+import Activity.Switch as Switch exposing (Switch(..), switchToActivity)
 import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
@@ -31,16 +31,12 @@ type alias Timeline =
 
 latestSwitch : Timeline -> Switch
 latestSwitch timeline =
-    Maybe.withDefault (Switch Moment.zero (ID.tag 0)) (List.head timeline)
+    Maybe.withDefault (switchToActivity Moment.zero (ID.tag 0)) (List.head timeline)
 
 
 currentActivityID : Timeline -> ActivityID
 currentActivityID switchList =
-    let
-        getId (Switch _ activityId) =
-            activityId
-    in
-    getId (latestSwitch switchList)
+    Switch.getActivityID (latestSwitch switchList)
 
 
 currentActivity : IntDict Activity -> Timeline -> Activity

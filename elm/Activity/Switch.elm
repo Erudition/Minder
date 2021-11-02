@@ -1,4 +1,4 @@
-module Activity.Switch exposing (..)
+module Activity.Switch exposing (Switch, decodeSwitch, encodeSwitch, getActivityID, getMoment, switchToActivity)
 
 import Activity.Activity exposing (Activity, ActivityID)
 import Activity.Evidence exposing (..)
@@ -36,3 +36,18 @@ decodeSwitch =
 encodeSwitch : Switch -> Encode.Value
 encodeSwitch (Switch time activityId) =
     Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
+
+
+switchToActivity : Moment -> ActivityID -> Switch
+switchToActivity moment activityID =
+    Switch moment activityID
+
+
+getActivityID : Switch -> ActivityID
+getActivityID (Switch _ activityID) =
+    activityID
+
+
+getMoment : Switch -> Moment
+getMoment (Switch moment _) =
+    moment

@@ -34,8 +34,8 @@ allSessions switchList =
 
 
 session : Switch -> Switch -> ( ActivityID, Duration )
-session (Switch newer _) (Switch older activityId) =
-    ( activityId, Moment.difference newer older )
+session newer older =
+    ( Switch.getActivityID older, Moment.difference (Switch.getMoment newer) (Switch.getMoment older) )
 
 
 sessions : List Switch -> ActivityID -> List Duration
@@ -64,7 +64,7 @@ totalLive : Moment -> List Switch -> ActivityID -> Duration
 totalLive now switchList activityId =
     let
         fakeSwitch =
-            Switch now activityId
+            switchToActivity now activityId
     in
     Duration.combine (sessions (fakeSwitch :: switchList) activityId)
 
@@ -75,11 +75,11 @@ This function takes two Moments (now and the point in history up to which we wan
 timelineLimit : Timeline -> Moment -> Moment -> Timeline
 timelineLimit timeline now pastLimit =
     let
-        switchActivityID (Switch _ id) =
-            id
+        switchActivityID switch =
+            Switch.getActivityID switch
 
-        recentEnough (Switch moment _) =
-            Moment.compare moment pastLimit == Later
+        recentEnough switch =
+            Moment.compare (Switch.getMoment switch) pastLimit == Later
 
         ( pass, fail ) =
             List.partition recentEnough timeline
@@ -88,7 +88,7 @@ timelineLimit timeline now pastLimit =
             Maybe.withDefault Activity.dummy <| Maybe.map switchActivityID (List.head fail)
 
         fakeEndSwitch =
-            Switch pastLimit justMissedId
+            switchToActivity pastLimit justMissedId
     in
     pass ++ [ fakeEndSwitch ]
 
@@ -221,17 +221,17 @@ switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Period )
 switchListLiveToPeriods now switchList =
     let
         fakeSwitch =
-            Switch now (Maybe.withDefault dummy latestActivityID)
+            switchToActivity now (Maybe.withDefault dummy latestActivityID)
 
         latestActivityID =
-            Maybe.map (\(Switch _ a) -> a) (List.head switchList)
+            Maybe.map Switch.getActivityID (List.head switchList)
     in
     switchListToPeriods (fakeSwitch :: switchList)
 
 
 periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Period )
-periodFromSwitchPair (Switch newer _) (Switch older activityId) =
-    ( activityId, Period.fromPair ( newer, older ) )
+periodFromSwitchPair newerSwitch olderSwitch =
+    ( Switch.getActivityID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
 switchListToPeriods : List Switch -> List ( ActivityID, Period )
