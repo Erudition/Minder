@@ -2,7 +2,7 @@ module Activity.Switching exposing (currentActivityFromApp, determineNextTask, s
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
-import Activity.Switch exposing (Switch(..), switchToActivity)
+import Activity.Switch exposing (Switch(..), switchTask, switchToActivity)
 import Activity.Timeline exposing (currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
@@ -18,7 +18,7 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), ab
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
 import Task.Entry
-import Task.Instance exposing (Instance)
+import Task.Instance exposing (Instance, InstanceID)
 import Task.Progress
 import Time
 import Time.Extra as Time
@@ -72,13 +72,18 @@ instanceListNow profile env =
 
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchActivity newActivityID app env =
+    switchTracking newActivityID Nothing app env
+
+
+switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
+switchTracking newActivityID instanceIDMaybe app env =
     let
         updatedApp =
             if newActivityID == oldActivityID then
                 app
 
             else
-                { app | timeline = switchToActivity env.time newActivityID :: app.timeline }
+                { app | timeline = switchTask env.time newActivityID instanceIDMaybe :: app.timeline }
 
         newActivity =
             Activity.getActivity newActivityID (allActivities app.activities)
@@ -192,8 +197,38 @@ switchActivity newActivityID app env =
 
                             else
                                 []
+
+                        isThisTheRightNextTask =
+                            Maybe.withDefault False (Maybe.map ((==) nextTask.instance.id) instanceIDMaybe)
+
+                        isThisTheRightNextActivity =
+                            nextActivity == newActivityID
                     in
-                    if nextActivity == newActivityID then
+                    if isThisTheRightNextTask then
+                        let
+                            timeSpent =
+                                Measure.totalLive env.time updatedApp.timeline newActivityID
+
+                            timeRemaining =
+                                Duration.subtract nextTask.class.maxEffort timeSpent
+                        in
+                        -- ON TASK LOGIC ---------------------------
+                        ( updatedApp
+                        , Cmd.batch
+                            [ popup
+                                [ [ oldName, "stopped:", sessionTotalString ]
+                                , [ oldName, "➤", newName, "✔️" ]
+                                , describeTodayTotal
+                                ]
+                            , notify <|
+                                [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
+                                    ++ scheduleOnTaskReminders nextTask env.time timeRemaining
+                                    ++ suggestions
+                            , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
+                            ]
+                        )
+
+                    else if isThisTheRightNextActivity then
                         let
                             timeSpent =
                                 Measure.totalLive env.time updatedApp.timeline newActivityID

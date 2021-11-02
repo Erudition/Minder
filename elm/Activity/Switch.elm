@@ -1,4 +1,4 @@
-module Activity.Switch exposing (Switch, decodeSwitch, encodeSwitch, getActivityID, getMoment, switchToActivity)
+module Activity.Switch exposing (Switch, decodeSwitch, encodeSwitch, getActivityID, getInstanceID, getMoment, switchTask, switchToActivity)
 
 import Activity.Activity exposing (Activity, ActivityID)
 import Activity.Evidence exposing (..)
@@ -19,35 +19,55 @@ import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
-import Svg.Styled exposing (..)
-import Time
-import Time.Extra exposing (..)
+import Task.Instance exposing (InstanceID)
 
 
 type Switch
-    = Switch Moment ActivityID
+    = Switch Moment ActivityID (Maybe InstanceID)
 
 
 decodeSwitch : Decoder Switch
 decodeSwitch =
-    subtype2 Switch "Time" decodeMoment "Activity" ID.decode
+    decode Switch
+        |> required "Time" decodeMoment
+        |> required "Activity" ID.decode
+        |> optional "Instance" (nullable Task.Instance.decodeInstanceID) Nothing
 
 
 encodeSwitch : Switch -> Encode.Value
-encodeSwitch (Switch time activityId) =
-    Encode.object [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ]
+encodeSwitch (Switch time activityId instanceIDMaybe) =
+    let
+        optionals =
+            case instanceIDMaybe of
+                Just instanceID ->
+                    [ ( "Instance", Task.Instance.encodeInstanceID instanceID ) ]
+
+                Nothing ->
+                    []
+    in
+    Encode.object <| [ ( "Time", encodeMoment time ), ( "Activity", ID.encode activityId ) ] ++ optionals
 
 
 switchToActivity : Moment -> ActivityID -> Switch
 switchToActivity moment activityID =
-    Switch moment activityID
+    Switch moment activityID Nothing
+
+
+switchTask : Moment -> ActivityID -> Maybe InstanceID -> Switch
+switchTask moment activityID instanceIDMaybe =
+    Switch moment activityID instanceIDMaybe
 
 
 getActivityID : Switch -> ActivityID
-getActivityID (Switch _ activityID) =
+getActivityID (Switch _ activityID _) =
     activityID
 
 
 getMoment : Switch -> Moment
-getMoment (Switch moment _) =
+getMoment (Switch moment _ _) =
     moment
+
+
+getInstanceID : Switch -> Maybe InstanceID
+getInstanceID (Switch _ _ instanceIDMaybe) =
+    instanceIDMaybe
