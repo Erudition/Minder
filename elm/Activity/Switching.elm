@@ -17,6 +17,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
+import Task.Class exposing (ClassID)
 import Task.Entry
 import Task.Instance exposing (Instance, InstanceID)
 import Task.Progress
@@ -142,6 +143,20 @@ switchTracking newActivityID instanceIDMaybe app env =
 
         suggestions =
             suggestedTasks app env
+
+        allTasks =
+            instanceListNow app env
+
+        trackingTask =
+            case instanceIDMaybe of
+                Nothing ->
+                    Nothing
+
+                Just instanceID ->
+                    List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks
+
+        trackingTaskNotif =
+            List.filterMap identity [ Maybe.map (currentTaskNotif env.time) trackingTask ]
     in
     case determineNextTask app env of
         Nothing ->
@@ -153,7 +168,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                     , [ oldName, "➤", newName ]
                     , describeTodayTotal
                     ]
-                , notify <| [ updateSticky env.time todayTotal newActivity "✔️ All Done" Nothing ] ++ suggestions
+                , notify <| [ updateSticky env.time todayTotal newActivity "✔️ All Done" Nothing ] ++ suggestions ++ trackingTaskNotif
                 , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                 ]
             )
@@ -175,6 +190,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                             [ updateSticky env.time todayTotal newActivity "❌ Unknown - No Activity" (Just nextTask) ]
                                 ++ scheduleOffTaskReminders nextTask env.time
                                 ++ suggestions
+                                ++ trackingTaskNotif
                         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                         ]
                     )
@@ -224,6 +240,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
                                     ++ scheduleOnTaskReminders nextTask env.time timeRemaining
                                     ++ suggestions
+                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -248,6 +265,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
                                     ++ scheduleOnTaskReminders nextTask env.time timeRemaining
                                     ++ suggestions
+                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -266,6 +284,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                                     ++ scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
                                     ++ suggestions
+                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                             ]
                         )
@@ -283,6 +302,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 [ updateSticky env.time todayTotal newActivity "❌ Off Task" (Just nextTask) ]
                                     ++ scheduleOffTaskReminders nextTask env.time
                                     ++ suggestions
+                                    ++ trackingTaskNotif
                             , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -667,7 +687,7 @@ suggestedTaskNotif now taskInstance =
             Notif.build suggestedTasksChannel
     in
     { base
-        | id = Just (9000 + taskInstance.class.id)
+        | id = Just <| taskClassNotifID taskInstance.class.id
         , group = Just suggestedTasksGroup
         , at = Just now
         , title = Just <| taskInstance.class.title
@@ -692,3 +712,48 @@ suggestedTasks profile env =
             prioritizeTasks profile env
     in
     List.map (suggestedTaskNotif env.time) (List.take 5 tasks)
+
+
+taskClassNotifID : ClassID -> Int
+taskClassNotifID instanceID =
+    9000 + instanceID
+
+
+currentTaskNotif : Moment -> Instance -> Notification
+currentTaskNotif now task =
+    let
+        currentTaskChannel =
+            { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing }
+
+        blank =
+            Notif.build currentTaskChannel
+
+        actions =
+            [ { id = "updateProgress=+20%", button = Notif.Button "+20%", launch = False }
+            ]
+    in
+    { blank
+        | id = Just <| taskClassNotifID task.class.id
+        , autoCancel = Just False
+        , title = Just task.class.title
+        , chronometer = Just True
+        , when = Just now
+        , subtitle = Nothing
+        , body = Nothing
+        , ongoing = Just True
+        , badge = Nothing
+        , icon = Nothing
+        , silhouetteIcon = Nothing
+        , update = Nothing
+        , privacy = Nothing
+        , useHTML = Nothing
+        , title_expanded = Nothing
+        , body_expanded = Nothing
+        , detail = Nothing
+        , status_icon = Nothing
+        , status_text_size = Nothing
+        , background_color = Nothing
+        , countdown = Nothing
+        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+        , actions = actions
+    }

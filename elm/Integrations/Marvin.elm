@@ -9,7 +9,7 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import Http
 import IntDict exposing (IntDict)
-import Integrations.Marvin.MarvinItem exposing (ItemType(..), MarvinItem, MarvinLabel, OutputType(..), labelToDocketActivity, toDocketItem, toDocketTaskNaive)
+import Integrations.Marvin.MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTaskNaive)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
@@ -24,6 +24,7 @@ import SmartTime.Human.Moment as HumanMoment
 import Task.Class
 import Task.Entry
 import Task.Instance
+import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url
 import Url.Builder
 
@@ -150,8 +151,8 @@ couchEverything =
         }
 
 
-getTimeBlocks : Cmd Msg
-getTimeBlocks =
+getTimeBlocks : TimeBlockAssignments -> Cmd Msg
+getTimeBlocks assignments =
     Http.request
         { method = "POST"
         , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
@@ -163,7 +164,46 @@ getTimeBlocks =
                     , ( "fields", Encode.list Encode.string [ "title", "date", "time", "duration", "cancelDates", "exceptions" ] )
                     ]
                 )
-        , expect = Http.expectJson GotTimeBlocks (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinTimeBlock)
+        , expect = Http.expectJson (GotTimeBlocks assignments) (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinTimeBlock)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+type alias TimeBlockAssignments =
+    Dict String LabelID
+
+
+{-| Get Marvin Config information
+-}
+getTimeBlockAssignments : Cmd Msg
+getTimeBlockAssignments =
+    let
+        decodeAssignment =
+            Decode.dict Decode.string
+    in
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase, "_find" ] []
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "selector"
+                      , Encode.object
+                            [ ( "db", Encode.string "ProfileItems" )
+                            , ( "_id", Encode.string "strategySettings.plannerSmartLists" )
+                            ]
+                      )
+                    , ( "fields", Encode.list Encode.string [ "val", "_id" ] )
+                    ]
+                )
+        , expect =
+            Http.expectJson GotTimeBlockAssignments
+                (toClassicLoose <|
+                    Decode.at [ "docs" ] <|
+                        Decode.list decodeAssignment
+                )
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -200,7 +240,7 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Maybe StoredActivities ), String, Cmd Msg )
+handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel, timeBlocks : List TimeBlock }, Maybe StoredActivities ), String, Cmd Msg )
 handle classCounter profile response =
     case response of
         TestResult result ->
@@ -240,7 +280,7 @@ handle classCounter profile response =
                     in
                     ( ( newTriplets, Just newActivities )
                     , Debug.toString itemList
-                    , Cmd.none
+                    , getTimeBlockAssignments
                     )
 
                 Err err ->
@@ -267,11 +307,31 @@ handle classCounter profile response =
                     , Cmd.none
                     )
 
-        GotTimeBlocks result ->
+        GotTimeBlocks assignments result ->
             case result of
                 Ok timeBlockList ->
-                    ( ( blankTriplet, Nothing )
+                    ( ( { blankTriplet | timeBlocks = importTimeBlocks profile assignments timeBlockList }, Nothing )
                     , Debug.toString timeBlockList
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( ( blankTriplet, Nothing )
+                    , describeError err
+                    , Cmd.none
+                    )
+
+        GotTimeBlockAssignments assignmentsResult ->
+            case assignmentsResult of
+                Ok (assignments :: shouldBeNothing) ->
+                    ( ( blankTriplet, Nothing )
+                    , Debug.toString assignments ++ "and also: " ++ Debug.toString shouldBeNothing
+                    , getTimeBlocks assignments
+                    )
+
+                Ok [] ->
+                    ( ( blankTriplet, Nothing )
+                    , "timeblock assignment data was empty! " ++ Debug.toString assignmentsResult
                     , Cmd.none
                     )
 
@@ -283,10 +343,10 @@ handle classCounter profile response =
 
 
 blankTriplet =
-    { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty }
+    { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty, timeBlocks = [] }
 
 
-importItems : Int -> Profile -> List MarvinItem -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel }, Activity.StoredActivities )
+importItems : Int -> Profile -> List MarvinItem -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel, timeBlocks : List TimeBlock }, Activity.StoredActivities )
 importItems classCounter profile itemList =
     let
         toNumberedDocketTask index =
@@ -320,6 +380,7 @@ importItems classCounter profile itemList =
     ( { taskEntries = List.map .entry bigTaskList
       , taskClasses = IntDict.fromList <| List.map (\i -> ( i.class.id, i.class )) bigTaskList
       , taskInstances = IntDict.fromList <| List.map (\i -> ( i.instance.id, i.instance )) bigTaskList
+      , timeBlocks = []
       }
     , finalActivities
     )
@@ -335,6 +396,11 @@ importLabels profile labels =
             List.foldl IntDict.union IntDict.empty activities
     in
     finalActivities
+
+
+importTimeBlocks : Profile -> TimeBlockAssignments -> List MarvinTimeBlock -> List TimeBlock
+importTimeBlocks profile assignments marvinBlocks =
+    List.filterMap (marvinTimeBlockToDocketTimeBlock profile assignments) marvinBlocks
 
 
 addTask : SecretToken -> Cmd Msg
@@ -521,7 +587,8 @@ type Msg
     | AuthResult (Result Http.Error String)
     | GotItems (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinItem))
     | GotLabels (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinLabel))
-    | GotTimeBlocks (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinTimeBlock))
+    | GotTimeBlockAssignments (Result Http.Error (List TimeBlockAssignments))
+    | GotTimeBlocks TimeBlockAssignments (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinTimeBlock))
 
 
 

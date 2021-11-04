@@ -1,7 +1,7 @@
 module Integrations.Marvin.MarvinItem exposing (..)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID, StoredActivities)
-import Dict
+import Dict exposing (Dict)
 import ID
 import IntDict
 import Json.Decode.Exploration as Decode exposing (..)
@@ -19,12 +19,14 @@ import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Human.Calendar.Year exposing (Year(..))
 import SmartTime.Human.Clock exposing (TimeOfDay)
 import SmartTime.Human.Moment
-import SmartTime.Moment exposing (Moment(..))
+import SmartTime.Moment as Moment exposing (Moment(..))
+import SmartTime.Period as Period exposing (Period(..))
 import Task.Class
 import Task.Entry
 import Task.Instance
 import Task.Progress
 import Task.SessionSkel exposing (UserPlannedSession)
+import TimeBlock.TimeBlock exposing (TimeBlock)
 
 
 type alias ItemID =
@@ -616,3 +618,45 @@ decodeRecurrencePattern =
             Err "NYI"
     in
     Porting.customDecoder string interpreted
+
+
+marvinTimeBlockToDocketTimeBlock : Profile -> Dict String String -> MarvinTimeBlock -> Maybe TimeBlock
+marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
+    let
+        normalizeTitle string =
+            string
+
+        --TODO
+        labelMaybe =
+            Dict.get (normalizeTitle marvinBlock.title) assignments
+
+        activityLookup =
+            Dict.fromList <| List.filterMap createActivityLookupEntry (IntDict.toList (Activity.allActivities profile.activities))
+
+        createActivityLookupEntry : ( Int, Activity ) -> Maybe ( LabelID, ActivityID )
+        createActivityLookupEntry ( activityID, activity ) =
+            case Dict.get "marvinLabel" activity.externalIDs of
+                Nothing ->
+                    Nothing
+
+                Just marvinLabelID ->
+                    Just ( marvinLabelID, ID.tag activityID )
+
+        build activityFound =
+            { focus = activityFound
+            , date = marvinBlock.date
+            , startTime = marvinBlock.time
+            , duration = marvinBlock.duration
+            }
+    in
+    case labelMaybe of
+        Nothing ->
+            Nothing
+
+        Just foundAssignment ->
+            case Dict.get foundAssignment activityLookup of
+                Nothing ->
+                    Nothing
+
+                Just foundActivity ->
+                    Just <| build foundActivity

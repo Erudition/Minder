@@ -12217,24 +12217,29 @@ var $author$project$Activity$Activity$decodeStoredActivities = A2(
 	$elm_community$intdict$IntDict$fromList,
 	$zwilias$json_decode_exploration$Json$Decode$Exploration$list(
 		A2($author$project$Porting$decodeTuple2, $zwilias$json_decode_exploration$Json$Decode$Exploration$int, $author$project$Activity$Activity$decodeCustomizations)));
-var $author$project$Activity$Activity$Switch = F2(
-	function (a, b) {
-		return {$: 'Switch', a: a, b: b};
+var $author$project$Activity$Switch$Switch = F3(
+	function (a, b, c) {
+		return {$: 'Switch', a: a, b: b, c: c};
 	});
 var $author$project$SmartTime$Moment$fromSmartInt = function (_int) {
 	return $author$project$SmartTime$Moment$Moment(
 		$author$project$SmartTime$Duration$fromInt(_int));
 };
 var $author$project$Porting$decodeMoment = A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, $author$project$SmartTime$Moment$fromSmartInt, $zwilias$json_decode_exploration$Json$Decode$Exploration$int);
-var $author$project$Porting$subtype2 = F5(
-	function (tagger, fieldName1, subType1Decoder, fieldName2, subType2Decoder) {
-		return A3(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$map2,
-			tagger,
-			A2($zwilias$json_decode_exploration$Json$Decode$Exploration$field, fieldName1, subType1Decoder),
-			A2($zwilias$json_decode_exploration$Json$Decode$Exploration$field, fieldName2, subType2Decoder));
-	});
-var $author$project$Activity$Activity$decodeSwitch = A5($author$project$Porting$subtype2, $author$project$Activity$Activity$Switch, 'Time', $author$project$Porting$decodeMoment, 'Activity', $author$project$ID$decode);
+var $author$project$Activity$Switch$decodeSwitch = A4(
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+	'Instance',
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Instance$decodeInstanceID),
+	$elm$core$Maybe$Nothing,
+	A3(
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+		'Activity',
+		$author$project$ID$decode,
+		A3(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+			'Time',
+			$author$project$Porting$decodeMoment,
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Activity$Switch$Switch))));
 var $author$project$TimeBlock$TimeBlock$TimeBlock = F2(
 	function (focus, range) {
 		return {focus: focus, range: range};
@@ -12644,7 +12649,7 @@ var $author$project$Profile$decodeProfile = A4(
 		A4(
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 			'timeline',
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Activity$Activity$decodeSwitch),
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Activity$Switch$decodeSwitch),
 			_List_Nil,
 			A4(
 				$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
@@ -19025,6 +19030,14 @@ var $author$project$Activity$Measure$lookBack = F2(
 			$author$project$SmartTime$Human$Duration$dur(humanDuration));
 	});
 var $author$project$Activity$Activity$dummy = $author$project$ID$tag(0);
+var $author$project$Activity$Switch$getActivityID = function (_v0) {
+	var activityID = _v0.b;
+	return activityID;
+};
+var $author$project$Activity$Switch$getMoment = function (_v0) {
+	var moment = _v0.a;
+	return moment;
+};
 var $elm$core$List$partition = F2(
 	function (pred, list) {
 		var step = F2(
@@ -19043,16 +19056,21 @@ var $elm$core$List$partition = F2(
 			_Utils_Tuple2(_List_Nil, _List_Nil),
 			list);
 	});
+var $author$project$Activity$Switch$switchToActivity = F2(
+	function (moment, activityID) {
+		return A3($author$project$Activity$Switch$Switch, moment, activityID, $elm$core$Maybe$Nothing);
+	});
 var $author$project$Activity$Measure$timelineLimit = F3(
 	function (timeline, now, pastLimit) {
-		var switchActivityID = function (_v2) {
-			var id = _v2.b;
-			return id;
+		var switchActivityID = function (_switch) {
+			return $author$project$Activity$Switch$getActivityID(_switch);
 		};
-		var recentEnough = function (_v1) {
-			var moment = _v1.a;
+		var recentEnough = function (_switch) {
 			return _Utils_eq(
-				A2($author$project$SmartTime$Moment$compare, moment, pastLimit),
+				A2(
+					$author$project$SmartTime$Moment$compare,
+					$author$project$Activity$Switch$getMoment(_switch),
+					pastLimit),
 				$author$project$SmartTime$Moment$Later);
 		};
 		var _v0 = A2($elm$core$List$partition, recentEnough, timeline);
@@ -19065,7 +19083,7 @@ var $author$project$Activity$Measure$timelineLimit = F3(
 				$elm$core$Maybe$map,
 				switchActivityID,
 				$elm$core$List$head(fail)));
-		var fakeEndSwitch = A2($author$project$Activity$Activity$Switch, pastLimit, justMissedId);
+		var fakeEndSwitch = A2($author$project$Activity$Switch$switchToActivity, pastLimit, justMissedId);
 		return _Utils_ap(
 			pass,
 			_List_fromArray(
@@ -19124,13 +19142,13 @@ var $author$project$SmartTime$Moment$difference = F2(
 		return A2($author$project$SmartTime$Duration$difference, time1, time2);
 	});
 var $author$project$Activity$Measure$session = F2(
-	function (_v0, _v1) {
-		var newer = _v0.a;
-		var older = _v1.a;
-		var activityId = _v1.b;
+	function (newer, older) {
 		return _Utils_Tuple2(
-			activityId,
-			A2($author$project$SmartTime$Moment$difference, newer, older));
+			$author$project$Activity$Switch$getActivityID(older),
+			A2(
+				$author$project$SmartTime$Moment$difference,
+				$author$project$Activity$Switch$getMoment(newer),
+				$author$project$Activity$Switch$getMoment(older)));
 	});
 var $author$project$Activity$Measure$allSessions = function (switchList) {
 	var offsetList = A2($elm$core$List$drop, 1, switchList);
@@ -19152,7 +19170,7 @@ var $author$project$Activity$Measure$sessions = F2(
 	});
 var $author$project$Activity$Measure$totalLive = F3(
 	function (now, switchList, activityId) {
-		var fakeSwitch = A2($author$project$Activity$Activity$Switch, now, activityId);
+		var fakeSwitch = A2($author$project$Activity$Switch$switchToActivity, now, activityId);
 		return $author$project$SmartTime$Duration$combine(
 			A2(
 				$author$project$Activity$Measure$sessions,
@@ -19226,26 +19244,88 @@ var $author$project$SmartTime$Human$Duration$breakdownHMS = function (duration) 
 			$author$project$SmartTime$Human$Duration$Seconds(seconds)
 		]);
 };
-var $author$project$Activity$Activity$latestSwitch = function (timeline) {
+var $author$project$Activity$Timeline$latestSwitch = function (timeline) {
 	return A2(
 		$elm$core$Maybe$withDefault,
 		A2(
-			$author$project$Activity$Activity$Switch,
+			$author$project$Activity$Switch$switchToActivity,
 			$author$project$SmartTime$Moment$zero,
 			$author$project$ID$tag(0)),
 		$elm$core$List$head(timeline));
 };
-var $author$project$Activity$Activity$currentActivityID = function (switchList) {
-	var getId = function (_v0) {
-		var activityId = _v0.b;
-		return activityId;
-	};
-	return getId(
-		$author$project$Activity$Activity$latestSwitch(switchList));
+var $author$project$Activity$Timeline$currentActivityID = function (switchList) {
+	return $author$project$Activity$Switch$getActivityID(
+		$author$project$Activity$Timeline$latestSwitch(switchList));
 };
 var $author$project$Activity$Switching$currentActivityFromApp = function (app) {
-	return $author$project$Activity$Activity$currentActivityID(app.timeline);
+	return $author$project$Activity$Timeline$currentActivityID(app.timeline);
 };
+var $author$project$NativeScript$Notification$Button = function (a) {
+	return {$: 'Button', a: a};
+};
+var $author$project$NativeScript$Notification$Max = {$: 'Max'};
+var $author$project$NativeScript$Notification$Progress = F2(
+	function (a, b) {
+		return {$: 'Progress', a: a, b: b};
+	});
+var $author$project$Activity$Switching$taskClassNotifID = function (instanceID) {
+	return 9000 + instanceID;
+};
+var $author$project$Activity$Switching$currentTaskNotif = F2(
+	function (now, task) {
+		var currentTaskChannel = {
+			description: $elm$core$Maybe$Just('What you\'re working on.'),
+			id: 'Current Task',
+			importance: $elm$core$Maybe$Just($author$project$NativeScript$Notification$Max),
+			led: $elm$core$Maybe$Nothing,
+			name: 'Current Task',
+			sound: $elm$core$Maybe$Nothing,
+			vibrate: $elm$core$Maybe$Nothing
+		};
+		var blank = $author$project$NativeScript$Notification$build(currentTaskChannel);
+		var actions = _List_fromArray(
+			[
+				{
+				button: $author$project$NativeScript$Notification$Button('+20%'),
+				id: 'updateProgress=+20%',
+				launch: false
+			}
+			]);
+		return _Utils_update(
+			blank,
+			{
+				actions: actions,
+				autoCancel: $elm$core$Maybe$Just(false),
+				background_color: $elm$core$Maybe$Nothing,
+				badge: $elm$core$Maybe$Nothing,
+				body: $elm$core$Maybe$Nothing,
+				body_expanded: $elm$core$Maybe$Nothing,
+				chronometer: $elm$core$Maybe$Just(true),
+				countdown: $elm$core$Maybe$Nothing,
+				detail: $elm$core$Maybe$Nothing,
+				icon: $elm$core$Maybe$Nothing,
+				id: $elm$core$Maybe$Just(
+					$author$project$Activity$Switching$taskClassNotifID(task._class.id)),
+				ongoing: $elm$core$Maybe$Just(true),
+				privacy: $elm$core$Maybe$Nothing,
+				progress: $elm$core$Maybe$Just(
+					A2(
+						$author$project$NativeScript$Notification$Progress,
+						$author$project$Task$Progress$getPortion(
+							$author$project$Task$Instance$instanceProgress(task)),
+						$author$project$Task$Progress$getWhole(
+							$author$project$Task$Instance$instanceProgress(task)))),
+				silhouetteIcon: $elm$core$Maybe$Nothing,
+				status_icon: $elm$core$Maybe$Nothing,
+				status_text_size: $elm$core$Maybe$Nothing,
+				subtitle: $elm$core$Maybe$Nothing,
+				title: $elm$core$Maybe$Just(task._class.title),
+				title_expanded: $elm$core$Maybe$Nothing,
+				update: $elm$core$Maybe$Nothing,
+				useHTML: $elm$core$Maybe$Nothing,
+				when: $elm$core$Maybe$Just(now)
+			});
+	});
 var $author$project$Task$Instance$completed = function (spec) {
 	return $author$project$Task$Progress$isMax(
 		_Utils_Tuple2(spec.instance.completion, spec._class.completionUnits));
@@ -19580,17 +19660,21 @@ var $author$project$Task$Instance$prioritize = F3(
 				]),
 			taskList);
 	});
+var $author$project$Activity$Switching$prioritizeTasks = F2(
+	function (profile, env) {
+		return A3(
+			$author$project$Task$Instance$prioritize,
+			env.time,
+			env.timeZone,
+			A2(
+				$elm$core$List$filter,
+				A2($elm$core$Basics$composeR, $author$project$Task$Instance$completed, $elm$core$Basics$not),
+				A2($author$project$Activity$Switching$instanceListNow, profile, env)));
+	});
 var $author$project$Activity$Switching$determineNextTask = F2(
 	function (profile, env) {
 		return $elm$core$List$head(
-			A3(
-				$author$project$Task$Instance$prioritize,
-				env.time,
-				env.timeZone,
-				A2(
-					$elm$core$List$filter,
-					A2($elm$core$Basics$composeR, $author$project$Task$Instance$completed, $elm$core$Basics$not),
-					A2($author$project$Activity$Switching$instanceListNow, profile, env))));
+			A2($author$project$Activity$Switching$prioritizeTasks, profile, env));
 	});
 var $author$project$Activity$Activity$excusableFor = function (activity) {
 	var _v0 = activity.excusable;
@@ -19720,13 +19804,6 @@ var $author$project$NativeScript$Commands$notifyCancel = function (id) {
 	return $author$project$NativeScript$Commands$ns_notify_cancel(
 		$elm$json$Json$Encode$int(id));
 };
-var $author$project$NativeScript$Notification$Button = function (a) {
-	return {$: 'Button', a: a};
-};
-var $author$project$NativeScript$Notification$Progress = F2(
-	function (a, b) {
-		return {$: 'Progress', a: a, b: b};
-	});
 var $author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
 	switch (unit.$) {
 		case 'Milliseconds':
@@ -20163,7 +20240,6 @@ var $author$project$Activity$Switching$offTaskActions = _List_fromArray(
 		launch: false
 	}
 	]);
-var $author$project$NativeScript$Notification$Max = {$: 'Max'};
 var $author$project$NativeScript$Notification$CustomVibration = function (a) {
 	return {$: 'CustomVibration', a: a};
 };
@@ -20374,9 +20450,6 @@ var $author$project$SmartTime$Human$Duration$singleLetterSpaced = function (huma
 			' ',
 			A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$withLetter, humanDurationList)));
 };
-var $author$project$Task$Instance$partiallyCompleted = function (spec) {
-	return spec.instance.completion > 0;
-};
 var $author$project$NativeScript$Notification$Low = {$: 'Low'};
 var $author$project$Activity$Switching$suggestedTasksChannel = {
 	description: $elm$core$Maybe$Just('Other tasks you could start right now.'),
@@ -20404,24 +20477,24 @@ var $author$project$Activity$Switching$suggestedTaskNotif = F2(
 				expiresAfter: $elm$core$Maybe$Just(
 					$author$project$SmartTime$Duration$fromHours(8)),
 				group: $elm$core$Maybe$Just($author$project$Activity$Switching$suggestedTasksGroup),
-				id: $elm$core$Maybe$Just(9000 + taskInstance._class.id),
-				progress: $author$project$Task$Instance$partiallyCompleted(taskInstance) ? $elm$core$Maybe$Just(
-					A2(
-						$author$project$NativeScript$Notification$Progress,
-						$author$project$Task$Progress$getPortion(
-							$author$project$Task$Instance$instanceProgress(taskInstance)),
-						$author$project$Task$Progress$getWhole(
-							$author$project$Task$Instance$instanceProgress(taskInstance)))) : $elm$core$Maybe$Nothing,
+				id: $elm$core$Maybe$Just(
+					$author$project$Activity$Switching$taskClassNotifID(taskInstance._class.id)),
+				progress: $elm$core$Maybe$Nothing,
 				title: $elm$core$Maybe$Just(taskInstance._class.title),
 				when: $elm$core$Maybe$Nothing
 			});
 	});
 var $author$project$Activity$Switching$suggestedTasks = F2(
-	function (tasks, now) {
+	function (profile, env) {
+		var tasks = A2($author$project$Activity$Switching$prioritizeTasks, profile, env);
 		return A2(
 			$elm$core$List$map,
-			$author$project$Activity$Switching$suggestedTaskNotif(now),
+			$author$project$Activity$Switching$suggestedTaskNotif(env.time),
 			A2($elm$core$List$take, 5, tasks));
+	});
+var $author$project$Activity$Switch$switchTask = F3(
+	function (moment, activityID, instanceIDMaybe) {
+		return A3($author$project$Activity$Switch$Switch, moment, activityID, instanceIDMaybe);
 	});
 var $elm_community$list_extra$List$Extra$dropWhile = F2(
 	function (predicate, list) {
@@ -20559,12 +20632,9 @@ var $author$project$Activity$Switching$updateSticky = F5(
 					A2($author$project$SmartTime$Moment$past, now, todayTotal))
 			});
 	});
-var $author$project$Activity$Switching$switchActivity = F3(
-	function (newActivityID, app, env) {
-		var suggestions = A2(
-			$author$project$Activity$Switching$suggestedTasks,
-			A2($author$project$Activity$Switching$instanceListNow, app, env),
-			env.time);
+var $author$project$Activity$Switching$switchTracking = F4(
+	function (newActivityID, instanceIDMaybe, app, env) {
+		var suggestions = A2($author$project$Activity$Switching$suggestedTasks, app, env);
 		var statusIDs = _List_fromArray(
 			[42]);
 		var popup = function (message) {
@@ -20579,7 +20649,7 @@ var $author$project$Activity$Switching$switchActivity = F3(
 			{
 				timeline: A2(
 					$elm$core$List$cons,
-					A2($author$project$Activity$Activity$Switch, env.time, newActivityID),
+					A3($author$project$Activity$Switch$switchTask, env.time, newActivityID, instanceIDMaybe),
 					app.timeline)
 			});
 		var todayTotal = A3($author$project$Activity$Measure$justTodayTotal, updatedApp.timeline, env, newActivityID);
@@ -20610,6 +20680,39 @@ var $author$project$Activity$Switching$switchActivity = F3(
 			return $elm$core$Platform$Cmd$batch(
 				A2($elm$core$List$map, $author$project$NativeScript$Commands$notifyCancel, idList));
 		};
+		var allTasks = A2($author$project$Activity$Switching$instanceListNow, app, env);
+		var trackingTask = function () {
+			if (instanceIDMaybe.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var instanceID = instanceIDMaybe.a;
+				return $elm$core$List$head(
+					A2(
+						$elm$core$List$filter,
+						A2(
+							$elm$core$Basics$composeR,
+							function ($) {
+								return $.instance;
+							},
+							A2(
+								$elm$core$Basics$composeR,
+								function ($) {
+									return $.id;
+								},
+								$elm$core$Basics$eq(instanceID))),
+						allTasks));
+			}
+		}();
+		var trackingTaskNotif = A2(
+			$elm$core$List$filterMap,
+			$elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					A2(
+					$elm$core$Maybe$map,
+					$author$project$Activity$Switching$currentTaskNotif(env.time),
+					trackingTask)
+				]));
 		var _v0 = _Utils_Tuple2(
 			$author$project$Activity$Activity$getName(oldActivity),
 			$author$project$Activity$Activity$getName(newActivity));
@@ -20637,7 +20740,7 @@ var $author$project$Activity$Switching$switchActivity = F3(
 									[
 										A5($author$project$Activity$Switching$updateSticky, env.time, todayTotal, newActivity, '✔️ All Done', $elm$core$Maybe$Nothing)
 									]),
-								suggestions)),
+								_Utils_ap(suggestions, trackingTaskNotif))),
 							cancelAll(
 							_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
 						])));
@@ -20675,12 +20778,20 @@ var $author$project$Activity$Switching$switchActivity = F3(
 										]),
 									_Utils_ap(
 										A2($author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time),
-										suggestions))),
+										_Utils_ap(suggestions, trackingTaskNotif)))),
 								cancelAll(
 								_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
 							])));
 			} else {
 				var nextActivity = _v2.a;
+				var isThisTheRightNextTask = A2(
+					$elm$core$Maybe$withDefault,
+					false,
+					A2(
+						$elm$core$Maybe$map,
+						$elm$core$Basics$eq(nextTask.instance.id),
+						instanceIDMaybe));
+				var isThisTheRightNextActivity = _Utils_eq(nextActivity, newActivityID);
 				var excusedUsage = A3(
 					$author$project$Activity$Measure$excusedUsage,
 					updatedApp.timeline,
@@ -20699,7 +20810,7 @@ var $author$project$Activity$Switching$switchActivity = F3(
 							$author$project$Activity$Activity$allActivities(app.activities))));
 				var describeExcusedUsage = $author$project$SmartTime$Duration$isPositive(excusedUsage) ? _List_fromArray(
 					['Already used', excusedUsageString]) : _List_Nil;
-				if (_Utils_eq(nextActivity, newActivityID)) {
+				if (isThisTheRightNextTask) {
 					var timeSpent = A3($author$project$Activity$Measure$totalLive, env.time, updatedApp.timeline, newActivityID);
 					var timeRemaining = A2($author$project$SmartTime$Duration$subtract, nextTask._class.maxEffort, timeSpent);
 					return _Utils_Tuple2(
@@ -20730,12 +20841,14 @@ var $author$project$Activity$Switching$switchActivity = F3(
 											]),
 										_Utils_ap(
 											A3($author$project$Activity$Switching$scheduleOnTaskReminders, nextTask, env.time, timeRemaining),
-											suggestions))),
+											_Utils_ap(suggestions, trackingTaskNotif)))),
 									cancelAll(
 									_Utils_ap(offTaskReminderIDs, excusedReminderIDs))
 								])));
 				} else {
-					if ($author$project$SmartTime$Duration$isPositive(excusedLeft)) {
+					if (isThisTheRightNextActivity) {
+						var timeSpent = A3($author$project$Activity$Measure$totalLive, env.time, updatedApp.timeline, newActivityID);
+						var timeRemaining = A2($author$project$SmartTime$Duration$subtract, nextTask._class.maxEffort, timeSpent);
 						return _Utils_Tuple2(
 							updatedApp,
 							$elm$core$Platform$Cmd$batch(
@@ -20747,8 +20860,8 @@ var $author$project$Activity$Switching$switchActivity = F3(
 												_List_fromArray(
 												[oldName, 'stopped:', sessionTotalString]),
 												_List_fromArray(
-												[oldName, '➤', newName, '❌']),
-												describeExcusedUsage
+												[oldName, '➤', newName, '✔️']),
+												describeTodayTotal
 											])),
 										$author$project$NativeScript$Commands$notify(
 										_Utils_ap(
@@ -20759,62 +20872,101 @@ var $author$project$Activity$Switching$switchActivity = F3(
 													env.time,
 													todayTotal,
 													newActivity,
-													'⏸ Off Task (Excused)',
+													'✔️ On Task',
 													$elm$core$Maybe$Just(nextTask))
 												]),
 											_Utils_ap(
-												A3(
-													$author$project$Activity$Switching$scheduleExcusedReminders,
-													env.time,
-													$author$project$Activity$Measure$excusableLimit(newActivity),
-													excusedLeft),
-												_Utils_ap(
-													A2(
-														$author$project$Activity$Switching$scheduleOffTaskReminders,
-														nextTask,
-														A2($author$project$SmartTime$Moment$future, env.time, excusedLeft)),
-													suggestions)))),
+												A3($author$project$Activity$Switching$scheduleOnTaskReminders, nextTask, env.time, timeRemaining),
+												_Utils_ap(suggestions, trackingTaskNotif)))),
 										cancelAll(
-										_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
+										_Utils_ap(offTaskReminderIDs, excusedReminderIDs))
 									])));
 					} else {
-						return _Utils_Tuple2(
-							updatedApp,
-							$elm$core$Platform$Cmd$batch(
-								_List_fromArray(
-									[
-										popup(
-										_List_fromArray(
-											[
-												_List_fromArray(
-												[oldName, 'stopped:', sessionTotalString]),
-												_List_fromArray(
-												[oldName, '➤', newName, '❌']),
-												_List_fromArray(
-												['Previously excused for', excusedUsageString])
-											])),
-										$author$project$NativeScript$Commands$notify(
-										_Utils_ap(
+						if ($author$project$SmartTime$Duration$isPositive(excusedLeft)) {
+							return _Utils_Tuple2(
+								updatedApp,
+								$elm$core$Platform$Cmd$batch(
+									_List_fromArray(
+										[
+											popup(
 											_List_fromArray(
 												[
-													A5(
-													$author$project$Activity$Switching$updateSticky,
-													env.time,
-													todayTotal,
-													newActivity,
-													'❌ Off Task',
-													$elm$core$Maybe$Just(nextTask))
-												]),
+													_List_fromArray(
+													[oldName, 'stopped:', sessionTotalString]),
+													_List_fromArray(
+													[oldName, '➤', newName, '❌']),
+													describeExcusedUsage
+												])),
+											$author$project$NativeScript$Commands$notify(
 											_Utils_ap(
-												A2($author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time),
-												suggestions))),
-										cancelAll(
-										_Utils_ap(onTaskReminderIDs, excusedReminderIDs))
-									])));
+												_List_fromArray(
+													[
+														A5(
+														$author$project$Activity$Switching$updateSticky,
+														env.time,
+														todayTotal,
+														newActivity,
+														'⏸ Off Task (Excused)',
+														$elm$core$Maybe$Just(nextTask))
+													]),
+												_Utils_ap(
+													A3(
+														$author$project$Activity$Switching$scheduleExcusedReminders,
+														env.time,
+														$author$project$Activity$Measure$excusableLimit(newActivity),
+														excusedLeft),
+													_Utils_ap(
+														A2(
+															$author$project$Activity$Switching$scheduleOffTaskReminders,
+															nextTask,
+															A2($author$project$SmartTime$Moment$future, env.time, excusedLeft)),
+														_Utils_ap(suggestions, trackingTaskNotif))))),
+											cancelAll(
+											_Utils_ap(offTaskReminderIDs, onTaskReminderIDs))
+										])));
+						} else {
+							return _Utils_Tuple2(
+								updatedApp,
+								$elm$core$Platform$Cmd$batch(
+									_List_fromArray(
+										[
+											popup(
+											_List_fromArray(
+												[
+													_List_fromArray(
+													[oldName, 'stopped:', sessionTotalString]),
+													_List_fromArray(
+													[oldName, '➤', newName, '❌']),
+													_List_fromArray(
+													['Previously excused for', excusedUsageString])
+												])),
+											$author$project$NativeScript$Commands$notify(
+											_Utils_ap(
+												_List_fromArray(
+													[
+														A5(
+														$author$project$Activity$Switching$updateSticky,
+														env.time,
+														todayTotal,
+														newActivity,
+														'❌ Off Task',
+														$elm$core$Maybe$Just(nextTask))
+													]),
+												_Utils_ap(
+													A2($author$project$Activity$Switching$scheduleOffTaskReminders, nextTask, env.time),
+													_Utils_ap(suggestions, trackingTaskNotif)))),
+											cancelAll(
+											_Utils_ap(onTaskReminderIDs, excusedReminderIDs))
+										])));
+						}
 					}
 				}
 			}
 		}
+	});
+var $author$project$Activity$Switching$switchActivity = F3(
+	function (newActivityID, app, env) {
+		return A4($author$project$Activity$Switching$switchTracking, newActivityID, $elm$core$Maybe$Nothing, app, env);
 	});
 var $author$project$External$Tasker$variableOut = _Platform_outgoingPort(
 	'variableOut',
@@ -21815,23 +21967,42 @@ var $author$project$Activity$Activity$encodeStoredActivities = function (value) 
 		A2($author$project$Porting$encodeTuple2, $elm$json$Json$Encode$int, $author$project$Activity$Activity$encodeCustomizations),
 		$elm_community$intdict$IntDict$toList(value));
 };
+var $author$project$Task$Instance$encodeInstanceID = function (taskInstanceID) {
+	return $elm$json$Json$Encode$int(taskInstanceID);
+};
 var $author$project$Porting$encodeMoment = function (dur) {
 	return $elm$json$Json$Encode$int(
 		$author$project$SmartTime$Moment$toSmartInt(dur));
 };
-var $author$project$Activity$Activity$encodeSwitch = function (_v0) {
+var $author$project$Activity$Switch$encodeSwitch = function (_v0) {
 	var time = _v0.a;
 	var activityId = _v0.b;
+	var instanceIDMaybe = _v0.c;
+	var optionals = function () {
+		if (instanceIDMaybe.$ === 'Just') {
+			var instanceID = instanceIDMaybe.a;
+			return _List_fromArray(
+				[
+					_Utils_Tuple2(
+					'Instance',
+					$author$project$Task$Instance$encodeInstanceID(instanceID))
+				]);
+		} else {
+			return _List_Nil;
+		}
+	}();
 	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'Time',
-				$author$project$Porting$encodeMoment(time)),
-				_Utils_Tuple2(
-				'Activity',
-				$author$project$ID$encode(activityId))
-			]));
+		_Utils_ap(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'Time',
+					$author$project$Porting$encodeMoment(time)),
+					_Utils_Tuple2(
+					'Activity',
+					$author$project$ID$encode(activityId))
+				]),
+			optionals));
 };
 var $author$project$SmartTime$Period$toPair = function (_v0) {
 	var startMoment = _v0.a;
@@ -22024,7 +22195,7 @@ var $author$project$Profile$encodeProfile = function (record) {
 					A2($elm$core$List$take, 100, record.errors))),
 				_Utils_Tuple2(
 				'timeline',
-				A2($elm$json$Json$Encode$list, $author$project$Activity$Activity$encodeSwitch, record.timeline)),
+				A2($elm$json$Json$Encode$list, $author$project$Activity$Switch$encodeSwitch, record.timeline)),
 				_Utils_Tuple2(
 				'todoist',
 				$author$project$Profile$encodeTodoistIntegrationData(record.todoist)),

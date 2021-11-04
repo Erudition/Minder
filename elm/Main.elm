@@ -462,6 +462,7 @@ update msg ({ viewState, profile, environment } as model) =
                         | taskEntries = profile.taskEntries ++ newItems.taskEntries
                         , taskClasses = IntDict.union profile.taskClasses newItems.taskClasses
                         , taskInstances = IntDict.union profile.taskInstances newItems.taskInstances
+                        , timeBlocks = newItems.timeBlocks -- TODO currently overwrites
                         , activities = Maybe.withDefault profile.activities newActivities
                     }
 
