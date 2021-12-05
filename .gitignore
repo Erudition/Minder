@@ -39,7 +39,6 @@ elm-stuff
 /connor
 www/elm-gui.js
 www/elm-headless.js
-deploy.sh
 elmjutsu-config.json
 
 
