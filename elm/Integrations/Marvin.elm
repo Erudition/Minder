@@ -9,23 +9,17 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import Http
 import IntDict exposing (IntDict)
-import Integrations.Marvin.MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTaskNaive)
+import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
 import Json.Decode.Exploration as Decode exposing (..)
-import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
-import Json.Encode.Extra as Encode
-import List.Extra as List
-import List.Nonempty exposing (Nonempty)
-import Maybe.Extra as Maybe
+import Maybe.Extra
 import Porting exposing (..)
 import Profile exposing (Profile)
-import Set exposing (Set)
-import SmartTime.Human.Moment as HumanMoment
+import SmartTime.Moment exposing (Moment)
 import Task.Class
 import Task.Entry
 import Task.Instance
 import TimeBlock.TimeBlock exposing (TimeBlock)
-import Url
 import Url.Builder
 
 
@@ -164,7 +158,7 @@ getTimeBlocks assignments =
                     , ( "fields", Encode.list Encode.string [ "title", "date", "time", "duration", "cancelDates", "exceptions" ] )
                     ]
                 )
-        , expect = Http.expectJson (GotTimeBlocks assignments) (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinTimeBlock)
+        , expect = Http.expectJson (GotTimeBlocks assignments) (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinTimeBlock)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -175,12 +169,48 @@ type alias TimeBlockAssignments =
 
 
 {-| Get Marvin Config information
+
+{
+"docs": [
+{
+"val": {
+"parentId": {
+"op": "in",
+"val": "2021-01-10\_62f0a9be-3c47-4c89-9fce-a296de4f2ada"
+}
+},
+"\_id": "strategySettings.plannerSmartLists.AMBookend"
+},
+
+        {
+        "val": {
+        "parentId": {
+        "op": "in",
+        "val": "b1609499-aa72-49b8-ad11-885aed57db94"
+        }
+        },
+        "_id": "strategySettings.plannerSmartLists.BusinessBlock"
+        },
+
 -}
 getTimeBlockAssignments : Cmd Msg
 getTimeBlockAssignments =
     let
         decodeAssignment =
-            Decode.dict Decode.string
+            Decode.map2 Tuple.pair decodeAssignmentName decodeAssignmentValue
+
+        decodeAssignmentValue =
+            Decode.oneOf
+                [ Decode.at [ "val", "parentId", "val" ] Decode.string
+                , Decode.at [ "val", "goalId", "val" ] Decode.string
+                , Decode.at [ "val", "labelIds", "val" ] Decode.string
+                ]
+
+        decodeAssignmentName =
+            Decode.field "_id" (Decode.map stripPrefix Decode.string)
+
+        stripPrefix settingIDString =
+            String.dropLeft 35 settingIDString
     in
     Http.request
         { method = "POST"
@@ -192,7 +222,7 @@ getTimeBlockAssignments =
                     [ ( "selector"
                       , Encode.object
                             [ ( "db", Encode.string "ProfileItems" )
-                            , ( "_id", Encode.string "strategySettings.plannerSmartLists" )
+                            , ( "_id", Encode.object [ ( "$regex", Encode.string "^strategySettings.plannerSmartLists" ) ] )
                             ]
                       )
                     , ( "fields", Encode.list Encode.string [ "val", "_id" ] )
@@ -202,7 +232,9 @@ getTimeBlockAssignments =
             Http.expectJson GotTimeBlockAssignments
                 (toClassicLoose <|
                     Decode.at [ "docs" ] <|
-                        Decode.list decodeAssignment
+                        Decode.map Dict.fromList <|
+                            Decode.list
+                                decodeAssignment
                 )
         , timeout = Nothing
         , tracker = Nothing
@@ -240,19 +272,19 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> Msg -> ( ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel, timeBlocks : List TimeBlock }, Maybe StoredActivities ), String, Cmd Msg )
+handle : Int -> Profile -> Msg -> ( Profile, String, Cmd Msg )
 handle classCounter profile response =
     case response of
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
@@ -260,13 +292,13 @@ handle classCounter profile response =
         AuthResult result ->
             case result of
                 Ok serversays ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
@@ -275,16 +307,16 @@ handle classCounter profile response =
             case result of
                 Ok itemList ->
                     let
-                        ( newTriplets, newActivities ) =
-                            importItems classCounter profile itemList
+                        newProfile =
+                            importItems profile itemList
                     in
-                    ( ( newTriplets, Just newActivities )
+                    ( newProfile
                     , Debug.toString itemList
                     , getTimeBlockAssignments
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
@@ -296,13 +328,13 @@ handle classCounter profile response =
                         newActivities =
                             importLabels profile labelList
                     in
-                    ( ( blankTriplet, Just newActivities )
+                    ( { profile | activities = IntDict.union profile.activities newActivities }
                     , Debug.toString labelList
                     , getTasks partialAccessToken
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
@@ -310,53 +342,55 @@ handle classCounter profile response =
         GotTimeBlocks assignments result ->
             case result of
                 Ok timeBlockList ->
-                    ( ( { blankTriplet | timeBlocks = importTimeBlocks profile assignments timeBlockList }, Nothing )
+                    ( { profile | timeBlocks = importTimeBlocks profile assignments timeBlockList }
                     , Debug.toString timeBlockList
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
 
         GotTimeBlockAssignments assignmentsResult ->
             case assignmentsResult of
-                Ok (assignments :: shouldBeNothing) ->
-                    ( ( blankTriplet, Nothing )
-                    , Debug.toString assignments ++ "and also: " ++ Debug.toString shouldBeNothing
-                    , getTimeBlocks assignments
-                    )
-
-                Ok [] ->
-                    ( ( blankTriplet, Nothing )
-                    , "timeblock assignment data was empty! " ++ Debug.toString assignmentsResult
-                    , Cmd.none
+                Ok assignmentDict ->
+                    ( profile
+                    , Debug.toString assignmentDict
+                    , getTimeBlocks assignmentDict
                     )
 
                 Err err ->
-                    ( ( blankTriplet, Nothing )
+                    ( profile
                     , describeError err
                     , Cmd.none
                     )
 
 
-blankTriplet =
-    { taskEntries = [], taskClasses = IntDict.empty, taskInstances = IntDict.empty, timeBlocks = [] }
-
-
-importItems : Int -> Profile -> List MarvinItem -> ( { taskEntries : List Task.Entry.Entry, taskClasses : IntDict Task.Class.ClassSkel, taskInstances : IntDict Task.Instance.InstanceSkel, timeBlocks : List TimeBlock }, Activity.StoredActivities )
-importItems classCounter profile itemList =
+importItems : Profile -> List MarvinItem -> Profile
+importItems profile itemList =
     let
-        toNumberedDocketTask index =
-            toDocketItem (classCounter + index) profile
+        updateProfileWithOutput item beforeProfile =
+            let
+                output =
+                    toDocketItem item beforeProfile
 
-        bigList =
-            List.indexedMap toNumberedDocketTask itemList
+                tasks =
+                    Maybe.Extra.toList (tasksOnly output)
 
-        bigTaskList =
-            List.filterMap tasksOnly bigList
+                activities =
+                    Maybe.Extra.toList (activitiesOnly output)
+            in
+            { beforeProfile
+                | taskEntries = beforeProfile.taskEntries ++ List.concatMap .entries tasks
+                , taskClasses = IntDict.union (IntDict.fromList <| List.map (\i -> ( i.id, i )) <| List.concatMap .classes tasks) beforeProfile.taskClasses
+                , taskInstances = IntDict.union (IntDict.fromList <| List.map (\i -> ( i.id, i )) <| List.concatMap .instances tasks) beforeProfile.taskInstances
+                , activities = List.foldl (\d1 d2 -> IntDict.union d2 d1) beforeProfile.activities activities
+            }
+
+        profileFedToAll =
+            List.foldl updateProfileWithOutput profile itemList
 
         tasksOnly outputItem =
             case outputItem of
@@ -373,17 +407,8 @@ importItems classCounter profile itemList =
 
                 _ ->
                     Nothing
-
-        finalActivities =
-            List.foldl IntDict.union IntDict.empty (List.filterMap activitiesOnly bigList)
     in
-    ( { taskEntries = List.map .entry bigTaskList
-      , taskClasses = IntDict.fromList <| List.map (\i -> ( i.class.id, i.class )) bigTaskList
-      , taskInstances = IntDict.fromList <| List.map (\i -> ( i.instance.id, i.instance )) bigTaskList
-      , timeBlocks = []
-      }
-    , finalActivities
-    )
+    profileFedToAll
 
 
 importLabels : Profile -> List MarvinLabel -> Activity.StoredActivities
@@ -468,7 +493,7 @@ getTodayItems secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "todayItems"
         , body = Http.emptyBody
-        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list MarvinItem.decodeMarvinItem)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -504,17 +529,20 @@ getTasks secret =
                       , Encode.object
                             [ ( "db", Encode.string "Tasks" )
                             , ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
-                            , ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
+                            , ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
+
+                            --, ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
                             , ( "labelIds", Encode.object [ ( "$not", Encode.object [ ( "$size", Encode.int 0 ) ] ) ] )
                             ]
                       )
                     , ( "fields"
                       , Encode.list Encode.string
                             [ "_id"
+                            , "_rev"
                             , "done"
                             , "day"
                             , "title"
-                            , "parentID"
+                            , "parentId"
                             , "labelIds"
                             , "dueDate"
                             , "timeEstimate"
@@ -522,11 +550,87 @@ getTasks secret =
                             , "endDate"
                             , "times"
                             , "taskTime"
+                            , "pinId"
+                            , "recurringTaskId"
+                            , "note"
                             ]
                       )
                     ]
                 )
-        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+{-| Update a marvin doc
+-}
+updateDoc : MarvinItem -> Cmd Msg
+updateDoc newItem =
+    let
+        request marvinItemID marvinItemRev =
+            Http.request
+                { method = "PUT"
+                , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword, Http.header "If-Match" marvinItemRev ]
+                , url = marvinCloudantDatabaseUrl [ syncDatabase, marvinItemID ] []
+                , body =
+                    Http.jsonBody
+                        (MarvinItem.encodeMarvinItem newItem)
+                , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+    in
+    case ( newItem.id, newItem.rev ) of
+        ( "", "" ) ->
+            Debug.log "Can't update a marvin item without ID or Rev - both were empty strings" Cmd.none
+
+        ( _, "" ) ->
+            Debug.log "Can't update a marvin item without ID or Rev - rev was an empty string" Cmd.none
+
+        ( "", _ ) ->
+            Debug.log "Can't update a marvin item without ID or Rev - id was an empty string" Cmd.none
+
+        ( legitID, legitRev ) ->
+            request legitID legitRev
+
+
+{-| Complete a task
+-}
+completeTask : Moment -> Task.Instance.Instance -> Cmd Msg
+completeTask now marvinExtraData =
+    updateDoc (Dict.get "marvinID" marvinExtraData)
+        (Dict.get "marvinCouchdbRev" marvinExtraData)
+        (Encode.object
+            [ ( "note", Encode.string "hello from docket!" )
+
+            --, ( "done", Encode.bool True )
+            --, ( "doneAt", encodeUnixTimestamp now )
+            --, ( "completedAt", encodeUnixTimestamp now )
+            --, ( "updatedAt", encodeUnixTimestamp now )
+            ]
+        )
+
+
+{-| Get tasks and projects that are due today
+-}
+getRecurringTasks : SecretToken -> Cmd Msg
+getRecurringTasks secret =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword ]
+        , url = marvinCloudantDatabaseUrl [ syncDatabase, "_find" ] []
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "selector"
+                      , Encode.object
+                            [ ( "db", Encode.string "RecurringTasks" )
+                            ]
+                      )
+                    ]
+                )
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -541,7 +645,7 @@ getCategories secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "categories"
         , body = Http.emptyBody
-        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinItem)
+        , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list MarvinItem.decodeMarvinItem)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -556,7 +660,7 @@ getLabels secret =
         , headers = [ Http.header "X-API-Token" secret ]
         , url = marvinEndpointURL "labels"
         , body = Http.emptyBody
-        , expect = Http.expectJson GotLabels (toClassicLoose <| Decode.list Integrations.Marvin.MarvinItem.decodeMarvinLabel)
+        , expect = Http.expectJson GotLabels (toClassicLoose <| Decode.list MarvinItem.decodeMarvinLabel)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -585,10 +689,10 @@ timeTrack secret taskID =
 type Msg
     = TestResult (Result Http.Error String)
     | AuthResult (Result Http.Error String)
-    | GotItems (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinItem))
-    | GotLabels (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinLabel))
-    | GotTimeBlockAssignments (Result Http.Error (List TimeBlockAssignments))
-    | GotTimeBlocks TimeBlockAssignments (Result Http.Error (List Integrations.Marvin.MarvinItem.MarvinTimeBlock))
+    | GotItems (Result Http.Error (List MarvinItem))
+    | GotLabels (Result Http.Error (List MarvinLabel))
+    | GotTimeBlockAssignments (Result Http.Error TimeBlockAssignments)
+    | GotTimeBlocks TimeBlockAssignments (Result Http.Error (List MarvinTimeBlock))
 
 
 

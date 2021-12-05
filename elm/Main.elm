@@ -454,25 +454,29 @@ update msg ({ viewState, profile, environment } as model) =
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
-                ( ( newItems, newActivities ), whatHappened, nextStep ) =
+                ( newProfile1WithItems, whatHappened, nextStep ) =
                     Marvin.handle (Moment.toSmartInt environment.time) profile response
-
-                newProfile1WithItems =
-                    { profile
-                        | taskEntries = profile.taskEntries ++ newItems.taskEntries
-                        , taskClasses = IntDict.union profile.taskClasses newItems.taskClasses
-                        , taskInstances = IntDict.union profile.taskInstances newItems.taskInstances
-                        , timeBlocks = newItems.timeBlocks -- TODO currently overwrites
-                        , activities = Maybe.withDefault profile.activities newActivities
-                    }
 
                 newProfile2WithErrors =
                     Profile.saveError newProfile1WithItems ("Here's what happened: \n" ++ whatHappened)
+
+                syncStatusChannel =
+                    Notif.basicChannel "Sync Status"
+                        |> Notif.setChannelDescription "Lets you know what happened the last time we tried to sync with online servers."
+                        |> Notif.setChannelImportance Notif.High
+
+                notification =
+                    Notif.build syncStatusChannel
+                        |> Notif.setID 29384
+                        |> Notif.setExpiresAfter (Duration.fromMinutes 1)
+                        |> Notif.setTitle "Marvin Response"
+                        |> Notif.setSubtitle "Sync Status"
+                        |> Notif.setBody whatHappened
             in
             ( Model viewState newProfile2WithErrors environment
             , Cmd.batch
                 [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
-                , External.Commands.toast "Got Response from Marvin."
+                , notify [ notification ]
                 ]
             )
 

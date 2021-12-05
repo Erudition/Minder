@@ -339,6 +339,8 @@ endsLater periodA periodB =
 -- TESTING ---------------------------------------------------------------------NOTE
 
 
+{-| Is the given Moment within the period?
+-}
 isWithin : Period -> Moment -> Bool
 isWithin (Period startMoment endMoment) testMoment =
     (Moment.compare testMoment startMoment /= Moment.Earlier) && (Moment.compare testMoment endMoment /= Moment.Later)

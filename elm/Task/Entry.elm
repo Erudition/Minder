@@ -7,13 +7,14 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Porting exposing (..)
+import Replicated.Serialize as Codec exposing (Codec)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
-import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, makeFullClass)
-import Task.Series exposing (Series)
+import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, makeFullClass, parentPropertiesCodec)
+import Task.Series exposing (Series(..))
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -48,25 +49,11 @@ newRootEntry classID =
 
 decodeEntry : Decoder Entry
 decodeEntry =
-    let
-        get id =
-            case id of
-                "SingletonTask" ->
-                    Debug.todo "Cannot decode variant with params: SingletonTask"
+    customDecoder Decode.value (Result.mapError (\e -> "") << Codec.decodeFromJson wrapperParentCodec)
 
-                "OneoffContainer" ->
-                    Debug.todo "Cannot decode variant with params: OneoffContainer"
 
-                "RecurrenceContainer" ->
-                    Debug.todo "Cannot decode variant with params: RecurrenceContainer"
-
-                "NestedRecurrenceContainer" ->
-                    Debug.todo "Cannot decode variant with params: NestedRecurrenceContainer"
-
-                _ ->
-                    fail ("unknown value for Entry: " ++ id)
-    in
-    Decode.string |> Decode.andThen get
+encodeEntry entry =
+    Codec.encodeToJson wrapperParentCodec entry
 
 
 
@@ -102,6 +89,15 @@ type alias LeaderParent =
     }
 
 
+leaderParentCodec : Codec String LeaderParent
+leaderParentCodec =
+    Codec.record LeaderParent
+        |> Codec.field .properties parentPropertiesCodec
+        |> Codec.field .recurrenceRules (Codec.maybe (Codec.enum Series []))
+        |> Codec.field .children (nonEmptyCodec followerParentCodec)
+        |> Codec.finishRecord
+
+
 {-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
 -}
 type alias WrapperParent =
@@ -110,9 +106,43 @@ type alias WrapperParent =
     }
 
 
+wrapperParentCodec : Codec String WrapperParent
+wrapperParentCodec =
+    Codec.record WrapperParent
+        |> Codec.field .properties parentPropertiesCodec
+        |> Codec.field .children (nonEmptyCodec wrapperChildCodec)
+        |> Codec.finishRecord
+
+
+nonEmptyCodec : Codec String userType -> Codec String (Nonempty userType)
+nonEmptyCodec wrappedCodec =
+    let
+        nonEmptyFromList list =
+            Result.fromMaybe "the list was not supposed to be empty" <| Nonempty.fromList list
+    in
+    Codec.mapValid nonEmptyFromList Nonempty.toList (Codec.list wrappedCodec)
+
+
 type WrapperChild
     = LeaderIsDeeper WrapperParent
     | LeaderIsHere LeaderParent
+
+
+wrapperChildCodec : Codec String WrapperChild
+wrapperChildCodec =
+    Codec.customType
+        (\leaderIsDeeper leaderIsHere value ->
+            case value of
+                LeaderIsDeeper wrapperParent ->
+                    leaderIsDeeper wrapperParent
+
+                LeaderIsHere leaderParent ->
+                    leaderIsHere leaderParent
+        )
+        -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
+        |> Codec.variant1 LeaderIsDeeper (Codec.lazy (\_ -> wrapperParentCodec))
+        |> Codec.variant1 LeaderIsHere leaderParentCodec
+        |> Codec.finishCustomType
 
 
 {-| A "constrained" group of tasks has already had its recurrence rules set by one of it's ancestors, or does not recur at all. Since a task can only be in one RecurrenceParent container, its children (ConstrainedParents) can not have recurrence rules of its own (nor can any of its descendants).
@@ -124,6 +154,14 @@ type alias FollowerParent =
     { properties : ParentProperties
     , children : Nonempty FollowerChild
     }
+
+
+followerParentCodec : Codec String FollowerParent
+followerParentCodec =
+    Codec.record FollowerParent
+        |> Codec.field .properties parentPropertiesCodec
+        |> Codec.field .children (nonEmptyCodec followerChildCodec)
+        |> Codec.finishRecord
 
 
 
@@ -144,6 +182,23 @@ type alias FollowerParent =
 type FollowerChild
     = Singleton ClassID
     | Nested FollowerParent
+
+
+followerChildCodec : Codec String FollowerChild
+followerChildCodec =
+    Codec.customType
+        (\singleton nested value ->
+            case value of
+                Singleton classID ->
+                    singleton classID
+
+                Nested followerParent ->
+                    nested followerParent
+        )
+        -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
+        |> Codec.variant1 Singleton Codec.int
+        |> Codec.variant1 Nested (Codec.lazy (\_ -> followerParentCodec))
+        |> Codec.finishCustomType
 
 
 {-| Take all the Entries and flatten them into a list of Classes

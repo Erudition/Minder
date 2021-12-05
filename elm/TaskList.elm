@@ -18,6 +18,7 @@ import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Command as TodoistCommand
 import IntDict
+import Integrations.Marvin
 import Integrations.Todoist
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
@@ -37,7 +38,7 @@ import String.Normalize
 import Task as Job
 import Task.Class as Task exposing (ClassID)
 import Task.Entry as Task
-import Task.Instance as Task exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress)
+import Task.Instance as Task exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress, isRelevantNow)
 import Task.Progress exposing (..)
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
@@ -54,7 +55,8 @@ import ZoneHistory
 
 type Filter
     = AllTasks
-    | IncompleteTasksOnly
+    | AllIncompleteTasks
+    | AllRelevantTasks
     | CompleteTasksOnly
 
 
@@ -74,12 +76,12 @@ type ViewState
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map (Normal [ IncompleteTasksOnly ] Nothing "") (P.s "tasks")
+    P.map (Normal [ AllRelevantTasks ] Nothing "") (P.s "tasks")
 
 
 defaultView : ViewState
 defaultView =
-    Normal [ AllTasks ] Nothing ""
+    Normal [ AllRelevantTasks ] Nothing ""
 
 
 type alias ExpandedTask =
@@ -182,8 +184,11 @@ viewTasks env filter tasks =
                 CompleteTasksOnly ->
                     completed task
 
-                IncompleteTasksOnly ->
+                AllIncompleteTasks ->
                     not (completed task)
+
+                AllRelevantTasks ->
+                    not (completed task) && isRelevantNow task env.time env.timeZone
 
                 _ ->
                     True
@@ -232,10 +237,16 @@ viewTask env task =
             <|
                 List.intersperse "\n" <|
                     List.filterMap identity
-                        [ Maybe.map (ID.read >> String.fromInt >> String.append "activity: ") task.class.activity
-                        , Just ("importance: " ++ String.fromFloat task.class.importance)
-                        , Just ("progress: " ++ String.fromInt task.instance.completion)
-                        ]
+                        ([ Just ("Class ID: " ++ String.fromInt task.class.id)
+                         , Just ("Instance ID: " ++ String.fromInt task.instance.id)
+                         , Maybe.map (ID.read >> String.fromInt >> String.append "activity ID: ") task.class.activity
+                         , Just ("importance: " ++ String.fromFloat task.class.importance)
+                         , Just ("progress: " ++ Task.Progress.toString ( task.instance.completion, task.class.completionUnits ))
+                         , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") task.instance.relevanceStarts
+                         , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") task.instance.relevanceEnds
+                         ]
+                            ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (Dict.toList task.instance.extra)
+                        )
         ]
         [ progressSlider task
         , div
@@ -260,7 +271,9 @@ viewTask env task =
                     , css [ fontWeight (Css.int <| Basics.round (task.class.importance * 200 + 200)), pointerEvents none ]
                     , class "task-title"
                     ]
-                    [ text task.class.title ]
+                    [ text task.class.title
+                    , span [ css [ opacity (num 0.5) ] ] [ text <| "#" ++ String.fromInt task.index ]
+                    ]
                 , timingInfo env task
                 ]
             , div [ class "sessions" ]
@@ -597,9 +610,11 @@ viewControlsFilters visibilityFilters =
         [ class "filters" ]
         [ visibilitySwap "all" AllTasks visibilityFilters
         , text " "
-        , visibilitySwap "active" IncompleteTasksOnly visibilityFilters
+        , visibilitySwap "active" AllIncompleteTasks visibilityFilters
         , text " "
         , visibilitySwap "completed" CompleteTasksOnly visibilityFilters
+        , text " "
+        , visibilitySwap "relevant" AllRelevantTasks visibilityFilters
         ]
 
 
@@ -639,8 +654,11 @@ filterName filter =
         CompleteTasksOnly ->
             "Complete"
 
-        IncompleteTasksOnly ->
+        AllIncompleteTasks ->
             "Remaining"
+
+        AllRelevantTasks ->
+            "Doable Now"
 
 
 
@@ -680,6 +698,7 @@ type Msg
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
+    | MarvinServerResponse Integrations.Marvin.Msg
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
@@ -792,9 +811,11 @@ update msg state app env =
                             -- It was incomplete before, completed now
                             Cmd.batch
                                 [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
-                                , Cmd.map TodoistServerResponse <|
-                                    Integrations.Todoist.sendChanges app.todoist
-                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
+
+                                --, Cmd.map TodoistServerResponse <|
+                                --    Integrations.Todoist.sendChanges app.todoist
+                                --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
+                                , Cmd.map MarvinServerResponse <| Integrations.Marvin.completeTask env.time givenTask.instance.extra
                                 ]
 
                         ( True, False ) ->
@@ -838,6 +859,9 @@ update msg state app env =
             , newAppData
             , Commands.toast whatHappened
             )
+
+        MarvinServerResponse response ->
+            ( state, app, Cmd.none )
 
         Refilter newList ->
             ( case state of

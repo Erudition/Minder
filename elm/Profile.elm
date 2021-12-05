@@ -91,6 +91,7 @@ encodeProfile record =
     Encode.object
         [ ( "taskClasses", Porting.encodeIntDict Task.Class.encodeClass record.taskClasses )
         , ( "taskInstances", Porting.encodeIntDict Task.Instance.encodeInstance record.taskInstances )
+        , ( "taskEntries", Encode.list Task.Entry.encodeEntry record.taskEntries )
         , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
         , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )

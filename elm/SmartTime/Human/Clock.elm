@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, toShortString, toStandardString, truncateMinute)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, parseHMS, second, secondFractional, secondsSinceMidnight, startOfDay, toShortString, toStandardString, truncateMinute)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -291,6 +291,13 @@ Warning: Programs outside of this library are not so smart, and will probably in
 endOfDay : TimeOfDay
 endOfDay =
     Duration.aDay
+
+
+{-| The exact start of the day, equivalent to midnight. Often represented as the time 00:00.
+-}
+startOfDay : TimeOfDay
+startOfDay =
+    Duration.zero
 
 
 {-| The last second of the day, just before midnight of the next day.

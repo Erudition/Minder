@@ -1,4 +1,4 @@
-module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, isEarlier, isLater, isSame, isSameOrEarlier, isSameOrLater, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmTime, toInt, toJSTime, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
+module SmartTime.Moment exposing (ElmTime, Epoch, Moment(..), TimeScale(..), TimelineOrder(..), astronomy, commonEraStart, compare, compareEarliness, compareLateness, difference, earliest, every, fromElmInt, fromElmTime, fromJsTime, fromSmartInt, fromUnixTime, future, gpsEpoch, gregorianStart, humanEraStart, isEarlier, isLater, isSame, isSameOrEarlier, isSameOrLater, julian, latest, moment, nineteen00, nineteen04, now, oldFS, oneBCE, past, sort, sortReverse, spreadsheets, toDuration, toElmInt, toElmTime, toInt, toJSTime, toSmartInt, toUnixTime, toUnixTimeInt, unixEpoch, useAsRandomSeed, utcDefined, windowsNT, y2k, zero)
 
 import List.Extra
 import Random
@@ -352,6 +352,16 @@ If your time is still in Elm's native form, you want `fromElmTime` instead.
 fromElmInt : Int -> Moment
 fromElmInt intMsUtc =
     moment UTC unixEpoch (Duration.fromInt intMsUtc)
+
+
+{-| Handy alias for `(toInt moment UTC UnixEpoch)` (though you may prefer that verbose version instead to make it clear what's going on).
+
+If your time is still in Elm's native form, you want `toElmTime` instead.
+
+-}
+toElmInt : Moment -> Int
+toElmInt givenMoment =
+    toInt givenMoment UTC unixEpoch
 
 
 {-| Turn a Unix time value into a Moment.

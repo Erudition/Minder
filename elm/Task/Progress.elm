@@ -1,4 +1,4 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, unitMax, zero)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, toString, unitMax, zero)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
@@ -29,12 +29,38 @@ type alias Portion =
 
 
 type Unit
-    = None
-    | Permille
+    = Permille
     | Percent
     | Word Int
     | Minute Int
     | CustomUnit ( String, String ) Int
+
+
+toString : Progress -> String
+toString ( portion, unit ) =
+    case unit of
+        Percent ->
+            String.fromInt portion ++ "%"
+
+        Permille ->
+            String.fromInt portion ++ "‰"
+
+        Word target ->
+            String.fromInt portion ++ " of " ++ String.fromInt target ++ " words"
+
+        Minute target ->
+            String.fromInt portion ++ "/" ++ String.fromInt target ++ "min"
+
+        CustomUnit ( thing, things ) target ->
+            String.fromInt portion
+                ++ " of "
+                ++ String.fromInt target
+                ++ (if target > 1 then
+                        things
+
+                    else
+                        thing
+                   )
 
 
 decodeUnit : Decoder Unit
@@ -43,7 +69,6 @@ decodeUnit =
     Decode.oneOf
         [ Decode.check Decode.string "Percent" <| Decode.succeed Percent
         , Decode.check Decode.string "Permille" <| Decode.succeed Permille
-        , Decode.check Decode.string "None" <| Decode.succeed None
 
         -- TODO there's more possibilities
         ]
@@ -52,9 +77,6 @@ decodeUnit =
 encodeUnit : Unit -> Encode.Value
 encodeUnit unit =
     case unit of
-        None ->
-            Encode.string "None"
-
         Permille ->
             Encode.string "Permille"
 
@@ -114,9 +136,6 @@ maximize ( _, unit ) =
 unitMax : Unit -> Portion
 unitMax unit =
     case unit of
-        None ->
-            1
-
         Percent ->
             100
 

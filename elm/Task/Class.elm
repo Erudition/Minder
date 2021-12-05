@@ -1,6 +1,7 @@
 module Task.Class exposing (..)
 
 import Activity.Activity exposing (ActivityID)
+import Dict exposing (Dict)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
@@ -9,6 +10,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Porting exposing (..)
+import Replicated.Serialize as Codec exposing (Codec)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
@@ -39,6 +41,7 @@ type alias ClassSkel =
     , defaultRelevanceStarts : List RelativeTiming
     , defaultRelevanceEnds : List RelativeTiming
     , importance : Float -- Class
+    , extra : Dict String String
 
     -- future: default Session strategy
     }
@@ -60,6 +63,7 @@ decodeClass =
         |> Pipeline.required "defaultRelevanceStarts" (Decode.list decodeRelativeTiming)
         |> Pipeline.required "defaultRelevanceEnds" (Decode.list decodeRelativeTiming)
         |> Pipeline.required "importance" Decode.float
+        |> Pipeline.optional "extra" (Decode.dict Decode.string) Dict.empty
 
 
 encodeClass : ClassSkel -> Encode.Value
@@ -78,6 +82,7 @@ encodeClass taskClass =
         , ( "defaultRelevanceStarts", Encode.list encodeRelativeTiming taskClass.defaultRelevanceStarts )
         , ( "defaultRelevanceEnds", Encode.list encodeRelativeTiming taskClass.defaultRelevanceEnds )
         , ( "importance", Encode.float taskClass.importance )
+        , ( "extra", Encode.dict identity Encode.string taskClass.extra )
         ]
 
 
@@ -96,6 +101,7 @@ newClassSkel givenTitle newID =
     , defaultRelevanceStarts = []
     , defaultRelevanceEnds = []
     , importance = 1
+    , extra = Dict.empty
     }
 
 
@@ -120,6 +126,13 @@ encodeClassID taskClassID =
 type alias ParentProperties =
     { title : Maybe String -- Can have no title if it's just a singleton task
     }
+
+
+parentPropertiesCodec : Codec String ParentProperties
+parentPropertiesCodec =
+    Codec.record ParentProperties
+        |> Codec.field .title (Codec.maybe Codec.string)
+        |> Codec.finishRecord
 
 
 {-| A fully spec'ed-out version of a TaskClass

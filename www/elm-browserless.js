@@ -4412,6 +4412,184 @@ function _Time_getZoneName()
 }
 
 
+// BYTES
+
+function _Bytes_width(bytes)
+{
+	return bytes.byteLength;
+}
+
+var _Bytes_getHostEndianness = F2(function(le, be)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(new Uint8Array(new Uint32Array([1]))[0] === 1 ? le : be));
+	});
+});
+
+
+// ENCODERS
+
+function _Bytes_encode(encoder)
+{
+	var mutableBytes = new DataView(new ArrayBuffer($elm$bytes$Bytes$Encode$getWidth(encoder)));
+	$elm$bytes$Bytes$Encode$write(encoder)(mutableBytes)(0);
+	return mutableBytes;
+}
+
+
+// SIGNED INTEGERS
+
+var _Bytes_write_i8  = F3(function(mb, i, n) { mb.setInt8(i, n); return i + 1; });
+var _Bytes_write_i16 = F4(function(mb, i, n, isLE) { mb.setInt16(i, n, isLE); return i + 2; });
+var _Bytes_write_i32 = F4(function(mb, i, n, isLE) { mb.setInt32(i, n, isLE); return i + 4; });
+
+
+// UNSIGNED INTEGERS
+
+var _Bytes_write_u8  = F3(function(mb, i, n) { mb.setUint8(i, n); return i + 1 ;});
+var _Bytes_write_u16 = F4(function(mb, i, n, isLE) { mb.setUint16(i, n, isLE); return i + 2; });
+var _Bytes_write_u32 = F4(function(mb, i, n, isLE) { mb.setUint32(i, n, isLE); return i + 4; });
+
+
+// FLOATS
+
+var _Bytes_write_f32 = F4(function(mb, i, n, isLE) { mb.setFloat32(i, n, isLE); return i + 4; });
+var _Bytes_write_f64 = F4(function(mb, i, n, isLE) { mb.setFloat64(i, n, isLE); return i + 8; });
+
+
+// BYTES
+
+var _Bytes_write_bytes = F3(function(mb, offset, bytes)
+{
+	for (var i = 0, len = bytes.byteLength, limit = len - 4; i <= limit; i += 4)
+	{
+		mb.setUint32(offset + i, bytes.getUint32(i));
+	}
+	for (; i < len; i++)
+	{
+		mb.setUint8(offset + i, bytes.getUint8(i));
+	}
+	return offset + len;
+});
+
+
+// STRINGS
+
+function _Bytes_getStringWidth(string)
+{
+	for (var width = 0, i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		width +=
+			(code < 0x80) ? 1 :
+			(code < 0x800) ? 2 :
+			(code < 0xD800 || 0xDBFF < code) ? 3 : (i++, 4);
+	}
+	return width;
+}
+
+var _Bytes_write_string = F3(function(mb, offset, string)
+{
+	for (var i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		offset +=
+			(code < 0x80)
+				? (mb.setUint8(offset, code)
+				, 1
+				)
+				:
+			(code < 0x800)
+				? (mb.setUint16(offset, 0xC080 /* 0b1100000010000000 */
+					| (code >>> 6 & 0x1F /* 0b00011111 */) << 8
+					| code & 0x3F /* 0b00111111 */)
+				, 2
+				)
+				:
+			(code < 0xD800 || 0xDBFF < code)
+				? (mb.setUint16(offset, 0xE080 /* 0b1110000010000000 */
+					| (code >>> 12 & 0xF /* 0b00001111 */) << 8
+					| code >>> 6 & 0x3F /* 0b00111111 */)
+				, mb.setUint8(offset + 2, 0x80 /* 0b10000000 */
+					| code & 0x3F /* 0b00111111 */)
+				, 3
+				)
+				:
+			(code = (code - 0xD800) * 0x400 + string.charCodeAt(++i) - 0xDC00 + 0x10000
+			, mb.setUint32(offset, 0xF0808080 /* 0b11110000100000001000000010000000 */
+				| (code >>> 18 & 0x7 /* 0b00000111 */) << 24
+				| (code >>> 12 & 0x3F /* 0b00111111 */) << 16
+				| (code >>> 6 & 0x3F /* 0b00111111 */) << 8
+				| code & 0x3F /* 0b00111111 */)
+			, 4
+			);
+	}
+	return offset;
+});
+
+
+// DECODER
+
+var _Bytes_decode = F2(function(decoder, bytes)
+{
+	try {
+		return $elm$core$Maybe$Just(A2(decoder, bytes, 0).b);
+	} catch(e) {
+		return $elm$core$Maybe$Nothing;
+	}
+});
+
+var _Bytes_read_i8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getInt8(offset)); });
+var _Bytes_read_i16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getInt16(offset, isLE)); });
+var _Bytes_read_i32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getInt32(offset, isLE)); });
+var _Bytes_read_u8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getUint8(offset)); });
+var _Bytes_read_u16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getUint16(offset, isLE)); });
+var _Bytes_read_u32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getUint32(offset, isLE)); });
+var _Bytes_read_f32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getFloat32(offset, isLE)); });
+var _Bytes_read_f64 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 8, bytes.getFloat64(offset, isLE)); });
+
+var _Bytes_read_bytes = F3(function(len, bytes, offset)
+{
+	return _Utils_Tuple2(offset + len, new DataView(bytes.buffer, bytes.byteOffset + offset, len));
+});
+
+var _Bytes_read_string = F3(function(len, bytes, offset)
+{
+	var string = '';
+	var end = offset + len;
+	for (; offset < end;)
+	{
+		var byte = bytes.getUint8(offset++);
+		string +=
+			(byte < 128)
+				? String.fromCharCode(byte)
+				:
+			((byte & 0xE0 /* 0b11100000 */) === 0xC0 /* 0b11000000 */)
+				? String.fromCharCode((byte & 0x1F /* 0b00011111 */) << 6 | bytes.getUint8(offset++) & 0x3F /* 0b00111111 */)
+				:
+			((byte & 0xF0 /* 0b11110000 */) === 0xE0 /* 0b11100000 */)
+				? String.fromCharCode(
+					(byte & 0xF /* 0b00001111 */) << 12
+					| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+					| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+				)
+				:
+				(byte =
+					((byte & 0x7 /* 0b00000111 */) << 18
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 12
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+						| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+					) - 0x10000
+				, String.fromCharCode(Math.floor(byte / 0x400) + 0xD800, byte % 0x400 + 0xDC00)
+				);
+	}
+	return _Utils_Tuple2(offset, string);
+});
+
+var _Bytes_decodeFailure = F2(function() { throw 0; });
+
+
 
 
 // STRINGS
@@ -4717,182 +4895,105 @@ function _Http_track(router, xhr, tracker)
 	});
 }
 
-// BYTES
+// CREATE
 
-function _Bytes_width(bytes)
-{
-	return bytes.byteLength;
-}
+var _Regex_never = /.^/;
 
-var _Bytes_getHostEndianness = F2(function(le, be)
+var _Regex_fromStringWith = F2(function(options, string)
 {
-	return _Scheduler_binding(function(callback)
+	var flags = 'g';
+	if (options.multiline) { flags += 'm'; }
+	if (options.caseInsensitive) { flags += 'i'; }
+
+	try
 	{
-		callback(_Scheduler_succeed(new Uint8Array(new Uint32Array([1]))[0] === 1 ? le : be));
-	});
-});
-
-
-// ENCODERS
-
-function _Bytes_encode(encoder)
-{
-	var mutableBytes = new DataView(new ArrayBuffer($elm$bytes$Bytes$Encode$getWidth(encoder)));
-	$elm$bytes$Bytes$Encode$write(encoder)(mutableBytes)(0);
-	return mutableBytes;
-}
-
-
-// SIGNED INTEGERS
-
-var _Bytes_write_i8  = F3(function(mb, i, n) { mb.setInt8(i, n); return i + 1; });
-var _Bytes_write_i16 = F4(function(mb, i, n, isLE) { mb.setInt16(i, n, isLE); return i + 2; });
-var _Bytes_write_i32 = F4(function(mb, i, n, isLE) { mb.setInt32(i, n, isLE); return i + 4; });
-
-
-// UNSIGNED INTEGERS
-
-var _Bytes_write_u8  = F3(function(mb, i, n) { mb.setUint8(i, n); return i + 1 ;});
-var _Bytes_write_u16 = F4(function(mb, i, n, isLE) { mb.setUint16(i, n, isLE); return i + 2; });
-var _Bytes_write_u32 = F4(function(mb, i, n, isLE) { mb.setUint32(i, n, isLE); return i + 4; });
-
-
-// FLOATS
-
-var _Bytes_write_f32 = F4(function(mb, i, n, isLE) { mb.setFloat32(i, n, isLE); return i + 4; });
-var _Bytes_write_f64 = F4(function(mb, i, n, isLE) { mb.setFloat64(i, n, isLE); return i + 8; });
-
-
-// BYTES
-
-var _Bytes_write_bytes = F3(function(mb, offset, bytes)
-{
-	for (var i = 0, len = bytes.byteLength, limit = len - 4; i <= limit; i += 4)
-	{
-		mb.setUint32(offset + i, bytes.getUint32(i));
+		return $elm$core$Maybe$Just(new RegExp(string, flags));
 	}
-	for (; i < len; i++)
+	catch(error)
 	{
-		mb.setUint8(offset + i, bytes.getUint8(i));
-	}
-	return offset + len;
-});
-
-
-// STRINGS
-
-function _Bytes_getStringWidth(string)
-{
-	for (var width = 0, i = 0; i < string.length; i++)
-	{
-		var code = string.charCodeAt(i);
-		width +=
-			(code < 0x80) ? 1 :
-			(code < 0x800) ? 2 :
-			(code < 0xD800 || 0xDBFF < code) ? 3 : (i++, 4);
-	}
-	return width;
-}
-
-var _Bytes_write_string = F3(function(mb, offset, string)
-{
-	for (var i = 0; i < string.length; i++)
-	{
-		var code = string.charCodeAt(i);
-		offset +=
-			(code < 0x80)
-				? (mb.setUint8(offset, code)
-				, 1
-				)
-				:
-			(code < 0x800)
-				? (mb.setUint16(offset, 0xC080 /* 0b1100000010000000 */
-					| (code >>> 6 & 0x1F /* 0b00011111 */) << 8
-					| code & 0x3F /* 0b00111111 */)
-				, 2
-				)
-				:
-			(code < 0xD800 || 0xDBFF < code)
-				? (mb.setUint16(offset, 0xE080 /* 0b1110000010000000 */
-					| (code >>> 12 & 0xF /* 0b00001111 */) << 8
-					| code >>> 6 & 0x3F /* 0b00111111 */)
-				, mb.setUint8(offset + 2, 0x80 /* 0b10000000 */
-					| code & 0x3F /* 0b00111111 */)
-				, 3
-				)
-				:
-			(code = (code - 0xD800) * 0x400 + string.charCodeAt(++i) - 0xDC00 + 0x10000
-			, mb.setUint32(offset, 0xF0808080 /* 0b11110000100000001000000010000000 */
-				| (code >>> 18 & 0x7 /* 0b00000111 */) << 24
-				| (code >>> 12 & 0x3F /* 0b00111111 */) << 16
-				| (code >>> 6 & 0x3F /* 0b00111111 */) << 8
-				| code & 0x3F /* 0b00111111 */)
-			, 4
-			);
-	}
-	return offset;
-});
-
-
-// DECODER
-
-var _Bytes_decode = F2(function(decoder, bytes)
-{
-	try {
-		return $elm$core$Maybe$Just(A2(decoder, bytes, 0).b);
-	} catch(e) {
 		return $elm$core$Maybe$Nothing;
 	}
 });
 
-var _Bytes_read_i8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getInt8(offset)); });
-var _Bytes_read_i16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getInt16(offset, isLE)); });
-var _Bytes_read_i32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getInt32(offset, isLE)); });
-var _Bytes_read_u8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getUint8(offset)); });
-var _Bytes_read_u16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getUint16(offset, isLE)); });
-var _Bytes_read_u32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getUint32(offset, isLE)); });
-var _Bytes_read_f32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getFloat32(offset, isLE)); });
-var _Bytes_read_f64 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 8, bytes.getFloat64(offset, isLE)); });
 
-var _Bytes_read_bytes = F3(function(len, bytes, offset)
+// USE
+
+var _Regex_contains = F2(function(re, string)
 {
-	return _Utils_Tuple2(offset + len, new DataView(bytes.buffer, bytes.byteOffset + offset, len));
+	return string.match(re) !== null;
 });
 
-var _Bytes_read_string = F3(function(len, bytes, offset)
+
+var _Regex_findAtMost = F3(function(n, re, str)
 {
-	var string = '';
-	var end = offset + len;
-	for (; offset < end;)
+	var out = [];
+	var number = 0;
+	var string = str;
+	var lastIndex = re.lastIndex;
+	var prevLastIndex = -1;
+	var result;
+	while (number++ < n && (result = re.exec(string)))
 	{
-		var byte = bytes.getUint8(offset++);
-		string +=
-			(byte < 128)
-				? String.fromCharCode(byte)
-				:
-			((byte & 0xE0 /* 0b11100000 */) === 0xC0 /* 0b11000000 */)
-				? String.fromCharCode((byte & 0x1F /* 0b00011111 */) << 6 | bytes.getUint8(offset++) & 0x3F /* 0b00111111 */)
-				:
-			((byte & 0xF0 /* 0b11110000 */) === 0xE0 /* 0b11100000 */)
-				? String.fromCharCode(
-					(byte & 0xF /* 0b00001111 */) << 12
-					| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
-					| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
-				)
-				:
-				(byte =
-					((byte & 0x7 /* 0b00000111 */) << 18
-						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 12
-						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
-						| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
-					) - 0x10000
-				, String.fromCharCode(Math.floor(byte / 0x400) + 0xD800, byte % 0x400 + 0xDC00)
-				);
+		if (prevLastIndex == re.lastIndex) break;
+		var i = result.length - 1;
+		var subs = new Array(i);
+		while (i > 0)
+		{
+			var submatch = result[i];
+			subs[--i] = submatch
+				? $elm$core$Maybe$Just(submatch)
+				: $elm$core$Maybe$Nothing;
+		}
+		out.push(A4($elm$regex$Regex$Match, result[0], result.index, number, _List_fromArray(subs)));
+		prevLastIndex = re.lastIndex;
 	}
-	return _Utils_Tuple2(offset, string);
+	re.lastIndex = lastIndex;
+	return _List_fromArray(out);
 });
 
-var _Bytes_decodeFailure = F2(function() { throw 0; });
+
+var _Regex_replaceAtMost = F4(function(n, re, replacer, string)
+{
+	var count = 0;
+	function jsReplacer(match)
+	{
+		if (count++ >= n)
+		{
+			return match;
+		}
+		var i = arguments.length - 3;
+		var submatches = new Array(i);
+		while (i > 0)
+		{
+			var submatch = arguments[i];
+			submatches[--i] = submatch
+				? $elm$core$Maybe$Just(submatch)
+				: $elm$core$Maybe$Nothing;
+		}
+		return replacer(A4($elm$regex$Regex$Match, match, arguments[arguments.length - 2], count, _List_fromArray(submatches)));
+	}
+	return string.replace(re, jsReplacer);
+});
+
+var _Regex_splitAtMost = F3(function(n, re, str)
+{
+	var string = str;
+	var out = [];
+	var start = re.lastIndex;
+	var restoreLastIndex = re.lastIndex;
+	while (n--)
+	{
+		var result = re.exec(string);
+		if (!result) break;
+		out.push(string.slice(start, result.index));
+		start = re.lastIndex;
+	}
+	out.push(string.slice(start));
+	re.lastIndex = restoreLastIndex;
+	return _List_fromArray(out);
+});
+
+var _Regex_infinity = Infinity;
 var $elm$core$Maybe$Just = function (a) {
 	return {$: 'Just', a: a};
 };
@@ -8707,7 +8808,7 @@ var $elm$url$Url$Parser$oneOf = function (parsers) {
 				parsers);
 		});
 };
-var $author$project$TaskList$IncompleteTasksOnly = {$: 'IncompleteTasksOnly'};
+var $author$project$TaskList$AllRelevantTasks = {$: 'AllRelevantTasks'};
 var $author$project$TaskList$Normal = F3(
 	function (a, b, c) {
 		return {$: 'Normal', a: a, b: b, c: c};
@@ -8743,7 +8844,7 @@ var $author$project$TaskList$routeView = A2(
 	A3(
 		$author$project$TaskList$Normal,
 		_List_fromArray(
-			[$author$project$TaskList$IncompleteTasksOnly]),
+			[$author$project$TaskList$AllRelevantTasks]),
 		$elm$core$Maybe$Nothing,
 		''),
 	$elm$url$Url$Parser$s('tasks'));
@@ -9528,7 +9629,9 @@ var $author$project$Task$Class$ClassSkel = function (title) {
 										return function (defaultRelevanceStarts) {
 											return function (defaultRelevanceEnds) {
 												return function (importance) {
-													return {activity: activity, completionUnits: completionUnits, defaultExternalDeadline: defaultExternalDeadline, defaultFinishBy: defaultFinishBy, defaultRelevanceEnds: defaultRelevanceEnds, defaultRelevanceStarts: defaultRelevanceStarts, defaultStartBy: defaultStartBy, id: id, importance: importance, maxEffort: maxEffort, minEffort: minEffort, predictedEffort: predictedEffort, title: title};
+													return function (extra) {
+														return {activity: activity, completionUnits: completionUnits, defaultExternalDeadline: defaultExternalDeadline, defaultFinishBy: defaultFinishBy, defaultRelevanceEnds: defaultRelevanceEnds, defaultRelevanceStarts: defaultRelevanceStarts, defaultStartBy: defaultStartBy, extra: extra, id: id, importance: importance, maxEffort: maxEffort, minEffort: minEffort, predictedEffort: predictedEffort, title: title};
+													};
 												};
 											};
 										};
@@ -9733,7 +9836,6 @@ var $author$project$Task$Class$FromDeadline = function (a) {
 	return {$: 'FromDeadline', a: a};
 };
 var $author$project$Task$Class$decodeRelativeTiming = A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, $author$project$Task$Class$FromDeadline, $author$project$Porting$decodeDuration);
-var $author$project$Task$Progress$None = {$: 'None'};
 var $author$project$Task$Progress$Percent = {$: 'Percent'};
 var $author$project$Task$Progress$Permille = {$: 'Permille'};
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$andThen = F2(
@@ -9852,13 +9954,129 @@ var $author$project$Task$Progress$decodeUnit = $zwilias$json_decode_exploration$
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$check,
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
 			'Permille',
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Task$Progress$Permille)),
-			A3(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$check,
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-			'None',
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Task$Progress$None))
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Task$Progress$Permille))
 		]));
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
+};
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField = F2(
+	function (a, b) {
+		return {$: 'InField', a: a, b: b};
+	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObject'};
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $mgold$elm_nonempty_list$List$Nonempty$cons = F2(
+	function (y, _v0) {
+		var x = _v0.a;
+		var xs = _v0.b;
+		return A2(
+			$mgold$elm_nonempty_list$List$Nonempty$Nonempty,
+			y,
+			A2($elm$core$List$cons, x, xs));
+	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs = function (_v0) {
+	var decoderFn = _v0.a;
+	var finalize = function (_v5) {
+		var json = _v5.a;
+		var warnings = _v5.b;
+		var val = _v5.c;
+		return {
+			json: A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, json),
+			value: val,
+			warnings: warnings
+		};
+	};
+	var accumulate = F2(
+		function (_v4, acc) {
+			var key = _v4.a;
+			var val = _v4.b;
+			var _v2 = _Utils_Tuple2(
+				acc,
+				decoderFn(val));
+			if (_v2.a.$ === 'Err') {
+				if (_v2.b.$ === 'Err') {
+					var e = _v2.a.a;
+					var _new = _v2.b.a;
+					return $elm$core$Result$Err(
+						A2(
+							$mgold$elm_nonempty_list$List$Nonempty$cons,
+							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, _new),
+							e));
+				} else {
+					var e = _v2.a.a;
+					return $elm$core$Result$Err(e);
+				}
+			} else {
+				if (_v2.b.$ === 'Err') {
+					var e = _v2.b.a;
+					return $elm$core$Result$Err(
+						$mgold$elm_nonempty_list$List$Nonempty$fromElement(
+							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)));
+				} else {
+					var _v3 = _v2.a.a;
+					var jsonAcc = _v3.a;
+					var warningsAcc = _v3.b;
+					var accAcc = _v3.c;
+					var res = _v2.b.a;
+					return $elm$core$Result$Ok(
+						_Utils_Tuple3(
+							A2(
+								$elm$core$List$cons,
+								_Utils_Tuple2(key, res.json),
+								jsonAcc),
+							_Utils_ap(
+								A2(
+									$elm$core$List$map,
+									A2(
+										$elm$core$Basics$composeR,
+										$mgold$elm_nonempty_list$List$Nonempty$fromElement,
+										$zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
+									res.warnings),
+								warningsAcc),
+							A2(
+								$elm$core$List$cons,
+								_Utils_Tuple2(key, res.value),
+								accAcc)));
+				}
+			}
+		});
+	return $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
+		function (json) {
+			if (json.$ === 'Object') {
+				var kvPairs = json.b;
+				return A2(
+					$elm$core$Result$map,
+					finalize,
+					A3(
+						$elm$core$List$foldr,
+						accumulate,
+						$elm$core$Result$Ok(
+							_Utils_Tuple3(_List_Nil, _List_Nil, _List_Nil)),
+						kvPairs));
+			} else {
+				return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
+			}
+		});
+};
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$dict = function (decoder) {
+	return A2(
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
+		$elm$core$Dict$fromList,
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs(decoder));
+};
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$TNumber = {$: 'TNumber'};
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$float = $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
 	function (json) {
@@ -9877,15 +10095,6 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$Located$AtIndex = F
 		return {$: 'AtIndex', a: a, b: b};
 	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$TArray = {$: 'TArray'};
-var $mgold$elm_nonempty_list$List$Nonempty$cons = F2(
-	function (y, _v0) {
-		var x = _v0.a;
-		var xs = _v0.b;
-		return A2(
-			$mgold$elm_nonempty_list$List$Nonempty$Nonempty,
-			y,
-			A2($elm$core$List$cons, x, xs));
-	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$list = function (_v0) {
 	var decoderFn = _v0.a;
 	var finalize = function (_v5) {
@@ -10037,19 +10246,9 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$map2 = F3(
 			});
 	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$andMap = $zwilias$json_decode_exploration$Json$Decode$Exploration$map2($elm$core$Basics$apR);
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField = F2(
-	function (a, b) {
-		return {$: 'InField', a: a, b: b};
-	});
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject = {$: 'TObject'};
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$TObjectField = function (a) {
 	return {$: 'TObjectField', a: a};
 };
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 	function (fieldName, _v0) {
 		var decoderFn = _v0.a;
@@ -10145,6 +10344,51 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$field = F2(
 				}
 			});
 	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$isObject = $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
+	function (json) {
+		if (json.$ === 'Object') {
+			var pairs = json.b;
+			return A2(
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$ok,
+				A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, pairs),
+				_Utils_Tuple0);
+		} else {
+			return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
+		}
+	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$resolve = $zwilias$json_decode_exploration$Json$Decode$Exploration$andThen($elm$core$Basics$identity);
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optionalField = F3(
+	function (field, decoder, fallback) {
+		return A2(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
+			function (_v0) {
+				return $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$resolve(
+					$zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+						_List_fromArray(
+							[
+								A2(
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$field,
+								field,
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$null(
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(fallback))),
+								A2(
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$field,
+								field,
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+									A2($zwilias$json_decode_exploration$Json$Decode$Exploration$field, field, decoder))),
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(fallback))
+							])));
+			},
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$isObject);
+	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional = F4(
+	function (key, valDecoder, fallback, decoder) {
+		return A2(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
+			A3($zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optionalField, key, valDecoder, fallback),
+			decoder);
+	});
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required = F3(
 	function (key, valDecoder, decoder) {
 		return A2(
@@ -10152,97 +10396,1220 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required =
 			A2($zwilias$json_decode_exploration$Json$Decode$Exploration$field, key, valDecoder),
 			decoder);
 	});
-var $author$project$Task$Class$decodeClass = A3(
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-	'importance',
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$float,
+var $author$project$Task$Class$decodeClass = A4(
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+	'extra',
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$dict($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+	$elm$core$Dict$empty,
 	A3(
 		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-		'defaultRelevanceEnds',
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
+		'importance',
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$float,
 		A3(
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-			'defaultRelevanceStarts',
+			'defaultRelevanceEnds',
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
 			A3(
 				$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-				'defaultFinishBy',
+				'defaultRelevanceStarts',
 				$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
 				A3(
 					$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-					'defaultStartBy',
+					'defaultFinishBy',
 					$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
 					A3(
 						$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-						'defaultExternalDeadline',
+						'defaultStartBy',
 						$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
 						A3(
 							$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-							'maxEffort',
-							$author$project$Porting$decodeDuration,
+							'defaultExternalDeadline',
+							$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$Class$decodeRelativeTiming),
 							A3(
 								$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-								'predictedEffort',
+								'maxEffort',
 								$author$project$Porting$decodeDuration,
 								A3(
 									$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-									'minEffort',
+									'predictedEffort',
 									$author$project$Porting$decodeDuration,
 									A3(
 										$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-										'completionUnits',
-										$author$project$Task$Progress$decodeUnit,
+										'minEffort',
+										$author$project$Porting$decodeDuration,
 										A3(
 											$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-											'activity',
-											$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$ID$decode),
+											'completionUnits',
+											$author$project$Task$Progress$decodeUnit,
 											A3(
 												$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-												'id',
-												$author$project$Task$Class$decodeClassID,
+												'activity',
+												$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$ID$decode),
 												A3(
 													$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-													'title',
-													$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-													$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Task$Class$ClassSkel))))))))))))));
-var $elm$core$Debug$todo = _Debug_todo;
-var $author$project$Task$Entry$decodeEntry = function () {
-	var get = function (id) {
-		switch (id) {
-			case 'SingletonTask':
-				return _Debug_todo(
-					'Task.Entry',
-					{
-						start: {line: 55, column: 21},
-						end: {line: 55, column: 31}
-					})('Cannot decode variant with params: SingletonTask');
-			case 'OneoffContainer':
-				return _Debug_todo(
-					'Task.Entry',
-					{
-						start: {line: 58, column: 21},
-						end: {line: 58, column: 31}
-					})('Cannot decode variant with params: OneoffContainer');
-			case 'RecurrenceContainer':
-				return _Debug_todo(
-					'Task.Entry',
-					{
-						start: {line: 61, column: 21},
-						end: {line: 61, column: 31}
-					})('Cannot decode variant with params: RecurrenceContainer');
-			case 'NestedRecurrenceContainer':
-				return _Debug_todo(
-					'Task.Entry',
-					{
-						start: {line: 64, column: 21},
-						end: {line: 64, column: 31}
-					})('Cannot decode variant with params: NestedRecurrenceContainer');
-			default:
-				return $zwilias$json_decode_exploration$Json$Decode$Exploration$fail('unknown value for Entry: ' + id);
+													'id',
+													$author$project$Task$Class$decodeClassID,
+													A3(
+														$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+														'title',
+														$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+														$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Task$Class$ClassSkel)))))))))))))));
+var $author$project$Porting$customDecoder = F2(
+	function (primitiveDecoder, customDecoderFunction) {
+		return A2(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
+			function (a) {
+				var _v0 = customDecoderFunction(a);
+				if (_v0.$ === 'Ok') {
+					var b = _v0.a;
+					return $zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(b);
+				} else {
+					var err = _v0.a;
+					return $zwilias$json_decode_exploration$Json$Decode$Exploration$fail(err);
+				}
+			},
+			primitiveDecoder);
+	});
+var $author$project$Replicated$Serialize$DataCorrupted = {$: 'DataCorrupted'};
+var $author$project$Replicated$Serialize$SerializerOutOfDate = {$: 'SerializerOutOfDate'};
+var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $author$project$Replicated$Serialize$getJsonDecoder = function (_v0) {
+	var m = _v0.a;
+	return m.jsonDecoder;
+};
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $author$project$Replicated$Serialize$version = 1;
+var $author$project$Replicated$Serialize$decodeFromJson = F2(
+	function (codec, json) {
+		var decoder = A2(
+			$elm$json$Json$Decode$andThen,
+			function (value) {
+				return (value <= 0) ? $elm$json$Json$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted)) : (_Utils_eq(value, $author$project$Replicated$Serialize$version) ? A2(
+					$elm$json$Json$Decode$index,
+					1,
+					$author$project$Replicated$Serialize$getJsonDecoder(codec)) : $elm$json$Json$Decode$succeed(
+					$elm$core$Result$Err($author$project$Replicated$Serialize$SerializerOutOfDate)));
+			},
+			A2($elm$json$Json$Decode$index, 0, $elm$json$Json$Decode$int));
+		var _v0 = A2($elm$json$Json$Decode$decodeValue, decoder, json);
+		if (_v0.$ === 'Ok') {
+			var value = _v0.a;
+			return value;
+		} else {
+			return $elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted);
 		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $zwilias$json_decode_exploration$Json$Decode$Exploration$value = $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
+	function (json) {
+		return A2(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$ok,
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$markUsed(json),
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$encode(json));
+	});
+var $author$project$Task$Entry$LeaderIsDeeper = function (a) {
+	return {$: 'LeaderIsDeeper', a: a};
+};
+var $author$project$Task$Entry$LeaderIsHere = function (a) {
+	return {$: 'LeaderIsHere', a: a};
+};
+var $author$project$Task$Entry$WrapperParent = F2(
+	function (properties, children) {
+		return {children: children, properties: properties};
+	});
+var $author$project$Replicated$Serialize$CustomTypeCodec = function (a) {
+	return {$: 'CustomTypeCodec', a: a};
+};
+var $author$project$Replicated$Serialize$customType = function (match) {
+	return $author$project$Replicated$Serialize$CustomTypeCodec(
+		{
+			decoder: function (_v0) {
+				return $elm$core$Basics$identity;
+			},
+			idCounter: 0,
+			jsonDecoder: function (_v1) {
+				return $elm$core$Basics$identity;
+			},
+			jsonMatch: match,
+			match: match
+		});
+};
+var $author$project$Replicated$Serialize$RecordCodec = function (a) {
+	return {$: 'RecordCodec', a: a};
+};
+var $author$project$Replicated$Serialize$getBytesDecoder = function (_v0) {
+	var m = _v0.a;
+	return m.decoder;
+};
+var $author$project$Replicated$Serialize$getEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.encoder;
+};
+var $author$project$Replicated$Serialize$getJsonEncoder = function (_v0) {
+	var m = _v0.a;
+	return m.jsonEncoder;
+};
+var $elm$bytes$Bytes$Decode$Decoder = function (a) {
+	return {$: 'Decoder', a: a};
+};
+var $elm$bytes$Bytes$Decode$map2 = F3(
+	function (func, _v0, _v1) {
+		var decodeA = _v0.a;
+		var decodeB = _v1.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v2 = A2(decodeA, bites, offset);
+					var aOffset = _v2.a;
+					var a = _v2.b;
+					var _v3 = A2(decodeB, bites, aOffset);
+					var bOffset = _v3.a;
+					var b = _v3.b;
+					return _Utils_Tuple2(
+						bOffset,
+						A2(func, a, b));
+				}));
+	});
+var $author$project$Replicated$Serialize$field = F3(
+	function (getter, codec, _v0) {
+		var recordCodec = _v0.a;
+		return $author$project$Replicated$Serialize$RecordCodec(
+			{
+				decoder: A3(
+					$elm$bytes$Bytes$Decode$map2,
+					F2(
+						function (f, x) {
+							var _v1 = _Utils_Tuple2(f, x);
+							if (_v1.a.$ === 'Ok') {
+								if (_v1.b.$ === 'Ok') {
+									var fOk = _v1.a.a;
+									var xOk = _v1.b.a;
+									return $elm$core$Result$Ok(
+										fOk(xOk));
+								} else {
+									var err = _v1.b.a;
+									return $elm$core$Result$Err(err);
+								}
+							} else {
+								var err = _v1.a.a;
+								return $elm$core$Result$Err(err);
+							}
+						}),
+					recordCodec.decoder,
+					$author$project$Replicated$Serialize$getBytesDecoder(codec)),
+				encoder: function (v) {
+					return A2(
+						$elm$core$List$cons,
+						A2(
+							$author$project$Replicated$Serialize$getEncoder,
+							codec,
+							getter(v)),
+						recordCodec.encoder(v));
+				},
+				fieldIndex: recordCodec.fieldIndex + 1,
+				jsonDecoder: A3(
+					$elm$json$Json$Decode$map2,
+					F2(
+						function (f, x) {
+							var _v2 = _Utils_Tuple2(f, x);
+							if (_v2.a.$ === 'Ok') {
+								if (_v2.b.$ === 'Ok') {
+									var fOk = _v2.a.a;
+									var xOk = _v2.b.a;
+									return $elm$core$Result$Ok(
+										fOk(xOk));
+								} else {
+									var err = _v2.b.a;
+									return $elm$core$Result$Err(err);
+								}
+							} else {
+								var err = _v2.a.a;
+								return $elm$core$Result$Err(err);
+							}
+						}),
+					recordCodec.jsonDecoder,
+					A2(
+						$elm$json$Json$Decode$index,
+						recordCodec.fieldIndex,
+						$author$project$Replicated$Serialize$getJsonDecoder(codec))),
+				jsonEncoder: function (v) {
+					return A2(
+						$elm$core$List$cons,
+						A2(
+							$author$project$Replicated$Serialize$getJsonEncoder,
+							codec,
+							getter(v)),
+						recordCodec.jsonEncoder(v));
+				}
+			});
+	});
+var $elm$bytes$Bytes$Decode$andThen = F2(
+	function (callback, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var newOffset = _v1.a;
+					var a = _v1.b;
+					var _v2 = callback(a);
+					var decodeB = _v2.a;
+					return A2(decodeB, bites, newOffset);
+				}));
+	});
+var $author$project$Replicated$Serialize$Codec = function (a) {
+	return {$: 'Codec', a: a};
+};
+var $author$project$Replicated$Serialize$build = F4(
+	function (encoder_, decoder_, jsonEncoder, jsonDecoder) {
+		return $author$project$Replicated$Serialize$Codec(
+			{decoder: decoder_, encoder: encoder_, jsonDecoder: jsonDecoder, jsonEncoder: jsonEncoder});
+	});
+var $elm$bytes$Bytes$BE = {$: 'BE'};
+var $author$project$Replicated$Serialize$endian = $elm$bytes$Bytes$BE;
+var $elm$bytes$Bytes$Decode$succeed = function (a) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		F2(
+			function (_v0, offset) {
+				return _Utils_Tuple2(offset, a);
+			}));
+};
+var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
+	switch (builder.$) {
+		case 'I8':
+			return 1;
+		case 'I16':
+			return 2;
+		case 'I32':
+			return 4;
+		case 'U8':
+			return 1;
+		case 'U16':
+			return 2;
+		case 'U32':
+			return 4;
+		case 'F32':
+			return 4;
+		case 'F64':
+			return 8;
+		case 'Seq':
+			var w = builder.a;
+			return w;
+		case 'Utf8':
+			var w = builder.a;
+			return w;
+		default:
+			var bs = builder.a;
+			return _Bytes_width(bs);
+	}
+};
+var $elm$bytes$Bytes$LE = {$: 'LE'};
+var $elm$bytes$Bytes$Encode$write = F3(
+	function (builder, mb, offset) {
+		switch (builder.$) {
+			case 'I8':
+				var n = builder.a;
+				return A3(_Bytes_write_i8, mb, offset, n);
+			case 'I16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'I32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U8':
+				var n = builder.a;
+				return A3(_Bytes_write_u8, mb, offset, n);
+			case 'U16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F64':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f64,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'Seq':
+				var bs = builder.b;
+				return A3($elm$bytes$Bytes$Encode$writeSequence, bs, mb, offset);
+			case 'Utf8':
+				var s = builder.b;
+				return A3(_Bytes_write_string, mb, offset, s);
+			default:
+				var bs = builder.a;
+				return A3(_Bytes_write_bytes, mb, offset, bs);
+		}
+	});
+var $elm$bytes$Bytes$Encode$writeSequence = F3(
+	function (builders, mb, offset) {
+		writeSequence:
+		while (true) {
+			if (!builders.b) {
+				return offset;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$builders = bs,
+					$temp$mb = mb,
+					$temp$offset = A3($elm$bytes$Bytes$Encode$write, b, mb, offset);
+				builders = $temp$builders;
+				mb = $temp$mb;
+				offset = $temp$offset;
+				continue writeSequence;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Decode$unsignedInt16 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_u16(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $author$project$Replicated$Serialize$finishCustomType = function (_v0) {
+	var am = _v0.a;
+	return A4(
+		$author$project$Replicated$Serialize$build,
+		A2(
+			$elm$core$Basics$composeR,
+			am.match,
+			function (_v1) {
+				var _v2 = _v1.a;
+				var a = _v2.a;
+				return a;
+			}),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (tag) {
+				return A2(
+					am.decoder,
+					tag,
+					$elm$bytes$Bytes$Decode$succeed(
+						$elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted)));
+			},
+			$elm$bytes$Bytes$Decode$unsignedInt16($author$project$Replicated$Serialize$endian)),
+		A2(
+			$elm$core$Basics$composeR,
+			am.jsonMatch,
+			function (_v3) {
+				var _v4 = _v3.a;
+				var a = _v4.b;
+				return a;
+			}),
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (tag) {
+				return A2(
+					am.jsonDecoder,
+					tag,
+					$elm$json$Json$Decode$succeed(
+						$elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted)));
+			},
+			A2($elm$json$Json$Decode$index, 0, $elm$json$Json$Decode$int)));
+};
+var $elm$bytes$Bytes$Encode$Seq = F2(
+	function (a, b) {
+		return {$: 'Seq', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$getWidths = F2(
+	function (width, builders) {
+		getWidths:
+		while (true) {
+			if (!builders.b) {
+				return width;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$width = width + $elm$bytes$Bytes$Encode$getWidth(b),
+					$temp$builders = bs;
+				width = $temp$width;
+				builders = $temp$builders;
+				continue getWidths;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Encode$sequence = function (builders) {
+	return A2(
+		$elm$bytes$Bytes$Encode$Seq,
+		A2($elm$bytes$Bytes$Encode$getWidths, 0, builders),
+		builders);
+};
+var $author$project$Replicated$Serialize$finishRecord = function (_v0) {
+	var codec = _v0.a;
+	return $author$project$Replicated$Serialize$Codec(
+		{
+			decoder: codec.decoder,
+			encoder: A2(
+				$elm$core$Basics$composeR,
+				codec.encoder,
+				A2($elm$core$Basics$composeR, $elm$core$List$reverse, $elm$bytes$Bytes$Encode$sequence)),
+			jsonDecoder: codec.jsonDecoder,
+			jsonEncoder: A2(
+				$elm$core$Basics$composeR,
+				codec.jsonEncoder,
+				A2(
+					$elm$core$Basics$composeR,
+					$elm$core$List$reverse,
+					$elm$json$Json$Encode$list($elm$core$Basics$identity)))
+		});
+};
+var $author$project$Replicated$Serialize$lazy = function (f) {
+	return A4(
+		$author$project$Replicated$Serialize$build,
+		function (value) {
+			return A2(
+				$author$project$Replicated$Serialize$getEncoder,
+				f(_Utils_Tuple0),
+				value);
+		},
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return $author$project$Replicated$Serialize$getBytesDecoder(
+					f(_Utils_Tuple0));
+			},
+			$elm$bytes$Bytes$Decode$succeed(_Utils_Tuple0)),
+		function (value) {
+			return A2(
+				$author$project$Replicated$Serialize$getJsonEncoder,
+				f(_Utils_Tuple0),
+				value);
+		},
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (_v1) {
+				return $author$project$Replicated$Serialize$getJsonDecoder(
+					f(_Utils_Tuple0));
+			},
+			$elm$json$Json$Decode$succeed(_Utils_Tuple0)));
+};
+var $author$project$Task$Entry$LeaderParent = F3(
+	function (properties, recurrenceRules, children) {
+		return {children: children, properties: properties, recurrenceRules: recurrenceRules};
+	});
+var $author$project$Task$Series$Series = {$: 'Series'};
+var $author$project$Replicated$Serialize$findIndexHelp = F3(
+	function (index, predicate, list_) {
+		findIndexHelp:
+		while (true) {
+			if (!list_.b) {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var x = list_.a;
+				var xs = list_.b;
+				if (predicate(x)) {
+					return $elm$core$Maybe$Just(index);
+				} else {
+					var $temp$index = index + 1,
+						$temp$predicate = predicate,
+						$temp$list_ = xs;
+					index = $temp$index;
+					predicate = $temp$predicate;
+					list_ = $temp$list_;
+					continue findIndexHelp;
+				}
+			}
+		}
+	});
+var $author$project$Replicated$Serialize$findIndex = $author$project$Replicated$Serialize$findIndexHelp(0);
+var $elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var $author$project$Replicated$Serialize$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
+			A2($elm$core$List$drop, idx, xs));
+	});
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $elm$bytes$Bytes$Decode$map = F2(
+	function (func, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var aOffset = _v1.a;
+					var a = _v1.b;
+					return _Utils_Tuple2(
+						aOffset,
+						func(a));
+				}));
+	});
+var $elm$bytes$Bytes$Decode$unsignedInt32 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_u32(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $elm$bytes$Bytes$Encode$U32 = F2(
+	function (a, b) {
+		return {$: 'U32', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt32 = $elm$bytes$Bytes$Encode$U32;
+var $author$project$Replicated$Serialize$enum = F2(
+	function (defaultItem, items) {
+		var getItem = function (index) {
+			return (index < 0) ? $elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted) : ((_Utils_cmp(
+				index,
+				$elm$core$List$length(items)) > 0) ? $elm$core$Result$Err($author$project$Replicated$Serialize$DataCorrupted) : $elm$core$Result$Ok(
+				A2(
+					$elm$core$Maybe$withDefault,
+					defaultItem,
+					A2($author$project$Replicated$Serialize$getAt, index - 1, items))));
+		};
+		var getIndex = function (value) {
+			return 1 + A2(
+				$elm$core$Maybe$withDefault,
+				-1,
+				A2(
+					$author$project$Replicated$Serialize$findIndex,
+					$elm$core$Basics$eq(value),
+					items));
+		};
+		return A4(
+			$author$project$Replicated$Serialize$build,
+			A2(
+				$elm$core$Basics$composeR,
+				getIndex,
+				$elm$bytes$Bytes$Encode$unsignedInt32($author$project$Replicated$Serialize$endian)),
+			A2(
+				$elm$bytes$Bytes$Decode$map,
+				getItem,
+				$elm$bytes$Bytes$Decode$unsignedInt32($author$project$Replicated$Serialize$endian)),
+			A2($elm$core$Basics$composeR, getIndex, $elm$json$Json$Encode$int),
+			A2($elm$json$Json$Decode$map, getItem, $elm$json$Json$Decode$int));
+	});
+var $author$project$Task$Entry$FollowerParent = F2(
+	function (properties, children) {
+		return {children: children, properties: properties};
+	});
+var $author$project$Task$Entry$Nested = function (a) {
+	return {$: 'Nested', a: a};
+};
+var $author$project$Task$Entry$Singleton = function (a) {
+	return {$: 'Singleton', a: a};
+};
+var $elm$bytes$Bytes$Decode$float64 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_f64(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $elm$bytes$Bytes$Encode$F64 = F2(
+	function (a, b) {
+		return {$: 'F64', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$float64 = $elm$bytes$Bytes$Encode$F64;
+var $author$project$Replicated$Serialize$int = A4(
+	$author$project$Replicated$Serialize$build,
+	A2(
+		$elm$core$Basics$composeR,
+		$elm$core$Basics$toFloat,
+		$elm$bytes$Bytes$Encode$float64($author$project$Replicated$Serialize$endian)),
+	A2(
+		$elm$bytes$Bytes$Decode$map,
+		A2($elm$core$Basics$composeR, $elm$core$Basics$round, $elm$core$Result$Ok),
+		$elm$bytes$Bytes$Decode$float64($author$project$Replicated$Serialize$endian)),
+	$elm$json$Json$Encode$int,
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$int));
+var $mgold$elm_nonempty_list$List$Nonempty$fromList = function (ys) {
+	if (ys.b) {
+		var x = ys.a;
+		var xs = ys.b;
+		return $elm$core$Maybe$Just(
+			A2($mgold$elm_nonempty_list$List$Nonempty$Nonempty, x, xs));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm$core$Result$fromMaybe = F2(
+	function (err, maybe) {
+		if (maybe.$ === 'Just') {
+			var v = maybe.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			return $elm$core$Result$Err(err);
+		}
+	});
+var $elm$json$Json$Decode$list = _Json_decodeList;
+var $author$project$Replicated$Serialize$listEncode = F2(
+	function (encoder_, list_) {
+		return $elm$bytes$Bytes$Encode$sequence(
+			A2(
+				$elm$core$List$cons,
+				A2(
+					$elm$bytes$Bytes$Encode$unsignedInt32,
+					$author$project$Replicated$Serialize$endian,
+					$elm$core$List$length(list_)),
+				A2($elm$core$List$map, encoder_, list_)));
+	});
+var $elm$bytes$Bytes$Decode$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$bytes$Bytes$Decode$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $author$project$Replicated$Serialize$listStep = F2(
+	function (decoder_, _v0) {
+		var n = _v0.a;
+		var xs = _v0.b;
+		return (n <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+			$elm$bytes$Bytes$Decode$Done(
+				$elm$core$Result$Ok(
+					$elm$core$List$reverse(xs)))) : A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (x) {
+				if (x.$ === 'Ok') {
+					var ok = x.a;
+					return $elm$bytes$Bytes$Decode$Loop(
+						_Utils_Tuple2(
+							n - 1,
+							A2($elm$core$List$cons, ok, xs)));
+				} else {
+					var err = x.a;
+					return $elm$bytes$Bytes$Decode$Done(
+						$elm$core$Result$Err(err));
+				}
+			},
+			decoder_);
+	});
+var $elm$bytes$Bytes$Decode$loopHelp = F4(
+	function (state, callback, bites, offset) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(state);
+			var decoder = _v0.a;
+			var _v1 = A2(decoder, bites, offset);
+			var newOffset = _v1.a;
+			var step = _v1.b;
+			if (step.$ === 'Loop') {
+				var newState = step.a;
+				var $temp$state = newState,
+					$temp$callback = callback,
+					$temp$bites = bites,
+					$temp$offset = newOffset;
+				state = $temp$state;
+				callback = $temp$callback;
+				bites = $temp$bites;
+				offset = $temp$offset;
+				continue loopHelp;
+			} else {
+				var result = step.a;
+				return _Utils_Tuple2(newOffset, result);
+			}
+		}
+	});
+var $elm$bytes$Bytes$Decode$loop = F2(
+	function (state, callback) {
+		return $elm$bytes$Bytes$Decode$Decoder(
+			A2($elm$bytes$Bytes$Decode$loopHelp, state, callback));
+	});
+var $author$project$Replicated$Serialize$list = function (codec) {
+	return A4(
+		$author$project$Replicated$Serialize$build,
+		$author$project$Replicated$Serialize$listEncode(
+			$author$project$Replicated$Serialize$getEncoder(codec)),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (length) {
+				return A2(
+					$elm$bytes$Bytes$Decode$loop,
+					_Utils_Tuple2(length, _List_Nil),
+					$author$project$Replicated$Serialize$listStep(
+						$author$project$Replicated$Serialize$getBytesDecoder(codec)));
+			},
+			$elm$bytes$Bytes$Decode$unsignedInt32($author$project$Replicated$Serialize$endian)),
+		$elm$json$Json$Encode$list(
+			$author$project$Replicated$Serialize$getJsonEncoder(codec)),
+		A2(
+			$elm$json$Json$Decode$map,
+			A2(
+				$elm$core$List$foldr,
+				F2(
+					function (value, state) {
+						var _v0 = _Utils_Tuple2(value, state);
+						if (_v0.b.$ === 'Err') {
+							return state;
+						} else {
+							if (_v0.a.$ === 'Ok') {
+								var ok = _v0.a.a;
+								var okState = _v0.b.a;
+								return $elm$core$Result$Ok(
+									A2($elm$core$List$cons, ok, okState));
+							} else {
+								var error = _v0.a.a;
+								return $elm$core$Result$Err(error);
+							}
+						}
+					}),
+				$elm$core$Result$Ok(_List_Nil)),
+			$elm$json$Json$Decode$list(
+				$author$project$Replicated$Serialize$getJsonDecoder(codec))));
+};
+var $author$project$Replicated$Serialize$CustomError = function (a) {
+	return {$: 'CustomError', a: a};
+};
+var $author$project$Replicated$Serialize$mapValid = F3(
+	function (fromBytes_, toBytes_, codec) {
+		return A4(
+			$author$project$Replicated$Serialize$build,
+			function (v) {
+				return A2(
+					$author$project$Replicated$Serialize$getEncoder,
+					codec,
+					toBytes_(v));
+			},
+			A2(
+				$elm$bytes$Bytes$Decode$map,
+				function (value) {
+					if (value.$ === 'Ok') {
+						var ok = value.a;
+						return A2(
+							$elm$core$Result$mapError,
+							$author$project$Replicated$Serialize$CustomError,
+							fromBytes_(ok));
+					} else {
+						var err = value.a;
+						return $elm$core$Result$Err(err);
+					}
+				},
+				$author$project$Replicated$Serialize$getBytesDecoder(codec)),
+			function (v) {
+				return A2(
+					$author$project$Replicated$Serialize$getJsonEncoder,
+					codec,
+					toBytes_(v));
+			},
+			A2(
+				$elm$json$Json$Decode$map,
+				function (value) {
+					if (value.$ === 'Ok') {
+						var ok = value.a;
+						return A2(
+							$elm$core$Result$mapError,
+							$author$project$Replicated$Serialize$CustomError,
+							fromBytes_(ok));
+					} else {
+						var err = value.a;
+						return $elm$core$Result$Err(err);
+					}
+				},
+				$author$project$Replicated$Serialize$getJsonDecoder(codec)));
+	});
+var $mgold$elm_nonempty_list$List$Nonempty$toList = function (_v0) {
+	var x = _v0.a;
+	var xs = _v0.b;
+	return A2($elm$core$List$cons, x, xs);
+};
+var $author$project$Task$Entry$nonEmptyCodec = function (wrappedCodec) {
+	var nonEmptyFromList = function (list) {
+		return A2(
+			$elm$core$Result$fromMaybe,
+			'the list was not supposed to be empty',
+			$mgold$elm_nonempty_list$List$Nonempty$fromList(list));
 	};
-	return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$andThen, get, $zwilias$json_decode_exploration$Json$Decode$Exploration$string);
-}();
+	return A3(
+		$author$project$Replicated$Serialize$mapValid,
+		nonEmptyFromList,
+		$mgold$elm_nonempty_list$List$Nonempty$toList,
+		$author$project$Replicated$Serialize$list(wrappedCodec));
+};
+var $author$project$Task$Class$ParentProperties = function (title) {
+	return {title: title};
+};
+var $author$project$Replicated$Serialize$VariantEncoder = function (a) {
+	return {$: 'VariantEncoder', a: a};
+};
+var $elm$bytes$Bytes$Encode$U16 = F2(
+	function (a, b) {
+		return {$: 'U16', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt16 = $elm$bytes$Bytes$Encode$U16;
+var $author$project$Replicated$Serialize$variant = F5(
+	function (matchPiece, matchJsonPiece, decoderPiece, jsonDecoderPiece, _v0) {
+		var am = _v0.a;
+		var jsonEnc = function (v) {
+			return $author$project$Replicated$Serialize$VariantEncoder(
+				_Utils_Tuple2(
+					$elm$bytes$Bytes$Encode$sequence(_List_Nil),
+					A2(
+						$elm$json$Json$Encode$list,
+						$elm$core$Basics$identity,
+						A2(
+							$elm$core$List$cons,
+							$elm$json$Json$Encode$int(am.idCounter),
+							v))));
+		};
+		var jsonDecoder_ = F2(
+			function (tag, orElse) {
+				return _Utils_eq(tag, am.idCounter) ? jsonDecoderPiece : A2(am.jsonDecoder, tag, orElse);
+			});
+		var enc = function (v) {
+			return $author$project$Replicated$Serialize$VariantEncoder(
+				_Utils_Tuple2(
+					$elm$bytes$Bytes$Encode$sequence(
+						A2(
+							$elm$core$List$cons,
+							A2($elm$bytes$Bytes$Encode$unsignedInt16, $author$project$Replicated$Serialize$endian, am.idCounter),
+							v)),
+					$elm$json$Json$Encode$null));
+		};
+		var decoder_ = F2(
+			function (tag, orElse) {
+				return _Utils_eq(tag, am.idCounter) ? decoderPiece : A2(am.decoder, tag, orElse);
+			});
+		return $author$project$Replicated$Serialize$CustomTypeCodec(
+			{
+				decoder: decoder_,
+				idCounter: am.idCounter + 1,
+				jsonDecoder: jsonDecoder_,
+				jsonMatch: am.jsonMatch(
+					matchJsonPiece(jsonEnc)),
+				match: am.match(
+					matchPiece(enc))
+			});
+	});
+var $author$project$Replicated$Serialize$variant0 = function (ctor) {
+	return A4(
+		$author$project$Replicated$Serialize$variant,
+		function (c) {
+			return c(_List_Nil);
+		},
+		function (c) {
+			return c(_List_Nil);
+		},
+		$elm$bytes$Bytes$Decode$succeed(
+			$elm$core$Result$Ok(ctor)),
+		$elm$json$Json$Decode$succeed(
+			$elm$core$Result$Ok(ctor)));
+};
+var $author$project$Replicated$Serialize$result1 = F2(
+	function (ctor, value) {
+		if (value.$ === 'Ok') {
+			var ok = value.a;
+			return $elm$core$Result$Ok(
+				ctor(ok));
+		} else {
+			var err = value.a;
+			return $elm$core$Result$Err(err);
+		}
+	});
+var $author$project$Replicated$Serialize$variant1 = F2(
+	function (ctor, m1) {
+		return A4(
+			$author$project$Replicated$Serialize$variant,
+			F2(
+				function (c, v) {
+					return c(
+						_List_fromArray(
+							[
+								A2($author$project$Replicated$Serialize$getEncoder, m1, v)
+							]));
+				}),
+			F2(
+				function (c, v) {
+					return c(
+						_List_fromArray(
+							[
+								A2($author$project$Replicated$Serialize$getJsonEncoder, m1, v)
+							]));
+				}),
+			A2(
+				$elm$bytes$Bytes$Decode$map,
+				$author$project$Replicated$Serialize$result1(ctor),
+				$author$project$Replicated$Serialize$getBytesDecoder(m1)),
+			A2(
+				$elm$json$Json$Decode$map,
+				$author$project$Replicated$Serialize$result1(ctor),
+				A2(
+					$elm$json$Json$Decode$index,
+					1,
+					$author$project$Replicated$Serialize$getJsonDecoder(m1))));
+	});
+var $author$project$Replicated$Serialize$maybe = function (justCodec) {
+	return $author$project$Replicated$Serialize$finishCustomType(
+		A3(
+			$author$project$Replicated$Serialize$variant1,
+			$elm$core$Maybe$Just,
+			justCodec,
+			A2(
+				$author$project$Replicated$Serialize$variant0,
+				$elm$core$Maybe$Nothing,
+				$author$project$Replicated$Serialize$customType(
+					F3(
+						function (nothingEncoder, justEncoder, value) {
+							if (value.$ === 'Nothing') {
+								return nothingEncoder;
+							} else {
+								var value_ = value.a;
+								return justEncoder(value_);
+							}
+						})))));
+};
+var $author$project$Replicated$Serialize$record = function (ctor) {
+	return $author$project$Replicated$Serialize$RecordCodec(
+		{
+			decoder: $elm$bytes$Bytes$Decode$succeed(
+				$elm$core$Result$Ok(ctor)),
+			encoder: function (_v0) {
+				return _List_Nil;
+			},
+			fieldIndex: 0,
+			jsonDecoder: $elm$json$Json$Decode$succeed(
+				$elm$core$Result$Ok(ctor)),
+			jsonEncoder: function (_v1) {
+				return _List_Nil;
+			}
+		});
+};
+var $elm$bytes$Bytes$Encode$getStringWidth = _Bytes_getStringWidth;
+var $elm$bytes$Bytes$Decode$string = function (n) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_string(n));
+};
+var $elm$bytes$Bytes$Encode$Utf8 = F2(
+	function (a, b) {
+		return {$: 'Utf8', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$string = function (str) {
+	return A2(
+		$elm$bytes$Bytes$Encode$Utf8,
+		_Bytes_getStringWidth(str),
+		str);
+};
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Replicated$Serialize$string = A4(
+	$author$project$Replicated$Serialize$build,
+	function (text) {
+		return $elm$bytes$Bytes$Encode$sequence(
+			_List_fromArray(
+				[
+					A2(
+					$elm$bytes$Bytes$Encode$unsignedInt32,
+					$author$project$Replicated$Serialize$endian,
+					$elm$bytes$Bytes$Encode$getStringWidth(text)),
+					$elm$bytes$Bytes$Encode$string(text)
+				]));
+	},
+	A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (charCount) {
+			return A2(
+				$elm$bytes$Bytes$Decode$map,
+				$elm$core$Result$Ok,
+				$elm$bytes$Bytes$Decode$string(charCount));
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt32($author$project$Replicated$Serialize$endian)),
+	$elm$json$Json$Encode$string,
+	A2($elm$json$Json$Decode$map, $elm$core$Result$Ok, $elm$json$Json$Decode$string));
+var $author$project$Task$Class$parentPropertiesCodec = $author$project$Replicated$Serialize$finishRecord(
+	A3(
+		$author$project$Replicated$Serialize$field,
+		function ($) {
+			return $.title;
+		},
+		$author$project$Replicated$Serialize$maybe($author$project$Replicated$Serialize$string),
+		$author$project$Replicated$Serialize$record($author$project$Task$Class$ParentProperties)));
+function $author$project$Task$Entry$cyclic$followerParentCodec() {
+	return $author$project$Replicated$Serialize$finishRecord(
+		A3(
+			$author$project$Replicated$Serialize$field,
+			function ($) {
+				return $.children;
+			},
+			$author$project$Task$Entry$nonEmptyCodec(
+				$author$project$Task$Entry$cyclic$followerChildCodec()),
+			A3(
+				$author$project$Replicated$Serialize$field,
+				function ($) {
+					return $.properties;
+				},
+				$author$project$Task$Class$parentPropertiesCodec,
+				$author$project$Replicated$Serialize$record($author$project$Task$Entry$FollowerParent))));
+}
+function $author$project$Task$Entry$cyclic$followerChildCodec() {
+	return $author$project$Replicated$Serialize$finishCustomType(
+		A3(
+			$author$project$Replicated$Serialize$variant1,
+			$author$project$Task$Entry$Nested,
+			$author$project$Replicated$Serialize$lazy(
+				function (_v1) {
+					return $author$project$Task$Entry$cyclic$followerParentCodec();
+				}),
+			A3(
+				$author$project$Replicated$Serialize$variant1,
+				$author$project$Task$Entry$Singleton,
+				$author$project$Replicated$Serialize$int,
+				$author$project$Replicated$Serialize$customType(
+					F3(
+						function (singleton, nested, value) {
+							if (value.$ === 'Singleton') {
+								var classID = value.a;
+								return singleton(classID);
+							} else {
+								var followerParent = value.a;
+								return nested(followerParent);
+							}
+						})))));
+}
+try {
+	var $author$project$Task$Entry$followerParentCodec = $author$project$Task$Entry$cyclic$followerParentCodec();
+	$author$project$Task$Entry$cyclic$followerParentCodec = function () {
+		return $author$project$Task$Entry$followerParentCodec;
+	};
+	var $author$project$Task$Entry$followerChildCodec = $author$project$Task$Entry$cyclic$followerChildCodec();
+	$author$project$Task$Entry$cyclic$followerChildCodec = function () {
+		return $author$project$Task$Entry$followerChildCodec;
+	};
+} catch ($) {
+	throw 'Some top-level definitions from `Task.Entry` are causing infinite recursion:\n\n  ┌─────┐\n  │    followerParentCodec\n  │     ↓\n  │    followerChildCodec\n  └─────┘\n\nThese errors are very tricky, so read https://elm-lang.org/0.19.1/bad-recursion to learn how to fix it!';}
+var $author$project$Task$Entry$leaderParentCodec = $author$project$Replicated$Serialize$finishRecord(
+	A3(
+		$author$project$Replicated$Serialize$field,
+		function ($) {
+			return $.children;
+		},
+		$author$project$Task$Entry$nonEmptyCodec($author$project$Task$Entry$followerParentCodec),
+		A3(
+			$author$project$Replicated$Serialize$field,
+			function ($) {
+				return $.recurrenceRules;
+			},
+			$author$project$Replicated$Serialize$maybe(
+				A2($author$project$Replicated$Serialize$enum, $author$project$Task$Series$Series, _List_Nil)),
+			A3(
+				$author$project$Replicated$Serialize$field,
+				function ($) {
+					return $.properties;
+				},
+				$author$project$Task$Class$parentPropertiesCodec,
+				$author$project$Replicated$Serialize$record($author$project$Task$Entry$LeaderParent)))));
+function $author$project$Task$Entry$cyclic$wrapperParentCodec() {
+	return $author$project$Replicated$Serialize$finishRecord(
+		A3(
+			$author$project$Replicated$Serialize$field,
+			function ($) {
+				return $.children;
+			},
+			$author$project$Task$Entry$nonEmptyCodec(
+				$author$project$Task$Entry$cyclic$wrapperChildCodec()),
+			A3(
+				$author$project$Replicated$Serialize$field,
+				function ($) {
+					return $.properties;
+				},
+				$author$project$Task$Class$parentPropertiesCodec,
+				$author$project$Replicated$Serialize$record($author$project$Task$Entry$WrapperParent))));
+}
+function $author$project$Task$Entry$cyclic$wrapperChildCodec() {
+	return $author$project$Replicated$Serialize$finishCustomType(
+		A3(
+			$author$project$Replicated$Serialize$variant1,
+			$author$project$Task$Entry$LeaderIsHere,
+			$author$project$Task$Entry$leaderParentCodec,
+			A3(
+				$author$project$Replicated$Serialize$variant1,
+				$author$project$Task$Entry$LeaderIsDeeper,
+				$author$project$Replicated$Serialize$lazy(
+					function (_v1) {
+						return $author$project$Task$Entry$cyclic$wrapperParentCodec();
+					}),
+				$author$project$Replicated$Serialize$customType(
+					F3(
+						function (leaderIsDeeper, leaderIsHere, value) {
+							if (value.$ === 'LeaderIsDeeper') {
+								var wrapperParent = value.a;
+								return leaderIsDeeper(wrapperParent);
+							} else {
+								var leaderParent = value.a;
+								return leaderIsHere(leaderParent);
+							}
+						})))));
+}
+try {
+	var $author$project$Task$Entry$wrapperParentCodec = $author$project$Task$Entry$cyclic$wrapperParentCodec();
+	$author$project$Task$Entry$cyclic$wrapperParentCodec = function () {
+		return $author$project$Task$Entry$wrapperParentCodec;
+	};
+	var $author$project$Task$Entry$wrapperChildCodec = $author$project$Task$Entry$cyclic$wrapperChildCodec();
+	$author$project$Task$Entry$cyclic$wrapperChildCodec = function () {
+		return $author$project$Task$Entry$wrapperChildCodec;
+	};
+} catch ($) {
+	throw 'Some top-level definitions from `Task.Entry` are causing infinite recursion:\n\n  ┌─────┐\n  │    wrapperParentCodec\n  │     ↓\n  │    wrapperChildCodec\n  └─────┘\n\nThese errors are very tricky, so read https://elm-lang.org/0.19.1/bad-recursion to learn how to fix it!';}
+var $author$project$Task$Entry$decodeEntry = A2(
+	$author$project$Porting$customDecoder,
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$value,
+	A2(
+		$elm$core$Basics$composeL,
+		$elm$core$Result$mapError(
+			function (e) {
+				return '';
+			}),
+		$author$project$Replicated$Serialize$decodeFromJson($author$project$Task$Entry$wrapperParentCodec)));
 var $author$project$Task$Instance$InstanceSkel = function (_class) {
 	return function (id) {
 		return function (memberOfSeries) {
@@ -10253,7 +11620,9 @@ var $author$project$Task$Instance$InstanceSkel = function (_class) {
 							return function (plannedSessions) {
 								return function (relevanceStarts) {
 									return function (relevanceEnds) {
-										return {_class: _class, completion: completion, externalDeadline: externalDeadline, finishBy: finishBy, id: id, memberOfSeries: memberOfSeries, plannedSessions: plannedSessions, relevanceEnds: relevanceEnds, relevanceStarts: relevanceStarts, startBy: startBy};
+										return function (extra) {
+											return {_class: _class, completion: completion, externalDeadline: externalDeadline, extra: extra, finishBy: finishBy, id: id, memberOfSeries: memberOfSeries, plannedSessions: plannedSessions, relevanceEnds: relevanceEnds, relevanceStarts: relevanceStarts, startBy: startBy};
+										};
 									};
 								};
 							};
@@ -10368,22 +11737,6 @@ var $author$project$Porting$arrayAsTuple2 = F2(
 					A2($zwilias$json_decode_exploration$Json$Decode$Exploration$index, 1, b));
 			},
 			A2($zwilias$json_decode_exploration$Json$Decode$Exploration$index, 0, a));
-	});
-var $author$project$Porting$customDecoder = F2(
-	function (primitiveDecoder, customDecoderFunction) {
-		return A2(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
-			function (a) {
-				var _v0 = customDecoderFunction(a);
-				if (_v0.$ === 'Ok') {
-					var b = _v0.a;
-					return $zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(b);
-				} else {
-					var err = _v0.a;
-					return $zwilias$json_decode_exploration$Json$Decode$Exploration$fail(err);
-				}
-			},
-			primitiveDecoder);
 	});
 var $author$project$SmartTime$Human$Moment$DateOnly = function (a) {
 	return {$: 'DateOnly', a: a};
@@ -10503,17 +11856,6 @@ var $author$project$SmartTime$Human$Calendar$fromParts = function (given) {
 				A2($author$project$SmartTime$Human$Calendar$Month$length, given.year, given.month)) + ' days!')))))) : $elm$core$Result$Err('The date was invalid, but I\'m not sure why. Please report this issue!'))));
 	}
 };
-var $elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return $elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return $elm$core$Result$Err(
-				f(e));
-		}
-	});
 var $elm$parser$Parser$Advanced$Empty = {$: 'Empty'};
 var $elm$parser$Parser$Advanced$Parser = function (a) {
 	return {$: 'Parser', a: a};
@@ -11453,93 +12795,53 @@ var $author$project$SmartTime$Human$Moment$fuzzyFromString = function (givenStri
 var $author$project$Porting$decodeFuzzyMoment = A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, $author$project$SmartTime$Human$Moment$fuzzyFromString);
 var $author$project$Task$SessionSkel$decodeSession = A2($author$project$Porting$arrayAsTuple2, $author$project$Porting$decodeFuzzyMoment, $author$project$Porting$decodeDuration);
 var $author$project$Task$Class$decodeTaskMoment = A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, $author$project$SmartTime$Human$Moment$fuzzyFromString);
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$isObject = $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
-	function (json) {
-		if (json.$ === 'Object') {
-			var pairs = json.b;
-			return A2(
-				$zwilias$json_decode_exploration$Json$Decode$Exploration$ok,
-				A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, pairs),
-				_Utils_Tuple0);
-		} else {
-			return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
-		}
-	});
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$resolve = $zwilias$json_decode_exploration$Json$Decode$Exploration$andThen($elm$core$Basics$identity);
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optionalField = F3(
-	function (field, decoder, fallback) {
-		return A2(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$andThen,
-			function (_v0) {
-				return $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$resolve(
-					$zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
-						_List_fromArray(
-							[
-								A2(
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-								field,
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$null(
-									$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(fallback))),
-								A2(
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$field,
-								field,
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
-									A2($zwilias$json_decode_exploration$Json$Decode$Exploration$field, field, decoder))),
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(fallback))
-							])));
-			},
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$isObject);
-	});
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional = F4(
-	function (key, valDecoder, fallback, decoder) {
-		return A2(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$andMap,
-			A3($zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optionalField, key, valDecoder, fallback),
-			decoder);
-	});
-var $author$project$Task$Instance$decodeInstance = A3(
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-	'relevanceEnds',
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
+var $author$project$Task$Instance$decodeInstance = A4(
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+	'extra',
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$dict($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+	$elm$core$Dict$empty,
 	A3(
 		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-		'relevanceStarts',
+		'relevanceEnds',
 		$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
 		A3(
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-			'plannedSessions',
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$SessionSkel$decodeSession),
+			'relevanceStarts',
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
 			A3(
 				$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-				'finishBy',
-				$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
+				'plannedSessions',
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Task$SessionSkel$decodeSession),
 				A3(
 					$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-					'startBy',
+					'finishBy',
 					$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
 					A3(
 						$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-						'externalDeadline',
+						'startBy',
 						$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
 						A3(
 							$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-							'completion',
-							$zwilias$json_decode_exploration$Json$Decode$Exploration$int,
-							A4(
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
-								'memberOfSeries',
-								$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($zwilias$json_decode_exploration$Json$Decode$Exploration$int),
-								$elm$core$Maybe$Nothing,
-								A3(
-									$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-									'id',
-									$author$project$Task$Instance$decodeInstanceID,
+							'externalDeadline',
+							$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Task$Class$decodeTaskMoment),
+							A3(
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+								'completion',
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$int,
+								A4(
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+									'memberOfSeries',
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($zwilias$json_decode_exploration$Json$Decode$Exploration$int),
+									$elm$core$Maybe$Nothing,
 									A3(
 										$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-										'class',
-										$author$project$Task$Class$decodeClassID,
-										$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Task$Instance$InstanceSkel)))))))))));
+										'id',
+										$author$project$Task$Instance$decodeInstanceID,
+										A3(
+											$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+											'class',
+											$author$project$Task$Class$decodeClassID,
+											$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Task$Instance$InstanceSkel))))))))))));
 var $author$project$Porting$decodeTuple2 = F2(
 	function (decoderA, decoderB) {
 		return A3(
@@ -12044,108 +13346,6 @@ var $author$project$Activity$Template$decodeTemplate = $author$project$Porting$d
 			_Utils_Tuple2('Presentation', $author$project$Activity$Template$Presentation),
 			_Utils_Tuple2('Projects', $author$project$Activity$Template$Projects)
 		]));
-var $elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		$elm$core$List$foldl,
-		F2(
-			function (_v0, dict) {
-				var key = _v0.a;
-				var value = _v0.b;
-				return A3($elm$core$Dict$insert, key, value, dict);
-			}),
-		$elm$core$Dict$empty,
-		assocs);
-};
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs = function (_v0) {
-	var decoderFn = _v0.a;
-	var finalize = function (_v5) {
-		var json = _v5.a;
-		var warnings = _v5.b;
-		var val = _v5.c;
-		return {
-			json: A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Object, true, json),
-			value: val,
-			warnings: warnings
-		};
-	};
-	var accumulate = F2(
-		function (_v4, acc) {
-			var key = _v4.a;
-			var val = _v4.b;
-			var _v2 = _Utils_Tuple2(
-				acc,
-				decoderFn(val));
-			if (_v2.a.$ === 'Err') {
-				if (_v2.b.$ === 'Err') {
-					var e = _v2.a.a;
-					var _new = _v2.b.a;
-					return $elm$core$Result$Err(
-						A2(
-							$mgold$elm_nonempty_list$List$Nonempty$cons,
-							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, _new),
-							e));
-				} else {
-					var e = _v2.a.a;
-					return $elm$core$Result$Err(e);
-				}
-			} else {
-				if (_v2.b.$ === 'Err') {
-					var e = _v2.b.a;
-					return $elm$core$Result$Err(
-						$mgold$elm_nonempty_list$List$Nonempty$fromElement(
-							A2($zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField, key, e)));
-				} else {
-					var _v3 = _v2.a.a;
-					var jsonAcc = _v3.a;
-					var warningsAcc = _v3.b;
-					var accAcc = _v3.c;
-					var res = _v2.b.a;
-					return $elm$core$Result$Ok(
-						_Utils_Tuple3(
-							A2(
-								$elm$core$List$cons,
-								_Utils_Tuple2(key, res.json),
-								jsonAcc),
-							_Utils_ap(
-								A2(
-									$elm$core$List$map,
-									A2(
-										$elm$core$Basics$composeR,
-										$mgold$elm_nonempty_list$List$Nonempty$fromElement,
-										$zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField(key)),
-									res.warnings),
-								warningsAcc),
-							A2(
-								$elm$core$List$cons,
-								_Utils_Tuple2(key, res.value),
-								accAcc)));
-				}
-			}
-		});
-	return $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
-		function (json) {
-			if (json.$ === 'Object') {
-				var kvPairs = json.b;
-				return A2(
-					$elm$core$Result$map,
-					finalize,
-					A3(
-						$elm$core$List$foldr,
-						accumulate,
-						$elm$core$Result$Ok(
-							_Utils_Tuple3(_List_Nil, _List_Nil, _List_Nil)),
-						kvPairs));
-			} else {
-				return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$expected, $zwilias$json_decode_exploration$Json$Decode$Exploration$TObject, json);
-			}
-		});
-};
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$dict = function (decoder) {
-	return A2(
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
-		$elm$core$Dict$fromList,
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$keyValuePairs(decoder));
-};
 var $author$project$Porting$withPresence = F2(
 	function (fieldName, decoder) {
 		return A3(
@@ -12240,37 +13440,262 @@ var $author$project$Activity$Switch$decodeSwitch = A4(
 			'Time',
 			$author$project$Porting$decodeMoment,
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$Activity$Switch$Switch))));
-var $author$project$TimeBlock$TimeBlock$TimeBlock = F2(
-	function (focus, range) {
-		return {focus: focus, range: range};
+var $author$project$TimeBlock$TimeBlock$TimeBlock = F4(
+	function (focus, date, startTime, duration) {
+		return {date: date, duration: duration, focus: focus, startTime: startTime};
 	});
-var $author$project$SmartTime$Period$Period = F2(
-	function (a, b) {
-		return {$: 'Period', a: a, b: b};
+var $author$project$Replicated$Serialize$mapHelper = F3(
+	function (fromBytes_, toBytes_, codec) {
+		return A4(
+			$author$project$Replicated$Serialize$build,
+			function (v) {
+				return A2(
+					$author$project$Replicated$Serialize$getEncoder,
+					codec,
+					toBytes_(v));
+			},
+			A2(
+				$elm$bytes$Bytes$Decode$map,
+				fromBytes_,
+				$author$project$Replicated$Serialize$getBytesDecoder(codec)),
+			function (v) {
+				return A2(
+					$author$project$Replicated$Serialize$getJsonEncoder,
+					codec,
+					toBytes_(v));
+			},
+			A2(
+				$elm$json$Json$Decode$map,
+				fromBytes_,
+				$author$project$Replicated$Serialize$getJsonDecoder(codec)));
 	});
-var $author$project$SmartTime$Period$fromPair = function (_v0) {
-	var moment1 = _v0.a;
-	var moment2 = _v0.b;
-	return _Utils_eq(
-		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
-		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
+var $author$project$Replicated$Serialize$map = F3(
+	function (fromBytes_, toBytes_, codec) {
+		return A3(
+			$author$project$Replicated$Serialize$mapHelper,
+			function (value) {
+				if (value.$ === 'Ok') {
+					var ok = value.a;
+					return $elm$core$Result$Ok(
+						fromBytes_(ok));
+				} else {
+					var err = value.a;
+					return $elm$core$Result$Err(err);
+				}
+			},
+			toBytes_,
+			codec);
+	});
+var $author$project$TimeBlock$TimeBlock$dateCodec = A3($author$project$Replicated$Serialize$map, $author$project$SmartTime$Human$Calendar$fromRataDie, $author$project$SmartTime$Human$Calendar$toRataDie, $author$project$Replicated$Serialize$int);
+var $author$project$TimeBlock$TimeBlock$durationCodec = A3($author$project$Replicated$Serialize$map, $author$project$SmartTime$Duration$fromInt, $author$project$SmartTime$Duration$inMs, $author$project$Replicated$Serialize$int);
+var $author$project$TimeBlock$TimeBlock$Activity = function (a) {
+	return {$: 'Activity', a: a};
 };
-var $author$project$TimeBlock$TimeBlock$periodDecoder = function () {
-	var momentDecoder = A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, $author$project$SmartTime$Human$Moment$fromStandardString);
-	return A2(
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
-		$author$project$SmartTime$Period$fromPair,
-		A2($author$project$Porting$arrayAsTuple2, momentDecoder, momentDecoder));
-}();
-var $author$project$TimeBlock$TimeBlock$decodeTimeBlock = A3(
-	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-	'range',
-	$author$project$TimeBlock$TimeBlock$periodDecoder,
+var $author$project$TimeBlock$TimeBlock$Tag = function (a) {
+	return {$: 'Tag', a: a};
+};
+var $author$project$ID$read = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$ID$tag = function (_int) {
+	return $author$project$ID$ID(_int);
+};
+var $author$project$TimeBlock$TimeBlock$focusCodec = $author$project$Replicated$Serialize$finishCustomType(
 	A3(
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-		'focus',
-		$author$project$ID$decode,
-		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$decode($author$project$TimeBlock$TimeBlock$TimeBlock)));
+		$author$project$Replicated$Serialize$variant1,
+		$author$project$TimeBlock$TimeBlock$Tag,
+		$author$project$Replicated$Serialize$string,
+		A3(
+			$author$project$Replicated$Serialize$variant1,
+			$author$project$TimeBlock$TimeBlock$Activity,
+			A3($author$project$Replicated$Serialize$map, $author$project$ID$tag, $author$project$ID$read, $author$project$Replicated$Serialize$int),
+			$author$project$Replicated$Serialize$customType(
+				F3(
+					function (activityEncoder, tagEncoder, value) {
+						if (value.$ === 'Activity') {
+							var activityID = value.a;
+							return activityEncoder(activityID);
+						} else {
+							var tagID = value.a;
+							return tagEncoder(tagID);
+						}
+					})))));
+var $author$project$SmartTime$Human$Clock$parseHM = A2(
+	$elm$parser$Parser$keeper,
+	A2(
+		$elm$parser$Parser$keeper,
+		A2(
+			$elm$parser$Parser$keeper,
+			A2(
+				$elm$parser$Parser$keeper,
+				$elm$parser$Parser$succeed($author$project$SmartTime$Human$Clock$clock),
+				A2(
+					$elm$parser$Parser$ignorer,
+					$elm$parser$Parser$backtrackable($author$project$ParserExtra$possiblyPaddedInt),
+					$elm$parser$Parser$symbol(':'))),
+			A2($author$project$ParserExtra$strictLengthInt, 2, 2)),
+		$elm$parser$Parser$succeed(0)),
+	$elm$parser$Parser$succeed(0));
+var $author$project$SmartTime$Human$Clock$fromStandardString = function (input) {
+	var parserHMSResult = A2($elm$parser$Parser$run, $author$project$SmartTime$Human$Clock$parseHMS, input);
+	var parserHMResult = A2($elm$parser$Parser$run, $author$project$SmartTime$Human$Clock$parseHM, input);
+	var bestResult = function () {
+		if (parserHMSResult.$ === 'Ok') {
+			return parserHMSResult;
+		} else {
+			return parserHMResult;
+		}
+	}();
+	return A2($elm$core$Result$mapError, $author$project$ParserExtra$realDeadEndsToString, bestResult);
+};
+var $author$project$SmartTime$Human$Duration$breakdownHMSM = function (duration) {
+	var _v0 = $author$project$SmartTime$Duration$breakdown(duration);
+	var days = _v0.days;
+	var hours = _v0.hours;
+	var minutes = _v0.minutes;
+	var seconds = _v0.seconds;
+	var milliseconds = _v0.milliseconds;
+	return _List_fromArray(
+		[
+			$author$project$SmartTime$Human$Duration$Hours(
+			$author$project$SmartTime$Duration$inWholeHours(duration)),
+			$author$project$SmartTime$Human$Duration$Minutes(minutes),
+			$author$project$SmartTime$Human$Duration$Seconds(seconds),
+			$author$project$SmartTime$Human$Duration$Milliseconds(milliseconds)
+		]);
+};
+var $elm_community$list_extra$List$Extra$init = function (items) {
+	if (!items.b) {
+		return $elm$core$Maybe$Nothing;
+	} else {
+		var nonEmptyList = items;
+		return A2(
+			$elm$core$Maybe$map,
+			$elm$core$List$reverse,
+			$elm$core$List$tail(
+				$elm$core$List$reverse(nonEmptyList)));
+	}
+};
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $author$project$SmartTime$Human$Duration$padNumber = F2(
+	function (targetLength, numString) {
+		var minLength = A3($elm$core$Basics$clamp, 1, targetLength, targetLength);
+		var zerosToAdd = minLength - $elm$core$String$length(numString);
+		return _Utils_ap(
+			A2($elm$core$String$repeat, zerosToAdd, '0'),
+			numString);
+	});
+var $author$project$SmartTime$Human$Duration$justNumberPadded = function (unit) {
+	switch (unit.$) {
+		case 'Milliseconds':
+			var _int = unit.a;
+			return A2(
+				$author$project$SmartTime$Human$Duration$padNumber,
+				3,
+				$elm$core$String$fromInt(_int));
+		case 'Seconds':
+			var _int = unit.a;
+			return A2(
+				$author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				$elm$core$String$fromInt(_int));
+		case 'Minutes':
+			var _int = unit.a;
+			return A2(
+				$author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				$elm$core$String$fromInt(_int));
+		case 'Hours':
+			var _int = unit.a;
+			return A2(
+				$author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				$elm$core$String$fromInt(_int));
+		default:
+			var _int = unit.a;
+			return A2(
+				$author$project$SmartTime$Human$Duration$padNumber,
+				2,
+				$elm$core$String$fromInt(_int));
+	}
+};
+var $author$project$SmartTime$Human$Duration$colonSeparated = function (breakdownList) {
+	var separate = function (list) {
+		return $elm$core$String$concat(
+			A2(
+				$elm$core$List$intersperse,
+				':',
+				A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$justNumberPadded, list)));
+	};
+	var _v0 = $elm_community$list_extra$List$Extra$last(breakdownList);
+	if ((_v0.$ === 'Just') && (_v0.a.$ === 'Milliseconds')) {
+		var ms = _v0.a.a;
+		var withoutLast = A2(
+			$elm$core$Maybe$withDefault,
+			_List_Nil,
+			$elm_community$list_extra$List$Extra$init(breakdownList));
+		return separate(withoutLast) + ('.' + A2(
+			$author$project$SmartTime$Human$Duration$padNumber,
+			3,
+			$elm$core$String$fromInt(ms)));
+	} else {
+		return separate(breakdownList);
+	}
+};
+var $author$project$SmartTime$Human$Clock$toStandardString = function (timeOfDay) {
+	return $author$project$SmartTime$Human$Duration$colonSeparated(
+		$author$project$SmartTime$Human$Duration$breakdownHMSM(timeOfDay));
+};
+var $author$project$TimeBlock$TimeBlock$timeCodec = A3($author$project$Replicated$Serialize$mapValid, $author$project$SmartTime$Human$Clock$fromStandardString, $author$project$SmartTime$Human$Clock$toStandardString, $author$project$Replicated$Serialize$string);
+var $author$project$TimeBlock$TimeBlock$codec = $author$project$Replicated$Serialize$finishRecord(
+	A3(
+		$author$project$Replicated$Serialize$field,
+		function ($) {
+			return $.duration;
+		},
+		$author$project$TimeBlock$TimeBlock$durationCodec,
+		A3(
+			$author$project$Replicated$Serialize$field,
+			function ($) {
+				return $.startTime;
+			},
+			$author$project$TimeBlock$TimeBlock$timeCodec,
+			A3(
+				$author$project$Replicated$Serialize$field,
+				function ($) {
+					return $.date;
+				},
+				$author$project$TimeBlock$TimeBlock$dateCodec,
+				A3(
+					$author$project$Replicated$Serialize$field,
+					function ($) {
+						return $.focus;
+					},
+					$author$project$TimeBlock$TimeBlock$focusCodec,
+					$author$project$Replicated$Serialize$record($author$project$TimeBlock$TimeBlock$TimeBlock))))));
+var $author$project$TimeBlock$TimeBlock$decodeTimeBlock = A2(
+	$author$project$Porting$customDecoder,
+	$zwilias$json_decode_exploration$Json$Decode$Exploration$value,
+	A2(
+		$elm$core$Basics$composeL,
+		$elm$core$Result$mapError(
+			function (e) {
+				return '';
+			}),
+		$author$project$Replicated$Serialize$decodeFromJson($author$project$TimeBlock$TimeBlock$codec)));
 var $author$project$Profile$TodoistIntegrationData = F3(
 	function (cache, parentProjectID, activityProjectIDs) {
 		return {activityProjectIDs: activityProjectIDs, cache: cache, parentProjectID: parentProjectID};
@@ -12387,13 +13812,6 @@ var $author$project$Incubator$Todoist$Item$decodePriority = $zwilias$json_decode
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed(
 				$author$project$Incubator$Todoist$Item$Priority(4)))
 		]));
-var $zwilias$json_decode_exploration$Json$Decode$Exploration$value = $zwilias$json_decode_exploration$Json$Decode$Exploration$Decoder(
-	function (json) {
-		return A2(
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$ok,
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$markUsed(json),
-			$zwilias$json_decode_exploration$Json$Decode$Exploration$encode(json));
-	});
 var $author$project$Porting$optionalIgnored = F2(
 	function (field, pipeline) {
 		return A2(
@@ -12702,10 +14120,8 @@ var $elm$json$Json$Decode$lazy = function (thunk) {
 		thunk,
 		$elm$json$Json$Decode$succeed(_Utils_Tuple0));
 };
-var $elm$json$Json$Decode$list = _Json_decodeList;
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $elm$json$Json$Decode$string = _Json_decodeString;
 function $zwilias$json_decode_exploration$Json$Decode$Exploration$cyclic$annotatedDecoder() {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -12749,7 +14165,6 @@ try {
 	};
 } catch ($) {
 	throw 'Some top-level definitions from `Json.Decode.Exploration` are causing infinite recursion:\n\n  ┌─────┐\n  │    annotatedDecoder\n  └─────┘\n\nThese errors are very tricky, so read https://elm-lang.org/0.19.1/bad-recursion to learn how to fix it!';}
-var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$decode = $elm$json$Json$Decode$decodeValue($zwilias$json_decode_exploration$Json$Decode$Exploration$annotatedDecoder);
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$UnusedValue = function (a) {
 	return {$: 'UnusedValue', a: a};
@@ -13205,11 +14620,10 @@ var $author$project$NativeScript$Notification$basicChannel = function (name) {
 var $author$project$NativeScript$Notification$build = function (channel) {
 	return {accentColor: $elm$core$Maybe$Nothing, actions: _List_Nil, at: $elm$core$Maybe$Nothing, autoCancel: $elm$core$Maybe$Nothing, background_color: $elm$core$Maybe$Nothing, badge: $elm$core$Maybe$Nothing, bigTextStyle: $elm$core$Maybe$Nothing, body: $elm$core$Maybe$Nothing, body_expanded: $elm$core$Maybe$Nothing, channel: channel, chronometer: $elm$core$Maybe$Nothing, color_from_media: $elm$core$Maybe$Nothing, countdown: $elm$core$Maybe$Nothing, detail: $elm$core$Maybe$Nothing, expiresAfter: $elm$core$Maybe$Nothing, group: $elm$core$Maybe$Nothing, groupAlertBehavior: $elm$core$Maybe$Nothing, groupedMessages: $elm$core$Maybe$Nothing, icon: $elm$core$Maybe$Nothing, id: $elm$core$Maybe$Nothing, image: $elm$core$Maybe$Nothing, interval: $elm$core$Maybe$Nothing, isGroupSummary: $elm$core$Maybe$Nothing, media: $elm$core$Maybe$Nothing, media_layout: $elm$core$Maybe$Nothing, on_create: $elm$core$Maybe$Nothing, on_dismiss: $elm$core$Maybe$Nothing, on_touch: $elm$core$Maybe$Nothing, ongoing: $elm$core$Maybe$Nothing, phone_only: $elm$core$Maybe$Nothing, picture_expanded_icon: $elm$core$Maybe$Nothing, picture_skip_cache: $elm$core$Maybe$Nothing, privacy: $elm$core$Maybe$Nothing, progress: $elm$core$Maybe$Nothing, silhouetteIcon: $elm$core$Maybe$Nothing, sortKey: $elm$core$Maybe$Nothing, status_icon: $elm$core$Maybe$Nothing, status_text_size: $elm$core$Maybe$Nothing, subtitle: $elm$core$Maybe$Nothing, thumbnail: $elm$core$Maybe$Nothing, ticker: $elm$core$Maybe$Nothing, title: $elm$core$Maybe$Nothing, title_expanded: $elm$core$Maybe$Nothing, update: $elm$core$Maybe$Nothing, url: $elm$core$Maybe$Nothing, useHTML: $elm$core$Maybe$Nothing, when: $elm$core$Maybe$Nothing};
 };
-var $author$project$TaskList$AllTasks = {$: 'AllTasks'};
 var $author$project$TaskList$defaultView = A3(
 	$author$project$TaskList$Normal,
 	_List_fromArray(
-		[$author$project$TaskList$AllTasks]),
+		[$author$project$TaskList$AllRelevantTasks]),
 	$elm$core$Maybe$Nothing,
 	'');
 var $author$project$TimeTracker$defaultView = $author$project$TimeTracker$Normal;
@@ -13662,7 +15076,6 @@ var $author$project$Porting$encodeTuple2 = F3(
 					secondEncoder(second)
 				]));
 	});
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm_community$intdict$IntDict$foldr = F3(
 	function (f, acc, dict) {
 		foldr:
@@ -14406,7 +15819,6 @@ var $author$project$Integrations$Marvin$getLabelsCmd = $elm$core$Platform$Cmd$ba
 		[
 			$author$project$Integrations$Marvin$getLabels($author$project$Integrations$Marvin$partialAccessToken)
 		]));
-var $author$project$Integrations$Marvin$blankTriplet = {taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty};
 var $author$project$Integrations$Marvin$describeError = function (error) {
 	switch (error.$) {
 		case 'BadUrl':
@@ -14451,175 +15863,12 @@ var $zwilias$json_decode_exploration$Json$Decode$Exploration$at = F2(
 	function (fields, decoder) {
 		return A3($elm$core$List$foldr, $zwilias$json_decode_exploration$Json$Decode$Exploration$field, decoder, fields);
 	});
-var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
-	switch (builder.$) {
-		case 'I8':
-			return 1;
-		case 'I16':
-			return 2;
-		case 'I32':
-			return 4;
-		case 'U8':
-			return 1;
-		case 'U16':
-			return 2;
-		case 'U32':
-			return 4;
-		case 'F32':
-			return 4;
-		case 'F64':
-			return 8;
-		case 'Seq':
-			var w = builder.a;
-			return w;
-		case 'Utf8':
-			var w = builder.a;
-			return w;
-		default:
-			var bs = builder.a;
-			return _Bytes_width(bs);
-	}
-};
-var $elm$bytes$Bytes$LE = {$: 'LE'};
-var $elm$bytes$Bytes$Encode$write = F3(
-	function (builder, mb, offset) {
-		switch (builder.$) {
-			case 'I8':
-				var n = builder.a;
-				return A3(_Bytes_write_i8, mb, offset, n);
-			case 'I16':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_i16,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'I32':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_i32,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'U8':
-				var n = builder.a;
-				return A3(_Bytes_write_u8, mb, offset, n);
-			case 'U16':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_u16,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'U32':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_u32,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'F32':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_f32,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'F64':
-				var e = builder.a;
-				var n = builder.b;
-				return A4(
-					_Bytes_write_f64,
-					mb,
-					offset,
-					n,
-					_Utils_eq(e, $elm$bytes$Bytes$LE));
-			case 'Seq':
-				var bs = builder.b;
-				return A3($elm$bytes$Bytes$Encode$writeSequence, bs, mb, offset);
-			case 'Utf8':
-				var s = builder.b;
-				return A3(_Bytes_write_string, mb, offset, s);
-			default:
-				var bs = builder.a;
-				return A3(_Bytes_write_bytes, mb, offset, bs);
-		}
-	});
-var $elm$bytes$Bytes$Encode$writeSequence = F3(
-	function (builders, mb, offset) {
-		writeSequence:
-		while (true) {
-			if (!builders.b) {
-				return offset;
-			} else {
-				var b = builders.a;
-				var bs = builders.b;
-				var $temp$builders = bs,
-					$temp$mb = mb,
-					$temp$offset = A3($elm$bytes$Bytes$Encode$write, b, mb, offset);
-				builders = $temp$builders;
-				mb = $temp$mb;
-				offset = $temp$offset;
-				continue writeSequence;
-			}
-		}
-	});
 var $elm$bytes$Bytes$Encode$encode = _Bytes_encode;
 var $elm$bytes$Bytes$Decode$decode = F2(
 	function (_v0, bs) {
 		var decoder = _v0.a;
 		return A2(_Bytes_decode, decoder, bs);
 	});
-var $elm$bytes$Bytes$Decode$Decoder = function (a) {
-	return {$: 'Decoder', a: a};
-};
-var $elm$bytes$Bytes$Decode$loopHelp = F4(
-	function (state, callback, bites, offset) {
-		loopHelp:
-		while (true) {
-			var _v0 = callback(state);
-			var decoder = _v0.a;
-			var _v1 = A2(decoder, bites, offset);
-			var newOffset = _v1.a;
-			var step = _v1.b;
-			if (step.$ === 'Loop') {
-				var newState = step.a;
-				var $temp$state = newState,
-					$temp$callback = callback,
-					$temp$bites = bites,
-					$temp$offset = newOffset;
-				state = $temp$state;
-				callback = $temp$callback;
-				bites = $temp$bites;
-				offset = $temp$offset;
-				continue loopHelp;
-			} else {
-				var result = step.a;
-				return _Utils_Tuple2(newOffset, result);
-			}
-		}
-	});
-var $elm$bytes$Bytes$Decode$loop = F2(
-	function (state, callback) {
-		return $elm$bytes$Bytes$Decode$Decoder(
-			A2($elm$bytes$Bytes$Decode$loopHelp, state, callback));
-	});
-var $elm$bytes$Bytes$Decode$Done = function (a) {
-	return {$: 'Done', a: a};
-};
-var $elm$bytes$Bytes$Decode$Loop = function (a) {
-	return {$: 'Loop', a: a};
-};
 var $elm$core$String$fromChar = function (_char) {
 	return A2($elm$core$String$cons, _char, '');
 };
@@ -14776,52 +16025,9 @@ var $elm$bytes$Bytes$Decode$map5 = F6(
 						A5(func, a, b, c, d, e));
 				}));
 	});
-var $elm$bytes$Bytes$BE = {$: 'BE'};
-var $elm$bytes$Bytes$Decode$unsignedInt16 = function (endianness) {
-	return $elm$bytes$Bytes$Decode$Decoder(
-		_Bytes_read_u16(
-			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
-};
 var $danfishgold$base64_bytes$Decode$u16BE = $elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$BE);
-var $elm$bytes$Bytes$Decode$unsignedInt32 = function (endianness) {
-	return $elm$bytes$Bytes$Decode$Decoder(
-		_Bytes_read_u32(
-			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
-};
 var $danfishgold$base64_bytes$Decode$u32BE = $elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE);
 var $danfishgold$base64_bytes$Decode$decode18Bytes = A6($elm$bytes$Bytes$Decode$map5, $danfishgold$base64_bytes$Decode$decode18Help, $danfishgold$base64_bytes$Decode$u32BE, $danfishgold$base64_bytes$Decode$u32BE, $danfishgold$base64_bytes$Decode$u32BE, $danfishgold$base64_bytes$Decode$u32BE, $danfishgold$base64_bytes$Decode$u16BE);
-var $elm$bytes$Bytes$Decode$map = F2(
-	function (func, _v0) {
-		var decodeA = _v0.a;
-		return $elm$bytes$Bytes$Decode$Decoder(
-			F2(
-				function (bites, offset) {
-					var _v1 = A2(decodeA, bites, offset);
-					var aOffset = _v1.a;
-					var a = _v1.b;
-					return _Utils_Tuple2(
-						aOffset,
-						func(a));
-				}));
-	});
-var $elm$bytes$Bytes$Decode$map2 = F3(
-	function (func, _v0, _v1) {
-		var decodeA = _v0.a;
-		var decodeB = _v1.a;
-		return $elm$bytes$Bytes$Decode$Decoder(
-			F2(
-				function (bites, offset) {
-					var _v2 = A2(decodeA, bites, offset);
-					var aOffset = _v2.a;
-					var a = _v2.b;
-					var _v3 = A2(decodeB, bites, aOffset);
-					var bOffset = _v3.a;
-					var b = _v3.b;
-					return _Utils_Tuple2(
-						bOffset,
-						A2(func, a, b));
-				}));
-	});
 var $elm$bytes$Bytes$Decode$map3 = F4(
 	function (func, _v0, _v1, _v2) {
 		var decodeA = _v0.a;
@@ -14844,13 +16050,6 @@ var $elm$bytes$Bytes$Decode$map3 = F4(
 						A3(func, a, b, c));
 				}));
 	});
-var $elm$bytes$Bytes$Decode$succeed = function (a) {
-	return $elm$bytes$Bytes$Decode$Decoder(
-		F2(
-			function (_v0, offset) {
-				return _Utils_Tuple2(offset, a);
-			}));
-};
 var $elm$bytes$Bytes$Decode$unsignedInt8 = $elm$bytes$Bytes$Decode$Decoder(_Bytes_read_u8);
 var $danfishgold$base64_bytes$Decode$loopHelp = function (_v0) {
 	var remaining = _v0.remaining;
@@ -14925,16 +16124,6 @@ var $danfishgold$base64_bytes$Decode$fromBytes = function (bytes) {
 		bytes);
 };
 var $danfishgold$base64_bytes$Base64$fromBytes = $danfishgold$base64_bytes$Decode$fromBytes;
-var $elm$bytes$Bytes$Encode$Utf8 = F2(
-	function (a, b) {
-		return {$: 'Utf8', a: a, b: b};
-	});
-var $elm$bytes$Bytes$Encode$string = function (str) {
-	return A2(
-		$elm$bytes$Bytes$Encode$Utf8,
-		_Bytes_getStringWidth(str),
-		str);
-};
 var $author$project$Integrations$Marvin$buildAuthorizationToken = F2(
 	function (username, password) {
 		return A2(
@@ -14953,39 +16142,45 @@ var $author$project$Integrations$Marvin$buildAuthorizationHeader = F2(
 	});
 var $author$project$Integrations$Marvin$MarvinItem$Essential = {$: 'Essential'};
 var $author$project$Integrations$Marvin$MarvinItem$MarvinItem = function (id) {
-	return function (done) {
-		return function (day) {
-			return function (title) {
-				return function (parentId) {
-					return function (labelIds) {
-						return function (firstScheduled) {
-							return function (rank) {
-								return function (dailySection) {
-									return function (bonusSection) {
-										return function (customSection) {
-											return function (timeBlockSection) {
-												return function (note) {
-													return function (dueDate) {
-														return function (timeEstimate) {
-															return function (isReward) {
-																return function (isStarred) {
-																	return function (isFrogged) {
-																		return function (plannedWeek) {
-																			return function (plannedMonth) {
-																				return function (rewardPoints) {
-																					return function (rewardId) {
-																						return function (backburner) {
-																							return function (reviewDate) {
-																								return function (itemSnoozeTime) {
-																									return function (permaSnoozeTime) {
-																										return function (timeZoneOffset) {
-																											return function (startDate) {
-																												return function (endDate) {
-																													return function (db) {
-																														return function (type_) {
-																															return function (times) {
-																																return function (taskTime) {
-																																	return {backburner: backburner, bonusSection: bonusSection, customSection: customSection, dailySection: dailySection, day: day, db: db, done: done, dueDate: dueDate, endDate: endDate, firstScheduled: firstScheduled, id: id, isFrogged: isFrogged, isReward: isReward, isStarred: isStarred, itemSnoozeTime: itemSnoozeTime, labelIds: labelIds, note: note, parentId: parentId, permaSnoozeTime: permaSnoozeTime, plannedMonth: plannedMonth, plannedWeek: plannedWeek, rank: rank, reviewDate: reviewDate, rewardId: rewardId, rewardPoints: rewardPoints, startDate: startDate, taskTime: taskTime, timeBlockSection: timeBlockSection, timeEstimate: timeEstimate, timeZoneOffset: timeZoneOffset, times: times, title: title, type_: type_};
+	return function (rev) {
+		return function (done) {
+			return function (day) {
+				return function (title) {
+					return function (parentId) {
+						return function (labelIds) {
+							return function (firstScheduled) {
+								return function (rank) {
+									return function (dailySection) {
+										return function (bonusSection) {
+											return function (customSection) {
+												return function (timeBlockSection) {
+													return function (note) {
+														return function (dueDate) {
+															return function (timeEstimate) {
+																return function (isReward) {
+																	return function (isStarred) {
+																		return function (isFrogged) {
+																			return function (plannedWeek) {
+																				return function (plannedMonth) {
+																					return function (rewardPoints) {
+																						return function (rewardId) {
+																							return function (backburner) {
+																								return function (reviewDate) {
+																									return function (itemSnoozeTime) {
+																										return function (permaSnoozeTime) {
+																											return function (timeZoneOffset) {
+																												return function (startDate) {
+																													return function (endDate) {
+																														return function (db) {
+																															return function (type_) {
+																																return function (times) {
+																																	return function (taskTime) {
+																																		return function (pinId) {
+																																			return function (recurringTaskId) {
+																																				return {backburner: backburner, bonusSection: bonusSection, customSection: customSection, dailySection: dailySection, day: day, db: db, done: done, dueDate: dueDate, endDate: endDate, firstScheduled: firstScheduled, id: id, isFrogged: isFrogged, isReward: isReward, isStarred: isStarred, itemSnoozeTime: itemSnoozeTime, labelIds: labelIds, note: note, parentId: parentId, permaSnoozeTime: permaSnoozeTime, pinId: pinId, plannedMonth: plannedMonth, plannedWeek: plannedWeek, rank: rank, recurringTaskId: recurringTaskId, rev: rev, reviewDate: reviewDate, rewardId: rewardId, rewardPoints: rewardPoints, startDate: startDate, taskTime: taskTime, timeBlockSection: timeBlockSection, timeEstimate: timeEstimate, timeZoneOffset: timeZoneOffset, times: times, title: title, type_: type_};
+																																			};
+																																		};
+																																	};
 																																};
 																															};
 																														};
@@ -15038,6 +16233,7 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeItemType = function () 
 	};
 	return A2($zwilias$json_decode_exploration$Json$Decode$Exploration$andThen, get, $zwilias$json_decode_exploration$Json$Decode$Exploration$string);
 }();
+var $author$project$Porting$decodeUnixTimestamp = A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, $author$project$SmartTime$Moment$fromElmInt, $zwilias$json_decode_exploration$Json$Decode$Exploration$int);
 var $author$project$Integrations$Marvin$MarvinItem$Bonus = {$: 'Bonus'};
 var $author$project$Integrations$Marvin$MarvinItem$essentialOrBonusDecoder = function () {
 	var get = function (id) {
@@ -15175,34 +16371,6 @@ var $author$project$Integrations$Marvin$MarvinItem$monthDecoder = function () {
 	};
 	return A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, output);
 }();
-var $author$project$SmartTime$Human$Clock$parseHM = A2(
-	$elm$parser$Parser$keeper,
-	A2(
-		$elm$parser$Parser$keeper,
-		A2(
-			$elm$parser$Parser$keeper,
-			A2(
-				$elm$parser$Parser$keeper,
-				$elm$parser$Parser$succeed($author$project$SmartTime$Human$Clock$clock),
-				A2(
-					$elm$parser$Parser$ignorer,
-					$elm$parser$Parser$backtrackable($author$project$ParserExtra$possiblyPaddedInt),
-					$elm$parser$Parser$symbol(':'))),
-			A2($author$project$ParserExtra$strictLengthInt, 2, 2)),
-		$elm$parser$Parser$succeed(0)),
-	$elm$parser$Parser$succeed(0));
-var $author$project$SmartTime$Human$Clock$fromStandardString = function (input) {
-	var parserHMSResult = A2($elm$parser$Parser$run, $author$project$SmartTime$Human$Clock$parseHMS, input);
-	var parserHMResult = A2($elm$parser$Parser$run, $author$project$SmartTime$Human$Clock$parseHM, input);
-	var bestResult = function () {
-		if (parserHMSResult.$ === 'Ok') {
-			return parserHMSResult;
-		} else {
-			return parserHMResult;
-		}
-	}();
-	return A2($elm$core$Result$mapError, $author$project$ParserExtra$realDeadEndsToString, bestResult);
-};
 var $author$project$Integrations$Marvin$MarvinItem$timeOfDayDecoder = A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, $author$project$SmartTime$Human$Clock$fromStandardString);
 var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 	$author$project$Porting$optionalIgnored,
@@ -15230,82 +16398,86 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 								'imported',
 								A2(
 									$author$project$Porting$optionalIgnored,
-									'_rev',
+									'sectionid',
 									A2(
 										$author$project$Porting$optionalIgnored,
-										'sectionid',
+										'sectionId',
 										A2(
 											$author$project$Porting$optionalIgnored,
-											'sectionId',
+											'generatedAt',
 											A2(
 												$author$project$Porting$optionalIgnored,
-												'generatedAt',
+												'createdAt',
 												A2(
 													$author$project$Porting$optionalIgnored,
-													'createdAt',
+													'recurring',
 													A2(
 														$author$project$Porting$optionalIgnored,
-														'recurringTaskId',
+														'echoId',
 														A2(
 															$author$project$Porting$optionalIgnored,
-															'recurring',
+															'remindAt',
 															A2(
 																$author$project$Porting$optionalIgnored,
-																'echoId',
+																'reminder',
 																A2(
 																	$author$project$Porting$optionalIgnored,
-																	'remindAt',
+																	'echo',
 																	A2(
 																		$author$project$Porting$optionalIgnored,
-																		'reminder',
+																		'remind',
 																		A2(
 																			$author$project$Porting$optionalIgnored,
-																			'echo',
+																			'completedAt',
 																			A2(
 																				$author$project$Porting$optionalIgnored,
-																				'remind',
+																				'doneAt',
 																				A2(
 																					$author$project$Porting$optionalIgnored,
-																					'completedAt',
+																					'duration',
 																					A2(
 																						$author$project$Porting$optionalIgnored,
-																						'doneAt',
+																						'updatedAt',
 																						A2(
 																							$author$project$Porting$optionalIgnored,
-																							'duration',
+																							'fieldUpdates',
 																							A2(
 																								$author$project$Porting$optionalIgnored,
-																								'updatedAt',
+																								'echoedAt',
 																								A2(
 																									$author$project$Porting$optionalIgnored,
-																									'fieldUpdates',
+																									'rank_fbfe2f43-3ed1-472a-bea7-d1bc2185ccf6',
 																									A2(
 																										$author$project$Porting$optionalIgnored,
-																										'echoedAt',
+																										'fixParentId',
 																										A2(
 																											$author$project$Porting$optionalIgnored,
-																											'rank_fbfe2f43-3ed1-472a-bea7-d1bc2185ccf6',
+																											'masterRank',
 																											A2(
 																												$author$project$Porting$optionalIgnored,
-																												'fixParentId',
+																												'reminderOffset',
 																												A2(
 																													$author$project$Porting$optionalIgnored,
-																													'masterRank',
+																													'snooze',
 																													A2(
 																														$author$project$Porting$optionalIgnored,
-																														'reminderOffset',
+																														'autoSnooze',
 																														A2(
 																															$author$project$Porting$optionalIgnored,
-																															'snooze',
+																															'reminderTime',
 																															A2(
 																																$author$project$Porting$optionalIgnored,
-																																'autoSnooze',
-																																A2(
-																																	$author$project$Porting$optionalIgnored,
-																																	'reminderTime',
-																																	A2(
-																																		$author$project$Porting$optionalIgnored,
-																																		'subtasks',
+																																'subtasks',
+																																A4(
+																																	$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																																	'recurringTaskId',
+																																	$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+																																	$elm$core$Maybe$Nothing,
+																																	A4(
+																																		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																																		'pinID',
+																																		$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+																																		$elm$core$Maybe$Nothing,
 																																		A4(
 																																			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																			'taskTime',
@@ -15314,7 +16486,7 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																			A4(
 																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																				'times',
-																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Porting$decodeMoment),
+																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Porting$decodeUnixTimestamp),
 																																				_List_Nil,
 																																				A4(
 																																					$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
@@ -15349,7 +16521,7 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																										A4(
 																																											$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
 																																											'itemSnoozeTime',
-																																											$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Porting$decodeMoment),
+																																											$zwilias$json_decode_exploration$Json$Decode$Exploration$nullable($author$project$Porting$decodeUnixTimestamp),
 																																											$elm$core$Maybe$Nothing,
 																																											A4(
 																																												$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
@@ -15510,11 +16682,16 @@ var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem = A2(
 																																																																		'done',
 																																																																		$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
 																																																																		false,
-																																																																		A3(
-																																																																			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
-																																																																			'_id',
+																																																																		A4(
+																																																																			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+																																																																			'_rev',
 																																																																			$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
-																																																																			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$MarvinItem))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))));
+																																																																			'unknown',
+																																																																			A3(
+																																																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+																																																																				'_id',
+																																																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+																																																																				$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$MarvinItem)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))));
 var $elm$http$Http$jsonBody = function (value) {
 	return A2(
 		_Http_pair,
@@ -15542,40 +16719,7 @@ var $author$project$Integrations$Marvin$getTasks = function (secret) {
 									[
 										_Utils_Tuple2(
 										'db',
-										$elm$json$Json$Encode$string('Tasks')),
-										_Utils_Tuple2(
-										'timeEstimate',
-										$elm$json$Json$Encode$object(
-											_List_fromArray(
-												[
-													_Utils_Tuple2(
-													'$gt',
-													$elm$json$Json$Encode$int(0))
-												]))),
-										_Utils_Tuple2(
-										'day',
-										$elm$json$Json$Encode$object(
-											_List_fromArray(
-												[
-													_Utils_Tuple2(
-													'$regex',
-													$elm$json$Json$Encode$string('^\\d'))
-												]))),
-										_Utils_Tuple2(
-										'labelIds',
-										$elm$json$Json$Encode$object(
-											_List_fromArray(
-												[
-													_Utils_Tuple2(
-													'$not',
-													$elm$json$Json$Encode$object(
-														_List_fromArray(
-															[
-																_Utils_Tuple2(
-																'$size',
-																$elm$json$Json$Encode$int(0))
-															])))
-												])))
+										$elm$json$Json$Encode$string('Tasks'))
 									]))),
 							_Utils_Tuple2(
 							'fields',
@@ -15583,7 +16727,7 @@ var $author$project$Integrations$Marvin$getTasks = function (secret) {
 								$elm$json$Json$Encode$list,
 								$elm$json$Json$Encode$string,
 								_List_fromArray(
-									['_id', 'done', 'day', 'title', 'parentID', 'labelIds', 'dueDate', 'timeEstimate', 'startDate', 'endDate', 'times', 'taskTime'])))
+									['_id', '_rev', 'done', 'day', 'title', 'parentId', 'labelIds', 'dueDate', 'timeEstimate', 'startDate', 'endDate', 'times', 'taskTime', 'pinId', 'recurringTaskId', 'note'])))
 						]))),
 			expect: A2(
 				$elm$http$Http$expectJson,
@@ -15594,6 +16738,197 @@ var $author$project$Integrations$Marvin$getTasks = function (secret) {
 						_List_fromArray(
 							['docs']),
 						$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem)))),
+			headers: _List_fromArray(
+				[
+					A2($elm$http$Http$header, 'Accept', 'application/json'),
+					A2($author$project$Integrations$Marvin$buildAuthorizationHeader, $author$project$Integrations$Marvin$syncUser, $author$project$Integrations$Marvin$syncPassword)
+				]),
+			method: 'POST',
+			timeout: $elm$core$Maybe$Nothing,
+			tracker: $elm$core$Maybe$Nothing,
+			url: A2(
+				$author$project$Integrations$Marvin$marvinCloudantDatabaseUrl,
+				_List_fromArray(
+					[$author$project$Integrations$Marvin$syncDatabase, '_find']),
+				_List_Nil)
+		});
+};
+var $author$project$Integrations$Marvin$GotTimeBlockAssignments = function (a) {
+	return {$: 'GotTimeBlockAssignments', a: a};
+};
+var $author$project$Integrations$Marvin$getTimeBlockAssignments = function () {
+	var stripPrefix = function (settingIDString) {
+		return A2($elm$core$String$dropLeft, 35, settingIDString);
+	};
+	var decodeAssignmentValue = $zwilias$json_decode_exploration$Json$Decode$Exploration$oneOf(
+		_List_fromArray(
+			[
+				A2(
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+				_List_fromArray(
+					['val', 'parentId', 'val']),
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				A2(
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+				_List_fromArray(
+					['val', 'goalId', 'val']),
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$string),
+				A2(
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+				_List_fromArray(
+					['val', 'labelIds', 'val']),
+				$zwilias$json_decode_exploration$Json$Decode$Exploration$string)
+			]));
+	var decodeAssignmentName = A2(
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$field,
+		'_id',
+		A2($zwilias$json_decode_exploration$Json$Decode$Exploration$map, stripPrefix, $zwilias$json_decode_exploration$Json$Decode$Exploration$string));
+	var decodeAssignment = A3($zwilias$json_decode_exploration$Json$Decode$Exploration$map2, $elm$core$Tuple$pair, decodeAssignmentName, decodeAssignmentValue);
+	return $elm$http$Http$request(
+		{
+			body: $elm$http$Http$jsonBody(
+				$elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'selector',
+							$elm$json$Json$Encode$object(
+								_List_fromArray(
+									[
+										_Utils_Tuple2(
+										'db',
+										$elm$json$Json$Encode$string('ProfileItems')),
+										_Utils_Tuple2(
+										'_id',
+										$elm$json$Json$Encode$object(
+											_List_fromArray(
+												[
+													_Utils_Tuple2(
+													'$regex',
+													$elm$json$Json$Encode$string('^strategySettings.plannerSmartLists'))
+												])))
+									]))),
+							_Utils_Tuple2(
+							'fields',
+							A2(
+								$elm$json$Json$Encode$list,
+								$elm$json$Json$Encode$string,
+								_List_fromArray(
+									['val', '_id'])))
+						]))),
+			expect: A2(
+				$elm$http$Http$expectJson,
+				$author$project$Integrations$Marvin$GotTimeBlockAssignments,
+				$author$project$Porting$toClassicLoose(
+					A2(
+						$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+						_List_fromArray(
+							['docs']),
+						A2(
+							$zwilias$json_decode_exploration$Json$Decode$Exploration$map,
+							$elm$core$Dict$fromList,
+							$zwilias$json_decode_exploration$Json$Decode$Exploration$list(decodeAssignment))))),
+			headers: _List_fromArray(
+				[
+					A2($elm$http$Http$header, 'Accept', 'application/json'),
+					A2($author$project$Integrations$Marvin$buildAuthorizationHeader, $author$project$Integrations$Marvin$syncUser, $author$project$Integrations$Marvin$syncPassword)
+				]),
+			method: 'POST',
+			timeout: $elm$core$Maybe$Nothing,
+			tracker: $elm$core$Maybe$Nothing,
+			url: A2(
+				$author$project$Integrations$Marvin$marvinCloudantDatabaseUrl,
+				_List_fromArray(
+					[$author$project$Integrations$Marvin$syncDatabase, '_find']),
+				_List_Nil)
+		});
+}();
+var $author$project$Integrations$Marvin$GotTimeBlocks = F2(
+	function (a, b) {
+		return {$: 'GotTimeBlocks', a: a, b: b};
+	});
+var $author$project$Integrations$Marvin$MarvinItem$MarvinTimeBlock = F7(
+	function (title, date, time, duration, isSection, cancelDates, recurrence) {
+		return {cancelDates: cancelDates, date: date, duration: duration, isSection: isSection, recurrence: recurrence, time: time, title: title};
+	});
+var $author$project$Integrations$Marvin$MarvinItem$decodeCancelDates = $zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$calendarDateDecoder);
+var $author$project$Integrations$Marvin$MarvinItem$decodeRecurrencePattern = function () {
+	var interpreted = function (string) {
+		return $elm$core$Result$Err('NYI');
+	};
+	return A2($author$project$Porting$customDecoder, $zwilias$json_decode_exploration$Json$Decode$Exploration$string, interpreted);
+}();
+var $author$project$Integrations$Marvin$MarvinItem$decodeMarvinTimeBlock = A2(
+	$author$project$Porting$optionalIgnored,
+	'_rev',
+	A4(
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+		'recurrence',
+		$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeRecurrencePattern),
+		_List_Nil,
+		A4(
+			$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+			'cancelDates',
+			$author$project$Integrations$Marvin$MarvinItem$decodeCancelDates,
+			_List_Nil,
+			A2(
+				$author$project$Porting$optionalIgnored,
+				'exceptions',
+				A4(
+					$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$optional,
+					'isSection',
+					$zwilias$json_decode_exploration$Json$Decode$Exploration$bool,
+					true,
+					A3(
+						$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+						'duration',
+						$author$project$Porting$decodeDuration,
+						A3(
+							$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+							'time',
+							$author$project$Integrations$Marvin$MarvinItem$timeOfDayDecoder,
+							A3(
+								$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+								'date',
+								$author$project$Integrations$Marvin$MarvinItem$calendarDateDecoder,
+								A3(
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$Pipeline$required,
+									'title',
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$string,
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Integrations$Marvin$MarvinItem$MarvinTimeBlock))))))))));
+var $author$project$Integrations$Marvin$getTimeBlocks = function (assignments) {
+	return $elm$http$Http$request(
+		{
+			body: $elm$http$Http$jsonBody(
+				$elm$json$Json$Encode$object(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'selector',
+							$elm$json$Json$Encode$object(
+								_List_fromArray(
+									[
+										_Utils_Tuple2(
+										'db',
+										$elm$json$Json$Encode$string('PlannerItems'))
+									]))),
+							_Utils_Tuple2(
+							'fields',
+							A2(
+								$elm$json$Json$Encode$list,
+								$elm$json$Json$Encode$string,
+								_List_fromArray(
+									['title', 'date', 'time', 'duration', 'cancelDates', 'exceptions'])))
+						]))),
+			expect: A2(
+				$elm$http$Http$expectJson,
+				$author$project$Integrations$Marvin$GotTimeBlocks(assignments),
+				$author$project$Porting$toClassicLoose(
+					A2(
+						$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+						_List_fromArray(
+							['docs']),
+						$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinTimeBlock)))),
 			headers: _List_fromArray(
 				[
 					A2($elm$http$Http$header, 'Accept', 'application/json'),
@@ -16928,7 +18263,6 @@ var $elm_community$intdict$IntDict$filter = F2(
 			});
 		return A3($elm_community$intdict$IntDict$foldl, add, $elm_community$intdict$IntDict$empty, dict);
 	});
-var $elm$core$Debug$log = _Debug_log;
 var $elm$core$List$member = F2(
 	function (x, xs) {
 		return A2(
@@ -16938,13 +18272,6 @@ var $elm$core$List$member = F2(
 			},
 			xs);
 	});
-var $author$project$ID$read = function (_v0) {
-	var _int = _v0.a;
-	return _int;
-};
-var $author$project$ID$tag = function (_int) {
-	return $author$project$ID$ID(_int);
-};
 var $author$project$Integrations$Marvin$MarvinItem$projectToDocketActivity = F2(
 	function (activities, marvinCategory) {
 		var nameMatch = F2(
@@ -16952,12 +18279,9 @@ var $author$project$Integrations$Marvin$MarvinItem$projectToDocketActivity = F2(
 				return A2($elm$core$List$member, marvinCategory.title, value.names);
 			});
 		var matchingActivities = A2(
-			$elm$core$Debug$log,
-			'matching activity names for ' + marvinCategory.title,
-			A2(
-				$elm_community$intdict$IntDict$filter,
-				nameMatch,
-				$author$project$Activity$Activity$allActivities(activities)));
+			$elm_community$intdict$IntDict$filter,
+			nameMatch,
+			$author$project$Activity$Activity$allActivities(activities));
 		var firstActivityMatch = $elm$core$List$head(
 			$elm_community$intdict$IntDict$toList(matchingActivities));
 		var toCustomizations = function () {
@@ -16995,39 +18319,241 @@ var $author$project$Integrations$Marvin$MarvinItem$projectToDocketActivity = F2(
 			return activities;
 		}
 	});
-var $author$project$SmartTime$Human$Clock$endOfDay = $author$project$SmartTime$Duration$aDay;
-var $author$project$SmartTime$Duration$isPositive = function (_v0) {
-	var _int = _v0.a;
-	return _int > 0;
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Integrations$Marvin$MarvinItem$determineClassActivity = F2(
+	function (marvinItem, activities) {
+		var _v0 = _Utils_Tuple2(marvinItem.parentId, marvinItem.labelIds);
+		if ((_v0.a.$ === 'Just') && (!_v0.b.b)) {
+			var someParent = _v0.a.a;
+			var getMarvinID = function (_v2) {
+				var intID = _v2.a;
+				var activity = _v2.b;
+				return _Utils_Tuple2(
+					$author$project$ID$tag(intID),
+					A2($elm$core$Dict$get, 'marvinCategory', activity.externalIDs));
+			};
+			var activitiesWithMarvinCategories = A2(
+				$elm$core$List$map,
+				getMarvinID,
+				$elm_community$intdict$IntDict$toList(
+					$author$project$Activity$Activity$allActivities(activities)));
+			var matchingActivities = A2(
+				$elm$core$List$filterMap,
+				function (_v1) {
+					var id = _v1.a;
+					var actCat = _v1.b;
+					return _Utils_eq(
+						A2($elm$core$Maybe$withDefault, 'nope', actCat),
+						someParent) ? $elm$core$Maybe$Just(id) : $elm$core$Maybe$Nothing;
+				},
+				activitiesWithMarvinCategories);
+			return $elm$core$List$head(matchingActivities);
+		} else {
+			var labels = _v0.b;
+			var getMarvinID = function (_v5) {
+				var intID = _v5.a;
+				var activity = _v5.b;
+				return _Utils_Tuple2(
+					$author$project$ID$tag(intID),
+					A2($elm$core$Dict$get, 'marvinLabel', activity.externalIDs));
+			};
+			var activitiesWithMarvinLabels = A2(
+				$elm$core$List$map,
+				getMarvinID,
+				$elm_community$intdict$IntDict$toList(
+					$author$project$Activity$Activity$allActivities(activities)));
+			var matchingActivities = A2(
+				$elm$core$List$filterMap,
+				function (_v3) {
+					var id = _v3.a;
+					var associatedLabelMaybe = _v3.b;
+					if (associatedLabelMaybe.$ === 'Just') {
+						var associatedLabel = associatedLabelMaybe.a;
+						return A2($elm$core$List$member, associatedLabel, labels) ? $elm$core$Maybe$Just(id) : $elm$core$Maybe$Nothing;
+					} else {
+						return $elm$core$Maybe$Nothing;
+					}
+				},
+				activitiesWithMarvinLabels);
+			return $elm$core$List$head(matchingActivities);
+		}
+	});
+var $elm_community$intdict$IntDict$get = F2(
+	function (key, dict) {
+		get:
+		while (true) {
+			switch (dict.$) {
+				case 'Empty':
+					return $elm$core$Maybe$Nothing;
+				case 'Leaf':
+					var l = dict.a;
+					return _Utils_eq(l.key, key) ? $elm$core$Maybe$Just(l.value) : $elm$core$Maybe$Nothing;
+				default:
+					var i = dict.a;
+					if (!A2($elm_community$intdict$IntDict$prefixMatches, i.prefix, key)) {
+						return $elm$core$Maybe$Nothing;
+					} else {
+						if (A2($elm_community$intdict$IntDict$isBranchingBitSet, i.prefix, key)) {
+							var $temp$key = key,
+								$temp$dict = i.right;
+							key = $temp$key;
+							dict = $temp$dict;
+							continue get;
+						} else {
+							var $temp$key = key,
+								$temp$dict = i.left;
+							key = $temp$key;
+							dict = $temp$dict;
+							continue get;
+						}
+					}
+			}
+		}
+	});
+var $author$project$Task$Entry$LookupFailure = function (a) {
+	return {$: 'LookupFailure', a: a};
 };
+var $mgold$elm_nonempty_list$List$Nonempty$head = function (_v0) {
+	var x = _v0.a;
+	var xs = _v0.b;
+	return x;
+};
+var $mgold$elm_nonempty_list$List$Nonempty$tail = function (_v0) {
+	var x = _v0.a;
+	var xs = _v0.b;
+	return xs;
+};
+var $mgold$elm_nonempty_list$List$Nonempty$concat = function (_v0) {
+	var xs = _v0.a;
+	var xss = _v0.b;
+	var tl = _Utils_ap(
+		$mgold$elm_nonempty_list$List$Nonempty$tail(xs),
+		$elm$core$List$concat(
+			A2($elm$core$List$map, $mgold$elm_nonempty_list$List$Nonempty$toList, xss)));
+	var hd = $mgold$elm_nonempty_list$List$Nonempty$head(xs);
+	return A2($mgold$elm_nonempty_list$List$Nonempty$Nonempty, hd, tl);
+};
+var $mgold$elm_nonempty_list$List$Nonempty$concatMap = F2(
+	function (f, xs) {
+		return $mgold$elm_nonempty_list$List$Nonempty$concat(
+			A2($mgold$elm_nonempty_list$List$Nonempty$map, f, xs));
+	});
+var $author$project$Task$Class$makeFullClass = F3(
+	function (parentList, recurrenceRules, _class) {
+		return {_class: _class, parents: parentList, recurrence: recurrenceRules};
+	});
+var $elm_community$result_extra$Result$Extra$partition = function (rs) {
+	return A3(
+		$elm$core$List$foldr,
+		F2(
+			function (r, _v0) {
+				var succ = _v0.a;
+				var err = _v0.b;
+				if (r.$ === 'Ok') {
+					var v = r.a;
+					return _Utils_Tuple2(
+						A2($elm$core$List$cons, v, succ),
+						err);
+				} else {
+					var v = r.a;
+					return _Utils_Tuple2(
+						succ,
+						A2($elm$core$List$cons, v, err));
+				}
+			}),
+		_Utils_Tuple2(_List_Nil, _List_Nil),
+		rs);
+};
+var $author$project$Task$Entry$getClassesFromEntries = function (_v0) {
+	var entries = _v0.a;
+	var classes = _v0.b;
+	var appendPropsIfMeaningful = F2(
+		function (oldList, newParentProps) {
+			return (!_Utils_eq(newParentProps.title, $elm$core$Maybe$Nothing)) ? A2($elm$core$List$cons, newParentProps, oldList) : oldList;
+		});
+	var traverseFollowerChild = F3(
+		function (accumulator, recurrenceRules, child) {
+			if (child.$ === 'Singleton') {
+				var classID = child.a;
+				var _v3 = A2($elm_community$intdict$IntDict$get, classID, classes);
+				if (_v3.$ === 'Just') {
+					var classSkel = _v3.a;
+					return $mgold$elm_nonempty_list$List$Nonempty$fromElement(
+						$elm$core$Result$Ok(
+							A3($author$project$Task$Class$makeFullClass, accumulator, recurrenceRules, classSkel)));
+				} else {
+					return $mgold$elm_nonempty_list$List$Nonempty$fromElement(
+						$elm$core$Result$Err(
+							$author$project$Task$Entry$LookupFailure(classID)));
+				}
+			} else {
+				var followerParent = child.a;
+				return A3(
+					traverseFollowerParent,
+					A2(appendPropsIfMeaningful, accumulator, followerParent.properties),
+					recurrenceRules,
+					followerParent);
+			}
+		});
+	var traverseFollowerParent = F3(
+		function (accumulator, recurrenceRules, parent) {
+			return A2(
+				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
+				A2(traverseFollowerChild, accumulator, recurrenceRules),
+				parent.children);
+		});
+	var traverseLeaderParent = F2(
+		function (accumulator, parent) {
+			return A2(
+				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
+				A2(traverseFollowerParent, accumulator, parent.recurrenceRules),
+				parent.children);
+		});
+	var traverseWrapperChild = F2(
+		function (accumulator, child) {
+			if (child.$ === 'LeaderIsDeeper') {
+				var parent = child.a;
+				return A2(
+					traverseWrapperParent,
+					A2(appendPropsIfMeaningful, accumulator, parent.properties),
+					parent);
+			} else {
+				var parent = child.a;
+				return A2(
+					traverseLeaderParent,
+					A2(appendPropsIfMeaningful, accumulator, parent.properties),
+					parent);
+			}
+		});
+	var traverseWrapperParent = F2(
+		function (accumulator, parent) {
+			return A2(
+				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
+				traverseWrapperChild(accumulator),
+				parent.children);
+		});
+	var traverseRootWrappers = function (entry) {
+		return $mgold$elm_nonempty_list$List$Nonempty$toList(
+			A2(
+				traverseWrapperParent,
+				A2(appendPropsIfMeaningful, _List_Nil, entry.properties),
+				entry));
+	};
+	return $elm_community$result_extra$Result$Extra$partition(
+		A2($elm$core$List$concatMap, traverseRootWrappers, entries));
+};
+var $elm$core$Debug$log = _Debug_log;
 var $author$project$Task$Class$newClassSkel = F2(
 	function (givenTitle, newID) {
-		return {activity: $elm$core$Maybe$Nothing, completionUnits: $author$project$Task$Progress$Percent, defaultExternalDeadline: _List_Nil, defaultFinishBy: _List_Nil, defaultRelevanceEnds: _List_Nil, defaultRelevanceStarts: _List_Nil, defaultStartBy: _List_Nil, id: newID, importance: 1, maxEffort: $author$project$SmartTime$Duration$zero, minEffort: $author$project$SmartTime$Duration$zero, predictedEffort: $author$project$SmartTime$Duration$zero, title: givenTitle};
-	});
-var $author$project$Task$Instance$newInstanceSkel = F2(
-	function (newID, _class) {
-		return {_class: _class.id, completion: 0, externalDeadline: $elm$core$Maybe$Nothing, finishBy: $elm$core$Maybe$Nothing, id: newID, memberOfSeries: $elm$core$Maybe$Nothing, plannedSessions: _List_Nil, relevanceEnds: $elm$core$Maybe$Nothing, relevanceStarts: $elm$core$Maybe$Nothing, startBy: $elm$core$Maybe$Nothing};
-	});
-var $author$project$Task$Entry$FollowerParent = F2(
-	function (properties, children) {
-		return {children: children, properties: properties};
-	});
-var $author$project$Task$Entry$LeaderIsHere = function (a) {
-	return {$: 'LeaderIsHere', a: a};
-};
-var $author$project$Task$Entry$LeaderParent = F3(
-	function (properties, recurrenceRules, children) {
-		return {children: children, properties: properties, recurrenceRules: recurrenceRules};
-	});
-var $author$project$Task$Class$ParentProperties = function (title) {
-	return {title: title};
-};
-var $author$project$Task$Entry$Singleton = function (a) {
-	return {$: 'Singleton', a: a};
-};
-var $author$project$Task$Entry$WrapperParent = F2(
-	function (properties, children) {
-		return {children: children, properties: properties};
+		return {activity: $elm$core$Maybe$Nothing, completionUnits: $author$project$Task$Progress$Percent, defaultExternalDeadline: _List_Nil, defaultFinishBy: _List_Nil, defaultRelevanceEnds: _List_Nil, defaultRelevanceStarts: _List_Nil, defaultStartBy: _List_Nil, extra: $elm$core$Dict$empty, id: newID, importance: 1, maxEffort: $author$project$SmartTime$Duration$zero, minEffort: $author$project$SmartTime$Duration$zero, predictedEffort: $author$project$SmartTime$Duration$zero, title: givenTitle};
 	});
 var $author$project$Task$Entry$newRootEntry = function (classID) {
 	var parentProps = $author$project$Task$Class$ParentProperties(
@@ -17057,164 +18583,286 @@ var $elm_community$maybe_extra$Maybe$Extra$or = F2(
 			return ma;
 		}
 	});
-var $author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive = F3(
-	function (classCounter, activities, marvinItem) {
-		var whichActivity = function () {
-			var _v6 = _Utils_Tuple2(marvinItem.parentId, marvinItem.labelIds);
-			if ((_v6.a.$ === 'Just') && (!_v6.b.b)) {
-				var someParent = _v6.a.a;
-				var getMarvinID = function (_v8) {
-					var intID = _v8.a;
-					var activity = _v8.b;
-					return _Utils_Tuple2(
-						$author$project$ID$tag(intID),
-						A2($elm$core$Dict$get, 'marvinCategory', activity.externalIDs));
-				};
-				var activitiesWithMarvinCategories = A2(
-					$elm$core$List$map,
-					getMarvinID,
-					$elm_community$intdict$IntDict$toList(
-						$author$project$Activity$Activity$allActivities(activities)));
-				var matchingActivities = A2(
-					$elm$core$List$filterMap,
-					function (_v7) {
-						var id = _v7.a;
-						var actCat = _v7.b;
-						return _Utils_eq(
-							A2($elm$core$Maybe$withDefault, 'nope', actCat),
-							someParent) ? $elm$core$Maybe$Just(id) : $elm$core$Maybe$Nothing;
-					},
-					activitiesWithMarvinCategories);
-				return $elm$core$List$head(matchingActivities);
+var $author$project$Integrations$Marvin$MarvinItem$toDocketClassAndEntry = F3(
+	function (classCounter, profile, marvinItem) {
+		var pairClassWithMarvinIDMaybe = function (_class) {
+			var _v2 = A2($elm$core$Dict$get, 'marvinGeneratorID', _class._class.extra);
+			if (_v2.$ === 'Just') {
+				var marvinID = _v2.a;
+				return $elm$core$Maybe$Just(
+					_Utils_Tuple2(marvinID, _class._class.id));
 			} else {
-				var labels = _v6.b;
-				var getMarvinID = function (_v11) {
-					var intID = _v11.a;
-					var activity = _v11.b;
-					return _Utils_Tuple2(
-						$author$project$ID$tag(intID),
-						A2($elm$core$Dict$get, 'marvinLabel', activity.externalIDs));
-				};
-				var activitiesWithMarvinLabels = A2(
-					$elm$core$List$map,
-					getMarvinID,
-					$elm_community$intdict$IntDict$toList(
-						$author$project$Activity$Activity$allActivities(activities)));
-				var matchingActivities = A2(
-					$elm$core$List$filterMap,
-					function (_v9) {
-						var id = _v9.a;
-						var associatedLabelMaybe = _v9.b;
-						if (associatedLabelMaybe.$ === 'Just') {
-							var associatedLabel = associatedLabelMaybe.a;
-							return A2($elm$core$List$member, associatedLabel, labels) ? $elm$core$Maybe$Just(id) : $elm$core$Maybe$Nothing;
-						} else {
-							return $elm$core$Maybe$Nothing;
-						}
-					},
-					activitiesWithMarvinLabels);
-				return $elm$core$List$head(matchingActivities);
+				return $elm$core$Maybe$Nothing;
 			}
-		}();
+		};
+		var newClassID = classCounter + 1;
+		var newEntry = $author$project$Task$Entry$newRootEntry(newClassID);
+		var marvinGeneratorIDMaybe = A2($elm_community$maybe_extra$Maybe$Extra$or, marvinItem.recurringTaskId, marvinItem.pinId);
+		var derivedMarvinGeneratorID = $elm_community$list_extra$List$Extra$last(
+			A2($elm$core$String$split, '_', marvinItem.id));
+		var marvinGeneratorID = A2(
+			$elm$core$Maybe$withDefault,
+			marvinItem.id,
+			A2($elm_community$maybe_extra$Maybe$Extra$or, marvinGeneratorIDMaybe, derivedMarvinGeneratorID));
+		var updateExtraData = function (oldDict) {
+			return A3(
+				$elm$core$Dict$insert,
+				'marvinID',
+				marvinItem.id,
+				A3($elm$core$Dict$insert, 'marvinGeneratorID', marvinGeneratorID, oldDict));
+		};
+		var _v0 = $author$project$Task$Entry$getClassesFromEntries(
+			_Utils_Tuple2(profile.taskEntries, profile.taskClasses));
+		var existingClasses = _v0.a;
+		var existingClassesWithMarvinLink = $elm$core$Dict$fromList(
+			A2(
+				$elm$core$Debug$log,
+				'class marvin links',
+				A2($elm$core$List$filterMap, pairClassWithMarvinIDMaybe, existingClasses)));
+		var existingClassIDMaybe = A2($elm$core$Dict$get, marvinGeneratorID, existingClassesWithMarvinLink);
+		var existingClassMaybe = A2(
+			$elm$core$Maybe$andThen,
+			function (classID) {
+				return A2($elm_community$intdict$IntDict$get, classID, profile.taskClasses);
+			},
+			existingClassIDMaybe);
+		var classBase = A2(
+			$elm$core$Maybe$withDefault,
+			A2($author$project$Task$Class$newClassSkel, marvinItem.title, newClassID),
+			existingClassMaybe);
+		var finalClass = _Utils_update(
+			classBase,
+			{
+				activity: A2($author$project$Integrations$Marvin$MarvinItem$determineClassActivity, marvinItem, profile.activities),
+				extra: updateExtraData(classBase.extra),
+				importance: marvinItem.isStarred,
+				predictedEffort: A2($elm$core$Maybe$withDefault, $author$project$SmartTime$Duration$zero, marvinItem.timeEstimate)
+			});
+		if (existingClassMaybe.$ === 'Just') {
+			var existingClass = existingClassMaybe.a;
+			return _Utils_Tuple2(finalClass, $elm$core$Maybe$Nothing);
+		} else {
+			return _Utils_Tuple2(
+				finalClass,
+				$elm$core$Maybe$Just(newEntry));
+		}
+	});
+var $author$project$SmartTime$Human$Clock$endOfDay = $author$project$SmartTime$Duration$aDay;
+var $elm_community$maybe_extra$Maybe$Extra$isJust = function (m) {
+	if (m.$ === 'Nothing') {
+		return false;
+	} else {
+		return true;
+	}
+};
+var $author$project$SmartTime$Duration$isPositive = function (_v0) {
+	var _int = _v0.a;
+	return _int > 0;
+};
+var $author$project$Task$Instance$newInstanceSkel = F2(
+	function (newID, _class) {
+		return {_class: _class.id, completion: 0, externalDeadline: $elm$core$Maybe$Nothing, extra: $elm$core$Dict$empty, finishBy: $elm$core$Maybe$Nothing, id: newID, memberOfSeries: $elm$core$Maybe$Nothing, plannedSessions: _List_Nil, relevanceEnds: $elm$core$Maybe$Nothing, relevanceStarts: $elm$core$Maybe$Nothing, startBy: $elm$core$Maybe$Nothing};
+	});
+var $elm$core$Dict$foldl = F3(
+	function (func, acc, dict) {
+		foldl:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return acc;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var $temp$func = func,
+					$temp$acc = A3(
+					func,
+					key,
+					value,
+					A3($elm$core$Dict$foldl, func, acc, left)),
+					$temp$dict = right;
+				func = $temp$func;
+				acc = $temp$acc;
+				dict = $temp$dict;
+				continue foldl;
+			}
+		}
+	});
+var $elm$core$Dict$union = F2(
+	function (t1, t2) {
+		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
+	});
+var $elm_community$intdict$IntDict$values = function (dict) {
+	return A3(
+		$elm_community$intdict$IntDict$foldr,
+		F3(
+			function (key, value, valueList) {
+				return A2($elm$core$List$cons, value, valueList);
+			}),
+		_List_Nil,
+		dict);
+};
+var $author$project$Integrations$Marvin$MarvinItem$toDocketInstance = F4(
+	function (classCounter, _class, profile, marvinItem) {
 		var plannedSessionList = function () {
-			var _v0 = _Utils_Tuple2(
+			var _v1 = _Utils_Tuple2(
 				A2($elm$core$Maybe$map, $author$project$SmartTime$Duration$isPositive, marvinItem.timeEstimate),
 				marvinItem.timeEstimate);
-			_v0$2:
+			_v1$2:
 			while (true) {
-				if (_v0.a.$ === 'Just') {
-					if (_v0.a.a) {
-						if (_v0.b.$ === 'Just') {
-							var plannedDuration = _v0.b.a;
-							var _v1 = _Utils_Tuple2(marvinItem.taskTime, marvinItem.day);
-							if (_v1.a.$ === 'Just') {
-								if (_v1.b.$ === 'Just') {
-									var plannedTime = _v1.a.a;
-									var plannedDay = _v1.b.a;
+				if (_v1.a.$ === 'Just') {
+					if (_v1.a.a) {
+						if (_v1.b.$ === 'Just') {
+							var plannedDuration = _v1.b.a;
+							var _v2 = _Utils_Tuple2(marvinItem.taskTime, marvinItem.day);
+							if (_v2.a.$ === 'Just') {
+								if (_v2.b.$ === 'Just') {
+									var plannedTime = _v2.a.a;
+									var plannedDay = _v2.b.a;
 									return $elm$core$List$singleton(
 										_Utils_Tuple2(
 											$author$project$SmartTime$Human$Moment$Floating(
 												_Utils_Tuple2(plannedDay, plannedTime)),
 											plannedDuration));
 								} else {
-									var _v2 = _v1.b;
-									return A2($elm$core$Debug$log, 'no planned day for ' + marvinItem.title, _List_Nil);
+									var _v3 = _v2.b;
+									return _List_Nil;
 								}
 							} else {
-								if (_v1.b.$ === 'Just') {
-									var _v3 = _v1.a;
-									var plannedDay = _v1.b.a;
-									return A3(
-										$elm$core$Debug$log,
-										'no tasktime for ' + (marvinItem.title + ', assuming end of day'),
-										$elm$core$List$singleton,
+								if (_v2.b.$ === 'Just') {
+									var _v4 = _v2.a;
+									var plannedDay = _v2.b.a;
+									return $elm$core$List$singleton(
 										_Utils_Tuple2(
 											$author$project$SmartTime$Human$Moment$Floating(
 												_Utils_Tuple2(plannedDay, $author$project$SmartTime$Human$Clock$endOfDay)),
 											plannedDuration));
 								} else {
-									var _v4 = _v1.a;
-									var _v5 = _v1.b;
-									return A2($elm$core$Debug$log, 'no tasktime or planned day for ' + marvinItem.title, _List_Nil);
+									var _v5 = _v2.a;
+									var _v6 = _v2.b;
+									return _List_Nil;
 								}
 							}
 						} else {
-							break _v0$2;
+							break _v1$2;
 						}
 					} else {
-						return A2($elm$core$Debug$log, 'no time estimate for ' + marvinItem.title, _List_Nil);
+						return _List_Nil;
 					}
 				} else {
-					break _v0$2;
+					break _v1$2;
 				}
 			}
 			return _List_Nil;
 		}();
-		var classID = classCounter + 1;
-		var entry = $author$project$Task$Entry$newRootEntry(classID);
-		var classBase = A2($author$project$Task$Class$newClassSkel, marvinItem.title, classID);
-		var finalClass = _Utils_update(
-			classBase,
-			{
-				activity: whichActivity,
-				importance: marvinItem.isStarred,
-				predictedEffort: A2($elm$core$Maybe$withDefault, $author$project$SmartTime$Duration$zero, marvinItem.timeEstimate)
-			});
-		var instanceBase = A2($author$project$Task$Instance$newInstanceSkel, classCounter, finalClass);
+		var pairInstanceWithMarvinIDMaybe = function (instance) {
+			var _v0 = A2($elm$core$Dict$get, 'marvinID', instance.extra);
+			if (_v0.$ === 'Just') {
+				var marvinID = _v0.a;
+				return $elm$core$Maybe$Just(
+					_Utils_Tuple2(marvinID, instance.id));
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		};
+		var existingInstancesWithMarvinLink = $elm$core$Dict$fromList(
+			A2(
+				$elm$core$List$filterMap,
+				pairInstanceWithMarvinIDMaybe,
+				$elm_community$intdict$IntDict$values(profile.taskInstances)));
+		var existingInstanceIDMaybe = A2($elm$core$Dict$get, marvinItem.id, existingInstancesWithMarvinLink);
+		var existingInstanceMaybe = A2(
+			$elm$core$Maybe$andThen,
+			function (instanceID) {
+				return A2($elm_community$intdict$IntDict$get, instanceID, profile.taskInstances);
+			},
+			existingInstanceIDMaybe);
+		var instanceBase = A2(
+			$elm$core$Maybe$withDefault,
+			A2($author$project$Task$Instance$newInstanceSkel, classCounter, _class),
+			existingInstanceMaybe);
+		var addExtras = $elm$core$Dict$fromList(
+			A2(
+				$elm$core$List$filterMap,
+				$elm$core$Basics$identity,
+				_List_fromArray(
+					[
+						$elm$core$Maybe$Just(
+						_Utils_Tuple2('marvinCouchdbRev', marvinItem.rev)),
+						$elm$core$Maybe$Just(
+						_Utils_Tuple2('marvinID', marvinItem.id)),
+						A2(
+						$elm$core$Maybe$map,
+						function (n) {
+							return _Utils_Tuple2('marvinNote', n);
+						},
+						marvinItem.note)
+					])));
 		var finalInstance = _Utils_update(
 			instanceBase,
 			{
 				completion: marvinItem.done ? 100 : 0,
 				externalDeadline: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.dueDate),
+				extra: A2($elm$core$Dict$union, addExtras, instanceBase.extra),
 				finishBy: A2(
 					$elm_community$maybe_extra$Maybe$Extra$or,
 					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.endDate),
 					A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.day)),
 				plannedSessions: plannedSessionList,
+				relevanceEnds: $elm_community$maybe_extra$Maybe$Extra$isJust(marvinItem.recurringTaskId) ? A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.day) : $elm$core$Maybe$Nothing,
+				relevanceStarts: $elm_community$maybe_extra$Maybe$Extra$isJust(marvinItem.recurringTaskId) ? A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.day) : $elm$core$Maybe$Nothing,
 				startBy: A2($elm$core$Maybe$map, $author$project$SmartTime$Human$Moment$DateOnly, marvinItem.startDate)
 			});
-		return {_class: finalClass, entry: entry, instance: finalInstance};
+		return finalInstance;
 	});
-var $author$project$Integrations$Marvin$MarvinItem$toDocketItem = F3(
-	function (classCounter, profile, marvinItem) {
+var $elm_community$maybe_extra$Maybe$Extra$toList = function (m) {
+	if (m.$ === 'Nothing') {
+		return _List_Nil;
+	} else {
+		var x = m.a;
+		return _List_fromArray(
+			[x]);
+	}
+};
+var $author$project$Integrations$Marvin$MarvinItem$toDocketTask = F2(
+	function (profile, marvinItem) {
+		var classCounter = A2(
+			$elm$core$Maybe$withDefault,
+			0,
+			A2(
+				$elm$core$Maybe$map,
+				$elm$core$Tuple$first,
+				$elm_community$list_extra$List$Extra$last(
+					$elm_community$intdict$IntDict$toList(profile.taskClasses))));
+		var _v0 = A3($author$project$Integrations$Marvin$MarvinItem$toDocketClassAndEntry, classCounter, profile, marvinItem);
+		var finalClass = _v0.a;
+		var newEntryMaybe = _v0.b;
+		var finalInstance = A4($author$project$Integrations$Marvin$MarvinItem$toDocketInstance, classCounter, finalClass, profile, marvinItem);
+		return {
+			classes: _List_fromArray(
+				[finalClass]),
+			entries: $elm_community$maybe_extra$Maybe$Extra$toList(newEntryMaybe),
+			instances: _List_fromArray(
+				[finalInstance])
+		};
+	});
+var $author$project$Integrations$Marvin$MarvinItem$toDocketItem = F2(
+	function (marvinItem, profile) {
 		var _v0 = marvinItem.type_;
 		switch (_v0.$) {
 			case 'Task':
 				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToTaskTriplet(
-					A3($author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive, classCounter, profile.activities, marvinItem));
+					A2($author$project$Integrations$Marvin$MarvinItem$toDocketTask, profile, marvinItem));
 			case 'Project':
 				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToTaskTriplet(
-					A3($author$project$Integrations$Marvin$MarvinItem$toDocketTaskNaive, classCounter, profile.activities, marvinItem));
+					A2($author$project$Integrations$Marvin$MarvinItem$toDocketTask, profile, marvinItem));
 			default:
 				return $author$project$Integrations$Marvin$MarvinItem$ConvertedToActivity(
 					A2($author$project$Integrations$Marvin$MarvinItem$projectToDocketActivity, profile.activities, marvinItem));
 		}
 	});
-var $author$project$Integrations$Marvin$importItems = F3(
-	function (classCounter, profile, itemList) {
-		var toNumberedDocketTask = function (index) {
-			return A2($author$project$Integrations$Marvin$MarvinItem$toDocketItem, classCounter + index, profile);
-		};
+var $author$project$Integrations$Marvin$importItems = F2(
+	function (profile, itemList) {
 		var tasksOnly = function (outputItem) {
 			if (outputItem.$ === 'ConvertedToTaskTriplet') {
 				var taskitem = outputItem.a;
@@ -17223,8 +18871,6 @@ var $author$project$Integrations$Marvin$importItems = F3(
 				return $elm$core$Maybe$Nothing;
 			}
 		};
-		var bigList = A2($elm$core$List$indexedMap, toNumberedDocketTask, itemList);
-		var bigTaskList = A2($elm$core$List$filterMap, tasksOnly, bigList);
 		var activitiesOnly = function (outputItem) {
 			if (outputItem.$ === 'ConvertedToActivity') {
 				var activitystore = outputItem.a;
@@ -17233,35 +18879,66 @@ var $author$project$Integrations$Marvin$importItems = F3(
 				return $elm$core$Maybe$Nothing;
 			}
 		};
-		var finalActivities = A3(
-			$elm$core$List$foldl,
-			$elm_community$intdict$IntDict$union,
-			$elm_community$intdict$IntDict$empty,
-			A2($elm$core$List$filterMap, activitiesOnly, bigList));
-		return _Utils_Tuple2(
-			{
-				taskClasses: $elm_community$intdict$IntDict$fromList(
-					A2(
-						$elm$core$List$map,
-						function (i) {
-							return _Utils_Tuple2(i._class.id, i._class);
-						},
-						bigTaskList)),
-				taskEntries: A2(
-					$elm$core$List$map,
-					function ($) {
-						return $.entry;
-					},
-					bigTaskList),
-				taskInstances: $elm_community$intdict$IntDict$fromList(
-					A2(
-						$elm$core$List$map,
-						function (i) {
-							return _Utils_Tuple2(i.instance.id, i.instance);
-						},
-						bigTaskList))
-			},
-			finalActivities);
+		var updateProfileWithOutput = F2(
+			function (item, beforeProfile) {
+				var output = A2($author$project$Integrations$Marvin$MarvinItem$toDocketItem, item, beforeProfile);
+				var tasks = $elm_community$maybe_extra$Maybe$Extra$toList(
+					tasksOnly(output));
+				var activities = $elm_community$maybe_extra$Maybe$Extra$toList(
+					activitiesOnly(output));
+				return _Utils_update(
+					beforeProfile,
+					{
+						activities: A3(
+							$elm$core$List$foldl,
+							F2(
+								function (d1, d2) {
+									return A2($elm_community$intdict$IntDict$union, d2, d1);
+								}),
+							beforeProfile.activities,
+							activities),
+						taskClasses: A2(
+							$elm_community$intdict$IntDict$union,
+							$elm_community$intdict$IntDict$fromList(
+								A2(
+									$elm$core$List$map,
+									function (i) {
+										return _Utils_Tuple2(i.id, i);
+									},
+									A2(
+										$elm$core$List$concatMap,
+										function ($) {
+											return $.classes;
+										},
+										tasks))),
+							beforeProfile.taskClasses),
+						taskEntries: _Utils_ap(
+							beforeProfile.taskEntries,
+							A2(
+								$elm$core$List$concatMap,
+								function ($) {
+									return $.entries;
+								},
+								tasks)),
+						taskInstances: A2(
+							$elm_community$intdict$IntDict$union,
+							$elm_community$intdict$IntDict$fromList(
+								A2(
+									$elm$core$List$map,
+									function (i) {
+										return _Utils_Tuple2(i.id, i);
+									},
+									A2(
+										$elm$core$List$concatMap,
+										function ($) {
+											return $.instances;
+										},
+										tasks))),
+							beforeProfile.taskInstances)
+					});
+			});
+		var profileFedToAll = A3($elm$core$List$foldl, updateProfileWithOutput, profile, itemList);
+		return profileFedToAll;
 	});
 var $elm$core$String$toLower = _String_toLower;
 var $elm$core$String$trim = _String_trim;
@@ -17330,6 +19007,112 @@ var $author$project$Integrations$Marvin$importLabels = F2(
 		var finalActivities = A3($elm$core$List$foldl, $elm_community$intdict$IntDict$union, $elm_community$intdict$IntDict$empty, activities);
 		return finalActivities;
 	});
+var $elm$regex$Regex$Match = F4(
+	function (match, index, number, submatches) {
+		return {index: index, match: match, number: number, submatches: submatches};
+	});
+var $elm$regex$Regex$fromStringWith = _Regex_fromStringWith;
+var $elm$regex$Regex$fromString = function (string) {
+	return A2(
+		$elm$regex$Regex$fromStringWith,
+		{caseInsensitive: false, multiline: false},
+		string);
+};
+var $elm$regex$Regex$never = _Regex_never;
+var $elm$regex$Regex$replace = _Regex_replaceAtMost(_Regex_infinity);
+var $author$project$Integrations$Marvin$MarvinItem$marvinTimeBlockToDocketTimeBlock = F3(
+	function (profile, assignments, marvinBlock) {
+		var normalizeRegex = A2(
+			$elm$core$Maybe$withDefault,
+			$elm$regex$Regex$never,
+			$elm$regex$Regex$fromString('[\\s-_]|[^\\x20\\x2D0-9A-Z\\x5Fa-z\\xC0-\\xD6\\xD8-\\xF6\\xF8-\\xFF]'));
+		var normalizeTitle = function (title) {
+			return A3(
+				$elm$regex$Regex$replace,
+				normalizeRegex,
+				function (_v4) {
+					return '';
+				},
+				title);
+		};
+		var logGood = $elm$core$String$concat(
+			_List_fromArray(
+				[
+					'Found label for time block ',
+					marvinBlock.title,
+					'! normalized as ',
+					normalizeTitle(marvinBlock.title)
+				]));
+		var logBad = $elm$core$String$concat(
+			_List_fromArray(
+				[
+					'Could not find a label for ',
+					marvinBlock.title,
+					', normalized as ',
+					normalizeTitle(marvinBlock.title)
+				]));
+		var labelMaybe = A2(
+			$elm$core$Dict$get,
+			normalizeTitle(marvinBlock.title),
+			assignments);
+		var createActivityLookupEntry = function (_v3) {
+			var activityID = _v3.a;
+			var activity = _v3.b;
+			var _v2 = A2($elm$core$Dict$get, 'marvinLabel', activity.externalIDs);
+			if (_v2.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var marvinLabelID = _v2.a;
+				return $elm$core$Maybe$Just(
+					_Utils_Tuple2(
+						marvinLabelID,
+						$author$project$ID$tag(activityID)));
+			}
+		};
+		var buildWithTag = function (tag) {
+			return {
+				date: marvinBlock.date,
+				duration: marvinBlock.duration,
+				focus: $author$project$TimeBlock$TimeBlock$Tag(tag),
+				startTime: marvinBlock.time
+			};
+		};
+		var buildWithActivity = function (activityFound) {
+			return {
+				date: marvinBlock.date,
+				duration: marvinBlock.duration,
+				focus: $author$project$TimeBlock$TimeBlock$Activity(activityFound),
+				startTime: marvinBlock.time
+			};
+		};
+		var activityLookup = $elm$core$Dict$fromList(
+			A2(
+				$elm$core$List$filterMap,
+				createActivityLookupEntry,
+				$elm_community$intdict$IntDict$toList(
+					$author$project$Activity$Activity$allActivities(profile.activities))));
+		if (labelMaybe.$ === 'Nothing') {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var foundAssignment = labelMaybe.a;
+			var _v1 = A2($elm$core$Dict$get, foundAssignment, activityLookup);
+			if (_v1.$ === 'Nothing') {
+				return $elm$core$Maybe$Just(
+					buildWithTag(foundAssignment));
+			} else {
+				var foundActivity = _v1.a;
+				return $elm$core$Maybe$Just(
+					buildWithActivity(foundActivity));
+			}
+		}
+	});
+var $author$project$Integrations$Marvin$importTimeBlocks = F3(
+	function (profile, assignments, marvinBlocks) {
+		return A2(
+			$elm$core$List$filterMap,
+			A2($author$project$Integrations$Marvin$MarvinItem$marvinTimeBlockToDocketTimeBlock, profile, assignments),
+			marvinBlocks);
+	});
 var $elm$core$Debug$toString = _Debug_toString;
 var $author$project$Integrations$Marvin$handle = F3(
 	function (classCounter, profile, response) {
@@ -17338,14 +19121,11 @@ var $author$project$Integrations$Marvin$handle = F3(
 				var result = response.a;
 				if (result.$ === 'Ok') {
 					var serversays = result.a;
-					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
-						serversays,
-						$elm$core$Platform$Cmd$none);
+					return _Utils_Tuple3(profile, serversays, $elm$core$Platform$Cmd$none);
 				} else {
 					var err = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						profile,
 						$author$project$Integrations$Marvin$describeError(err),
 						$elm$core$Platform$Cmd$none);
 				}
@@ -17353,14 +19133,11 @@ var $author$project$Integrations$Marvin$handle = F3(
 				var result = response.a;
 				if (result.$ === 'Ok') {
 					var serversays = result.a;
-					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
-						serversays,
-						$elm$core$Platform$Cmd$none);
+					return _Utils_Tuple3(profile, serversays, $elm$core$Platform$Cmd$none);
 				} else {
 					var err = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						profile,
 						$author$project$Integrations$Marvin$describeError(err),
 						$elm$core$Platform$Cmd$none);
 				}
@@ -17368,19 +19145,15 @@ var $author$project$Integrations$Marvin$handle = F3(
 				var result = response.a;
 				if (result.$ === 'Ok') {
 					var itemList = result.a;
-					var _v4 = A3($author$project$Integrations$Marvin$importItems, classCounter, profile, itemList);
-					var newTriplets = _v4.a;
-					var newActivities = _v4.b;
+					var newProfile = A2($author$project$Integrations$Marvin$importItems, profile, itemList);
 					return _Utils_Tuple3(
-						_Utils_Tuple2(
-							newTriplets,
-							$elm$core$Maybe$Just(newActivities)),
+						newProfile,
 						$elm$core$Debug$toString(itemList),
-						$elm$core$Platform$Cmd$none);
+						$author$project$Integrations$Marvin$getTimeBlockAssignments);
 				} else {
 					var err = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						profile,
 						$author$project$Integrations$Marvin$describeError(err),
 						$elm$core$Platform$Cmd$none);
 				}
@@ -17390,30 +19163,52 @@ var $author$project$Integrations$Marvin$handle = F3(
 					var labelList = result.a;
 					var newActivities = A2($author$project$Integrations$Marvin$importLabels, profile, labelList);
 					return _Utils_Tuple3(
-						_Utils_Tuple2(
-							$author$project$Integrations$Marvin$blankTriplet,
-							$elm$core$Maybe$Just(newActivities)),
+						_Utils_update(
+							profile,
+							{
+								activities: A2($elm_community$intdict$IntDict$union, profile.activities, newActivities)
+							}),
 						$elm$core$Debug$toString(labelList),
 						$author$project$Integrations$Marvin$getTasks($author$project$Integrations$Marvin$partialAccessToken));
 				} else {
 					var err = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						profile,
 						$author$project$Integrations$Marvin$describeError(err),
 						$elm$core$Platform$Cmd$none);
 				}
-			default:
-				var result = response.a;
+			case 'GotTimeBlocks':
+				var assignments = response.a;
+				var result = response.b;
 				if (result.$ === 'Ok') {
 					var timeBlockList = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						_Utils_update(
+							profile,
+							{
+								timeBlocks: A3($author$project$Integrations$Marvin$importTimeBlocks, profile, assignments, timeBlockList)
+							}),
 						$elm$core$Debug$toString(timeBlockList),
 						$elm$core$Platform$Cmd$none);
 				} else {
 					var err = result.a;
 					return _Utils_Tuple3(
-						_Utils_Tuple2($author$project$Integrations$Marvin$blankTriplet, $elm$core$Maybe$Nothing),
+						profile,
+						$author$project$Integrations$Marvin$describeError(err),
+						$elm$core$Platform$Cmd$none);
+				}
+			default:
+				var assignmentsResult = response.a;
+				if (assignmentsResult.$ === 'Ok') {
+					var assignmentDict = assignmentsResult.a;
+					return _Utils_Tuple3(
+						profile,
+						$elm$core$Debug$toString(assignmentDict),
+						$author$project$Integrations$Marvin$getTimeBlocks(assignmentDict));
+				} else {
+					var err = assignmentsResult.a;
+					return _Utils_Tuple3(
+						profile,
 						$author$project$Integrations$Marvin$describeError(err),
 						$elm$core$Platform$Cmd$none);
 				}
@@ -17536,16 +19331,6 @@ var $author$project$Incubator$IntDict$Extra$mapValues = F2(
 				}),
 			dict);
 	});
-var $elm_community$intdict$IntDict$values = function (dict) {
-	return A3(
-		$elm_community$intdict$IntDict$foldr,
-		F3(
-			function (key, value, valueList) {
-				return A2($elm$core$List$cons, value, valueList);
-			}),
-		_List_Nil,
-		dict);
-};
 var $author$project$Integrations$Todoist$filterActivityProjects = F2(
 	function (projects, activities) {
 		var matchToID = F3(
@@ -17648,31 +19433,6 @@ var $author$project$Incubator$Todoist$pruneDeleted = function (items) {
 var $elm$core$Set$Set_elm_builtin = function (a) {
 	return {$: 'Set_elm_builtin', a: a};
 };
-var $elm$core$Dict$foldl = F3(
-	function (func, acc, dict) {
-		foldl:
-		while (true) {
-			if (dict.$ === 'RBEmpty_elm_builtin') {
-				return acc;
-			} else {
-				var key = dict.b;
-				var value = dict.c;
-				var left = dict.d;
-				var right = dict.e;
-				var $temp$func = func,
-					$temp$acc = A3(
-					func,
-					key,
-					value,
-					A3($elm$core$Dict$foldl, func, acc, left)),
-					$temp$dict = right;
-				func = $temp$func;
-				acc = $temp$acc;
-				dict = $temp$dict;
-				continue foldl;
-			}
-		}
-	});
 var $elm$core$Dict$diff = F2(
 	function (t1, t2) {
 		return A3(
@@ -17724,38 +19484,6 @@ var $elm$core$Set$insert = F2(
 var $elm$core$Set$fromList = function (list) {
 	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
 };
-var $elm_community$intdict$IntDict$get = F2(
-	function (key, dict) {
-		get:
-		while (true) {
-			switch (dict.$) {
-				case 'Empty':
-					return $elm$core$Maybe$Nothing;
-				case 'Leaf':
-					var l = dict.a;
-					return _Utils_eq(l.key, key) ? $elm$core$Maybe$Just(l.value) : $elm$core$Maybe$Nothing;
-				default:
-					var i = dict.a;
-					if (!A2($elm_community$intdict$IntDict$prefixMatches, i.prefix, key)) {
-						return $elm$core$Maybe$Nothing;
-					} else {
-						if (A2($elm_community$intdict$IntDict$isBranchingBitSet, i.prefix, key)) {
-							var $temp$key = key,
-								$temp$dict = i.right;
-							key = $temp$key;
-							dict = $temp$dict;
-							continue get;
-						} else {
-							var $temp$key = key,
-								$temp$dict = i.left;
-							key = $temp$key;
-							dict = $temp$dict;
-							continue get;
-						}
-					}
-			}
-		}
-	});
 var $elm_community$intdict$IntDict$member = F2(
 	function (key, dict) {
 		var _v0 = A2($elm_community$intdict$IntDict$get, key, dict);
@@ -17764,10 +19492,6 @@ var $elm_community$intdict$IntDict$member = F2(
 		} else {
 			return false;
 		}
-	});
-var $elm$core$Dict$union = F2(
-	function (t1, t2) {
-		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
 	});
 var $elm$core$Set$union = F2(
 	function (_v0, _v1) {
@@ -17878,15 +19602,6 @@ var $author$project$Incubator$Todoist$handleResponse = F2(
 			return $elm$core$Result$Err(err);
 		}
 	});
-var $elm$core$Maybe$andThen = F2(
-	function (callback, maybeValue) {
-		if (maybeValue.$ === 'Just') {
-			var value = maybeValue.a;
-			return callback(value);
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
 var $author$project$Integrations$Todoist$calcImportance = function (_v0) {
 	var priority = _v0.priority;
 	var day_order = _v0.day_order;
@@ -17979,8 +19694,6 @@ var $author$project$Task$Class$normalizeTitle = function (newTaskTitle) {
 };
 var $author$project$Task$Progress$unitMax = function (unit) {
 	switch (unit.$) {
-		case 'None':
-			return 1;
 		case 'Percent':
 			return 100;
 		case 'Permille':
@@ -18514,11 +20227,11 @@ var $author$project$External$Tasker$flash = _Platform_outgoingPort('flash', $elm
 var $author$project$External$Commands$toast = function (message) {
 	return $author$project$External$Tasker$flash(message);
 };
-var $author$project$Incubator$Todoist$Command$ItemClose = function (a) {
-	return {$: 'ItemClose', a: a};
-};
 var $author$project$Incubator$Todoist$Command$ItemUncomplete = function (a) {
 	return {$: 'ItemUncomplete', a: a};
+};
+var $author$project$TaskList$MarvinServerResponse = function (a) {
+	return {$: 'MarvinServerResponse', a: a};
 };
 var $author$project$TaskList$NoOp = {$: 'NoOp'};
 var $author$project$Incubator$Todoist$Command$RealItem = function (a) {
@@ -18545,6 +20258,76 @@ var $elm$core$Task$attempt = F2(
 							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
 							$elm$core$Result$Ok),
 						task))));
+	});
+var $author$project$Integrations$Marvin$updateDoc = F3(
+	function (marvinItemIDMaybe, marvinItemRevMaybe, desiredUpdates) {
+		var request = F2(
+			function (marvinItemID, marvinItemRev) {
+				return $elm$http$Http$request(
+					{
+						body: $elm$http$Http$jsonBody(desiredUpdates),
+						expect: A2(
+							$elm$http$Http$expectJson,
+							$author$project$Integrations$Marvin$GotItems,
+							$author$project$Porting$toClassicLoose(
+								A2(
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
+									_List_fromArray(
+										['docs']),
+									$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem)))),
+						headers: _List_fromArray(
+							[
+								A2($elm$http$Http$header, 'Accept', 'application/json'),
+								A2($author$project$Integrations$Marvin$buildAuthorizationHeader, $author$project$Integrations$Marvin$syncUser, $author$project$Integrations$Marvin$syncPassword),
+								A2($elm$http$Http$header, 'If-Match', marvinItemRev)
+							]),
+						method: 'PUT',
+						timeout: $elm$core$Maybe$Nothing,
+						tracker: $elm$core$Maybe$Nothing,
+						url: A2(
+							$author$project$Integrations$Marvin$marvinCloudantDatabaseUrl,
+							_List_fromArray(
+								[$author$project$Integrations$Marvin$syncDatabase, marvinItemID]),
+							_List_Nil)
+					});
+			});
+		var _v0 = _Utils_Tuple2(marvinItemIDMaybe, marvinItemRevMaybe);
+		if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
+			var marvinItemID = _v0.a.a;
+			var marvinItemRev = _v0.b.a;
+			var _v1 = _Utils_Tuple2(marvinItemID, marvinItemRev);
+			if (_v1.a === '') {
+				if (_v1.b === '') {
+					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - both were empty strings', $elm$core$Platform$Cmd$none);
+				} else {
+					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - id was an empty string', $elm$core$Platform$Cmd$none);
+				}
+			} else {
+				if (_v1.b === '') {
+					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - rev was an empty string', $elm$core$Platform$Cmd$none);
+				} else {
+					var legitID = _v1.a;
+					var legitRev = _v1.b;
+					return A2(request, legitID, legitRev);
+				}
+			}
+		} else {
+			return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - couldn\'t find one or both', $elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Integrations$Marvin$completeTask = F2(
+	function (now, marvinExtraData) {
+		return A3(
+			$author$project$Integrations$Marvin$updateDoc,
+			A2($elm$core$Dict$get, 'marvinID', marvinExtraData),
+			A2($elm$core$Dict$get, 'marvinCouchdbRev', marvinExtraData),
+			$elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'note',
+						$elm$json$Json$Encode$string('hello from docket!'))
+					])));
 	});
 var $elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var $author$project$Task$Progress$getUnits = function (_v0) {
@@ -18590,19 +20373,6 @@ var $author$project$SmartTime$Human$Calendar$dayOfMonth = A2(
 	$author$project$SmartTime$Human$Calendar$toParts,
 	function ($) {
 		return $.day;
-	});
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
 	});
 var $author$project$SmartTime$Human$Calendar$padNumber = F2(
 	function (targetLength, numString) {
@@ -18663,103 +20433,6 @@ var $author$project$SmartTime$Human$Calendar$toStandardString = function (givenD
 			$author$project$SmartTime$Human$Calendar$Month$dayToInt(
 				$author$project$SmartTime$Human$Calendar$dayOfMonth(givenDate))));
 	return yearPart + ('-' + (monthPart + ('-' + dayPart)));
-};
-var $author$project$SmartTime$Human$Duration$breakdownHMSM = function (duration) {
-	var _v0 = $author$project$SmartTime$Duration$breakdown(duration);
-	var days = _v0.days;
-	var hours = _v0.hours;
-	var minutes = _v0.minutes;
-	var seconds = _v0.seconds;
-	var milliseconds = _v0.milliseconds;
-	return _List_fromArray(
-		[
-			$author$project$SmartTime$Human$Duration$Hours(
-			$author$project$SmartTime$Duration$inWholeHours(duration)),
-			$author$project$SmartTime$Human$Duration$Minutes(minutes),
-			$author$project$SmartTime$Human$Duration$Seconds(seconds),
-			$author$project$SmartTime$Human$Duration$Milliseconds(milliseconds)
-		]);
-};
-var $elm_community$list_extra$List$Extra$init = function (items) {
-	if (!items.b) {
-		return $elm$core$Maybe$Nothing;
-	} else {
-		var nonEmptyList = items;
-		return A2(
-			$elm$core$Maybe$map,
-			$elm$core$List$reverse,
-			$elm$core$List$tail(
-				$elm$core$List$reverse(nonEmptyList)));
-	}
-};
-var $author$project$SmartTime$Human$Duration$padNumber = F2(
-	function (targetLength, numString) {
-		var minLength = A3($elm$core$Basics$clamp, 1, targetLength, targetLength);
-		var zerosToAdd = minLength - $elm$core$String$length(numString);
-		return _Utils_ap(
-			A2($elm$core$String$repeat, zerosToAdd, '0'),
-			numString);
-	});
-var $author$project$SmartTime$Human$Duration$justNumberPadded = function (unit) {
-	switch (unit.$) {
-		case 'Milliseconds':
-			var _int = unit.a;
-			return A2(
-				$author$project$SmartTime$Human$Duration$padNumber,
-				3,
-				$elm$core$String$fromInt(_int));
-		case 'Seconds':
-			var _int = unit.a;
-			return A2(
-				$author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				$elm$core$String$fromInt(_int));
-		case 'Minutes':
-			var _int = unit.a;
-			return A2(
-				$author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				$elm$core$String$fromInt(_int));
-		case 'Hours':
-			var _int = unit.a;
-			return A2(
-				$author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				$elm$core$String$fromInt(_int));
-		default:
-			var _int = unit.a;
-			return A2(
-				$author$project$SmartTime$Human$Duration$padNumber,
-				2,
-				$elm$core$String$fromInt(_int));
-	}
-};
-var $author$project$SmartTime$Human$Duration$colonSeparated = function (breakdownList) {
-	var separate = function (list) {
-		return $elm$core$String$concat(
-			A2(
-				$elm$core$List$intersperse,
-				':',
-				A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$justNumberPadded, list)));
-	};
-	var _v0 = $elm_community$list_extra$List$Extra$last(breakdownList);
-	if ((_v0.$ === 'Just') && (_v0.a.$ === 'Milliseconds')) {
-		var ms = _v0.a.a;
-		var withoutLast = A2(
-			$elm$core$Maybe$withDefault,
-			_List_Nil,
-			$elm_community$list_extra$List$Extra$init(breakdownList));
-		return separate(withoutLast) + ('.' + A2(
-			$author$project$SmartTime$Human$Duration$padNumber,
-			3,
-			$elm$core$String$fromInt(ms)));
-	} else {
-		return separate(breakdownList);
-	}
-};
-var $author$project$SmartTime$Human$Clock$toStandardString = function (timeOfDay) {
-	return $author$project$SmartTime$Human$Duration$colonSeparated(
-		$author$project$SmartTime$Human$Duration$breakdownHMSM(timeOfDay));
 };
 var $author$project$SmartTime$Human$Moment$toStandardString = function (moment) {
 	var _v0 = A2($author$project$SmartTime$Human$Moment$humanize, $author$project$SmartTime$Human$Moment$utc, moment);
@@ -18920,17 +20593,8 @@ var $author$project$TaskList$update = F4(
 											$author$project$External$Commands$toast('Marked as complete: ' + givenTask._class.title),
 											A2(
 											$elm$core$Platform$Cmd$map,
-											$author$project$TaskList$TodoistServerResponse,
-											A2(
-												$author$project$Integrations$Todoist$sendChanges,
-												app.todoist,
-												_List_fromArray(
-													[
-														_Utils_Tuple2(
-														$author$project$SmartTime$Human$Moment$toStandardString(env.time),
-														$author$project$Incubator$Todoist$Command$ItemClose(
-															$author$project$Incubator$Todoist$Command$RealItem(givenTask.instance.id)))
-													])))
+											$author$project$TaskList$MarvinServerResponse,
+											A2($author$project$Integrations$Marvin$completeTask, env.time, givenTask.instance.extra))
 										]));
 							} else {
 								break _v4$2;
@@ -18989,6 +20653,9 @@ var $author$project$TaskList$update = F4(
 					state,
 					newAppData,
 					$author$project$External$Commands$toast(whatHappened));
+			case 'MarvinServerResponse':
+				var response = msg.a;
+				return _Utils_Tuple3(state, app, $elm$core$Platform$Cmd$none);
 			default:
 				var newList = msg.a;
 				return _Utils_Tuple3(
@@ -19104,27 +20771,6 @@ var $author$project$SmartTime$Duration$combine = function (durationList) {
 		$author$project$SmartTime$Duration$Duration(0),
 		durationList);
 };
-var $elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
-				}
-			}
-		}
-	});
 var $elm$core$Basics$abs = function (n) {
 	return (n < 0) ? (-n) : n;
 };
@@ -19330,143 +20976,6 @@ var $author$project$Task$Instance$completed = function (spec) {
 	return $author$project$Task$Progress$isMax(
 		_Utils_Tuple2(spec.instance.completion, spec._class.completionUnits));
 };
-var $author$project$Task$Entry$LookupFailure = function (a) {
-	return {$: 'LookupFailure', a: a};
-};
-var $mgold$elm_nonempty_list$List$Nonempty$head = function (_v0) {
-	var x = _v0.a;
-	var xs = _v0.b;
-	return x;
-};
-var $mgold$elm_nonempty_list$List$Nonempty$tail = function (_v0) {
-	var x = _v0.a;
-	var xs = _v0.b;
-	return xs;
-};
-var $mgold$elm_nonempty_list$List$Nonempty$toList = function (_v0) {
-	var x = _v0.a;
-	var xs = _v0.b;
-	return A2($elm$core$List$cons, x, xs);
-};
-var $mgold$elm_nonempty_list$List$Nonempty$concat = function (_v0) {
-	var xs = _v0.a;
-	var xss = _v0.b;
-	var tl = _Utils_ap(
-		$mgold$elm_nonempty_list$List$Nonempty$tail(xs),
-		$elm$core$List$concat(
-			A2($elm$core$List$map, $mgold$elm_nonempty_list$List$Nonempty$toList, xss)));
-	var hd = $mgold$elm_nonempty_list$List$Nonempty$head(xs);
-	return A2($mgold$elm_nonempty_list$List$Nonempty$Nonempty, hd, tl);
-};
-var $mgold$elm_nonempty_list$List$Nonempty$concatMap = F2(
-	function (f, xs) {
-		return $mgold$elm_nonempty_list$List$Nonempty$concat(
-			A2($mgold$elm_nonempty_list$List$Nonempty$map, f, xs));
-	});
-var $author$project$Task$Class$makeFullClass = F3(
-	function (parentList, recurrenceRules, _class) {
-		return {_class: _class, parents: parentList, recurrence: recurrenceRules};
-	});
-var $elm_community$result_extra$Result$Extra$partition = function (rs) {
-	return A3(
-		$elm$core$List$foldr,
-		F2(
-			function (r, _v0) {
-				var succ = _v0.a;
-				var err = _v0.b;
-				if (r.$ === 'Ok') {
-					var v = r.a;
-					return _Utils_Tuple2(
-						A2($elm$core$List$cons, v, succ),
-						err);
-				} else {
-					var v = r.a;
-					return _Utils_Tuple2(
-						succ,
-						A2($elm$core$List$cons, v, err));
-				}
-			}),
-		_Utils_Tuple2(_List_Nil, _List_Nil),
-		rs);
-};
-var $author$project$Task$Entry$getClassesFromEntries = function (_v0) {
-	var entries = _v0.a;
-	var classes = _v0.b;
-	var appendPropsIfMeaningful = F2(
-		function (oldList, newParentProps) {
-			return (!_Utils_eq(newParentProps.title, $elm$core$Maybe$Nothing)) ? A2($elm$core$List$cons, newParentProps, oldList) : oldList;
-		});
-	var traverseFollowerChild = F3(
-		function (accumulator, recurrenceRules, child) {
-			if (child.$ === 'Singleton') {
-				var classID = child.a;
-				var _v3 = A2($elm_community$intdict$IntDict$get, classID, classes);
-				if (_v3.$ === 'Just') {
-					var classSkel = _v3.a;
-					return $mgold$elm_nonempty_list$List$Nonempty$fromElement(
-						$elm$core$Result$Ok(
-							A3($author$project$Task$Class$makeFullClass, accumulator, recurrenceRules, classSkel)));
-				} else {
-					return $mgold$elm_nonempty_list$List$Nonempty$fromElement(
-						$elm$core$Result$Err(
-							$author$project$Task$Entry$LookupFailure(classID)));
-				}
-			} else {
-				var followerParent = child.a;
-				return A3(
-					traverseFollowerParent,
-					A2(appendPropsIfMeaningful, accumulator, followerParent.properties),
-					recurrenceRules,
-					followerParent);
-			}
-		});
-	var traverseFollowerParent = F3(
-		function (accumulator, recurrenceRules, parent) {
-			return A2(
-				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
-				A2(traverseFollowerChild, accumulator, recurrenceRules),
-				parent.children);
-		});
-	var traverseLeaderParent = F2(
-		function (accumulator, parent) {
-			return A2(
-				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
-				A2(traverseFollowerParent, accumulator, parent.recurrenceRules),
-				parent.children);
-		});
-	var traverseWrapperChild = F2(
-		function (accumulator, child) {
-			if (child.$ === 'LeaderIsDeeper') {
-				var parent = child.a;
-				return A2(
-					traverseWrapperParent,
-					A2(appendPropsIfMeaningful, accumulator, parent.properties),
-					parent);
-			} else {
-				var parent = child.a;
-				return A2(
-					traverseLeaderParent,
-					A2(appendPropsIfMeaningful, accumulator, parent.properties),
-					parent);
-			}
-		});
-	var traverseWrapperParent = F2(
-		function (accumulator, parent) {
-			return A2(
-				$mgold$elm_nonempty_list$List$Nonempty$concatMap,
-				traverseWrapperChild(accumulator),
-				parent.children);
-		});
-	var traverseRootWrappers = function (entry) {
-		return $mgold$elm_nonempty_list$List$Nonempty$toList(
-			A2(
-				traverseWrapperParent,
-				A2(appendPropsIfMeaningful, _List_Nil, entry.properties),
-				entry));
-	};
-	return $elm_community$result_extra$Result$Extra$partition(
-		A2($elm$core$List$concatMap, traverseRootWrappers, entries));
-};
 var $author$project$ZoneHistory$ZoneHistory = F2(
 	function (a, b) {
 		return {$: 'ZoneHistory', a: a, b: b};
@@ -19481,6 +20990,10 @@ var $author$project$ZoneHistory$init = F2(
 				$author$project$SmartTime$Moment$toSmartInt(now),
 				nowZone));
 	});
+var $author$project$SmartTime$Period$Period = F2(
+	function (a, b) {
+		return {$: 'Period', a: a, b: b};
+	});
 var $author$project$SmartTime$Period$instantaneous = function (moment) {
 	return A2($author$project$SmartTime$Period$Period, moment, moment);
 };
@@ -19494,16 +21007,17 @@ var $author$project$Task$Instance$singleClassToActiveInstances = F3(
 	function (_v0, allSavedInstances, fullClass) {
 		var zoneHistory = _v0.a;
 		var relevantPeriod = _v0.b;
-		var toFull = function (instanceSkel) {
-			return {_class: fullClass._class, instance: instanceSkel, parents: fullClass.parents};
-		};
+		var toFull = F2(
+			function (indexFromZero, instanceSkel) {
+				return {_class: fullClass._class, index: indexFromZero + 1, instance: instanceSkel, parents: fullClass.parents};
+			});
 		var savedInstancesWithMatchingClass = A2(
 			$elm$core$List$filter,
 			function (instance) {
 				return _Utils_eq(instance._class, fullClass._class.id);
 			},
 			$elm_community$intdict$IntDict$values(allSavedInstances));
-		var savedInstancesFull = A2($elm$core$List$map, toFull, savedInstancesWithMatchingClass);
+		var savedInstancesFull = A2($elm$core$List$indexedMap, toFull, savedInstancesWithMatchingClass);
 		var relevantSeriesMembers = A3(
 			$author$project$Task$Instance$fillSeries,
 			_Utils_Tuple2(zoneHistory, relevantPeriod),
@@ -21143,24 +22657,24 @@ var $author$project$Main$handleUrlTriggers = F2(
 		var profile = model.profile;
 		var environment = model.environment;
 		var wrapMsgs = F2(
-			function (tagger, _v28) {
-				var key = _v28.a;
-				var dict = _v28.b;
+			function (tagger, _v27) {
+				var key = _v27.a;
+				var dict = _v27.b;
 				return _Utils_Tuple2(
 					key,
 					A2(
 						$elm$core$Dict$map,
 						F2(
-							function (_v27, msg) {
+							function (_v26, msg) {
 								return tagger(msg);
 							}),
 						dict));
 			});
 		var url = $author$project$Main$bypassFakeFragment(rawUrl);
 		var removeTriggersFromUrl = function () {
-			var _v26 = environment.navkey;
-			if (_v26.$ === 'Just') {
-				var navkey = _v26.a;
+			var _v25 = environment.navkey;
+			if (_v25.$ === 'Just') {
+				var navkey = _v25.a;
 				return A2(
 					$elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -21179,27 +22693,27 @@ var $author$project$Main$handleUrlTriggers = F2(
 			fancyRecursiveParse:
 			while (true) {
 				if (checkList.b) {
-					var _v14 = checkList.a;
-					var triggerName = _v14.a;
-					var triggerValues = _v14.b;
+					var _v13 = checkList.a;
+					var triggerName = _v13.a;
+					var triggerValues = _v13.b;
 					var rest = checkList.b;
-					var _v15 = A2(
+					var _v14 = A2(
 						$elm$url$Url$Parser$parse,
 						$elm$url$Url$Parser$query(
 							A2($elm$url$Url$Parser$Query$enum, triggerName, triggerValues)),
 						normalizedUrl);
-					if (_v15.$ === 'Nothing') {
+					if (_v14.$ === 'Nothing') {
 						var $temp$checkList = rest;
 						checkList = $temp$checkList;
 						continue fancyRecursiveParse;
 					} else {
-						if (_v15.a.$ === 'Nothing') {
-							var _v16 = _v15.a;
+						if (_v14.a.$ === 'Nothing') {
+							var _v15 = _v14.a;
 							var $temp$checkList = rest;
 							checkList = $temp$checkList;
 							continue fancyRecursiveParse;
 						} else {
-							var match = _v15.a;
+							var match = _v14.a;
 							return $elm$core$Maybe$Just(match);
 						}
 					}
@@ -21208,9 +22722,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		};
-		var createQueryParsers = function (_v25) {
-			var key = _v25.a;
-			var values = _v25.b;
+		var createQueryParsers = function (_v24) {
+			var key = _v24.a;
+			var values = _v24.b;
 			return A2($elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
@@ -21253,23 +22767,23 @@ var $author$project$Main$handleUrlTriggers = F2(
 			$elm$url$Url$Parser$parse,
 			$elm$url$Url$Parser$oneOf(parseList),
 			normalizedUrl);
-		var _v17 = fancyRecursiveParse(allTriggers);
-		if (_v17.$ === 'Just') {
-			var parsedUrlSuccessfully = _v17.a;
-			var _v18 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
-			if (_v18.a.$ === 'Just') {
-				if (_v18.b.$ === 'Just') {
-					var triggerMsg = _v18.a.a;
-					var _v19 = A2($author$project$Main$update, triggerMsg, model);
-					var newModel = _v19.a;
-					var newCmd = _v19.b;
+		var _v16 = fancyRecursiveParse(allTriggers);
+		if (_v16.$ === 'Just') {
+			var parsedUrlSuccessfully = _v16.a;
+			var _v17 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
+			if (_v17.a.$ === 'Just') {
+				if (_v17.b.$ === 'Just') {
+					var triggerMsg = _v17.a.a;
+					var _v18 = A2($author$project$Main$update, triggerMsg, model);
+					var newModel = _v18.a;
+					var newCmd = _v18.b;
 					var newCmdWithUrlCleaner = $elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[newCmd, removeTriggersFromUrl]));
 					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 				} else {
-					var triggerMsg = _v18.a.a;
-					var _v21 = _v18.b;
+					var triggerMsg = _v17.a.a;
+					var _v20 = _v17.b;
 					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -21280,9 +22794,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 						$author$project$External$Commands$toast(problemText));
 				}
 			} else {
-				if (_v18.b.$ === 'Just') {
-					var _v20 = _v18.a;
-					var query = _v18.b.a;
+				if (_v17.b.$ === 'Just') {
+					var _v19 = _v17.a;
+					var query = _v17.b.a;
 					var problemText = 'Handle URL Triggers: none of  ' + ($elm$core$String$fromInt(
 						$elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
 					return _Utils_Tuple2(
@@ -21293,17 +22807,17 @@ var $author$project$Main$handleUrlTriggers = F2(
 							}),
 						$author$project$External$Commands$toast(problemText));
 				} else {
-					var _v22 = _v18.a;
-					var _v23 = _v18.b;
+					var _v21 = _v17.a;
+					var _v22 = _v17.b;
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			}
 		} else {
-			var _v24 = normalizedUrl.query;
-			if (_v24.$ === 'Nothing') {
+			var _v23 = normalizedUrl.query;
+			if (_v23.$ === 'Nothing') {
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			} else {
-				var queriesPresent = _v24.a;
+				var queriesPresent = _v23.a;
 				var problemText = 'URL: not sure what to do with: ' + (queriesPresent + ', so I just left it there. Is the trigger misspelled?');
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -21398,25 +22912,38 @@ var $author$project$Main$update = F2(
 								[notification])));
 				} else {
 					var response = msg.a.a;
+					var syncStatusChannel = A2(
+						$author$project$NativeScript$Notification$setChannelImportance,
+						$author$project$NativeScript$Notification$High,
+						A2(
+							$author$project$NativeScript$Notification$setChannelDescription,
+							'Lets you know what happened the last time we tried to sync with online servers.',
+							$author$project$NativeScript$Notification$basicChannel('Sync Status')));
 					var _v3 = A3(
 						$author$project$Integrations$Marvin$handle,
 						$author$project$SmartTime$Moment$toSmartInt(environment.time),
 						profile,
 						response);
-					var _v4 = _v3.a;
-					var newItems = _v4.a;
-					var newActivities = _v4.b;
+					var newProfile1WithItems = _v3.a;
 					var whatHappened = _v3.b;
 					var nextStep = _v3.c;
-					var newProfile1WithItems = _Utils_update(
-						profile,
-						{
-							activities: A2($elm$core$Maybe$withDefault, profile.activities, newActivities),
-							taskClasses: A2($elm_community$intdict$IntDict$union, profile.taskClasses, newItems.taskClasses),
-							taskEntries: _Utils_ap(profile.taskEntries, newItems.taskEntries),
-							taskInstances: A2($elm_community$intdict$IntDict$union, profile.taskInstances, newItems.taskInstances)
-						});
 					var newProfile2WithErrors = A2($author$project$Profile$saveError, newProfile1WithItems, 'Here\'s what happened: \n' + whatHappened);
+					var notification = A2(
+						$author$project$NativeScript$Notification$setBody,
+						whatHappened,
+						A2(
+							$author$project$NativeScript$Notification$setSubtitle,
+							'Sync Status',
+							A2(
+								$author$project$NativeScript$Notification$setTitle,
+								'Marvin Response',
+								A2(
+									$author$project$NativeScript$Notification$setExpiresAfter,
+									$author$project$SmartTime$Duration$fromMinutes(1),
+									A2(
+										$author$project$NativeScript$Notification$setID,
+										29384,
+										$author$project$NativeScript$Notification$build(syncStatusChannel))))));
 					return _Utils_Tuple2(
 						A3($author$project$Main$Model, viewState, newProfile2WithErrors, environment),
 						$elm$core$Platform$Cmd$batch(
@@ -21426,16 +22953,18 @@ var $author$project$Main$update = F2(
 									$elm$core$Platform$Cmd$map,
 									$author$project$Main$ThirdPartyServerResponded,
 									A2($elm$core$Platform$Cmd$map, $author$project$Main$MarvinServer, nextStep)),
-									$author$project$External$Commands$toast('Got Response from Marvin.')
+									$author$project$NativeScript$Commands$notify(
+									_List_fromArray(
+										[notification]))
 								])));
 				}
 			case 'Link':
 				var urlRequest = msg.a;
 				if (urlRequest.$ === 'Internal') {
 					var url = urlRequest.a;
-					var _v6 = environment.navkey;
-					if (_v6.$ === 'Just') {
-						var navkey = _v6.a;
+					var _v5 = environment.navkey;
+					if (_v5.$ === 'Just') {
+						var navkey = _v5.a;
 						return justRunCommand(
 							A2(
 								$elm$browser$Browser$Navigation$pushUrl,
@@ -21451,9 +22980,9 @@ var $author$project$Main$update = F2(
 				}
 			case 'NewUrl':
 				var url = msg.a;
-				var _v7 = A2($author$project$Main$handleUrlTriggers, url, model);
-				var modelAfter = _v7.a;
-				var effectsAfter = _v7.b;
+				var _v6 = A2($author$project$Main$handleUrlTriggers, url, model);
+				var modelAfter = _v6.a;
+				var effectsAfter = _v6.b;
 				return _Utils_Tuple2(
 					_Utils_update(
 						modelAfter,
@@ -21464,18 +22993,18 @@ var $author$project$Main$update = F2(
 			case 'TaskListMsg':
 				var subMsg = msg.a;
 				var subViewState = function () {
-					var _v9 = viewState.primaryView;
-					if (_v9.$ === 'TaskList') {
-						var subView = _v9.a;
+					var _v8 = viewState.primaryView;
+					if (_v8.$ === 'TaskList') {
+						var subView = _v8.a;
 						return subView;
 					} else {
 						return $author$project$TaskList$defaultView;
 					}
 				}();
-				var _v8 = A4($author$project$TaskList$update, subMsg, subViewState, profile, environment);
-				var newState = _v8.a;
-				var newApp = _v8.b;
-				var newCommand = _v8.c;
+				var _v7 = A4($author$project$TaskList$update, subMsg, subViewState, profile, environment);
+				var newState = _v7.a;
+				var newApp = _v7.b;
+				var newCommand = _v7.c;
 				return _Utils_Tuple2(
 					A3(
 						$author$project$Main$Model,
@@ -21489,18 +23018,18 @@ var $author$project$Main$update = F2(
 			case 'TimeTrackerMsg':
 				var subMsg = msg.a;
 				var subViewState = function () {
-					var _v11 = viewState.primaryView;
-					if (_v11.$ === 'TimeTracker') {
-						var subView = _v11.a;
+					var _v10 = viewState.primaryView;
+					if (_v10.$ === 'TimeTracker') {
+						var subView = _v10.a;
 						return subView;
 					} else {
 						return $author$project$TimeTracker$defaultView;
 					}
 				}();
-				var _v10 = A4($author$project$TimeTracker$update, subMsg, subViewState, profile, environment);
-				var newState = _v10.a;
-				var newApp = _v10.b;
-				var newCommand = _v10.c;
+				var _v9 = A4($author$project$TimeTracker$update, subMsg, subViewState, profile, environment);
+				var newState = _v9.a;
+				var newApp = _v9.b;
+				var newCommand = _v9.c;
 				return _Utils_Tuple2(
 					A3(
 						$author$project$Main$Model,
@@ -21552,6 +23081,22 @@ var $author$project$Main$update = F2(
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
 	});
+var $elm$json$Json$Encode$dict = F3(
+	function (toKey, toValue, dictionary) {
+		return _Json_wrap(
+			A3(
+				$elm$core$Dict$foldl,
+				F3(
+					function (key, value, obj) {
+						return A3(
+							_Json_addField,
+							toKey(key),
+							toValue(value),
+							obj);
+					}),
+				_Json_emptyObject(_Utils_Tuple0),
+				dictionary));
+	});
 var $author$project$ID$encode = function (_v0) {
 	var _int = _v0.a;
 	return $elm$json$Json$Encode$int(_int);
@@ -21569,10 +23114,9 @@ var $author$project$Task$Class$encodeRelativeTiming = function (relativeTaskTimi
 		return $author$project$Porting$encodeDuration(duration);
 	}
 };
+var $elm$core$Debug$todo = _Debug_todo;
 var $author$project$Task$Progress$encodeUnit = function (unit) {
 	switch (unit.$) {
-		case 'None':
-			return $elm$json$Json$Encode$string('None');
 		case 'Permille':
 			return $elm$json$Json$Encode$string('Permille');
 		case 'Percent':
@@ -21591,8 +23135,8 @@ var $author$project$Task$Progress$encodeUnit = function (unit) {
 			return _Debug_todo(
 				'Task.Progress',
 				{
-					start: {line: 71, column: 13},
-					end: {line: 71, column: 23}
+					start: {line: 93, column: 13},
+					end: {line: 93, column: 23}
 				})('Encode CustomUnits');
 	}
 };
@@ -21638,8 +23182,25 @@ var $author$project$Task$Class$encodeClass = function (taskClass) {
 				A2($elm$json$Json$Encode$list, $author$project$Task$Class$encodeRelativeTiming, taskClass.defaultRelevanceEnds)),
 				_Utils_Tuple2(
 				'importance',
-				$elm$json$Json$Encode$float(taskClass.importance))
+				$elm$json$Json$Encode$float(taskClass.importance)),
+				_Utils_Tuple2(
+				'extra',
+				A3($elm$json$Json$Encode$dict, $elm$core$Basics$identity, $elm$json$Json$Encode$string, taskClass.extra))
 			]));
+};
+var $author$project$Replicated$Serialize$encodeToJson = F2(
+	function (codec, value) {
+		return A2(
+			$elm$json$Json$Encode$list,
+			$elm$core$Basics$identity,
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int($author$project$Replicated$Serialize$version),
+					A2($author$project$Replicated$Serialize$getJsonEncoder, codec, value)
+				]));
+	});
+var $author$project$Task$Entry$encodeEntry = function (entry) {
+	return A2($author$project$Replicated$Serialize$encodeToJson, $author$project$Task$Entry$wrapperParentCodec, entry);
 };
 var $author$project$SmartTime$Human$Clock$midnight = $author$project$SmartTime$Duration$zero;
 var $author$project$SmartTime$Human$Moment$fromDate = F2(
@@ -21722,25 +23283,12 @@ var $author$project$Task$Instance$encodeInstance = function (taskInstance) {
 				A2($elm_community$json_extra$Json$Encode$Extra$maybe, $author$project$Task$Class$encodeTaskMoment, taskInstance.relevanceStarts)),
 				_Utils_Tuple2(
 				'relevanceEnds',
-				A2($elm_community$json_extra$Json$Encode$Extra$maybe, $author$project$Task$Class$encodeTaskMoment, taskInstance.relevanceEnds))
+				A2($elm_community$json_extra$Json$Encode$Extra$maybe, $author$project$Task$Class$encodeTaskMoment, taskInstance.relevanceEnds)),
+				_Utils_Tuple2(
+				'extra',
+				A3($elm$json$Json$Encode$dict, $elm$core$Basics$identity, $elm$json$Json$Encode$string, taskInstance.extra))
 			]));
 };
-var $elm$json$Json$Encode$dict = F3(
-	function (toKey, toValue, dictionary) {
-		return _Json_wrap(
-			A3(
-				$elm$core$Dict$foldl,
-				F3(
-					function (key, value, obj) {
-						return A3(
-							_Json_addField,
-							toKey(key),
-							toValue(value),
-							obj);
-					}),
-				_Json_emptyObject(_Utils_Tuple0),
-				dictionary));
-	});
 var $author$project$Activity$Activity$encodeCategory = function (v) {
 	switch (v.$) {
 		case 'Transit':
@@ -22004,32 +23552,8 @@ var $author$project$Activity$Switch$encodeSwitch = function (_v0) {
 				]),
 			optionals));
 };
-var $author$project$SmartTime$Period$toPair = function (_v0) {
-	var startMoment = _v0.a;
-	var endMoment = _v0.b;
-	return _Utils_Tuple2(startMoment, endMoment);
-};
-var $author$project$TimeBlock$TimeBlock$periodEncoder = function (period) {
-	var momentEncoder = function (moment) {
-		return $elm$json$Json$Encode$string(
-			$author$project$SmartTime$Human$Moment$toStandardString(moment));
-	};
-	return A2(
-		$author$project$Porting$homogeneousTuple2AsArray,
-		momentEncoder,
-		$author$project$SmartTime$Period$toPair(period));
-};
 var $author$project$TimeBlock$TimeBlock$encodeTimeBlock = function (timeBlock) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'focus',
-				$author$project$ID$encode(timeBlock.focus)),
-				_Utils_Tuple2(
-				'range',
-				$author$project$TimeBlock$TimeBlock$periodEncoder(timeBlock.range))
-			]));
+	return A2($author$project$Replicated$Serialize$encodeToJson, $author$project$TimeBlock$TimeBlock$codec, timeBlock);
 };
 var $author$project$Incubator$Todoist$encodeIncrementalSyncToken = function (_v0) {
 	var token = _v0.a;
@@ -22181,6 +23705,9 @@ var $author$project$Profile$encodeProfile = function (record) {
 				_Utils_Tuple2(
 				'taskInstances',
 				A2($author$project$Porting$encodeIntDict, $author$project$Task$Instance$encodeInstance, record.taskInstances)),
+				_Utils_Tuple2(
+				'taskEntries',
+				A2($elm$json$Json$Encode$list, $author$project$Task$Entry$encodeEntry, record.taskEntries)),
 				_Utils_Tuple2(
 				'activities',
 				$author$project$Activity$Activity$encodeStoredActivities(record.activities)),

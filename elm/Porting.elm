@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -473,6 +473,16 @@ encodeMoment dur =
 decodeMoment : Decoder Moment
 decodeMoment =
     Decode.map Moment.fromSmartInt Decode.int
+
+
+encodeUnixTimestamp : Moment -> Encode.Value
+encodeUnixTimestamp dur =
+    Encode.int (Moment.toElmInt dur)
+
+
+decodeUnixTimestamp : Decoder Moment
+decodeUnixTimestamp =
+    Decode.map Moment.fromElmInt Decode.int
 
 
 decodeFuzzyMoment : Decoder FuzzyMoment

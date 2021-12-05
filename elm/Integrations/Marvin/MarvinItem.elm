@@ -12,6 +12,7 @@ import List.Extra as List
 import Maybe.Extra
 import Porting exposing (..)
 import Profile exposing (Profile)
+import Regex
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
@@ -108,6 +109,7 @@ decodeItemType =
 -}
 type alias MarvinItem =
     { id : String
+    , rev : String
     , done : Bool
     , day : Maybe CalendarDate
     , title : String
@@ -140,6 +142,8 @@ type alias MarvinItem =
     , type_ : ItemType
     , times : List Moment
     , taskTime : Maybe TimeOfDay
+    , pinId : Maybe String
+    , recurringTaskId : Maybe String
     }
 
 
@@ -147,6 +151,7 @@ encodeMarvinItem : MarvinItem -> Encode.Value
 encodeMarvinItem task =
     Encode.object <|
         [ ( "_id", Encode.string task.id )
+        , ( "_rev", Encode.string task.rev )
         , ( "done", Encode.bool task.done )
         , ( "day", Encode.maybe encodeCalendarDate task.day )
         , ( "title", Encode.string task.title )
@@ -186,6 +191,7 @@ decodeMarvinItem : Decoder MarvinItem
 decodeMarvinItem =
     succeed MarvinItem
         |> required "_id" string
+        |> optional "_rev" string "unknown"
         |> optional "done" bool False
         |> optional "day" (oneOf [ check string "unassigned" <| succeed Nothing, nullable calendarDateDecoder ]) Nothing
         |> required "title" string
@@ -209,15 +215,17 @@ decodeMarvinItem =
         |> optional "rewardId" (nullable string) Nothing
         |> optional "backburner" bool False
         |> optional "reviewDate" (nullable calendarDateDecoder) Nothing
-        |> optional "itemSnoozeTime" (nullable decodeMoment) Nothing
+        |> optional "itemSnoozeTime" (nullable decodeUnixTimestamp) Nothing
         |> optional "permaSnoozeTime" (nullable timeOfDayDecoder) Nothing
         |> optional "timeZoneOffset" (nullable int) Nothing
         |> optional "startDate" (nullable calendarDateDecoder) Nothing
         |> optional "endDate" (nullable calendarDateDecoder) Nothing
         |> optional "db" string ""
         |> optional "type" decodeItemType Task
-        |> optional "times" (list decodeMoment) []
+        |> optional "times" (list decodeUnixTimestamp) []
         |> optional "taskTime" (nullable timeOfDayDecoder) Nothing
+        |> optional "pinID" (nullable string) Nothing
+        |> optional "recurringTaskId" (nullable string) Nothing
         |> optionalIgnored "subtasks"
         |> optionalIgnored "reminderTime"
         |> optionalIgnored "autoSnooze"
@@ -242,12 +250,10 @@ decodeMarvinItem =
         |> optionalIgnored "remindAt"
         |> optionalIgnored "echoId"
         |> optionalIgnored "recurring"
-        |> optionalIgnored "recurringTaskId"
         |> optionalIgnored "createdAt"
         |> optionalIgnored "generatedAt"
         |> optionalIgnored "sectionId"
         |> optionalIgnored "sectionid"
-        |> optionalIgnored "_rev"
         |> optionalIgnored "imported"
         |> optionalIgnored "workedOnAt"
         |> optionalIgnored "newRecurringProject"
@@ -336,21 +342,21 @@ timeOfDayDecoder =
     customDecoder string SmartTime.Human.Clock.fromStandardString
 
 
-toDocketItem : Int -> Profile -> MarvinItem -> OutputType
-toDocketItem classCounter profile marvinItem =
+toDocketItem : MarvinItem -> Profile -> OutputType
+toDocketItem marvinItem profile =
     case marvinItem.type_ of
         Task ->
-            ConvertedToTaskTriplet <| toDocketTaskNaive classCounter profile.activities marvinItem
+            ConvertedToTaskTriplet <| toDocketTask profile marvinItem
 
         Project ->
-            ConvertedToTaskTriplet <| toDocketTaskNaive classCounter profile.activities marvinItem
+            ConvertedToTaskTriplet <| toDocketTask profile marvinItem
 
         Category ->
             ConvertedToActivity <| projectToDocketActivity profile.activities marvinItem
 
 
 type OutputType
-    = ConvertedToTaskTriplet { entry : Task.Entry.Entry, class : Task.Class.ClassSkel, instance : Task.Instance.InstanceSkel }
+    = ConvertedToTaskTriplet { entries : List Task.Entry.Entry, classes : List Task.Class.ClassSkel, instances : List Task.Instance.InstanceSkel }
     | ConvertedToActivity StoredActivities
 
 
@@ -361,7 +367,7 @@ projectToDocketActivity activities marvinCategory =
             List.member marvinCategory.title value.names
 
         matchingActivities =
-            Debug.log ("matching activity names for " ++ marvinCategory.title) <| IntDict.filter nameMatch (Activity.allActivities activities)
+            IntDict.filter nameMatch (Activity.allActivities activities)
 
         firstActivityMatch =
             List.head (IntDict.toList matchingActivities)
@@ -396,78 +402,108 @@ projectToDocketActivity activities marvinCategory =
             activities
 
 
-toDocketTaskNaive : Int -> StoredActivities -> MarvinItem -> { entry : Task.Entry.Entry, class : Task.Class.ClassSkel, instance : Task.Instance.InstanceSkel }
-toDocketTaskNaive classCounter activities marvinItem =
+toDocketTask : Profile -> MarvinItem -> { entries : List Task.Entry.Entry, classes : List Task.Class.ClassSkel, instances : List Task.Instance.InstanceSkel }
+toDocketTask profile marvinItem =
     let
-        classID =
+        classCounter =
+            Maybe.withDefault 0 (Maybe.map Tuple.first <| List.last <| IntDict.toList profile.taskClasses)
+
+        ( finalClass, newEntryMaybe ) =
+            toDocketClassAndEntry classCounter profile marvinItem
+
+        finalInstance =
+            toDocketInstance classCounter finalClass profile marvinItem
+    in
+    { entries = Maybe.Extra.toList newEntryMaybe, classes = [ finalClass ], instances = [ finalInstance ] }
+
+
+toDocketClassAndEntry : Int -> Profile -> MarvinItem -> ( Task.Class.ClassSkel, Maybe Task.Entry.Entry )
+toDocketClassAndEntry classCounter profile marvinItem =
+    let
+        newClassID =
             classCounter + 1
 
-        entry =
-            Task.Entry.newRootEntry classID
+        ( existingClasses, _ ) =
+            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+
+        existingClassesWithMarvinLink =
+            Dict.fromList <| List.filterMap pairClassWithMarvinIDMaybe existingClasses
+
+        pairClassWithMarvinIDMaybe class =
+            case Dict.get "marvinGeneratorID" class.class.extra of
+                Just marvinID ->
+                    Just ( marvinID, class.class.id )
+
+                Nothing ->
+                    Nothing
+
+        marvinGeneratorIDMaybe =
+            Maybe.Extra.or marvinItem.recurringTaskId marvinItem.pinId
+
+        existingClassIDMaybe =
+            -- look for an existing class that's linked to a marvin generator.
+            Dict.get marvinGeneratorID existingClassesWithMarvinLink
+
+        existingClassMaybe =
+            Maybe.andThen (\classID -> IntDict.get classID profile.taskClasses) existingClassIDMaybe
+
+        newEntry =
+            Task.Entry.newRootEntry newClassID
 
         classBase =
-            Task.Class.newClassSkel marvinItem.title classID
+            Maybe.withDefault (Task.Class.newClassSkel marvinItem.title newClassID) existingClassMaybe
+
+        derivedMarvinGeneratorID =
+            -- instance ID like 2021-11-11_b5946420-afe1-488e-adb0-3633b1905095
+            -- becomes just b5946420-afe1-488e-adb0-3633b1905095
+            List.last (String.split "_" marvinItem.id)
+
+        marvinGeneratorID =
+            Maybe.withDefault marvinItem.id (Maybe.Extra.or marvinGeneratorIDMaybe derivedMarvinGeneratorID)
+
+        updateExtraData oldDict =
+            Dict.insert "marvinID" marvinItem.id <|
+                Dict.insert "marvinGeneratorID" marvinGeneratorID oldDict
 
         finalClass =
             { classBase
                 | predictedEffort = Maybe.withDefault Duration.zero marvinItem.timeEstimate
                 , importance = toFloat marvinItem.isStarred
-                , activity = whichActivity
+                , activity = determineClassActivity marvinItem profile.activities
+                , extra = updateExtraData classBase.extra
             }
+    in
+    case existingClassMaybe of
+        Just existingClass ->
+            ( finalClass, Nothing )
 
-        whichActivity =
-            case ( marvinItem.parentId, marvinItem.labelIds ) of
-                ( Just someParent, [] ) ->
-                    let
-                        activitiesWithMarvinCategories =
-                            List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+        Nothing ->
+            ( finalClass, Just newEntry )
 
-                        getMarvinID ( intID, activity ) =
-                            ( ID.tag intID, Dict.get "marvinCategory" activity.externalIDs )
 
-                        matchingActivities : List ActivityID
-                        matchingActivities =
-                            List.filterMap
-                                (\( id, actCat ) ->
-                                    if Maybe.withDefault "nope" actCat == someParent then
-                                        Just id
+toDocketInstance : Int -> Task.Class.ClassSkel -> Profile -> MarvinItem -> Task.Instance.InstanceSkel
+toDocketInstance classCounter class profile marvinItem =
+    let
+        existingInstancesWithMarvinLink =
+            Dict.fromList <| List.filterMap pairInstanceWithMarvinIDMaybe (IntDict.values profile.taskInstances)
 
-                                    else
-                                        Nothing
-                                )
-                                activitiesWithMarvinCategories
-                    in
-                    List.head matchingActivities
+        pairInstanceWithMarvinIDMaybe instance =
+            case Dict.get "marvinID" instance.extra of
+                Just marvinID ->
+                    Just ( marvinID, instance.id )
 
-                ( _, labels ) ->
-                    let
-                        activitiesWithMarvinLabels =
-                            List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+                Nothing ->
+                    Nothing
 
-                        getMarvinID ( intID, activity ) =
-                            ( ID.tag intID, Dict.get "marvinLabel" activity.externalIDs )
+        existingInstanceIDMaybe =
+            -- look for an existing class that's linked to a marvin generator.
+            Dict.get marvinItem.id existingInstancesWithMarvinLink
 
-                        matchingActivities : List ActivityID
-                        matchingActivities =
-                            List.filterMap
-                                (\( id, associatedLabelMaybe ) ->
-                                    case associatedLabelMaybe of
-                                        Just associatedLabel ->
-                                            if List.member associatedLabel labels then
-                                                Just id
-
-                                            else
-                                                Nothing
-
-                                        Nothing ->
-                                            Nothing
-                                )
-                                activitiesWithMarvinLabels
-                    in
-                    List.head matchingActivities
+        existingInstanceMaybe =
+            Maybe.andThen (\instanceID -> IntDict.get instanceID profile.taskInstances) existingInstanceIDMaybe
 
         instanceBase =
-            Task.Instance.newInstanceSkel classCounter finalClass
+            Maybe.withDefault (Task.Instance.newInstanceSkel classCounter class) existingInstanceMaybe
 
         plannedSessionList : List UserPlannedSession
         plannedSessionList =
@@ -479,19 +515,27 @@ toDocketTaskNaive classCounter activities marvinItem =
                             List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, plannedTime ), plannedDuration )
 
                         ( Just _, Nothing ) ->
-                            Debug.log ("no planned day for " ++ marvinItem.title) []
+                            []
 
                         ( Nothing, Just plannedDay ) ->
-                            Debug.log ("no tasktime for " ++ marvinItem.title ++ ", assuming end of day") List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, SmartTime.Human.Clock.endOfDay ), plannedDuration )
+                            List.singleton ( SmartTime.Human.Moment.Floating ( plannedDay, SmartTime.Human.Clock.endOfDay ), plannedDuration )
 
                         ( Nothing, Nothing ) ->
-                            Debug.log ("no tasktime or planned day for " ++ marvinItem.title) []
+                            []
 
                 ( Just False, _ ) ->
-                    Debug.log ("no time estimate for " ++ marvinItem.title) []
+                    []
 
                 _ ->
                     []
+
+        addExtras =
+            Dict.fromList <|
+                List.filterMap identity
+                    [ Just ( "marvinCouchdbRev", marvinItem.rev )
+                    , Just ( "marvinID", marvinItem.id )
+                    , Maybe.map (\n -> ( "marvinNote", n )) marvinItem.note
+                    ]
 
         finalInstance =
             { instanceBase
@@ -508,9 +552,82 @@ toDocketTaskNaive classCounter activities marvinItem =
                         (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate)
                         (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day)
                 , plannedSessions = plannedSessionList
+                , relevanceStarts =
+                    if Maybe.Extra.isJust marvinItem.recurringTaskId then
+                        Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day
+
+                    else
+                        Nothing
+                , relevanceEnds =
+                    if Maybe.Extra.isJust marvinItem.recurringTaskId then
+                        Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day
+
+                    else
+                        Nothing
+                , extra = Dict.union addExtras instanceBase.extra
             }
     in
-    { entry = entry, class = finalClass, instance = finalInstance }
+    finalInstance
+
+
+fromDocket : Task.Instance.Instance -> MarvinItem
+fromDocket instance =
+    Debug.todo "from instance"
+
+
+{-| Determine which activity to assign to a newly imported class
+-}
+determineClassActivity : MarvinItem -> StoredActivities -> Maybe ActivityID
+determineClassActivity marvinItem activities =
+    case ( marvinItem.parentId, marvinItem.labelIds ) of
+        ( Just someParent, [] ) ->
+            let
+                activitiesWithMarvinCategories =
+                    List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+
+                getMarvinID ( intID, activity ) =
+                    ( ID.tag intID, Dict.get "marvinCategory" activity.externalIDs )
+
+                matchingActivities : List ActivityID
+                matchingActivities =
+                    List.filterMap
+                        (\( id, actCat ) ->
+                            if Maybe.withDefault "nope" actCat == someParent then
+                                Just id
+
+                            else
+                                Nothing
+                        )
+                        activitiesWithMarvinCategories
+            in
+            List.head matchingActivities
+
+        ( _, labels ) ->
+            let
+                activitiesWithMarvinLabels =
+                    List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+
+                getMarvinID ( intID, activity ) =
+                    ( ID.tag intID, Dict.get "marvinLabel" activity.externalIDs )
+
+                matchingActivities : List ActivityID
+                matchingActivities =
+                    List.filterMap
+                        (\( id, associatedLabelMaybe ) ->
+                            case associatedLabelMaybe of
+                                Just associatedLabel ->
+                                    if List.member associatedLabel labels then
+                                        Just id
+
+                                    else
+                                        Nothing
+
+                                Nothing ->
+                                    Nothing
+                        )
+                        activitiesWithMarvinLabels
+            in
+            List.head matchingActivities
 
 
 type alias MarvinLabel =
@@ -614,7 +731,7 @@ decodeRecurrencePattern : Decoder RecurrencePattern
 decodeRecurrencePattern =
     let
         interpreted string =
-            --Result.map interpretRecurrenceRule (getRawRecurrencePattern string)
+            -- Result.map interpretRecurrenceRule (getRawRecurrencePattern string)
             Err "NYI"
     in
     Porting.customDecoder string interpreted
@@ -623,10 +740,14 @@ decodeRecurrencePattern =
 marvinTimeBlockToDocketTimeBlock : Profile -> Dict String String -> MarvinTimeBlock -> Maybe TimeBlock
 marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
     let
-        normalizeTitle string =
-            string
+        normalizeRegex =
+            Maybe.withDefault Regex.never (Regex.fromString "[\\s-_]|[^\\x20\\x2D0-9A-Z\\x5Fa-z\\xC0-\\xD6\\xD8-\\xF6\\xF8-\\xFF]")
 
-        --TODO
+        normalizeTitle title =
+            -- TODO use the regex /[^-_\p{L}0-9]/gu
+            -- \p is unicode, not supported by elm library
+            Regex.replace normalizeRegex (\_ -> "") title
+
         labelMaybe =
             Dict.get (normalizeTitle marvinBlock.title) assignments
 
@@ -642,12 +763,25 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
                 Just marvinLabelID ->
                     Just ( marvinLabelID, ID.tag activityID )
 
-        build activityFound =
-            { focus = activityFound
+        buildWithActivity activityFound =
+            { focus = TimeBlock.TimeBlock.Activity activityFound
             , date = marvinBlock.date
             , startTime = marvinBlock.time
             , duration = marvinBlock.duration
             }
+
+        buildWithTag tag =
+            { focus = TimeBlock.TimeBlock.Tag tag
+            , date = marvinBlock.date
+            , startTime = marvinBlock.time
+            , duration = marvinBlock.duration
+            }
+
+        logBad =
+            String.concat [ "Could not find a label for ", marvinBlock.title, ", normalized as ", normalizeTitle marvinBlock.title ]
+
+        logGood =
+            String.concat [ "Found label for time block ", marvinBlock.title, "! normalized as ", normalizeTitle marvinBlock.title ]
     in
     case labelMaybe of
         Nothing ->
@@ -656,7 +790,7 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
         Just foundAssignment ->
             case Dict.get foundAssignment activityLookup of
                 Nothing ->
-                    Nothing
+                    Just <| buildWithTag foundAssignment
 
                 Just foundActivity ->
-                    Just <| build foundActivity
+                    Just <| buildWithActivity foundActivity

@@ -6,8 +6,6 @@ import Activity.Switch exposing (Switch(..), switchTask, switchToActivity)
 import Activity.Timeline exposing (currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
-import External.Tasker as Tasker
-import IntDict
 import List.Extra as List
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
@@ -21,8 +19,6 @@ import Task.Class exposing (ClassID)
 import Task.Entry
 import Task.Instance exposing (Instance, InstanceID)
 import Task.Progress
-import Time
-import Time.Extra as Time
 import ZoneHistory
 
 
