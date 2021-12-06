@@ -4,7 +4,8 @@
   "description": "Docket - personal agenda",
   "main": "app/app.js",
   "scripts": {
-    "lint": "eslint \"app/**/*.js\""
+    "build": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm",
+    "build-live": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js"
   },
   "repository": {
     "type": "git",
@@ -40,6 +41,7 @@
     "console-browserify": "^1.2.0",
     "constants-browserify": "^1.0.0",
     "crypto-browserify": "^3.12.0",
+    "elm-format": "^0.8.5",
     "events": "^3.3.0",
     "fastq": "^1.13.0",
     "https-browserify": "^1.0.0",
@@ -55,7 +57,7 @@
     "multiaddr": "^10.0.1",
     "nativescript-crypto": "file:customized-node-modules/nativescript-crypto",
     "nativescript-dom-free": "^2.0.6",
-    "nativescript-local-notifications": "file:../nativescript-local-notifications/publish/package/nativescript-local-notifications-4.1.0.tgz",
+    "nativescript-local-notifications": "file:customized-node-modules/nativescript-local-notifications/publish/package/nativescript-local-notifications-4.1.0.tgz",
     "nativescript-nodeify": "^0.8.0",
     "nativescript-randombytes": "^1.0.0",
     "nativescript-theme-core": "^1.0.6",
@@ -83,7 +85,9 @@
   "devDependencies": {
     "@nativescript/android": "~8.1.1",
     "@nativescript/ios": "~8.1.0",
-    "@nativescript/webpack": "~5.0.0"
+    "@nativescript/webpack": "~5.0.0",
+    "elm": "^0.19.1-5",
+    "elm-live": "^4.0.2"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "NativeScript Application"
