@@ -1,5 +1,7 @@
 module Log exposing (..)
 
+import Debug
+
 
 logMessage label _ =
-    Debug.Log label ()
+    Debug.log label ()

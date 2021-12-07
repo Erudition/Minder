@@ -6833,57 +6833,57 @@ var $rtfeldman$elm_css$Css$Structure$concatMapLastStyleBlock = F2(
 			A2($rtfeldman$elm_css$Css$Structure$concatMapLastStyleBlock, update, rest));
 	});
 var $elm$core$String$cons = _String_cons;
-var $Skinney$murmur3$Murmur3$HashData = F4(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$HashData = F4(
 	function (shift, seed, hash, charsProcessed) {
 		return {charsProcessed: charsProcessed, hash: hash, seed: seed, shift: shift};
 	});
-var $Skinney$murmur3$Murmur3$c1 = 3432918353;
-var $Skinney$murmur3$Murmur3$c2 = 461845907;
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$c1 = 3432918353;
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$c2 = 461845907;
 var $elm$core$Bitwise$and = _Bitwise_and;
 var $elm$core$Bitwise$shiftLeftBy = _Bitwise_shiftLeftBy;
 var $elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
-var $Skinney$murmur3$Murmur3$multiplyBy = F2(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy = F2(
 	function (b, a) {
 		return ((a & 65535) * b) + ((((a >>> 16) * b) & 65535) << 16);
 	});
 var $elm$core$Basics$neq = _Utils_notEqual;
 var $elm$core$Bitwise$or = _Bitwise_or;
-var $Skinney$murmur3$Murmur3$rotlBy = F2(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$rotlBy = F2(
 	function (b, a) {
 		return (a << b) | (a >>> (32 - b));
 	});
 var $elm$core$Bitwise$xor = _Bitwise_xor;
-var $Skinney$murmur3$Murmur3$finalize = function (data) {
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$finalize = function (data) {
 	var acc = (!(!data.hash)) ? (data.seed ^ A2(
-		$Skinney$murmur3$Murmur3$multiplyBy,
-		$Skinney$murmur3$Murmur3$c2,
+		$rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy,
+		$rtfeldman$elm_css$ElmCssVendor$Murmur3$c2,
 		A2(
-			$Skinney$murmur3$Murmur3$rotlBy,
+			$rtfeldman$elm_css$ElmCssVendor$Murmur3$rotlBy,
 			15,
-			A2($Skinney$murmur3$Murmur3$multiplyBy, $Skinney$murmur3$Murmur3$c1, data.hash)))) : data.seed;
+			A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy, $rtfeldman$elm_css$ElmCssVendor$Murmur3$c1, data.hash)))) : data.seed;
 	var h0 = acc ^ data.charsProcessed;
-	var h1 = A2($Skinney$murmur3$Murmur3$multiplyBy, 2246822507, h0 ^ (h0 >>> 16));
-	var h2 = A2($Skinney$murmur3$Murmur3$multiplyBy, 3266489909, h1 ^ (h1 >>> 13));
+	var h1 = A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy, 2246822507, h0 ^ (h0 >>> 16));
+	var h2 = A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy, 3266489909, h1 ^ (h1 >>> 13));
 	return (h2 ^ (h2 >>> 16)) >>> 0;
 };
 var $elm$core$String$foldl = _String_foldl;
-var $Skinney$murmur3$Murmur3$mix = F2(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$mix = F2(
 	function (h1, k1) {
 		return A2(
-			$Skinney$murmur3$Murmur3$multiplyBy,
+			$rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy,
 			5,
 			A2(
-				$Skinney$murmur3$Murmur3$rotlBy,
+				$rtfeldman$elm_css$ElmCssVendor$Murmur3$rotlBy,
 				13,
 				h1 ^ A2(
-					$Skinney$murmur3$Murmur3$multiplyBy,
-					$Skinney$murmur3$Murmur3$c2,
+					$rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy,
+					$rtfeldman$elm_css$ElmCssVendor$Murmur3$c2,
 					A2(
-						$Skinney$murmur3$Murmur3$rotlBy,
+						$rtfeldman$elm_css$ElmCssVendor$Murmur3$rotlBy,
 						15,
-						A2($Skinney$murmur3$Murmur3$multiplyBy, $Skinney$murmur3$Murmur3$c1, k1))))) + 3864292196;
+						A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$multiplyBy, $rtfeldman$elm_css$ElmCssVendor$Murmur3$c1, k1))))) + 3864292196;
 	});
-var $Skinney$murmur3$Murmur3$hashFold = F2(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$hashFold = F2(
 	function (c, data) {
 		var res = data.hash | ((255 & $elm$core$Char$toCode(c)) << data.shift);
 		var _v0 = data.shift;
@@ -6891,20 +6891,20 @@ var $Skinney$murmur3$Murmur3$hashFold = F2(
 			return {
 				charsProcessed: data.charsProcessed + 1,
 				hash: 0,
-				seed: A2($Skinney$murmur3$Murmur3$mix, data.seed, res),
+				seed: A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$mix, data.seed, res),
 				shift: 0
 			};
 		} else {
 			return {charsProcessed: data.charsProcessed + 1, hash: res, seed: data.seed, shift: data.shift + 8};
 		}
 	});
-var $Skinney$murmur3$Murmur3$hashString = F2(
+var $rtfeldman$elm_css$ElmCssVendor$Murmur3$hashString = F2(
 	function (seed, str) {
-		return $Skinney$murmur3$Murmur3$finalize(
+		return $rtfeldman$elm_css$ElmCssVendor$Murmur3$finalize(
 			A3(
 				$elm$core$String$foldl,
-				$Skinney$murmur3$Murmur3$hashFold,
-				A4($Skinney$murmur3$Murmur3$HashData, 0, seed, 0, 0),
+				$rtfeldman$elm_css$ElmCssVendor$Murmur3$hashFold,
+				A4($rtfeldman$elm_css$ElmCssVendor$Murmur3$HashData, 0, seed, 0, 0),
 				str));
 	});
 var $rtfeldman$elm_css$Hash$murmurSeed = 15739;
@@ -6990,7 +6990,7 @@ var $rtfeldman$elm_css$Hash$fromString = function (str) {
 		$elm$core$String$cons,
 		_Utils_chr('_'),
 		$rtfeldman$elm_hex$Hex$toString(
-			A2($Skinney$murmur3$Murmur3$hashString, $rtfeldman$elm_css$Hash$murmurSeed, str)));
+			A2($rtfeldman$elm_css$ElmCssVendor$Murmur3$hashString, $rtfeldman$elm_css$Hash$murmurSeed, str)));
 };
 var $elm$core$List$head = function (list) {
 	if (list.b) {
@@ -16719,7 +16719,40 @@ var $author$project$Integrations$Marvin$getTasks = function (secret) {
 									[
 										_Utils_Tuple2(
 										'db',
-										$elm$json$Json$Encode$string('Tasks'))
+										$elm$json$Json$Encode$string('Tasks')),
+										_Utils_Tuple2(
+										'timeEstimate',
+										$elm$json$Json$Encode$object(
+											_List_fromArray(
+												[
+													_Utils_Tuple2(
+													'$gt',
+													$elm$json$Json$Encode$int(0))
+												]))),
+										_Utils_Tuple2(
+										'done',
+										$elm$json$Json$Encode$object(
+											_List_fromArray(
+												[
+													_Utils_Tuple2(
+													'$exists',
+													$elm$json$Json$Encode$bool(false))
+												]))),
+										_Utils_Tuple2(
+										'labelIds',
+										$elm$json$Json$Encode$object(
+											_List_fromArray(
+												[
+													_Utils_Tuple2(
+													'$not',
+													$elm$json$Json$Encode$object(
+														_List_fromArray(
+															[
+																_Utils_Tuple2(
+																'$size',
+																$elm$json$Json$Encode$int(0))
+															])))
+												])))
 									]))),
 							_Utils_Tuple2(
 							'fields',
@@ -18550,7 +18583,6 @@ var $author$project$Task$Entry$getClassesFromEntries = function (_v0) {
 	return $elm_community$result_extra$Result$Extra$partition(
 		A2($elm$core$List$concatMap, traverseRootWrappers, entries));
 };
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$Task$Class$newClassSkel = F2(
 	function (givenTitle, newID) {
 		return {activity: $elm$core$Maybe$Nothing, completionUnits: $author$project$Task$Progress$Percent, defaultExternalDeadline: _List_Nil, defaultFinishBy: _List_Nil, defaultRelevanceEnds: _List_Nil, defaultRelevanceStarts: _List_Nil, defaultStartBy: _List_Nil, extra: $elm$core$Dict$empty, id: newID, importance: 1, maxEffort: $author$project$SmartTime$Duration$zero, minEffort: $author$project$SmartTime$Duration$zero, predictedEffort: $author$project$SmartTime$Duration$zero, title: givenTitle};
@@ -18615,10 +18647,7 @@ var $author$project$Integrations$Marvin$MarvinItem$toDocketClassAndEntry = F3(
 			_Utils_Tuple2(profile.taskEntries, profile.taskClasses));
 		var existingClasses = _v0.a;
 		var existingClassesWithMarvinLink = $elm$core$Dict$fromList(
-			A2(
-				$elm$core$Debug$log,
-				'class marvin links',
-				A2($elm$core$List$filterMap, pairClassWithMarvinIDMaybe, existingClasses)));
+			A2($elm$core$List$filterMap, pairClassWithMarvinIDMaybe, existingClasses));
 		var existingClassIDMaybe = A2($elm$core$Dict$get, marvinGeneratorID, existingClassesWithMarvinLink);
 		var existingClassMaybe = A2(
 			$elm$core$Maybe$andThen,
@@ -18940,6 +18969,7 @@ var $author$project$Integrations$Marvin$importItems = F2(
 		var profileFedToAll = A3($elm$core$List$foldl, updateProfileWithOutput, profile, itemList);
 		return profileFedToAll;
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $elm$core$String$toLower = _String_toLower;
 var $elm$core$String$trim = _String_trim;
 var $author$project$Integrations$Marvin$MarvinItem$labelToDocketActivity = F2(
@@ -20259,75 +20289,9 @@ var $elm$core$Task$attempt = F2(
 							$elm$core$Result$Ok),
 						task))));
 	});
-var $author$project$Integrations$Marvin$updateDoc = F3(
-	function (marvinItemIDMaybe, marvinItemRevMaybe, desiredUpdates) {
-		var request = F2(
-			function (marvinItemID, marvinItemRev) {
-				return $elm$http$Http$request(
-					{
-						body: $elm$http$Http$jsonBody(desiredUpdates),
-						expect: A2(
-							$elm$http$Http$expectJson,
-							$author$project$Integrations$Marvin$GotItems,
-							$author$project$Porting$toClassicLoose(
-								A2(
-									$zwilias$json_decode_exploration$Json$Decode$Exploration$at,
-									_List_fromArray(
-										['docs']),
-									$zwilias$json_decode_exploration$Json$Decode$Exploration$list($author$project$Integrations$Marvin$MarvinItem$decodeMarvinItem)))),
-						headers: _List_fromArray(
-							[
-								A2($elm$http$Http$header, 'Accept', 'application/json'),
-								A2($author$project$Integrations$Marvin$buildAuthorizationHeader, $author$project$Integrations$Marvin$syncUser, $author$project$Integrations$Marvin$syncPassword),
-								A2($elm$http$Http$header, 'If-Match', marvinItemRev)
-							]),
-						method: 'PUT',
-						timeout: $elm$core$Maybe$Nothing,
-						tracker: $elm$core$Maybe$Nothing,
-						url: A2(
-							$author$project$Integrations$Marvin$marvinCloudantDatabaseUrl,
-							_List_fromArray(
-								[$author$project$Integrations$Marvin$syncDatabase, marvinItemID]),
-							_List_Nil)
-					});
-			});
-		var _v0 = _Utils_Tuple2(marvinItemIDMaybe, marvinItemRevMaybe);
-		if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
-			var marvinItemID = _v0.a.a;
-			var marvinItemRev = _v0.b.a;
-			var _v1 = _Utils_Tuple2(marvinItemID, marvinItemRev);
-			if (_v1.a === '') {
-				if (_v1.b === '') {
-					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - both were empty strings', $elm$core$Platform$Cmd$none);
-				} else {
-					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - id was an empty string', $elm$core$Platform$Cmd$none);
-				}
-			} else {
-				if (_v1.b === '') {
-					return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - rev was an empty string', $elm$core$Platform$Cmd$none);
-				} else {
-					var legitID = _v1.a;
-					var legitRev = _v1.b;
-					return A2(request, legitID, legitRev);
-				}
-			}
-		} else {
-			return A2($elm$core$Debug$log, 'Can\'t update a marvin item without ID or Rev - couldn\'t find one or both', $elm$core$Platform$Cmd$none);
-		}
-	});
 var $author$project$Integrations$Marvin$completeTask = F2(
 	function (now, marvinExtraData) {
-		return A3(
-			$author$project$Integrations$Marvin$updateDoc,
-			A2($elm$core$Dict$get, 'marvinID', marvinExtraData),
-			A2($elm$core$Dict$get, 'marvinCouchdbRev', marvinExtraData),
-			$elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'note',
-						$elm$json$Json$Encode$string('hello from docket!'))
-					])));
+		return $elm$core$Platform$Cmd$none;
 	});
 var $elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var $author$project$Task$Progress$getUnits = function (_v0) {
@@ -20594,7 +20558,7 @@ var $author$project$TaskList$update = F4(
 											A2(
 											$elm$core$Platform$Cmd$map,
 											$author$project$TaskList$MarvinServerResponse,
-											A2($author$project$Integrations$Marvin$completeTask, env.time, givenTask.instance.extra))
+											A2($author$project$Integrations$Marvin$completeTask, env.time, givenTask))
 										]));
 							} else {
 								break _v4$2;

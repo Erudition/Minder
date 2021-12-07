@@ -5,7 +5,9 @@
   "main": "app/app.js",
   "scripts": {
     "build": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm",
-    "build-live": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js"
+    "build-live": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js",
+    "build-live-insecure": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js",
+    "postinstall": "elm-tooling install"
   },
   "repository": {
     "type": "git",
@@ -41,7 +43,6 @@
     "console-browserify": "^1.2.0",
     "constants-browserify": "^1.0.0",
     "crypto-browserify": "^3.12.0",
-    "elm-format": "^0.8.5",
     "events": "^3.3.0",
     "fastq": "^1.13.0",
     "https-browserify": "^1.0.0",
@@ -86,8 +87,8 @@
     "@nativescript/android": "~8.1.1",
     "@nativescript/ios": "~8.1.0",
     "@nativescript/webpack": "~5.0.0",
-    "elm": "^0.19.1-5",
-    "elm-live": "^4.0.2"
+    "elm-live": "^4.0.2",
+    "elm-tooling": "^1.7.0"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "NativeScript Application"
