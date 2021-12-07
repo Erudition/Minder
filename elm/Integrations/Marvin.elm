@@ -599,17 +599,22 @@ updateDoc newItem =
 -}
 completeTask : Moment -> Task.Instance.Instance -> Cmd Msg
 completeTask now marvinExtraData =
-    updateDoc (Dict.get "marvinID" marvinExtraData)
-        (Dict.get "marvinCouchdbRev" marvinExtraData)
-        (Encode.object
-            [ ( "note", Encode.string "hello from docket!" )
+    Cmd.none
 
-            --, ( "done", Encode.bool True )
-            --, ( "doneAt", encodeUnixTimestamp now )
-            --, ( "completedAt", encodeUnixTimestamp now )
-            --, ( "updatedAt", encodeUnixTimestamp now )
-            ]
-        )
+
+
+--TODO
+--updateDoc (Dict.get "marvinID" marvinExtraData)
+--    (Dict.get "marvinCouchdbRev" marvinExtraData)
+--    (Encode.object
+--        [ ( "note", Encode.string "hello from docket!" )
+--
+--        --, ( "done", Encode.bool True )
+--        --, ( "doneAt", encodeUnixTimestamp now )
+--        --, ( "completedAt", encodeUnixTimestamp now )
+--        --, ( "updatedAt", encodeUnixTimestamp now )
+--        ]
+--    )
 
 
 {-| Get tasks and projects that are due today
