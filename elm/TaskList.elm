@@ -798,7 +798,7 @@ update msg state app env =
 
         UpdateProgress givenTask new_completion ->
             let
-                updateTask t =
+                updateTaskInstance t =
                     { t | completion = new_completion }
 
                 oldProgress =
@@ -815,16 +815,17 @@ update msg state app env =
                                 --, Cmd.map TodoistServerResponse <|
                                 --    Integrations.Todoist.sendChanges app.todoist
                                 --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                                , Cmd.map MarvinServerResponse <| Integrations.Marvin.updateDoc givenTask
+                                , Cmd.map MarvinServerResponse <| Integrations.Marvin.updateDoc env.time [ "done", "doneAt" ] { givenTask | instance = updateTaskInstance givenTask.instance }
                                 ]
 
                         ( True, False ) ->
                             -- It was complete before, but now marked incomplete
                             Cmd.batch
                                 [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
-                                , Cmd.map TodoistServerResponse <|
-                                    Integrations.Todoist.sendChanges app.todoist
-                                        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
+
+                                -- , Cmd.map TodoistServerResponse <|
+                                --     Integrations.Todoist.sendChanges app.todoist
+                                --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
                                 ]
 
                         _ ->
@@ -833,7 +834,7 @@ update msg state app env =
             in
             ( state
             , { app
-                | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTask) app.taskInstances
+                | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) app.taskInstances
               }
             , handleCompletion
             )

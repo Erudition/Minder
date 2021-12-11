@@ -528,33 +528,34 @@ getTasks secret =
                     [ ( "selector"
                       , Encode.object
                             [ ( "db", Encode.string "Tasks" )
-                            , ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
-                            , ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
 
+                            --, ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
+                            --, ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
                             --, ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
                             , ( "labelIds", Encode.object [ ( "$not", Encode.object [ ( "$size", Encode.int 0 ) ] ) ] )
                             ]
                       )
-                    , ( "fields"
-                      , Encode.list Encode.string
-                            [ "_id"
-                            , "_rev"
-                            , "done"
-                            , "day"
-                            , "title"
-                            , "parentId"
-                            , "labelIds"
-                            , "dueDate"
-                            , "timeEstimate"
-                            , "startDate"
-                            , "endDate"
-                            , "times"
-                            , "taskTime"
-                            , "pinId"
-                            , "recurringTaskId"
-                            , "note"
-                            ]
-                      )
+
+                    -- , ( "fields"
+                    --   , Encode.list Encode.string
+                    --         [ "_id"
+                    --         , "_rev"
+                    --         , "done"
+                    --         , "day"
+                    --         , "title"
+                    --         , "parentId"
+                    --         , "labelIds"
+                    --         , "dueDate"
+                    --         , "timeEstimate"
+                    --         , "startDate"
+                    --         , "endDate"
+                    --         , "times"
+                    --         , "taskTime"
+                    --         , "pinId"
+                    --         , "recurringTaskId"
+                    --         , "note"
+                    --         ]
+                    --   )
                     ]
                 )
         , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
@@ -565,21 +566,41 @@ getTasks secret =
 
 {-| Update a marvin doc
 -}
-updateDoc : Task.Instance.Instance -> Cmd Msg
-updateDoc taskInstance =
+updateDoc : Moment -> List String -> Task.Instance.Instance -> Cmd Msg
+updateDoc timestamp updatedFields taskInstance =
     let
         asMarvinItem =
             MarvinItem.fromDocket taskInstance
     in
     case asMarvinItem of
         Just marvinItem ->
+            let
+                stampedItem =
+                    { marvinItem
+                        | updatedAt = Just timestamp
+                        , createdAt =
+                            if List.member "createdAt" updatedFields then
+                                timestamp
+
+                            else
+                                marvinItem.createdAt
+                        , doneAt =
+                            if List.member "done" updatedFields then
+                                Just timestamp
+
+                            else
+                                marvinItem.doneAt
+                        , fieldUpdates =
+                            Dict.union (Dict.fromList (List.map (\f -> ( f, timestamp )) updatedFields)) marvinItem.fieldUpdates
+                    }
+            in
             Http.request
                 { method = "PUT"
                 , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword, Http.header "If-Match" marvinItem.rev ]
                 , url = marvinCloudantDatabaseUrl [ syncDatabase, marvinItem.id ] []
                 , body =
                     Http.jsonBody
-                        (MarvinItem.encodeMarvinItem marvinItem)
+                        (MarvinItem.encodeMarvinItem stampedItem)
                 , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
                 , timeout = Nothing
                 , tracker = Nothing

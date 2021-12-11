@@ -139,51 +139,59 @@ type alias MarvinItem =
     , startDate : Maybe CalendarDate
     , endDate : Maybe CalendarDate
     , db : String
-    , type_ : ItemType
     , times : List Moment
     , taskTime : Maybe TimeOfDay
     , pinId : Maybe String
     , recurringTaskId : Maybe String
+    , masterRank : Int
+    , createdAt : Moment
+    , doneAt : Maybe Moment
+    , updatedAt : Maybe Moment
+    , fieldUpdates : Dict String Moment
     }
 
 
 encodeMarvinItem : MarvinItem -> Encode.Value
 encodeMarvinItem task =
-    Encode.object <|
-        [ ( "_id", Encode.string task.id )
-        , ( "_rev", Encode.string task.rev )
-        , ( "done", Encode.bool task.done )
-        , ( "day", Encode.maybe encodeCalendarDate task.day )
-        , ( "title", Encode.string task.title )
-        , ( "parentId", Encode.string (Maybe.withDefault "unassigned" task.parentId) )
-        , ( "labelIds", Encode.list Encode.string task.labelIds )
-        , ( "firstScheduled", Encode.maybe encodeCalendarDate task.firstScheduled )
-        , ( "rank", Encode.int task.rank )
-        , ( "dailySection", Encode.maybe Encode.string task.dailySection )
-        , ( "bonusSection", encodeEssentialOrBonus task.bonusSection )
-        , ( "customSection", Encode.maybe Encode.string task.customSection )
-        , ( "timeBlockSection", Encode.maybe Encode.string task.timeBlockSection )
-        , ( "note", Encode.maybe Encode.string task.note )
-        , ( "dueDate", Encode.maybe encodeCalendarDate task.dueDate )
-        , ( "timeEstimate", Encode.maybe encodeDuration task.timeEstimate )
-        , ( "isReward", Encode.bool task.isReward )
-        , ( "isStarred", Encode.int task.isStarred )
-        , ( "isFrogged", Encode.int task.isFrogged )
-        , ( "plannedWeek", Encode.maybe encodeCalendarDate task.plannedWeek )
-        , ( "plannedMonth", encodeMonth task.plannedMonth )
-        , ( "rewardPoints", Encode.float task.rewardPoints )
-        , ( "rewardId", Encode.maybe Encode.string task.rewardId )
-        , ( "backburner", Encode.bool task.backburner )
-        , ( "reviewDate", Encode.maybe encodeCalendarDate task.reviewDate )
-        , ( "itemSnoozeTime", Encode.maybe encodeMoment task.itemSnoozeTime )
-        , ( "permaSnoozeTime", Encode.maybe encodeTimeOfDay task.permaSnoozeTime )
-        , ( "timeZoneOffset", Encode.maybe Encode.int task.timeZoneOffset )
-        , ( "startDate", Encode.maybe encodeCalendarDate task.startDate )
-        , ( "endDate", Encode.maybe encodeCalendarDate task.endDate )
-        , ( "db", Encode.string task.db )
-        , ( "type", encodeItemType task.type_ )
-        , ( "times", Encode.list encodeMoment task.times )
-        , ( "taskTime", Encode.maybe encodeTimeOfDay task.taskTime )
+    encodeObjectWithoutNothings
+        [ normal ( "_id", Encode.string task.id )
+        , normal ( "_rev", Encode.string task.rev )
+        , omittableBool ( "done", Encode.bool, task.done )
+        , omittable ( "day", encodeCalendarDate, task.day )
+        , normal ( "title", Encode.string task.title )
+        , normal ( "parentId", Encode.string (Maybe.withDefault "unassigned" task.parentId) )
+        , omittableList ( "labelIds", Encode.string, task.labelIds )
+        , normal ( "firstScheduled", Maybe.withDefault (Encode.string "unassigned") (Maybe.map encodeCalendarDate task.firstScheduled) )
+        , normal ( "rank", Encode.int task.rank )
+        , omittable ( "dailySection", Encode.string, task.dailySection )
+        , normal ( "bonusSection", encodeEssentialOrBonus task.bonusSection )
+        , omittable ( "customSection", Encode.string, task.customSection )
+        , omittable ( "timeBlockSection", Encode.string, task.timeBlockSection )
+        , omittable ( "note", Encode.string, task.note )
+        , omittable ( "dueDate", encodeCalendarDate, task.dueDate )
+        , omittable ( "timeEstimate", encodeDuration, task.timeEstimate )
+        , omittableBool ( "isReward", Encode.bool, task.isReward )
+        , omittableNum ( "isStarred", Encode.int, task.isStarred )
+        , omittableNum ( "isFrogged", Encode.int, task.isFrogged )
+        , omittable ( "plannedWeek", encodeCalendarDate, task.plannedWeek )
+        , omittable ( "plannedMonth", encodeMonth, task.plannedMonth )
+        , omittableNum ( "rewardPoints", Encode.float, task.rewardPoints )
+        , omittable ( "rewardId", Encode.string, task.rewardId )
+        , omittableBool ( "backburner", Encode.bool, task.backburner )
+        , omittable ( "reviewDate", encodeCalendarDate, task.reviewDate )
+        , omittable ( "itemSnoozeTime", encodeMoment, task.itemSnoozeTime )
+        , omittable ( "permaSnoozeTime", encodeTimeOfDay, task.permaSnoozeTime )
+        , omittable ( "timeZoneOffset", Encode.int, task.timeZoneOffset )
+        , omittable ( "startDate", encodeCalendarDate, task.startDate )
+        , omittable ( "endDate", encodeCalendarDate, task.endDate )
+        , normal ( "db", Encode.string task.db )
+        , omittableList ( "times", encodeMoment, task.times )
+        , omittable ( "taskTime", encodeTimeOfDay, task.taskTime )
+        , omittableNum ( "masterRank", Encode.int, task.masterRank )
+        , normal ( "createdAt", encodeMoment task.createdAt )
+        , omittable ( "doneAt", encodeMoment, task.doneAt )
+        , omittable ( "updatedAt", encodeMoment, task.updatedAt )
+        , normal ( "fieldUpdates", Encode.dict identity encodeMoment task.fieldUpdates )
         ]
 
 
@@ -197,7 +205,7 @@ decodeMarvinItem =
         |> required "title" string
         |> optional "parentId" (oneOf [ check string "unassigned" <| succeed Nothing, nullable string ]) Nothing
         |> optional "labelIds" (list string) []
-        |> optional "firstScheduled" (nullable calendarDateDecoder) Nothing
+        |> optional "firstScheduled" (oneOf [ check string "unassigned" <| succeed Nothing, nullable calendarDateDecoder ]) Nothing
         |> optional "rank" int 0
         |> optional "dailySection" (nullable string) Nothing
         |> optional "bonusSection" essentialOrBonusDecoder Essential
@@ -221,27 +229,27 @@ decodeMarvinItem =
         |> optional "startDate" (nullable calendarDateDecoder) Nothing
         |> optional "endDate" (nullable calendarDateDecoder) Nothing
         |> optional "db" string ""
-        |> optional "type" decodeItemType Task
         |> optional "times" (list decodeUnixTimestamp) []
         |> optional "taskTime" (nullable timeOfDayDecoder) Nothing
         |> optional "pinID" (nullable string) Nothing
         |> optional "recurringTaskId" (nullable string) Nothing
+        |> optional "masterRank" int 0
+        |> required "createdAt" decodeUnixTimestamp
+        |> optional "doneAt" (nullable decodeUnixTimestamp) Nothing
+        |> optional "updatedAt" (nullable decodeUnixTimestamp) Nothing
+        |> optional "fieldUpdates" (Decode.dict decodeUnixTimestamp) Dict.empty
         |> optionalIgnored "subtasks"
         |> optionalIgnored "reminderTime"
         |> optionalIgnored "autoSnooze"
         |> optionalIgnored "snooze"
         |> optionalIgnored "reminderOffset"
-        |> optionalIgnored "masterRank"
         |> optionalIgnored "fixParentId"
         --undocumented^
         |> optionalIgnored "rank_fbfe2f43-3ed1-472a-bea7-d1bc2185ccf6"
         --undocumented^
         |> optionalIgnored "echoedAt"
-        |> optionalIgnored "fieldUpdates"
         --undocumented^
-        |> optionalIgnored "updatedAt"
         |> optionalIgnored "duration"
-        |> optionalIgnored "doneAt"
         --undocumented^
         |> optionalIgnored "completedAt"
         |> optionalIgnored "remind"
@@ -307,14 +315,9 @@ essentialOrBonusDecoder =
     string |> andThen get
 
 
-encodeMonth : Maybe ( Year, Month ) -> Encode.Value
-encodeMonth maybeMonth =
-    case maybeMonth of
-        Just ( year, month ) ->
-            Encode.string (SmartTime.Human.Calendar.Year.toString year ++ (String.fromInt <| SmartTime.Human.Calendar.Month.toInt month))
-
-        Nothing ->
-            Encode.null
+encodeMonth : ( Year, Month ) -> Encode.Value
+encodeMonth ( year, month ) =
+    Encode.string (SmartTime.Human.Calendar.Year.toString year ++ (String.fromInt <| SmartTime.Human.Calendar.Month.toInt month))
 
 
 monthDecoder : Decoder ( Year, Month )
@@ -344,14 +347,11 @@ timeOfDayDecoder =
 
 toDocketItem : MarvinItem -> Profile -> OutputType
 toDocketItem marvinItem profile =
-    case marvinItem.type_ of
-        Task ->
+    case marvinItem.db of
+        "Tasks" ->
             ConvertedToTaskTriplet <| toDocketTask profile marvinItem
 
-        Project ->
-            ConvertedToTaskTriplet <| toDocketTask profile marvinItem
-
-        Category ->
+        _ ->
             ConvertedToActivity <| projectToDocketActivity profile.activities marvinItem
 
 
@@ -563,10 +563,13 @@ toDocketInstance classCounter class profile marvinItem =
                     , Maybe.map (\d -> ( "marvinStartDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.startDate
                     , Maybe.map (\d -> ( "marvinEndDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.endDate
                     , Just ( "marvinDb", marvinItem.db )
-                    , Just ( "marvinType", Encode.encode 0 (encodeItemType marvinItem.type_) )
                     , Maybe.map (\d -> ( "marvinTaskTime", SmartTime.Human.Clock.toStandardString d )) marvinItem.taskTime
                     , Maybe.map (\p -> ( "marvinPinID", p )) marvinItem.pinId
                     , Maybe.map (\p -> ( "marvinRecurringTaskID", p )) marvinItem.recurringTaskId
+                    , Just ( "marvinMasterRank", String.fromInt marvinItem.masterRank )
+                    , Just ( "marvinCreatedAt", SmartTime.Human.Moment.toStandardString marvinItem.createdAt )
+                    , Maybe.map (\d -> ( "marvinDoneAt", SmartTime.Human.Moment.toStandardString d )) marvinItem.doneAt
+                    , Just ( "marvinFieldUpdates", Encode.encode 0 (Encode.dict identity encodeUnixTimestamp marvinItem.fieldUpdates) )
                     ]
 
         finalInstance =
@@ -625,7 +628,7 @@ fromDocket instance =
             Just
                 { id = id
                 , rev = rev
-                , done = Task.Instance.completed instance
+                , done = Debug.log "checking completion" Task.Instance.completed instance
                 , day = toDate <| Dict.get "marvinDay" instance.instance.extra
                 , title = instance.class.title
                 , parentId = Dict.get "marvinParentID" instance.instance.extra
@@ -654,11 +657,15 @@ fromDocket instance =
                 , startDate = toDate <| Dict.get "marvinStartDate" instance.instance.extra
                 , endDate = toDate <| Dict.get "marvinEndDate" instance.instance.extra
                 , db = Maybe.withDefault "tasks" <| Dict.get "marvinDb" instance.instance.extra
-                , type_ = Maybe.withDefault Task <| Maybe.andThen (useDecoder decodeItemType) <| Dict.get "marvinType" instance.instance.extra
                 , times = [] -- TODO List Moment
                 , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Dict.get "marvinTaskTime" instance.instance.extra
                 , pinId = Dict.get "marvinPinID" instance.instance.extra
                 , recurringTaskId = Dict.get "recurringTaskID" instance.instance.extra
+                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Dict.get "marvinMasterRank" instance.instance.extra
+                , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinCreatedAt" instance.instance.extra
+                , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinDoneAt" instance.instance.extra
+                , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinUpdatedAt" instance.instance.extra
+                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeMoment)) <| Dict.get "marvinFieldUpdates" instance.instance.extra
                 }
 
         _ ->

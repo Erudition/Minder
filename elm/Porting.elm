@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableList, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -260,6 +260,28 @@ omittableList ( name, encoder, fieldToCheck ) =
             Maybe.filter (not << List.isEmpty) (Just fieldToCheck)
     in
     Maybe.map (\field -> ( name, Encode.list encoder field )) listToCheck
+
+
+{-| Encode a Bool only if it is true.
+-}
+omittableBool : ( String, Bool -> Encode.Value, Bool ) -> Maybe EncodeField
+omittableBool ( name, encoder, fieldToCheck ) =
+    if fieldToCheck then
+        Just ( name, encoder fieldToCheck )
+
+    else
+        Nothing
+
+
+{-| Encode an Int only if it is not zero.
+-}
+omittableNum : ( String, number -> Encode.Value, number ) -> Maybe EncodeField
+omittableNum ( name, encoder, fieldToCheck ) =
+    if fieldToCheck /= 0 then
+        Just ( name, encoder fieldToCheck )
+
+    else
+        Nothing
 
 
 {-| Stick this in front of normal field encoder tuples, when they're in an `encodeObjectWithoutNothings` list with some `omittable` encoder tuples.
