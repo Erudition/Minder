@@ -28,6 +28,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Porting exposing (..)
 import Profile exposing (..)
+import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
@@ -40,6 +41,7 @@ import Task.Class as Task exposing (ClassID)
 import Task.Entry as Task
 import Task.Instance as Task exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress, isRelevantNow)
 import Task.Progress exposing (..)
+import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 import ZoneHistory
@@ -231,37 +233,19 @@ viewTask env task =
     li
         [ class "task-entry"
         , classList [ ( "completed", completed task ), ( "editing", False ) ]
-        , title <|
-            -- hover tooltip
-            String.concat
-            <|
-                List.intersperse "\n" <|
-                    List.filterMap identity
-                        ([ Just ("Class ID: " ++ String.fromInt task.class.id)
-                         , Just ("Instance ID: " ++ String.fromInt task.instance.id)
-                         , Maybe.map (ID.read >> String.fromInt >> String.append "activity ID: ") task.class.activity
-                         , Just ("importance: " ++ String.fromFloat task.class.importance)
-                         , Just ("progress: " ++ Task.Progress.toString ( task.instance.completion, task.class.completionUnits ))
-                         , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") task.instance.relevanceStarts
-                         , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") task.instance.relevanceEnds
-                         ]
-                            ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (Dict.toList task.instance.extra)
-                        )
+        , title (taskTooltip env task)
         ]
-        [ progressSlider task
-        , div
-            [ class "view", class "slider-overlay" ]
-            [ input
-                [ class "toggle"
-                , type_ "checkbox"
-                , Attr.checked (completed task)
-                , onClick
-                    (if not (completed task) then
-                        UpdateProgress task (unitMax task.class.completionUnits)
-
-                     else
-                        NoOp
-                    )
+        [ div
+            [ class "view" ]
+            [ div
+                [ css
+                    [ Css.height (Css.em 1)
+                    , Css.width (Css.em 1)
+                    , backgroundColor (activityColor task)
+                    , display inlineBlock
+                    , borderRadius (pct 100)
+                    , margin (Css.em 0.5)
+                    ]
                 ]
                 []
             , div [ class "title-and-details" ]
@@ -271,19 +255,20 @@ viewTask env task =
                     , css [ fontWeight (Css.int <| Basics.round (task.class.importance * 200 + 200)), pointerEvents none ]
                     , class "task-title"
                     ]
-                    [ text task.class.title
-                    , span [ css [ opacity (num 0.5) ] ] [ text <| "#" ++ String.fromInt task.index ]
+                    [ span [ class "task-title-text" ] [ text task.class.title ]
+                    , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
                     ]
                 , timingInfo env task
                 ]
-            , div [ class "sessions" ]
-                [ text <| describeTaskPlan env task ]
+            , div [ class "sessions", css [ fontSize (Css.em 0.5) ] ]
+                (plannedSessions env task)
             , button
                 [ class "destroy"
                 , onClick (Delete task.instance.id)
                 ]
                 [ text "×" ]
             ]
+        , progressSlider task
         , input
             [ class "edit"
             , value task.class.title
@@ -308,6 +293,60 @@ viewTask env task =
         --    , input [ type_ "date", name "expiresDate", onInput (extractDate task.instance.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
         --    ]
         ]
+
+
+plannedSessions env task =
+    let
+        durationToWidgetWidthPct duration =
+            (clamp 20 120 (SmartTime.Duration.inMinutes duration) / 120) * 100
+
+        sessionWidget fullSession =
+            div
+                [ css
+                    [ borderStyle solid
+                    , borderWidth (px 1)
+                    , borderColor (Css.hsl 0 1 0)
+                    , borderRadius (Css.em 0.5)
+                    , padding (Css.em 0.2)
+                    , backgroundColor (Css.hsl 202 0.83 0.86)
+                    , Css.width (pct (durationToWidgetWidthPct (Task.Session.duration fullSession)))
+                    , overflow Css.hidden
+                    , Css.height (Css.em 2)
+                    ]
+                ]
+                [ text <| describeTaskPlan env fullSession ]
+    in
+    List.map sessionWidget (Task.Session.getFullSessions task)
+
+
+activityColor task =
+    let
+        activityDerivation n =
+            modBy ((n + 1) * 100) 360
+    in
+    case Maybe.map ID.read task.class.activity of
+        Just activityNumber ->
+            Css.hsl (toFloat (activityDerivation activityNumber)) 0.5 0.5
+
+        Nothing ->
+            Css.hsl 0 0 0.8
+
+
+taskTooltip env task =
+    -- hover tooltip
+    String.concat <|
+        List.intersperse "\n" <|
+            List.filterMap identity
+                ([ Just ("Class ID: " ++ String.fromInt task.class.id)
+                 , Just ("Instance ID: " ++ String.fromInt task.instance.id)
+                 , Maybe.map (ID.read >> String.fromInt >> String.append "activity ID: ") task.class.activity
+                 , Just ("importance: " ++ String.fromFloat task.class.importance)
+                 , Just ("progress: " ++ Task.Progress.toString ( task.instance.completion, task.class.completionUnits ))
+                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") task.instance.relevanceStarts
+                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") task.instance.relevanceEnds
+                 ]
+                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (Dict.toList task.instance.extra)
+                )
 
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
@@ -352,8 +391,17 @@ dynamicSliderThumbCss portion =
     let
         ( angle, offset ) =
             ( portion * -90, abs ((portion - 0.5) * 5) )
+
+        thumbAttributes =
+            [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ]
     in
-    css [ focus [ pseudoElement "-moz-range-thumb" [ transforms [ translateY (px (-50 + offset)), rotate (deg angle) ] ] ] ]
+    css
+        [ focus
+            [ pseudoElement "-moz-range-thumb" thumbAttributes
+            , pseudoElement "-webkit-slider-thumb" thumbAttributes
+            , pseudoElement "-ms-thumb" thumbAttributes
+            ]
+        ]
 
 
 extractSliderInput : Instance -> String -> Msg
@@ -506,17 +554,9 @@ describeTaskMoment now zone dueMoment =
     HumanMoment.fuzzyDescription now zone dueMoment
 
 
-describeTaskPlan : Environment -> Instance -> String
-describeTaskPlan env instance =
-    case instance.instance.plannedSessions of
-        [] ->
-            "No plan"
-
-        [ ( planStart, planDuration ) ] ->
-            HumanMoment.fuzzyDescription env.time env.timeZone planStart
-
-        _ ->
-            "Multiple plans"
+describeTaskPlan : Environment -> Task.Session.FullSession -> String
+describeTaskPlan env fullSession =
+    HumanMoment.fuzzyDescription env.time env.timeZone (Task.Session.start fullSession)
 
 
 {-| Get the date out of a date input.

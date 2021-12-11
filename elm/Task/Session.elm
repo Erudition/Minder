@@ -69,3 +69,12 @@ getFullSessions fullInstance =
     in
     List.map attachSession providedSessions
         ++ List.map attachSession generatedSessions
+
+
+duration : FullSession -> Duration
+duration fullSession =
+    Tuple.second fullSession.session
+
+
+start fullSession =
+    Tuple.first fullSession.session

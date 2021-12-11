@@ -14,7 +14,7 @@ progress::progress-bar {
 /*Chrome*/
 @media screen and (-webkit-min-device-pixel-ratio:0) {
     input[type='range'] {
-      overflow: hidden;
+      /* overflow: hidden; */
       width: 80px;
       -webkit-appearance: none;
       background-color: #9a905d;
@@ -33,7 +33,7 @@ progress::progress-bar {
       height: 10px;
       cursor: ew-resize;
       background: #434343;
-      box-shadow: -80px 0 0 80px #43e5f7;
+      /* box-shadow: -80px 0 0 80px #43e5f7; */
     }
 
 }
@@ -66,20 +66,21 @@ input[type="range"]::-ms-fill-upper {
   margin: 0;
   padding: 0;
   width:100%;
-  position: absolute;
+  /* position: absolute; */
   top: 0;
   display: block;
-    height: 100%;
+    height: 0.5em;
+    background-color: grey;
 }
 
-.slider-overlay {
+/* .slider-overlay {
     pointer-events: none;
 }
 
 .slider-overlay * {
     pointer-events: auto;
     z-index: 3;
-}
+} */
 
 
 
@@ -146,7 +147,6 @@ input[type=range]:focus::-moz-range-thumb {
   height: 30px;
   border-radius: 50% 50% 50% 0;
   background: #89849b;
-  transform: translateY(-50px) rotate(-45deg);
   position: absolute;
   top: -3em;
   animation-name: bounce;
@@ -171,13 +171,21 @@ input[type=range]::-webkit-slider-runnable-track {
   height: 100%;
   cursor: pointer;
   /* box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; */
-  background: #3071a9;
+  background-color: transparent;
+  background: repeating-linear-gradient(
+    45deg,
+    #808ddc30,
+    #808ddc30 10px,
+    transparent 10px,
+    transparent 20px
+  );
   border-radius: 1.3px;
   /* border: 0.2px solid #010101; */
 }
 
 input[type=range]:focus::-webkit-slider-runnable-track {
-  background: #367ebd;
+  /* background: #367ebd; */
+  border: 1px solid blue;
 }
 
 input[type=range]::-moz-range-track {
