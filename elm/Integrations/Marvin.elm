@@ -565,41 +565,28 @@ getTasks secret =
 
 {-| Update a marvin doc
 -}
-updateDoc : MarvinItem -> Cmd Msg
-updateDoc newItem =
+updateDoc : Task.Instance.Instance -> Cmd Msg
+updateDoc taskInstance =
     let
-        request marvinItemID marvinItemRev =
+        asMarvinItem =
+            MarvinItem.fromDocket taskInstance
+    in
+    case asMarvinItem of
+        Just marvinItem ->
             Http.request
                 { method = "PUT"
-                , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword, Http.header "If-Match" marvinItemRev ]
-                , url = marvinCloudantDatabaseUrl [ syncDatabase, marvinItemID ] []
+                , headers = [ Http.header "Accept" "application/json", buildAuthorizationHeader syncUser syncPassword, Http.header "If-Match" marvinItem.rev ]
+                , url = marvinCloudantDatabaseUrl [ syncDatabase, marvinItem.id ] []
                 , body =
                     Http.jsonBody
-                        (MarvinItem.encodeMarvinItem newItem)
+                        (MarvinItem.encodeMarvinItem marvinItem)
                 , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
                 , timeout = Nothing
                 , tracker = Nothing
                 }
-    in
-    case ( newItem.id, newItem.rev ) of
-        ( "", "" ) ->
-            Debug.log "Can't update a marvin item without ID or Rev - both were empty strings" Cmd.none
 
-        ( _, "" ) ->
-            Debug.log "Can't update a marvin item without ID or Rev - rev was an empty string" Cmd.none
-
-        ( "", _ ) ->
-            Debug.log "Can't update a marvin item without ID or Rev - id was an empty string" Cmd.none
-
-        ( legitID, legitRev ) ->
-            request legitID legitRev
-
-
-{-| Complete a task
--}
-completeTask : Moment -> Task.Instance.Instance -> Cmd Msg
-completeTask now marvinExtraData =
-    Cmd.none
+        Nothing ->
+            Cmd.none
 
 
 

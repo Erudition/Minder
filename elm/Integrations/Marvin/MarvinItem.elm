@@ -529,12 +529,44 @@ toDocketInstance classCounter class profile marvinItem =
                 _ ->
                     []
 
+        boolAsString bool =
+            if bool then
+                "True"
+
+            else
+                "False"
+
         addExtras =
             Dict.fromList <|
                 List.filterMap identity
                     [ Just ( "marvinCouchdbRev", marvinItem.rev )
                     , Just ( "marvinID", marvinItem.id )
                     , Maybe.map (\n -> ( "marvinNote", n )) marvinItem.note
+                    , Maybe.map (\d -> ( "marvinDay", SmartTime.Human.Calendar.toStandardString d )) marvinItem.day
+                    , Maybe.map (\p -> ( "marvinParentID", p )) marvinItem.parentId
+                    , Maybe.map (\d -> ( "marvinFirstScheduled", SmartTime.Human.Calendar.toStandardString d )) marvinItem.firstScheduled
+                    , Just ( "marvinRank", String.fromInt marvinItem.rank )
+                    , Just ( "marvinLabels", String.join " " marvinItem.labelIds )
+                    , Just ( "marvinEssentialOrBonus", Encode.encode 0 (encodeEssentialOrBonus marvinItem.bonusSection) )
+                    , Maybe.map (\d -> ( "marvinCustomSection", d )) marvinItem.customSection
+                    , Maybe.map (\d -> ( "marvinTimeBlockSection", d )) marvinItem.timeBlockSection
+                    , Maybe.map (\d -> ( "marvinDueDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.dueDate
+                    , Just ( "marvinIsReward", boolAsString marvinItem.isReward )
+                    , Just ( "marvinIsStarred", String.fromInt marvinItem.isStarred )
+                    , Just ( "marvinIsFrogged", String.fromInt marvinItem.isFrogged )
+                    , Maybe.map (\d -> ( "marvinRewardID", d )) marvinItem.rewardId
+                    , Just ( "marvinBackburner", boolAsString marvinItem.backburner )
+                    , Maybe.map (\d -> ( "marvinReviewDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.reviewDate
+                    , Maybe.map (\d -> ( "marvinItemSnoozeTime", SmartTime.Human.Moment.toStandardString d )) marvinItem.itemSnoozeTime
+                    , Maybe.map (\d -> ( "marvinPermaSnoozeTime", SmartTime.Human.Clock.toStandardString d )) marvinItem.permaSnoozeTime
+                    , Maybe.map (\d -> ( "marvinTimeZoneOffset", String.fromInt d )) marvinItem.timeZoneOffset
+                    , Maybe.map (\d -> ( "marvinStartDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.startDate
+                    , Maybe.map (\d -> ( "marvinEndDate", SmartTime.Human.Calendar.toStandardString d )) marvinItem.endDate
+                    , Just ( "marvinDb", marvinItem.db )
+                    , Just ( "marvinType", Encode.encode 0 (encodeItemType marvinItem.type_) )
+                    , Maybe.map (\d -> ( "marvinTaskTime", SmartTime.Human.Clock.toStandardString d )) marvinItem.taskTime
+                    , Maybe.map (\p -> ( "marvinPinID", p )) marvinItem.pinId
+                    , Maybe.map (\p -> ( "marvinRecurringTaskID", p )) marvinItem.recurringTaskId
                     ]
 
         finalInstance =
@@ -570,9 +602,67 @@ toDocketInstance classCounter class profile marvinItem =
     finalInstance
 
 
-fromDocket : Task.Instance.Instance -> MarvinItem
+fromDocket : Task.Instance.Instance -> Maybe MarvinItem
 fromDocket instance =
-    Debug.todo "from instance"
+    let
+        idMaybe =
+            Dict.get "marvinID" instance.instance.extra
+
+        revMaybe =
+            Dict.get "marvinCouchdbRev" instance.instance.extra
+
+        toDate =
+            Maybe.andThen (SmartTime.Human.Calendar.fromNumberString >> Result.toMaybe)
+
+        toBool boolString =
+            boolString == "True"
+
+        useDecoder decoder string =
+            Result.toMaybe (strict (Decode.decodeString decoder string))
+    in
+    case ( idMaybe, revMaybe ) of
+        ( Just id, Just rev ) ->
+            Just
+                { id = id
+                , rev = rev
+                , done = Task.Instance.completed instance
+                , day = toDate <| Dict.get "marvinDay" instance.instance.extra
+                , title = instance.class.title
+                , parentId = Dict.get "marvinParentID" instance.instance.extra
+                , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Dict.get "marvinLabels" instance.instance.extra
+                , firstScheduled = toDate <| Dict.get "marvinFirstScheduled" instance.instance.extra
+                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Dict.get "marvinRank" instance.instance.extra
+                , dailySection = Dict.get "marvinDailySection" instance.instance.extra
+                , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (Dict.get "marvinEssentialOrBonus" instance.instance.extra)
+                , customSection = Dict.get "marvinCustomSection" instance.instance.extra
+                , timeBlockSection = Dict.get "marvinTimeBlockSection" instance.instance.extra
+                , note = Dict.get "marvinNote" instance.instance.extra
+                , dueDate = toDate <| Dict.get "marvinDueDate" instance.instance.extra
+                , timeEstimate = Just instance.class.predictedEffort
+                , isReward = Maybe.withDefault False <| Maybe.map toBool <| Dict.get "marvinIsReward" instance.instance.extra
+                , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Dict.get "marvinIsStarred" instance.instance.extra
+                , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Dict.get "marvinIsFrogged" instance.instance.extra
+                , plannedWeek = toDate <| Dict.get "marvinPlannedWeek" instance.instance.extra
+                , plannedMonth = Nothing -- TODO Maybe (Year, Month)
+                , rewardPoints = 0 -- TODO Float
+                , rewardId = Dict.get "marvinRewardID" instance.instance.extra
+                , backburner = Maybe.withDefault False <| Maybe.map toBool <| Dict.get "marvinBackburner" instance.instance.extra
+                , reviewDate = toDate <| Dict.get "marvinReviewDate" instance.instance.extra
+                , itemSnoozeTime = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinItemSnoozeTime" instance.instance.extra
+                , permaSnoozeTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Dict.get "marvinPermaSnoozeTime" instance.instance.extra
+                , timeZoneOffset = Maybe.andThen String.toInt <| Dict.get "marvinTimeZoneOffset" instance.instance.extra
+                , startDate = toDate <| Dict.get "marvinStartDate" instance.instance.extra
+                , endDate = toDate <| Dict.get "marvinEndDate" instance.instance.extra
+                , db = Maybe.withDefault "tasks" <| Dict.get "marvinDb" instance.instance.extra
+                , type_ = Maybe.withDefault Task <| Maybe.andThen (useDecoder decodeItemType) <| Dict.get "marvinType" instance.instance.extra
+                , times = [] -- TODO List Moment
+                , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Dict.get "marvinTaskTime" instance.instance.extra
+                , pinId = Dict.get "marvinPinID" instance.instance.extra
+                , recurringTaskId = Dict.get "recurringTaskID" instance.instance.extra
+                }
+
+        _ ->
+            Nothing
 
 
 {-| Determine which activity to assign to a newly imported class
@@ -718,7 +808,20 @@ decodeMarvinTimeBlock =
 
 decodeCancelDates : Decoder (List CalendarDate)
 decodeCancelDates =
-    Decode.list calendarDateDecoder
+    let
+        convertDictionary dict =
+            List.filterMap kvPairToDate (Dict.toList dict)
+
+        kvPairToDate ( datestring, canceled ) =
+            -- always true, right?
+            case ( SmartTime.Human.Calendar.fromNumberString datestring, canceled ) of
+                ( Ok date, True ) ->
+                    Just date
+
+                _ ->
+                    Nothing
+    in
+    Decode.map convertDictionary (Decode.dict Decode.bool)
 
 
 type RecurrencePattern
