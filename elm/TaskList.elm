@@ -238,16 +238,72 @@ viewTask env task =
         [ div
             [ class "view" ]
             [ div
-                [ css
-                    [ Css.height (Css.em 1)
-                    , Css.width (Css.em 1)
-                    , backgroundColor (activityColor task)
-                    , display inlineBlock
-                    , borderRadius (pct 100)
-                    , margin (Css.em 0.5)
+                [ class "task-times"
+                , css
+                    [ Css.width (rem 3)
+                    , displayFlex
+                    , flex3 (num 0) (num 0) (rem 3)
+                    , flexDirection column
+                    , fontSize (rem 0.7)
+                    , justifyContent center
+                    , alignItems center
+                    , textAlign center
+                    , letterSpacing (rem -0.1)
                     ]
                 ]
-                []
+                [ div
+                    [ class "minimum-duration"
+                    , css
+                        [ justifyContent Css.end
+                        ]
+                    ]
+                    [ if SmartTime.Duration.isZero task.class.minEffort then
+                        text ""
+
+                      else
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                    ]
+                , div
+                    [ class "task-bubble"
+                    , css
+                        [ Css.height (rem 2)
+                        , Css.width (rem 2)
+                        , backgroundColor (activityColor task).lighter
+                        , Css.color (activityColor task).medium
+                        , border3 (px 2) solid (activityColor task).darker
+                        , displayFlex
+                        , borderRadius (pct 100)
+
+                        -- , margin (rem 0.5)
+                        , fontSize (rem 1)
+                        , alignItems center
+                        , justifyContent center
+
+                        -- , padding (rem 0.2)
+                        , fontFamily monospace
+                        , fontWeight Css.normal
+                        , textAlign center
+                        ]
+                    ]
+                    [ if SmartTime.Duration.isZero task.class.predictedEffort then
+                        text ""
+
+                      else
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                    ]
+                , div
+                    [ class "maximum-duration"
+                    , css
+                        [ justifyContent Css.end
+                        ]
+                    ]
+                    [ if SmartTime.Duration.isZero task.class.maxEffort then
+                        text ""
+
+                      else
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                    ]
+                ]
             , div [ class "title-and-details" ]
                 [ label
                     [ onDoubleClick (EditingTitle task.instance.id True)
@@ -260,7 +316,17 @@ viewTask env task =
                     ]
                 , timingInfo env task
                 ]
-            , div [ class "sessions", css [ fontSize (Css.em 0.5) ] ]
+            , div
+                [ class "sessions"
+                , css
+                    [ fontSize (Css.em 0.5)
+                    , Css.width (pct 50)
+                    , displayFlex
+                    , flexDirection column
+                    , alignItems end
+                    , textAlign center
+                    ]
+                ]
                 (plannedSessions env task)
             , button
                 [ class "destroy"
@@ -306,7 +372,7 @@ plannedSessions env task =
                     [ borderStyle solid
                     , borderWidth (px 1)
                     , borderColor (Css.hsl 0 1 0)
-                    , borderRadius (Css.em 0.5)
+                    , borderRadius (Css.em 1)
                     , padding (Css.em 0.2)
                     , backgroundColor (Css.hsl 202 0.83 0.86)
                     , Css.width (pct (durationToWidgetWidthPct (Task.Session.duration fullSession)))
@@ -326,10 +392,20 @@ activityColor task =
     in
     case Maybe.map ID.read task.class.activity of
         Just activityNumber ->
-            Css.hsl (toFloat (activityDerivation activityNumber)) 0.5 0.5
+            let
+                hue =
+                    toFloat (activityDerivation activityNumber)
+            in
+            { lighter = Css.hsl hue 0.5 0.8
+            , medium = Css.hsl hue 0.5 0.5
+            , darker = Css.hsl hue 0.5 0.3
+            }
 
         Nothing ->
-            Css.hsl 0 0 0.8
+            { lighter = Css.hsl 0 0 0.8
+            , medium = Css.hsl 0 0 0.5
+            , darker = Css.hsl 0 0 0.3
+            }
 
 
 taskTooltip env task =

@@ -210,7 +210,6 @@ label[for='toggle-all'] {
 
 .task-list li .view {
     white-space: pre-line;
-    word-break: break-all;
     padding: 15px 0 15px 0;
     /* margin-left: 45px; */
     display: flex;
@@ -270,7 +269,7 @@ label[for='toggle-all'] {
 
 .footer {
     color: #777;
-    padding: 10px 15px;
+    padding: 10px 15px 30px 15px;
     height: 20px;
     text-align: center;
     border-top: 1px solid #e6e6e6;
