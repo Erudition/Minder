@@ -1,14 +1,22 @@
 port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, buildModel, defaultView, emptyViewState, infoFooter, init, main, profileFromJson, profileToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
+import Activity.Activity as Activity
+import Activity.Switch as Switch exposing (Switch(..))
+import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Dict
+import Element exposing (..)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Input as Input
 import Environment exposing (..)
 import External.Commands exposing (..)
-import Html.Styled as H exposing (..)
-import Html.Styled.Attributes exposing (..)
-import Html.Styled.Events exposing (..)
+import Html as PlainHtml
+import Html.Styled as H exposing (Html, a, div, li, ol, p, toUnstyled)
+import Html.Styled.Attributes as Attr exposing (class, href)
+import Html.Styled.Events as HtmlEvents
 import Incubator.Todoist as Todoist
 import IntDict
 import Integrations.Marvin as Marvin
@@ -24,6 +32,7 @@ import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
+import Task.Instance as Instance
 import TaskList
 import TimeTracker exposing (..)
 import Timeline
@@ -262,47 +271,159 @@ defaultView =
 
 view : Model -> Browser.Document Msg
 view { viewState, profile, environment } =
-    if environment.time == Moment.zero then
-        { title = "Loading..."
-        , body = [ toUnstyled (H.map (\_ -> NoOp) (text "Loading")) ]
+    let
+        activePage =
+            case viewState.primaryView of
+                TaskList subState ->
+                    { title = "Docket - Task List"
+                    , body = H.map TaskListMsg (TaskList.view subState profile environment)
+                    }
+
+                Timeline subState ->
+                    { title = "Docket - Timeline"
+                    , body =
+                        H.map TimelineMsg (Timeline.view subState profile environment)
+                    }
+
+                TimeTracker subState ->
+                    { title = "Docket Time Tracker"
+                    , body =
+                        H.map TimeTrackerMsg (TimeTracker.view subState profile environment)
+                    }
+
+                _ ->
+                    { title = "TODO Some other page"
+                    , body = infoFooter
+                    }
+
+        withinPage =
+            toUnstyled <|
+                H.node "page"
+                    []
+                    [ activePage.body
+                    , errorList profile.errors
+                    ]
+    in
+    { title = activePage.title
+    , body =
+        [ globalLayout profile environment withinPage ]
+    }
+
+
+globalLayout : Profile -> Environment -> PlainHtml.Html Msg -> PlainHtml.Html Msg
+globalLayout profile env innerStuff =
+    let
+        elmUIOptions =
+            { options = [] }
+    in
+    layoutWith elmUIOptions [ width fill, height fill ] <|
+        column [ width fill, height fill ]
+            [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
+                [ el [ centerX ] <| text "Minder - pre-alpha prototype"
+                , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
+                ]
+            , row [ width fill, height (fillPortion 20), scrollbarY ]
+                [ html innerStuff ]
+            , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
+                [ link [ centerX ] { url = "timetracker", label = text "Timetracker" }
+                , link [ centerX ] { url = "#", label = text "Classes" }
+                , link [ centerX ] { url = "tasks", label = text "Instances" }
+                , link [ centerX ] { url = "timeline", label = text "Timeline" }
+                ]
+            , trackingDisplay profile env
+            ]
+
+
+trackingDisplay profile env =
+    let
+        currentActivity =
+            Timeline.currentActivity profile.activities profile.timeline
+
+        latestSwitch =
+            Debug.log "latest switch" (Timeline.latestSwitch profile.timeline)
+
+        currentInstanceIDMaybe =
+            Switch.getInstanceID latestSwitch
+
+        allInstances =
+            Profile.instanceListNow profile env
+
+        currentInstanceMaybe currentInstanceID =
+            List.head (List.filter (\t -> Instance.getID t == currentInstanceID) allInstances)
+
+        timeSinceSwitch =
+            Moment.difference (Switch.getMoment latestSwitch) env.time
+
+        tracking_for_string thing time =
+            "Tracking "
+                ++ thing
+                ++ " for "
+                ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits time ]
+    in
+    case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
+        Nothing ->
+            row [ width fill, height (fillPortion 1), Background.color (rgb 1 1 1) ]
+                [ el [] <| text "O"
+                , el [ centerX ] <|
+                    text
+                        (tracking_for_string (Activity.getName currentActivity) timeSinceSwitch)
+                ]
+
+        Just currentInstance ->
+            row
+                [ width fill
+                , height (fillPortion 1)
+                , Background.color (rgb 1 1 1)
+                , behindContent
+                    (row [ width fill, height fill ]
+                        [ el [] <| text "O"
+                        , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSwitch))
+                        ]
+                    )
+                ]
+                [ trackingTaskCompletionSlider currentInstance ]
+
+
+trackingTaskCompletionSlider instance =
+    let
+        blue =
+            Element.rgb255 238 238 238
+    in
+    Input.slider
+        [ Element.height (Element.px 30)
+
+        -- Here is where we're creating/styling the "track"
+        , Element.behindContent
+            (row [ width fill, height fill ]
+                [ Element.el
+                    [ Element.width (fillPortion (Instance.getCompletionInt instance))
+                    , Element.height fill
+                    , Element.centerY
+                    , Background.color (Element.rgba 0 1 0 0.5)
+                    , Border.rounded 2
+                    ]
+                    Element.none
+                , Element.el
+                    [ Element.width (fillPortion (Instance.getProgressMaxInt instance - Instance.getCompletionInt instance))
+                    , Element.height fill
+                    , Element.centerY
+                    , Background.color (Element.rgba 0 0 0 0)
+                    , Border.rounded 2
+                    ]
+                    Element.none
+                ]
+            )
+        ]
+        { onChange = \input -> TaskListMsg <| TaskList.UpdateProgress instance (round input)
+        , label =
+            Input.labelHidden "Task Progress"
+        , min = 0
+        , max = toFloat <| Instance.getProgressMaxInt instance
+        , step = Just 1
+        , value = toFloat (Instance.getCompletionInt instance)
+        , thumb =
+            Input.thumb []
         }
-
-    else
-        case viewState.primaryView of
-            TaskList subState ->
-                { title = "Docket - Task List"
-                , body =
-                    List.map toUnstyled
-                        [ H.map TaskListMsg (TaskList.view subState profile environment)
-                        , infoFooter
-                        , errorList profile.errors
-                        ]
-                }
-
-            Timeline subState ->
-                { title = "Docket - Timeline"
-                , body =
-                    List.map toUnstyled
-                        [ H.map TimelineMsg (Timeline.view subState profile environment)
-                        , infoFooter
-                        , errorList profile.errors
-                        ]
-                }
-
-            TimeTracker subState ->
-                { title = "Docket Time Tracker"
-                , body =
-                    List.map toUnstyled
-                        [ H.map TimeTrackerMsg (TimeTracker.view subState profile environment)
-                        , infoFooter
-                        , errorList profile.errors
-                        ]
-                }
-
-            _ ->
-                { title = "TODO Some other page"
-                , body = List.map toUnstyled [ infoFooter ]
-                }
 
 
 
@@ -315,24 +436,24 @@ view { viewState, profile, environment } =
 
 infoFooter : Html Msg
 infoFooter =
-    footer [ class "info" ]
-        [ p []
-            [ text "Switch to: "
-            , a [ href "/tasks" ] [ text "Task List" ]
-            , text " ➖ "
-            , a [ href "/timetracker" ] [ text "Time Tracker" ]
-            , text " ➖ "
-            , a [ href "/timeline" ] [ text "Timeline" ]
-            , text " ➖ "
-            , a [ href "?sync=marvin" ] [ text "Sync Marvin" ]
+    H.footer [ class "info" ]
+        [ H.p []
+            [ H.text "Switch to: "
+            , H.a [ href "/tasks" ] [ H.text "Task List" ]
+            , H.text " ➖ "
+            , H.a [ href "/timetracker" ] [ H.text "Time Tracker" ]
+            , H.text " ➖ "
+            , H.a [ href "/timeline" ] [ H.text "Timeline" ]
+            , H.text " ➖ "
+            , H.a [ href "?sync=marvin" ] [ H.text "Sync Marvin" ]
             ]
-        , p []
-            [ text "Written by "
-            , a [ href "https://github.com/Erudition" ] [ text "Erudition" ]
+        , H.p []
+            [ H.text "Written by "
+            , H.a [ href "https://github.com/Erudition" ] [ H.text "Erudition" ]
             ]
-        , p []
-            [ text "(Increasingly more distant) fork of Evan's elm "
-            , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
+        , H.p []
+            [ H.text "(Increasingly more distant) fork of Evan's elm "
+            , H.a [ href "http://todomvc.com" ] [ H.text "TodoMVC" ]
             ]
         ]
 
@@ -344,12 +465,12 @@ errorList stringList =
             String.split "\n" desc
 
         asLi desc =
-            li [ onDoubleClick ClearErrors ] (List.map asP (descWithBreaks desc))
+            li [ HtmlEvents.onDoubleClick ClearErrors ] (List.map asP (descWithBreaks desc))
 
         asP sub =
-            div [ class "error-line" ] [ text sub ]
+            H.div [ class "error-line" ] [ H.text sub ]
     in
-    ol [] (List.map asLi stringList)
+    H.ol [] (List.map asLi stringList)
 
 
 

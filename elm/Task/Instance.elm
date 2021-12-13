@@ -1,5 +1,6 @@
 module Task.Instance exposing (..)
 
+import Activity.Activity exposing (ActivityID)
 import Dict exposing (Dict)
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
@@ -291,3 +292,33 @@ compareSoonness zone taskA taskB =
         ( Nothing, Just _ ) ->
             -- whenevers always come after actual times
             GT
+
+
+getID : Instance -> InstanceID
+getID ins =
+    ins.instance.id
+
+
+getTitle : Instance -> String
+getTitle ins =
+    ins.class.title
+
+
+getActivityID : Instance -> Maybe ActivityID
+getActivityID ins =
+    ins.class.activity
+
+
+getProgress : Instance -> Progress
+getProgress instance =
+    ( instance.instance.completion, instance.class.completionUnits )
+
+
+getProgressMaxInt : Instance -> Portion
+getProgressMaxInt instance =
+    Progress.unitMax instance.class.completionUnits
+
+
+getCompletionInt : Instance -> Int
+getCompletionInt instance =
+    instance.instance.completion

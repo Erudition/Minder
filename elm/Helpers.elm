@@ -1,4 +1,4 @@
-module Porting exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -6,11 +6,28 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Decode.Extra as ClassicDecode2
 import Json.Encode as Encode
+import List.Extra as List
 import Maybe.Extra as Maybe
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment exposing (FuzzyMoment)
 import SmartTime.Moment as Moment exposing (Moment)
 import Time.Extra exposing (Interval(..))
+
+
+multiline : List (List String) -> String
+multiline inputListOfLists =
+    -- TODO Propose adding to String.Extra
+    let
+        unWords : List String -> String
+        unWords wordsList =
+            -- inverse of String.words
+            String.concat (List.intersperse " " wordsList)
+
+        unLines : List String -> String
+        unLines linesList =
+            String.concat (List.intersperse "\n" (List.filterNot String.isEmpty linesList))
+    in
+    unLines (List.map unWords inputListOfLists)
 
 
 

@@ -7,13 +7,13 @@ import Activity.Activity as Activity exposing (StoredActivities)
 import Base64
 import Bytes.Encode
 import Dict exposing (Dict)
+import Helpers exposing (..)
 import Http
 import IntDict exposing (IntDict)
 import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import Maybe.Extra
-import Porting exposing (..)
 import Profile exposing (Profile)
 import SmartTime.Moment exposing (Moment)
 import Task.Class
@@ -681,8 +681,8 @@ getLabels secret =
 
 {-| start or stop time tracking a task by its ID
 -}
-timeTrack : SecretToken -> String -> Cmd Msg
-timeTrack secret taskID =
+timeTrack : SecretToken -> String -> Bool -> Cmd Msg
+timeTrack secret taskID starting =
     Http.request
         { method = "POST"
         , headers = [ Http.header "X-API-Token" secret ]
@@ -690,7 +690,17 @@ timeTrack secret taskID =
         , body =
             Http.jsonBody <|
                 Encode.object
-                    [ ( "taskId", Encode.string taskID ), ( "action", Encode.string "START" ) ]
+                    [ ( "taskId", Encode.string taskID )
+                    , ( "action"
+                      , Encode.string
+                            (if starting then
+                                "START"
+
+                             else
+                                "STOP"
+                            )
+                      )
+                    ]
         , expect = Http.expectString TestResult --TODO
         , timeout = Nothing
         , tracker = Nothing

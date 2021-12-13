@@ -5,7 +5,7 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
-import Porting
+import Helpers
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)

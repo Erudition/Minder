@@ -3,7 +3,7 @@ module Task.SessionSkel exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
-import Porting exposing (..)
+import Helpers exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Class exposing (ClassSkel, ParentProperties)
@@ -24,9 +24,9 @@ type alias UserPlannedSession =
 
 decodeSession : Decoder UserPlannedSession
 decodeSession =
-    Porting.arrayAsTuple2 decodeFuzzyMoment decodeDuration
+    Helpers.arrayAsTuple2 decodeFuzzyMoment decodeDuration
 
 
 encodeSession : UserPlannedSession -> Encode.Value
 encodeSession plannedSession =
-    Porting.encodeTuple2 Porting.encodeFuzzyMoment Porting.encodeDuration plannedSession
+    Helpers.encodeTuple2 Helpers.encodeFuzzyMoment Helpers.encodeDuration plannedSession

@@ -33,7 +33,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
-import Porting exposing (..)
+import Helpers exposing (..)
 import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -120,7 +120,7 @@ view maybeVState profile env =
 
         Just vState ->
             Html.fromUnstyled <|
-                layout [ width fill, height fill ] <|
+                layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
                     column [ width fill, height fill ]
                         [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                             [ el [ centerX ] <| text "Header will be here" ]

@@ -18,7 +18,7 @@ import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
-import Porting exposing (..)
+import Helpers exposing (..)
 import Profile exposing (Profile, TodoistIntegrationData, saveError)
 import Set
 import SmartTime.Duration as Duration exposing (Duration)

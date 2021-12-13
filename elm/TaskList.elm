@@ -1,6 +1,9 @@
 module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
+import Activity.Activity exposing (ActivityID)
+import Activity.Switch
 import Activity.Switching
+import Activity.Timeline
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -8,11 +11,12 @@ import Date
 import Dict
 import Environment exposing (..)
 import External.Commands as Commands
+import Helpers exposing (..)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy, lazy2)
+import Html.Styled.Lazy exposing (lazy, lazy2, lazy3)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
@@ -26,7 +30,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
-import Porting exposing (..)
+import Maybe.Extra as Maybe
 import Profile exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -37,9 +41,9 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.Class as Task exposing (ClassID)
-import Task.Entry as Task
-import Task.Instance as Task exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress, isRelevantNow)
+import Task.Class as Class exposing (ClassID)
+import Task.Entry as Entry
+import Task.Instance as Instance exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress, isRelevantNow)
 import Task.Progress exposing (..)
 import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
@@ -103,39 +107,23 @@ view state profile env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 allFullTaskInstances =
-                    instanceListNow profile env
+                    Profile.instanceListNow profile env
 
                 sortedTasks =
-                    Task.prioritize env.time env.timeZone allFullTaskInstances
+                    Instance.prioritize env.time env.timeZone allFullTaskInstances
+
+                trackedTaskMaybe =
+                    Activity.Switch.getInstanceID (Activity.Timeline.latestSwitch profile.timeline)
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
                 [ section
                     [ class "todoapp" ]
                     [ lazy viewInput field
-                    , Html.Styled.Lazy.lazy3 viewTasks env activeFilter sortedTasks
+                    , Html.Styled.Lazy.lazy4 viewTasks env activeFilter trackedTaskMaybe sortedTasks
                     , lazy2 viewControls filters allFullTaskInstances
                     ]
-                , section [ css [ opacity (num 0.1) ] ]
-                    [ text "Everything working well? Good."
-                    ]
                 ]
-
-
-instanceListNow : Profile -> Environment -> List Instance
-instanceListNow profile env =
-    let
-        ( fullClasses, warnings ) =
-            Task.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
-
-        zoneHistory =
-            -- TODO
-            ZoneHistory.init env.time env.timeZone
-
-        rightNow =
-            Period.instantaneous env.time
-    in
-    Task.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
 
@@ -146,8 +134,7 @@ viewInput : String -> Html Msg
 viewInput task =
     header
         [ class "header" ]
-        [ h1 [] [ text "docket" ]
-        , input
+        [ input
             [ class "new-task"
             , placeholder "What needs to be done?"
             , autofocus True
@@ -175,11 +162,11 @@ onEnter msg =
 
 
 -- VIEW ALL TODOS
--- viewTasks : String -> List Task -> Html Msg
+-- viewTasks : String -> List Instance -> Html Msg
 
 
-viewTasks : Environment -> Filter -> List Instance -> Html Msg
-viewTasks env filter tasks =
+viewTasks : Environment -> Filter -> Maybe InstanceID -> List Instance -> Html Msg
+viewTasks env filter trackedTaskMaybe tasks =
     let
         isVisible task =
             case filter of
@@ -211,7 +198,7 @@ viewTasks env filter tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask env) (List.filter isVisible tasks)
+            List.map (viewKeyedTask env trackedTaskMaybe) (List.filter isVisible tasks)
         ]
 
 
@@ -219,21 +206,20 @@ viewTasks env filter tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Instance -> ( String, Html Msg )
-viewKeyedTask env task =
-    ( String.fromInt task.instance.id, lazy2 viewTask env task )
+viewKeyedTask : Environment -> Maybe InstanceID -> Instance -> ( String, Html Msg )
+viewKeyedTask env trackedTaskMaybe task =
+    ( String.fromInt task.instance.id, lazy3 viewTask env trackedTaskMaybe task )
 
 
 
--- viewTask : Task -> Html Msg
+-- viewTask : Instance -> Html Msg
 
 
-viewTask : Environment -> Instance -> Html Msg
-viewTask env task =
+viewTask : Environment -> Maybe InstanceID -> Instance -> Html Msg
+viewTask env trackedTaskMaybe task =
     li
         [ class "task-entry"
         , classList [ ( "completed", completed task ), ( "editing", False ) ]
-        , title (taskTooltip env task)
         ]
         [ div
             [ class "view" ]
@@ -265,6 +251,7 @@ viewTask env task =
                     ]
                 , div
                     [ class "task-bubble"
+                    , title (taskTooltip env task)
                     , css
                         [ Css.height (rem 2)
                         , Css.width (rem 2)
@@ -328,13 +315,19 @@ viewTask env task =
                     ]
                 ]
                 (plannedSessions env task)
-            , button
-                [ class "destroy"
-                , onClick (Delete task.instance.id)
-                ]
-                [ text "×" ]
+            , div [ class "task-controls" ]
+                (List.filterMap
+                    identity
+                    [ startTrackingButton task trackedTaskMaybe
+                    , Just <|
+                        button
+                            [ class "destroy"
+                            , onClick (Delete (Instance.getID task))
+                            ]
+                            [ text "×" ]
+                    ]
+                )
             ]
-        , progressSlider task
         , input
             [ class "edit"
             , value task.class.title
@@ -345,20 +338,45 @@ viewTask env task =
             , onEnter (EditingTitle task.instance.id False)
             ]
             []
-
-        --, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
-        --    [ label [ for "readyDate" ] [ text "Ready" ]
-        --    , input [ type_ "date", name "readyDate", onInput (extractDate task.instance.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-        --    , label [ for "startDate" ] [ text "Start" ]
-        --    , input [ type_ "date", name "startDate", onInput (extractDate task.instance.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-        --    , label [ for "finishDate" ] [ text "Finish" ]
-        --    , input [ type_ "date", name "finishDate", onInput (extractDate task.instance.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-        --    , label [ for "deadlineDate" ] [ text "Deadline" ]
-        --    , input [ type_ "date", name "deadlineDate", onInput (extractDate task.instance.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-        --    , label [ for "expiresDate" ] [ text "Expires" ]
-        --    , input [ type_ "date", name "expiresDate", onInput (extractDate task.instance.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
-        --    ]
         ]
+
+
+startTrackingButton : Instance -> Maybe InstanceID -> Maybe (Html Msg)
+startTrackingButton task trackedTaskMaybe =
+    case ( Instance.getActivityID task, Maybe.map ((==) (Instance.getID task)) trackedTaskMaybe ) of
+        ( Just activityID, Just True ) ->
+            Just <|
+                button
+                    [ class "stop-tracking-now"
+                    , onClick StopTracking
+                    ]
+                    [ text "⏸︎" ]
+
+        ( Just activityID, _ ) ->
+            Just <|
+                button
+                    [ class "start-tracking-now"
+                    , onClick (StartTracking (Instance.getID task) activityID)
+                    ]
+                    [ text "▶️" ]
+
+        ( Nothing, _ ) ->
+            Nothing
+
+
+
+--, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
+--    [ label [ for "readyDate" ] [ text "Ready" ]
+--    , input [ type_ "date", name "readyDate", onInput (extractDate task.instance.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+--    , label [ for "startDate" ] [ text "Start" ]
+--    , input [ type_ "date", name "startDate", onInput (extractDate task.instance.id "Start"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+--    , label [ for "finishDate" ] [ text "Finish" ]
+--    , input [ type_ "date", name "finishDate", onInput (extractDate task.instance.id "Finish"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+--    , label [ for "deadlineDate" ] [ text "Deadline" ]
+--    , input [ type_ "date", name "deadlineDate", onInput (extractDate task.instance.id "Deadline"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+--    , label [ for "expiresDate" ] [ text "Expires" ]
+--    , input [ type_ "date", name "expiresDate", onInput (extractDate task.instance.id "Expires"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
+--    ]
 
 
 plannedSessions env task =
@@ -388,7 +406,7 @@ plannedSessions env task =
 activityColor task =
     let
         activityDerivation n =
-            modBy ((n + 1) * 100) 360
+            modBy 360 ((n + 1) * 333)
     in
     case Maybe.map ID.read task.class.activity of
         Just activityNumber ->
@@ -425,7 +443,7 @@ taskTooltip env task =
                 )
 
 
-{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Task entry.
+{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Instance entry.
 -}
 progressSlider : Instance -> Html Msg
 progressSlider task =
@@ -688,7 +706,7 @@ viewControls : List Filter -> List Instance -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
-            List.length (List.filter Task.completed tasks)
+            List.length (List.filter Instance.completed tasks)
 
         tasksLeft =
             List.length tasks - tasksCompleted
@@ -815,6 +833,8 @@ type Msg
     | NoOp
     | TodoistServerResponse Todoist.Msg
     | MarvinServerResponse Integrations.Marvin.Msg
+    | StartTracking InstanceID ActivityID
+    | StopTracking
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
@@ -835,13 +855,13 @@ update msg state app env =
                             Moment.toSmartInt env.time
 
                         newEntry =
-                            Task.newRootEntry newClassID
+                            Entry.newRootEntry newClassID
 
                         newTaskClass =
-                            Task.newClassSkel (Task.normalizeTitle newTaskTitle) newClassID
+                            Class.newClassSkel (Class.normalizeTitle newTaskTitle) newClassID
 
                         newTaskInstance =
-                            Task.newInstanceSkel (Moment.toSmartInt env.time) newTaskClass
+                            Instance.newInstanceSkel (Moment.toSmartInt env.time) newTaskClass
                     in
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
@@ -908,7 +928,7 @@ update msg state app env =
         DeleteComplete ->
             ( state
             , app
-              -- TODO { app | taskInstances = IntDict.filter (\_ t -> not (Task.completed t)) app.taskInstances }
+              -- TODO { app | taskInstances = IntDict.filter (\_ t -> not (Instance.completed t)) app.taskInstances }
             , Cmd.none
             )
 
@@ -918,42 +938,51 @@ update msg state app env =
                     { t | completion = new_completion }
 
                 oldProgress =
-                    Task.instanceProgress givenTask
+                    Instance.instanceProgress givenTask
 
-                handleCompletion =
-                    -- how does the new completion status compare to the previous?
-                    case ( isMax oldProgress, isMax ( new_completion, getUnits oldProgress ) ) of
-                        ( False, True ) ->
-                            -- It was incomplete before, completed now
-                            Cmd.batch
-                                [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
-
-                                --, Cmd.map TodoistServerResponse <|
-                                --    Integrations.Todoist.sendChanges app.todoist
-                                --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                                , Cmd.map MarvinServerResponse <| Integrations.Marvin.updateDoc env.time [ "done", "doneAt" ] { givenTask | instance = updateTaskInstance givenTask.instance }
-                                ]
-
-                        ( True, False ) ->
-                            -- It was complete before, but now marked incomplete
-                            Cmd.batch
-                                [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
-
-                                -- , Cmd.map TodoistServerResponse <|
-                                --     Integrations.Todoist.sendChanges app.todoist
-                                --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                                ]
-
-                        _ ->
-                            -- nothing changed, completion-wise
-                            Cmd.none
+                profile1WithUpdatedInstance =
+                    { app | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) app.taskInstances }
             in
-            ( state
-            , { app
-                | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) app.taskInstances
-              }
-            , handleCompletion
-            )
+            -- how does the new completion status compare to the previous?
+            case ( isMax oldProgress, isMax ( new_completion, getUnits oldProgress ) ) of
+                ( False, True ) ->
+                    let
+                        ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
+                            update StopTracking state profile1WithUpdatedInstance env
+                    in
+                    ( viewState2
+                    , profile2WithTrackingStopped
+                    , -- It was incomplete before, completed now
+                      Cmd.batch
+                        [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
+
+                        --, Cmd.map TodoistServerResponse <|
+                        --    Integrations.Todoist.sendChanges app.todoist
+                        --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
+                        , Cmd.map MarvinServerResponse <|
+                            Integrations.Marvin.updateDoc env.time
+                                [ "done", "doneAt" ]
+                                { givenTask | instance = updateTaskInstance givenTask.instance }
+                        , trackingStoppedCmds
+                        ]
+                    )
+
+                ( True, False ) ->
+                    -- It was complete before, but now marked incomplete
+                    ( state
+                    , profile1WithUpdatedInstance
+                    , Cmd.batch
+                        [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
+
+                        -- , Cmd.map TodoistServerResponse <|
+                        --     Integrations.Todoist.sendChanges app.todoist
+                        --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
+                        ]
+                    )
+
+                _ ->
+                    -- nothing changed, completion-wise
+                    ( state, profile1WithUpdatedInstance, Cmd.none )
 
         FocusSlider task focused ->
             ( state
@@ -988,6 +1017,35 @@ update msg state app env =
             , Cmd.none
             )
 
+        StartTracking instanceID activityID ->
+            let
+                instanceMaybe =
+                    Debug.todo "get instance"
+
+                ( newProfile, newCommands ) =
+                    Activity.Switching.switchTracking activityID (Just instanceID) app env
+            in
+            ( state
+            , newProfile
+            , Cmd.batch
+                [ Cmd.map MarvinServerResponse <|
+                    Integrations.Marvin.timeTrack Integrations.Marvin.fullAccessToken
+                        (Maybe.withDefault "" (Dict.get "marvinID" instanceMaybe))
+                        True
+                , newCommands
+                ]
+            )
+
+        StopTracking ->
+            let
+                activityToContinue =
+                    Activity.Timeline.currentActivityID app.timeline
+
+                ( newProfile, newCommands ) =
+                    Activity.Switching.switchTracking activityToContinue Nothing app env
+            in
+            ( state, newProfile, newCommands )
+
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
 urlTriggers profile env =
@@ -999,10 +1057,10 @@ urlTriggers profile env =
             List.map triggerEntry allFullTaskInstances
 
         triggerEntry fullInstance =
-            ( fullInstance.class.title, UpdateProgress fullInstance (getWhole (Task.instanceProgress fullInstance)) )
+            ( fullInstance.class.title, UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
 
         buildNextTaskEntry nextTaskFullInstance =
-            [ ( "next", UpdateProgress nextTaskFullInstance (getWhole (Task.instanceProgress nextTaskFullInstance)) ) ]
+            [ ( "next", UpdateProgress nextTaskFullInstance (getWhole (Instance.instanceProgress nextTaskFullInstance)) ) ]
 
         nextTaskEntry =
             Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask profile env)

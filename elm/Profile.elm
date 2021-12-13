@@ -1,8 +1,10 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, saveDecodeErrors, saveError, saveWarnings)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, instanceListNow, saveDecodeErrors, saveError, saveWarnings)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (decodeSwitch, encodeSwitch)
 import Activity.Timeline exposing (Timeline)
+import Environment exposing (Environment)
+import Helpers exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import ID
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Project as TodoistProject
@@ -11,8 +13,8 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
-import Porting exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import Replicated.ReplicaCodec as RC exposing (Codec)
+import SmartTime.Period as Period exposing (Period)
 import Task.Class
 import Task.Entry
 import Task.Instance
@@ -78,8 +80,8 @@ decodeProfile =
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
         |> optional "taskEntries" (Decode.list Task.Entry.decodeEntry) []
-        |> optional "taskClasses" (Porting.decodeIntDict Task.Class.decodeClass) IntDict.empty
-        |> optional "taskInstances" (Porting.decodeIntDict Task.Instance.decodeInstance) IntDict.empty
+        |> optional "taskClasses" (Helpers.decodeIntDict Task.Class.decodeClass) IntDict.empty
+        |> optional "taskInstances" (Helpers.decodeIntDict Task.Instance.decodeInstance) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
@@ -89,8 +91,8 @@ decodeProfile =
 encodeProfile : Profile -> Encode.Value
 encodeProfile record =
     Encode.object
-        [ ( "taskClasses", Porting.encodeIntDict Task.Class.encodeClass record.taskClasses )
-        , ( "taskInstances", Porting.encodeIntDict Task.Instance.encodeInstance record.taskInstances )
+        [ ( "taskClasses", Helpers.encodeIntDict Task.Class.encodeClass record.taskClasses )
+        , ( "taskInstances", Helpers.encodeIntDict Task.Instance.encodeInstance record.taskInstances )
         , ( "taskEntries", Encode.list Task.Entry.encodeEntry record.taskEntries )
         , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
@@ -147,3 +149,24 @@ saveDecodeErrors appData errors =
 saveError : Profile -> String -> Profile
 saveError appData error =
     { appData | errors = error :: appData.errors }
+
+
+
+--- HELPERS
+
+
+instanceListNow : Profile -> Environment -> List Task.Instance.Instance
+instanceListNow profile env =
+    -- TODO figure out where to put this
+    let
+        ( fullClasses, warnings ) =
+            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+
+        zoneHistory =
+            -- TODO
+            ZoneHistory.init env.time env.timeZone
+
+        rightNow =
+            Period.instantaneous env.time
+    in
+    Task.Instance.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )

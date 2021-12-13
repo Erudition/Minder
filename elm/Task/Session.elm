@@ -1,9 +1,9 @@
 module Task.Session exposing (..)
 
+import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
-import Porting exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Class exposing (ClassSkel, ParentProperties)
@@ -52,6 +52,7 @@ getFullSessions fullInstance =
         generatedSessions =
             let
                 sessionStart =
+                    -- TODO these are end, not start
                     Maybe.Extra.or ins.finishBy ins.externalDeadline
 
                 taskDuration =
@@ -62,7 +63,7 @@ getFullSessions fullInstance =
                     [ ( foundStart, taskDuration ) ]
 
                 Nothing ->
-                    Debug.log "No sessionStart found" []
+                    []
 
         attachSession =
             makeFullSession fullInstance

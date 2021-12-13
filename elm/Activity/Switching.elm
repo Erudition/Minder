@@ -1,11 +1,12 @@
-module Activity.Switching exposing (currentActivityFromApp, determineNextTask, switchActivity)
+module Activity.Switching exposing (currentActivityFromApp, determineNextTask, switchActivity, switchTracking)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Measure as Measure
-import Activity.Switch exposing (Switch(..), switchTask, switchToActivity)
+import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
 import Activity.Timeline exposing (currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
+import Helpers exposing (multiline)
 import List.Extra as List
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
@@ -20,22 +21,6 @@ import Task.Entry
 import Task.Instance exposing (Instance, InstanceID)
 import Task.Progress
 import ZoneHistory
-
-
-multiline : List (List String) -> String
-multiline inputListOfLists =
-    -- TODO Propose adding to String.Extra
-    let
-        unWords : List String -> String
-        unWords wordsList =
-            -- inverse of String.words
-            String.concat (List.intersperse " " wordsList)
-
-        unLines : List String -> String
-        unLines linesList =
-            String.concat (List.intersperse "\n" (List.filterNot String.isEmpty linesList))
-    in
-    unLines (List.map unWords inputListOfLists)
 
 
 prioritizeTasks : Profile -> Environment -> List Instance
@@ -76,11 +61,11 @@ switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( P
 switchTracking newActivityID instanceIDMaybe app env =
     let
         updatedApp =
-            if newActivityID == oldActivityID then
+            if (newActivityID == oldActivityID) && (instanceIDMaybe == oldInstanceIDMaybe) then
                 app
 
             else
-                { app | timeline = switchTask env.time newActivityID instanceIDMaybe :: app.timeline }
+                { app | timeline = newSwitch env.time newActivityID instanceIDMaybe :: app.timeline }
 
         newActivity =
             Activity.getActivity newActivityID (allActivities app.activities)
@@ -90,6 +75,9 @@ switchTracking newActivityID instanceIDMaybe app env =
 
         oldActivityID =
             currentActivityFromApp app
+
+        oldInstanceIDMaybe =
+            Activity.Switch.getInstanceID (Activity.Timeline.latestSwitch app.timeline)
 
         formatDuration givenDur =
             HumanDuration.singleLetterSpaced <|

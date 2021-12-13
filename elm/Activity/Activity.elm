@@ -5,6 +5,7 @@ import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
 import External.Commands as Commands exposing (..)
+import Helpers exposing (..)
 import ID exposing (ID)
 import IntDict exposing (IntDict)
 import Ionicon
@@ -14,7 +15,6 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
-import Porting exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
@@ -521,7 +521,7 @@ defaults startWith =
 
         Floss ->
             { names = [ "Floss", "Flossing" ]
-            , icon = Emoji "\u{1F9B7}"
+            , icon = Emoji "🦷"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -535,7 +535,7 @@ defaults startWith =
 
         Wakeup ->
             { names = [ "Wakeup", "Waking Up", "Wakeup Walk" ]
-            , icon = Emoji "\u{1F971}"
+            , icon = Emoji "🥱"
             , excusable = TemporarilyExcused ( Minutes 12, Hours 15 )
             , taskOptional = True
             , evidence = []
@@ -633,7 +633,7 @@ defaults startWith =
 
         Chores ->
             { names = [ "Chore", "Chores" ]
-            , icon = Emoji "\u{1F9F9}"
+            , icon = Emoji "🧹"
             , excusable = TemporarilyExcused ( Minutes 25, Hours 4 )
             , taskOptional = True
             , evidence = []
@@ -661,7 +661,7 @@ defaults startWith =
 
         Prepare ->
             { names = [ "Prepare", "Preparing", "Preparation" ]
-            , icon = Emoji "\u{1F9F3}"
+            , icon = Emoji "🧳"
             , excusable = NeverExcused
             , taskOptional = False
             , evidence = []
@@ -829,7 +829,7 @@ defaults startWith =
 
         Learning ->
             { names = [ "Learn", "Learning", "Reading", "Read", "Book", "Books" ]
-            , icon = Emoji "\u{1F9E0}"
+            , icon = Emoji "🧠"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 10 )
             , taskOptional = True
             , evidence = []
@@ -1039,7 +1039,7 @@ defaults startWith =
 
         Networking ->
             { names = [ "Networking" ]
-            , icon = Emoji "\u{1F91D}"
+            , icon = Emoji "🤝"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1053,7 +1053,7 @@ defaults startWith =
 
         Meditate ->
             { names = [ "Meditate", "Meditation", "Meditating" ]
-            , icon = Emoji "\u{1F9D8}"
+            , icon = Emoji "🧘"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
@@ -1151,7 +1151,7 @@ defaults startWith =
 
         Research ->
             { names = [ "Research", "Researching", "Looking Stuff Up", "Evaluating" ]
-            , icon = Emoji "\u{1F913}"
+            , icon = Emoji "🤓"
             , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
             , taskOptional = True
             , evidence = []

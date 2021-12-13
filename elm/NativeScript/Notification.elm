@@ -2,7 +2,7 @@ module NativeScript.Notification exposing (..)
 
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
-import Porting exposing (normal, omittable, omittableList)
+import Helpers exposing (normal, omittable, omittableList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -758,7 +758,7 @@ type alias Notification =
 
 encode : Notification -> Encode.Value
 encode v =
-    Porting.encodeObjectWithoutNothings
+    Helpers.encodeObjectWithoutNothings
         [ omittable ( "id", Encode.int, v.id )
         , omittable ( "at", Encode.float << Moment.toJSTime, v.at )
         , omittable ( "ongoing", Encode.bool, v.ongoing )

@@ -10,7 +10,7 @@ import Json.Encode as Encode
 import Json.Encode.Extra as Encode exposing (..)
 import List.Extra as List
 import Maybe.Extra
-import Porting exposing (..)
+import Helpers exposing (..)
 import Profile exposing (Profile)
 import Regex
 import SmartTime.Duration as Duration exposing (Duration(..))
@@ -844,7 +844,7 @@ decodeRecurrencePattern =
             -- Result.map interpretRecurrenceRule (getRawRecurrencePattern string)
             Err "NYI"
     in
-    Porting.customDecoder string interpreted
+    Helpers.customDecoder string interpreted
 
 
 marvinTimeBlockToDocketTimeBlock : Profile -> Dict String String -> MarvinTimeBlock -> Maybe TimeBlock

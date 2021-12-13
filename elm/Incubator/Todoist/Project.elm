@@ -4,7 +4,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
-import Porting exposing (..)
+import Helpers exposing (..)
 
 
 {-| Todoist uses large integers for project IDs. It would nice to use type-safe Elm goodness here, but we want to stick to the API, so this is just a helpfully-named alias for `Int`.

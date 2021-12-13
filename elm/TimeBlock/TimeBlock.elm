@@ -5,7 +5,7 @@ import ID
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (decode)
 import Json.Encode as Encode
-import Porting exposing (customDecoder)
+import Helpers exposing (customDecoder)
 import Replicated.Serialize as Codec exposing (Codec)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
