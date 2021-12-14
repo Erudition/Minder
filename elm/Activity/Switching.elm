@@ -1,9 +1,8 @@
 module Activity.Switching exposing (currentActivityFromApp, determineNextTask, switchActivity, switchTracking)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Measure as Measure
 import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
-import Activity.Timeline exposing (currentActivityID)
+import Activity.Timeline as Timeline exposing (Timeline, currentActivityID)
 import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (multiline)
@@ -77,7 +76,7 @@ switchTracking newActivityID instanceIDMaybe app env =
             currentActivityFromApp app
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Activity.Timeline.latestSwitch app.timeline)
+            Activity.Switch.getInstanceID (Timeline.latestSwitch app.timeline)
 
         formatDuration givenDur =
             HumanDuration.singleLetterSpaced <|
@@ -88,14 +87,14 @@ switchTracking newActivityID instanceIDMaybe app env =
             formatDuration <| Maybe.withDefault Duration.zero lastSession
 
         lastSession =
-            Measure.lastSession updatedApp.timeline oldActivityID
+            Timeline.lastSession updatedApp.timeline oldActivityID
 
         todayTotalString =
             formatDuration <|
                 todayTotal
 
         todayTotal =
-            Measure.justTodayTotal updatedApp.timeline env newActivityID
+            Timeline.justTodayTotal updatedApp.timeline env newActivityID
 
         popup message =
             Commands.toast (multiline message)
@@ -186,10 +185,10 @@ switchTracking newActivityID instanceIDMaybe app env =
                             formatDuration <| excusedUsage
 
                         excusedUsage =
-                            Measure.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
+                            Timeline.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
 
                         excusedLeft =
-                            Measure.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities app.activities) )
+                            Timeline.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities app.activities) )
 
                         describeExcusedUsage =
                             if Duration.isPositive excusedUsage then
@@ -207,7 +206,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                     if isThisTheRightNextTask then
                         let
                             timeSpent =
-                                Measure.totalLive env.time updatedApp.timeline newActivityID
+                                Timeline.totalLive env.time updatedApp.timeline newActivityID
 
                             timeRemaining =
                                 Duration.subtract nextTask.class.maxEffort timeSpent
@@ -232,7 +231,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                     else if isThisTheRightNextActivity then
                         let
                             timeSpent =
-                                Measure.totalLive env.time updatedApp.timeline newActivityID
+                                Timeline.totalLive env.time updatedApp.timeline newActivityID
 
                             timeRemaining =
                                 Duration.subtract nextTask.class.maxEffort timeSpent
@@ -265,7 +264,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 ]
                             , notify <|
                                 [ updateSticky env.time todayTotal newActivity "⏸ Off Task (Excused)" (Just nextTask) ]
-                                    ++ scheduleExcusedReminders env.time (Measure.excusableLimit newActivity) excusedLeft
+                                    ++ scheduleExcusedReminders env.time (Timeline.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
                                     ++ suggestions
                                     ++ trackingTaskNotif
@@ -298,12 +297,12 @@ switchTracking newActivityID instanceIDMaybe app env =
 -- , Cmd.batch
 --     [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
 --     , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString onTaskStatus )
---     , Tasker.variableOut ( "ExcusedUsage", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "OnTaskUsage", Measure.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Measure.excusedUsage app.timeline env.time ( activityID, newActivity )) )
---     , Tasker.variableOut ( "ExcusedLimit", String.fromInt <| Duration.inSecondsRounded (Measure.excusableLimit newActivity) )
+--     , Tasker.variableOut ( "ExcusedUsage", Timeline.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+--     , Tasker.variableOut ( "OnTaskUsage", Timeline.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
+--     , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Timeline.excusedUsage app.timeline env.time ( activityID, newActivity )) )
+--     , Tasker.variableOut ( "ExcusedLimit", String.fromInt <| Duration.inSecondsRounded (Timeline.excusableLimit newActivity) )
 --     , Tasker.variableOut ( "CurrentActivity", getName newActivity )
---     , Tasker.variableOut ( "PreviousSessionTotal", Measure.exportLastSession updatedApp oldActivityID )
+--     , Tasker.variableOut ( "PreviousSessionTotal", Timeline.exportLastSession updatedApp oldActivityID )
 --     , Commands.hideWindow
 --     , scheduleReminders app env updatedApp.timeline onTaskStatus ( activityID, newActivity )
 --     , exportNextTask app env

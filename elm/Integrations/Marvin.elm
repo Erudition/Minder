@@ -4,17 +4,21 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity exposing (StoredActivities)
+import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
 import Dict exposing (Dict)
+import Environment exposing (Environment)
 import Helpers exposing (..)
 import Http
 import IntDict exposing (IntDict)
 import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import Log
 import Maybe.Extra
 import Profile exposing (Profile)
+import Set
 import SmartTime.Moment exposing (Moment)
 import Task.Class
 import Task.Entry
@@ -367,6 +371,24 @@ handle classCounter profile response =
                     , Cmd.none
                     )
 
+        GotTrackTruth trackTruthResult ->
+            case trackTruthResult of
+                Ok timesList ->
+                    let
+                        updatedTimeline =
+                            []
+                    in
+                    ( profile
+                    , Debug.toString timesList
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( profile
+                    , describeError err
+                    , Cmd.none
+                    )
+
 
 importItems : Profile -> List MarvinItem -> Profile
 importItems profile itemList =
@@ -707,6 +729,84 @@ timeTrack secret taskID starting =
         }
 
 
+marvinTrackUpdate : Profile -> Environment -> Maybe Task.Instance.InstanceID -> Bool -> ( Profile, Cmd Msg )
+marvinTrackUpdate profile env instanceIDMaybe starting =
+    case Maybe.andThen (Profile.getInstanceByID profile env) instanceIDMaybe of
+        Just instance ->
+            case Task.Instance.getExtra "marvinID" instance of
+                Nothing ->
+                    ( profile, Debug.log "No MarvinID found" Cmd.none )
+
+                Just marvinID ->
+                    let
+                        trackCmd =
+                            timeTrack partialAccessToken marvinID starting
+
+                        instanceSkel =
+                            instance.instance
+
+                        updatedInstanceSkel =
+                            { instanceSkel | extra = Dict.insert "marvinTimes" (timesUpdater profile (Task.Instance.getID instance)) instanceSkel.extra }
+
+                        updatedInstanceDict =
+                            IntDict.insert (Task.Instance.getID instance) updatedInstanceSkel profile.taskInstances
+
+                        updatedProfile =
+                            { profile | taskInstances = updatedInstanceDict }
+
+                        updateTimesCmd =
+                            updateDoc env.time [ "times" ] { instance | instance = updatedInstanceSkel }
+                    in
+                    ( updatedProfile, Cmd.batch [ trackCmd, updateTimesCmd ] )
+
+        Nothing ->
+            ( profile, Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
+
+
+timesUpdater : Profile -> Task.Instance.InstanceID -> String
+timesUpdater profile instanceID =
+    let
+        timesList =
+            Timeline.getInstanceTimes profile.timeline instanceID
+    in
+    Encode.encode 0 (Encode.list encodeUnixTimestamp timesList)
+
+
+{-| get truth about tracked tasks
+-}
+trackTruth : SecretToken -> String -> Bool -> Cmd Msg
+trackTruth secret taskID starting =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "X-API-Token" secret ]
+        , url = marvinEndpointURL "tracks"
+        , body =
+            Http.jsonBody <|
+                Encode.object
+                    [ ( "taskIds", Encode.list Encode.string [ taskID ] ) ]
+        , expect = Http.expectJson GotTrackTruth (toClassicLoose <| Decode.list decodeTrackTruthItem) --TODO
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+type alias TrackTruthItem =
+    { task : MarvinItem.ItemID
+    , times : List Moment
+    }
+
+
+decodeTrackTruthItem : Decode.Decoder TrackTruthItem
+decodeTrackTruthItem =
+    Decode.map2 TrackTruthItem
+        (Decode.field "task" Decode.int)
+        (Decode.field "times"
+            (Decode.list
+                decodeUnixTimestamp
+            )
+        )
+
+
 {-| A message for you to add to your app's `Msg` type. Comes back when the sync request succeeded or failed.
 -}
 type Msg
@@ -716,6 +816,7 @@ type Msg
     | GotLabels (Result Http.Error (List MarvinLabel))
     | GotTimeBlockAssignments (Result Http.Error TimeBlockAssignments)
     | GotTimeBlocks TimeBlockAssignments (Result Http.Error (List MarvinTimeBlock))
+    | GotTrackTruth (Result Http.Error (List TrackTruthItem))
 
 
 

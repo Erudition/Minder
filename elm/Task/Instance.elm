@@ -322,3 +322,8 @@ getProgressMaxInt instance =
 getCompletionInt : Instance -> Int
 getCompletionInt instance =
     instance.instance.completion
+
+
+getExtra : String -> Instance -> Maybe String
+getExtra key instance =
+    Dict.get key instance.instance.extra

@@ -7,7 +7,6 @@ module Timeline exposing (Filter(..), Msg, ViewState, routeView, update, view)
 --import Html.Styled.Lazy exposing (lazy, lazy2)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Measure
 import Activity.Switching
 import Browser
 import Browser.Dom
@@ -18,6 +17,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Environment exposing (..)
 import External.Commands as Commands
+import Helpers exposing (..)
 import Html.Attributes
 import Html.Styled as Html
 import ID
@@ -33,7 +33,6 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
-import Helpers exposing (..)
 import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -254,7 +253,7 @@ hourRowContents vState profile env rowPeriod =
 --            List.concatMap Task.getFullSessions fullInstanceList
 --
 --        historyList =
---            Activity.Measure.switchListLiveToPeriods env.time profile.timeline
+--            Activity.Timeline.switchListLiveToPeriods env.time profile.timeline
 --    in
 --    case state of
 --        ShowSpan newStart newFinish ->

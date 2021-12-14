@@ -1,9 +1,9 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Measure as Measure exposing (..)
 import Activity.Switching as Switching
 import Activity.Template
+import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -12,6 +12,7 @@ import Dict
 import Environment exposing (..)
 import External.Commands as Commands exposing (..)
 import External.Tasker as Tasker
+import Helpers exposing (..)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
@@ -25,7 +26,6 @@ import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Helpers exposing (..)
 import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -118,7 +118,7 @@ viewActivity : Profile -> Environment -> ( ActivityID, Activity ) -> Html Msg
 viewActivity app env ( activityID, activity ) =
     let
         describeSession sesh =
-            Measure.inHoursMinutes sesh ++ "\n"
+            Timeline.inHoursMinutes sesh ++ "\n"
     in
     li
         [ class "activity" ]
@@ -126,7 +126,7 @@ viewActivity app env ( activityID, activity ) =
             [ class "activity-button"
             , classList [ ( "current", Switching.currentActivityFromApp app == activityID ) ]
             , onClick (StartTracking activityID)
-            , title <| List.foldl (++) "" (List.map describeSession (Measure.sessions app.timeline activityID))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline activityID))
             ]
             [ viewIcon activity.icon
             , div []
@@ -180,10 +180,10 @@ writeActivityUsage app env ( activityID, activity ) =
             Tuple.second activity.maxTime
 
         lastPeriod =
-            relevantTimeline app.timeline env.time period
+            Timeline.relevantTimeline app.timeline env.time period
 
         total =
-            Measure.totalLive env.time lastPeriod activityID
+            Timeline.totalLive env.time lastPeriod activityID
 
         totalMinutes =
             Duration.inMinutesRounded total
@@ -197,7 +197,7 @@ writeActivityUsage app env ( activityID, activity ) =
 
 writeActivityToday : Profile -> Environment -> ActivityID -> String
 writeActivityToday app env activityID =
-    Measure.inHoursMinutes (Measure.justTodayTotal app.timeline env activityID)
+    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline env activityID)
 
 
 exportActivityViewModel : Profile -> Environment -> Encode.Value

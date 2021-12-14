@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, instanceListNow, saveDecodeErrors, saveError, saveWarnings)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (decodeSwitch, encodeSwitch)
@@ -14,6 +14,8 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.ReplicaCodec as RC exposing (Codec)
+import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.Class
 import Task.Entry
@@ -170,3 +172,24 @@ instanceListNow profile env =
             Period.instantaneous env.time
     in
     Task.Instance.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
+
+
+trackedInstance : Profile -> Environment -> Maybe Task.Instance.Instance
+trackedInstance profile env =
+    Maybe.andThen (getInstanceByID profile env) (Activity.Timeline.currentInstanceID profile.timeline)
+
+
+getInstanceByID : Profile -> Environment -> Task.Instance.InstanceID -> Maybe Task.Instance.Instance
+getInstanceByID profile env instanceID =
+    -- TODO optimize
+    List.head (List.filter (\i -> Task.Instance.getID i == instanceID) (instanceListNow profile env))
+
+
+exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedUsageSeconds app now ( activityID, activity ) =
+    String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedUsage app.timeline now ( activityID, activity ))
+
+
+exportExcusedLeftSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
+exportExcusedLeftSeconds app now ( activityID, activity ) =
+    String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedLeft app.timeline now ( activityID, activity ))

@@ -2,6 +2,7 @@ module Integrations.Marvin.MarvinItem exposing (..)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID, StoredActivities)
 import Dict exposing (Dict)
+import Helpers exposing (..)
 import ID
 import IntDict
 import Json.Decode.Exploration as Decode exposing (..)
@@ -10,7 +11,6 @@ import Json.Encode as Encode
 import Json.Encode.Extra as Encode exposing (..)
 import List.Extra as List
 import Maybe.Extra
-import Helpers exposing (..)
 import Profile exposing (Profile)
 import Regex
 import SmartTime.Duration as Duration exposing (Duration(..))
@@ -179,19 +179,19 @@ encodeMarvinItem task =
         , omittable ( "rewardId", Encode.string, task.rewardId )
         , omittableBool ( "backburner", Encode.bool, task.backburner )
         , omittable ( "reviewDate", encodeCalendarDate, task.reviewDate )
-        , omittable ( "itemSnoozeTime", encodeMoment, task.itemSnoozeTime )
+        , omittable ( "itemSnoozeTime", encodeUnixTimestamp, task.itemSnoozeTime )
         , omittable ( "permaSnoozeTime", encodeTimeOfDay, task.permaSnoozeTime )
         , omittable ( "timeZoneOffset", Encode.int, task.timeZoneOffset )
         , omittable ( "startDate", encodeCalendarDate, task.startDate )
         , omittable ( "endDate", encodeCalendarDate, task.endDate )
         , normal ( "db", Encode.string task.db )
-        , omittableList ( "times", encodeMoment, task.times )
+        , omittableList ( "times", encodeUnixTimestamp, task.times )
         , omittable ( "taskTime", encodeTimeOfDay, task.taskTime )
         , omittableNum ( "masterRank", Encode.int, task.masterRank )
-        , normal ( "createdAt", encodeMoment task.createdAt )
-        , omittable ( "doneAt", encodeMoment, task.doneAt )
-        , omittable ( "updatedAt", encodeMoment, task.updatedAt )
-        , normal ( "fieldUpdates", Encode.dict identity encodeMoment task.fieldUpdates )
+        , normal ( "createdAt", encodeUnixTimestamp task.createdAt )
+        , omittable ( "doneAt", encodeUnixTimestamp, task.doneAt )
+        , omittable ( "updatedAt", encodeUnixTimestamp, task.updatedAt )
+        , normal ( "fieldUpdates", Encode.dict identity encodeUnixTimestamp task.fieldUpdates )
         ]
 
 
@@ -570,6 +570,7 @@ toDocketInstance classCounter class profile marvinItem =
                     , Just ( "marvinCreatedAt", SmartTime.Human.Moment.toStandardString marvinItem.createdAt )
                     , Maybe.map (\d -> ( "marvinDoneAt", SmartTime.Human.Moment.toStandardString d )) marvinItem.doneAt
                     , Just ( "marvinFieldUpdates", Encode.encode 0 (Encode.dict identity encodeUnixTimestamp marvinItem.fieldUpdates) )
+                    , Just ( "marvinTimes", Encode.encode 0 (Encode.list encodeUnixTimestamp marvinItem.times) )
                     ]
 
         finalInstance =
@@ -657,7 +658,7 @@ fromDocket instance =
                 , startDate = toDate <| Dict.get "marvinStartDate" instance.instance.extra
                 , endDate = toDate <| Dict.get "marvinEndDate" instance.instance.extra
                 , db = Maybe.withDefault "tasks" <| Dict.get "marvinDb" instance.instance.extra
-                , times = [] -- TODO List Moment
+                , times = parseTimesList <| Maybe.withDefault "[]" <| Dict.get "marvinTimes" instance.instance.extra
                 , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Dict.get "marvinTaskTime" instance.instance.extra
                 , pinId = Dict.get "marvinPinID" instance.instance.extra
                 , recurringTaskId = Dict.get "recurringTaskID" instance.instance.extra
@@ -665,11 +666,19 @@ fromDocket instance =
                 , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinCreatedAt" instance.instance.extra
                 , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinDoneAt" instance.instance.extra
                 , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Dict.get "marvinUpdatedAt" instance.instance.extra
-                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeMoment)) <| Dict.get "marvinFieldUpdates" instance.instance.extra
+                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeUnixTimestamp)) <| Dict.get "marvinFieldUpdates" instance.instance.extra
                 }
 
         _ ->
             Nothing
+
+
+parseTimesList timesList =
+    let
+        decodeResult =
+            decodeString (Decode.list decodeUnixTimestamp) timesList
+    in
+    Maybe.withDefault [] <| Result.toMaybe <| strict <| decodeResult
 
 
 {-| Determine which activity to assign to a newly imported class

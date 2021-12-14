@@ -25,7 +25,7 @@
           "elm-community/intdict": "3.0.0",
           "elm-community/json-extra": "4.0.0",
           "elm-community/list-extra": "8.3.0",
-          "elm-community/maybe-extra": "5.0.0",
+          "elm-community/maybe-extra": "5.2.1",
           "elm-community/result-extra": "2.4.0",
           "j-panasiuk/elm-ionicons": "2.0.0",
           "justinmimbs/date": "3.1.2",

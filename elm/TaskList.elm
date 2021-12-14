@@ -22,7 +22,7 @@ import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Command as TodoistCommand
 import IntDict
-import Integrations.Marvin
+import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
@@ -348,7 +348,7 @@ startTrackingButton task trackedTaskMaybe =
             Just <|
                 button
                     [ class "stop-tracking-now"
-                    , onClick StopTracking
+                    , onClick (StopTracking (Instance.getID task))
                     ]
                     [ text "⏸︎" ]
 
@@ -832,9 +832,9 @@ type Msg
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
-    | MarvinServerResponse Integrations.Marvin.Msg
+    | MarvinServerResponse Marvin.Msg
     | StartTracking InstanceID ActivityID
-    | StopTracking
+    | StopTracking InstanceID
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
@@ -948,7 +948,7 @@ update msg state app env =
                 ( False, True ) ->
                     let
                         ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
-                            update StopTracking state profile1WithUpdatedInstance env
+                            update (StopTracking (Instance.getID givenTask)) state profile1WithUpdatedInstance env
                     in
                     ( viewState2
                     , profile2WithTrackingStopped
@@ -960,7 +960,7 @@ update msg state app env =
                         --    Integrations.Todoist.sendChanges app.todoist
                         --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
                         , Cmd.map MarvinServerResponse <|
-                            Integrations.Marvin.updateDoc env.time
+                            Marvin.updateDoc env.time
                                 [ "done", "doneAt" ]
                                 { givenTask | instance = updateTaskInstance givenTask.instance }
                         , trackingStoppedCmds
@@ -1019,32 +1019,38 @@ update msg state app env =
 
         StartTracking instanceID activityID ->
             let
-                instanceMaybe =
-                    Debug.todo "get instance"
-
-                ( newProfile, newCommands ) =
+                ( newProfile1WithSwitch, switchCommands ) =
                     Activity.Switching.switchTracking activityID (Just instanceID) app env
+
+                ( newProfile2WithMarvinTimes, marvinCmds ) =
+                    Marvin.marvinTrackUpdate newProfile1WithSwitch env (Just instanceID) True
             in
             ( state
-            , newProfile
+            , newProfile2WithMarvinTimes
             , Cmd.batch
-                [ Cmd.map MarvinServerResponse <|
-                    Integrations.Marvin.timeTrack Integrations.Marvin.fullAccessToken
-                        (Maybe.withDefault "" (Dict.get "marvinID" instanceMaybe))
-                        True
-                , newCommands
+                [ Cmd.map MarvinServerResponse <| marvinCmds
+                , switchCommands
                 ]
             )
 
-        StopTracking ->
+        StopTracking instanceID ->
             let
                 activityToContinue =
                     Activity.Timeline.currentActivityID app.timeline
 
-                ( newProfile, newCommands ) =
+                instanceToStop =
+                    Activity.Timeline.currentInstanceID app.timeline
+
+                ( newProfile1WithSwitch, switchCommands ) =
                     Activity.Switching.switchTracking activityToContinue Nothing app env
+
+                ( newProfile2WithMarvinTimes, marvinCmds ) =
+                    Marvin.marvinTrackUpdate newProfile1WithSwitch env instanceToStop False
             in
-            ( state, newProfile, newCommands )
+            ( state
+            , newProfile2WithMarvinTimes
+            , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, switchCommands ]
+            )
 
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
