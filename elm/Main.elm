@@ -10,6 +10,7 @@ import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Font
 import Element.Input as Input
 import Environment exposing (..)
 import External.Commands exposing (..)
@@ -306,15 +307,66 @@ view { viewState, profile, environment } =
     in
     { title = activePage.title
     , body =
-        [ globalLayout profile environment withinPage ]
+        [ globalLayout viewState profile environment withinPage ]
     }
 
 
-globalLayout : Profile -> Environment -> PlainHtml.Html Msg -> PlainHtml.Html Msg
-globalLayout profile env innerStuff =
+{-|
+    selectedTab takes an element and wraps it in a stylied container
+    to indicate which page is currently active.
+
+    Todo: Consider adding costumisable styling for this.
+-}
+selectedTab : List (Element msg) -> Element msg -> List (Element msg) -> Element msg
+selectedTab startingList selected endingList =
+    row [ centerX, Element.spacing 20, height fill, Element.paddingXY 0 5 ]
+        (startingList
+            ++ [ el
+                    [ Element.centerY
+                    , Element.centerX
+                    , Background.color (rgba255 255 255 255 0.3)
+                    , height fill
+                    , Element.Font.semiBold
+                    , Border.rounded 7
+                    , Element.paddingXY 10 5
+                    ]
+                    selected
+               ]
+            ++ endingList
+        )
+
+
+globalLayout : ViewState -> Profile -> Environment -> PlainHtml.Html Msg -> PlainHtml.Html Msg
+globalLayout viewState profile env innerStuff =
     let
         elmUIOptions =
             { options = [] }
+
+        timetrackerLink =
+            link [ centerX, centerY ] { url = "timetracker", label = text "Timetracker" }
+
+        classesLink =
+            link [ centerX, centerY ] { url = "#", label = text "Classes" }
+
+        tasksLink =
+            link [ centerX, centerY ] { url = "tasks", label = text "Tasks" }
+
+        timelineLink =
+            link [ centerX, centerY ] { url = "timeline", label = text "Timeline" }
+
+        footerLinks =
+            case viewState.primaryView of
+                TimeTracker _ ->
+                    selectedTab [] timetrackerLink [ classesLink, tasksLink, timelineLink ]
+
+                TaskList _ ->
+                    selectedTab [ timetrackerLink, classesLink ] tasksLink [ timelineLink ]
+
+                Timeline _ ->
+                    selectedTab [ timetrackerLink, classesLink, tasksLink ] timelineLink []
+
+                _ ->
+                    Debug.todo "branch not implemented"
     in
     layoutWith elmUIOptions [ width fill, height fill ] <|
         column [ width fill, height fill ]
@@ -325,10 +377,7 @@ globalLayout profile env innerStuff =
             , row [ width fill, height (fillPortion 20), scrollbarY ]
                 [ html innerStuff ]
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                [ link [ centerX ] { url = "timetracker", label = text "Timetracker" }
-                , link [ centerX ] { url = "#", label = text "Classes" }
-                , link [ centerX ] { url = "tasks", label = text "Instances" }
-                , link [ centerX ] { url = "timeline", label = text "Timeline" }
+                [ footerLinks
                 ]
             , trackingDisplay profile env
             ]
