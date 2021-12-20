@@ -340,6 +340,7 @@ endsLater periodA periodB =
 
 
 {-| Is the given Moment within the period?
+Boundaries are included.
 -}
 isWithin : Period -> Moment -> Bool
 isWithin (Period startMoment endMoment) testMoment =

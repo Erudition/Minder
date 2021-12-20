@@ -19,6 +19,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (..)
+import Log
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
@@ -72,21 +73,92 @@ backfill timeline periodsToAdd =
 
 placeNewSession : Timeline -> ( ActivityID, Maybe InstanceID, Period ) -> Timeline
 placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, candidatePeriod ) =
+    -- NOTE: don't forget the timeline is always backwards. Later switches come
+    -- first!
     let
-        notLaterThanNewSession switch =
-            -- Since Period.end is the latest part of the period
-            Moment.compare (Period.end candidatePeriod) (Switch.getMoment switch) /= Moment.Later
+        indexedSwitchList =
+            -- add an index so we know where to insert it back later
+            List.indexedMap Tuple.pair switchList
 
-        everythingLaterAndRestMaybe =
-            List.splitWhen notLaterThanNewSession switchList
+        withinBounds ( _, switch ) =
+            -- we're only interested in moments that are within the candidate
+            -- we also don't care if the moment is the very end of our period
+            -- (because switches are start times and the next switch auto
+            -- becomes the end time )
+            -- thus, a switch of interest is same/later than period start
+            -- but earlier than period end.
+            (Moment.compare (Switch.getMoment switch) (Period.start candidatePeriod) /= Moment.Earlier)
+                && (Moment.compare (Switch.getMoment switch) (Period.end candidatePeriod) == Moment.Earlier)
+
+        areaToSearch =
+            List.filter withinBounds indexedSwitchList
+
+        alignsWithStart switch =
+            Moment.isSame (Period.start candidatePeriod) (Switch.getMoment switch)
+
+        alignsWithEnd switch =
+            Moment.isSame (Period.end candidatePeriod) (Switch.getMoment switch)
+
+        foundEndSwitchAt index =
+            -- do we see a switch at the candidate end moment at the index
+            Maybe.map alignsWithEnd (List.getAt index switchList) == Just True
+
+        candidateAsSwitch =
+            newSwitch (Period.start candidatePeriod) candidateActivityID candidateInstanceIDMaybe
+
+        candidateEndAsSwitch =
+            newSwitch (Period.end candidatePeriod) candidateActivityID Nothing
+
+        isConflict switch =
+            -- if tested switch has no instanceID, not a conflict. If same, not a conflict. If different, conflict!
+            Switch.getInstanceID switch /= candidateInstanceIDMaybe
+
+        reSort timeline =
+            -- put a timeline back in order. TODO "stable" sort relevance?
+            List.sortWith (\a b -> Moment.compareEarliness (Switch.getMoment a) (Switch.getMoment b)) timeline
+
+        insertAt index item items =
+            -- because List.Extra.insertAt PR is still not merged
+            let
+                ( start, end ) =
+                    List.splitAt index items
+            in
+            start ++ [ item ] ++ end
+
+        addEndingSwitch startIndex =
+            -- same timeline with stopper added
+            insertAt (startIndex - 1) candidateEndAsSwitch switchList
     in
-    case everythingLaterAndRestMaybe of
-        Nothing ->
-            Debug.todo "Nothing comes later than this period"
+    case areaToSearch of
+        -- dealing with the list of all switches that intersect with candidate.
+        [] ->
+            -- Candidate period either before everything, after everything
+            -- or takes up partial space in between some two. Safe to insert.
+            -- TODO better way to insert?
+            -- currently appending and then re-sorting the whole list
+            reSort (candidateAsSwitch :: switchList)
 
-        -- Nothing comes later than this period
-        Just ( everythingLater, everythingSameOrEarlier ) ->
-            Debug.todo "figure out where to put this guy"
+        [ ( indexOfConcern, switchOfConcern ) ] ->
+            -- only one switch during that time. was it at the same time?
+            case ( isConflict switchOfConcern, alignsWithStart switchOfConcern, foundEndSwitchAt (indexOfConcern - 1) ) of
+                ( False, True, True ) ->
+                    -- we have a winner. we'll update that switch!
+                    List.setAt indexOfConcern candidateAsSwitch switchList
+
+                ( False, True, False ) ->
+                    -- found the start switch, but period ends before next
+                    -- switch. We'll have to add in our own stop switch.
+                    List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
+
+                ( True, _, _ ) ->
+                    -- uh oh, that switch already has an instanceID set, and it
+                    -- is not the same as our candidate... abort!
+                    Log.log "Conflict when backfilling! Investigate!" switchList
+
+        _ ->
+            -- oops, we already have multiple changes going on within that
+            -- period, abort
+            Log.log "Found multiple events within backfill period, won't backfill this!" switchList
 
 
 
@@ -336,25 +408,24 @@ switchListToInstancePeriods switchList =
     List.filterMap maybeInstanceToMaybePair listWithBlanks
 
 
+toPeriods : Timeline -> List ( ActivityID, Maybe Task.Instance.InstanceID, Period )
+toPeriods switchList =
+    let
+        offsetList =
+            List.drop 1 switchList
 
--- toPeriods : Timeline -> List ( ActivityID, Maybe Task.Instance.InstanceID, Period )
--- toPeriods switchList =
---     let
---         offsetList =
---             List.drop 1 switchList
---
---         listWithBlanks =
---             List.map2 instancePeriodFromSwitchPair switchList offsetList
---
---         maybeInstanceToMaybePair ( maybeInstanceID, period ) =
---             case maybeInstanceID of
---                 Just instanceID ->
---                     Just ( instanceID, period )
---
---                 Nothing ->
---                     Nothing
---     in
---     List.filterMap maybeInstanceToMaybePair listWithBlanks
+        listWithBlanks =
+            List.map2 instancePeriodFromSwitchPair switchList offsetList
+
+        maybeInstanceToMaybePair ( maybeInstanceID, period ) =
+            case maybeInstanceID of
+                Just instanceID ->
+                    Just ( instanceID, period )
+
+                Nothing ->
+                    Nothing
+    in
+    List.filterMap maybeInstanceToMaybePair listWithBlanks
 
 
 getInstancePeriods : Timeline -> InstanceID -> List Period
