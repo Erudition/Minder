@@ -150,6 +150,26 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                     -- switch. We'll have to add in our own stop switch.
                     List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
 
+                ( False, False, True ) ->
+                    let
+                        offBy =
+                            Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+
+                        messageToLog =
+                            "Found matching end switch but the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge"
+                    in
+                    Log.log messageToLog switchList
+
+                ( False, False, False ) ->
+                    let
+                        offBy =
+                            Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+
+                        messageToLog =
+                            "Found NO matching end switch, AND the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge"
+                    in
+                    Log.log messageToLog switchList
+
                 ( True, _, _ ) ->
                     -- uh oh, that switch already has an instanceID set, and it
                     -- is not the same as our candidate... abort!
@@ -379,6 +399,11 @@ instancePeriodFromSwitchPair newerSwitch olderSwitch =
     ( Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
+fullPeriodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe InstanceID, Period )
+fullPeriodFromSwitchPair newerSwitch olderSwitch =
+    ( Switch.getActivityID olderSwitch, Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
+
+
 switchListToPeriods : List Switch -> List ( ActivityID, Period )
 switchListToPeriods switchList =
     let
@@ -388,19 +413,21 @@ switchListToPeriods switchList =
     List.map2 periodFromSwitchPair switchList offsetList
 
 
-switchListToInstancePeriods : List Switch -> List ( Task.Instance.InstanceID, Period )
+{-| Excludes period without an instanceID.
+-}
+switchListToInstancePeriods : List Switch -> List ( ActivityID, Task.Instance.InstanceID, Period )
 switchListToInstancePeriods switchList =
     let
         offsetList =
             List.drop 1 switchList
 
         listWithBlanks =
-            List.map2 instancePeriodFromSwitchPair switchList offsetList
+            List.map2 fullPeriodFromSwitchPair switchList offsetList
 
-        maybeInstanceToMaybePair ( maybeInstanceID, period ) =
+        maybeInstanceToMaybePair ( activityID, maybeInstanceID, period ) =
             case maybeInstanceID of
                 Just instanceID ->
-                    Just ( instanceID, period )
+                    Just ( activityID, instanceID, period )
 
                 Nothing ->
                     Nothing
@@ -408,29 +435,30 @@ switchListToInstancePeriods switchList =
     List.filterMap maybeInstanceToMaybePair listWithBlanks
 
 
-toPeriods : Timeline -> List ( ActivityID, Maybe Task.Instance.InstanceID, Period )
-toPeriods switchList =
-    let
-        offsetList =
-            List.drop 1 switchList
 
-        listWithBlanks =
-            List.map2 instancePeriodFromSwitchPair switchList offsetList
-
-        maybeInstanceToMaybePair ( maybeInstanceID, period ) =
-            case maybeInstanceID of
-                Just instanceID ->
-                    Just ( instanceID, period )
-
-                Nothing ->
-                    Nothing
-    in
-    List.filterMap maybeInstanceToMaybePair listWithBlanks
+-- toActivityPeriods : Timeline -> List ( ActivityID, Period )
+-- toActivityPeriods switchList =
+--     let
+--         offsetList =
+--             List.drop 1 switchList
+--
+--         listWithBlanks =
+--             List.map2 instancePeriodFromSwitchPair switchList offsetList
+--
+--         maybeInstanceToMaybePair ( maybeInstanceID, period ) =
+--             case maybeInstanceID of
+--                 Just instanceID ->
+--                     Just ( instanceID, period )
+--
+--                 Nothing ->
+--                     Nothing
+--     in
+--     List.filterMap maybeInstanceToMaybePair listWithBlanks
 
 
 getInstancePeriods : Timeline -> InstanceID -> List Period
 getInstancePeriods timeline instanceID =
-    List.map Tuple.second <| List.filter (\( i, p ) -> i == instanceID) (switchListToInstancePeriods timeline)
+    List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods timeline)
 
 
 getInstanceTimes : Timeline -> InstanceID -> List Moment
