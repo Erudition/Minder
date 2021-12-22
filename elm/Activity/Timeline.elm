@@ -68,7 +68,15 @@ startActivity time newActivityID timeline =
 
 backfill : Timeline -> List ( ActivityID, Maybe InstanceID, Period ) -> Timeline
 backfill timeline periodsToAdd =
-    Debug.todo "List.foldl placeNewSession timeline periodsToAdd"
+    case periodsToAdd of
+        [] ->
+            timeline
+
+        [ singlePeriod ] ->
+            placeNewSession timeline singlePeriod
+
+        singlePeriod :: rest ->
+            placeNewSession (backfill timeline rest) singlePeriod
 
 
 placeNewSession : Timeline -> ( ActivityID, Maybe InstanceID, Period ) -> Timeline

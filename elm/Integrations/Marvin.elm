@@ -15,11 +15,13 @@ import IntDict exposing (IntDict)
 import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import List.Extra as List
 import Log
 import Maybe.Extra
 import Profile exposing (Profile)
 import Set
 import SmartTime.Moment exposing (Moment)
+import SmartTime.Period as Period exposing (Period)
 import Task.Class
 import Task.Entry
 import Task.Instance
@@ -376,7 +378,7 @@ handle classCounter profile response =
                 Ok timesList ->
                     let
                         updatedTimeline =
-                            []
+                            Timeline.backfill profile.timeline (trackTruthToTimelineSessions profile env timesList)
                     in
                     ( profile
                     , Debug.toString timesList
@@ -805,6 +807,42 @@ decodeTrackTruthItem =
                 decodeUnixTimestamp
             )
         )
+
+
+trackTruthToTimelineSessions : Profile -> Environment -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.Instance.InstanceID, Period )
+trackTruthToTimelineSessions profile env truthItem =
+    let
+        isCorrectInstance instance =
+            (==) (Just truthItem.task) <| Maybe.andThen String.toInt (Task.Instance.getExtra "marvinID" instance)
+
+        matchingInstance =
+            List.find isCorrectInstance (Profile.instanceListNow profile env)
+
+        offsetList =
+            case modBy 2 (List.length truthItem.times) == 0 of
+                True ->
+                    -- even # of times, tracking has stopped
+                    List.drop 1 truthItem.times
+
+                False ->
+                    -- odd means never stopped tracking, use current time
+                    env.time :: truthItem.times
+    in
+    case matchingInstance of
+        Nothing ->
+            []
+
+        Just instance ->
+            case Task.Instance.getActivityID instance of
+                Nothing ->
+                    []
+
+                Just activity ->
+                    let
+                        toSession moment1 moment2 =
+                            ( activity, Just <| Task.Instance.getID instance, Period.fromPair ( moment1, moment2 ) )
+                    in
+                    List.map2 toSession offsetList truthItem.times
 
 
 {-| A message for you to add to your app's `Msg` type. Comes back when the sync request succeeded or failed.
