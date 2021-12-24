@@ -20,7 +20,10 @@ import Log
 import Maybe.Extra as Maybe
 import Profile exposing (Profile)
 import Set
-import SmartTime.Moment exposing (Moment)
+import SmartTime.Duration as Duration
+import SmartTime.Human.Duration as HumanDuration
+import SmartTime.Human.Moment as HumanMoment
+import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.Class
 import Task.Entry
@@ -415,9 +418,15 @@ handle classCounter profile env response =
 
                         updatedTimeline =
                             Timeline.backfill profile.timeline asSessions
+
+                        newestReport time =
+                            HumanDuration.say (Moment.difference env.time time)
+
+                        logMsg =
+                            "got timetrack acknowledgement at " ++ HumanMoment.toStandardString env.time ++ " my time, newest marvin time was off by " ++ (Maybe.withDefault "none" <| Maybe.map newestReport (List.last timesList))
                     in
                     ( { profile | timeline = updatedTimeline }
-                    , "got timetrack acknowledgement: " ++ Debug.toString ack
+                    , logMsg
                     , Cmd.none
                     )
 
@@ -865,7 +874,8 @@ trackTruthToTimelineSessions profile env truthItem =
                 Nothing
 
         startsList =
-            List.filterMap (keepEvenOdd 0) indexedTimes
+            -- Marvin seems to start tracking 5 seconds in the past
+            List.map (\m -> Moment.future m (Duration.fromSeconds 5)) (List.filterMap (keepEvenOdd 0) indexedTimes)
 
         stopsList =
             case modBy 2 (List.length truthItem.times) == 0 of
@@ -876,7 +886,7 @@ trackTruthToTimelineSessions profile env truthItem =
 
                 False ->
                     -- odd means never stopped tracking, use current time
-                    List.filterMap (keepEvenOdd 1) (List.indexedMap Tuple.pair (truthItem.times ++ [ env.time ]))
+                    List.filterMap (keepEvenOdd 1) (List.indexedMap Tuple.pair truthItem.times)
     in
     case matchingInstance of
         Nothing ->

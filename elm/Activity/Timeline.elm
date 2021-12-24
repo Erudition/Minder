@@ -89,23 +89,39 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             List.indexedMap Tuple.pair switchList
 
         withinBounds ( _, switch ) =
+            let
+                windowStart =
+                    Moment.past (Period.start candidatePeriod) tolerance
+
+                windowEnd =
+                    -- negative tolerance because we only want start switch to be within
+                    -- search area I guess
+                    Moment.past (Period.end candidatePeriod) tolerance
+            in
             -- we're only interested in moments that are within the candidate
             -- we also don't care if the moment is the very end of our period
             -- (because switches are start times and the next switch auto
             -- becomes the end time )
             -- thus, a switch of interest is same/later than period start
             -- but earlier than period end.
-            (Moment.compare (Switch.getMoment switch) (Period.start candidatePeriod) /= Moment.Earlier)
-                && (Moment.compare (Switch.getMoment switch) (Period.end candidatePeriod) == Moment.Earlier)
+            (Moment.compare (Switch.getMoment switch) windowStart /= Moment.Earlier)
+                && (Moment.compare (Switch.getMoment switch) windowEnd == Moment.Earlier)
 
         areaToSearch =
             List.filter withinBounds indexedSwitchList
 
+        tolerance =
+            Duration.aSecond
+
+        isSameMoment moment1 moment2 =
+            -- instead of Moment.isSame moment1 moment2, we want some tolerance
+            Duration.compare (Moment.difference moment1 moment2) tolerance == LT
+
         alignsWithStart switch =
-            Moment.isSame (Period.start candidatePeriod) (Switch.getMoment switch)
+            isSameMoment (Period.start candidatePeriod) (Switch.getMoment switch)
 
         alignsWithEnd switch =
-            Moment.isSame (Period.end candidatePeriod) (Switch.getMoment switch)
+            isSameMoment (Period.end candidatePeriod) (Switch.getMoment switch)
 
         foundEndSwitchAt index =
             if index == -1 then
@@ -148,7 +164,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             insertAt (startIndex - 1) candidateEndAsSwitch switchList
 
         logDeets =
-            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map String.fromInt candidateInstanceIDMaybe) ++ ") from " ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> " ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ "(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
+            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map String.fromInt candidateInstanceIDMaybe) ++ ") from \t" ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> \t" ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ " \t(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
     in
     case areaToSearch of
         -- dealing with the list of all switches that intersect with candidate.
@@ -182,20 +198,27 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                 ( False, False, True ) ->
                     let
                         offBy =
-                            Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+                            Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
 
                         messageToLog =
-                            "Found matching end switch but the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge! " ++ logDeets
+                            "Found matching end switch at timeline index " ++ String.fromInt (indexOfConcern - 1) ++ " but the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is off by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
                     in
                     Log.logMessage messageToLog switchList
 
                 ( False, False, False ) ->
                     let
                         offBy =
-                            Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+                            Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+
+                        earlierOrLater =
+                            if Moment.isEarlier (Switch.getMoment switchOfConcern) (Period.start candidatePeriod) then
+                                "earlier"
+
+                            else
+                                "later"
 
                         messageToLog =
-                            "Found NO matching end switch, AND the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge! " ++ logDeets
+                            "Found NO matching end switch, AND the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is " ++ earlierOrLater ++ " by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
                     in
                     Log.logMessage messageToLog switchList
 
