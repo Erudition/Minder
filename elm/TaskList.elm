@@ -1007,6 +1007,7 @@ update msg state app env =
             )
 
         MarvinServerResponse response ->
+            -- gets intercepted up top!
             ( state, app, Cmd.none )
 
         Refilter newList ->
@@ -1023,7 +1024,7 @@ update msg state app env =
                     Activity.Switching.switchTracking activityID (Just instanceID) app env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
-                    Marvin.marvinTrackUpdate newProfile1WithSwitch env (Just instanceID) True
+                    Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
             in
             ( state
             , newProfile2WithMarvinTimes
@@ -1045,7 +1046,7 @@ update msg state app env =
                     Activity.Switching.switchTracking activityToContinue Nothing app env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
-                    Marvin.marvinTrackUpdate newProfile1WithSwitch env instanceToStop False
+                    Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False
             in
             ( state
             , newProfile2WithMarvinTimes

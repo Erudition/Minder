@@ -17,7 +17,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import List.Extra as List
 import Log
-import Maybe.Extra
+import Maybe.Extra as Maybe
 import Profile exposing (Profile)
 import Set
 import SmartTime.Moment exposing (Moment)
@@ -107,7 +107,7 @@ couchLogin =
                     ]
                 )
         , expect = Http.expectString AuthResult
-        , timeout = Nothing
+        , timeout = Just 3000
         , tracker = Nothing
         }
 
@@ -120,7 +120,7 @@ couchSessionInfo =
         , url = marvinCloudantDatabaseUrl [ "_session" ] []
         , body = Http.emptyBody
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 1000
         , tracker = Nothing
         }
 
@@ -133,7 +133,7 @@ testCouch =
         , url = marvinCloudantDatabaseUrl [ syncDatabase ] []
         , body = Http.emptyBody
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -146,7 +146,7 @@ couchEverything =
         , url = marvinCloudantDatabaseUrl [ syncDatabase, "_all_docs" ] [ Url.Builder.string "include_docs" "true" ]
         , body = Http.emptyBody
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -165,7 +165,7 @@ getTimeBlocks assignments =
                     ]
                 )
         , expect = Http.expectJson (GotTimeBlocks assignments) (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinTimeBlock)
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -242,7 +242,7 @@ getTimeBlockAssignments =
                             Decode.list
                                 decodeAssignment
                 )
-        , timeout = Nothing
+        , timeout = Just 1000
         , tracker = Nothing
         }
 
@@ -255,7 +255,7 @@ test secret =
         , url = marvinEndpointURL "test"
         , body = Http.emptyBody
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 1000
         , tracker = Nothing
         }
 
@@ -317,13 +317,13 @@ handle classCounter profile env response =
                             importItems profile itemList
                     in
                     ( newProfile
-                    , Debug.toString itemList
+                    , "Fetched items: " ++ Debug.toString itemList
                     , getTimeBlockAssignments
                     )
 
                 Err err ->
                     ( profile
-                    , describeError err
+                    , "when getting items: " ++ describeError err
                     , Cmd.none
                     )
 
@@ -335,13 +335,13 @@ handle classCounter profile env response =
                             importLabels profile labelList
                     in
                     ( { profile | activities = IntDict.union profile.activities newActivities }
-                    , Debug.toString labelList
+                    , "Fetched labels: " ++ Debug.toString labelList
                     , getTasks partialAccessToken
                     )
 
                 Err err ->
                     ( profile
-                    , describeError err
+                    , "when getting labels: " ++ describeError err
                     , Cmd.none
                     )
 
@@ -349,13 +349,13 @@ handle classCounter profile env response =
             case result of
                 Ok timeBlockList ->
                     ( { profile | timeBlocks = importTimeBlocks profile assignments timeBlockList }
-                    , Debug.toString timeBlockList
+                    , "Fetched timeblocks: " ++ Debug.toString timeBlockList
                     , Cmd.none
                     )
 
                 Err err ->
                     ( profile
-                    , describeError err
+                    , "when getting time blocks: " ++ describeError err
                     , Cmd.none
                     )
 
@@ -363,13 +363,13 @@ handle classCounter profile env response =
             case assignmentsResult of
                 Ok assignmentDict ->
                     ( profile
-                    , Debug.toString assignmentDict
+                    , "Fetched timeblock assignments: " ++ Debug.toString assignmentDict
                     , getTimeBlocks assignmentDict
                     )
 
                 Err err ->
                     ( profile
-                    , describeError err
+                    , "when getting time block assignments: " ++ describeError err
                     , Cmd.none
                     )
 
@@ -380,14 +380,50 @@ handle classCounter profile env response =
                         updatedTimeline =
                             Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
                     in
-                    ( profile
-                    , Debug.toString timesList
+                    ( { profile | timeline = updatedTimeline }
+                    , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
                     , Cmd.none
                     )
 
                 Err err ->
                     ( profile
-                    , describeError err
+                    , "when getting canonical timetrack timing tables: " ++ describeError err
+                    , Cmd.none
+                    )
+
+        GotTrackAck ackResult ->
+            case ackResult of
+                Ok ack ->
+                    let
+                        timesList =
+                            if List.length ack.startTimes >= List.length ack.stopTimes then
+                                ack.startTimes
+
+                            else
+                                ack.stopTimes
+
+                        itemIDMaybe =
+                            Maybe.or ack.startID ack.stopID
+
+                        asSessions =
+                            case itemIDMaybe of
+                                Just itemID ->
+                                    trackTruthToTimelineSessions profile env (TrackTruthItem itemID timesList)
+
+                                Nothing ->
+                                    Debug.log "wha??? no task?? " []
+
+                        updatedTimeline =
+                            Timeline.backfill profile.timeline asSessions
+                    in
+                    ( { profile | timeline = updatedTimeline }
+                    , "got timetrack acknowledgement: " ++ Debug.toString ack
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( profile
+                    , "when sending start/stop timetracking signal: " ++ describeError err
                     , Cmd.none
                     )
 
@@ -401,10 +437,10 @@ importItems profile itemList =
                     toDocketItem item beforeProfile
 
                 tasks =
-                    Maybe.Extra.toList (tasksOnly output)
+                    Maybe.toList (tasksOnly output)
 
                 activities =
-                    Maybe.Extra.toList (activitiesOnly output)
+                    Maybe.toList (activitiesOnly output)
             in
             { beforeProfile
                 | taskEntries = beforeProfile.taskEntries ++ List.concatMap .entries tasks
@@ -460,7 +496,7 @@ addTask secret =
         , url = marvinEndpointURL "addTask"
         , body = Http.emptyBody -- TODO task
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -473,7 +509,7 @@ addProject secret =
         , url = marvinEndpointURL "addProject"
         , body = Http.emptyBody -- TODO project
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -490,7 +526,7 @@ getDoc fullSecret doc =
         , url = marvinDocURL doc
         , body = Http.emptyBody -- TODO project
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -503,7 +539,7 @@ getTrackedItem secret =
         , url = marvinEndpointURL "trackedItem"
         , body = Http.emptyBody
         , expect = Http.expectString TestResult
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -518,7 +554,7 @@ getTodayItems secret =
         , url = marvinEndpointURL "todayItems"
         , body = Http.emptyBody
         , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list MarvinItem.decodeMarvinItem)
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -533,7 +569,7 @@ getDueItems secret =
         , url = marvinEndpointURL "dueItems"
         , body = Http.emptyBody
         , expect = Http.expectString TestResult --TODO
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -583,7 +619,7 @@ getTasks secret =
                     ]
                 )
         , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -626,7 +662,7 @@ updateDoc timestamp updatedFields taskInstance =
                     Http.jsonBody
                         (MarvinItem.encodeMarvinItem stampedItem)
                 , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
-                , timeout = Nothing
+                , timeout = Just 5000
                 , tracker = Nothing
                 }
 
@@ -668,7 +704,7 @@ getRecurringTasks secret =
                     ]
                 )
         , expect = Http.expectJson GotItems (toClassicLoose <| Decode.at [ "docs" ] <| Decode.list MarvinItem.decodeMarvinItem)
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -683,7 +719,7 @@ getCategories secret =
         , url = marvinEndpointURL "categories"
         , body = Http.emptyBody
         , expect = Http.expectJson GotItems (toClassicLoose <| Decode.list MarvinItem.decodeMarvinItem)
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -698,7 +734,7 @@ getLabels secret =
         , url = marvinEndpointURL "labels"
         , body = Http.emptyBody
         , expect = Http.expectJson GotLabels (toClassicLoose <| Decode.list MarvinItem.decodeMarvinLabel)
-        , timeout = Nothing
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -725,14 +761,14 @@ timeTrack secret taskID starting =
                             )
                       )
                     ]
-        , expect = Http.expectString TestResult --TODO
-        , timeout = Nothing
+        , expect = Http.expectJson GotTrackAck (toClassicLoose <| decodeTrackAck) --TODO
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
 
-marvinTrackUpdate : Profile -> Environment -> Maybe Task.Instance.InstanceID -> Bool -> ( Profile, Cmd Msg )
-marvinTrackUpdate profile env instanceIDMaybe starting =
+marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.Instance.InstanceID -> Bool -> ( Profile, Cmd Msg )
+marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
     case Maybe.andThen (Profile.getInstanceByID profile env) instanceIDMaybe of
         Just instance ->
             case Task.Instance.getExtra "marvinID" instance of
@@ -759,7 +795,7 @@ marvinTrackUpdate profile env instanceIDMaybe starting =
                         updateTimesCmd =
                             updateDoc env.time [ "times" ] { instance | instance = updatedInstanceSkel }
                     in
-                    ( updatedProfile, Cmd.batch [ trackCmd, updateTimesCmd ] )
+                    ( updatedProfile, Cmd.batch [ trackCmd ] )
 
         Nothing ->
             ( profile, Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
@@ -776,8 +812,8 @@ timesUpdater profile instanceID =
 
 {-| get truth about tracked tasks
 -}
-trackTruth : SecretToken -> String -> Bool -> Cmd Msg
-trackTruth secret taskID starting =
+trackTruth : SecretToken -> String -> Cmd Msg
+trackTruth secret taskID =
     Http.request
         { method = "POST"
         , headers = [ Http.header "X-API-Token" secret ]
@@ -787,7 +823,7 @@ trackTruth secret taskID starting =
                 Encode.object
                     [ ( "taskIds", Encode.list Encode.string [ taskID ] ) ]
         , expect = Http.expectJson GotTrackTruth (toClassicLoose <| Decode.list decodeTrackTruthItem) --TODO
-        , timeout = Nothing
+        , timeout = Just 5000
         , tracker = Nothing
         }
 
@@ -801,7 +837,7 @@ type alias TrackTruthItem =
 decodeTrackTruthItem : Decode.Decoder TrackTruthItem
 decodeTrackTruthItem =
     Decode.map2 TrackTruthItem
-        (Decode.field "task" Decode.int)
+        (Decode.field "task" Decode.string)
         (Decode.field "times"
             (Decode.list
                 decodeUnixTimestamp
@@ -813,24 +849,38 @@ trackTruthToTimelineSessions : Profile -> Environment -> TrackTruthItem -> List 
 trackTruthToTimelineSessions profile env truthItem =
     let
         isCorrectInstance instance =
-            (==) (Just truthItem.task) <| Maybe.andThen String.toInt (Task.Instance.getExtra "marvinID" instance)
+            Just truthItem.task == Task.Instance.getExtra "marvinID" instance
 
         matchingInstance =
             List.find isCorrectInstance (Profile.instanceListNow profile env)
 
-        offsetList =
+        indexedTimes =
+            List.indexedMap Tuple.pair truthItem.times
+
+        keepEvenOdd modNum ( i, v ) =
+            if modBy 2 i == modNum then
+                Just v
+
+            else
+                Nothing
+
+        startsList =
+            List.filterMap (keepEvenOdd 0) indexedTimes
+
+        stopsList =
             case modBy 2 (List.length truthItem.times) == 0 of
                 True ->
                     -- even # of times, tracking has stopped
-                    List.drop 1 truthItem.times
+                    -- line up with stop times
+                    List.filterMap (keepEvenOdd 1) indexedTimes
 
                 False ->
                     -- odd means never stopped tracking, use current time
-                    env.time :: truthItem.times
+                    List.filterMap (keepEvenOdd 1) (List.indexedMap Tuple.pair (truthItem.times ++ [ env.time ]))
     in
     case matchingInstance of
         Nothing ->
-            []
+            Log.logMessage "no matching instance when constructing timeline sessions from marvin data!" []
 
         Just instance ->
             case Task.Instance.getActivityID instance of
@@ -842,7 +892,35 @@ trackTruthToTimelineSessions profile env truthItem =
                         toSession moment1 moment2 =
                             ( activity, Just <| Task.Instance.getID instance, Period.fromPair ( moment1, moment2 ) )
                     in
-                    List.map2 toSession offsetList truthItem.times
+                    List.map2 toSession startsList stopsList
+
+
+type alias TrackAck =
+    { startID : Maybe MarvinItem.ItemID
+    , startTimes : List Moment
+    , stopID : Maybe MarvinItem.ItemID
+    , stopTimes : List Moment
+    }
+
+
+decodeTrackAck : Decode.Decoder TrackAck
+decodeTrackAck =
+    let
+        decodeID =
+            Decode.oneOf [ Decode.check Decode.string "" <| Decode.succeed Nothing, Decode.nullable Decode.string, Decode.null Nothing ]
+
+        decodeTimes =
+            Decode.oneOf
+                [ Decode.list
+                    decodeUnixTimestamp
+                , Decode.succeed []
+                ]
+    in
+    Decode.map4 TrackAck
+        (Decode.field "startId" decodeID)
+        (Decode.field "startTimes" decodeTimes)
+        (Decode.field "stopId" decodeID)
+        (Decode.field "stopTimes" decodeTimes)
 
 
 {-| A message for you to add to your app's `Msg` type. Comes back when the sync request succeeded or failed.
@@ -855,6 +933,7 @@ type Msg
     | GotTimeBlockAssignments (Result Http.Error TimeBlockAssignments)
     | GotTimeBlocks TimeBlockAssignments (Result Http.Error (List MarvinTimeBlock))
     | GotTrackTruth (Result Http.Error (List TrackTruthItem))
+    | GotTrackAck (Result Http.Error TrackAck)
 
 
 

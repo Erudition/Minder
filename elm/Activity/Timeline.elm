@@ -70,7 +70,7 @@ backfill : Timeline -> List ( ActivityID, Maybe InstanceID, Period ) -> Timeline
 backfill timeline periodsToAdd =
     case periodsToAdd of
         [] ->
-            timeline
+            Log.logMessage "nothing to backfill!" timeline
 
         [ singlePeriod ] ->
             placeNewSession timeline singlePeriod
@@ -128,6 +128,9 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             -- if tested switch has no instanceID, not a conflict. If same, not a conflict. If different, conflict!
             Switch.getInstanceID switch /= candidateInstanceIDMaybe
 
+        isCorrectAlready switch =
+            Switch.getInstanceID switch == candidateInstanceIDMaybe
+
         reSort timeline =
             -- put a timeline back in order. TODO "stable" sort relevance?
             List.sortWith (\a b -> Moment.compareEarliness (Switch.getMoment a) (Switch.getMoment b)) timeline
@@ -143,6 +146,9 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
         addEndingSwitch startIndex =
             -- same timeline with stopper added
             insertAt (startIndex - 1) candidateEndAsSwitch switchList
+
+        logDeets =
+            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map String.fromInt candidateInstanceIDMaybe) ++ ") from " ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> " ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ "(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
     in
     case areaToSearch of
         -- dealing with the list of all switches that intersect with candidate.
@@ -155,15 +161,23 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
 
         [ ( indexOfConcern, switchOfConcern ) ] ->
             -- only one switch during that time. was it at the same time?
-            case ( isConflict switchOfConcern, alignsWithStart switchOfConcern, foundEndSwitchAt (indexOfConcern - 1) ) of
+            case ( isCorrectAlready switchOfConcern, alignsWithStart switchOfConcern, foundEndSwitchAt (indexOfConcern - 1) ) of
                 ( False, True, True ) ->
+                    let
+                        messageToLog =
+                            "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " with a matching end switch, marking with taskID. " ++ logDeets
+                    in
                     -- we have a winner. we'll update that switch!
-                    List.setAt indexOfConcern candidateAsSwitch switchList
+                    Log.logMessage messageToLog <| List.setAt indexOfConcern candidateAsSwitch switchList
 
                 ( False, True, False ) ->
+                    let
+                        messageToLog =
+                            "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " (no matching end switch), marking with taskID. " ++ logDeets
+                    in
                     -- found the start switch, but period ends before next
                     -- switch. We'll have to add in our own stop switch.
-                    List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
+                    Log.logMessage messageToLog <| List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
 
                 ( False, False, True ) ->
                     let
@@ -171,9 +185,9 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                             Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
 
                         messageToLog =
-                            "Found matching end switch but the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge"
+                            "Found matching end switch but the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge! " ++ logDeets
                     in
-                    Log.log messageToLog switchList
+                    Log.logMessage messageToLog switchList
 
                 ( False, False, False ) ->
                     let
@@ -181,19 +195,37 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                             Duration.inMinutes (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
 
                         messageToLog =
-                            "Found NO matching end switch, AND the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge"
+                            "Found NO matching end switch, AND the start switch is earlier by " ++ String.fromFloat offBy ++ " so aborting merge! " ++ logDeets
                     in
-                    Log.log messageToLog switchList
+                    Log.logMessage messageToLog switchList
 
                 ( True, _, _ ) ->
-                    -- uh oh, that switch already has an instanceID set, and it
-                    -- is not the same as our candidate... abort!
-                    Log.log "Conflict when backfilling! Investigate!" switchList
+                    case isConflict switchOfConcern of
+                        True ->
+                            -- uh oh, that switch already has an instanceID set, and it
+                            -- is not the same as our candidate... abort!
+                            Log.logMessage ("Conflict when backfilling! Investigate! " ++ logDeets ++ "concerning switch:" ++ Debug.toString switchOfConcern) switchList
 
-        _ ->
+                        False ->
+                            Log.logMessage ("Already have this one, moving on. " ++ logDeets) switchList
+
+        biggerList ->
+            let
+                switchIDtext switch =
+                    Maybe.map String.fromInt (Switch.getInstanceID switch) |> Maybe.withDefault "none"
+
+                timeDiff1 switch =
+                    Moment.difference (Switch.getMoment switch) (Period.start candidatePeriod) |> HumanDuration.say
+
+                timeDiff2 switch =
+                    Moment.difference (Switch.getMoment switch) (Period.end candidatePeriod) |> HumanDuration.say
+
+                sayDifference ( index, switch ) =
+                    "\nAt " ++ String.fromInt index ++ ": Switch Ins:" ++ switchIDtext switch ++ " at start +" ++ timeDiff1 switch ++ ", end -" ++ timeDiff2 switch
+            in
             -- oops, we already have multiple changes going on within that
             -- period, abort
-            Log.log "Found multiple events within backfill period, won't backfill this!" switchList
+            Log.logMessage ("Found multiple events within backfill period, won't backfill this!\n" ++ logDeets ++ String.concat (List.map sayDifference biggerList)) switchList
 
 
 

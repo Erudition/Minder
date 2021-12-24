@@ -3,8 +3,13 @@ module Log exposing (..)
 import Debug
 
 
-logMessage label _ =
-    Debug.log label ()
+logMessage : String -> a -> a
+logMessage label thing =
+    if Debug.log label () == () then
+        thing
+
+    else
+        thing
 
 
 log label item =

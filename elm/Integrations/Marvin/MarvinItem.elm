@@ -31,7 +31,7 @@ import TimeBlock.TimeBlock exposing (TimeBlock)
 
 
 type alias ItemID =
-    Int
+    String
 
 
 type alias UserID =

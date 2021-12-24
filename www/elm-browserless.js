@@ -15819,6 +15819,259 @@ var $author$project$Integrations$Marvin$getLabelsCmd = $elm$core$Platform$Cmd$ba
 		[
 			$author$project$Integrations$Marvin$getLabels($author$project$Integrations$Marvin$partialAccessToken)
 		]));
+var $author$project$SmartTime$Moment$compareEarliness = F2(
+	function (_v0, _v1) {
+		var time1 = _v0.a;
+		var time2 = _v1.a;
+		return A2(
+			$elm$core$Basics$compare,
+			$author$project$SmartTime$Duration$inMs(time2),
+			$author$project$SmartTime$Duration$inMs(time1));
+	});
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $author$project$SmartTime$Duration$difference = F2(
+	function (_v0, _v1) {
+		var int1 = _v0.a;
+		var int2 = _v1.a;
+		return $author$project$SmartTime$Duration$Duration(
+			$elm$core$Basics$abs(int1 - int2));
+	});
+var $author$project$SmartTime$Moment$difference = F2(
+	function (_v0, _v1) {
+		var time1 = _v0.a;
+		var time2 = _v1.a;
+		return A2($author$project$SmartTime$Duration$difference, time1, time2);
+	});
+var $author$project$SmartTime$Period$end = function (_v0) {
+	var endMoment = _v0.b;
+	return endMoment;
+};
+var $elm$core$String$fromFloat = _String_fromNumber;
+var $elm_community$list_extra$List$Extra$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
+			A2($elm$core$List$drop, idx, xs));
+	});
+var $author$project$Activity$Switch$getInstanceID = function (_v0) {
+	var instanceIDMaybe = _v0.c;
+	return instanceIDMaybe;
+};
+var $author$project$Activity$Switch$getMoment = function (_v0) {
+	var moment = _v0.a;
+	return moment;
+};
+var $author$project$SmartTime$Duration$inMinutes = function (duration) {
+	return $author$project$SmartTime$Duration$inMs(duration) / $author$project$SmartTime$Duration$minuteLength;
+};
+var $author$project$SmartTime$Moment$isSame = F2(
+	function (_v0, _v1) {
+		var time1 = _v0.a;
+		var time2 = _v1.a;
+		return _Utils_eq(
+			$author$project$SmartTime$Duration$inMs(time1),
+			$author$project$SmartTime$Duration$inMs(time2));
+	});
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Log$log = F2(
+	function (label, item) {
+		return A2($elm$core$Debug$log, label, item);
+	});
+var $author$project$Activity$Switch$newSwitch = F3(
+	function (moment, activityID, instanceIDMaybe) {
+		return A3($author$project$Activity$Switch$Switch, moment, activityID, instanceIDMaybe);
+	});
+var $elm_community$list_extra$List$Extra$updateAt = F3(
+	function (index, fn, list) {
+		if (index < 0) {
+			return list;
+		} else {
+			var tail = A2($elm$core$List$drop, index, list);
+			var head = A2($elm$core$List$take, index, list);
+			if (tail.b) {
+				var x = tail.a;
+				var xs = tail.b;
+				return _Utils_ap(
+					head,
+					A2(
+						$elm$core$List$cons,
+						fn(x),
+						xs));
+			} else {
+				return list;
+			}
+		}
+	});
+var $elm_community$list_extra$List$Extra$setAt = F2(
+	function (index, value) {
+		return A2(
+			$elm_community$list_extra$List$Extra$updateAt,
+			index,
+			$elm$core$Basics$always(value));
+	});
+var $elm$core$List$sortWith = _List_sortWith;
+var $elm_community$list_extra$List$Extra$splitAt = F2(
+	function (n, xs) {
+		return _Utils_Tuple2(
+			A2($elm$core$List$take, n, xs),
+			A2($elm$core$List$drop, n, xs));
+	});
+var $author$project$SmartTime$Period$start = function (_v0) {
+	var startMoment = _v0.a;
+	return startMoment;
+};
+var $author$project$Activity$Timeline$placeNewSession = F2(
+	function (switchList, _v0) {
+		var candidateActivityID = _v0.a;
+		var candidateInstanceIDMaybe = _v0.b;
+		var candidatePeriod = _v0.c;
+		var withinBounds = function (_v5) {
+			var _switch = _v5.b;
+			return (!_Utils_eq(
+				A2(
+					$author$project$SmartTime$Moment$compare,
+					$author$project$Activity$Switch$getMoment(_switch),
+					$author$project$SmartTime$Period$start(candidatePeriod)),
+				$author$project$SmartTime$Moment$Earlier)) && _Utils_eq(
+				A2(
+					$author$project$SmartTime$Moment$compare,
+					$author$project$Activity$Switch$getMoment(_switch),
+					$author$project$SmartTime$Period$end(candidatePeriod)),
+				$author$project$SmartTime$Moment$Earlier);
+		};
+		var reSort = function (timeline) {
+			return A2(
+				$elm$core$List$sortWith,
+				F2(
+					function (a, b) {
+						return A2(
+							$author$project$SmartTime$Moment$compareEarliness,
+							$author$project$Activity$Switch$getMoment(a),
+							$author$project$Activity$Switch$getMoment(b));
+					}),
+				timeline);
+		};
+		var isConflict = function (_switch) {
+			return !_Utils_eq(
+				$author$project$Activity$Switch$getInstanceID(_switch),
+				candidateInstanceIDMaybe);
+		};
+		var insertAt = F3(
+			function (index, item, items) {
+				var _v4 = A2($elm_community$list_extra$List$Extra$splitAt, index, items);
+				var start = _v4.a;
+				var end = _v4.b;
+				return _Utils_ap(
+					start,
+					_Utils_ap(
+						_List_fromArray(
+							[item]),
+						end));
+			});
+		var indexedSwitchList = A2($elm$core$List$indexedMap, $elm$core$Tuple$pair, switchList);
+		var candidateEndAsSwitch = A3(
+			$author$project$Activity$Switch$newSwitch,
+			$author$project$SmartTime$Period$end(candidatePeriod),
+			candidateActivityID,
+			$elm$core$Maybe$Nothing);
+		var candidateAsSwitch = A3(
+			$author$project$Activity$Switch$newSwitch,
+			$author$project$SmartTime$Period$start(candidatePeriod),
+			candidateActivityID,
+			candidateInstanceIDMaybe);
+		var areaToSearch = A2($elm$core$List$filter, withinBounds, indexedSwitchList);
+		var alignsWithStart = function (_switch) {
+			return A2(
+				$author$project$SmartTime$Moment$isSame,
+				$author$project$SmartTime$Period$start(candidatePeriod),
+				$author$project$Activity$Switch$getMoment(_switch));
+		};
+		var alignsWithEnd = function (_switch) {
+			return A2(
+				$author$project$SmartTime$Moment$isSame,
+				$author$project$SmartTime$Period$end(candidatePeriod),
+				$author$project$Activity$Switch$getMoment(_switch));
+		};
+		var foundEndSwitchAt = function (index) {
+			return _Utils_eq(index, -1) ? true : _Utils_eq(
+				A2(
+					$elm$core$Maybe$map,
+					alignsWithEnd,
+					A2($elm_community$list_extra$List$Extra$getAt, index, switchList)),
+				$elm$core$Maybe$Just(true));
+		};
+		var addEndingSwitch = function (startIndex) {
+			return A3(insertAt, startIndex - 1, candidateEndAsSwitch, switchList);
+		};
+		if (!areaToSearch.b) {
+			return reSort(
+				A2($elm$core$List$cons, candidateAsSwitch, switchList));
+		} else {
+			if (!areaToSearch.b.b) {
+				var _v2 = areaToSearch.a;
+				var indexOfConcern = _v2.a;
+				var switchOfConcern = _v2.b;
+				var _v3 = _Utils_Tuple3(
+					isConflict(switchOfConcern),
+					alignsWithStart(switchOfConcern),
+					foundEndSwitchAt(indexOfConcern - 1));
+				if (!_v3.a) {
+					if (_v3.b) {
+						if (_v3.c) {
+							return A3($elm_community$list_extra$List$Extra$setAt, indexOfConcern, candidateAsSwitch, switchList);
+						} else {
+							return A3(
+								$elm_community$list_extra$List$Extra$setAt,
+								indexOfConcern,
+								candidateAsSwitch,
+								addEndingSwitch(indexOfConcern));
+						}
+					} else {
+						if (_v3.c) {
+							var offBy = $author$project$SmartTime$Duration$inMinutes(
+								A2(
+									$author$project$SmartTime$Moment$difference,
+									$author$project$Activity$Switch$getMoment(switchOfConcern),
+									$author$project$SmartTime$Period$start(candidatePeriod)));
+							var messageToLog = 'Found matching end switch but the start switch is earlier by ' + ($elm$core$String$fromFloat(offBy) + ' so aborting merge');
+							return A2($author$project$Log$log, messageToLog, switchList);
+						} else {
+							var offBy = $author$project$SmartTime$Duration$inMinutes(
+								A2(
+									$author$project$SmartTime$Moment$difference,
+									$author$project$Activity$Switch$getMoment(switchOfConcern),
+									$author$project$SmartTime$Period$start(candidatePeriod)));
+							var messageToLog = 'Found NO matching end switch, AND the start switch is earlier by ' + ($elm$core$String$fromFloat(offBy) + ' so aborting merge');
+							return A2($author$project$Log$log, messageToLog, switchList);
+						}
+					}
+				} else {
+					return A2($author$project$Log$log, 'Conflict when backfilling! Investigate!', switchList);
+				}
+			} else {
+				return A2($author$project$Log$log, 'Found multiple events within backfill period, won\'t backfill this!', switchList);
+			}
+		}
+	});
+var $author$project$Activity$Timeline$backfill = F2(
+	function (timeline, periodsToAdd) {
+		if (!periodsToAdd.b) {
+			return timeline;
+		} else {
+			if (!periodsToAdd.b.b) {
+				var singlePeriod = periodsToAdd.a;
+				return A2($author$project$Activity$Timeline$placeNewSession, timeline, singlePeriod);
+			} else {
+				var singlePeriod = periodsToAdd.a;
+				var rest = periodsToAdd.b;
+				return A2(
+					$author$project$Activity$Timeline$placeNewSession,
+					A2($author$project$Activity$Timeline$backfill, timeline, rest),
+					singlePeriod);
+			}
+		}
+	});
 var $author$project$Integrations$Marvin$describeError = function (error) {
 	switch (error.$) {
 		case 'BadUrl':
@@ -19254,7 +19507,6 @@ var $author$project$Integrations$Marvin$importItems = F2(
 		var profileFedToAll = A3($elm$core$List$foldl, updateProfileWithOutput, profile, itemList);
 		return profileFedToAll;
 	});
-var $elm$core$Debug$log = _Debug_log;
 var $elm$core$String$toLower = _String_toLower;
 var $elm$core$String$trim = _String_trim;
 var $author$project$Integrations$Marvin$MarvinItem$labelToDocketActivity = F2(
@@ -19429,8 +19681,167 @@ var $author$project$Integrations$Marvin$importTimeBlocks = F3(
 			marvinBlocks);
 	});
 var $elm$core$Debug$toString = _Debug_toString;
-var $author$project$Integrations$Marvin$handle = F3(
-	function (classCounter, profile, response) {
+var $elm_community$list_extra$List$Extra$find = F2(
+	function (predicate, list) {
+		find:
+		while (true) {
+			if (!list.b) {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var first = list.a;
+				var rest = list.b;
+				if (predicate(first)) {
+					return $elm$core$Maybe$Just(first);
+				} else {
+					var $temp$predicate = predicate,
+						$temp$list = rest;
+					predicate = $temp$predicate;
+					list = $temp$list;
+					continue find;
+				}
+			}
+		}
+	});
+var $author$project$SmartTime$Period$Period = F2(
+	function (a, b) {
+		return {$: 'Period', a: a, b: b};
+	});
+var $author$project$SmartTime$Period$fromPair = function (_v0) {
+	var moment1 = _v0.a;
+	var moment2 = _v0.b;
+	return _Utils_eq(
+		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
+		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
+};
+var $author$project$Task$Instance$getActivityID = function (ins) {
+	return ins._class.activity;
+};
+var $author$project$Task$Instance$getExtra = F2(
+	function (key, instance) {
+		return A2($elm$core$Dict$get, key, instance.instance.extra);
+	});
+var $author$project$Task$Instance$getID = function (ins) {
+	return ins.instance.id;
+};
+var $author$project$ZoneHistory$ZoneHistory = F2(
+	function (a, b) {
+		return {$: 'ZoneHistory', a: a, b: b};
+	});
+var $author$project$ZoneHistory$init = F2(
+	function (now, nowZone) {
+		return A2(
+			$author$project$ZoneHistory$ZoneHistory,
+			nowZone,
+			A2(
+				$elm$core$Dict$singleton,
+				$author$project$SmartTime$Moment$toSmartInt(now),
+				nowZone));
+	});
+var $author$project$SmartTime$Period$instantaneous = function (moment) {
+	return A2($author$project$SmartTime$Period$Period, moment, moment);
+};
+var $author$project$Task$Instance$fillSeries = F3(
+	function (_v0, fullClass, seriesRule) {
+		var zoneHistory = _v0.a;
+		var relevantPeriod = _v0.b;
+		return _List_Nil;
+	});
+var $author$project$Task$Instance$singleClassToActiveInstances = F3(
+	function (_v0, allSavedInstances, fullClass) {
+		var zoneHistory = _v0.a;
+		var relevantPeriod = _v0.b;
+		var toFull = F2(
+			function (indexFromZero, instanceSkel) {
+				return {_class: fullClass._class, index: indexFromZero + 1, instance: instanceSkel, parents: fullClass.parents};
+			});
+		var savedInstancesWithMatchingClass = A2(
+			$elm$core$List$filter,
+			function (instance) {
+				return _Utils_eq(instance._class, fullClass._class.id);
+			},
+			$elm_community$intdict$IntDict$values(allSavedInstances));
+		var savedInstancesFull = A2($elm$core$List$indexedMap, toFull, savedInstancesWithMatchingClass);
+		var relevantSeriesMembers = A3(
+			$author$project$Task$Instance$fillSeries,
+			_Utils_Tuple2(zoneHistory, relevantPeriod),
+			fullClass,
+			fullClass.recurrence);
+		var isRelevant = function (savedInstance) {
+			return true;
+		};
+		var relevantSavedInstances = A2($elm$core$List$filter, isRelevant, savedInstancesFull);
+		return _Utils_ap(relevantSavedInstances, relevantSeriesMembers);
+	});
+var $author$project$Task$Instance$listAllInstances = F3(
+	function (fullClasses, savedInstanceSkeletons, timeData) {
+		return A2(
+			$elm$core$List$concatMap,
+			A2($author$project$Task$Instance$singleClassToActiveInstances, timeData, savedInstanceSkeletons),
+			fullClasses);
+	});
+var $author$project$Profile$instanceListNow = F2(
+	function (profile, env) {
+		var zoneHistory = A2($author$project$ZoneHistory$init, env.time, env.timeZone);
+		var rightNow = $author$project$SmartTime$Period$instantaneous(env.time);
+		var _v0 = $author$project$Task$Entry$getClassesFromEntries(
+			_Utils_Tuple2(profile.taskEntries, profile.taskClasses));
+		var fullClasses = _v0.a;
+		var warnings = _v0.b;
+		return A3(
+			$author$project$Task$Instance$listAllInstances,
+			fullClasses,
+			profile.taskInstances,
+			_Utils_Tuple2(zoneHistory, rightNow));
+	});
+var $author$project$Integrations$Marvin$trackTruthToTimelineSessions = F3(
+	function (profile, env, truthItem) {
+		var offsetList = function () {
+			var _v2 = !A2(
+				$elm$core$Basics$modBy,
+				2,
+				$elm$core$List$length(truthItem.times));
+			if (_v2) {
+				return A2($elm$core$List$drop, 1, truthItem.times);
+			} else {
+				return A2($elm$core$List$cons, env.time, truthItem.times);
+			}
+		}();
+		var isCorrectInstance = function (instance) {
+			return _Utils_eq(
+				$elm$core$Maybe$Just(truthItem.task),
+				A2(
+					$elm$core$Maybe$andThen,
+					$elm$core$String$toInt,
+					A2($author$project$Task$Instance$getExtra, 'marvinID', instance)));
+		};
+		var matchingInstance = A2(
+			$elm_community$list_extra$List$Extra$find,
+			isCorrectInstance,
+			A2($author$project$Profile$instanceListNow, profile, env));
+		if (matchingInstance.$ === 'Nothing') {
+			return _List_Nil;
+		} else {
+			var instance = matchingInstance.a;
+			var _v1 = $author$project$Task$Instance$getActivityID(instance);
+			if (_v1.$ === 'Nothing') {
+				return _List_Nil;
+			} else {
+				var activity = _v1.a;
+				var toSession = F2(
+					function (moment1, moment2) {
+						return _Utils_Tuple3(
+							activity,
+							$elm$core$Maybe$Just(
+								$author$project$Task$Instance$getID(instance)),
+							$author$project$SmartTime$Period$fromPair(
+								_Utils_Tuple2(moment1, moment2)));
+					});
+				return A3($elm$core$List$map2, toSession, offsetList, truthItem.times);
+			}
+		}
+	});
+var $author$project$Integrations$Marvin$handle = F4(
+	function (classCounter, profile, env, response) {
 		switch (response.$) {
 			case 'TestResult':
 				var result = response.a;
@@ -19531,7 +19942,13 @@ var $author$project$Integrations$Marvin$handle = F3(
 				var trackTruthResult = response.a;
 				if (trackTruthResult.$ === 'Ok') {
 					var timesList = trackTruthResult.a;
-					var updatedTimeline = _List_Nil;
+					var updatedTimeline = A2(
+						$author$project$Activity$Timeline$backfill,
+						profile.timeline,
+						A2(
+							$elm$core$List$concatMap,
+							A2($author$project$Integrations$Marvin$trackTruthToTimelineSessions, profile, env),
+							timesList));
 					return _Utils_Tuple3(
 						profile,
 						$elm$core$Debug$toString(timesList),
@@ -20605,18 +21022,11 @@ var $author$project$Activity$Timeline$currentActivityID = function (switchList) 
 	return $author$project$Activity$Switch$getActivityID(
 		$author$project$Activity$Timeline$latestSwitch(switchList));
 };
-var $author$project$Activity$Switch$getInstanceID = function (_v0) {
-	var instanceIDMaybe = _v0.c;
-	return instanceIDMaybe;
-};
 var $author$project$Activity$Timeline$currentInstanceID = function (switchList) {
 	return $author$project$Activity$Switch$getInstanceID(
 		$author$project$Activity$Timeline$latestSwitch(switchList));
 };
 var $elm$browser$Browser$Dom$focus = _Browser_call('focus');
-var $author$project$Task$Instance$getID = function (ins) {
-	return ins.instance.id;
-};
 var $author$project$Task$Progress$getUnits = function (_v0) {
 	var unit = _v0.b;
 	return unit;
@@ -20637,84 +21047,6 @@ var $author$project$Task$Progress$isMax = function (progress) {
 		$author$project$Task$Progress$getPortion(progress),
 		$author$project$Task$Progress$getWhole(progress));
 };
-var $author$project$Task$Instance$getExtra = F2(
-	function (key, instance) {
-		return A2($elm$core$Dict$get, key, instance.instance.extra);
-	});
-var $author$project$ZoneHistory$ZoneHistory = F2(
-	function (a, b) {
-		return {$: 'ZoneHistory', a: a, b: b};
-	});
-var $author$project$ZoneHistory$init = F2(
-	function (now, nowZone) {
-		return A2(
-			$author$project$ZoneHistory$ZoneHistory,
-			nowZone,
-			A2(
-				$elm$core$Dict$singleton,
-				$author$project$SmartTime$Moment$toSmartInt(now),
-				nowZone));
-	});
-var $author$project$SmartTime$Period$Period = F2(
-	function (a, b) {
-		return {$: 'Period', a: a, b: b};
-	});
-var $author$project$SmartTime$Period$instantaneous = function (moment) {
-	return A2($author$project$SmartTime$Period$Period, moment, moment);
-};
-var $author$project$Task$Instance$fillSeries = F3(
-	function (_v0, fullClass, seriesRule) {
-		var zoneHistory = _v0.a;
-		var relevantPeriod = _v0.b;
-		return _List_Nil;
-	});
-var $author$project$Task$Instance$singleClassToActiveInstances = F3(
-	function (_v0, allSavedInstances, fullClass) {
-		var zoneHistory = _v0.a;
-		var relevantPeriod = _v0.b;
-		var toFull = F2(
-			function (indexFromZero, instanceSkel) {
-				return {_class: fullClass._class, index: indexFromZero + 1, instance: instanceSkel, parents: fullClass.parents};
-			});
-		var savedInstancesWithMatchingClass = A2(
-			$elm$core$List$filter,
-			function (instance) {
-				return _Utils_eq(instance._class, fullClass._class.id);
-			},
-			$elm_community$intdict$IntDict$values(allSavedInstances));
-		var savedInstancesFull = A2($elm$core$List$indexedMap, toFull, savedInstancesWithMatchingClass);
-		var relevantSeriesMembers = A3(
-			$author$project$Task$Instance$fillSeries,
-			_Utils_Tuple2(zoneHistory, relevantPeriod),
-			fullClass,
-			fullClass.recurrence);
-		var isRelevant = function (savedInstance) {
-			return true;
-		};
-		var relevantSavedInstances = A2($elm$core$List$filter, isRelevant, savedInstancesFull);
-		return _Utils_ap(relevantSavedInstances, relevantSeriesMembers);
-	});
-var $author$project$Task$Instance$listAllInstances = F3(
-	function (fullClasses, savedInstanceSkeletons, timeData) {
-		return A2(
-			$elm$core$List$concatMap,
-			A2($author$project$Task$Instance$singleClassToActiveInstances, timeData, savedInstanceSkeletons),
-			fullClasses);
-	});
-var $author$project$Profile$instanceListNow = F2(
-	function (profile, env) {
-		var zoneHistory = A2($author$project$ZoneHistory$init, env.time, env.timeZone);
-		var rightNow = $author$project$SmartTime$Period$instantaneous(env.time);
-		var _v0 = $author$project$Task$Entry$getClassesFromEntries(
-			_Utils_Tuple2(profile.taskEntries, profile.taskClasses));
-		var fullClasses = _v0.a;
-		var warnings = _v0.b;
-		return A3(
-			$author$project$Task$Instance$listAllInstances,
-			fullClasses,
-			profile.taskInstances,
-			_Utils_Tuple2(zoneHistory, rightNow));
-	});
 var $author$project$Profile$getInstanceByID = F3(
 	function (profile, env, instanceID) {
 		return $elm$core$List$head(
@@ -20769,20 +21101,10 @@ var $author$project$Integrations$Marvin$timeTrack = F3(
 				url: $author$project$Integrations$Marvin$marvinEndpointURL('time')
 			});
 	});
-var $author$project$SmartTime$Period$fromPair = function (_v0) {
-	var moment1 = _v0.a;
-	var moment2 = _v0.b;
-	return _Utils_eq(
-		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
-		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
-};
-var $author$project$Activity$Switch$getMoment = function (_v0) {
-	var moment = _v0.a;
-	return moment;
-};
-var $author$project$Activity$Timeline$instancePeriodFromSwitchPair = F2(
+var $author$project$Activity$Timeline$fullPeriodFromSwitchPair = F2(
 	function (newerSwitch, olderSwitch) {
-		return _Utils_Tuple2(
+		return _Utils_Tuple3(
+			$author$project$Activity$Switch$getActivityID(olderSwitch),
 			$author$project$Activity$Switch$getInstanceID(olderSwitch),
 			$author$project$SmartTime$Period$fromPair(
 				_Utils_Tuple2(
@@ -20792,29 +21114,34 @@ var $author$project$Activity$Timeline$instancePeriodFromSwitchPair = F2(
 var $author$project$Activity$Timeline$switchListToInstancePeriods = function (switchList) {
 	var offsetList = A2($elm$core$List$drop, 1, switchList);
 	var maybeInstanceToMaybePair = function (_v1) {
-		var maybeInstanceID = _v1.a;
-		var period = _v1.b;
+		var activityID = _v1.a;
+		var maybeInstanceID = _v1.b;
+		var period = _v1.c;
 		if (maybeInstanceID.$ === 'Just') {
 			var instanceID = maybeInstanceID.a;
 			return $elm$core$Maybe$Just(
-				_Utils_Tuple2(instanceID, period));
+				_Utils_Tuple3(activityID, instanceID, period));
 		} else {
 			return $elm$core$Maybe$Nothing;
 		}
 	};
-	var listWithBlanks = A3($elm$core$List$map2, $author$project$Activity$Timeline$instancePeriodFromSwitchPair, switchList, offsetList);
+	var listWithBlanks = A3($elm$core$List$map2, $author$project$Activity$Timeline$fullPeriodFromSwitchPair, switchList, offsetList);
 	return A2($elm$core$List$filterMap, maybeInstanceToMaybePair, listWithBlanks);
 };
 var $author$project$Activity$Timeline$getInstancePeriods = F2(
 	function (timeline, instanceID) {
 		return A2(
 			$elm$core$List$map,
-			$elm$core$Tuple$second,
+			function (_v0) {
+				var p = _v0.c;
+				return p;
+			},
 			A2(
 				$elm$core$List$filter,
-				function (_v0) {
-					var i = _v0.a;
-					var p = _v0.b;
+				function (_v1) {
+					var a = _v1.a;
+					var i = _v1.b;
+					var p = _v1.c;
 					return _Utils_eq(i, instanceID);
 				},
 				$author$project$Activity$Timeline$switchListToInstancePeriods(timeline)));
@@ -20897,12 +21224,9 @@ var $author$project$Integrations$Marvin$timesUpdater = F2(
 	function (profile, instanceID) {
 		var timesList = A2($author$project$Activity$Timeline$getInstanceTimes, profile.timeline, instanceID);
 		return A2(
-			$elm$core$Debug$log,
-			'timeslistencoded',
-			A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				A2($elm$json$Json$Encode$list, $author$project$Helpers$encodeUnixTimestamp, timesList)));
+			$elm$json$Json$Encode$encode,
+			0,
+			A2($elm$json$Json$Encode$list, $author$project$Helpers$encodeUnixTimestamp, timesList));
 	});
 var $author$project$Integrations$Marvin$MarvinItem$encodeCalendarDate = function (date) {
 	return $elm$json$Json$Encode$string(
@@ -21505,7 +21829,6 @@ var $author$project$Task$Instance$compareSoonness = F3(
 			}
 		}
 	});
-var $elm$core$List$sortWith = _List_sortWith;
 var $author$project$Task$Instance$deepSort = F2(
 	function (compareFuncs, listToSort) {
 		var deepCompare = F3(
@@ -21598,16 +21921,6 @@ var $author$project$Activity$Timeline$excusableLimit = function (activity) {
 	return $author$project$SmartTime$Human$Duration$dur(
 		$author$project$Activity$Activity$excusableFor(activity).a);
 };
-var $elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
-var $author$project$SmartTime$Duration$difference = F2(
-	function (_v0, _v1) {
-		var int1 = _v0.a;
-		var int2 = _v1.a;
-		return $author$project$SmartTime$Duration$Duration(
-			$elm$core$Basics$abs(int1 - int2));
-	});
 var $author$project$SmartTime$Moment$past = F2(
 	function (_v0, duration) {
 		var time = _v0.a;
@@ -21684,12 +21997,6 @@ var $author$project$SmartTime$Duration$combine = function (durationList) {
 		$author$project$SmartTime$Duration$Duration(0),
 		durationList);
 };
-var $author$project$SmartTime$Moment$difference = F2(
-	function (_v0, _v1) {
-		var time1 = _v0.a;
-		var time2 = _v1.a;
-		return A2($author$project$SmartTime$Duration$difference, time1, time2);
-	});
 var $author$project$Activity$Timeline$session = F2(
 	function (newer, older) {
 		return _Utils_Tuple2(
@@ -21835,10 +22142,6 @@ var $author$project$Helpers$multiline = function (inputListOfLists) {
 	return unLines(
 		A2($elm$core$List$map, unWords, inputListOfLists));
 };
-var $author$project$Activity$Switch$newSwitch = F3(
-	function (moment, activityID, instanceIDMaybe) {
-		return A3($author$project$Activity$Switch$Switch, moment, activityID, instanceIDMaybe);
-	});
 var $author$project$NativeScript$Commands$ns_notify_cancel = _Platform_outgoingPort('ns_notify_cancel', $elm$core$Basics$identity);
 var $author$project$NativeScript$Commands$notifyCancel = function (id) {
 	return $author$project$NativeScript$Commands$ns_notify_cancel(
@@ -22203,10 +22506,6 @@ var $author$project$Activity$Switching$scheduleExcusedReminders = F3(
 var $author$project$NativeScript$Notification$CustomSound = function (a) {
 	return {$: 'CustomSound', a: a};
 };
-var $author$project$SmartTime$Period$end = function (_v0) {
-	var endMoment = _v0.b;
-	return endMoment;
-};
 var $author$project$SmartTime$Period$between = F2(
 	function (moment1, moment2) {
 		return _Utils_eq(
@@ -22337,10 +22636,6 @@ var $author$project$Activity$Switching$offTaskChannel = function (step) {
 		vibrate: $elm$core$Maybe$Just(
 			$author$project$Activity$Switching$urgentVibe(5 + step))
 	};
-};
-var $author$project$SmartTime$Period$start = function (_v0) {
-	var startMoment = _v0.a;
-	return startMoment;
 };
 var $author$project$Activity$Switching$offTaskReminder = F2(
 	function (fireTime, reminderNum) {
@@ -23775,10 +24070,11 @@ var $author$project$Main$update = F2(
 							$author$project$NativeScript$Notification$setChannelDescription,
 							'Lets you know what happened the last time we tried to sync with online servers.',
 							$author$project$NativeScript$Notification$basicChannel('Sync Status')));
-					var _v3 = A3(
+					var _v3 = A4(
 						$author$project$Integrations$Marvin$handle,
 						$author$project$SmartTime$Moment$toSmartInt(environment.time),
 						profile,
+						environment,
 						response);
 					var newProfile1WithItems = _v3.a;
 					var whatHappened = _v3.b;
