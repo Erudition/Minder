@@ -278,8 +278,8 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> Msg -> ( Profile, String, Cmd Msg )
-handle classCounter profile response =
+handle : Int -> Profile -> Environment -> Msg -> ( Profile, String, Cmd Msg )
+handle classCounter profile env response =
     case response of
         TestResult result ->
             case result of
@@ -378,7 +378,7 @@ handle classCounter profile response =
                 Ok timesList ->
                     let
                         updatedTimeline =
-                            Timeline.backfill profile.timeline (trackTruthToTimelineSessions profile env timesList)
+                            Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
                     in
                     ( profile
                     , Debug.toString timesList

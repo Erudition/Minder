@@ -312,10 +312,12 @@ view { viewState, profile, environment } =
 
 
 {-|
+
     selectedTab takes an element and wraps it in a stylied container
     to indicate which page is currently active.
 
     Todo: Consider adding costumisable styling for this.
+
 -}
 selectedTab : List (Element msg) -> Element msg -> List (Element msg) -> Element msg
 selectedTab startingList selected endingList =
@@ -625,7 +627,7 @@ update msg ({ viewState, profile, environment } as model) =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( newProfile1WithItems, whatHappened, nextStep ) =
-                    Marvin.handle (Moment.toSmartInt environment.time) profile response
+                    Marvin.handle (Moment.toSmartInt environment.time) profile environment response
 
                 newProfile2WithErrors =
                     Profile.saveError newProfile1WithItems ("Here's what happened: \n" ++ whatHappened)
