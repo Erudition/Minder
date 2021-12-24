@@ -24,6 +24,7 @@ import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import Log
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (..)
@@ -391,7 +392,7 @@ trackingDisplay profile env =
             Timeline.currentActivity profile.activities profile.timeline
 
         latestSwitch =
-            Debug.log "latest switch" (Timeline.latestSwitch profile.timeline)
+            Log.logMessage ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch profile.timeline))) (Timeline.latestSwitch profile.timeline)
 
         currentInstanceIDMaybe =
             Switch.getInstanceID latestSwitch
@@ -627,10 +628,10 @@ update msg ({ viewState, profile, environment } as model) =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( newProfile1WithItems, whatHappened, nextStep ) =
-                    Marvin.handle (Moment.toSmartInt environment.time) profile environment response
+                    Marvin.handle (IntDict.size profile.taskClasses + 1000) profile environment response
 
                 newProfile2WithErrors =
-                    Profile.saveError newProfile1WithItems ("Here's what happened: \n" ++ whatHappened)
+                    Profile.saveError newProfile1WithItems ("Synced with Marvin: \n" ++ whatHappened)
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
@@ -677,21 +678,26 @@ update msg ({ viewState, profile, environment } as model) =
             ( { modelAfter | viewState = viewUrl url }, effectsAfter )
 
         TaskListMsg subMsg ->
-            let
-                subViewState =
-                    case viewState.primaryView of
-                        -- Currently viewing the task list
-                        TaskList subView ->
-                            subView
+            case subMsg of
+                TaskList.MarvinServerResponse subSubMsg ->
+                    update (ThirdPartyServerResponded (MarvinServer subSubMsg)) model
 
-                        -- viewing something else at the time (or headless)
-                        _ ->
-                            TaskList.defaultView
+                _ ->
+                    let
+                        subViewState =
+                            case viewState.primaryView of
+                                -- Currently viewing the task list
+                                TaskList subView ->
+                                    subView
 
-                ( newState, newApp, newCommand ) =
-                    TaskList.update subMsg subViewState profile environment
-            in
-            ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
+                                -- viewing something else at the time (or headless)
+                                _ ->
+                                    TaskList.defaultView
+
+                        ( newState, newApp, newCommand ) =
+                            TaskList.update subMsg subViewState profile environment
+                    in
+                    ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
 
         TimeTrackerMsg subMsg ->
             let
