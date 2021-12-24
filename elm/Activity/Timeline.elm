@@ -108,8 +108,15 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             Moment.isSame (Period.end candidatePeriod) (Switch.getMoment switch)
 
         foundEndSwitchAt index =
-            -- do we see a switch at the candidate end moment at the index
-            Maybe.map alignsWithEnd (List.getAt index switchList) == Just True
+            if index == -1 then
+                -- index will be -1 if the start switch is index zero
+                -- in which case we want to pretend there's an end switch
+                -- so that we don't add one and cut off current tracking
+                True
+
+            else
+                -- do we see a switch at the candidate end moment at the index
+                Maybe.map alignsWithEnd (List.getAt index switchList) == Just True
 
         candidateAsSwitch =
             newSwitch (Period.start candidatePeriod) candidateActivityID candidateInstanceIDMaybe
