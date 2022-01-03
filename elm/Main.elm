@@ -37,7 +37,7 @@ import Task as Job
 import Task.Instance as Instance
 import TaskList
 import TimeTracker exposing (..)
-import Timeline
+import Timeflow
 import Url
 import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
@@ -245,7 +245,7 @@ emptyViewState =
 type Screen
     = TaskList TaskList.ViewState
     | TimeTracker TimeTracker.ViewState
-    | Timeline (Maybe Timeline.ViewState)
+    | Timeflow (Maybe Timeflow.ViewState)
     | Calendar
     | Features
     | Preferences
@@ -268,7 +268,7 @@ screenToViewState screen =
 
 defaultView : ViewState
 defaultView =
-    ViewState (Timeline Nothing) 0
+    ViewState (Timeflow Nothing) 0
 
 
 view : Model -> Browser.Document Msg
@@ -281,10 +281,10 @@ view { viewState, profile, environment } =
                     , body = H.map TaskListMsg (TaskList.view subState profile environment)
                     }
 
-                Timeline subState ->
-                    { title = "Docket - Timeline"
+                Timeflow subState ->
+                    { title = "Docket - Timeflow"
                     , body =
-                        H.map TimelineMsg (Timeline.view subState profile environment)
+                        H.map TimeflowMsg (Timeflow.view subState profile environment)
                     }
 
                 TimeTracker subState ->
@@ -354,19 +354,19 @@ globalLayout viewState profile env innerStuff =
         tasksLink =
             link [ centerX, centerY ] { url = "tasks", label = text "Tasks" }
 
-        timelineLink =
-            link [ centerX, centerY ] { url = "timeline", label = text "Timeline" }
+        timeflowLink =
+            link [ centerX, centerY ] { url = "timeflow", label = text "Timeflow" }
 
         footerLinks =
             case viewState.primaryView of
                 TimeTracker _ ->
-                    selectedTab [] timetrackerLink [ classesLink, tasksLink, timelineLink ]
+                    selectedTab [] timetrackerLink [ classesLink, tasksLink, timeflowLink ]
 
                 TaskList _ ->
-                    selectedTab [ timetrackerLink, classesLink ] tasksLink [ timelineLink ]
+                    selectedTab [ timetrackerLink, classesLink ] tasksLink [ timeflowLink ]
 
-                Timeline _ ->
-                    selectedTab [ timetrackerLink, classesLink, tasksLink ] timelineLink []
+                Timeflow _ ->
+                    selectedTab [ timetrackerLink, classesLink, tasksLink ] timeflowLink []
 
                 _ ->
                     Debug.todo "branch not implemented"
@@ -495,7 +495,7 @@ infoFooter =
             , H.text " ➖ "
             , H.a [ href "/timetracker" ] [ H.text "Time Tracker" ]
             , H.text " ➖ "
-            , H.a [ href "/timeline" ] [ H.text "Timeline" ]
+            , H.a [ href "/timeflow" ] [ H.text "Timeflow" ]
             , H.text " ➖ "
             , H.a [ href "?sync=marvin" ] [ H.text "Sync Marvin" ]
             ]
@@ -555,7 +555,7 @@ type Msg
     | NewUrl Url.Url
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
-    | TimelineMsg Timeline.Msg
+    | TimeflowMsg Timeflow.Msg
     | NewAppData String
 
 
@@ -791,6 +791,7 @@ routeParser =
     P.oneOf
         [ wrapScreen (P.map TaskList TaskList.routeView)
         , wrapScreen (P.map TimeTracker TimeTracker.routeView)
+        , wrapScreen (P.map Timeflow Timeflow.routeView)
         ]
 
 

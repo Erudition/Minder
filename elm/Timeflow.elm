@@ -1,4 +1,4 @@
-module Timeline exposing (Filter(..), Msg, ViewState, routeView, update, view)
+module Timeflow exposing (Filter(..), Msg, ViewState, routeView, update, view)
 
 -- import Css exposing (..)
 --import Html.Styled.Attributes as Attr exposing (..)
