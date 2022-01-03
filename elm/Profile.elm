@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (decodeSwitch, encodeSwitch)
@@ -15,6 +15,7 @@ import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.ReplicaCodec as RC exposing (Codec)
 import SmartTime.Duration as Duration exposing (Duration)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.Class
@@ -193,3 +194,14 @@ exportExcusedUsageSeconds app now ( activityID, activity ) =
 exportExcusedLeftSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
 exportExcusedLeftSeconds app now ( activityID, activity ) =
     String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedLeft app.timeline now ( activityID, activity ))
+
+
+userTimeZoneAtMoment : Profile -> Environment -> Moment -> Zone
+userTimeZoneAtMoment profile env givenMoment =
+    if Moment.isSameOrEarlier givenMoment env.time then
+        -- TODO look at past history to see where User last moved before this moment
+        env.timeZone
+
+    else
+        -- TODO look at future plans to see where the User will likely be at this moment
+        env.timeZone

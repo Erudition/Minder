@@ -1,15 +1,10 @@
 module Timeflow exposing (Filter(..), Msg, ViewState, routeView, update, view)
 
--- import Css exposing (..)
---import Html.Styled.Attributes as Attr exposing (..)
---import Html.Styled.Events exposing (..)
---import Html.Styled.Keyed as Keyed
---import Html.Styled.Lazy exposing (lazy, lazy2)
-
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
 import Browser
 import Browser.Dom
+import Css as C
 import Date
 import Dict
 import Element exposing (..)
@@ -19,7 +14,11 @@ import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (..)
 import Html.Attributes
-import Html.Styled as Html
+import Html.Styled as SH exposing (Html)
+import Html.Styled.Attributes as SHA
+import Html.Styled.Events as SHE
+import Html.Styled.Keyed as SHK
+import Html.Styled.Lazy exposing (lazy, lazy2)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
@@ -108,26 +107,48 @@ decideViewState profile env =
 
 routeView : Parser (Maybe ViewState -> a) a
 routeView =
-    P.map Nothing (P.s "timeline")
+    P.map Nothing (P.s "timeflow")
 
 
-view : Maybe ViewState -> Profile -> Environment -> Html.Html Msg
+view : Maybe ViewState -> Profile -> Environment -> SH.Html Msg
 view maybeVState profile env =
     case maybeVState of
         Nothing ->
             view (Just <| decideViewState profile env) profile env
 
         Just vState ->
-            Html.fromUnstyled <|
+            SH.fromUnstyled <|
                 layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
                     column [ width fill, height fill ]
                         [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| text "Header will be here" ]
+                            [ el [ centerX ] <| text "The past is above." ]
                         , row [ width fill, height (fillPortion 20), scrollbarY ]
                             [ timeFlowLayout vState profile env ]
                         , row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| text "Bottom panel will be here" ]
+                            [ el [ centerX ] <| text "The future is below." ]
                         ]
+
+
+type alias FlowBlob =
+    { start : Moment
+    , end : Moment
+    }
+
+
+displayBlob : ViewState -> Environment -> FlowBlob -> Element Msg
+displayBlob displayState env flowBlob =
+    let
+        startsAtPercent =
+            "(remainder after dividing by minutesPerRow) * (minuteSize)"
+
+        topPieceWidth =
+            Debug.todo "top piece width"
+
+        topPiece =
+            el [] <| text ""
+    in
+    column []
+        [ topPiece ]
 
 
 timeFlowLayout : ViewState -> Profile -> Environment -> Element Msg
@@ -155,7 +176,7 @@ timeLabelSidebar : ViewState -> Profile -> Environment -> Period -> Element Msg
 timeLabelSidebar state profile env rowPeriod =
     let
         startZone =
-            userTimeZoneAtMoment profile env startMoment
+            Profile.userTimeZoneAtMoment profile env startMoment
 
         startMoment =
             Period.start rowPeriod
@@ -181,26 +202,15 @@ timeLabelSidebar state profile env rowPeriod =
         ]
 
 
-userTimeZoneAtMoment : Profile -> Environment -> Moment -> Zone
-userTimeZoneAtMoment profile env givenMoment =
-    if Moment.isSameOrEarlier givenMoment env.time then
-        -- TODO look at past history to see where User last moved before this moment
-        env.timeZone
-
-    else
-        -- TODO look at future plans to see where the User will likely be at this moment
-        env.timeZone
-
-
 hourRowContents : ViewState -> Profile -> Environment -> Period -> Element Msg
 hourRowContents vState profile env rowPeriod =
     let
         planPillSegment minutes plan =
-            el [ height fill, width (fillPortion minutes), Border.rounded 10, Background.color (rgb 0 0 1) ] (text plan.title)
+            el [ height fill, width (fillPortion minutes), Border.rounded 10, Background.color (rgb 0.5 0.5 1) ] (text plan.title)
 
         emptyTimeFlowSegment : Int -> Element msg
         emptyTimeFlowSegment minutes =
-            el [ height fill, width (fillPortion minutes), Background.color (rgb 1 1 1) ] (text "")
+            el [ height fill, width (fillPortion minutes), Background.color (rgb 0.7 0.7 0.7) ] (text "")
 
         fillInTimeFlowSegment ( minutes, maybePlan ) =
             case maybePlan of
@@ -228,14 +238,13 @@ hourRowContents vState profile env rowPeriod =
         overlayingRow =
             row [ width fill ]
                 [ el [ width (fillPortion 20) ] (text "")
-                , testBulgingPlan
                 , el [ width (fillPortion 20) ] (text "")
                 ]
     in
     row
         [ width fill
         , centerX
-        , Background.color (rgb 0.5 0 0)
+        , Background.color (rgb 1 1 1)
         , padding 4
         , inFront overlayingRow
         ]
@@ -283,295 +292,287 @@ hourRowContents vState profile env rowPeriod =
 --                ]
 
 
-instanceListNow : Profile -> Environment -> List Instance
-instanceListNow profile env =
-    let
-        ( fullClasses, warnings ) =
-            Task.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
-
-        zoneHistory =
-            -- TODO
-            ZoneHistory.init env.time env.timeZone
-
-        rightNow =
-            Period.instantaneous env.time
-    in
-    Task.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
-
-
 dayString : Environment -> Moment -> String
 dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
+viewDay : Environment -> ChosenDayWindow -> IntDict Activity -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
+viewDay env day activities sessionList historyList =
+    let
+        sessionListToday =
+            List.filter (\ses -> Period.isWithin day.period (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
 
---viewDay : Environment -> ChosenDayWindow -> IntDict Activity -> List Task.FullSession -> List ( Activity.ActivityID, Period ) -> Html msg
---viewDay env day activities sessionList historyList =
---    let
---        sessionListToday =
---            List.filter (\ses -> Period.isWithin day.period (HumanMoment.fromFuzzy env.timeZone <| Tuple.first ses.session)) sessionList
---
---        -- TODO that's the wrong place to do that
---        rowPeriods =
---            Period.divide day.rowLength day.period
---
---        rowMarkers =
---            List.map markRow rowPeriods
---
---        markRow per =
---            node "timeline-area"
---                [ classList [ ( "midnight", isMidnightRow (Period.start per) ) ] ]
---                [ Html.text <| describeMoment <| Period.start per ]
---
---        isMidnightRow rowPeriodStart =
---            Clock.isMidnight (HumanMoment.extractTime env.timeZone rowPeriodStart)
---
---        nowMarker =
---            let
---                markPosition =
---                    List.Nonempty.head <|
---                        getPositionInDay day.rowLength day.period <|
---                            Period.fromStart env.time <|
---                                HumanDuration.toDuration (HumanDuration.Minutes 1)
---
---                centerMarker =
---                    markPosition.left - (markPosition.width / 2)
---            in
---            node "now-marker"
---                [ css
---                    [ top (pct markPosition.top)
---                    , left (pct centerMarker)
---                    , Css.height (pct markPosition.height)
---                    , Css.width (pct markPosition.width)
---                    ]
---                ]
---                []
---
---        describeMoment mo =
---            HumanMoment.extractTime env.timeZone mo |> Clock.toShortString
---    in
---    node "day"
---        [ id <| "day" ++ dayString env env.time ]
---        (rowMarkers
---            ++ List.map (viewHistorySession env day activities) historyList
---            ++ List.map (viewPlannedSession env day activities) sessionListToday
---            ++ [ nowMarker ]
---        )
---viewPlannedSession : Environment -> ChosenDayWindow -> IntDict Activity -> Task.FullSession -> Html msg
---viewPlannedSession env day activities fullSession =
---    let
---        ( sessionPeriodStart, sessionPeriodLength ) =
---            fullSession.session
---
---        sessionPeriod =
---            Period.fromStart (HumanMoment.fromFuzzy env.timeZone sessionPeriodStart)
---                sessionPeriodLength
---
---        sessionPositions =
---            getPositionInDay day.rowLength day.period sessionPeriod
---
---        ( ( startDate, startTime ), ( endDate, endTime ) ) =
---            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
---            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
---            )
---
---        viewSessionSegment pos =
---            node "segment"
---                [ title <|
---                    fullSession.class.title
---                        ++ "\nFrom "
---                        ++ Clock.toShortString startTime
---                        ++ " to "
---                        ++ Clock.toShortString endTime
---                        ++ " ("
---                        ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero sessionPeriodLength)
---                        ++ ")"
---                , css
---                    [ top (pct pos.top)
---                    , left (pct pos.left)
---                    , Css.width (pct pos.width)
---                    , Css.height (pct pos.height)
---                    ]
---                , classList
---                    [ ( "past", Moment.compare env.time (Period.end sessionPeriod) /= Moment.Earlier )
---                    , ( "future", Moment.compare env.time (Period.start sessionPeriod) /= Moment.Later )
---                    ]
---                ]
---                [ node "activity-icon" [] []
---                , label [] [ Html.text fullSession.class.title ]
---                ]
---    in
---    node "timeline-session"
---        [ classList [ ( "planned", True ) ] ]
---    <|
---        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
---getPositionInDay : Duration -> Period -> Period -> Nonempty { top : Float, left : Float, height : Float, width : Float }
---getPositionInDay rowLength day givenSession =
---    let
---        rows =
---            Period.divide rowLength day
---
---        rowCount =
---            -- typically 24
---            List.length rows
---
---        startTimeAsDayOffset =
---            -- Where the session starts relative to the day
---            -- Subtract day start from session start, so day begins at 0
---            Moment.difference (Period.start day) (Period.start givenSession)
---
---        endTimeAsDayOffset =
---            -- Where the session starts relative to the day
---            -- Subtract day start from session start, so day begins at 0
---            Moment.difference (Period.start day) (Period.end givenSession)
---
---        targetRow =
---            -- Which "row" (hour) does the session start in?
---            -- Divide to see how many whole rows fit in before the session starts
---            Duration.divide startTimeAsDayOffset rowLength
---
---        rowStartOffsetFromDay =
---            Duration.scale rowLength (toFloat targetRow)
---
---        targetStartColumn =
---            -- Which "column" does the session start in?
---            -- Offset from the beginning of the row.
---            Duration.subtract startTimeAsDayOffset rowStartOffsetFromDay
---
---        rowEndOffsetFromDay =
---            Duration.scale rowLength (toFloat (targetRow + 1))
---
---        fitsInRow =
---            Duration.compare endTimeAsDayOffset rowEndOffsetFromDay /= GT
---
---        targetEndColumn =
---            -- Which "column" does the session end in?
---            -- Offset from the beginning of the row.
---            if fitsInRow then
---                -- session fits in this row.
---                -- Offset from the beginning of the row.
---                Duration.subtract endTimeAsDayOffset rowStartOffsetFromDay
---
---            else
---                rowLength
---
---        -- TODO intersect row list with session list instead?
---        targetRowPercent =
---            (toFloat targetRow / toFloat rowCount) * 100
---
---        heightPercent =
---            (1 / toFloat rowCount) * 100
---
---        targetStartColumnPercent =
---            (toFloat (Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
---
---        widthPercent =
---            (toFloat (Duration.inMs targetEndColumn - Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
---
---        rowEndAbsolute =
---            Moment.future (Period.start day) rowEndOffsetFromDay
---
---        restOfSession =
---            Period.fromPair ( rowEndAbsolute, Period.end givenSession )
---
---        additionalSegments =
---            if fitsInRow then
---                []
---
---            else
---                List.Nonempty.toList <| getPositionInDay rowLength day restOfSession
---
---        debugMsg =
---            "Row "
---                ++ String.fromInt targetRow
---                ++ " starts in column "
---                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits rowStartOffsetFromDay)
---                ++ ", ends in column "
---                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits rowEndOffsetFromDay)
---                ++ "\nSession Starts in column "
---                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits targetStartColumn)
---                ++ ", ends in column "
---                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits targetEndColumn)
---                ++ (if fitsInRow then
---                        ""
---
---                    else
---                        ", does NOT fit.\n"
---                   )
---    in
---    Debug.log debugMsg <|
---        List.Nonempty.Nonempty
---            { top = targetRowPercent
---            , left = targetStartColumnPercent
---            , height = heightPercent
---            , width = widthPercent
---            }
---            additionalSegments
---viewHistorySession : Environment -> ChosenDayWindow -> IntDict Activity -> ( Activity.ActivityID, Period ) -> Html msg
---viewHistorySession env day activities ( activityID, sessionPeriod ) =
---    let
---        sessionPositions =
---            getPositionInDay day.rowLength day.period sessionPeriod
---
---        ( ( startDate, startTime ), ( endDate, endTime ) ) =
---            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
---            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
---            )
---
---        viewSessionSegment pos =
---            node "segment"
---                [ title <|
---                    "\nFrom "
---                        ++ Clock.toShortString startTime
---                        ++ " to "
---                        ++ Clock.toShortString endTime
---                        ++ " ("
---                        ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero (Period.length sessionPeriod))
---                        ++ ")"
---                , css
---                    [ top (pct pos.top)
---                    , left (pct pos.left)
---                    , Css.width (pct pos.width)
---                    , Css.height (pct pos.height)
---                    , Css.backgroundColor <| hsla (activityHue * 360) 0.5 0.5 0.5
---                    ]
---                , classList
---                    [ ( "past", Moment.compare env.time (Period.end sessionPeriod) /= Moment.Earlier )
---                    , ( "future", Moment.compare env.time (Period.start sessionPeriod) /= Moment.Later )
---                    ]
---                ]
---                [ node "activity-icon" [] [ activityIcon ]
---                , label [] [ Html.text activityName ]
---                ]
---
---        sessionActivity =
---            getActivity activityID activities
---
---        activityName =
---            Maybe.withDefault "Unnamed Activity" <| List.head sessionActivity.names
---
---        activityIcon =
---            case sessionActivity.icon of
---                File svgPath ->
---                    img
---                        [ class "activity-icon"
---                        , src ("media/icons/" ++ svgPath)
---                        ]
---                        []
---
---                Emoji singleEmoji ->
---                    Html.text singleEmoji
---
---                _ ->
---                    Html.text "⚪"
---
---        activityHue =
---            toFloat (ID.read activityID) / toFloat (IntDict.size activities)
---    in
---    node "timeline-session"
---        [ classList [ ( "history", True ) ] ]
---    <|
---        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
+        -- TODO that's the wrong place to do that
+        rowPeriods =
+            Period.divide day.rowLength day.period
+
+        rowMarkers =
+            List.map markRow rowPeriods
+
+        markRow per =
+            SH.node "timeline-area"
+                [ SHA.classList [ ( "midnight", isMidnightRow (Period.start per) ) ] ]
+                [ SH.text <| describeMoment <| Period.start per ]
+
+        isMidnightRow rowPeriodStart =
+            Clock.isMidnight (HumanMoment.extractTime env.timeZone rowPeriodStart)
+
+        nowMarker =
+            let
+                markPosition =
+                    List.Nonempty.head <|
+                        getPositionInDay day.rowLength day.period <|
+                            Period.fromStart env.time <|
+                                HumanDuration.toDuration (HumanDuration.Minutes 1)
+
+                centerMarker =
+                    markPosition.left - (markPosition.width / 2)
+            in
+            SH.node "now-marker"
+                [ SHA.css
+                    [ C.top (C.pct markPosition.top)
+                    , C.left (C.pct centerMarker)
+                    , C.height (C.pct markPosition.height)
+                    , C.width (C.pct markPosition.width)
+                    ]
+                ]
+                []
+
+        describeMoment mo =
+            HumanMoment.extractTime env.timeZone mo |> Clock.toShortString
+    in
+    SH.node "day"
+        [ SHA.id <| "day" ++ dayString env env.time ]
+        (rowMarkers
+            ++ List.map (viewHistorySession env day activities) historyList
+            ++ List.map (viewPlannedSession env day activities) sessionListToday
+            ++ [ nowMarker ]
+        )
+
+
+viewPlannedSession : Environment -> ChosenDayWindow -> IntDict Activity -> Task.FullSession -> Html msg
+viewPlannedSession env day activities fullSession =
+    let
+        ( sessionPeriodStart, sessionPeriodLength ) =
+            fullSession.session
+
+        sessionPeriod =
+            Period.fromStart (HumanMoment.fromFuzzy env.timeZone sessionPeriodStart)
+                sessionPeriodLength
+
+        sessionPositions =
+            getPositionInDay day.rowLength day.period sessionPeriod
+
+        ( ( startDate, startTime ), ( endDate, endTime ) ) =
+            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
+            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
+            )
+
+        viewSessionSegment pos =
+            SH.node "segment"
+                [ SHA.title <|
+                    fullSession.class.title
+                        ++ "\nFrom "
+                        ++ Clock.toShortString startTime
+                        ++ " to "
+                        ++ Clock.toShortString endTime
+                        ++ " ("
+                        ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero sessionPeriodLength)
+                        ++ ")"
+                , SHA.css
+                    [ C.top (C.pct pos.top)
+                    , C.left (C.pct pos.left)
+                    , C.width (C.pct pos.width)
+                    , C.height (C.pct pos.height)
+                    ]
+                , SHA.classList
+                    [ ( "past", Moment.compare env.time (Period.end sessionPeriod) /= Moment.Earlier )
+                    , ( "future", Moment.compare env.time (Period.start sessionPeriod) /= Moment.Later )
+                    ]
+                ]
+                [ SH.node "activity-icon" [] []
+                , SH.label [] [ SH.text fullSession.class.title ]
+                ]
+    in
+    SH.node "timeline-session"
+        [ SHA.classList [ ( "planned", True ) ] ]
+    <|
+        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
+
+
+getPositionInDay : Duration -> Period -> Period -> Nonempty { top : Float, left : Float, height : Float, width : Float }
+getPositionInDay rowLength day givenSession =
+    let
+        rows =
+            Period.divide rowLength day
+
+        rowCount =
+            -- typically 24
+            List.length rows
+
+        startTimeAsDayOffset =
+            -- Where the session starts relative to the day
+            -- Subtract day start from session start, so day begins at 0
+            Moment.difference (Period.start day) (Period.start givenSession)
+
+        endTimeAsDayOffset =
+            -- Where the session starts relative to the day
+            -- Subtract day start from session start, so day begins at 0
+            Moment.difference (Period.start day) (Period.end givenSession)
+
+        targetRow =
+            -- Which "row" (hour) does the session start in?
+            -- Divide to see how many whole rows fit in before the session starts
+            Duration.divide startTimeAsDayOffset rowLength
+
+        rowStartOffsetFromDay =
+            Duration.scale rowLength (toFloat targetRow)
+
+        targetStartColumn =
+            -- Which "column" does the session start in?
+            -- Offset from the beginning of the row.
+            Duration.subtract startTimeAsDayOffset rowStartOffsetFromDay
+
+        rowEndOffsetFromDay =
+            Duration.scale rowLength (toFloat (targetRow + 1))
+
+        fitsInRow =
+            Duration.compare endTimeAsDayOffset rowEndOffsetFromDay /= GT
+
+        targetEndColumn =
+            -- Which "column" does the session end in?
+            -- Offset from the beginning of the row.
+            if fitsInRow then
+                -- session fits in this row.
+                -- Offset from the beginning of the row.
+                Duration.subtract endTimeAsDayOffset rowStartOffsetFromDay
+
+            else
+                rowLength
+
+        -- TODO intersect row list with session list instead?
+        targetRowPercent =
+            (toFloat targetRow / toFloat rowCount) * 100
+
+        heightPercent =
+            (1 / toFloat rowCount) * 100
+
+        targetStartColumnPercent =
+            (toFloat (Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
+
+        widthPercent =
+            (toFloat (Duration.inMs targetEndColumn - Duration.inMs targetStartColumn) / toFloat (Duration.inMs rowLength)) * 100
+
+        rowEndAbsolute =
+            Moment.future (Period.start day) rowEndOffsetFromDay
+
+        restOfSession =
+            Period.fromPair ( rowEndAbsolute, Period.end givenSession )
+
+        additionalSegments =
+            if fitsInRow then
+                []
+
+            else
+                List.Nonempty.toList <| getPositionInDay rowLength day restOfSession
+
+        debugMsg =
+            "Row "
+                ++ String.fromInt targetRow
+                ++ " starts in column "
+                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits rowStartOffsetFromDay)
+                ++ ", ends in column "
+                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits rowEndOffsetFromDay)
+                ++ "\nSession Starts in column "
+                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits targetStartColumn)
+                ++ ", ends in column "
+                ++ HumanDuration.withLetter (HumanDuration.inLargestWholeUnits targetEndColumn)
+                ++ (if fitsInRow then
+                        ""
+
+                    else
+                        ", does NOT fit.\n"
+                   )
+    in
+    Debug.log debugMsg <|
+        List.Nonempty.Nonempty
+            { top = targetRowPercent
+            , left = targetStartColumnPercent
+            , height = heightPercent
+            , width = widthPercent
+            }
+            additionalSegments
+
+
+viewHistorySession : Environment -> ChosenDayWindow -> IntDict Activity -> ( Activity.ActivityID, Period ) -> Html msg
+viewHistorySession env day activities ( activityID, sessionPeriod ) =
+    let
+        sessionPositions =
+            getPositionInDay day.rowLength day.period sessionPeriod
+
+        ( ( startDate, startTime ), ( endDate, endTime ) ) =
+            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
+            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
+            )
+
+        viewSessionSegment pos =
+            SH.node "segment"
+                [ SHA.title <|
+                    "\nFrom "
+                        ++ Clock.toShortString startTime
+                        ++ " to "
+                        ++ Clock.toShortString endTime
+                        ++ " ("
+                        ++ HumanDuration.abbreviatedSpaced (HumanDuration.breakdownNonzero (Period.length sessionPeriod))
+                        ++ ")"
+                , SHA.css
+                    [ C.top (C.pct pos.top)
+                    , C.left (C.pct pos.left)
+                    , C.width (C.pct pos.width)
+                    , C.height (C.pct pos.height)
+                    , C.backgroundColor <| C.hsla (activityHue * 360) 0.5 0.5 0.5
+                    ]
+                , SHA.classList
+                    [ ( "past", Moment.compare env.time (Period.end sessionPeriod) /= Moment.Earlier )
+                    , ( "future", Moment.compare env.time (Period.start sessionPeriod) /= Moment.Later )
+                    ]
+                ]
+                [ SH.node "activity-icon" [] [ activityIcon ]
+                , SH.label [] [ SH.text activityName ]
+                ]
+
+        sessionActivity =
+            getActivity activityID activities
+
+        activityName =
+            Maybe.withDefault "Unnamed Activity" <| List.head sessionActivity.names
+
+        activityIcon =
+            case sessionActivity.icon of
+                File svgPath ->
+                    SH.img
+                        [ SHA.class "activity-icon"
+                        , SHA.src ("media/icons/" ++ svgPath)
+                        ]
+                        []
+
+                Emoji singleEmoji ->
+                    SH.text singleEmoji
+
+                _ ->
+                    SH.text "⚪"
+
+        activityHue =
+            toFloat (ID.read activityID) / toFloat (IntDict.size activities)
+    in
+    SH.node "timeline-session"
+        [ SHA.classList [ ( "history", True ) ] ]
+    <|
+        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
+
+
+
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
 --            | | | || |_/ /| | | |/ /_\ \  | |  | |__
