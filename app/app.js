@@ -300,7 +300,4 @@ Do not place any code after the application has been started as it will not
 be executed on iOS.
 */
 
-global.startP2P = function() {require("./nativehelpers/peer2peer.js");};
-
-
-
+//global.startP2P = function() {require("./nativehelpers/peer2peer.js");};

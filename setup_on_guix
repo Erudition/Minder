@@ -1,9 +1,11 @@
 for nativescript side
 
 
-guix install openjdk:jdk
+guix install openjdk@14.0:jdk unzip
 
 -- :jdk gets you the jdk and not just the jre which is default
+-- @14.0 gets you java 14 because the latest in guix (16) seems too new for nativescript
+-- ns stuff can crash without unzip
 
 install android sdk in home, set ANDROID_HOME to it, export that variable
 
