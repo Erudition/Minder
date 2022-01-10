@@ -1077,6 +1077,28 @@ urlTriggers profile env =
 
         allEntries =
             Maybe.withDefault noNextTaskEntry nextTaskEntry ++ tasksPairedWithNames
+
+        taskIDsWithStartMsg =
+            List.filterMap startTriggerEntry allFullTaskInstances
+                |> List.map (\( entryID, entryStart, _ ) -> ( entryID, entryStart ))
+
+        taskIDsWithStopMsg =
+            List.filterMap startTriggerEntry allFullTaskInstances
+                |> List.map (\( entryID, _, entryStop ) -> ( entryID, entryStop ))
+
+        startTriggerEntry fullInstance =
+            case Instance.getActivityID fullInstance of
+                Nothing ->
+                    Nothing
+
+                Just hasActivityID ->
+                    Just
+                        ( String.fromInt (Instance.getID fullInstance)
+                        , StartTracking (Instance.getID fullInstance) hasActivityID
+                        , StopTracking (Instance.getID fullInstance)
+                        )
     in
     [ ( "complete", Dict.fromList allEntries )
+    , ( "startTask", Dict.fromList taskIDsWithStartMsg )
+    , ( "stopTask", Dict.fromList taskIDsWithStopMsg )
     ]

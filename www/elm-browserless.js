@@ -8221,8 +8221,8 @@ var $author$project$Main$bypassFakeFragment = function (url) {
 		return url;
 	}
 };
-var $author$project$Main$Timeline = function (a) {
-	return {$: 'Timeline', a: a};
+var $author$project$Main$Timeflow = function (a) {
+	return {$: 'Timeflow', a: a};
 };
 var $author$project$Main$ViewState = F2(
 	function (primaryView, uid) {
@@ -8230,7 +8230,7 @@ var $author$project$Main$ViewState = F2(
 	});
 var $author$project$Main$defaultView = A2(
 	$author$project$Main$ViewState,
-	$author$project$Main$Timeline($elm$core$Maybe$Nothing),
+	$author$project$Main$Timeflow($elm$core$Maybe$Nothing),
 	0);
 var $elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
@@ -8853,6 +8853,10 @@ var $author$project$TimeTracker$routeView = A2(
 	$elm$url$Url$Parser$map,
 	$author$project$TimeTracker$Normal,
 	$elm$url$Url$Parser$s('timetracker'));
+var $author$project$Timeflow$routeView = A2(
+	$elm$url$Url$Parser$map,
+	$elm$core$Maybe$Nothing,
+	$elm$url$Url$Parser$s('timeflow'));
 var $author$project$Main$screenToViewState = function (screen) {
 	return {primaryView: screen, uid: 0};
 };
@@ -8866,7 +8870,9 @@ var $author$project$Main$routeParser = function () {
 				wrapScreen(
 				A2($elm$url$Url$Parser$map, $author$project$Main$TaskList, $author$project$TaskList$routeView)),
 				wrapScreen(
-				A2($elm$url$Url$Parser$map, $author$project$Main$TimeTracker, $author$project$TimeTracker$routeView))
+				A2($elm$url$Url$Parser$map, $author$project$Main$TimeTracker, $author$project$TimeTracker$routeView)),
+				wrapScreen(
+				A2($elm$url$Url$Parser$map, $author$project$Main$Timeflow, $author$project$Timeflow$routeView))
 			]));
 }();
 var $author$project$Main$viewUrl = function (url) {
@@ -21299,6 +21305,14 @@ var $author$project$NativeScript$Notification$setBody = F2(
 				body: $elm$core$Maybe$Just(body)
 			});
 	});
+var $author$project$NativeScript$Notification$setBody_expanded = F2(
+	function (body_expanded, givenNotif) {
+		return _Utils_update(
+			givenNotif,
+			{
+				body_expanded: $elm$core$Maybe$Just(body_expanded)
+			});
+	});
 var $author$project$NativeScript$Notification$setChannelDescription = F2(
 	function (text, givenChannel) {
 		return _Utils_update(
@@ -22090,12 +22104,18 @@ var $author$project$Activity$Switching$currentTaskNotif = F2(
 			sound: $elm$core$Maybe$Nothing,
 			vibrate: $elm$core$Maybe$Nothing
 		};
+		var currentID = $author$project$Task$Instance$getID(task);
 		var blank = $author$project$NativeScript$Notification$build(currentTaskChannel);
 		var actions = _List_fromArray(
 			[
 				{
 				button: $author$project$NativeScript$Notification$Button('+20%'),
 				id: 'updateProgress=+20%',
+				launch: false
+			},
+				{
+				button: $author$project$NativeScript$Notification$Button('Stop'),
+				id: 'stopTask=' + $elm$core$String$fromInt(currentID),
 				launch: false
 			}
 			]);
@@ -22133,20 +22153,6 @@ var $author$project$Activity$Switching$currentTaskNotif = F2(
 				useHTML: $elm$core$Maybe$Nothing,
 				when: $elm$core$Maybe$Just(now)
 			});
-	});
-var $author$project$Activity$Switching$instanceListNow = F2(
-	function (profile, env) {
-		var zoneHistory = A2($author$project$ZoneHistory$init, env.time, env.timeZone);
-		var rightNow = $author$project$SmartTime$Period$instantaneous(env.time);
-		var _v0 = $author$project$Task$Entry$getClassesFromEntries(
-			_Utils_Tuple2(profile.taskEntries, profile.taskClasses));
-		var fullClasses = _v0.a;
-		var warnings = _v0.b;
-		return A3(
-			$author$project$Task$Instance$listAllInstances,
-			fullClasses,
-			profile.taskInstances,
-			_Utils_Tuple2(zoneHistory, rightNow));
 	});
 var $author$project$SmartTime$Human$Calendar$compareLateness = F2(
 	function (_v0, _v1) {
@@ -22280,7 +22286,7 @@ var $author$project$Activity$Switching$prioritizeTasks = F2(
 			A2(
 				$elm$core$List$filter,
 				A2($elm$core$Basics$composeR, $author$project$Task$Instance$completed, $elm$core$Basics$not),
-				A2($author$project$Activity$Switching$instanceListNow, profile, env)));
+				A2($author$project$Profile$instanceListNow, profile, env)));
 	});
 var $author$project$Activity$Switching$determineNextTask = F2(
 	function (profile, env) {
@@ -23097,6 +23103,9 @@ var $author$project$SmartTime$Human$Duration$singleLetterSpaced = function (huma
 			' ',
 			A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$withLetter, humanDurationList)));
 };
+var $author$project$Task$Instance$partiallyCompleted = function (spec) {
+	return spec.instance.completion > 0;
+};
 var $author$project$NativeScript$Notification$Low = {$: 'Low'};
 var $author$project$Activity$Switching$suggestedTasksChannel = {
 	description: $elm$core$Maybe$Just('Other tasks you could start right now.'),
@@ -23112,11 +23121,23 @@ var $author$project$NativeScript$Notification$GroupKey = function (a) {
 };
 var $author$project$Activity$Switching$suggestedTasksGroup = $author$project$NativeScript$Notification$GroupKey('suggestions');
 var $author$project$Activity$Switching$suggestedTaskNotif = F2(
-	function (now, taskInstance) {
+	function (now, _v0) {
+		var taskInstance = _v0.a;
+		var taskActivityID = _v0.b;
 		var base = $author$project$NativeScript$Notification$build($author$project$Activity$Switching$suggestedTasksChannel);
+		var actions = _List_fromArray(
+			[
+				{
+				button: $author$project$NativeScript$Notification$Button('Start'),
+				id: 'startTask=' + $elm$core$String$fromInt(
+					$author$project$Task$Instance$getID(taskInstance)),
+				launch: false
+			}
+			]);
 		return _Utils_update(
 			base,
 			{
+				actions: actions,
 				at: $elm$core$Maybe$Just(now),
 				body: $elm$core$Maybe$Nothing,
 				chronometer: $elm$core$Maybe$Just(false),
@@ -23126,18 +23147,35 @@ var $author$project$Activity$Switching$suggestedTaskNotif = F2(
 				group: $elm$core$Maybe$Just($author$project$Activity$Switching$suggestedTasksGroup),
 				id: $elm$core$Maybe$Just(
 					$author$project$Activity$Switching$taskClassNotifID(taskInstance._class.id)),
-				progress: $elm$core$Maybe$Nothing,
+				progress: $author$project$Task$Instance$partiallyCompleted(taskInstance) ? $elm$core$Maybe$Just(
+					A2(
+						$author$project$NativeScript$Notification$Progress,
+						$author$project$Task$Progress$getPortion(
+							$author$project$Task$Instance$instanceProgress(taskInstance)),
+						$author$project$Task$Progress$getWhole(
+							$author$project$Task$Instance$instanceProgress(taskInstance)))) : $elm$core$Maybe$Nothing,
 				title: $elm$core$Maybe$Just(taskInstance._class.title),
 				when: $elm$core$Maybe$Nothing
 			});
 	});
 var $author$project$Activity$Switching$suggestedTasks = F2(
 	function (profile, env) {
-		var tasks = A2($author$project$Activity$Switching$prioritizeTasks, profile, env);
+		var withActivityID = function (task) {
+			var _v0 = $author$project$Task$Instance$getActivityID(task);
+			if (_v0.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var hasActivityID = _v0.a;
+				return $elm$core$Maybe$Just(
+					_Utils_Tuple2(task, hasActivityID));
+			}
+		};
+		var tasks = A2($author$project$Profile$instanceListNow, profile, env);
+		var actionableTasks = A2($elm$core$List$filterMap, withActivityID, tasks);
 		return A2(
 			$elm$core$List$map,
 			$author$project$Activity$Switching$suggestedTaskNotif(env.time),
-			A2($elm$core$List$take, 5, tasks));
+			A2($elm$core$List$take, 5, actionableTasks));
 	});
 var $elm_community$list_extra$List$Extra$dropWhile = F2(
 	function (predicate, list) {
@@ -23325,7 +23363,7 @@ var $author$project$Activity$Switching$switchTracking = F4(
 			return $elm$core$Platform$Cmd$batch(
 				A2($elm$core$List$map, $author$project$NativeScript$Commands$notifyCancel, idList));
 		};
-		var allTasks = A2($author$project$Activity$Switching$instanceListNow, app, env);
+		var allTasks = A2($author$project$Profile$instanceListNow, app, env);
 		var trackingTask = function () {
 			if (instanceIDMaybe.$ === 'Nothing') {
 				return $elm$core$Maybe$Nothing;
@@ -24011,6 +24049,10 @@ var $author$project$TimeTracker$update = F4(
 								A2($author$project$TimeTracker$exportActivityViewModel, app, env)))));
 		}
 	});
+var $author$project$TaskList$StartTracking = F2(
+	function (a, b) {
+		return {$: 'StartTracking', a: a, b: b};
+	});
 var $author$project$TaskList$UpdateProgress = F2(
 	function (a, b) {
 		return {$: 'UpdateProgress', a: a, b: b};
@@ -24025,6 +24067,24 @@ var $author$project$TaskList$urlTriggers = F2(
 					fullInstance,
 					$author$project$Task$Progress$getWhole(
 						$author$project$Task$Instance$instanceProgress(fullInstance))));
+		};
+		var startTriggerEntry = function (fullInstance) {
+			var _v2 = $author$project$Task$Instance$getActivityID(fullInstance);
+			if (_v2.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var hasActivityID = _v2.a;
+				return $elm$core$Maybe$Just(
+					_Utils_Tuple3(
+						$elm$core$String$fromInt(
+							$author$project$Task$Instance$getID(fullInstance)),
+						A2(
+							$author$project$TaskList$StartTracking,
+							$author$project$Task$Instance$getID(fullInstance),
+							hasActivityID),
+						$author$project$TaskList$StopTracking(
+							$author$project$Task$Instance$getID(fullInstance))));
+			}
 		};
 		var noNextTaskEntry = _List_fromArray(
 			[
@@ -24047,6 +24107,22 @@ var $author$project$TaskList$urlTriggers = F2(
 			buildNextTaskEntry,
 			A2($author$project$Activity$Switching$determineNextTask, profile, env));
 		var allFullTaskInstances = A2($author$project$Profile$instanceListNow, profile, env);
+		var taskIDsWithStartMsg = A2(
+			$elm$core$List$map,
+			function (_v1) {
+				var entryID = _v1.a;
+				var entryStart = _v1.b;
+				return _Utils_Tuple2(entryID, entryStart);
+			},
+			A2($elm$core$List$filterMap, startTriggerEntry, allFullTaskInstances));
+		var taskIDsWithStopMsg = A2(
+			$elm$core$List$map,
+			function (_v0) {
+				var entryID = _v0.a;
+				var entryStop = _v0.c;
+				return _Utils_Tuple2(entryID, entryStop);
+			},
+			A2($elm$core$List$filterMap, startTriggerEntry, allFullTaskInstances));
 		var tasksPairedWithNames = A2($elm$core$List$map, triggerEntry, allFullTaskInstances);
 		var allEntries = _Utils_ap(
 			A2($elm$core$Maybe$withDefault, noNextTaskEntry, nextTaskEntry),
@@ -24055,7 +24131,13 @@ var $author$project$TaskList$urlTriggers = F2(
 			[
 				_Utils_Tuple2(
 				'complete',
-				$elm$core$Dict$fromList(allEntries))
+				$elm$core$Dict$fromList(allEntries)),
+				_Utils_Tuple2(
+				'startTask',
+				$elm$core$Dict$fromList(taskIDsWithStartMsg)),
+				_Utils_Tuple2(
+				'stopTask',
+				$elm$core$Dict$fromList(taskIDsWithStopMsg))
 			]);
 	});
 var $author$project$TimeTracker$ExportVM = {$: 'ExportVM'};
@@ -24395,20 +24477,20 @@ var $author$project$Main$update = F2(
 						var nextStep = _v3.c;
 						var newProfile2WithErrors = A2($author$project$Profile$saveError, newProfile1WithItems, 'Synced with Marvin: \n' + whatHappened);
 						var notification = A2(
-							$author$project$NativeScript$Notification$setBody,
+							$author$project$NativeScript$Notification$setBody_expanded,
 							whatHappened,
 							A2(
-								$author$project$NativeScript$Notification$setSubtitle,
-								'Sync Status',
+								$author$project$NativeScript$Notification$setBody,
+								whatHappened,
 								A2(
-									$author$project$NativeScript$Notification$setTitle,
-									'Marvin Response',
+									$author$project$NativeScript$Notification$setSubtitle,
+									'Sync Status',
 									A2(
-										$author$project$NativeScript$Notification$setExpiresAfter,
-										$author$project$SmartTime$Duration$fromMinutes(1),
+										$author$project$NativeScript$Notification$setTitle,
+										'Marvin Response',
 										A2(
-											$author$project$NativeScript$Notification$setID,
-											29384,
+											$author$project$NativeScript$Notification$setExpiresAfter,
+											$author$project$SmartTime$Duration$fromMinutes(5),
 											$author$project$NativeScript$Notification$build(syncStatusChannel))))));
 						return _Utils_Tuple2(
 							A3($author$project$Main$Model, viewState, newProfile2WithErrors, environment),

@@ -640,11 +640,11 @@ update msg ({ viewState, profile, environment } as model) =
 
                 notification =
                     Notif.build syncStatusChannel
-                        |> Notif.setID 29384
-                        |> Notif.setExpiresAfter (Duration.fromMinutes 1)
+                        |> Notif.setExpiresAfter (Duration.fromMinutes 5)
                         |> Notif.setTitle "Marvin Response"
                         |> Notif.setSubtitle "Sync Status"
                         |> Notif.setBody whatHappened
+                        |> Notif.setBody_expanded whatHappened
             in
             ( Model viewState newProfile2WithErrors environment
             , Cmd.batch

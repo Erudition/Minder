@@ -35,22 +35,6 @@ determineNextTask profile env =
         prioritizeTasks profile env
 
 
-instanceListNow : Profile -> Environment -> List Instance
-instanceListNow profile env =
-    let
-        ( fullClasses, warnings ) =
-            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
-
-        zoneHistory =
-            -- TODO use the real thing
-            ZoneHistory.init env.time env.timeZone
-
-        rightNow =
-            Period.instantaneous env.time
-    in
-    Task.Instance.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
-
-
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchActivity newActivityID app env =
     switchTracking newActivityID Nothing app env
@@ -663,11 +647,15 @@ suggestedTasksGroup =
     Notif.GroupKey "suggestions"
 
 
-suggestedTaskNotif : Moment -> Instance -> Notification
-suggestedTaskNotif now taskInstance =
+suggestedTaskNotif : Moment -> ( Instance, ActivityID ) -> Notification
+suggestedTaskNotif now ( taskInstance, taskActivityID ) =
     let
         base =
             Notif.build suggestedTasksChannel
+
+        actions =
+            [ { id = "startTask=" ++ String.fromInt (Task.Instance.getID taskInstance), button = Notif.Button "Start", launch = False }
+            ]
     in
     { base
         | id = Just <| taskClassNotifID taskInstance.class.id
@@ -675,16 +663,17 @@ suggestedTaskNotif now taskInstance =
         , at = Just now
         , title = Just <| taskInstance.class.title
         , body = Nothing
+        , actions = actions
         , when = Nothing
         , countdown = Just False
         , chronometer = Just False
         , expiresAfter = Just (Duration.fromHours 8)
         , progress =
-            --if Task.Instance.partiallyCompleted taskInstance then
-            --    Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.Instance.instanceProgress taskInstance))
-            --
-            --else
-            Nothing
+            if Task.Instance.partiallyCompleted taskInstance then
+                Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.Instance.instanceProgress taskInstance))
+
+            else
+                Nothing
     }
 
 
@@ -692,9 +681,20 @@ suggestedTasks : Profile -> Environment -> List Notification
 suggestedTasks profile env =
     let
         tasks =
-            prioritizeTasks profile env
+            Profile.instanceListNow profile env
+
+        actionableTasks =
+            List.filterMap withActivityID tasks
+
+        withActivityID task =
+            case Task.Instance.getActivityID task of
+                Nothing ->
+                    Nothing
+
+                Just hasActivityID ->
+                    Just ( task, hasActivityID )
     in
-    List.map (suggestedTaskNotif env.time) (List.take 5 tasks)
+    List.map (suggestedTaskNotif env.time) (List.take 5 actionableTasks)
 
 
 taskClassNotifID : ClassID -> Int
@@ -705,6 +705,9 @@ taskClassNotifID instanceID =
 currentTaskNotif : Moment -> Instance -> Notification
 currentTaskNotif now task =
     let
+        currentID =
+            Task.Instance.getID task
+
         currentTaskChannel =
             { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing }
 
@@ -713,6 +716,7 @@ currentTaskNotif now task =
 
         actions =
             [ { id = "updateProgress=+20%", button = Notif.Button "+20%", launch = False }
+            , { id = "stopTask=" ++ String.fromInt currentID, button = Notif.Button "Stop", launch = False }
             ]
     in
     { blank
