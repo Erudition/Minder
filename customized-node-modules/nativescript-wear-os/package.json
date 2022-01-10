@@ -1,31 +1,26 @@
 {
-  "_args": [
-    [
-      "nativescript-wear-os@3.0.0",
-      "/home/adroit/Projects/Minder"
-    ]
-  ],
-  "_from": "nativescript-wear-os@3.0.0",
+  "_from": "nativescript-wear-os@^3.0.0",
   "_id": "nativescript-wear-os@3.0.0",
   "_inBundle": false,
   "_integrity": "sha512-iI0J8mg0SKwyouGJ3LnSKVP2R24QrOx2dJzzCUp0DwaFQkYxssYUEqPlC/PI3TGADu6rP9LYg4IJA9tJJmA9kw==",
   "_location": "/nativescript-wear-os",
   "_phantomChildren": {},
   "_requested": {
-    "type": "version",
+    "type": "range",
     "registry": true,
-    "raw": "nativescript-wear-os@3.0.0",
+    "raw": "nativescript-wear-os@^3.0.0",
     "name": "nativescript-wear-os",
     "escapedName": "nativescript-wear-os",
-    "rawSpec": "3.0.0",
+    "rawSpec": "^3.0.0",
     "saveSpec": null,
-    "fetchSpec": "3.0.0"
+    "fetchSpec": "^3.0.0"
   },
   "_requiredBy": [
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/nativescript-wear-os/-/nativescript-wear-os-3.0.0.tgz",
-  "_spec": "3.0.0",
+  "_shasum": "e45719bbf94cc2dd58b215dee1854077e711800e",
+  "_spec": "nativescript-wear-os@^3.0.0",
   "_where": "/home/adroit/Projects/Minder",
   "author": {
     "name": "Brad Martin",
@@ -34,6 +29,8 @@
   "bugs": {
     "url": "https://github.com/bradmartin/nativescript-wear-os/issues"
   },
+  "bundleDependencies": false,
+  "deprecated": false,
   "description": "NativeScript plugin that implements Wear OS specific components and layouts.",
   "devDependencies": {
     "@nativescript/core": "^7.0.0",

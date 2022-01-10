@@ -45,13 +45,9 @@ tns plugin add nativescript-wear-os@2.1.1
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
 ```
 
-2. Copy the `ambient-activity.ts` in the root of this project's demo app and use it to replace the default Android
-   Activity loaded by
-   NativeScript. [NativeScript docs HERE about using a custom Android Activity.](https://docs.nativescript.org/core-concepts/android-runtime/advanced-topics/extend-application-activity#extending-activity)
+2. Copy the `ambient-activity.ts` in the root of this project's demo app and use it to replace the default Android Activity loaded by NativeScript. [NativeScript docs HERE about using a custom Android Activity.](https://docs.nativescript.org/core-concepts/android-runtime/advanced-topics/extend-application-activity#extending-activity)
 
-3. Update the AndroidManifest.xml for your application to use the correct activity. Change the `android:name` value of
-   the `activity` node to point to the same name used inside the `ambient-activity.ts` file inside the `@JavaProxy()`
-   decorator at the top of the file.
+3. Update the AndroidManifest.xml for your application to use the correct activity. Change the `android:name` value of the `activity` node to point to the same name used inside the `ambient-activity.ts` file inside the `@JavaProxy()` decorator at the top of the file.
 
 ```xml
 		<activity android:name="com.nativescript.AmbientActivity" android:label="@string/title_activity_kimera" android:configChanges="keyboardHidden|orientation|screenSize" android:theme="@style/LaunchScreenTheme">
@@ -72,9 +68,7 @@ const appComponents = [
 
 ### WearOsLayout
 
-A base layout for Wear OS apps built with NativeScript that automatically handles calculating the inset for circle watch
-faces. To disable the layout from automatically adjusting the inset set `disableInsetConstraint="true"` on
-the `WearOsLayout` instance. The default is false and does not have to be set.
+A base layout for Wear OS apps built with NativeScript that automatically handles calculating the inset for circle watch faces. To disable the layout from automatically adjusting the inset set `disableInsetConstraint="true"` on the `WearOsLayout` instance. The default is false and does not have to be set.
 
 This has no effect on square watches.
 
@@ -157,8 +151,7 @@ _useScalingScroll_ - If true, the items in the listview will scale during the sc
 
 This plugin uses an Android WearOS specific library [SmartWearOs](https://github.com/bradmartin/SmartWearOs).
 
-The plugin has a success dialog and failure/error dialog to present on WearOS. These mimic the behavior of the built in
-Confirmation Activity on WearOS. With the option of setting the time before it is dismissed/hidden from the user.
+The plugin has a success dialog and failure/error dialog to present on WearOS. These mimic the behavior of the built in Confirmation Activity on WearOS. With the option of setting the time before it is dismissed/hidden from the user.
 
 #### Usage
 
