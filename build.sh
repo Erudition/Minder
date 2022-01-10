@@ -1,3 +1,5 @@
+#! /usr/bin/env bash
+
 cd ~/Projects/Minder/
 
 ./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm
