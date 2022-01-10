@@ -84,12 +84,10 @@ module.exports = (env) => {
       webpack.chainWebpack(config => {
         // we add the plugin
         config.plugin('IgnorePlugin').use(IgnorePlugin, [{ resourceRegExp: /backup/ }])
-        config.plugin('CircularDependencyPlugin').use(CircularDependencyPlugin, [configuredCircularPlugin])
+        //config.plugin('CircularDependencyPlugin').use(CircularDependencyPlugin, [configuredCircularPlugin])
 
       });
 
 
 	return webpack.resolveConfig();
 };
-
-
