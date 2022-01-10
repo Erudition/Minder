@@ -640,7 +640,7 @@ update msg ({ viewState, profile, environment } as model) =
 
                 notification =
                     Notif.build syncStatusChannel
-                        |> Notif.setExpiresAfter (Duration.fromMinutes 5)
+                        |> Notif.setExpiresAfter (Duration.fromMinutes 1)
                         |> Notif.setTitle "Marvin Response"
                         |> Notif.setSubtitle "Sync Status"
                         |> Notif.setBody whatHappened

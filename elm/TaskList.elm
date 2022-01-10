@@ -1060,23 +1060,11 @@ urlTriggers profile env =
         allFullTaskInstances =
             instanceListNow profile env
 
-        tasksPairedWithNames =
-            List.map triggerEntry allFullTaskInstances
+        tasksIDsWithDoneMsg =
+            List.map doneTriggerEntry allFullTaskInstances
 
-        triggerEntry fullInstance =
-            ( fullInstance.class.title, UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
-
-        buildNextTaskEntry nextTaskFullInstance =
-            [ ( "next", UpdateProgress nextTaskFullInstance (getWhole (Instance.instanceProgress nextTaskFullInstance)) ) ]
-
-        nextTaskEntry =
-            Maybe.map buildNextTaskEntry (Activity.Switching.determineNextTask profile env)
-
-        noNextTaskEntry =
-            [ ( "next", NoOp ) ]
-
-        allEntries =
-            Maybe.withDefault noNextTaskEntry nextTaskEntry ++ tasksPairedWithNames
+        doneTriggerEntry fullInstance =
+            ( String.fromInt (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
 
         taskIDsWithStartMsg =
             List.filterMap startTriggerEntry allFullTaskInstances
@@ -1098,7 +1086,7 @@ urlTriggers profile env =
                         , StopTracking (Instance.getID fullInstance)
                         )
     in
-    [ ( "complete", Dict.fromList allEntries )
+    [ ( "complete", Dict.fromList tasksIDsWithDoneMsg )
     , ( "startTask", Dict.fromList taskIDsWithStartMsg )
     , ( "stopTask", Dict.fromList taskIDsWithStopMsg )
     ]

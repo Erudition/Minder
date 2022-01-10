@@ -4,6 +4,7 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity exposing (StoredActivities)
+import Activity.Switching
 import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
@@ -382,10 +383,15 @@ handle classCounter profile env response =
                     let
                         updatedTimeline =
                             Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
+
+                        ( profileWithRefocus, refocusCmds ) =
+                            Activity.Switching.refreshTracking
+                                { profile | timeline = updatedTimeline }
+                                env
                     in
-                    ( { profile | timeline = updatedTimeline }
+                    ( profileWithRefocus
                     , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
-                    , Cmd.none
+                    , refocusCmds
                     )
 
                 Err err ->

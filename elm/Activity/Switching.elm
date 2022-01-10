@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, determineNextTask, switchActivity, switchTracking)
+module Activity.Switching exposing (currentActivityFromApp, determineNextTask, refreshTracking, switchActivity, switchTracking)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
@@ -38,6 +38,11 @@ determineNextTask profile env =
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchActivity newActivityID app env =
     switchTracking newActivityID Nothing app env
+
+
+refreshTracking : Profile -> Environment -> ( Profile, Cmd msg )
+refreshTracking app env =
+    switchTracking (currentActivityID app.timeline) (Timeline.currentInstanceID app.timeline) app env
 
 
 switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
@@ -121,9 +126,6 @@ switchTracking newActivityID instanceIDMaybe app env =
 
                 Just instanceID ->
                     List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks
-
-        trackingTaskNotif =
-            List.filterMap identity [ Maybe.map (currentTaskNotif env.time) trackingTask ]
     in
     case determineNextTask app env of
         Nothing ->
@@ -135,7 +137,7 @@ switchTracking newActivityID instanceIDMaybe app env =
                     , [ oldName, "➤", newName ]
                     , describeTodayTotal
                     ]
-                , notify <| [ updateSticky env.time todayTotal newActivity "✔️ All Done" Nothing ] ++ suggestions ++ trackingTaskNotif
+                , notify <| [ updateSticky env.time todayTotal newActivity trackingTask "✔️ All Done" Nothing ] ++ suggestions
                 , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                 ]
             )
@@ -154,10 +156,9 @@ switchTracking newActivityID instanceIDMaybe app env =
                             , describeTodayTotal
                             ]
                         , notify <|
-                            [ updateSticky env.time todayTotal newActivity "❌ Unknown - No Activity" (Just nextTask) ]
+                            [ updateSticky env.time todayTotal newActivity trackingTask "❌ Unknown - No Activity" (Just nextTask) ]
                                 ++ scheduleOffTaskReminders nextTask env.time
                                 ++ suggestions
-                                ++ trackingTaskNotif
                         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                         ]
                     )
@@ -204,10 +205,9 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 , describeTodayTotal
                                 ]
                             , notify <|
-                                [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
+                                [ updateSticky env.time todayTotal newActivity trackingTask "✔️ On Task" (Just nextTask) ]
                                     ++ scheduleOnTaskReminders nextTask env.time timeRemaining
                                     ++ suggestions
-                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -229,10 +229,9 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 , describeTodayTotal
                                 ]
                             , notify <|
-                                [ updateSticky env.time todayTotal newActivity "✔️ On Task" (Just nextTask) ]
+                                [ updateSticky env.time todayTotal newActivity trackingTask "✔️ On Task" (Just nextTask) ]
                                     ++ scheduleOnTaskReminders nextTask env.time timeRemaining
                                     ++ suggestions
-                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -247,11 +246,10 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 , describeExcusedUsage
                                 ]
                             , notify <|
-                                [ updateSticky env.time todayTotal newActivity "⏸ Off Task (Excused)" (Just nextTask) ]
+                                [ updateSticky env.time todayTotal newActivity trackingTask "⏸ Off Task (Excused)" (Just nextTask) ]
                                     ++ scheduleExcusedReminders env.time (Timeline.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
                                     ++ suggestions
-                                    ++ trackingTaskNotif
                             , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                             ]
                         )
@@ -266,10 +264,9 @@ switchTracking newActivityID instanceIDMaybe app env =
                                 , [ "Previously excused for", excusedUsageString ]
                                 ]
                             , notify <|
-                                [ updateSticky env.time todayTotal newActivity "❌ Off Task" (Just nextTask) ]
+                                [ updateSticky env.time todayTotal newActivity trackingTask "❌ Off Task" (Just nextTask) ]
                                     ++ scheduleOffTaskReminders nextTask env.time
                                     ++ suggestions
-                                    ++ trackingTaskNotif
                             , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
                             ]
                         )
@@ -294,8 +291,8 @@ switchTracking newActivityID instanceIDMaybe app env =
 -- )
 
 
-updateSticky : Moment -> Duration -> Activity -> String -> Maybe Instance -> Notification
-updateSticky now todayTotal newActivity status nextTaskMaybe =
+updateSticky : Moment -> Duration -> Activity -> Maybe Instance -> String -> Maybe Instance -> Notification
+updateSticky now todayTotal newActivity trackedTaskMaybe status nextTaskMaybe =
     let
         statusChannel =
             Notif.basicChannel "Status"
@@ -305,16 +302,24 @@ updateSticky now todayTotal newActivity status nextTaskMaybe =
 
         actions =
             [ { id = "sync=marvin", button = Notif.Button "Sync Tasks", launch = False }
-            , { id = "complete=next", button = Notif.Button "Complete", launch = False }
             ]
+
+        actionsIfTaskPresent instance =
+            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            ]
+
+        title =
+            trackedTaskMaybe
+                |> Maybe.map Task.Instance.getTitle
     in
     { blank
         | id = Just 42
         , autoCancel = Just False
-        , title = Just (Activity.getName newActivity)
+        , title = title
         , chronometer = Just True
         , when = Just (past now todayTotal)
-        , subtitle = Just status
+        , subtitle = Just (Activity.getName newActivity ++ status)
         , body = Maybe.map (\nt -> "Up next:" ++ nt.class.title) nextTaskMaybe
         , ongoing = Just True
         , badge = Nothing
@@ -330,8 +335,20 @@ updateSticky now todayTotal newActivity status nextTaskMaybe =
         , status_text_size = Nothing
         , background_color = Nothing
         , countdown = Nothing
-        , progress = Nothing
-        , actions = actions
+        , progress =
+            case trackedTaskMaybe of
+                Just task ->
+                    Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+
+                Nothing ->
+                    Nothing
+        , actions =
+            case trackedTaskMaybe of
+                Just instance ->
+                    actions ++ actionsIfTaskPresent instance
+
+                Nothing ->
+                    actions
     }
 
 
@@ -680,11 +697,8 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
 suggestedTasks : Profile -> Environment -> List Notification
 suggestedTasks profile env =
     let
-        tasks =
-            Profile.instanceListNow profile env
-
         actionableTasks =
-            List.filterMap withActivityID tasks
+            List.filterMap withActivityID (prioritizeTasks profile env)
 
         withActivityID task =
             case Task.Instance.getActivityID task of
@@ -694,7 +708,7 @@ suggestedTasks profile env =
                 Just hasActivityID ->
                     Just ( task, hasActivityID )
     in
-    List.map (suggestedTaskNotif env.time) (List.take 5 actionableTasks)
+    List.map (suggestedTaskNotif env.time) (List.take 10 actionableTasks)
 
 
 taskClassNotifID : ClassID -> Int
