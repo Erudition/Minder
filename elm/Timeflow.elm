@@ -84,6 +84,7 @@ type alias ChosenDayWindow =
 type alias ViewState =
     { flowRenderPeriod : Period
     , hourRowSize : Duration
+    , pivotMoment : Moment
     }
 
 
@@ -101,7 +102,8 @@ decideViewState profile env =
             Clock.midnight
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 60
+    , hourRowSize = Duration.fromMinutes 30
+    , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     }
 
 
@@ -138,17 +140,129 @@ type alias FlowBlob =
 displayBlob : ViewState -> Environment -> FlowBlob -> Element Msg
 displayBlob displayState env flowBlob =
     let
-        startsAtPercent =
-            "(remainder after dividing by minutesPerRow) * (minuteSize)"
+        msBetweenWalls =
+            Duration.inMs displayState.hourRowSize
 
-        topPieceWidth =
-            Debug.todo "top piece width"
+        startMs =
+            Duration.subtract (Moment.toDuration flowBlob.start Moment.y2k)
+                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+                |> Duration.inMs
 
-        topPiece =
-            el [] <| text ""
+        offsetFromPriorWall ms =
+            -- TODO for negatives: mod or remainder
+            remainderBy msBetweenWalls ms
+
+        distanceToNextWall ms =
+            msBetweenWalls - offsetFromPriorWall ms
+
+        endMs =
+            Duration.subtract (Moment.toDuration flowBlob.end Moment.y2k)
+                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+                |> Duration.inMs
+
+        wallsBetween =
+            List.iterate nextWallWithinBlob startMs
+
+        nextWallWithinBlob ms =
+            let
+                next =
+                    if offsetFromPriorWall ms /= 0 then
+                        -- if we start between walls, fill gap to next one
+                        ms + distanceToNextWall ms
+
+                    else
+                        -- we're at wall multiples, get next
+                        ms + msBetweenWalls
+            in
+            -- less than, not equal, so we don't start a new row of zero width
+            if next < endMs then
+                Just next
+
+            else
+                -- we've left the blob
+                Nothing
+
+        startsAtPortion =
+            toFloat (offsetFromPriorWall startMs) / toFloat msBetweenWalls
+
+        endsAtPortion =
+            toFloat (offsetFromPriorWall endMs) / toFloat msBetweenWalls
+
+        reverseMaybe shouldReverse elements =
+            if shouldReverse then
+                List.reverse elements
+
+            else
+                elements
+
+        isOddRow startWall =
+            let
+                rowNumber =
+                    startWall // msBetweenWalls
+            in
+            modBy 2 rowNumber == 1
+
+        firstRowStartWall =
+            startMs - offsetFromPriorWall startMs
+
+        lastRowStartWall =
+            endMs - offsetFromPriorWall endMs
+
+        topRow =
+            row [] <|
+                reverseMaybe (isOddRow firstRowStartWall)
+                    [ spacer (offsetFromPriorWall startMs)
+                    , topPiece (distanceToNextWall startMs)
+                    ]
+
+        bottomRow =
+            row [] <|
+                reverseMaybe (isOddRow lastRowStartWall)
+                    [ bottomPiece (distanceToNextWall startMs)
+                    , spacer (offsetFromPriorWall startMs)
+                    ]
+
+        middleRow =
+            row [] [ middlePiece ]
+
+        blobThatCrossesNoWalls =
+            row [] <|
+                reverseMaybe False
+                    [ spacer (offsetFromPriorWall startMs)
+                    , floatingPiece (distanceToNextWall endMs - distanceToNextWall startMs)
+                    , spacer (distanceToNextWall endMs)
+                    ]
+
+        spacer portion =
+            el [ width (fillPortion portion) ] <| text "Space"
+
+        floatingPiece portion =
+            el [ width (fillPortion portion), blobBackground ] <| text "Floating"
+
+        topPiece portion =
+            el [ width (fillPortion portion), blobBackground ] <| text "Top"
+
+        bottomPiece portion =
+            el [ width (fillPortion portion), blobBackground ] <| text "Bottom"
+
+        middlePiece =
+            el [ width fill, blobBackground ] <| text "Middle"
+
+        blobBackground =
+            Background.color (rgb 0.5 0.5 0.5)
     in
-    column []
-        [ topPiece ]
+    column [] <|
+        case wallsBetween of
+            [] ->
+                --single row
+                [ blobThatCrossesNoWalls ]
+
+            [ singleCrossing ] ->
+                -- two rows
+                [ topRow, bottomRow ]
+
+            first :: moreCrossings ->
+                [ topRow ] ++ List.repeat (List.length moreCrossings) middleRow ++ [ bottomRow ]
 
 
 timeFlowLayout : ViewState -> Profile -> Environment -> Element Msg
