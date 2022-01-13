@@ -85,6 +85,7 @@ type alias ViewState =
     { flowRenderPeriod : Period
     , hourRowSize : Duration
     , pivotMoment : Moment
+    , rowHeight : Int
     }
 
 
@@ -102,8 +103,9 @@ decideViewState profile env =
             Clock.midnight
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 30
+    , hourRowSize = Duration.fromMinutes 1
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
+    , rowHeight = 20
     }
 
 
@@ -150,7 +152,7 @@ displayBlob displayState env flowBlob =
 
         offsetFromPriorWall ms =
             -- TODO for negatives: mod or remainder
-            remainderBy msBetweenWalls ms
+            modBy msBetweenWalls ms
 
         distanceToNextWall ms =
             msBetweenWalls - offsetFromPriorWall ms
@@ -161,22 +163,12 @@ displayBlob displayState env flowBlob =
                 |> Duration.inMs
 
         wallsBetween =
-            List.iterate nextWallWithinBlob startMs
+            List.iterate nextWallWithinBlob (startMs + distanceToNextWall startMs)
 
         nextWallWithinBlob ms =
-            let
-                next =
-                    if offsetFromPriorWall ms /= 0 then
-                        -- if we start between walls, fill gap to next one
-                        ms + distanceToNextWall ms
-
-                    else
-                        -- we're at wall multiples, get next
-                        ms + msBetweenWalls
-            in
             -- less than, not equal, so we don't start a new row of zero width
-            if next < endMs then
-                Just next
+            if ms + msBetweenWalls < endMs then
+                Just (ms + msBetweenWalls)
 
             else
                 -- we've left the blob
@@ -209,24 +201,24 @@ displayBlob displayState env flowBlob =
             endMs - offsetFromPriorWall endMs
 
         topRow =
-            row [] <|
+            row [ width fill, height (px displayState.rowHeight) ] <|
                 reverseMaybe (isOddRow firstRowStartWall)
                     [ spacer (offsetFromPriorWall startMs)
                     , topPiece (distanceToNextWall startMs)
                     ]
 
         bottomRow =
-            row [] <|
+            row [ width fill, height (px displayState.rowHeight) ] <|
                 reverseMaybe (isOddRow lastRowStartWall)
-                    [ bottomPiece (distanceToNextWall startMs)
-                    , spacer (offsetFromPriorWall startMs)
+                    [ bottomPiece (offsetFromPriorWall startMs)
+                    , spacer (distanceToNextWall startMs)
                     ]
 
         middleRow =
-            row [] [ middlePiece ]
+            row [ width fill, height (px displayState.rowHeight) ] [ middlePiece ]
 
-        blobThatCrossesNoWalls =
-            row [] <|
+        rowWithBlobThatCrossesNoWalls =
+            row [ width fill, height (px displayState.rowHeight) ] <|
                 reverseMaybe False
                     [ spacer (offsetFromPriorWall startMs)
                     , floatingPiece (distanceToNextWall endMs - distanceToNextWall startMs)
@@ -234,28 +226,36 @@ displayBlob displayState env flowBlob =
                     ]
 
         spacer portion =
-            el [ width (fillPortion portion) ] <| text "Space"
+            el [ width (fillPortion portion), height fill, clip, Background.color (rgba 0.9 0.9 0.9 0.2) ] <| centeredText "Space"
 
         floatingPiece portion =
-            el [ width (fillPortion portion), blobBackground ] <| text "Floating"
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText "Floating"
 
         topPiece portion =
-            el [ width (fillPortion portion), blobBackground ] <| text "Top"
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText <| "Demo " ++ displayTime flowBlob.start ++ " " ++ String.fromInt startMs
+
+        displayTime time =
+            Clock.toStandardString (HumanMoment.extractTime env.timeZone time)
 
         bottomPiece portion =
-            el [ width (fillPortion portion), blobBackground ] <| text "Bottom"
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText <| "Bottom" ++ displayTime flowBlob.end ++ " " ++ String.fromInt endMs
 
         middlePiece =
-            el [ width fill, blobBackground ] <| text "Middle"
+            el ([ width fill ] ++ blobAttributes) <|
+                centeredText <|
+                    ("Middle  " ++ String.concat (List.intersperse ", " (List.map String.fromInt wallsBetween)))
 
-        blobBackground =
-            Background.color (rgb 0.5 0.5 0.5)
+        blobAttributes =
+            [ Background.color (rgb 0.4 0.4 0.9), height fill, clip ]
+
+        centeredText textToShow =
+            el [ centerX, centerY ] <| text textToShow
     in
-    column [] <|
+    column [ width fill, height fill ] <|
         case wallsBetween of
             [] ->
                 --single row
-                [ blobThatCrossesNoWalls ]
+                [ rowWithBlobThatCrossesNoWalls ]
 
             [ singleCrossing ] ->
                 -- two rows
@@ -280,7 +280,7 @@ timeFlowLayout vstate profile env =
 
 singleHourRow : ViewState -> Profile -> Environment -> Period -> Element Msg
 singleHourRow state profile env rowPeriod =
-    row [ width fill, height (fillPortion 1) ]
+    row [ width fill, height (px state.rowHeight) ]
         [ timeLabelSidebar state profile env rowPeriod
         , hourRowContents state profile env rowPeriod
         ]
@@ -305,10 +305,10 @@ timeLabelSidebar state profile env rowPeriod =
         timeOfDayString =
             case usingTwelveHourClock of
                 True ->
-                    Clock.hourToShortString (Clock.hourOf12 startMomentAsTimeOfDay)
+                    String.fromInt (Clock.hourOf12Raw startMomentAsTimeOfDay) ++ ":" ++ String.fromInt (Clock.minute startMomentAsTimeOfDay)
 
                 False ->
-                    String.fromInt <| Clock.hour startMomentAsTimeOfDay
+                    Clock.toShortString startMomentAsTimeOfDay
     in
     column [ width (px 70), height fill, Border.color (rgb 0.2 0.2 0.2), Border.width 1, Background.color (rgb 0.5 0.5 0.5) ]
         [ paragraph [ centerX, centerY ] <|
@@ -354,15 +354,28 @@ hourRowContents vState profile env rowPeriod =
                 [ el [ width (fillPortion 20) ] (text "")
                 , el [ width (fillPortion 20) ] (text "")
                 ]
+
+        demoBlob =
+            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 30.0) }
+
+        blobsDisplayed =
+            List.filterMap displayIfStartsInThisRow [ demoBlob ]
+
+        displayIfStartsInThisRow blob =
+            if Period.isWithin rowPeriod blob.start then
+                Just (displayBlob vState env blob)
+
+            else
+                Nothing
     in
     row
         [ width fill
         , centerX
-        , Background.color (rgb 1 1 1)
         , padding 4
-        , inFront overlayingRow
+        , inFront (row [ width fill, height fill ] blobsDisplayed)
+        , alignTop
         ]
-        segmentsFromFakePlans
+        []
 
 
 

@@ -22,6 +22,7 @@ import Incubator.Todoist as Todoist
 import IntDict
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
+import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import Log
@@ -67,7 +68,44 @@ subscriptions ({ profile, environment } as model) =
         -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         , storageChangedElsewhere NewAppData
+        , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
         ]
+
+
+
+{- The goal here is to get (mouse x / window width) on each mouse event. So if
+   the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
+   Getting the mouse x is not too hard, but getting window width is a bit tricky.
+   We want the window.innerWidth value, which happens to be available at:
+       event.currentTarget.defaultView.innerWidth
+   The value at event.currentTarget is the document in these cases, but this will
+   not work if you have a <section> or a <div> with a normal elm/html event handler.
+   So if currentTarget is NOT the document, you should instead get the value at:
+       event.currentTarget.ownerDocument.defaultView.innerWidth
+                           ^^^^^^^^^^^^^
+-}
+
+
+decodeFraction : ClassicDecode.Decoder Float
+decodeFraction =
+    ClassicDecode.map2 (/)
+        (ClassicDecode.field "pageX" ClassicDecode.float)
+        (ClassicDecode.at [ "currentTarget", "defaultView", "innerWidth" ] ClassicDecode.float)
+
+
+
+{- What happens when the user is dragging, but the "mouse up" occurs outside
+   the browser window? We need to stop listening for mouse movement and end the
+   drag. We use MouseEvent.buttons to detect this:
+       https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
+   The "buttons" value is 1 when "left-click" is pressed, so we use that to
+   detect zombie drags.
+-}
+
+
+decodeButtons : ClassicDecode.Decoder Bool
+decodeButtons =
+    ClassicDecode.field "buttons" (ClassicDecode.map (\buttons -> buttons == 1) ClassicDecode.int)
 
 
 port setStorage : JsonAppDatabase -> Cmd msg
@@ -557,6 +595,7 @@ type Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
     | NewAppData String
+    | MouseMoved Bool Float
 
 
 type ThirdPartyService
