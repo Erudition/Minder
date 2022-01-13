@@ -104,9 +104,9 @@ decideViewState profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 30
+    , hourRowSize = Duration.fromMinutes 60
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 20
+    , rowHeight = 40
     }
 
 
@@ -137,6 +137,7 @@ view maybeVState profile env =
 type alias FlowBlob =
     { start : Moment
     , end : Moment
+    , color : Element.Color
     }
 
 
@@ -251,10 +252,10 @@ displayBlob displayState env flowBlob =
         middlePiece =
             el ([ width fill ] ++ blobAttributes) <|
                 centeredText <|
-                    "Middle  "
+                    "Middle"
 
         blobAttributes =
-            [ Background.color (rgb 0.4 0.4 0.9), height fill, clip ]
+            [ Background.color flowBlob.color, height fill, clip ]
 
         centeredText textToShow =
             el [ centerX, centerY ] <| text textToShow
@@ -365,10 +366,31 @@ hourRowContents vState profile env rowPeriod =
                 ]
 
         demoBlob =
-            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 1) }
+            { start = env.time
+            , end = Moment.future env.time (Duration.fromMinutes 80)
+            , color = rgb 0.4 0.4 0.9
+            }
+
+        demoBlob2 =
+            -- This should be 10 minutes after the first one Ends
+            { start = Moment.future env.time (Duration.fromMinutes 90)
+            , end = Moment.future env.time (Duration.fromMinutes 100)
+            , color = rgb 1.0 0.4 0.5
+            }
+
+        demoBlob3 =
+            -- This should be 10 minutes after the first one Starts
+            { start = Moment.future env.time (Duration.fromMinutes 10)
+            , end = Moment.future env.time (Duration.fromMinutes 50)
+            , color = rgb 0.2 0.9 0.3
+            }
 
         blobsDisplayed =
-            List.filterMap displayIfStartsInThisRow [ demoBlob ]
+            List.filterMap displayIfStartsInThisRow
+                [ demoBlob
+                , demoBlob2
+                , demoBlob3
+                ]
 
         displayIfStartsInThisRow blob =
             if Period.isWithin rowPeriod blob.start then
