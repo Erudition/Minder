@@ -447,7 +447,7 @@ lastSession timeline old =
 -- Below: Migrating to use SmartTime instead
 
 
-switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Period )
+switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Maybe InstanceID, Period )
 switchListLiveToPeriods now switchList =
     let
         fakeSwitch =
@@ -459,9 +459,9 @@ switchListLiveToPeriods now switchList =
     switchListToPeriods (fakeSwitch :: switchList)
 
 
-periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Period )
+periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe InstanceID, Period )
 periodFromSwitchPair newerSwitch olderSwitch =
-    ( Switch.getActivityID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
+    ( Switch.getActivityID olderSwitch, Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
 instancePeriodFromSwitchPair : Switch -> Switch -> ( Maybe InstanceID, Period )
@@ -474,7 +474,7 @@ fullPeriodFromSwitchPair newerSwitch olderSwitch =
     ( Switch.getActivityID olderSwitch, Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
-switchListToPeriods : List Switch -> List ( ActivityID, Period )
+switchListToPeriods : List Switch -> List ( ActivityID, Maybe InstanceID, Period )
 switchListToPeriods switchList =
     let
         offsetList =
