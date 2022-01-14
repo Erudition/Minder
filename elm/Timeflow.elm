@@ -114,7 +114,7 @@ decideViewState profile env =
     { flowRenderPeriod = week
     , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 20
+    , rowHeight = 40
     }
 
 
@@ -145,6 +145,7 @@ view maybeVState profile env =
 type alias FlowBlob =
     { start : Moment
     , end : Moment
+    , color : Element.Color
     , label : String
     }
 
@@ -260,10 +261,10 @@ displayBlob displayState env flowBlob =
         middlePiece =
             el ([ width fill ] ++ blobAttributes) <|
                 centeredText <|
-                    "Middle  "
+                    "Middle"
 
         blobAttributes =
-            [ Background.color (rgb 0.4 0.4 0.9), height fill, clip ]
+            [ Background.color flowBlob.color, height fill, clip ]
 
         centeredText textToShow =
             el [ centerX, centerY ] <| text textToShow

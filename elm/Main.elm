@@ -343,7 +343,8 @@ view { viewState, profile, environment } =
                 H.node "page"
                     []
                     [ activePage.body
-                    , errorList profile.errors
+
+                    --, errorList profile.errors
                     ]
     in
     { title = activePage.title
