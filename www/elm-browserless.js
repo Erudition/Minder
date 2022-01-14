@@ -24459,7 +24459,7 @@ var $author$project$Main$update = F2(
 										'Marvin Response',
 										A2(
 											$author$project$NativeScript$Notification$setExpiresAfter,
-											$author$project$SmartTime$Duration$fromMinutes(5),
+											$author$project$SmartTime$Duration$fromMinutes(1),
 											$author$project$NativeScript$Notification$build(syncStatusChannel))))));
 						return _Utils_Tuple2(
 							A3($author$project$Main$Model, viewState, newProfile2WithErrors, environment),
@@ -25875,7 +25875,11 @@ var $author$project$Main$subscriptions = function (model) {
 				function (_v0) {
 					return $author$project$Main$Tick($author$project$Main$NoOp);
 				}),
-				$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData)
+				$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData),
+				A2(
+				$author$project$SmartTime$Moment$every,
+				$author$project$SmartTime$Duration$fromSeconds(1),
+				$author$project$Main$Tock($author$project$Main$NoOp))
 			]));
 };
 var $author$project$Browserless$main = $elm$browser$Browser$element(

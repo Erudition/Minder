@@ -14,6 +14,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Environment exposing (..)
 import External.Commands as Commands
+import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
 import Html.Attributes
 import Html.Styled as SH exposing (Html)
@@ -390,7 +391,7 @@ hourRowContents vState profile env rowPeriod =
                 ]
 
         demoBlob =
-            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes" }
+            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes", color = rgb 0.1 0.8 0.4 }
 
         blobsDisplayed =
             List.filterMap displayIfStartsInThisRow ([ demoBlob ] ++ historyBlobs env profile vState.flowRenderPeriod)
@@ -726,8 +727,16 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
 
         activityHue =
             toFloat (ID.read activityID) / toFloat (IntDict.size activities)
+
+        activityColor =
+            elementColor
+                { hue = activityHue
+                , saturation = 1
+                , lightness = 0.5
+                , alpha = 0.5
+                }
     in
-    FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) "History"
+    FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) activityColor activityName
 
 
 

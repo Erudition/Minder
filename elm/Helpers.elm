@@ -1,5 +1,7 @@
-module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
+import Element
+import HSLuv exposing (HSLuv, hsluv)
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
@@ -532,3 +534,18 @@ decodeFuzzyMoment =
 encodeFuzzyMoment : FuzzyMoment -> Encode.Value
 encodeFuzzyMoment fuzzy =
     Encode.string <| SmartTime.Human.Moment.fuzzyToString fuzzy
+
+
+elementColor :
+    { hue : Float
+    , saturation : Float
+    , lightness : Float
+    , alpha : Float
+    }
+    -> Element.Color
+elementColor hSLuvParts =
+    let
+        { red, green, blue, alpha } =
+            HSLuv.toRgba (HSLuv.hsluv hSLuvParts)
+    in
+    Element.rgba red green blue alpha
