@@ -2,6 +2,7 @@ module Timeflow exposing (Filter(..), Msg, ViewState, routeView, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
+import Activity.Timeline
 import Browser
 import Browser.Dom
 import Css as C
@@ -36,6 +37,7 @@ import List.Nonempty exposing (Nonempty)
 import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
+import SmartTime.Human.Calendar.Week as Week
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
@@ -99,11 +101,17 @@ decideViewState profile env =
                 , HumanMoment.clockTurnForward chosenDayCutoffTime env.timeZone env.time
                 )
 
+        week =
+            Period.fromPair
+                ( HumanMoment.fromDateAndTime env.timeZone (Calendar.toPrevious Week.Sun (HumanMoment.extractDate env.timeZone env.time)) chosenDayCutoffTime
+                , HumanMoment.fromDateAndTime env.timeZone (Calendar.toNext Week.Sun (HumanMoment.extractDate env.timeZone env.time)) chosenDayCutoffTime
+                )
+
         chosenDayCutoffTime =
             -- will be derived from profile settings
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
-    { flowRenderPeriod = today
+    { flowRenderPeriod = week
     , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 20
@@ -126,7 +134,7 @@ view maybeVState profile env =
                 layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
                     column [ width fill, height fill ]
                         [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| text "The past is above." ]
+                            [ el [ centerX ] <| text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                         , row [ width fill, height (fillPortion 20), scrollbarY ]
                             [ timeFlowLayout vState profile env ]
                         , row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
@@ -137,6 +145,7 @@ view maybeVState profile env =
 type alias FlowBlob =
     { start : Moment
     , end : Moment
+    , label : String
     }
 
 
@@ -234,19 +243,19 @@ displayBlob displayState env flowBlob =
                     ]
 
         spacer portion =
-            el [ width (fillPortion portion), height fill, clip, Background.color (rgba 0.9 0.9 0.9 0.2) ] <| centeredText ""
+            el [ width (fillPortion portion), height fill, clip, Background.color (rgba 0.9 0.9 0.9 0) ] <| centeredText ""
 
         floatingPiece portion =
-            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText <| displayTime flowBlob.start
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText flowBlob.label
 
         topPiece portion =
-            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText <| "Now " ++ displayTime flowBlob.start
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText flowBlob.label
 
         displayTime time =
             Clock.toShortString (HumanMoment.extractTime env.timeZone time)
 
         bottomPiece portion =
-            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText <| "next hour " ++ displayTime flowBlob.end
+            el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText ""
 
         middlePiece =
             el ([ width fill ] ++ blobAttributes) <|
@@ -283,6 +292,21 @@ timeFlowLayout vstate profile env =
     column [ height fill, width fill, clipX ]
         (List.map (singleHourRow vstate profile env)
             allHourRowsPeriods
+        )
+
+
+historyBlobs env profile displayPeriod =
+    let
+        historyList =
+            Activity.Timeline.switchListLiveToPeriods env.time profile.timeline
+
+        activities =
+            Activity.allActivities profile.activities
+    in
+    List.map (makeHistoryBlob env activities)
+        (List.takeWhile
+            (\( _, _, m ) -> Period.contains displayPeriod m)
+            historyList
         )
 
 
@@ -365,10 +389,10 @@ hourRowContents vState profile env rowPeriod =
                 ]
 
         demoBlob =
-            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 1) }
+            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes" }
 
         blobsDisplayed =
-            List.filterMap displayIfStartsInThisRow [ demoBlob ]
+            List.filterMap displayIfStartsInThisRow ([ demoBlob ] ++ historyBlobs env profile vState.flowRenderPeriod)
 
         displayIfStartsInThisRow blob =
             if Period.isWithin rowPeriod blob.start then
@@ -379,9 +403,10 @@ hourRowContents vState profile env rowPeriod =
     in
     row
         [ width fill
+        , height (px 0)
         , centerX
         , padding 4
-        , inFront (row [ width fill, height fill ] blobsDisplayed)
+        , below (row [ width fill, height fill ] blobsDisplayed)
         , alignTop
         ]
         []
@@ -481,7 +506,7 @@ viewDay env day activities sessionList historyList =
     SH.node "day"
         [ SHA.id <| "day" ++ dayString env env.time ]
         (rowMarkers
-            ++ List.map (viewHistorySession env day activities) historyList
+            --++ List.map (viewHistorySession env day activities) historyList
             ++ List.map (viewPlannedSession env day activities) sessionListToday
             ++ [ nowMarker ]
         )
@@ -641,12 +666,11 @@ getPositionInDay rowLength day givenSession =
             additionalSegments
 
 
-viewHistorySession : Environment -> ChosenDayWindow -> IntDict Activity -> ( Activity.ActivityID, Period ) -> Html msg
-viewHistorySession env day activities ( activityID, sessionPeriod ) =
+makeHistoryBlob : Environment -> IntDict Activity -> ( Activity.ActivityID, Maybe Task.InstanceID, Period ) -> FlowBlob
+makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
     let
-        sessionPositions =
-            getPositionInDay day.rowLength day.period sessionPeriod
-
+        -- sessionPositions =
+        --     getPositionInDay day.rowLength day.period sessionPeriod
         ( ( startDate, startTime ), ( endDate, endTime ) ) =
             ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
             , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
@@ -702,10 +726,7 @@ viewHistorySession env day activities ( activityID, sessionPeriod ) =
         activityHue =
             toFloat (ID.read activityID) / toFloat (IntDict.size activities)
     in
-    SH.node "timeline-session"
-        [ SHA.classList [ ( "history", True ) ] ]
-    <|
-        List.Nonempty.toList (List.Nonempty.map viewSessionSegment sessionPositions)
+    FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) "History"
 
 
 
