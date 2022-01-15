@@ -152,11 +152,10 @@ view maybeVState profile env =
                     column [ width fill, height fill ]
                         [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                             [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                        , row [ width fill, height (fillPortion 20), scrollbarY ]
-                            ([ timeFlowLayout vState.settings profile env
-                             ]
-                                ++ List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
-                            )
+                        , row [ width (fillPortion 1), height (fillPortion 20), scrollbarY ]
+                            [ timeFlowLayout vState.settings profile env
+                            , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                            ]
                         , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                             [ el [ centerX ] <| Element.text "The future is below." ]
                         ]
@@ -164,15 +163,14 @@ view maybeVState profile env =
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view widgetState
-        [ rect 50 25
+        [ rect 100 100
             |> filled gray
             |> notifyMouseMoveAt PointerMove
         , circle 1
             |> filled blue
-
-        -- |> move ( model.x, model.y )
-        -- |> notifyMouseMoveAt Widget.MoveTo
-        , GraphicSVG.text "Widget #1 (50x25)"
+            |> move ( state.pointer.x, state.pointer.y )
+            |> notifyMouseMoveAt PointerMove
+        , GraphicSVG.text "Widget #1 (100x100)"
             |> fixedwidth
             |> size 2
             |> filled black
