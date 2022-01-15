@@ -6,6 +6,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "MacCASOutreach/graphicsvg": "7.2.0",
             "MartinSStewart/elm-serialize": "1.2.3",
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
             "bburdette/toop": "1.0.1",
@@ -22,6 +23,7 @@
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2",
+            "elm-community/dict-extra": "2.4.0",
             "elm-community/intdict": "3.0.0",
             "elm-community/json-extra": "4.0.0",
             "elm-community/list-extra": "8.3.0",

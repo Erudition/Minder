@@ -1,4 +1,4 @@
-module Timeflow exposing (Filter(..), Msg, ViewState, routeView, update, view)
+module Timeflow exposing (Msg, ViewState, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
@@ -7,13 +7,16 @@ import Browser
 import Browser.Dom
 import Css as C
 import Date
-import Dict
+import Dict exposing (Dict)
+import Dict.Extra as Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Environment exposing (..)
 import External.Commands as Commands
+import GraphicSVG exposing (..)
+import GraphicSVG.Widget as Widget
 import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
 import Html.Attributes
@@ -63,12 +66,6 @@ import ZoneHistory
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
 
 
-type Filter
-    = AllTasks
-    | IncompleteTasksOnly
-    | CompleteTasksOnly
-
-
 type alias ChosenDayWindow =
     { period : Period
     , rowLength : Duration
@@ -86,6 +83,17 @@ type alias ChosenDayWindow =
 
 
 type alias ViewState =
+    { settings : ViewSettings
+    , widgets : Dict WidgetID ( Widget.Model, Cmd Widget.Msg )
+    , pointer : Pointer
+    }
+
+
+type alias WidgetID =
+    String
+
+
+type alias ViewSettings =
     { flowRenderPeriod : Period
     , hourRowSize : Duration
     , pivotMoment : Moment
@@ -93,8 +101,8 @@ type alias ViewState =
     }
 
 
-decideViewState : Profile -> Environment -> ViewState
-decideViewState profile env =
+updateViewSettings : Profile -> Environment -> ViewSettings
+updateViewSettings profile env =
     let
         today =
             Period.fromPair
@@ -119,6 +127,14 @@ decideViewState profile env =
     }
 
 
+initialDisplay : Profile -> Environment -> ViewState
+initialDisplay profile environment =
+    { settings = updateViewSettings profile environment
+    , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
+    , pointer = { x = 0.0, y = 0.0 }
+    }
+
+
 routeView : Parser (Maybe ViewState -> a) a
 routeView =
     P.map Nothing (P.s "timeflow")
@@ -128,19 +144,40 @@ view : Maybe ViewState -> Profile -> Environment -> SH.Html Msg
 view maybeVState profile env =
     case maybeVState of
         Nothing ->
-            view (Just <| decideViewState profile env) profile env
+            view (Just <| initialDisplay profile env) profile env
 
         Just vState ->
             SH.fromUnstyled <|
                 layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
                     column [ width fill, height fill ]
-                        [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
+                        [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                            [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                         , row [ width fill, height (fillPortion 20), scrollbarY ]
-                            [ timeFlowLayout vState profile env ]
-                        , row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| text "The future is below." ]
+                            ([ timeFlowLayout vState.settings profile env
+                             ]
+                                ++ List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                            )
+                        , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                            [ el [ centerX ] <| Element.text "The future is below." ]
                         ]
+
+
+svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
+    Widget.view widgetState
+        [ rect 50 25
+            |> filled gray
+            |> notifyMouseMoveAt PointerMove
+        , circle 1
+            |> filled blue
+
+        -- |> move ( model.x, model.y )
+        -- |> notifyMouseMoveAt Widget.MoveTo
+        , GraphicSVG.text "Widget #1 (50x25)"
+            |> fixedwidth
+            |> size 2
+            |> filled black
+            |> move ( -25, 11 )
+        ]
 
 
 type alias FlowBlob =
@@ -151,7 +188,7 @@ type alias FlowBlob =
     }
 
 
-displayBlob : ViewState -> Environment -> FlowBlob -> Element Msg
+displayBlob : ViewSettings -> Environment -> FlowBlob -> Element Msg
 displayBlob displayState env flowBlob =
     let
         msBetweenWalls =
@@ -245,7 +282,7 @@ displayBlob displayState env flowBlob =
                     ]
 
         spacer portion =
-            el [ width (fillPortion portion), height fill, clip, Background.color (rgba 0.9 0.9 0.9 0) ] <| centeredText ""
+            el [ width (fillPortion portion), height fill, Element.clip, Background.color (Element.rgba 0.9 0.9 0.9 0) ] <| centeredText ""
 
         floatingPiece portion =
             el ([ width (fillPortion portion) ] ++ blobAttributes) <| centeredText flowBlob.label
@@ -265,10 +302,10 @@ displayBlob displayState env flowBlob =
                     "Middle"
 
         blobAttributes =
-            [ Background.color flowBlob.color, height fill, clip ]
+            [ Background.color flowBlob.color, height fill, Element.clip ]
 
         centeredText textToShow =
-            el [ centerX, centerY ] <| text textToShow
+            el [ centerX, centerY ] <| Element.text textToShow
     in
     column [ width fill, height fill, clipX, Font.size 10 ] <|
         case wallsCrossed of
@@ -284,7 +321,7 @@ displayBlob displayState env flowBlob =
                 [ topRow ] ++ List.repeat (List.length moreCrossings) middleRow ++ [ bottomRow ]
 
 
-timeFlowLayout : ViewState -> Profile -> Environment -> Element Msg
+timeFlowLayout : ViewSettings -> Profile -> Environment -> Element Msg
 timeFlowLayout vstate profile env =
     let
         allHourRowsPeriods : List Period
@@ -312,7 +349,7 @@ historyBlobs env profile displayPeriod =
         )
 
 
-singleHourRow : ViewState -> Profile -> Environment -> Period -> Element Msg
+singleHourRow : ViewSettings -> Profile -> Environment -> Period -> Element Msg
 singleHourRow state profile env rowPeriod =
     row [ width fill, height (px state.rowHeight) ]
         [ timeLabelSidebar state profile env rowPeriod
@@ -320,7 +357,7 @@ singleHourRow state profile env rowPeriod =
         ]
 
 
-timeLabelSidebar : ViewState -> Profile -> Environment -> Period -> Element Msg
+timeLabelSidebar : ViewSettings -> Profile -> Environment -> Period -> Element Msg
 timeLabelSidebar state profile env rowPeriod =
     let
         startZone =
@@ -345,21 +382,21 @@ timeLabelSidebar state profile env rowPeriod =
                 False ->
                     Clock.toShortString startMomentAsTimeOfDay
     in
-    column [ width (px 70), height fill, Border.color (rgb 0.2 0.2 0.2), Border.width 1, Background.color (rgb 0.5 0.5 0.5) ]
+    column [ width (px 70), height fill, Border.color (Element.rgb 0.2 0.2 0.2), Border.width 1, Background.color (Element.rgb 0.5 0.5 0.5) ]
         [ paragraph [ centerX, centerY ] <|
-            [ text timeOfDayString ]
+            [ Element.text timeOfDayString ]
         ]
 
 
-hourRowContents : ViewState -> Profile -> Environment -> Period -> Element Msg
-hourRowContents vState profile env rowPeriod =
+hourRowContents : ViewSettings -> Profile -> Environment -> Period -> Element Msg
+hourRowContents viewSettings profile env rowPeriod =
     let
         planPillSegment minutes plan =
-            el [ height fill, width (fillPortion minutes), Border.rounded 10, Background.color (rgb 0.5 0.5 1) ] (text plan.title)
+            el [ height fill, width (fillPortion minutes), Border.rounded 10, Background.color (Element.rgb 0.5 0.5 1) ] (Element.text plan.title)
 
         emptyTimeFlowSegment : Int -> Element msg
         emptyTimeFlowSegment minutes =
-            el [ height fill, width (fillPortion minutes), Background.color (rgb 0.7 0.7 0.7) ] (text "")
+            el [ height fill, width (fillPortion minutes), Background.color (Element.rgb 0.7 0.7 0.7) ] (Element.text "")
 
         fillInTimeFlowSegment ( minutes, maybePlan ) =
             case maybePlan of
@@ -382,23 +419,23 @@ hourRowContents vState profile env rowPeriod =
             List.map fillInTimeFlowSegment fakePlans
 
         testBulgingPlan =
-            el [ htmlAttribute (Html.Attributes.style "z-index" "10"), height (px 400), width (fillPortion 20), Border.rounded 10, Background.color (rgba 0 0 1 0.3) ] (text "Bulging")
+            el [ htmlAttribute (Html.Attributes.style "z-index" "10"), height (px 400), width (fillPortion 20), Border.rounded 10, Background.color (Element.rgba 0 0 1 0.3) ] (Element.text "Bulging")
 
         overlayingRow =
             row [ width fill ]
-                [ el [ width (fillPortion 20) ] (text "")
-                , el [ width (fillPortion 20) ] (text "")
+                [ el [ width (fillPortion 20) ] (Element.text "")
+                , el [ width (fillPortion 20) ] (Element.text "")
                 ]
 
         demoBlob =
-            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes", color = rgb 0.1 0.8 0.4 }
+            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes", color = Element.rgb 0.1 0.8 0.4 }
 
         blobsDisplayed =
-            List.filterMap displayIfStartsInThisRow ([ demoBlob ] ++ historyBlobs env profile vState.flowRenderPeriod)
+            List.filterMap displayIfStartsInThisRow ([ demoBlob ] ++ historyBlobs env profile viewSettings.flowRenderPeriod)
 
         displayIfStartsInThisRow blob =
             if Period.isWithin rowPeriod blob.start then
-                Just (displayBlob vState env blob)
+                Just (displayBlob viewSettings env blob)
 
             else
                 Nothing
@@ -415,7 +452,7 @@ hourRowContents vState profile env rowPeriod =
 
 
 
---oldView : ViewState -> Profile -> Environment -> Html Msg
+--oldView : ViewSettings -> Profile -> Environment -> Html Msg
 --oldView state profile env =
 --    let
 --        fullInstanceList =
@@ -749,18 +786,59 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
 
 
 type Msg
-    = Move Moment Moment
+    = ChangeTimeWindow Moment Moment
+    | WidgetMsg WidgetID Widget.Msg
+    | PointerMove ( Float, Float )
+
+
+type alias Pointer =
+    { x : Float
+    , y : Float
+    }
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
 update msg state profile env =
     case msg of
-        Move newStart newFinish ->
+        ChangeTimeWindow newStart newFinish ->
             let
                 withoutNewPeriodToRender =
-                    decideViewState profile env
+                    updateViewSettings profile env
 
                 withNewPeriodToRender =
                     { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
             in
-            ( withNewPeriodToRender, profile, Cmd.none )
+            ( { state | settings = withNewPeriodToRender }, profile, Cmd.none )
+
+        WidgetMsg widgetID widgetMsg ->
+            case Dict.get widgetID state.widgets of
+                Nothing ->
+                    Debug.todo "Tried to update a widget that has no stored state"
+
+                Just ( oldWidgetState, widgetInitCmd ) ->
+                    let
+                        ( newWidgetState, widgetOutCmds ) =
+                            Widget.update widgetMsg oldWidgetState
+
+                        newWidgetDict =
+                            Dict.insert widgetID ( newWidgetState, widgetInitCmd ) state.widgets
+                    in
+                    ( { state | widgets = newWidgetDict }
+                    , profile
+                    , Cmd.map (WidgetMsg widgetID) widgetOutCmds
+                    )
+
+        PointerMove ( x, y ) ->
+            let
+                oldPointer =
+                    state.pointer
+
+                newPointer =
+                    { oldPointer | x = x, y = y }
+            in
+            ( { state | pointer = newPointer }, profile, Cmd.none )
+
+
+subscriptions : ViewState -> Sub Msg
+subscriptions { widgets } =
+    Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys widgets)

@@ -57,8 +57,8 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions ({ profile, environment } as model) =
-    Sub.batch
+subscriptions ({ viewState, profile, environment } as model) =
+    Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
           HumanMoment.everyMinuteOnTheMinute environment.time
@@ -72,6 +72,13 @@ subscriptions ({ profile, environment } as model) =
         --, Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
         , Moment.every (Duration.fromSeconds 1) (Tock NoOp)
         ]
+            ++ (case viewState.primaryView of
+                    Timeflow (Just subState) ->
+                        [ Sub.map TimeflowMsg (Timeflow.subscriptions subState) ]
+
+                    _ ->
+                        []
+               )
 
 
 

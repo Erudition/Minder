@@ -25402,6 +25402,9 @@ var $author$project$Browserless$initBrowserless = function (_v0) {
 var $author$project$Main$NewAppData = function (a) {
 	return {$: 'NewAppData', a: a};
 };
+var $author$project$Main$TimeflowMsg = function (a) {
+	return {$: 'TimeflowMsg', a: a};
+};
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$time$Time$Every = F2(
 	function (a, b) {
@@ -25670,6 +25673,7 @@ var $author$project$SmartTime$Human$Moment$everyMinuteOnTheMinute = F3(
 			A2($author$project$SmartTime$Moment$compare, now, $author$project$SmartTime$Moment$zero),
 			$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Moment$every, waitingTime, tagger) : fallbackTicker;
 	});
+var $elm$core$Platform$Sub$map = _Platform_map;
 var $elm$browser$Browser$Events$Document = {$: 'Document'};
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$browser$Browser$Events$MySub = F3(
@@ -25860,27 +25864,84 @@ var $elm$browser$Browser$Events$onVisibilityChange = function (func) {
 				A2($elm$json$Json$Decode$field, info.hidden, $elm$json$Json$Decode$bool))));
 };
 var $author$project$Main$storageChangedElsewhere = _Platform_incomingPort('storageChangedElsewhere', $elm$json$Json$Decode$string);
+var $author$project$Timeflow$WidgetMsg = F2(
+	function (a, b) {
+		return {$: 'WidgetMsg', a: a, b: b};
+	});
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize = function (a) {
+	return {$: 'WidgetResize', a: a};
+};
+var $elm$browser$Browser$Events$Window = {$: 'Window'};
+var $elm$browser$Browser$Events$onResize = function (func) {
+	return A3(
+		$elm$browser$Browser$Events$on,
+		$elm$browser$Browser$Events$Window,
+		'resize',
+		A2(
+			$elm$json$Json$Decode$field,
+			'target',
+			A3(
+				$elm$json$Json$Decode$map2,
+				func,
+				A2($elm$json$Json$Decode$field, 'innerWidth', $elm$json$Json$Decode$int),
+				A2($elm$json$Json$Decode$field, 'innerHeight', $elm$json$Json$Decode$int))));
+};
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$subscriptions = $elm$browser$Browser$Events$onResize(
+	F2(
+		function (_v0, _v1) {
+			return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize($elm$core$Maybe$Nothing);
+		}));
+var $author$project$Timeflow$subscriptions = function (_v0) {
+	var widgets = _v0.widgets;
+	return $elm$core$Platform$Sub$batch(
+		A2(
+			$elm$core$List$map,
+			function (id) {
+				return A2(
+					$elm$core$Platform$Sub$map,
+					$author$project$Timeflow$WidgetMsg(id),
+					$MacCASOutreach$graphicsvg$GraphicSVG$Widget$subscriptions);
+			},
+			$elm$core$Dict$keys(widgets)));
+};
 var $author$project$Main$subscriptions = function (model) {
+	var viewState = model.viewState;
 	var profile = model.profile;
 	var environment = model.environment;
 	return $elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				A3(
-				$author$project$SmartTime$Human$Moment$everyMinuteOnTheMinute,
-				environment.time,
-				environment.timeZone,
-				$author$project$Main$Tock($author$project$Main$NoOp)),
-				$elm$browser$Browser$Events$onVisibilityChange(
-				function (_v0) {
-					return $author$project$Main$Tick($author$project$Main$NoOp);
-				}),
-				$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData),
-				A2(
-				$author$project$SmartTime$Moment$every,
-				$author$project$SmartTime$Duration$fromSeconds(1),
-				$author$project$Main$Tock($author$project$Main$NoOp))
-			]));
+		_Utils_ap(
+			_List_fromArray(
+				[
+					A3(
+					$author$project$SmartTime$Human$Moment$everyMinuteOnTheMinute,
+					environment.time,
+					environment.timeZone,
+					$author$project$Main$Tock($author$project$Main$NoOp)),
+					$elm$browser$Browser$Events$onVisibilityChange(
+					function (_v0) {
+						return $author$project$Main$Tick($author$project$Main$NoOp);
+					}),
+					$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData),
+					A2(
+					$author$project$SmartTime$Moment$every,
+					$author$project$SmartTime$Duration$fromSeconds(1),
+					$author$project$Main$Tock($author$project$Main$NoOp))
+				]),
+			function () {
+				var _v1 = viewState.primaryView;
+				if ((_v1.$ === 'Timeflow') && (_v1.a.$ === 'Just')) {
+					var subState = _v1.a.a;
+					return _List_fromArray(
+						[
+							A2(
+							$elm$core$Platform$Sub$map,
+							$author$project$Main$TimeflowMsg,
+							$author$project$Timeflow$subscriptions(subState))
+						]);
+				} else {
+					return _List_Nil;
+				}
+			}()));
 };
 var $author$project$Browserless$main = $elm$browser$Browser$element(
 	{init: $author$project$Browserless$initBrowserless, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$updateWithTime, view: $author$project$Browserless$browserlessView});
