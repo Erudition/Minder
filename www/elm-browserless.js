@@ -8221,17 +8221,15 @@ var $author$project$Main$bypassFakeFragment = function (url) {
 		return url;
 	}
 };
-var $author$project$Main$Timeflow = function (a) {
-	return {$: 'Timeflow', a: a};
+var $author$project$Main$TimeTracker = function (a) {
+	return {$: 'TimeTracker', a: a};
 };
-var $author$project$Main$ViewState = F2(
-	function (primaryView, uid) {
-		return {primaryView: primaryView, uid: uid};
-	});
-var $author$project$Main$defaultView = A2(
-	$author$project$Main$ViewState,
-	$author$project$Main$Timeflow($elm$core$Maybe$Nothing),
-	0);
+var $author$project$TimeTracker$Normal = {$: 'Normal'};
+var $author$project$TimeTracker$defaultView = $author$project$TimeTracker$Normal;
+var $author$project$Main$emptyViewState = {
+	primaryView: $author$project$Main$TimeTracker($author$project$TimeTracker$defaultView),
+	uid: 0
+};
 var $elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
 		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
@@ -8758,8 +8756,8 @@ var $elm$url$Url$Parser$parse = F2(
 var $author$project$Main$TaskList = function (a) {
 	return {$: 'TaskList', a: a};
 };
-var $author$project$Main$TimeTracker = function (a) {
-	return {$: 'TimeTracker', a: a};
+var $author$project$Main$Timeflow = function (a) {
+	return {$: 'Timeflow', a: a};
 };
 var $elm$url$Url$Parser$Parser = function (a) {
 	return {$: 'Parser', a: a};
@@ -8848,7 +8846,6 @@ var $author$project$TaskList$routeView = A2(
 		$elm$core$Maybe$Nothing,
 		''),
 	$elm$url$Url$Parser$s('tasks'));
-var $author$project$TimeTracker$Normal = {$: 'Normal'};
 var $author$project$TimeTracker$routeView = A2(
 	$elm$url$Url$Parser$map,
 	$author$project$TimeTracker$Normal,
@@ -8879,7 +8876,7 @@ var $author$project$Main$viewUrl = function (url) {
 	var finalUrl = $author$project$Main$bypassFakeFragment(url);
 	return A2(
 		$elm$core$Maybe$withDefault,
-		$author$project$Main$defaultView,
+		$author$project$Main$emptyViewState,
 		A2($elm$url$Url$Parser$parse, $author$project$Main$routeParser, finalUrl));
 };
 var $author$project$Main$buildModel = F3(
@@ -14616,23 +14613,254 @@ var $author$project$Main$ThirdPartySync = function (a) {
 var $author$project$Main$TimeTrackerMsg = function (a) {
 	return {$: 'TimeTrackerMsg', a: a};
 };
+var $author$project$Main$TimeflowMsg = function (a) {
+	return {$: 'TimeflowMsg', a: a};
+};
 var $author$project$Main$Todoist = {$: 'Todoist'};
 var $author$project$Main$TodoistServer = function (a) {
 	return {$: 'TodoistServer', a: a};
 };
+var $author$project$Main$ViewState = F2(
+	function (primaryView, uid) {
+		return {primaryView: primaryView, uid: uid};
+	});
 var $author$project$NativeScript$Notification$basicChannel = function (name) {
 	return {description: $elm$core$Maybe$Nothing, id: name, importance: $elm$core$Maybe$Nothing, led: $elm$core$Maybe$Nothing, name: name, sound: $elm$core$Maybe$Nothing, vibrate: $elm$core$Maybe$Nothing};
 };
 var $author$project$NativeScript$Notification$build = function (channel) {
 	return {accentColor: $elm$core$Maybe$Nothing, actions: _List_Nil, at: $elm$core$Maybe$Nothing, autoCancel: $elm$core$Maybe$Nothing, background_color: $elm$core$Maybe$Nothing, badge: $elm$core$Maybe$Nothing, bigTextStyle: $elm$core$Maybe$Nothing, body: $elm$core$Maybe$Nothing, body_expanded: $elm$core$Maybe$Nothing, channel: channel, chronometer: $elm$core$Maybe$Nothing, color_from_media: $elm$core$Maybe$Nothing, countdown: $elm$core$Maybe$Nothing, detail: $elm$core$Maybe$Nothing, expiresAfter: $elm$core$Maybe$Nothing, group: $elm$core$Maybe$Nothing, groupAlertBehavior: $elm$core$Maybe$Nothing, groupedMessages: $elm$core$Maybe$Nothing, icon: $elm$core$Maybe$Nothing, id: $elm$core$Maybe$Nothing, image: $elm$core$Maybe$Nothing, interval: $elm$core$Maybe$Nothing, isGroupSummary: $elm$core$Maybe$Nothing, media: $elm$core$Maybe$Nothing, media_layout: $elm$core$Maybe$Nothing, on_create: $elm$core$Maybe$Nothing, on_dismiss: $elm$core$Maybe$Nothing, on_touch: $elm$core$Maybe$Nothing, ongoing: $elm$core$Maybe$Nothing, phone_only: $elm$core$Maybe$Nothing, picture_expanded_icon: $elm$core$Maybe$Nothing, picture_skip_cache: $elm$core$Maybe$Nothing, privacy: $elm$core$Maybe$Nothing, progress: $elm$core$Maybe$Nothing, silhouetteIcon: $elm$core$Maybe$Nothing, sortKey: $elm$core$Maybe$Nothing, status_icon: $elm$core$Maybe$Nothing, status_text_size: $elm$core$Maybe$Nothing, subtitle: $elm$core$Maybe$Nothing, thumbnail: $elm$core$Maybe$Nothing, ticker: $elm$core$Maybe$Nothing, title: $elm$core$Maybe$Nothing, title_expanded: $elm$core$Maybe$Nothing, update: $elm$core$Maybe$Nothing, url: $elm$core$Maybe$Nothing, useHTML: $elm$core$Maybe$Nothing, when: $elm$core$Maybe$Nothing};
 };
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize = function (a) {
+	return {$: 'WidgetResize', a: a};
+};
+var $elm$core$Task$onError = _Scheduler_onError;
+var $elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return $elm$core$Task$command(
+			$elm$core$Task$Perform(
+				A2(
+					$elm$core$Task$onError,
+					A2(
+						$elm$core$Basics$composeL,
+						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+						$elm$core$Result$Err),
+					A2(
+						$elm$core$Task$andThen,
+						A2(
+							$elm$core$Basics$composeL,
+							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+							$elm$core$Result$Ok),
+						task))));
+	});
+var $elm$browser$Browser$Dom$getViewportOf = _Browser_getViewportOf;
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize = function (id) {
+	return A2(
+		$elm$core$Task$attempt,
+		function (rvp) {
+			if (rvp.$ === 'Ok') {
+				var vp = rvp.a;
+				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
+					$elm$core$Maybe$Just(
+						_Utils_Tuple2(vp.viewport.width, vp.viewport.height)));
+			} else {
+				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
+					$elm$core$Maybe$Just(
+						_Utils_Tuple2(0, 0)));
+			}
+		},
+		$elm$browser$Browser$Dom$getViewportOf(id));
+};
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$init = F3(
+	function (w, h, id) {
+		return _Utils_Tuple2(
+			{ch: h, cw: w, id: id, wh: 0, ww: 0},
+			$MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize(id));
+	});
+var $author$project$SmartTime$Human$Calendar$Week$Sun = {$: 'Sun'};
+var $author$project$SmartTime$Moment$past = F2(
+	function (_v0, duration) {
+		var time = _v0.a;
+		return $author$project$SmartTime$Moment$Moment(
+			A2($author$project$SmartTime$Duration$subtract, time, duration));
+	});
+var $author$project$SmartTime$Human$Moment$setTime = F3(
+	function (newTime, zone, moment) {
+		var _v0 = A2($author$project$SmartTime$Human$Moment$humanize, zone, moment);
+		var oldDate = _v0.a;
+		return A3($author$project$SmartTime$Human$Moment$fromDateAndTime, zone, oldDate, newTime);
+	});
+var $author$project$SmartTime$Human$Moment$clockTurnBack = F3(
+	function (timeOfDay, zone, moment) {
+		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
+		return _Utils_eq(
+			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
+			$author$project$SmartTime$Moment$Earlier) ? newMoment : A2($author$project$SmartTime$Moment$past, newMoment, $author$project$SmartTime$Duration$aDay);
+	});
+var $author$project$SmartTime$Moment$future = F2(
+	function (_v0, duration) {
+		var time = _v0.a;
+		return $author$project$SmartTime$Moment$Moment(
+			A2($author$project$SmartTime$Duration$add, time, duration));
+	});
+var $author$project$SmartTime$Human$Moment$clockTurnForward = F3(
+	function (timeOfDay, zone, moment) {
+		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
+		return _Utils_eq(
+			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
+			$author$project$SmartTime$Moment$Later) ? newMoment : A2($author$project$SmartTime$Moment$future, newMoment, $author$project$SmartTime$Duration$aDay);
+	});
+var $author$project$SmartTime$Human$Moment$extractDate = F2(
+	function (zone, moment) {
+		return A2($author$project$SmartTime$Human$Moment$humanize, zone, moment).a;
+	});
+var $author$project$SmartTime$Period$Period = F2(
+	function (a, b) {
+		return {$: 'Period', a: a, b: b};
+	});
+var $author$project$SmartTime$Period$fromPair = function (_v0) {
+	var moment1 = _v0.a;
+	var moment2 = _v0.b;
+	return _Utils_eq(
+		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
+		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
+};
+var $author$project$SmartTime$Human$Calendar$Week$Fri = {$: 'Fri'};
+var $author$project$SmartTime$Human$Calendar$Week$Mon = {$: 'Mon'};
+var $author$project$SmartTime$Human$Calendar$Week$Sat = {$: 'Sat'};
+var $author$project$SmartTime$Human$Calendar$Week$Thu = {$: 'Thu'};
+var $author$project$SmartTime$Human$Calendar$Week$Tue = {$: 'Tue'};
+var $author$project$SmartTime$Human$Calendar$Week$Wed = {$: 'Wed'};
+var $author$project$SmartTime$Human$Calendar$Week$numberToDay = function (n) {
+	var _v0 = A2($elm$core$Basics$max, 1, n);
+	switch (_v0) {
+		case 1:
+			return $author$project$SmartTime$Human$Calendar$Week$Mon;
+		case 2:
+			return $author$project$SmartTime$Human$Calendar$Week$Tue;
+		case 3:
+			return $author$project$SmartTime$Human$Calendar$Week$Wed;
+		case 4:
+			return $author$project$SmartTime$Human$Calendar$Week$Thu;
+		case 5:
+			return $author$project$SmartTime$Human$Calendar$Week$Fri;
+		case 6:
+			return $author$project$SmartTime$Human$Calendar$Week$Sat;
+		default:
+			return $author$project$SmartTime$Human$Calendar$Week$Sun;
+	}
+};
+var $author$project$SmartTime$Human$Calendar$dayOfWeek = function (_v0) {
+	var rd = _v0.a;
+	var dayNum = function () {
+		var _v1 = A2($elm$core$Basics$modBy, 7, rd);
+		if (!_v1) {
+			return 7;
+		} else {
+			var n = _v1;
+			return n;
+		}
+	}();
+	return $author$project$SmartTime$Human$Calendar$Week$numberToDay(dayNum);
+};
+var $author$project$SmartTime$Human$Calendar$Week$dayToInt = function (d) {
+	switch (d.$) {
+		case 'Mon':
+			return 1;
+		case 'Tue':
+			return 2;
+		case 'Wed':
+			return 3;
+		case 'Thu':
+			return 4;
+		case 'Fri':
+			return 5;
+		case 'Sat':
+			return 6;
+		default:
+			return 7;
+	}
+};
+var $author$project$SmartTime$Human$Calendar$daysSincePrevious = F2(
+	function (givenDoW, givenDate) {
+		var dayOfWeekAsInt = $author$project$SmartTime$Human$Calendar$Week$dayToInt(
+			$author$project$SmartTime$Human$Calendar$dayOfWeek(givenDate));
+		return A2(
+			$elm$core$Basics$modBy,
+			7,
+			(dayOfWeekAsInt + 7) - $author$project$SmartTime$Human$Calendar$Week$dayToInt(givenDoW));
+	});
+var $author$project$SmartTime$Human$Calendar$toPrevious = F2(
+	function (givenDoW, givenDate) {
+		var _v0 = givenDate;
+		var givenDateRD = _v0.a;
+		return $author$project$SmartTime$Human$Calendar$CalendarDate(
+			givenDateRD - A2($author$project$SmartTime$Human$Calendar$daysSincePrevious, givenDoW, givenDate));
+	});
+var $author$project$SmartTime$Human$Calendar$toNext = F2(
+	function (givenDoW, givenDate) {
+		var _v0 = givenDate;
+		var givenDateRD = _v0.a;
+		return A2(
+			$author$project$SmartTime$Human$Calendar$toPrevious,
+			givenDoW,
+			$author$project$SmartTime$Human$Calendar$CalendarDate(givenDateRD + 7));
+	});
+var $author$project$Timeflow$updateViewSettings = F2(
+	function (profile, env) {
+		var chosenDayCutoffTime = $author$project$SmartTime$Human$Duration$build(
+			_List_fromArray(
+				[
+					$author$project$SmartTime$Human$Duration$Hours(3)
+				]));
+		var today = $author$project$SmartTime$Period$fromPair(
+			_Utils_Tuple2(
+				A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
+				A3($author$project$SmartTime$Human$Moment$clockTurnForward, chosenDayCutoffTime, env.timeZone, env.time)));
+		var week = $author$project$SmartTime$Period$fromPair(
+			_Utils_Tuple2(
+				A3(
+					$author$project$SmartTime$Human$Moment$fromDateAndTime,
+					env.timeZone,
+					A2(
+						$author$project$SmartTime$Human$Calendar$toPrevious,
+						$author$project$SmartTime$Human$Calendar$Week$Sun,
+						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
+					chosenDayCutoffTime),
+				A3(
+					$author$project$SmartTime$Human$Moment$fromDateAndTime,
+					env.timeZone,
+					A2(
+						$author$project$SmartTime$Human$Calendar$toNext,
+						$author$project$SmartTime$Human$Calendar$Week$Sun,
+						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
+					chosenDayCutoffTime)));
+		return {
+			flowRenderPeriod: week,
+			hourRowSize: $author$project$SmartTime$Duration$fromMinutes(30),
+			pivotMoment: A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
+			rowHeight: 40
+		};
+	});
+var $author$project$Timeflow$defaultState = F2(
+	function (profile, environment) {
+		return {
+			pointer: {x: 0.0, y: 0.0},
+			settings: A2($author$project$Timeflow$updateViewSettings, profile, environment),
+			widgets: $elm$core$Dict$fromList(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'0',
+						A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 100, '0'))
+					]))
+		};
+	});
 var $author$project$TaskList$defaultView = A3(
 	$author$project$TaskList$Normal,
 	_List_fromArray(
 		[$author$project$TaskList$AllRelevantTasks]),
 	$elm$core$Maybe$Nothing,
 	'');
-var $author$project$TimeTracker$defaultView = $author$project$TimeTracker$Normal;
 var $elm$url$Url$Parser$Internal$Parser = function (a) {
 	return {$: 'Parser', a: a};
 };
@@ -15914,12 +16142,6 @@ var $author$project$Activity$Switch$newSwitch = F3(
 	function (moment, activityID, instanceIDMaybe) {
 		return A3($author$project$Activity$Switch$Switch, moment, activityID, instanceIDMaybe);
 	});
-var $author$project$SmartTime$Moment$past = F2(
-	function (_v0, duration) {
-		var time = _v0.a;
-		return $author$project$SmartTime$Moment$Moment(
-			A2($author$project$SmartTime$Duration$subtract, time, duration));
-	});
 var $author$project$SmartTime$Human$Duration$withAbbreviation = function (unit) {
 	switch (unit.$) {
 		case 'Milliseconds':
@@ -16663,10 +16885,6 @@ var $author$project$ZoneHistory$init = F2(
 				$elm$core$Dict$singleton,
 				$author$project$SmartTime$Moment$toSmartInt(now),
 				nowZone));
-	});
-var $author$project$SmartTime$Period$Period = F2(
-	function (a, b) {
-		return {$: 'Period', a: a, b: b};
 	});
 var $author$project$SmartTime$Period$instantaneous = function (moment) {
 	return A2($author$project$SmartTime$Period$Period, moment, moment);
@@ -20330,12 +20548,6 @@ var $author$project$Activity$Timeline$excusedLeft = F3(
 				now,
 				_Utils_Tuple2(activityID, activity)));
 	});
-var $author$project$SmartTime$Moment$future = F2(
-	function (_v0, duration) {
-		var time = _v0.a;
-		return $author$project$SmartTime$Moment$Moment(
-			A2($author$project$SmartTime$Duration$add, time, duration));
-	});
 var $author$project$Activity$Activity$getActivity = F2(
 	function (activityId, activities) {
 		var _v0 = A2(
@@ -20355,19 +20567,6 @@ var $author$project$Activity$Activity$getName = function (activity) {
 		'?',
 		$elm$core$List$head(activity.names));
 };
-var $author$project$SmartTime$Human$Moment$setTime = F3(
-	function (newTime, zone, moment) {
-		var _v0 = A2($author$project$SmartTime$Human$Moment$humanize, zone, moment);
-		var oldDate = _v0.a;
-		return A3($author$project$SmartTime$Human$Moment$fromDateAndTime, zone, oldDate, newTime);
-	});
-var $author$project$SmartTime$Human$Moment$clockTurnBack = F3(
-	function (timeOfDay, zone, moment) {
-		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
-		return _Utils_eq(
-			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
-			$author$project$SmartTime$Moment$Earlier) ? newMoment : A2($author$project$SmartTime$Moment$past, newMoment, $author$project$SmartTime$Duration$aDay);
-	});
 var $author$project$SmartTime$Duration$fromHours = function (_float) {
 	return $author$project$SmartTime$Duration$Duration(
 		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$hourLength));
@@ -21970,13 +22169,6 @@ var $elm_community$list_extra$List$Extra$find = F2(
 			}
 		}
 	});
-var $author$project$SmartTime$Period$fromPair = function (_v0) {
-	var moment1 = _v0.a;
-	var moment2 = _v0.b;
-	return _Utils_eq(
-		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
-		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
-};
 var $author$project$Integrations$Marvin$trackTruthToTimelineSessions = F3(
 	function (profile, env, truthItem) {
 		var keepEvenOdd = F2(
@@ -22971,25 +23163,6 @@ var $author$project$TaskList$NoOp = {$: 'NoOp'};
 var $author$project$TaskList$StopTracking = function (a) {
 	return {$: 'StopTracking', a: a};
 };
-var $elm$core$Task$onError = _Scheduler_onError;
-var $elm$core$Task$attempt = F2(
-	function (resultToMessage, task) {
-		return $elm$core$Task$command(
-			$elm$core$Task$Perform(
-				A2(
-					$elm$core$Task$onError,
-					A2(
-						$elm$core$Basics$composeL,
-						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
-						$elm$core$Result$Err),
-					A2(
-						$elm$core$Task$andThen,
-						A2(
-							$elm$core$Basics$composeL,
-							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
-							$elm$core$Result$Ok),
-						task))));
-	});
 var $elm$browser$Browser$Dom$focus = _Browser_call('focus');
 var $author$project$Task$Progress$getUnits = function (_v0) {
 	var unit = _v0.b;
@@ -24040,6 +24213,106 @@ var $author$project$TimeTracker$update = F4(
 								A2($author$project$TimeTracker$exportActivityViewModel, app, env)))));
 		}
 	});
+var $author$project$Timeflow$WidgetMsg = F2(
+	function (a, b) {
+		return {$: 'WidgetMsg', a: a, b: b};
+	});
+var $elm$core$Basics$isInfinite = _Basics_isInfinite;
+var $elm$core$Basics$isNaN = _Basics_isNaN;
+var $author$project$Timeflow$blockBrokenCoord = function (coord) {
+	return ((coord < 0) || ($elm$core$Basics$isInfinite(coord) || $elm$core$Basics$isNaN(coord))) ? 0 : coord;
+};
+var $elm$core$Debug$todo = _Debug_todo;
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$update = F2(
+	function (msg, model) {
+		var mWH = msg.a;
+		if (mWH.$ === 'Just') {
+			var _v2 = mWH.a;
+			var w = _v2.a;
+			var h = _v2.b;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{wh: h, ww: w}),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			return _Utils_Tuple2(
+				model,
+				$MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize(model.id));
+		}
+	});
+var $author$project$Timeflow$update = F4(
+	function (msg, state, profile, env) {
+		var _v0 = A2($elm$core$Debug$log, 'timeflow update', msg);
+		switch (_v0.$) {
+			case 'ChangeTimeWindow':
+				var newStart = _v0.a;
+				var newFinish = _v0.b;
+				var withoutNewPeriodToRender = A2($author$project$Timeflow$updateViewSettings, profile, env);
+				var withNewPeriodToRender = _Utils_update(
+					withoutNewPeriodToRender,
+					{
+						flowRenderPeriod: $author$project$SmartTime$Period$fromPair(
+							_Utils_Tuple2(newStart, newFinish))
+					});
+				return _Utils_Tuple3(
+					_Utils_update(
+						state,
+						{settings: withNewPeriodToRender}),
+					profile,
+					$elm$core$Platform$Cmd$none);
+			case 'WidgetMsg':
+				var widgetID = _v0.a;
+				var widgetMsg = _v0.b;
+				var _v1 = A2($elm$core$Dict$get, widgetID, state.widgets);
+				if (_v1.$ === 'Nothing') {
+					return _Debug_todo(
+						'Timeflow',
+						{
+							start: {line: 821, column: 21},
+							end: {line: 821, column: 31}
+						})('Tried to update a widget that has no stored state');
+				} else {
+					var _v2 = _v1.a;
+					var oldWidgetState = _v2.a;
+					var widgetInitCmd = _v2.b;
+					var _v3 = A2($MacCASOutreach$graphicsvg$GraphicSVG$Widget$update, widgetMsg, oldWidgetState);
+					var newWidgetState = _v3.a;
+					var widgetOutCmds = _v3.b;
+					var newWidgetDict = A3(
+						$elm$core$Dict$insert,
+						widgetID,
+						_Utils_Tuple2(newWidgetState, widgetInitCmd),
+						state.widgets);
+					return _Utils_Tuple3(
+						_Utils_update(
+							state,
+							{widgets: newWidgetDict}),
+						profile,
+						A2(
+							$elm$core$Platform$Cmd$map,
+							$author$project$Timeflow$WidgetMsg(widgetID),
+							widgetOutCmds));
+				}
+			default:
+				var _v4 = _v0.a;
+				var x = _v4.a;
+				var y = _v4.b;
+				var oldPointer = state.pointer;
+				var newPointer = _Utils_update(
+					oldPointer,
+					{
+						x: $author$project$Timeflow$blockBrokenCoord(x),
+						y: $author$project$Timeflow$blockBrokenCoord(y)
+					});
+				return _Utils_Tuple3(
+					_Utils_update(
+						state,
+						{pointer: newPointer}),
+					profile,
+					$elm$core$Platform$Cmd$none);
+		}
+	});
 var $author$project$TaskList$StartTracking = F2(
 	function (a, b) {
 		return {$: 'StartTracking', a: a, b: b};
@@ -24171,24 +24444,24 @@ var $author$project$Main$handleUrlTriggers = F2(
 		var profile = model.profile;
 		var environment = model.environment;
 		var wrapMsgs = F2(
-			function (tagger, _v28) {
-				var key = _v28.a;
-				var dict = _v28.b;
+			function (tagger, _v30) {
+				var key = _v30.a;
+				var dict = _v30.b;
 				return _Utils_Tuple2(
 					key,
 					A2(
 						$elm$core$Dict$map,
 						F2(
-							function (_v27, msg) {
+							function (_v29, msg) {
 								return tagger(msg);
 							}),
 						dict));
 			});
 		var url = $author$project$Main$bypassFakeFragment(rawUrl);
 		var removeTriggersFromUrl = function () {
-			var _v26 = environment.navkey;
-			if (_v26.$ === 'Just') {
-				var navkey = _v26.a;
+			var _v28 = environment.navkey;
+			if (_v28.$ === 'Just') {
+				var navkey = _v28.a;
 				return A2(
 					$elm$browser$Browser$Navigation$replaceUrl,
 					navkey,
@@ -24207,27 +24480,27 @@ var $author$project$Main$handleUrlTriggers = F2(
 			fancyRecursiveParse:
 			while (true) {
 				if (checkList.b) {
-					var _v14 = checkList.a;
-					var triggerName = _v14.a;
-					var triggerValues = _v14.b;
+					var _v16 = checkList.a;
+					var triggerName = _v16.a;
+					var triggerValues = _v16.b;
 					var rest = checkList.b;
-					var _v15 = A2(
+					var _v17 = A2(
 						$elm$url$Url$Parser$parse,
 						$elm$url$Url$Parser$query(
 							A2($elm$url$Url$Parser$Query$enum, triggerName, triggerValues)),
 						normalizedUrl);
-					if (_v15.$ === 'Nothing') {
+					if (_v17.$ === 'Nothing') {
 						var $temp$checkList = rest;
 						checkList = $temp$checkList;
 						continue fancyRecursiveParse;
 					} else {
-						if (_v15.a.$ === 'Nothing') {
-							var _v16 = _v15.a;
+						if (_v17.a.$ === 'Nothing') {
+							var _v18 = _v17.a;
 							var $temp$checkList = rest;
 							checkList = $temp$checkList;
 							continue fancyRecursiveParse;
 						} else {
-							var match = _v15.a;
+							var match = _v17.a;
 							return $elm$core$Maybe$Just(match);
 						}
 					}
@@ -24236,9 +24509,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 				}
 			}
 		};
-		var createQueryParsers = function (_v25) {
-			var key = _v25.a;
-			var values = _v25.b;
+		var createQueryParsers = function (_v27) {
+			var key = _v27.a;
+			var values = _v27.b;
 			return A2($elm$url$Url$Parser$Query$enum, key, values);
 		};
 		var allTriggers = _Utils_ap(
@@ -24281,23 +24554,23 @@ var $author$project$Main$handleUrlTriggers = F2(
 			$elm$url$Url$Parser$parse,
 			$elm$url$Url$Parser$oneOf(parseList),
 			normalizedUrl);
-		var _v17 = fancyRecursiveParse(allTriggers);
-		if (_v17.$ === 'Just') {
-			var parsedUrlSuccessfully = _v17.a;
-			var _v18 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
-			if (_v18.a.$ === 'Just') {
-				if (_v18.b.$ === 'Just') {
-					var triggerMsg = _v18.a.a;
-					var _v19 = A2($author$project$Main$update, triggerMsg, model);
-					var newModel = _v19.a;
-					var newCmd = _v19.b;
+		var _v19 = fancyRecursiveParse(allTriggers);
+		if (_v19.$ === 'Just') {
+			var parsedUrlSuccessfully = _v19.a;
+			var _v20 = _Utils_Tuple2(parsedUrlSuccessfully, normalizedUrl.query);
+			if (_v20.a.$ === 'Just') {
+				if (_v20.b.$ === 'Just') {
+					var triggerMsg = _v20.a.a;
+					var _v21 = A2($author$project$Main$update, triggerMsg, model);
+					var newModel = _v21.a;
+					var newCmd = _v21.b;
 					var newCmdWithUrlCleaner = $elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[newCmd, removeTriggersFromUrl]));
 					return _Utils_Tuple2(newModel, newCmdWithUrlCleaner);
 				} else {
-					var triggerMsg = _v18.a.a;
-					var _v21 = _v18.b;
+					var triggerMsg = _v20.a.a;
+					var _v23 = _v20.b;
 					var problemText = 'Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!';
 					return _Utils_Tuple2(
 						_Utils_update(
@@ -24308,9 +24581,9 @@ var $author$project$Main$handleUrlTriggers = F2(
 						$author$project$External$Commands$toast(problemText));
 				}
 			} else {
-				if (_v18.b.$ === 'Just') {
-					var _v20 = _v18.a;
-					var query = _v18.b.a;
+				if (_v20.b.$ === 'Just') {
+					var _v22 = _v20.a;
+					var query = _v20.b.a;
 					var problemText = 'Handle URL Triggers: none of  ' + ($elm$core$String$fromInt(
 						$elm$core$List$length(parseList)) + (' parsers matched key and value: ' + query));
 					return _Utils_Tuple2(
@@ -24321,17 +24594,17 @@ var $author$project$Main$handleUrlTriggers = F2(
 							}),
 						$author$project$External$Commands$toast(problemText));
 				} else {
-					var _v22 = _v18.a;
-					var _v23 = _v18.b;
+					var _v24 = _v20.a;
+					var _v25 = _v20.b;
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			}
 		} else {
-			var _v24 = normalizedUrl.query;
-			if (_v24.$ === 'Nothing') {
+			var _v26 = normalizedUrl.query;
+			if (_v26.$ === 'Nothing') {
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			} else {
-				var queriesPresent = _v24.a;
+				var queriesPresent = _v26.a;
 				var problemText = 'URL: not sure what to do with: ' + (queriesPresent + ', so I just left it there. Is the trigger misspelled?');
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -24567,6 +24840,32 @@ var $author$project$Main$update = F2(
 							newApp,
 							environment),
 						A2($elm$core$Platform$Cmd$map, $author$project$Main$TimeTrackerMsg, newCommand));
+				case 'TimeflowMsg':
+					var subMsg = msg.a;
+					var subViewState = function () {
+						var _v13 = viewState.primaryView;
+						if ((_v13.$ === 'Timeflow') && (_v13.a.$ === 'Just')) {
+							var subView = _v13.a.a;
+							return subView;
+						} else {
+							return A2($author$project$Timeflow$defaultState, profile, environment);
+						}
+					}();
+					var _v12 = A4($author$project$Timeflow$update, subMsg, subViewState, profile, environment);
+					var newState = _v12.a;
+					var newApp = _v12.b;
+					var newCommand = _v12.c;
+					return _Utils_Tuple2(
+						A3(
+							$author$project$Main$Model,
+							A2(
+								$author$project$Main$ViewState,
+								$author$project$Main$Timeflow(
+									$elm$core$Maybe$Just(newState)),
+								0),
+							newApp,
+							environment),
+						A2($elm$core$Platform$Cmd$map, $author$project$Main$TimeflowMsg, newCommand));
 				case 'NewAppData':
 					var newJSON = msg.a;
 					var maybeNewApp = $author$project$Main$profileFromJson(newJSON);
@@ -24622,7 +24921,6 @@ var $author$project$Task$Class$encodeRelativeTiming = function (relativeTaskTimi
 		return $author$project$Helpers$encodeDuration(duration);
 	}
 };
-var $elm$core$Debug$todo = _Debug_todo;
 var $author$project$Task$Progress$encodeUnit = function (unit) {
 	switch (unit.$) {
 		case 'Permille':
@@ -25402,9 +25700,6 @@ var $author$project$Browserless$initBrowserless = function (_v0) {
 var $author$project$Main$NewAppData = function (a) {
 	return {$: 'NewAppData', a: a};
 };
-var $author$project$Main$TimeflowMsg = function (a) {
-	return {$: 'TimeflowMsg', a: a};
-};
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$time$Time$Every = F2(
 	function (a, b) {
@@ -25864,13 +26159,6 @@ var $elm$browser$Browser$Events$onVisibilityChange = function (func) {
 				A2($elm$json$Json$Decode$field, info.hidden, $elm$json$Json$Decode$bool))));
 };
 var $author$project$Main$storageChangedElsewhere = _Platform_incomingPort('storageChangedElsewhere', $elm$json$Json$Decode$string);
-var $author$project$Timeflow$WidgetMsg = F2(
-	function (a, b) {
-		return {$: 'WidgetMsg', a: a, b: b};
-	});
-var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize = function (a) {
-	return {$: 'WidgetResize', a: a};
-};
 var $elm$browser$Browser$Events$Window = {$: 'Window'};
 var $elm$browser$Browser$Events$onResize = function (func) {
 	return A3(
@@ -25891,19 +26179,23 @@ var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$subscriptions = $elm$browser$Br
 		function (_v0, _v1) {
 			return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize($elm$core$Maybe$Nothing);
 		}));
-var $author$project$Timeflow$subscriptions = function (_v0) {
-	var widgets = _v0.widgets;
-	return $elm$core$Platform$Sub$batch(
-		A2(
-			$elm$core$List$map,
-			function (id) {
-				return A2(
-					$elm$core$Platform$Sub$map,
-					$author$project$Timeflow$WidgetMsg(id),
-					$MacCASOutreach$graphicsvg$GraphicSVG$Widget$subscriptions);
-			},
-			$elm$core$Dict$keys(widgets)));
-};
+var $author$project$Timeflow$subscriptions = F3(
+	function (profile, env, maybeVState) {
+		var vState = A2(
+			$elm$core$Maybe$withDefault,
+			A2($author$project$Timeflow$defaultState, profile, env),
+			maybeVState);
+		return $elm$core$Platform$Sub$batch(
+			A2(
+				$elm$core$List$map,
+				function (id) {
+					return A2(
+						$elm$core$Platform$Sub$map,
+						$author$project$Timeflow$WidgetMsg(id),
+						$MacCASOutreach$graphicsvg$GraphicSVG$Widget$subscriptions);
+				},
+				$elm$core$Dict$keys(vState.widgets)));
+	});
 var $author$project$Main$subscriptions = function (model) {
 	var viewState = model.viewState;
 	var profile = model.profile;
@@ -25929,14 +26221,14 @@ var $author$project$Main$subscriptions = function (model) {
 				]),
 			function () {
 				var _v1 = viewState.primaryView;
-				if ((_v1.$ === 'Timeflow') && (_v1.a.$ === 'Just')) {
-					var subState = _v1.a.a;
+				if (_v1.$ === 'Timeflow') {
+					var subState = _v1.a;
 					return _List_fromArray(
 						[
 							A2(
 							$elm$core$Platform$Sub$map,
 							$author$project$Main$TimeflowMsg,
-							$author$project$Timeflow$subscriptions(subState))
+							A3($author$project$Timeflow$subscriptions, profile, environment, subState))
 						]);
 				} else {
 					return _List_Nil;

@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, buildModel, defaultView, emptyViewState, infoFooter, init, main, profileFromJson, profileToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, buildModel, emptyViewState, infoFooter, init, main, profileFromJson, profileToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
@@ -37,7 +37,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
 import Task.Instance as Instance
 import TaskList
-import TimeTracker exposing (..)
+import TimeTracker
 import Timeflow
 import Url
 import Url.Parser as P exposing ((</>), Parser)
@@ -73,8 +73,8 @@ subscriptions ({ viewState, profile, environment } as model) =
         , Moment.every (Duration.fromSeconds 1) (Tock NoOp)
         ]
             ++ (case viewState.primaryView of
-                    Timeflow (Just subState) ->
-                        [ Sub.map TimeflowMsg (Timeflow.subscriptions subState) ]
+                    Timeflow subState ->
+                        [ Sub.map TimeflowMsg (Timeflow.subscriptions profile environment subState) ]
 
                     _ ->
                         []
@@ -311,11 +311,6 @@ screenToViewState screen =
 --             +#+   +#+      +#+     +#+        +#+ +#+#+ +#+
 --              #+#+#+#       #+#     #+#         #+#+# #+#+#
 --                ###     ########### ##########   ###   ###
-
-
-defaultView : ViewState
-defaultView =
-    ViewState (Timeflow Nothing) 0
 
 
 view : Model -> Browser.Document Msg
@@ -763,6 +758,21 @@ update msg ({ viewState, profile, environment } as model) =
             in
             ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
 
+        TimeflowMsg subMsg ->
+            let
+                subViewState =
+                    case viewState.primaryView of
+                        Timeflow (Just subView) ->
+                            subView
+
+                        _ ->
+                            Timeflow.defaultState profile environment
+
+                ( newState, newApp, newCommand ) =
+                    Timeflow.update subMsg subViewState profile environment
+            in
+            ( Model (ViewState (Timeflow (Just newState)) 0) newApp environment, Cmd.map TimeflowMsg newCommand )
+
         NewAppData newJSON ->
             let
                 maybeNewApp =
@@ -828,7 +838,7 @@ viewUrl url =
         finalUrl =
             bypassFakeFragment url
     in
-    Maybe.withDefault defaultView (P.parse routeParser finalUrl)
+    Maybe.withDefault emptyViewState (P.parse routeParser finalUrl)
 
 
 routeParser : Parser (ViewState -> a) a

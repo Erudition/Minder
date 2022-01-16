@@ -1,4 +1,4 @@
-module Timeflow exposing (Msg, ViewState, routeView, subscriptions, update, view)
+module Timeflow exposing (Msg, ViewState, defaultState, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
@@ -127,8 +127,8 @@ updateViewSettings profile env =
     }
 
 
-initialDisplay : Profile -> Environment -> ViewState
-initialDisplay profile environment =
+defaultState : Profile -> Environment -> ViewState
+defaultState profile environment =
     { settings = updateViewSettings profile environment
     , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
     , pointer = { x = 0.0, y = 0.0 }
@@ -142,35 +142,34 @@ routeView =
 
 view : Maybe ViewState -> Profile -> Environment -> SH.Html Msg
 view maybeVState profile env =
-    case maybeVState of
-        Nothing ->
-            view (Just <| initialDisplay profile env) profile env
-
-        Just vState ->
-            SH.fromUnstyled <|
-                layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
-                    column [ width fill, height fill ]
-                        [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                        , row [ width (fillPortion 1), height (fillPortion 20), scrollbarY ]
-                            [ timeFlowLayout vState.settings profile env
-                            , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
-                            ]
-                        , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
-                            [ el [ centerX ] <| Element.text "The future is below." ]
-                        ]
+    let
+        vState =
+            Maybe.withDefault (defaultState profile env) maybeVState
+    in
+    SH.fromUnstyled <|
+        layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
+            column [ width fill, height fill ]
+                [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                    [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
+                , row [ width (fillPortion 1), height (fillPortion 20), scrollbarY ]
+                    [ timeFlowLayout vState.settings profile env
+                    , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                    ]
+                , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                    [ el [ centerX ] <| Element.text "The future is below." ]
+                ]
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view widgetState
-        [ rect 100 100
+        [ rect 95 95
             |> filled gray
             |> notifyMouseMoveAt PointerMove
         , circle 1
             |> filled blue
             |> move ( state.pointer.x, state.pointer.y )
             |> notifyMouseMoveAt PointerMove
-        , GraphicSVG.text "Widget #1 (100x100)"
+        , GraphicSVG.text "Widget 0 (100x100)"
             |> fixedwidth
             |> size 2
             |> filled black
@@ -774,6 +773,14 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
     FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) activityColor activityName
 
 
+blockBrokenCoord coord =
+    if coord < 0 || isInfinite coord || isNaN coord then
+        0
+
+    else
+        coord
+
+
 
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
@@ -797,7 +804,7 @@ type alias Pointer =
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
 update msg state profile env =
-    case msg of
+    case Debug.log "timeflow update" msg of
         ChangeTimeWindow newStart newFinish ->
             let
                 withoutNewPeriodToRender =
@@ -832,11 +839,15 @@ update msg state profile env =
                     state.pointer
 
                 newPointer =
-                    { oldPointer | x = x, y = y }
+                    { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
             in
             ( { state | pointer = newPointer }, profile, Cmd.none )
 
 
-subscriptions : ViewState -> Sub Msg
-subscriptions { widgets } =
-    Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys widgets)
+subscriptions : Profile -> Environment -> Maybe ViewState -> Sub Msg
+subscriptions profile env maybeVState =
+    let
+        vState =
+            Maybe.withDefault (defaultState profile env) maybeVState
+    in
+    Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys vState.widgets)
