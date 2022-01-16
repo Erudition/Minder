@@ -162,14 +162,14 @@ view maybeVState profile env =
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view widgetState
-        [ rect 95 95
+        [ rect 100 100
             |> filled gray
             |> notifyMouseMoveAt PointerMove
         , circle 1
             |> filled blue
-            |> move ( state.pointer.x, state.pointer.y )
+            |> move ( state.pointer.x / 4, state.pointer.y / 4 )
             |> notifyMouseMoveAt PointerMove
-        , GraphicSVG.text "Widget 0 (100x100)"
+        , GraphicSVG.text "GraphicSVG side"
             |> fixedwidth
             |> size 2
             |> filled black
@@ -774,7 +774,7 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
 
 
 blockBrokenCoord coord =
-    if coord < 0 || isInfinite coord || isNaN coord then
+    if isInfinite coord || isNaN coord then
         0
 
     else
