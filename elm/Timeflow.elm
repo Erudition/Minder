@@ -165,6 +165,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         [ rect 100 100
             |> filled gray
             |> notifyMouseMoveAt PointerMove
+        , graphPaper 10
         , circle 1
             |> filled blue
             |> move ( state.pointer.x / 4, state.pointer.y / 4 )
@@ -174,6 +175,14 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> size 2
             |> filled black
             |> move ( -25, 11 )
+
+        -- , polygon
+        --     [ ( 0, 0 )
+        --     , ( 100, 0 )
+        --     , ( 100, 20 )
+        --     , ( 0, 20 )
+        --     ]
+        --     |> filled blue
         ]
 
 
