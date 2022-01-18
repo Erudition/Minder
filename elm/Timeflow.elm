@@ -130,7 +130,7 @@ updateViewSettings profile env =
 defaultState : Profile -> Environment -> ViewState
 defaultState profile environment =
     { settings = updateViewSettings profile environment
-    , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
+    , widgets = Dict.fromList [ ( "0", Widget.init 200 200 "0" ) ]
     , pointer = { x = 0.0, y = 0.0 }
     }
 
@@ -165,7 +165,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         [ rect 100 100
             |> filled gray
             |> notifyMouseMoveAt PointerMove
-        , graphPaper 10
+        , graphPaperCustom 1 0.03 black
         , circle 1
             |> filled blue
             |> move ( state.pointer.x / 4, state.pointer.y / 4 )
@@ -175,15 +175,135 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> size 2
             |> filled black
             |> move ( -25, 11 )
+        , polygon
+            demoPolygonPoints
+            |> filled blue
+            |> move ( -50, 0 )
+        , roundedPolygon demoPolygonPoints
+            |> filled green
+            |> move ( -50, 0 )
+            |> curveHelper
 
-        -- , polygon
-        --     [ ( 0, 0 )
-        --     , ( 100, 0 )
-        --     , ( 100, 20 )
-        --     , ( 0, 20 )
+        -- , curve ( 95, 0 )
+        --     [ Pull ( 100, 0 ) ( 100, -5 )
+        --     , Pull ( )
         --     ]
-        --     |> filled blue
+        --     |> filled orange
+        --     |> move ( -50, 0 )
         ]
+
+
+demoPolygonPoints =
+    [ ( 0, 0 )
+    , ( 100, 0 )
+    , ( 100, -30 )
+    , ( 0, -30 )
+    ]
+
+
+demoPolygonPoints2 =
+    [ ( 0, 0 )
+    , ( 100, 0 )
+    , ( 100, -30 )
+    , ( 75, -30 )
+    , ( 75, -20 )
+    , ( 0, -20 )
+    ]
+
+
+roundedPolygon : List ( Float, Float ) -> Stencil
+roundedPolygon cornerList =
+    let
+        extendedList =
+            List.cycle (List.length cornerList + 5) cornerList
+
+        applyRoundCorner shorteningList =
+            case shorteningList of
+                a :: b :: c :: d :: rest ->
+                    let
+                        addCorner1 =
+                            roundCorner a b c
+
+                        addCorner2 =
+                            roundCorner b c d
+
+                        addStraight =
+                            roundCorner addCorner1.end addCorner1.end addCorner2.start
+                    in
+                    addCorner1 :: addStraight :: applyRoundCorner (b :: c :: d :: rest)
+
+                _ ->
+                    []
+
+        roundCornerList =
+            Debug.log "curve list" <| applyRoundCorner extendedList
+
+        firstRoundCorner =
+            Maybe.withDefault dummyRoundCorner (List.head roundCornerList)
+
+        dummyRoundCorner =
+            { start = ( 0, 0 ), corner = ( 0, 0 ), end = ( 0, 0 ) }
+
+        toPull givenRoundCorner =
+            Pull givenRoundCorner.corner givenRoundCorner.end
+
+        pullList =
+            List.map toPull roundCornerList
+    in
+    curve firstRoundCorner.start pullList
+
+
+roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, goingToY ) =
+    let
+        radius =
+            5
+
+        curveStart comingFrom corner =
+            let
+                backToPriorCorner =
+                    corner - comingFrom
+
+                absBackToPriorCorner =
+                    abs backToPriorCorner
+
+                direction =
+                    if backToPriorCorner < 0 then
+                        -1
+
+                    else
+                        1
+            in
+            -- if absBackToPriorCorner < radius then
+            --     comingFrom
+            --
+            -- else
+            corner - (radius * direction)
+
+        curveEnd goingTo corner =
+            let
+                forwardToNextCorner =
+                    corner + goingTo
+
+                absForwardToNextCorner =
+                    abs forwardToNextCorner
+
+                direction =
+                    if forwardToNextCorner < 0 then
+                        -1
+
+                    else
+                        1
+            in
+            if absForwardToNextCorner < radius then
+                goingTo
+
+            else
+                corner + (radius * direction)
+    in
+    { start = ( curveStart comingFromX cornerLocX, curveStart comingFromY cornerLocY )
+    , corner = ( cornerLocX, cornerLocY )
+    , end = ( curveEnd goingToX cornerLocX, curveEnd goingToY cornerLocY )
+    }
 
 
 type alias FlowBlob =
