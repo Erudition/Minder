@@ -228,7 +228,10 @@ roundedPolygon cornerList =
                             roundCorner b c d
 
                         addStraight =
-                            roundCorner addCorner1.end addCorner1.end addCorner2.start
+                            { start = addCorner1.end
+                            , corner = addCorner1.end
+                            , end = addCorner2.start
+                            }
                     in
                     addCorner1 :: addStraight :: applyRoundCorner (b :: c :: d :: rest)
 
