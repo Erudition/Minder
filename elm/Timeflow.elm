@@ -281,31 +281,10 @@ roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, 
             --
             -- else
             corner - (radius * direction)
-
-        curveEnd goingTo corner =
-            let
-                forwardToNextCorner =
-                    corner + goingTo
-
-                absForwardToNextCorner =
-                    abs forwardToNextCorner
-
-                direction =
-                    if forwardToNextCorner < 0 then
-                        -1
-
-                    else
-                        1
-            in
-            if absForwardToNextCorner < radius then
-                goingTo
-
-            else
-                corner + (radius * direction)
     in
     { start = ( curveStart comingFromX cornerLocX, curveStart comingFromY cornerLocY )
     , corner = ( cornerLocX, cornerLocY )
-    , end = ( curveEnd goingToX cornerLocX, curveEnd goingToY cornerLocY )
+    , end = ( curveStart cornerLocX goingToX, curveStart cornerLocY goingToY )
     }
 
 
