@@ -131,7 +131,7 @@ updateViewSettings profile env =
 defaultState : Profile -> Environment -> ViewState
 defaultState profile environment =
     { settings = updateViewSettings profile environment
-    , widgets = Dict.fromList [ ( "0", Widget.init 200 200 "0" ) ]
+    , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
     , pointer = { x = 0.0, y = 0.0 }
     }
 
@@ -183,8 +183,9 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         , roundedPolygon demoPolygonPoints
             |> filled green
             |> move ( -50, 0 )
+            |> curveHelper
+            |> GraphicSVG.scale 1
 
-        -- |> curveHelper
         -- , curve ( 95, 0 )
         --     [ Pull ( 100, 0 ) ( 100, -5 )
         --     , Pull ( )
@@ -195,11 +196,15 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
 
 
 demoPolygonPoints =
-    [ ( 0, 0 )
-    , ( 100, 0 )
-    , ( 100, -30 )
-    , ( 0, -30 )
-    ]
+    [ ( 0, 0 ), ( 100, 0 ), ( 50, -30 ) ]
+
+
+
+-- [ ( 0, 0 )
+-- , ( 100, 0 )
+-- , ( 100, -20 )
+-- , ( 0, -20 )
+-- ]
 
 
 demoPolygonPoints2 =
@@ -237,14 +242,12 @@ neighboringLoop list =
 
 {-
    addpoints simply adds in-between points to the list.
-   Example:  [ ( 1, 2 ), ( 2, 3 ), ( 3, 1 ) ] -> [ ( 1, 2 ), ( 1.5, 2.5 ), ( 2, 3 ), ( 2.5, 2 ), ( 3, 1 ), ( 2, 1.5 ) ]
-
    This is used to give the curve 'End Points'. The normal points then act as the 'Control Points'.
 -}
 
 
-addPoints : List ( Float, Float ) -> List ( Float, Float )
-addPoints points =
+addPoints : Float -> List ( Float, Float ) -> List ( Float, Float )
+addPoints radii points =
     let
         la =
             points
@@ -254,38 +257,67 @@ addPoints points =
             List.drop 1 <| List.cycle (List.length points + 1) points
 
         -- This is only used to give the map access to two points at a time to calculate the midpoint between them.
-        neightboringPoints =
+        neighboringPoints =
             List.zip la lb
 
         newPoints =
-            List.map
-                (\( a, b ) ->
-                    ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
+            List.concat
+                (List.map
+                    (\( a, b ) ->
+                        let
+                            deltaY =
+                                Tuple.second b - Tuple.second a
+
+                            deltaX =
+                                Tuple.first b - Tuple.first a
+
+                            angleRads =
+                                atan2 deltaY deltaX
+
+                            x1 =
+                                radii * cos angleRads
+
+                            y1 =
+                                radii * sin angleRads
+
+                            x2 =
+                                -radii * cos angleRads
+
+                            y2 =
+                                -radii * sin angleRads
+
+                            firstPoint =
+                                ( Tuple.first a + x1, Tuple.second a + y1 )
+
+                            midPoint =
+                                ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
+
+                            secondPoint =
+                                ( Tuple.first b + x2, Tuple.second b + y2 )
+
+                            lastPoint =
+                                ( Tuple.first b, Tuple.second b )
+                        in
+                        [ firstPoint, midPoint, secondPoint, lastPoint ]
+                    )
+                    neighboringPoints
                 )
-                neightboringPoints
-
-        -- Then place all the points back into the list in the correct order.
-        allPoints =
-            List.interweave points newPoints
     in
-    allPoints
+    newPoints
 
 
-roundedPolygon : List ( Float, Float ) -> Stencil
-roundedPolygon cornerList =
+roundedPolygon2 : List ( Float, Float ) -> Stencil
+roundedPolygon2 cornerList =
     let
         addedPoints =
             -- Doing it twice to make it more 'round'. TODO: remove this
-            addPoints <| addPoints cornerList
-
-        closedList =
-            -- Enclose the polygon.
-            List.cycle (List.length addedPoints + 1) addedPoints
+            addPoints 10 cornerList
 
         pullers =
-            closedList
+            addedPoints
+                |> List.cycle (List.length addedPoints + 2)
+                |> List.drop 1
                 |> List.groupsOf 2
-                |> List.cycle (List.length closedList // 2 + 1)
 
         pullerList =
             -- Convert the list of list of points into a list of pullers.
@@ -305,8 +337,53 @@ roundedPolygon cornerList =
     curve
         -- In this case, the first point is a `pulling` point. It does not pass through the first point as its a control point.
         -- Thats why we start from the Second point to pass through.
-        (Maybe.withDefault ( 0.0, 0.0 ) <| List.getAt 1 closedList)
+        (Maybe.withDefault ( 0.0, 0.0 ) <| List.getAt 3 addedPoints)
         pullerList
+
+
+roundedPolygon : List ( Float, Float ) -> Stencil
+roundedPolygon cornerList =
+    let
+        extendedList =
+            List.cycle (List.length cornerList + 5) cornerList
+
+        applyRoundCorner shorteningList =
+            case shorteningList of
+                a :: b :: c :: d :: rest ->
+                    let
+                        addCorner1 =
+                            roundCorner a b c
+
+                        addCorner2 =
+                            roundCorner b c d
+
+                        addStraight =
+                            { start = addCorner1.end
+                            , corner = addCorner1.end
+                            , end = addCorner2.start
+                            }
+                    in
+                    addCorner1 :: addStraight :: applyRoundCorner (b :: c :: d :: rest)
+
+                _ ->
+                    []
+
+        roundCornerList =
+            Debug.log "curve list" <| applyRoundCorner extendedList
+
+        firstRoundCorner =
+            Maybe.withDefault dummyRoundCorner (List.head roundCornerList)
+
+        dummyRoundCorner =
+            { start = ( 0, 0 ), corner = ( 0, 0 ), end = ( 0, 0 ) }
+
+        toPull givenRoundCorner =
+            Pull givenRoundCorner.corner givenRoundCorner.end
+
+        pullList =
+            List.map toPull roundCornerList
+    in
+    curve firstRoundCorner.start pullList
 
 
 roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, goingToY ) =
