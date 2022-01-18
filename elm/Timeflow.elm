@@ -1,8 +1,9 @@
-module Timeflow exposing (Msg, ViewState, defaultState, routeView, subscriptions, update, view)
+module Timeflow exposing (Msg, ViewState, addPoints, defaultState, neighboringLoop, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
 import Activity.Timeline
+import Array
 import Browser
 import Browser.Dom
 import Css as C
@@ -130,7 +131,7 @@ updateViewSettings profile env =
 defaultState : Profile -> Environment -> ViewState
 defaultState profile environment =
     { settings = updateViewSettings profile environment
-    , widgets = Dict.fromList [ ( "0", Widget.init 200 200 "0" ) ]
+    , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
     , pointer = { x = 0.0, y = 0.0 }
     }
 
@@ -183,6 +184,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> filled green
             |> move ( -50, 0 )
             |> curveHelper
+            |> GraphicSVG.scale 1
 
         -- , curve ( 95, 0 )
         --     [ Pull ( 100, 0 ) ( 100, -5 )
@@ -194,11 +196,15 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
 
 
 demoPolygonPoints =
-    [ ( 0, 0 )
-    , ( 100, 0 )
-    , ( 100, -30 )
-    , ( 0, -30 )
-    ]
+    [ ( 0, 0 ), ( 100, 0 ), ( 50, -30 ) ]
+
+
+
+-- [ ( 0, 0 )
+-- , ( 100, 0 )
+-- , ( 100, -20 )
+-- , ( 0, -20 )
+-- ]
 
 
 demoPolygonPoints2 =
@@ -209,6 +215,130 @@ demoPolygonPoints2 =
     , ( 75, -20 )
     , ( 0, -20 )
     ]
+
+
+
+{-
+   Given a list, return a list of neightboring elements which Loops!.
+   Example: [ 1, 2, 3 ] -> [ ( 1, 2, 3 ), ( 2, 3, 1 ), ( 3, 1, 2 ) ]
+-}
+
+
+neighboringLoop : List a -> List ( a, a, a )
+neighboringLoop list =
+    let
+        la =
+            list
+
+        lb =
+            List.drop 1 <| List.cycle (List.length list + 1) list
+
+        lc =
+            List.drop 2 <| List.cycle (List.length list + 2) list
+    in
+    List.zip3 la lb lc
+
+
+
+{-
+   addpoints simply adds in-between points to the list.
+   This is used to give the curve 'End Points'. The normal points then act as the 'Control Points'.
+-}
+
+
+addPoints : Float -> List ( Float, Float ) -> List ( Float, Float )
+addPoints radii points =
+    let
+        la =
+            points
+
+        -- Shifted points to the right by 1
+        lb =
+            List.drop 1 <| List.cycle (List.length points + 1) points
+
+        -- This is only used to give the map access to two points at a time to calculate the midpoint between them.
+        neighboringPoints =
+            List.zip la lb
+
+        newPoints =
+            List.concat
+                (List.map
+                    (\( a, b ) ->
+                        let
+                            deltaY =
+                                Tuple.second b - Tuple.second a
+
+                            deltaX =
+                                Tuple.first b - Tuple.first a
+
+                            angleRads =
+                                atan2 deltaY deltaX
+
+                            x1 =
+                                radii * cos angleRads
+
+                            y1 =
+                                radii * sin angleRads
+
+                            x2 =
+                                -radii * cos angleRads
+
+                            y2 =
+                                -radii * sin angleRads
+
+                            firstPoint =
+                                ( Tuple.first a + x1, Tuple.second a + y1 )
+
+                            midPoint =
+                                ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
+
+                            secondPoint =
+                                ( Tuple.first b + x2, Tuple.second b + y2 )
+
+                            lastPoint =
+                                ( Tuple.first b, Tuple.second b )
+                        in
+                        [ firstPoint, midPoint, secondPoint, lastPoint ]
+                    )
+                    neighboringPoints
+                )
+    in
+    newPoints
+
+
+roundedPolygon2 : List ( Float, Float ) -> Stencil
+roundedPolygon2 cornerList =
+    let
+        addedPoints =
+            -- Doing it twice to make it more 'round'. TODO: remove this
+            addPoints 10 cornerList
+
+        pullers =
+            addedPoints
+                |> List.cycle (List.length addedPoints + 2)
+                |> List.drop 1
+                |> List.groupsOf 2
+
+        pullerList =
+            -- Convert the list of list of points into a list of pullers.
+            List.map
+                (\list ->
+                    let
+                        a =
+                            Maybe.withDefault ( 0, 0 ) <| List.getAt 0 list
+
+                        b =
+                            Maybe.withDefault ( 0, 0 ) <| List.getAt 1 list
+                    in
+                    GraphicSVG.Pull ( Tuple.first a, Tuple.second a ) ( Tuple.first b, Tuple.second b )
+                )
+                pullers
+    in
+    curve
+        -- In this case, the first point is a `pulling` point. It does not pass through the first point as its a control point.
+        -- Thats why we start from the Second point to pass through.
+        (Maybe.withDefault ( 0.0, 0.0 ) <| List.getAt 3 addedPoints)
+        pullerList
 
 
 roundedPolygon : List ( Float, Float ) -> Stencil
