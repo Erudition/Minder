@@ -127,7 +127,7 @@ updateViewSettings profile env =
     { flowRenderPeriod = today
     , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 2
+    , rowHeight = 1
     }
 
 
@@ -173,15 +173,25 @@ view maybeVState profile env =
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view widgetState
-        ([ rect 100 100
+        ([ rect 100 48
             |> filled gray
             |> notifyMouseMoveAt PointerMove
+            |> move ( 0, -24 )
          , graphPaperCustom 1 0.03 black
+         , polygon
+            demoPolygonPoints
+            |> filled blue
+            |> move ( -50, 0 )
+            |> notifyMouseMoveAt PointerMove
+         , roundedPolygon 2 demoPolygonPoints
+            |> filled green
+            |> move ( -50, 0 )
+            |> notifyMouseMoveAt PointerMove
          , circle 1
             |> filled blue
             |> move ( state.pointer.x / 4, state.pointer.y / 4 )
             |> notifyMouseMoveAt PointerMove
-         , GraphicSVG.text "GraphicSVG side"
+         , GraphicSVG.text (Clock.toShortString (HumanMoment.extractTime env.timeZone state.settings.pivotMoment))
             |> fixedwidth
             |> size 2
             |> filled black
@@ -196,14 +206,6 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> size 2
             |> filled black
             |> move ( 0, -2000 )
-         , polygon
-            demoPolygonPoints
-            |> filled blue
-            |> move ( -50, 0 )
-         , roundedPolygon 2 demoPolygonPoints
-            |> filled green
-            |> move ( -50, 0 )
-            |> GraphicSVG.scale 1
 
          -- , curve ( 95, 0 )
          --     [ Pull ( 100, 0 ) ( 100, -5 )
@@ -212,7 +214,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
          --     |> filled orange
          --     |> move ( -50, 0 )
          ]
-            ++ Debug.log "adding shapes" (List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod))
+            ++ List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod)
         )
 
 
@@ -333,7 +335,7 @@ roundedPolygon2 : Polygon -> Stencil
 roundedPolygon2 cornerList =
     let
         addedPoints =
-            addPoints 1 cornerList
+            addPoints 0.5 cornerList
 
         pullers =
             addedPoints
@@ -601,7 +603,7 @@ displayBlob displayState env flowBlob =
 
 blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
 blobToShape settings env flowBlob =
-    roundedPolygon2
+    roundedPolygon 0.5
         (blobToPolygonPoints settings env flowBlob)
         |> filled (graphColor flowBlob.color)
         |> move ( -50, 0 )
@@ -1160,7 +1162,7 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
         activityColor =
             hsluv
                 { hue = activityHue
-                , saturation = 0.8
+                , saturation = 1
                 , lightness = 0.5
                 , alpha = 0.99
                 }
