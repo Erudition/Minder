@@ -125,7 +125,7 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 30
+    , hourRowSize = Duration.fromMinutes 10
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 1
     }
@@ -700,13 +700,63 @@ blobToPolygonPoints displayState env flowBlob =
                     , ( 100 - endsAtPortion * 100, startHeight )
                     , ( 100 - endsAtPortion * 100, startHeight - h )
                     ]
+
+        oneCrossingBlob =
+            case isOddRow firstRowStartWall of
+                False ->
+                    [ ( startsAtPortion * 100, startHeight - h )
+                    , ( startsAtPortion * 100, startHeight )
+                    , ( 100, startHeight )
+                    , ( 100, startHeight - (2 * h) )
+                    , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
+                    , ( 100 - endsAtPortion * 100, startHeight - h )
+                    ]
+
+                True ->
+                    [ ( 0, startHeight - (2 * h) )
+                    , ( 0, startHeight )
+                    , ( 100 - startsAtPortion * 100, startHeight )
+                    , ( 100 - startsAtPortion * 100, startHeight - h )
+                    , ( endsAtPortion * 100, startHeight - h )
+                    , ( endsAtPortion * 100, startHeight - (2 * h) )
+                    ]
+
+        sandwichBlob middlePieces =
+            case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
+                ( False, True ) ->
+                    [ ( startsAtPortion * 100, startHeight - h )
+                    , ( startsAtPortion * 100, startHeight )
+                    , ( 100, startHeight )
+                    , ( 100, startHeight - ((2 + middlePieces) * h) )
+                    , ( 100 - endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
+                    , ( 100 - endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
+                    , ( 0, startHeight - ((1 + middlePieces) * h) )
+                    , ( 0, startHeight - h )
+                    ]
+
+                ( True, False ) ->
+                    [ ( 0, startHeight - ((2 + middlePieces) * h) )
+                    , ( 0, startHeight )
+                    , ( 100 - startsAtPortion * 100, startHeight )
+                    , ( 100 - startsAtPortion * 100, startHeight - h )
+                    , ( 100, startHeight - h )
+                    , ( 100, startHeight - (h * (middlePieces + 1)) )
+                    , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
+                    , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
+                    ]
+
+                _ ->
+                    []
     in
-    case wallsCrossed of
-        [] ->
+    case List.length wallsCrossed of
+        0 ->
             floatingBlob
 
-        _ ->
-            floatingBlob
+        1 ->
+            oneCrossingBlob
+
+        x ->
+            sandwichBlob (toFloat x - 1)
 
 
 type PieceType
