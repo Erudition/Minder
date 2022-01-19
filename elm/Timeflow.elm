@@ -1,4 +1,4 @@
-module Timeflow exposing (Msg, ViewState, addPoints, defaultState, neighboringLoop, routeView, subscriptions, update, view)
+module Timeflow exposing (Msg, ViewState, addPoints, init, neighboringLoop, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
@@ -128,12 +128,18 @@ updateViewSettings profile env =
     }
 
 
-defaultState : Profile -> Environment -> ViewState
-defaultState profile environment =
-    { settings = updateViewSettings profile environment
-    , widgets = Dict.fromList [ ( "0", Widget.init 100 100 "0" ) ]
-    , pointer = { x = 0.0, y = 0.0 }
-    }
+init : Profile -> Environment -> ( ViewState, Cmd Msg )
+init profile environment =
+    let
+        ( widget1state, widget1init ) =
+            Widget.init 100 100 "0"
+    in
+    ( { settings = updateViewSettings profile environment
+      , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
+      , pointer = { x = 0.0, y = 0.0 }
+      }
+    , Cmd.map (WidgetMsg "0") widget1init
+    )
 
 
 routeView : Parser (Maybe ViewState -> a) a
@@ -145,7 +151,7 @@ view : Maybe ViewState -> Profile -> Environment -> SH.Html Msg
 view maybeVState profile env =
     let
         vState =
-            Maybe.withDefault (defaultState profile env) maybeVState
+            Maybe.withDefault (Tuple.first (init profile env)) maybeVState
     in
     SH.fromUnstyled <|
         layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
@@ -1089,6 +1095,6 @@ subscriptions : Profile -> Environment -> Maybe ViewState -> Sub Msg
 subscriptions profile env maybeVState =
     let
         vState =
-            Maybe.withDefault (defaultState profile env) maybeVState
+            Maybe.withDefault (Tuple.first (init profile env)) maybeVState
     in
     Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys vState.widgets)

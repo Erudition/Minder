@@ -230,9 +230,12 @@ init maybeJson url maybeKey =
             [ Job.perform identity (Job.map2 SetZoneAndTime HumanMoment.localZone Moment.now) -- reduces initial calls to update
             , firstEffects
             ]
+
+        paneInits =
+            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init modelWithFirstUpdate.profile modelWithFirstUpdate.environment) ]
     in
     ( modelWithFirstUpdate
-    , Cmd.batch effects
+    , Cmd.batch (effects ++ paneInits)
     )
 
 
@@ -766,7 +769,7 @@ update msg ({ viewState, profile, environment } as model) =
                             subView
 
                         _ ->
-                            Timeflow.defaultState profile environment
+                            Tuple.first (Timeflow.init profile environment)
 
                 ( newState, newApp, newCommand ) =
                     Timeflow.update subMsg subViewState profile environment
