@@ -1,6 +1,8 @@
-module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, elementHsluv, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, graphColor, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
+import Color
 import Element
+import GraphicSVG
 import HSLuv exposing (HSLuv, hsluv)
 import IntDict exposing (IntDict)
 import Json.Decode as ClassicDecode
@@ -536,16 +538,36 @@ encodeFuzzyMoment fuzzy =
     Encode.string <| SmartTime.Human.Moment.fuzzyToString fuzzy
 
 
-elementColor :
+elementHsluv :
     { hue : Float
     , saturation : Float
     , lightness : Float
     , alpha : Float
     }
     -> Element.Color
-elementColor hSLuvParts =
+elementHsluv hSLuvParts =
     let
         { red, green, blue, alpha } =
             HSLuv.toRgba (HSLuv.hsluv hSLuvParts)
     in
     Element.rgba red green blue alpha
+
+
+elementColor :
+    Color.Color
+    -> Element.Color
+elementColor color =
+    let
+        { red, green, blue, alpha } =
+            Color.toRgba color
+    in
+    Element.rgba red green blue alpha
+
+
+graphColor : Color.Color -> GraphicSVG.Color
+graphColor color =
+    let
+        { red, green, blue, alpha } =
+            Color.toRgba color
+    in
+    GraphicSVG.rgba (red * 255) (green * 255) (blue * 255) alpha

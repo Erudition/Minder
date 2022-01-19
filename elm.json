@@ -9,6 +9,7 @@
             "MacCASOutreach/graphicsvg": "7.2.0",
             "MartinSStewart/elm-serialize": "1.2.3",
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
+            "avh4/elm-color": "1.0.0",
             "bburdette/toop": "1.0.1",
             "danfishgold/base64-bytes": "1.1.0",
             "elm/browser": "1.0.1",
@@ -41,7 +42,6 @@
             "zwilias/json-decode-exploration": "5.0.1"
         },
         "indirect": {
-            "avh4/elm-color": "1.0.0",
             "elm/file": "1.0.5",
             "elm/svg": "1.0.1",
             "rtfeldman/elm-hex": "1.0.0",

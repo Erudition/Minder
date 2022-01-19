@@ -9478,15 +9478,15 @@ var $author$project$Timeflow$updateViewSettings = F2(
 						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
 					chosenDayCutoffTime)));
 		return {
-			flowRenderPeriod: week,
+			flowRenderPeriod: today,
 			hourRowSize: $author$project$SmartTime$Duration$fromMinutes(30),
 			pivotMoment: A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
-			rowHeight: 40
+			rowHeight: 2
 		};
 	});
 var $author$project$Timeflow$init = F2(
 	function (profile, environment) {
-		var _v0 = A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 100, '0');
+		var _v0 = A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 1000, '0');
 		var widget1state = _v0.a;
 		var widget1init = _v0.b;
 		return _Utils_Tuple2(
@@ -24277,8 +24277,8 @@ var $author$project$Timeflow$update = F4(
 					return _Debug_todo(
 						'Timeflow',
 						{
-							start: {line: 1073, column: 21},
-							end: {line: 1073, column: 31}
+							start: {line: 1212, column: 21},
+							end: {line: 1212, column: 31}
 						})('Tried to update a widget that has no stored state');
 				} else {
 					var _v2 = _v1.a;

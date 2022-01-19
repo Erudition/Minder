@@ -8,6 +8,7 @@ import Activity.Timeline
 import Array
 import Browser
 import Browser.Dom
+import Color exposing (Color)
 import Css as C
 import Date
 import Dict exposing (Dict)
@@ -171,13 +172,6 @@ view maybeVState profile env =
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
-    let
-        blobToShape blob =
-            roundedPolygon2
-                (blobToPolygon state.settings env blob)
-                |> filled orange
-                |> move ( -50, 0 )
-    in
     Widget.view widgetState
         ([ rect 100 100
             |> filled gray
@@ -218,7 +212,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
          --     |> filled orange
          --     |> move ( -50, 0 )
          ]
-            ++ Debug.log "adding shapes" (List.map blobToShape (historyBlobs env profile state.settings.flowRenderPeriod))
+            ++ Debug.log "adding shapes" (List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod))
         )
 
 
@@ -462,7 +456,7 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
 type alias FlowBlob =
     { start : Moment
     , end : Moment
-    , color : Element.Color
+    , color : Color.Color
     , label : String
     }
 
@@ -581,7 +575,7 @@ displayBlob displayState env flowBlob =
                     "Middle"
 
         blobAttributes =
-            [ Background.color flowBlob.color, height fill, Element.clip ]
+            [ Background.color (elementColor flowBlob.color), height fill, Element.clip ]
 
         centeredText textToShow =
             el [ centerX, centerY ] <| Element.text textToShow
@@ -600,8 +594,16 @@ displayBlob displayState env flowBlob =
                 [ topRow ] ++ List.repeat (List.length moreCrossings) middleRow ++ [ bottomRow ]
 
 
-blobToPolygon : ViewSettings -> Environment -> FlowBlob -> Polygon
-blobToPolygon displayState env flowBlob =
+blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
+blobToShape settings env flowBlob =
+    roundedPolygon2
+        (blobToPolygonPoints settings env flowBlob)
+        |> filled (graphColor flowBlob.color)
+        |> move ( -50, 0 )
+
+
+blobToPolygonPoints : ViewSettings -> Environment -> FlowBlob -> Polygon
+blobToPolygonPoints displayState env flowBlob =
     let
         msBetweenWalls =
             Duration.inMs displayState.hourRowSize
@@ -813,7 +815,7 @@ hourRowContents viewSettings profile env rowPeriod =
                 ]
 
         demoBlob =
-            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes", color = Element.rgb 0.1 0.8 0.4 }
+            { start = env.time, end = Moment.future env.time (Duration.fromMinutes 80), label = "the next 80 minutes", color = Color.rgb 0.1 0.8 0.4 }
 
         blobsDisplayed =
             List.filterMap displayIfStartsInThisRow ([ demoBlob ] ++ historyBlobs env profile viewSettings.flowRenderPeriod)
@@ -1151,12 +1153,13 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
             toFloat (ID.read activityID) / toFloat (IntDict.size activities)
 
         activityColor =
-            elementColor
+            hsluv
                 { hue = activityHue
-                , saturation = 1
+                , saturation = 0.8
                 , lightness = 0.5
-                , alpha = 0.5
+                , alpha = 0.99
                 }
+                |> HSLuv.toColor
     in
     FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) activityColor activityName
 
