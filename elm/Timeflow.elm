@@ -173,7 +173,7 @@ view maybeVState profile env =
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     let
         blobToShape blob =
-            roundedPolygon2
+            roundedPolygon 1
                 (blobToPolygon state.settings env blob)
                 |> filled orange
                 |> move ( -50, 0 )
@@ -206,7 +206,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             demoPolygonPoints
             |> filled blue
             |> move ( -50, 0 )
-         , roundedPolygon2 demoPolygonPoints
+         , roundedPolygon 2 demoPolygonPoints
             |> filled green
             |> move ( -50, 0 )
             |> GraphicSVG.scale 1
@@ -369,12 +369,14 @@ roundedPolygon2 cornerList =
         pullerList
 
 
-roundedPolygon : Polygon -> Stencil
-roundedPolygon cornerList =
-    let
-        radii =
-            10
+distanceBetweenPoints : Point -> Point -> Float
+distanceBetweenPoints ( x1, y1 ) ( x2, y2 ) =
+    sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 
+
+roundedPolygon : Float -> Polygon -> Stencil
+roundedPolygon radii cornerList =
+    let
         applyRoundCorner shorteningList =
             case shorteningList of
                 a :: b :: c :: rest ->
@@ -438,17 +440,20 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
         --     -- Debug.log "angleRad" <|
         --     atan2 (middleY - endY) (middleX - endX)
         --         - atan2 (middleY - startY) (middleX - startX)
+        radii1 =
+            min radii <| min (distanceBetweenPoints ( startX, startY ) ( middleX, middleY )) (distanceBetweenPoints ( middleX, middleY ) ( endX, endY ))
+
         x1 =
-            radii * cos basis
+            radii1 * cos basis
 
         y1 =
-            radii * sin basis
+            radii1 * sin basis
 
         x2 =
-            radii * cos basis2
+            radii1 * cos basis2
 
         y2 =
-            radii * sin basis2
+            radii1 * sin basis2
 
         firstPoint =
             ( middleX + x1, middleY + y1 )
