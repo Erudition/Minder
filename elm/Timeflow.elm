@@ -217,6 +217,10 @@ demoPolygonPoints2 =
     ]
 
 
+type alias Point =
+    ( Float, Float )
+
+
 
 {-
    Given a list, return a list of neightboring elements which Loops!.
@@ -246,7 +250,7 @@ neighboringLoop list =
 -}
 
 
-addPoints : Float -> List ( Float, Float ) -> List ( Float, Float )
+addPoints : Float -> List Point -> List Point
 addPoints radii points =
     let
         la =
@@ -306,7 +310,7 @@ addPoints radii points =
     newPoints
 
 
-roundedPolygon2 : List ( Float, Float ) -> Stencil
+roundedPolygon2 : List Point -> Stencil
 roundedPolygon2 cornerList =
     let
         addedPoints =
@@ -386,6 +390,7 @@ roundedPolygon cornerList =
     curve firstRoundCorner.start pullList
 
 
+roundCorner : Point -> Point -> Point -> { start : Point, corner : Point, end : Point }
 roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, goingToY ) =
     let
         radius =
