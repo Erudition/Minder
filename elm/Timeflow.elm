@@ -121,10 +121,10 @@ updateViewSettings profile env =
             -- will be derived from profile settings
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
-    { flowRenderPeriod = week
+    { flowRenderPeriod = today
     , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 40
+    , rowHeight = 2
     }
 
 
@@ -132,7 +132,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 100 "0"
+            Widget.init 100 1000 "0"
     in
     ( { settings = updateViewSettings profile environment
       , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
@@ -168,37 +168,55 @@ view maybeVState profile env =
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
+    let
+        blobToShape blob =
+            roundedPolygon2
+                (blobToPolygon state.settings env blob)
+                |> filled orange
+                |> move ( -50, 0 )
+    in
     Widget.view widgetState
-        [ rect 100 100
+        ([ rect 100 100
             |> filled gray
             |> notifyMouseMoveAt PointerMove
-        , graphPaperCustom 1 0.03 black
-        , circle 1
+         , graphPaperCustom 1 0.03 black
+         , circle 1
             |> filled blue
             |> move ( state.pointer.x / 4, state.pointer.y / 4 )
             |> notifyMouseMoveAt PointerMove
-        , GraphicSVG.text "GraphicSVG side"
+         , GraphicSVG.text "GraphicSVG side"
             |> fixedwidth
             |> size 2
             |> filled black
-            |> move ( -25, 11 )
-        , polygon
+            |> move ( 0, 0 )
+         , GraphicSVG.text "Y = -1000"
+            |> fixedwidth
+            |> size 2
+            |> filled black
+            |> move ( 0, -1000 )
+         , GraphicSVG.text "Y = -2000"
+            |> fixedwidth
+            |> size 2
+            |> filled black
+            |> move ( 0, -2000 )
+         , polygon
             demoPolygonPoints
             |> filled blue
             |> move ( -50, 0 )
-        , roundedPolygon2 demoPolygonPoints
+         , roundedPolygon2 demoPolygonPoints
             |> filled green
             |> move ( -50, 0 )
-            |> curveHelper
             |> GraphicSVG.scale 1
 
-        -- , curve ( 95, 0 )
-        --     [ Pull ( 100, 0 ) ( 100, -5 )
-        --     , Pull ( )
-        --     ]
-        --     |> filled orange
-        --     |> move ( -50, 0 )
-        ]
+         -- , curve ( 95, 0 )
+         --     [ Pull ( 100, 0 ) ( 100, -5 )
+         --     , Pull ( )
+         --     ]
+         --     |> filled orange
+         --     |> move ( -50, 0 )
+         ]
+            ++ Debug.log "adding shapes" (List.map blobToShape (historyBlobs env profile state.settings.flowRenderPeriod))
+        )
 
 
 demoPolygonPoints =
@@ -267,7 +285,7 @@ neighboringLoop list =
 -}
 
 
-addPoints : Float -> List Point -> List Point
+addPoints : Float -> Polygon -> Polygon
 addPoints radii points =
     let
         -- Shifted points to the right by 1
@@ -318,7 +336,7 @@ roundedPolygon2 : Polygon -> Stencil
 roundedPolygon2 cornerList =
     let
         addedPoints =
-            addPoints 10 cornerList
+            addPoints 1 cornerList
 
         pullers =
             addedPoints
@@ -565,6 +583,112 @@ displayBlob displayState env flowBlob =
 
             first :: moreCrossings ->
                 [ topRow ] ++ List.repeat (List.length moreCrossings) middleRow ++ [ bottomRow ]
+
+
+blobToPolygon : ViewSettings -> Environment -> FlowBlob -> Polygon
+blobToPolygon displayState env flowBlob =
+    let
+        msBetweenWalls =
+            Duration.inMs displayState.hourRowSize
+
+        startMs =
+            Duration.subtract (Moment.toDuration flowBlob.start Moment.y2k)
+                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+                |> Duration.inMs
+
+        offsetFromPriorWall ms =
+            -- TODO for negatives: mod or remainder
+            modBy msBetweenWalls ms
+
+        distanceToNextWall ms =
+            msBetweenWalls - offsetFromPriorWall ms
+
+        endMs =
+            Duration.subtract (Moment.toDuration flowBlob.end Moment.y2k)
+                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+                |> Duration.inMs
+
+        firstWallAfterStart =
+            startMs + distanceToNextWall startMs
+
+        wallsCrossed =
+            if firstWallAfterStart > endMs then
+                []
+
+            else
+                List.iterate nextWallWithinBlob firstWallAfterStart
+
+        nextWallWithinBlob ms =
+            -- less than, not equal, so we don't start a new row of zero width
+            if ms + msBetweenWalls < endMs then
+                Just (ms + msBetweenWalls)
+
+            else
+                -- we've left the blob
+                Nothing
+
+        startsAtPortion =
+            toFloat (offsetFromPriorWall startMs) / toFloat msBetweenWalls
+
+        endsAtPortion =
+            toFloat (offsetFromPriorWall endMs) / toFloat msBetweenWalls
+
+        reverseMaybe shouldReverse elements =
+            if shouldReverse then
+                List.reverse elements
+
+            else
+                elements
+
+        firstRowStartWall =
+            startMs - offsetFromPriorWall startMs
+
+        lastRowStartWall =
+            endMs - offsetFromPriorWall endMs
+
+        startsOnWall =
+            offsetFromPriorWall startMs == 0
+
+        h =
+            toFloat displayState.rowHeight
+
+        startHeight =
+            0 - toFloat (rowNumber firstRowStartWall) * h
+
+        rowNumber wall =
+            wall // msBetweenWalls
+
+        isOddRow startWall =
+            modBy 2 (rowNumber startWall) == 1
+
+        floatingBlob =
+            case isOddRow firstRowStartWall of
+                False ->
+                    [ ( startsAtPortion * 100, startHeight - h )
+                    , ( startsAtPortion * 100, startHeight )
+                    , ( endsAtPortion * 100, startHeight )
+                    , ( endsAtPortion * 100, startHeight - h )
+                    ]
+
+                True ->
+                    [ ( 100 - startsAtPortion * 100, startHeight - h )
+                    , ( 100 - startsAtPortion * 100, startHeight )
+                    , ( 100 - endsAtPortion * 100, startHeight )
+                    , ( 100 - endsAtPortion * 100, startHeight - h )
+                    ]
+    in
+    case wallsCrossed of
+        [] ->
+            floatingBlob
+
+        _ ->
+            floatingBlob
+
+
+type PieceType
+    = TopPiece
+    | BottomPiece
+    | UniPiece
 
 
 timeFlowLayout : ViewSettings -> Profile -> Environment -> Element Msg
