@@ -186,7 +186,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             demoPolygonPoints
             |> filled blue
             |> move ( -50, 0 )
-        , roundedPolygon demoPolygonPoints
+        , roundedPolygon2 demoPolygonPoints
             |> filled green
             |> move ( -50, 0 )
             |> curveHelper
@@ -223,6 +223,21 @@ demoPolygonPoints2 =
     ]
 
 
+type alias Point =
+    ( Float, Float )
+
+
+type alias Corner =
+    { start : Point
+    , middle : Point
+    , end : Point
+    }
+
+
+type alias Polygon =
+    List Point
+
+
 
 {-
    Given a list, return a list of neightboring elements which Loops!.
@@ -252,71 +267,57 @@ neighboringLoop list =
 -}
 
 
-addPoints : Float -> List ( Float, Float ) -> List ( Float, Float )
+addPoints : Float -> List Point -> List Point
 addPoints radii points =
     let
-        la =
-            points
-
         -- Shifted points to the right by 1
-        lb =
+        offsetPoints =
             List.drop 1 <| List.cycle (List.length points + 1) points
 
         -- This is only used to give the map access to two points at a time to calculate the midpoint between them.
         neighboringPoints =
-            List.zip la lb
-
-        newPoints =
-            List.concat
-                (List.map
-                    (\( a, b ) ->
-                        let
-                            deltaY =
-                                Tuple.second b - Tuple.second a
-
-                            deltaX =
-                                Tuple.first b - Tuple.first a
-
-                            angleRads =
-                                atan2 deltaY deltaX
-
-                            x1 =
-                                radii * cos angleRads
-
-                            y1 =
-                                radii * sin angleRads
-
-                            x2 =
-                                -radii * cos angleRads
-
-                            y2 =
-                                -radii * sin angleRads
-
-                            firstPoint =
-                                ( Tuple.first a + x1, Tuple.second a + y1 )
-
-                            midPoint =
-                                ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
-
-                            secondPoint =
-                                ( Tuple.first b + x2, Tuple.second b + y2 )
-
-                            lastPoint =
-                                ( Tuple.first b, Tuple.second b )
-                        in
-                        [ firstPoint, midPoint, secondPoint, lastPoint ]
-                    )
-                    neighboringPoints
-                )
+            List.zip points offsetPoints
     in
-    newPoints
+    neighboringPoints
+        |> List.map
+            (\( a, b ) ->
+                let
+                    angleRads =
+                        atan2 (Tuple.second b - Tuple.second a) (Tuple.first b - Tuple.first a)
+
+                    x1 =
+                        radii * cos angleRads
+
+                    y1 =
+                        radii * sin angleRads
+
+                    x2 =
+                        -radii * cos angleRads
+
+                    y2 =
+                        -radii * sin angleRads
+
+                    firstPoint =
+                        ( Tuple.first a + x1, Tuple.second a + y1 )
+
+                    midPoint =
+                        ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
+
+                    secondPoint =
+                        ( Tuple.first b + x2, Tuple.second b + y2 )
+
+                    lastPoint =
+                        ( Tuple.first b, Tuple.second b )
+                in
+                [ firstPoint, midPoint, secondPoint, lastPoint ]
+            )
+        |> List.concat
 
 
-roundedPolygon2 : List ( Float, Float ) -> Stencil
+roundedPolygon2 : Polygon -> Stencil
 roundedPolygon2 cornerList =
     let
         addedPoints =
-            -- Doing it twice to make it more 'round'. TODO: remove this
             addPoints 10 cornerList
 
         pullers =
@@ -336,7 +337,7 @@ roundedPolygon2 cornerList =
                         b =
                             Maybe.withDefault ( 0, 0 ) <| List.getAt 1 list
                     in
-                    GraphicSVG.Pull ( Tuple.first a, Tuple.second a ) ( Tuple.first b, Tuple.second b )
+                    GraphicSVG.Pull a b
                 )
                 pullers
     in
@@ -347,7 +348,7 @@ roundedPolygon2 cornerList =
         pullerList
 
 
-roundedPolygon : List ( Float, Float ) -> Stencil
+roundedPolygon : Polygon -> Stencil
 roundedPolygon cornerList =
     let
         extendedList =
@@ -365,7 +366,7 @@ roundedPolygon cornerList =
 
                         addStraight =
                             { start = addCorner1.end
-                            , corner = addCorner1.end
+                            , middle = addCorner1.end
                             , end = addCorner2.start
                             }
                     in
@@ -381,10 +382,10 @@ roundedPolygon cornerList =
             Maybe.withDefault dummyRoundCorner (List.head roundCornerList)
 
         dummyRoundCorner =
-            { start = ( 0, 0 ), corner = ( 0, 0 ), end = ( 0, 0 ) }
+            { start = ( 0, 0 ), middle = ( 0, 0 ), end = ( 0, 0 ) }
 
         toPull givenRoundCorner =
-            Pull givenRoundCorner.corner givenRoundCorner.end
+            Pull givenRoundCorner.middle givenRoundCorner.end
 
         pullList =
             List.map toPull roundCornerList
@@ -392,6 +393,7 @@ roundedPolygon cornerList =
     curve firstRoundCorner.start pullList
 
 
+roundCorner : Point -> Point -> Point -> Corner
 roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, goingToY ) =
     let
         radius =
@@ -419,7 +421,7 @@ roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, 
             corner - (radius * direction)
     in
     { start = ( curveStart comingFromX cornerLocX, curveStart comingFromY cornerLocY )
-    , corner = ( cornerLocX, cornerLocY )
+    , middle = ( cornerLocX, cornerLocY )
     , end = ( curveStart cornerLocX goingToX, curveStart cornerLocY goingToY )
     }
 

@@ -69,7 +69,7 @@ subscriptions ({ viewState, profile, environment } as model) =
         , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
         , storageChangedElsewhere NewAppData
 
-        --, Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
+        -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
         -- , Moment.every (Duration.fromSeconds 1) (Tock NoOp)
         ]
             ++ (case viewState.primaryView of
