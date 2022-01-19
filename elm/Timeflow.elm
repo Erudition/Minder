@@ -1,5 +1,7 @@
 module Timeflow exposing (Msg, ViewState, addPoints, init, neighboringLoop, routeView, subscriptions, update, view)
 
+-- import Nonnegative exposing (modBy)
+
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
 import Activity.Timeline
@@ -132,7 +134,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 100 "0"
+            Widget.init 200 200 "0"
     in
     ( { settings = updateViewSettings profile environment
       , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
@@ -159,8 +161,9 @@ view maybeVState profile env =
                 [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row [ width (fillPortion 1), height (fillPortion 20), scrollbarY ]
-                    [ timeFlowLayout vState.settings profile env
-                    , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                    [ --  timeFlowLayout vState.settings profile env
+                      -- ,
+                      column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
                     ]
                 , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text "The future is below." ]
@@ -182,14 +185,14 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> size 2
             |> filled black
             |> move ( -25, 11 )
-        , polygon
-            demoPolygonPoints
+        , polygon demoPolygonPoints
             |> filled blue
             |> move ( -50, 0 )
-        , roundedPolygon2 demoPolygonPoints
+            |> GraphicSVG.scale 1
+        , roundedPolygon demoPolygonPoints
             |> filled green
             |> move ( -50, 0 )
-            |> curveHelper
+            -- |> curveHelper
             |> GraphicSVG.scale 1
 
         -- , curve ( 95, 0 )
@@ -202,7 +205,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
 
 
 demoPolygonPoints =
-    [ ( 0, 0 ), ( 100, 0 ), ( 50, -30 ) ]
+    [ ( 0, 0 ), ( 100, 50 ), ( 100, 0 ) ]
 
 
 
@@ -351,79 +354,91 @@ roundedPolygon2 cornerList =
 roundedPolygon : Polygon -> Stencil
 roundedPolygon cornerList =
     let
-        extendedList =
-            List.cycle (List.length cornerList + 5) cornerList
+        radii =
+            10
 
         applyRoundCorner shorteningList =
             case shorteningList of
-                a :: b :: c :: d :: rest ->
+                a :: b :: c :: rest ->
                     let
-                        addCorner1 =
-                            roundCorner a b c
-
-                        addCorner2 =
-                            roundCorner b c d
-
-                        addStraight =
-                            { start = addCorner1.end
-                            , middle = addCorner1.end
-                            , end = addCorner2.start
-                            }
+                        newPoints : List Point
+                        newPoints =
+                            roundCorner radii a b c
                     in
-                    addCorner1 :: addStraight :: applyRoundCorner (b :: c :: d :: rest)
+                    newPoints :: applyRoundCorner (b :: c :: rest)
 
                 _ ->
                     []
 
-        roundCornerList =
-            Debug.log "curve list" <| applyRoundCorner extendedList
+        allThePoints =
+            cornerList
+                |> List.cycle (List.length cornerList + 2)
+                |> applyRoundCorner
+                |> List.concat
 
-        firstRoundCorner =
-            Maybe.withDefault dummyRoundCorner (List.head roundCornerList)
+        pullerList =
+            allThePoints
+                |> List.groupsOf 2
+                |> List.map
+                    (\list ->
+                        let
+                            a =
+                                Maybe.withDefault ( 0, 0 ) <| List.getAt 0 list
 
-        dummyRoundCorner =
-            { start = ( 0, 0 ), middle = ( 0, 0 ), end = ( 0, 0 ) }
-
-        toPull givenRoundCorner =
-            Pull givenRoundCorner.middle givenRoundCorner.end
-
-        pullList =
-            List.map toPull roundCornerList
+                            b =
+                                Maybe.withDefault ( 0, 0 ) <| List.getAt 1 list
+                        in
+                        GraphicSVG.Pull a b
+                    )
     in
-    curve firstRoundCorner.start pullList
+    curve
+        (Maybe.withDefault ( 0, 0 ) <| List.head allThePoints)
+        pullerList
 
 
-roundCorner : Point -> Point -> Point -> Corner
-roundCorner ( comingFromX, comingFromY ) ( cornerLocX, cornerLocY ) ( goingToX, goingToY ) =
+roundCorner : Float -> Point -> Point -> Point -> List Point
+roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     let
-        radius =
-            5
+        midPoint =
+            ( (startX + middleX) / 2, (startY + middleY) / 2 )
 
-        curveStart comingFrom corner =
-            let
-                backToPriorCorner =
-                    corner - comingFrom
+        controlPoint =
+            ( middleX, middleY )
 
-                absBackToPriorCorner =
-                    abs backToPriorCorner
+        -- The angle between the vector and a horizontal line from 0,0
+        basis =
+            atan2 (middleY - startY) (middleX - startX)
+                - atan2 (middleY - middleY) (middleX - (middleX + 100))
 
-                direction =
-                    if backToPriorCorner < 0 then
-                        -1
+        -- The angle between the vector and a horizontal line from 0,0
+        basis2 =
+            atan2 (middleY - endY) (middleX - endX)
+                - atan2 (middleY - middleY) (middleX - (middleX + 100))
 
-                    else
-                        1
-            in
-            -- if absBackToPriorCorner < radius then
-            --     comingFrom
-            --
-            -- else
-            corner - (radius * direction)
+        -- The angle between the vectors
+        -- angleRad =
+        --     -- Debug.log "angleRad" <|
+        --     atan2 (middleY - endY) (middleX - endX)
+        --         - atan2 (middleY - startY) (middleX - startX)
+        x1 =
+            radii * cos basis
+
+        y1 =
+            radii * sin basis
+
+        x2 =
+            radii * cos basis2
+
+        y2 =
+            radii * sin basis2
+
+        firstPoint =
+            ( middleX + x1, middleY + y1 )
+
+        secondPoint =
+            ( middleX + x2, middleY + y2 )
     in
-    { start = ( curveStart comingFromX cornerLocX, curveStart comingFromY cornerLocY )
-    , middle = ( cornerLocX, cornerLocY )
-    , end = ( curveStart cornerLocX goingToX, curveStart cornerLocY goingToY )
-    }
+    [ midPoint, firstPoint, controlPoint, secondPoint ]
 
 
 type alias FlowBlob =
