@@ -8129,6 +8129,9 @@ var $author$project$Main$SetZoneAndTime = F2(
 	function (a, b) {
 		return {$: 'SetZoneAndTime', a: a, b: b};
 	});
+var $author$project$Main$TimeflowMsg = function (a) {
+	return {$: 'TimeflowMsg', a: a};
+};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $author$project$SmartTime$Duration$Duration = function (a) {
 	return {$: 'Duration', a: a};
@@ -8900,37 +8903,73 @@ var $author$project$Incubator$Todoist$emptyCache = {
 };
 var $author$project$Profile$emptyTodoistIntegrationData = {activityProjectIDs: $elm_community$intdict$IntDict$empty, cache: $author$project$Incubator$Todoist$emptyCache, parentProjectID: $elm$core$Maybe$Nothing};
 var $author$project$Profile$fromScratch = {activities: $elm_community$intdict$IntDict$empty, errors: _List_Nil, taskClasses: $elm_community$intdict$IntDict$empty, taskEntries: _List_Nil, taskInstances: $elm_community$intdict$IntDict$empty, timeBlocks: _List_Nil, timeline: _List_Nil, todoist: $author$project$Profile$emptyTodoistIntegrationData, uid: 0};
-var $elm$time$Time$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $elm$time$Time$Offset = function (a) {
-	return {$: 'Offset', a: a};
-};
-var $elm$time$Time$Zone = F2(
+var $author$project$Timeflow$WidgetMsg = F2(
 	function (a, b) {
-		return {$: 'Zone', a: a, b: b};
+		return {$: 'WidgetMsg', a: a, b: b};
 	});
-var $elm$time$Time$customZone = $elm$time$Time$Zone;
-var $elm$time$Time$getZoneName = _Time_getZoneName(_Utils_Tuple0);
-var $elm$time$Time$here = _Time_here(_Utils_Tuple0);
-var $author$project$SmartTime$Human$Calendar$Month$DayOfMonth = function (a) {
-	return {$: 'DayOfMonth', a: a};
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
 };
-var $author$project$SmartTime$Human$Calendar$Year$Year = function (a) {
-	return {$: 'Year', a: a};
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize = function (a) {
+	return {$: 'WidgetResize', a: a};
 };
+var $elm$core$Task$onError = _Scheduler_onError;
+var $elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return $elm$core$Task$command(
+			$elm$core$Task$Perform(
+				A2(
+					$elm$core$Task$onError,
+					A2(
+						$elm$core$Basics$composeL,
+						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+						$elm$core$Result$Err),
+					A2(
+						$elm$core$Task$andThen,
+						A2(
+							$elm$core$Basics$composeL,
+							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+							$elm$core$Result$Ok),
+						task))));
+	});
+var $elm$browser$Browser$Dom$getViewportOf = _Browser_getViewportOf;
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize = function (id) {
+	return A2(
+		$elm$core$Task$attempt,
+		function (rvp) {
+			if (rvp.$ === 'Ok') {
+				var vp = rvp.a;
+				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
+					$elm$core$Maybe$Just(
+						_Utils_Tuple2(vp.viewport.width, vp.viewport.height)));
+			} else {
+				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
+					$elm$core$Maybe$Just(
+						_Utils_Tuple2(0, 0)));
+			}
+		},
+		$elm$browser$Browser$Dom$getViewportOf(id));
+};
+var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$init = F3(
+	function (w, h, id) {
+		return _Utils_Tuple2(
+			{ch: h, cw: w, id: id, wh: 0, ww: 0},
+			$MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize(id));
+	});
+var $elm$core$Platform$Cmd$map = _Platform_map;
 var $author$project$SmartTime$Human$Duration$Hours = function (a) {
 	return {$: 'Hours', a: a};
 };
-var $author$project$SmartTime$Human$Duration$Milliseconds = function (a) {
-	return {$: 'Milliseconds', a: a};
-};
-var $author$project$SmartTime$Human$Duration$Minutes = function (a) {
-	return {$: 'Minutes', a: a};
-};
-var $author$project$SmartTime$Human$Duration$Seconds = function (a) {
-	return {$: 'Seconds', a: a};
-};
+var $author$project$SmartTime$Human$Calendar$Week$Sun = {$: 'Sun'};
 var $author$project$SmartTime$Duration$fromInt = function (_int) {
 	return $author$project$SmartTime$Duration$Duration(_int);
 };
@@ -8982,30 +9021,6 @@ var $author$project$SmartTime$Human$Duration$build = function (list) {
 		$elm$core$List$sum(
 			A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$normalize, list)));
 };
-var $author$project$SmartTime$Human$Clock$clock = F4(
-	function (hh, mm, ss, ms) {
-		return $author$project$SmartTime$Human$Duration$build(
-			_List_fromArray(
-				[
-					$author$project$SmartTime$Human$Duration$Hours(hh),
-					$author$project$SmartTime$Human$Duration$Minutes(mm),
-					$author$project$SmartTime$Human$Duration$Seconds(ss),
-					$author$project$SmartTime$Human$Duration$Milliseconds(ms)
-				]));
-	});
-var $author$project$SmartTime$Duration$add = F2(
-	function (_v0, _v1) {
-		var int1 = _v0.a;
-		var int2 = _v1.a;
-		return $author$project$SmartTime$Duration$Duration(int1 + int2);
-	});
-var $author$project$SmartTime$Human$Calendar$toRataDie = function (_v0) {
-	var _int = _v0.a;
-	return _int;
-};
-var $author$project$SmartTime$Moment$UTC = {$: 'UTC'};
-var $author$project$SmartTime$Moment$commonEraStart = $author$project$SmartTime$Moment$Moment(
-	$author$project$SmartTime$Duration$fromInt(0));
 var $author$project$SmartTime$Moment$Earlier = {$: 'Earlier'};
 var $author$project$SmartTime$Moment$Coincident = {$: 'Coincident'};
 var $author$project$SmartTime$Moment$Later = {$: 'Later'};
@@ -9026,6 +9041,31 @@ var $author$project$SmartTime$Moment$compare = F2(
 				return $author$project$SmartTime$Moment$Coincident;
 		}
 	});
+var $author$project$SmartTime$Duration$subtract = F2(
+	function (_v0, _v1) {
+		var int1 = _v0.a;
+		var int2 = _v1.a;
+		return $author$project$SmartTime$Duration$Duration(int1 - int2);
+	});
+var $author$project$SmartTime$Moment$past = F2(
+	function (_v0, duration) {
+		var time = _v0.a;
+		return $author$project$SmartTime$Moment$Moment(
+			A2($author$project$SmartTime$Duration$subtract, time, duration));
+	});
+var $author$project$SmartTime$Duration$add = F2(
+	function (_v0, _v1) {
+		var int1 = _v0.a;
+		var int2 = _v1.a;
+		return $author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var $author$project$SmartTime$Human$Calendar$toRataDie = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$SmartTime$Moment$UTC = {$: 'UTC'};
+var $author$project$SmartTime$Moment$commonEraStart = $author$project$SmartTime$Moment$Moment(
+	$author$project$SmartTime$Duration$fromInt(0));
 var $author$project$SmartTime$Human$Moment$searchRemainingZoneHistory = F3(
 	function (moment, fallback, history) {
 		searchRemainingZoneHistory:
@@ -9202,12 +9242,6 @@ var $author$project$SmartTime$Moment$utcOffset = function (rawUTCMomentAsDur) {
 	var offsetAtThatTime = relevantPeriod.b;
 	return offsetAtThatTime;
 };
-var $author$project$SmartTime$Duration$subtract = F2(
-	function (_v0, _v1) {
-		var int1 = _v0.a;
-		var int2 = _v1.a;
-		return $author$project$SmartTime$Duration$Duration(int1 - int2);
-	});
 var $author$project$SmartTime$Human$Moment$toTAIAndUnlocalize = F2(
 	function (zone, localMomentDur) {
 		var toMoment = function (duration) {
@@ -9228,6 +9262,288 @@ var $author$project$SmartTime$Human$Moment$fromDateAndTime = F3(
 			$author$project$SmartTime$Human$Calendar$toRataDie(date));
 		var total = A2($author$project$SmartTime$Duration$add, timeOfDay, woleDaysBefore);
 		return A2($author$project$SmartTime$Human$Moment$toTAIAndUnlocalize, zone, total);
+	});
+var $author$project$SmartTime$Duration$fromDays = function (_float) {
+	return $author$project$SmartTime$Duration$Duration(
+		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$dayLength));
+};
+var $author$project$SmartTime$Human$Calendar$CalendarDate = function (a) {
+	return {$: 'CalendarDate', a: a};
+};
+var $author$project$SmartTime$Human$Calendar$fromRataDie = $author$project$SmartTime$Human$Calendar$CalendarDate;
+var $author$project$SmartTime$Duration$inWholeDays = function (duration) {
+	return ($author$project$SmartTime$Duration$inMs(duration) / $author$project$SmartTime$Duration$dayLength) | 0;
+};
+var $author$project$SmartTime$Moment$utcFromLinear = function (momentAsDur) {
+	return A2(
+		$author$project$SmartTime$Duration$subtract,
+		momentAsDur,
+		$author$project$SmartTime$Moment$utcOffset(momentAsDur));
+};
+var $author$project$SmartTime$Moment$toInt = F3(
+	function (_v0, timeScale, _v1) {
+		var inputTAI = _v0.a;
+		var epochDur = _v1.a;
+		var newScale = function () {
+			switch (timeScale.$) {
+				case 'TAI':
+					return inputTAI;
+				case 'UTC':
+					return $author$project$SmartTime$Moment$utcFromLinear(inputTAI);
+				case 'GPS':
+					return A2(
+						$author$project$SmartTime$Duration$subtract,
+						inputTAI,
+						$author$project$SmartTime$Duration$fromSeconds(19));
+				default:
+					return A2(
+						$author$project$SmartTime$Duration$subtract,
+						inputTAI,
+						$author$project$SmartTime$Duration$fromMs(32184));
+			}
+		}();
+		return $author$project$SmartTime$Duration$inMs(
+			A2($author$project$SmartTime$Duration$subtract, newScale, epochDur));
+	});
+var $author$project$SmartTime$Human$Moment$toUTCAndLocalize = F2(
+	function (zone, moment) {
+		var momentAsDur = $author$project$SmartTime$Duration$fromInt(
+			A3($author$project$SmartTime$Moment$toInt, moment, $author$project$SmartTime$Moment$UTC, $author$project$SmartTime$Moment$commonEraStart));
+		return A2(
+			$author$project$SmartTime$Duration$add,
+			momentAsDur,
+			A2($author$project$SmartTime$Human$Moment$getOffset, moment, zone));
+	});
+var $author$project$SmartTime$Human$Moment$humanize = F2(
+	function (zone, moment) {
+		var localMomentDur = A2($author$project$SmartTime$Human$Moment$toUTCAndLocalize, zone, moment);
+		var daysSinceEpoch = $author$project$SmartTime$Duration$inWholeDays(localMomentDur);
+		var remaining = A2(
+			$author$project$SmartTime$Duration$subtract,
+			localMomentDur,
+			$author$project$SmartTime$Duration$fromDays(daysSinceEpoch));
+		return _Utils_Tuple2(
+			$author$project$SmartTime$Human$Calendar$fromRataDie(daysSinceEpoch),
+			remaining);
+	});
+var $author$project$SmartTime$Human$Moment$setTime = F3(
+	function (newTime, zone, moment) {
+		var _v0 = A2($author$project$SmartTime$Human$Moment$humanize, zone, moment);
+		var oldDate = _v0.a;
+		return A3($author$project$SmartTime$Human$Moment$fromDateAndTime, zone, oldDate, newTime);
+	});
+var $author$project$SmartTime$Human$Moment$clockTurnBack = F3(
+	function (timeOfDay, zone, moment) {
+		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
+		return _Utils_eq(
+			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
+			$author$project$SmartTime$Moment$Earlier) ? newMoment : A2($author$project$SmartTime$Moment$past, newMoment, $author$project$SmartTime$Duration$aDay);
+	});
+var $author$project$SmartTime$Moment$future = F2(
+	function (_v0, duration) {
+		var time = _v0.a;
+		return $author$project$SmartTime$Moment$Moment(
+			A2($author$project$SmartTime$Duration$add, time, duration));
+	});
+var $author$project$SmartTime$Human$Moment$clockTurnForward = F3(
+	function (timeOfDay, zone, moment) {
+		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
+		return _Utils_eq(
+			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
+			$author$project$SmartTime$Moment$Later) ? newMoment : A2($author$project$SmartTime$Moment$future, newMoment, $author$project$SmartTime$Duration$aDay);
+	});
+var $author$project$SmartTime$Human$Moment$extractDate = F2(
+	function (zone, moment) {
+		return A2($author$project$SmartTime$Human$Moment$humanize, zone, moment).a;
+	});
+var $author$project$SmartTime$Period$Period = F2(
+	function (a, b) {
+		return {$: 'Period', a: a, b: b};
+	});
+var $author$project$SmartTime$Period$fromPair = function (_v0) {
+	var moment1 = _v0.a;
+	var moment2 = _v0.b;
+	return _Utils_eq(
+		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
+		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
+};
+var $author$project$SmartTime$Human$Calendar$Week$Fri = {$: 'Fri'};
+var $author$project$SmartTime$Human$Calendar$Week$Mon = {$: 'Mon'};
+var $author$project$SmartTime$Human$Calendar$Week$Sat = {$: 'Sat'};
+var $author$project$SmartTime$Human$Calendar$Week$Thu = {$: 'Thu'};
+var $author$project$SmartTime$Human$Calendar$Week$Tue = {$: 'Tue'};
+var $author$project$SmartTime$Human$Calendar$Week$Wed = {$: 'Wed'};
+var $author$project$SmartTime$Human$Calendar$Week$numberToDay = function (n) {
+	var _v0 = A2($elm$core$Basics$max, 1, n);
+	switch (_v0) {
+		case 1:
+			return $author$project$SmartTime$Human$Calendar$Week$Mon;
+		case 2:
+			return $author$project$SmartTime$Human$Calendar$Week$Tue;
+		case 3:
+			return $author$project$SmartTime$Human$Calendar$Week$Wed;
+		case 4:
+			return $author$project$SmartTime$Human$Calendar$Week$Thu;
+		case 5:
+			return $author$project$SmartTime$Human$Calendar$Week$Fri;
+		case 6:
+			return $author$project$SmartTime$Human$Calendar$Week$Sat;
+		default:
+			return $author$project$SmartTime$Human$Calendar$Week$Sun;
+	}
+};
+var $author$project$SmartTime$Human$Calendar$dayOfWeek = function (_v0) {
+	var rd = _v0.a;
+	var dayNum = function () {
+		var _v1 = A2($elm$core$Basics$modBy, 7, rd);
+		if (!_v1) {
+			return 7;
+		} else {
+			var n = _v1;
+			return n;
+		}
+	}();
+	return $author$project$SmartTime$Human$Calendar$Week$numberToDay(dayNum);
+};
+var $author$project$SmartTime$Human$Calendar$Week$dayToInt = function (d) {
+	switch (d.$) {
+		case 'Mon':
+			return 1;
+		case 'Tue':
+			return 2;
+		case 'Wed':
+			return 3;
+		case 'Thu':
+			return 4;
+		case 'Fri':
+			return 5;
+		case 'Sat':
+			return 6;
+		default:
+			return 7;
+	}
+};
+var $author$project$SmartTime$Human$Calendar$daysSincePrevious = F2(
+	function (givenDoW, givenDate) {
+		var dayOfWeekAsInt = $author$project$SmartTime$Human$Calendar$Week$dayToInt(
+			$author$project$SmartTime$Human$Calendar$dayOfWeek(givenDate));
+		return A2(
+			$elm$core$Basics$modBy,
+			7,
+			(dayOfWeekAsInt + 7) - $author$project$SmartTime$Human$Calendar$Week$dayToInt(givenDoW));
+	});
+var $author$project$SmartTime$Human$Calendar$toPrevious = F2(
+	function (givenDoW, givenDate) {
+		var _v0 = givenDate;
+		var givenDateRD = _v0.a;
+		return $author$project$SmartTime$Human$Calendar$CalendarDate(
+			givenDateRD - A2($author$project$SmartTime$Human$Calendar$daysSincePrevious, givenDoW, givenDate));
+	});
+var $author$project$SmartTime$Human$Calendar$toNext = F2(
+	function (givenDoW, givenDate) {
+		var _v0 = givenDate;
+		var givenDateRD = _v0.a;
+		return A2(
+			$author$project$SmartTime$Human$Calendar$toPrevious,
+			givenDoW,
+			$author$project$SmartTime$Human$Calendar$CalendarDate(givenDateRD + 7));
+	});
+var $author$project$Timeflow$updateViewSettings = F2(
+	function (profile, env) {
+		var chosenDayCutoffTime = $author$project$SmartTime$Human$Duration$build(
+			_List_fromArray(
+				[
+					$author$project$SmartTime$Human$Duration$Hours(3)
+				]));
+		var today = $author$project$SmartTime$Period$fromPair(
+			_Utils_Tuple2(
+				A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
+				A3($author$project$SmartTime$Human$Moment$clockTurnForward, chosenDayCutoffTime, env.timeZone, env.time)));
+		var week = $author$project$SmartTime$Period$fromPair(
+			_Utils_Tuple2(
+				A3(
+					$author$project$SmartTime$Human$Moment$fromDateAndTime,
+					env.timeZone,
+					A2(
+						$author$project$SmartTime$Human$Calendar$toPrevious,
+						$author$project$SmartTime$Human$Calendar$Week$Sun,
+						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
+					chosenDayCutoffTime),
+				A3(
+					$author$project$SmartTime$Human$Moment$fromDateAndTime,
+					env.timeZone,
+					A2(
+						$author$project$SmartTime$Human$Calendar$toNext,
+						$author$project$SmartTime$Human$Calendar$Week$Sun,
+						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
+					chosenDayCutoffTime)));
+		return {
+			flowRenderPeriod: week,
+			hourRowSize: $author$project$SmartTime$Duration$fromMinutes(30),
+			pivotMoment: A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
+			rowHeight: 40
+		};
+	});
+var $author$project$Timeflow$init = F2(
+	function (profile, environment) {
+		var _v0 = A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 100, '0');
+		var widget1state = _v0.a;
+		var widget1init = _v0.b;
+		return _Utils_Tuple2(
+			{
+				pointer: {x: 0.0, y: 0.0},
+				settings: A2($author$project$Timeflow$updateViewSettings, profile, environment),
+				widgets: $elm$core$Dict$fromList(
+					_List_fromArray(
+						[
+							_Utils_Tuple2(
+							'0',
+							_Utils_Tuple2(widget1state, widget1init))
+						]))
+			},
+			A2(
+				$elm$core$Platform$Cmd$map,
+				$author$project$Timeflow$WidgetMsg('0'),
+				widget1init));
+	});
+var $elm$time$Time$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$time$Time$Offset = function (a) {
+	return {$: 'Offset', a: a};
+};
+var $elm$time$Time$Zone = F2(
+	function (a, b) {
+		return {$: 'Zone', a: a, b: b};
+	});
+var $elm$time$Time$customZone = $elm$time$Time$Zone;
+var $elm$time$Time$getZoneName = _Time_getZoneName(_Utils_Tuple0);
+var $elm$time$Time$here = _Time_here(_Utils_Tuple0);
+var $author$project$SmartTime$Human$Calendar$Month$DayOfMonth = function (a) {
+	return {$: 'DayOfMonth', a: a};
+};
+var $author$project$SmartTime$Human$Calendar$Year$Year = function (a) {
+	return {$: 'Year', a: a};
+};
+var $author$project$SmartTime$Human$Duration$Milliseconds = function (a) {
+	return {$: 'Milliseconds', a: a};
+};
+var $author$project$SmartTime$Human$Duration$Minutes = function (a) {
+	return {$: 'Minutes', a: a};
+};
+var $author$project$SmartTime$Human$Duration$Seconds = function (a) {
+	return {$: 'Seconds', a: a};
+};
+var $author$project$SmartTime$Human$Clock$clock = F4(
+	function (hh, mm, ss, ms) {
+		return $author$project$SmartTime$Human$Duration$build(
+			_List_fromArray(
+				[
+					$author$project$SmartTime$Human$Duration$Hours(hh),
+					$author$project$SmartTime$Human$Duration$Minutes(mm),
+					$author$project$SmartTime$Human$Duration$Seconds(ss),
+					$author$project$SmartTime$Human$Duration$Milliseconds(ms)
+				]));
 	});
 var $author$project$SmartTime$Moment$unixEpoch = function () {
 	var jan1st1970_rataDie = 719163;
@@ -9293,9 +9609,6 @@ var $author$project$SmartTime$Human$Calendar$Month$clampToValidDayOfMonth = F3(
 		return $author$project$SmartTime$Human$Calendar$Month$DayOfMonth(
 			A3($elm$core$Basics$clamp, 1, targetMonthLength, originalDay));
 	});
-var $author$project$SmartTime$Human$Calendar$CalendarDate = function (a) {
-	return {$: 'CalendarDate', a: a};
-};
 var $author$project$SmartTime$Human$Calendar$Month$dayToInt = function (_v0) {
 	var day = _v0.a;
 	return day;
@@ -9959,18 +10272,6 @@ var $author$project$Task$Progress$decodeUnit = $zwilias$json_decode_exploration$
 			'Permille',
 			$zwilias$json_decode_exploration$Json$Decode$Exploration$succeed($author$project$Task$Progress$Permille))
 		]));
-var $elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		$elm$core$List$foldl,
-		F2(
-			function (_v0, dict) {
-				var key = _v0.a;
-				var value = _v0.b;
-				return A3($elm$core$Dict$insert, key, value, dict);
-			}),
-		$elm$core$Dict$empty,
-		assocs);
-};
 var $zwilias$json_decode_exploration$Json$Decode$Exploration$Located$InField = F2(
 	function (a, b) {
 		return {$: 'InField', a: a, b: b};
@@ -12720,66 +13021,6 @@ var $author$project$SmartTime$Human$Moment$fromStandardStringLoose = function (i
 		$author$project$SmartTime$Human$Clock$parseHMS);
 	return A2($author$project$SmartTime$Human$Moment$fromStringHelper, combinedParser, input);
 };
-var $author$project$SmartTime$Duration$fromDays = function (_float) {
-	return $author$project$SmartTime$Duration$Duration(
-		$elm$core$Basics$round(_float * $author$project$SmartTime$Duration$dayLength));
-};
-var $author$project$SmartTime$Human$Calendar$fromRataDie = $author$project$SmartTime$Human$Calendar$CalendarDate;
-var $author$project$SmartTime$Duration$inWholeDays = function (duration) {
-	return ($author$project$SmartTime$Duration$inMs(duration) / $author$project$SmartTime$Duration$dayLength) | 0;
-};
-var $author$project$SmartTime$Moment$utcFromLinear = function (momentAsDur) {
-	return A2(
-		$author$project$SmartTime$Duration$subtract,
-		momentAsDur,
-		$author$project$SmartTime$Moment$utcOffset(momentAsDur));
-};
-var $author$project$SmartTime$Moment$toInt = F3(
-	function (_v0, timeScale, _v1) {
-		var inputTAI = _v0.a;
-		var epochDur = _v1.a;
-		var newScale = function () {
-			switch (timeScale.$) {
-				case 'TAI':
-					return inputTAI;
-				case 'UTC':
-					return $author$project$SmartTime$Moment$utcFromLinear(inputTAI);
-				case 'GPS':
-					return A2(
-						$author$project$SmartTime$Duration$subtract,
-						inputTAI,
-						$author$project$SmartTime$Duration$fromSeconds(19));
-				default:
-					return A2(
-						$author$project$SmartTime$Duration$subtract,
-						inputTAI,
-						$author$project$SmartTime$Duration$fromMs(32184));
-			}
-		}();
-		return $author$project$SmartTime$Duration$inMs(
-			A2($author$project$SmartTime$Duration$subtract, newScale, epochDur));
-	});
-var $author$project$SmartTime$Human$Moment$toUTCAndLocalize = F2(
-	function (zone, moment) {
-		var momentAsDur = $author$project$SmartTime$Duration$fromInt(
-			A3($author$project$SmartTime$Moment$toInt, moment, $author$project$SmartTime$Moment$UTC, $author$project$SmartTime$Moment$commonEraStart));
-		return A2(
-			$author$project$SmartTime$Duration$add,
-			momentAsDur,
-			A2($author$project$SmartTime$Human$Moment$getOffset, moment, zone));
-	});
-var $author$project$SmartTime$Human$Moment$humanize = F2(
-	function (zone, moment) {
-		var localMomentDur = A2($author$project$SmartTime$Human$Moment$toUTCAndLocalize, zone, moment);
-		var daysSinceEpoch = $author$project$SmartTime$Duration$inWholeDays(localMomentDur);
-		var remaining = A2(
-			$author$project$SmartTime$Duration$subtract,
-			localMomentDur,
-			$author$project$SmartTime$Duration$fromDays(daysSinceEpoch));
-		return _Utils_Tuple2(
-			$author$project$SmartTime$Human$Calendar$fromRataDie(daysSinceEpoch),
-			remaining);
-	});
 var $author$project$SmartTime$Human$Moment$fuzzyFromString = function (givenString) {
 	return A2($elm$core$String$endsWith, 'Z', givenString) ? A2(
 		$elm$core$Result$map,
@@ -14613,9 +14854,6 @@ var $author$project$Main$ThirdPartySync = function (a) {
 var $author$project$Main$TimeTrackerMsg = function (a) {
 	return {$: 'TimeTrackerMsg', a: a};
 };
-var $author$project$Main$TimeflowMsg = function (a) {
-	return {$: 'TimeflowMsg', a: a};
-};
 var $author$project$Main$Todoist = {$: 'Todoist'};
 var $author$project$Main$TodoistServer = function (a) {
 	return {$: 'TodoistServer', a: a};
@@ -14630,231 +14868,6 @@ var $author$project$NativeScript$Notification$basicChannel = function (name) {
 var $author$project$NativeScript$Notification$build = function (channel) {
 	return {accentColor: $elm$core$Maybe$Nothing, actions: _List_Nil, at: $elm$core$Maybe$Nothing, autoCancel: $elm$core$Maybe$Nothing, background_color: $elm$core$Maybe$Nothing, badge: $elm$core$Maybe$Nothing, bigTextStyle: $elm$core$Maybe$Nothing, body: $elm$core$Maybe$Nothing, body_expanded: $elm$core$Maybe$Nothing, channel: channel, chronometer: $elm$core$Maybe$Nothing, color_from_media: $elm$core$Maybe$Nothing, countdown: $elm$core$Maybe$Nothing, detail: $elm$core$Maybe$Nothing, expiresAfter: $elm$core$Maybe$Nothing, group: $elm$core$Maybe$Nothing, groupAlertBehavior: $elm$core$Maybe$Nothing, groupedMessages: $elm$core$Maybe$Nothing, icon: $elm$core$Maybe$Nothing, id: $elm$core$Maybe$Nothing, image: $elm$core$Maybe$Nothing, interval: $elm$core$Maybe$Nothing, isGroupSummary: $elm$core$Maybe$Nothing, media: $elm$core$Maybe$Nothing, media_layout: $elm$core$Maybe$Nothing, on_create: $elm$core$Maybe$Nothing, on_dismiss: $elm$core$Maybe$Nothing, on_touch: $elm$core$Maybe$Nothing, ongoing: $elm$core$Maybe$Nothing, phone_only: $elm$core$Maybe$Nothing, picture_expanded_icon: $elm$core$Maybe$Nothing, picture_skip_cache: $elm$core$Maybe$Nothing, privacy: $elm$core$Maybe$Nothing, progress: $elm$core$Maybe$Nothing, silhouetteIcon: $elm$core$Maybe$Nothing, sortKey: $elm$core$Maybe$Nothing, status_icon: $elm$core$Maybe$Nothing, status_text_size: $elm$core$Maybe$Nothing, subtitle: $elm$core$Maybe$Nothing, thumbnail: $elm$core$Maybe$Nothing, ticker: $elm$core$Maybe$Nothing, title: $elm$core$Maybe$Nothing, title_expanded: $elm$core$Maybe$Nothing, update: $elm$core$Maybe$Nothing, url: $elm$core$Maybe$Nothing, useHTML: $elm$core$Maybe$Nothing, when: $elm$core$Maybe$Nothing};
 };
-var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize = function (a) {
-	return {$: 'WidgetResize', a: a};
-};
-var $elm$core$Task$onError = _Scheduler_onError;
-var $elm$core$Task$attempt = F2(
-	function (resultToMessage, task) {
-		return $elm$core$Task$command(
-			$elm$core$Task$Perform(
-				A2(
-					$elm$core$Task$onError,
-					A2(
-						$elm$core$Basics$composeL,
-						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
-						$elm$core$Result$Err),
-					A2(
-						$elm$core$Task$andThen,
-						A2(
-							$elm$core$Basics$composeL,
-							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
-							$elm$core$Result$Ok),
-						task))));
-	});
-var $elm$browser$Browser$Dom$getViewportOf = _Browser_getViewportOf;
-var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize = function (id) {
-	return A2(
-		$elm$core$Task$attempt,
-		function (rvp) {
-			if (rvp.$ === 'Ok') {
-				var vp = rvp.a;
-				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
-					$elm$core$Maybe$Just(
-						_Utils_Tuple2(vp.viewport.width, vp.viewport.height)));
-			} else {
-				return $MacCASOutreach$graphicsvg$GraphicSVG$Widget$WidgetResize(
-					$elm$core$Maybe$Just(
-						_Utils_Tuple2(0, 0)));
-			}
-		},
-		$elm$browser$Browser$Dom$getViewportOf(id));
-};
-var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$init = F3(
-	function (w, h, id) {
-		return _Utils_Tuple2(
-			{ch: h, cw: w, id: id, wh: 0, ww: 0},
-			$MacCASOutreach$graphicsvg$GraphicSVG$Widget$getContainerSize(id));
-	});
-var $author$project$SmartTime$Human$Calendar$Week$Sun = {$: 'Sun'};
-var $author$project$SmartTime$Moment$past = F2(
-	function (_v0, duration) {
-		var time = _v0.a;
-		return $author$project$SmartTime$Moment$Moment(
-			A2($author$project$SmartTime$Duration$subtract, time, duration));
-	});
-var $author$project$SmartTime$Human$Moment$setTime = F3(
-	function (newTime, zone, moment) {
-		var _v0 = A2($author$project$SmartTime$Human$Moment$humanize, zone, moment);
-		var oldDate = _v0.a;
-		return A3($author$project$SmartTime$Human$Moment$fromDateAndTime, zone, oldDate, newTime);
-	});
-var $author$project$SmartTime$Human$Moment$clockTurnBack = F3(
-	function (timeOfDay, zone, moment) {
-		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
-		return _Utils_eq(
-			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
-			$author$project$SmartTime$Moment$Earlier) ? newMoment : A2($author$project$SmartTime$Moment$past, newMoment, $author$project$SmartTime$Duration$aDay);
-	});
-var $author$project$SmartTime$Moment$future = F2(
-	function (_v0, duration) {
-		var time = _v0.a;
-		return $author$project$SmartTime$Moment$Moment(
-			A2($author$project$SmartTime$Duration$add, time, duration));
-	});
-var $author$project$SmartTime$Human$Moment$clockTurnForward = F3(
-	function (timeOfDay, zone, moment) {
-		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
-		return _Utils_eq(
-			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
-			$author$project$SmartTime$Moment$Later) ? newMoment : A2($author$project$SmartTime$Moment$future, newMoment, $author$project$SmartTime$Duration$aDay);
-	});
-var $author$project$SmartTime$Human$Moment$extractDate = F2(
-	function (zone, moment) {
-		return A2($author$project$SmartTime$Human$Moment$humanize, zone, moment).a;
-	});
-var $author$project$SmartTime$Period$Period = F2(
-	function (a, b) {
-		return {$: 'Period', a: a, b: b};
-	});
-var $author$project$SmartTime$Period$fromPair = function (_v0) {
-	var moment1 = _v0.a;
-	var moment2 = _v0.b;
-	return _Utils_eq(
-		A2($author$project$SmartTime$Moment$compare, moment1, moment2),
-		$author$project$SmartTime$Moment$Later) ? A2($author$project$SmartTime$Period$Period, moment2, moment1) : A2($author$project$SmartTime$Period$Period, moment1, moment2);
-};
-var $author$project$SmartTime$Human$Calendar$Week$Fri = {$: 'Fri'};
-var $author$project$SmartTime$Human$Calendar$Week$Mon = {$: 'Mon'};
-var $author$project$SmartTime$Human$Calendar$Week$Sat = {$: 'Sat'};
-var $author$project$SmartTime$Human$Calendar$Week$Thu = {$: 'Thu'};
-var $author$project$SmartTime$Human$Calendar$Week$Tue = {$: 'Tue'};
-var $author$project$SmartTime$Human$Calendar$Week$Wed = {$: 'Wed'};
-var $author$project$SmartTime$Human$Calendar$Week$numberToDay = function (n) {
-	var _v0 = A2($elm$core$Basics$max, 1, n);
-	switch (_v0) {
-		case 1:
-			return $author$project$SmartTime$Human$Calendar$Week$Mon;
-		case 2:
-			return $author$project$SmartTime$Human$Calendar$Week$Tue;
-		case 3:
-			return $author$project$SmartTime$Human$Calendar$Week$Wed;
-		case 4:
-			return $author$project$SmartTime$Human$Calendar$Week$Thu;
-		case 5:
-			return $author$project$SmartTime$Human$Calendar$Week$Fri;
-		case 6:
-			return $author$project$SmartTime$Human$Calendar$Week$Sat;
-		default:
-			return $author$project$SmartTime$Human$Calendar$Week$Sun;
-	}
-};
-var $author$project$SmartTime$Human$Calendar$dayOfWeek = function (_v0) {
-	var rd = _v0.a;
-	var dayNum = function () {
-		var _v1 = A2($elm$core$Basics$modBy, 7, rd);
-		if (!_v1) {
-			return 7;
-		} else {
-			var n = _v1;
-			return n;
-		}
-	}();
-	return $author$project$SmartTime$Human$Calendar$Week$numberToDay(dayNum);
-};
-var $author$project$SmartTime$Human$Calendar$Week$dayToInt = function (d) {
-	switch (d.$) {
-		case 'Mon':
-			return 1;
-		case 'Tue':
-			return 2;
-		case 'Wed':
-			return 3;
-		case 'Thu':
-			return 4;
-		case 'Fri':
-			return 5;
-		case 'Sat':
-			return 6;
-		default:
-			return 7;
-	}
-};
-var $author$project$SmartTime$Human$Calendar$daysSincePrevious = F2(
-	function (givenDoW, givenDate) {
-		var dayOfWeekAsInt = $author$project$SmartTime$Human$Calendar$Week$dayToInt(
-			$author$project$SmartTime$Human$Calendar$dayOfWeek(givenDate));
-		return A2(
-			$elm$core$Basics$modBy,
-			7,
-			(dayOfWeekAsInt + 7) - $author$project$SmartTime$Human$Calendar$Week$dayToInt(givenDoW));
-	});
-var $author$project$SmartTime$Human$Calendar$toPrevious = F2(
-	function (givenDoW, givenDate) {
-		var _v0 = givenDate;
-		var givenDateRD = _v0.a;
-		return $author$project$SmartTime$Human$Calendar$CalendarDate(
-			givenDateRD - A2($author$project$SmartTime$Human$Calendar$daysSincePrevious, givenDoW, givenDate));
-	});
-var $author$project$SmartTime$Human$Calendar$toNext = F2(
-	function (givenDoW, givenDate) {
-		var _v0 = givenDate;
-		var givenDateRD = _v0.a;
-		return A2(
-			$author$project$SmartTime$Human$Calendar$toPrevious,
-			givenDoW,
-			$author$project$SmartTime$Human$Calendar$CalendarDate(givenDateRD + 7));
-	});
-var $author$project$Timeflow$updateViewSettings = F2(
-	function (profile, env) {
-		var chosenDayCutoffTime = $author$project$SmartTime$Human$Duration$build(
-			_List_fromArray(
-				[
-					$author$project$SmartTime$Human$Duration$Hours(3)
-				]));
-		var today = $author$project$SmartTime$Period$fromPair(
-			_Utils_Tuple2(
-				A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
-				A3($author$project$SmartTime$Human$Moment$clockTurnForward, chosenDayCutoffTime, env.timeZone, env.time)));
-		var week = $author$project$SmartTime$Period$fromPair(
-			_Utils_Tuple2(
-				A3(
-					$author$project$SmartTime$Human$Moment$fromDateAndTime,
-					env.timeZone,
-					A2(
-						$author$project$SmartTime$Human$Calendar$toPrevious,
-						$author$project$SmartTime$Human$Calendar$Week$Sun,
-						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
-					chosenDayCutoffTime),
-				A3(
-					$author$project$SmartTime$Human$Moment$fromDateAndTime,
-					env.timeZone,
-					A2(
-						$author$project$SmartTime$Human$Calendar$toNext,
-						$author$project$SmartTime$Human$Calendar$Week$Sun,
-						A2($author$project$SmartTime$Human$Moment$extractDate, env.timeZone, env.time)),
-					chosenDayCutoffTime)));
-		return {
-			flowRenderPeriod: week,
-			hourRowSize: $author$project$SmartTime$Duration$fromMinutes(30),
-			pivotMoment: A3($author$project$SmartTime$Human$Moment$clockTurnBack, chosenDayCutoffTime, env.timeZone, env.time),
-			rowHeight: 40
-		};
-	});
-var $author$project$Timeflow$defaultState = F2(
-	function (profile, environment) {
-		return {
-			pointer: {x: 0.0, y: 0.0},
-			settings: A2($author$project$Timeflow$updateViewSettings, profile, environment),
-			widgets: $elm$core$Dict$fromList(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'0',
-						A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 100, '0'))
-					]))
-		};
-	});
 var $author$project$TaskList$defaultView = A3(
 	$author$project$TaskList$Normal,
 	_List_fromArray(
@@ -23067,7 +23080,6 @@ var $elm$core$Dict$map = F2(
 				A2($elm$core$Dict$map, func, right));
 		}
 	});
-var $elm$core$Platform$Cmd$map = _Platform_map;
 var $elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var $elm$url$Url$Parser$query = function (_v0) {
 	var queryParser = _v0.a;
@@ -24213,14 +24225,10 @@ var $author$project$TimeTracker$update = F4(
 								A2($author$project$TimeTracker$exportActivityViewModel, app, env)))));
 		}
 	});
-var $author$project$Timeflow$WidgetMsg = F2(
-	function (a, b) {
-		return {$: 'WidgetMsg', a: a, b: b};
-	});
 var $elm$core$Basics$isInfinite = _Basics_isInfinite;
 var $elm$core$Basics$isNaN = _Basics_isNaN;
 var $author$project$Timeflow$blockBrokenCoord = function (coord) {
-	return ((coord < 0) || ($elm$core$Basics$isInfinite(coord) || $elm$core$Basics$isNaN(coord))) ? 0 : coord;
+	return ($elm$core$Basics$isInfinite(coord) || $elm$core$Basics$isNaN(coord)) ? 0 : coord;
 };
 var $elm$core$Debug$todo = _Debug_todo;
 var $MacCASOutreach$graphicsvg$GraphicSVG$Widget$update = F2(
@@ -24269,8 +24277,8 @@ var $author$project$Timeflow$update = F4(
 					return _Debug_todo(
 						'Timeflow',
 						{
-							start: {line: 821, column: 21},
-							end: {line: 821, column: 31}
+							start: {line: 1070, column: 21},
+							end: {line: 1070, column: 31}
 						})('Tried to update a widget that has no stored state');
 				} else {
 					var _v2 = _v1.a;
@@ -24848,7 +24856,7 @@ var $author$project$Main$update = F2(
 							var subView = _v13.a.a;
 							return subView;
 						} else {
-							return A2($author$project$Timeflow$defaultState, profile, environment);
+							return A2($author$project$Timeflow$init, profile, environment).a;
 						}
 					}();
 					var _v12 = A4($author$project$Timeflow$update, subMsg, subViewState, profile, environment);
@@ -25668,9 +25676,17 @@ var $author$project$Main$init = F3(
 				A3($elm$core$Task$map2, $author$project$Main$SetZoneAndTime, $author$project$SmartTime$Human$Moment$localZone, $author$project$SmartTime$Moment$now)),
 				firstEffects
 			]);
+		var paneInits = _List_fromArray(
+			[
+				A2(
+				$elm$core$Platform$Cmd$map,
+				$author$project$Main$TimeflowMsg,
+				A2($author$project$Timeflow$init, modelWithFirstUpdate.profile, modelWithFirstUpdate.environment).b)
+			]);
 		return _Utils_Tuple2(
 			modelWithFirstUpdate,
-			$elm$core$Platform$Cmd$batch(effects));
+			$elm$core$Platform$Cmd$batch(
+				_Utils_ap(effects, paneInits)));
 	});
 var $author$project$Browserless$fallbackUrl = {fragment: $elm$core$Maybe$Nothing, host: 'headless.docket.com', path: '', port_: $elm$core$Maybe$Nothing, protocol: $elm$url$Url$Http, query: $elm$core$Maybe$Nothing};
 var $elm$core$String$replace = F3(
@@ -26183,7 +26199,7 @@ var $author$project$Timeflow$subscriptions = F3(
 	function (profile, env, maybeVState) {
 		var vState = A2(
 			$elm$core$Maybe$withDefault,
-			A2($author$project$Timeflow$defaultState, profile, env),
+			A2($author$project$Timeflow$init, profile, env).a,
 			maybeVState);
 		return $elm$core$Platform$Sub$batch(
 			A2(
@@ -26213,11 +26229,7 @@ var $author$project$Main$subscriptions = function (model) {
 					function (_v0) {
 						return $author$project$Main$Tick($author$project$Main$NoOp);
 					}),
-					$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData),
-					A2(
-					$author$project$SmartTime$Moment$every,
-					$author$project$SmartTime$Duration$fromSeconds(1),
-					$author$project$Main$Tock($author$project$Main$NoOp))
+					$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData)
 				]),
 			function () {
 				var _v1 = viewState.primaryView;
