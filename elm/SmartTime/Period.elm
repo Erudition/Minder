@@ -1,4 +1,4 @@
-module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, instantaneous, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
+module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, crop, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, instantaneous, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -244,6 +244,18 @@ divide chunkLength givenPeriod =
                     currentList
     in
     addRemaining (start givenPeriod) []
+
+
+{-| Use the first Period as a window to "crop" the second period. Any portions of the second period that do not fit within the first are discarded.
+
+For example, you have a 3-day event that ends at 10:00 today, but you only care about today's portion of it. You can `crop today` the event's `Period`, giving you a `Period` from the beginning of the day until 10:00.
+
+-}
+crop : Period -> Period -> Period
+crop cropFrame givenPeriod =
+    Period
+        (Moment.latest (start cropFrame) (start givenPeriod))
+        (Moment.earliest (end cropFrame) (end givenPeriod))
 
 
 
