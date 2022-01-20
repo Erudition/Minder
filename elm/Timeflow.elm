@@ -127,7 +127,7 @@ updateViewSettings profile env =
     { flowRenderPeriod = today
     , hourRowSize = Duration.fromMinutes 15
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 2
+    , rowHeight = 1
     }
 
 
@@ -574,22 +574,43 @@ blobToShape settings env flowBlob =
 
         textSize =
             toFloat settings.rowHeight / 2
+
+        textAreaW =
+            (Tuple.first <| Tuple.second <| pointsOfInterest.bestTextArea)
+                - (Tuple.first <| Tuple.first <| pointsOfInterest.bestTextArea)
+
+        textAreaH =
+            abs
+                ((Tuple.second <| Tuple.second <| pointsOfInterest.bestTextArea)
+                    - (Tuple.second <| Tuple.first <| pointsOfInterest.bestTextArea)
+                )
+
+        textAreaMidpoint =
+            midPoint pointsOfInterest.bestTextArea
+
+        theShell =
+            roundedPolygon 0.5 pointsOfInterest.shell
+
+        textAreaVisualizer =
+            roundedRect textAreaW (Debug.log "h" textAreaH) 0.5
+                |> filled black
+                |> makeTransparent 0.3
+                |> move textAreaMidpoint
     in
     group
-        [ roundedPolygon 0.5
-            pointsOfInterest.shell
+        [ theShell
             |> filled (graphColor flowBlob.color)
-        , roundedPolygon 0.5
-            pointsOfInterest.shell
+        , theShell
             |> outlined (GraphicSVG.solid 0.1) (GraphicSVG.rgba 0 0 0 0.5)
         , GraphicSVG.text flowBlob.label
             |> size textSize
             |> sansserif
-            |> italic
             |> centered
             |> filled black
             |> move (midPoint pointsOfInterest.bestTextArea)
             |> move ( 0, -textSize / 2 )
+            |> makeTransparent 0.5
+            |> GraphicSVG.clip (filled black theShell)
         ]
         |> move ( -50, 150 )
 
@@ -671,9 +692,10 @@ blobToPoints displayState env flowBlob =
             modBy 2 (rowNumber startWall) == 1
 
         slash =
-            1
+            0.5
 
         floatingBlob =
+            -- all Points are in clockwise order, starting with the top left point or the one before it
             case isOddRow firstRowStartWall of
                 False ->
                     -- LTR row
@@ -706,45 +728,55 @@ blobToPoints displayState env flowBlob =
         oneCrossingBlob =
             case isOddRow firstRowStartWall of
                 False ->
-                    -- left to right row
+                    -- LTR row
                     { shell =
-                        [ ( startsAtPortion * 100, startHeight - h )
-                        , ( startsAtPortion * 100, startHeight )
+                        [ ( (startsAtPortion * 100) - slash, startHeight - h )
+                        , ( (startsAtPortion * 100) + slash, startHeight )
                         , ( 100, startHeight )
                         , ( 100, startHeight - (2 * h) )
-                        , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
-                        , ( 100 - endsAtPortion * 100, startHeight - h )
+                        , ( (100 - endsAtPortion * 100) + slash, startHeight - (2 * h) )
+                        , ( (100 - endsAtPortion * 100) - slash, startHeight - h )
                         ]
                     , bestTextArea =
+                        -- no slash on right side shared wall
                         if startsAtPortion >= endsAtPortion then
-                            ( ( startsAtPortion * 100, startHeight )
+                            -- use top piece, there's more room
+                            ( ( (startsAtPortion * 100) + slash, startHeight )
                             , ( 100, startHeight - h )
                             )
 
                         else
-                            ( ( 100 - endsAtPortion * 100, startHeight )
+                            -- use bottom piece, there's more room
+                            ( ( (100 - endsAtPortion * 100) + slash, startHeight - h )
                             , ( 100, startHeight - (2 * h) )
                             )
                     }
 
                 True ->
+                    -- RTL row
                     { shell =
+                        -- share left wall
                         [ ( 0, startHeight - (2 * h) )
                         , ( 0, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight - h )
-                        , ( endsAtPortion * 100, startHeight - h )
-                        , ( endsAtPortion * 100, startHeight - (2 * h) )
+
+                        -- starting side, RTL row
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
+
+                        -- ending side, LTR row
+                        , ( (endsAtPortion * 100) + slash, startHeight - h )
+                        , ( (endsAtPortion * 100) - slash, startHeight - (2 * h) )
                         ]
                     , bestTextArea =
+                        -- no slash on left side shared wall
                         if startsAtPortion >= endsAtPortion then
                             ( ( 0, startHeight )
-                            , ( 100 - startsAtPortion * 100, startHeight - h )
+                            , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
                             )
 
                         else
                             ( ( 0, startHeight - h )
-                            , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
+                            , ( (100 - endsAtPortion * 100) - slash, startHeight - (2 * h) )
                             )
                     }
 
@@ -753,50 +785,78 @@ blobToPoints displayState env flowBlob =
                 case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
                     -- top row is LTR, bottom is RTL
                     ( False, True ) ->
-                        [ ( startsAtPortion * 100, startHeight - h )
-                        , ( startsAtPortion * 100, startHeight )
+                        -- start-side, LTR
+                        [ ( (startsAtPortion * 100) + slash, startHeight - h )
+                        , ( (startsAtPortion * 100) - slash, startHeight )
+
+                        -- right wall
                         , ( 100, startHeight )
                         , ( 100, startHeight - ((2 + middlePieces) * h) )
-                        , ( 100 - endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
-                        , ( 100 - endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
+
+                        -- end-side, RTL
+                        , ( (100 - endsAtPortion * 100) - slash, startHeight - ((2 + middlePieces) * h) )
+                        , ( (100 - endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+
+                        -- left wall
                         , ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
 
                     -- top row is RTL, bottom is LTR
                     ( True, False ) ->
+                        -- left wall
                         [ ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight - h )
+
+                        -- start-side, RTL
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
+
+                        -- right wall
                         , ( 100, startHeight - h )
                         , ( 100, startHeight - (h * (middlePieces + 1)) )
-                        , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
-                        , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
+
+                        -- end-side, LTR
+                        , ( (endsAtPortion * 100) + slash, startHeight - (h * (middlePieces + 1)) )
+                        , ( (endsAtPortion * 100) - slash, startHeight - (h * (middlePieces + 2)) )
                         ]
 
                     -- top row is LTR, bottom is LTR
                     ( False, False ) ->
-                        [ ( startsAtPortion * 100, startHeight - h )
-                        , ( startsAtPortion * 100, startHeight )
+                        -- start-side, LTR
+                        [ ( (startsAtPortion * 100) - slash, startHeight - h )
+                        , ( (startsAtPortion * 100) + slash, startHeight )
+
+                        -- right wall
                         , ( 100, startHeight )
                         , ( 100, startHeight - ((1 + middlePieces) * h) )
-                        , ( endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
-                        , ( endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
+
+                        -- end-side, also LTR
+                        , ( (endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+                        , ( (endsAtPortion * 100) - slash, startHeight - ((2 + middlePieces) * h) )
+
+                        -- left wall
                         , ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
 
                     -- top row is RTL, bottom is RTL
                     ( True, True ) ->
+                        -- left wall
                         [ ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight - h )
+
+                        -- start-side, RTL
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
+
+                        -- right wall
                         , ( 100, startHeight - h )
                         , ( 100, startHeight - (h * (middlePieces + 2)) )
-                        , ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
-                        , ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
+
+                        -- end-side, also RTL
+                        , ( (100 - endsAtPortion * 100) + slash, startHeight - (h * (middlePieces + 2)) )
+                        , ( (100 - endsAtPortion * 100) - slash, startHeight - (h * (middlePieces + 1)) )
                         ]
             , bestTextArea =
                 ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
