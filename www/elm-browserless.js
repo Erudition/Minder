@@ -8907,6 +8907,88 @@ var $author$project$Timeflow$WidgetMsg = F2(
 	function (a, b) {
 		return {$: 'WidgetMsg', a: a, b: b};
 	});
+var $author$project$SmartTime$Period$Period = F2(
+	function (a, b) {
+		return {$: 'Period', a: a, b: b};
+	});
+var $author$project$SmartTime$Moment$Coincident = {$: 'Coincident'};
+var $author$project$SmartTime$Moment$Earlier = {$: 'Earlier'};
+var $author$project$SmartTime$Moment$Later = {$: 'Later'};
+var $author$project$SmartTime$Duration$inMs = function (_v0) {
+	var _int = _v0.a;
+	return _int;
+};
+var $author$project$SmartTime$Moment$compare = F2(
+	function (_v0, _v1) {
+		var time1 = _v0.a;
+		var time2 = _v1.a;
+		var _v2 = A2(
+			$elm$core$Basics$compare,
+			$author$project$SmartTime$Duration$inMs(time1),
+			$author$project$SmartTime$Duration$inMs(time2));
+		switch (_v2.$) {
+			case 'GT':
+				return $author$project$SmartTime$Moment$Later;
+			case 'LT':
+				return $author$project$SmartTime$Moment$Earlier;
+			default:
+				return $author$project$SmartTime$Moment$Coincident;
+		}
+	});
+var $author$project$SmartTime$Period$end = function (_v0) {
+	var endMoment = _v0.b;
+	return endMoment;
+};
+var $author$project$SmartTime$Duration$add = F2(
+	function (_v0, _v1) {
+		var int1 = _v0.a;
+		var int2 = _v1.a;
+		return $author$project$SmartTime$Duration$Duration(int1 + int2);
+	});
+var $author$project$SmartTime$Moment$future = F2(
+	function (_v0, duration) {
+		var time = _v0.a;
+		return $author$project$SmartTime$Moment$Moment(
+			A2($author$project$SmartTime$Duration$add, time, duration));
+	});
+var $author$project$SmartTime$Period$start = function (_v0) {
+	var startMoment = _v0.a;
+	return startMoment;
+};
+var $author$project$SmartTime$Period$divide = F2(
+	function (chunkLength, givenPeriod) {
+		var addRemaining = F2(
+			function (lastEnd, currentList) {
+				var nextEnd = A2($author$project$SmartTime$Moment$future, lastEnd, chunkLength);
+				var finalEnd = $author$project$SmartTime$Period$end(givenPeriod);
+				var nextVsFinal = A2($author$project$SmartTime$Moment$compare, nextEnd, finalEnd);
+				switch (nextVsFinal.$) {
+					case 'Earlier':
+						return A2(
+							addRemaining,
+							nextEnd,
+							_Utils_ap(
+								currentList,
+								_List_fromArray(
+									[
+										A2($author$project$SmartTime$Period$Period, lastEnd, nextEnd)
+									])));
+					case 'Coincident':
+						return _Utils_ap(
+							currentList,
+							_List_fromArray(
+								[
+									A2($author$project$SmartTime$Period$Period, lastEnd, nextEnd)
+								]));
+					default:
+						return currentList;
+				}
+			});
+		return A2(
+			addRemaining,
+			$author$project$SmartTime$Period$start(givenPeriod),
+			_List_Nil);
+	});
 var $elm$core$Dict$fromList = function (assocs) {
 	return A3(
 		$elm$core$List$foldl,
@@ -8973,10 +9055,6 @@ var $author$project$SmartTime$Human$Calendar$Week$Sun = {$: 'Sun'};
 var $author$project$SmartTime$Duration$fromInt = function (_int) {
 	return $author$project$SmartTime$Duration$Duration(_int);
 };
-var $author$project$SmartTime$Duration$inMs = function (_v0) {
-	var _int = _v0.a;
-	return _int;
-};
 var $author$project$SmartTime$Duration$hourLength = 60 * $author$project$SmartTime$Duration$minuteLength;
 var $author$project$SmartTime$Duration$dayLength = 24 * $author$project$SmartTime$Duration$hourLength;
 var $author$project$SmartTime$Duration$aDay = $author$project$SmartTime$Duration$Duration($author$project$SmartTime$Duration$dayLength);
@@ -9021,26 +9099,6 @@ var $author$project$SmartTime$Human$Duration$build = function (list) {
 		$elm$core$List$sum(
 			A2($elm$core$List$map, $author$project$SmartTime$Human$Duration$normalize, list)));
 };
-var $author$project$SmartTime$Moment$Earlier = {$: 'Earlier'};
-var $author$project$SmartTime$Moment$Coincident = {$: 'Coincident'};
-var $author$project$SmartTime$Moment$Later = {$: 'Later'};
-var $author$project$SmartTime$Moment$compare = F2(
-	function (_v0, _v1) {
-		var time1 = _v0.a;
-		var time2 = _v1.a;
-		var _v2 = A2(
-			$elm$core$Basics$compare,
-			$author$project$SmartTime$Duration$inMs(time1),
-			$author$project$SmartTime$Duration$inMs(time2));
-		switch (_v2.$) {
-			case 'GT':
-				return $author$project$SmartTime$Moment$Later;
-			case 'LT':
-				return $author$project$SmartTime$Moment$Earlier;
-			default:
-				return $author$project$SmartTime$Moment$Coincident;
-		}
-	});
 var $author$project$SmartTime$Duration$subtract = F2(
 	function (_v0, _v1) {
 		var int1 = _v0.a;
@@ -9052,12 +9110,6 @@ var $author$project$SmartTime$Moment$past = F2(
 		var time = _v0.a;
 		return $author$project$SmartTime$Moment$Moment(
 			A2($author$project$SmartTime$Duration$subtract, time, duration));
-	});
-var $author$project$SmartTime$Duration$add = F2(
-	function (_v0, _v1) {
-		var int1 = _v0.a;
-		var int2 = _v1.a;
-		return $author$project$SmartTime$Duration$Duration(int1 + int2);
 	});
 var $author$project$SmartTime$Human$Calendar$toRataDie = function (_v0) {
 	var _int = _v0.a;
@@ -9339,12 +9391,6 @@ var $author$project$SmartTime$Human$Moment$clockTurnBack = F3(
 			A2($author$project$SmartTime$Moment$compare, newMoment, moment),
 			$author$project$SmartTime$Moment$Earlier) ? newMoment : A2($author$project$SmartTime$Moment$past, newMoment, $author$project$SmartTime$Duration$aDay);
 	});
-var $author$project$SmartTime$Moment$future = F2(
-	function (_v0, duration) {
-		var time = _v0.a;
-		return $author$project$SmartTime$Moment$Moment(
-			A2($author$project$SmartTime$Duration$add, time, duration));
-	});
 var $author$project$SmartTime$Human$Moment$clockTurnForward = F3(
 	function (timeOfDay, zone, moment) {
 		var newMoment = A3($author$project$SmartTime$Human$Moment$setTime, timeOfDay, zone, moment);
@@ -9355,10 +9401,6 @@ var $author$project$SmartTime$Human$Moment$clockTurnForward = F3(
 var $author$project$SmartTime$Human$Moment$extractDate = F2(
 	function (zone, moment) {
 		return A2($author$project$SmartTime$Human$Moment$humanize, zone, moment).a;
-	});
-var $author$project$SmartTime$Period$Period = F2(
-	function (a, b) {
-		return {$: 'Period', a: a, b: b};
 	});
 var $author$project$SmartTime$Period$fromPair = function (_v0) {
 	var moment1 = _v0.a;
@@ -9486,13 +9528,16 @@ var $author$project$Timeflow$updateViewSettings = F2(
 	});
 var $author$project$Timeflow$init = F2(
 	function (profile, environment) {
-		var _v0 = A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 1000, '0');
+		var initialSettings = A2($author$project$Timeflow$updateViewSettings, profile, environment);
+		var initialWidgetHeight = $elm$core$List$length(
+			A2($author$project$SmartTime$Period$divide, initialSettings.hourRowSize, initialSettings.flowRenderPeriod)) * initialSettings.rowHeight;
+		var _v0 = A3($MacCASOutreach$graphicsvg$GraphicSVG$Widget$init, 100, 200, '0');
 		var widget1state = _v0.a;
 		var widget1init = _v0.b;
 		return _Utils_Tuple2(
 			{
 				pointer: {x: 0.0, y: 0.0},
-				settings: A2($author$project$Timeflow$updateViewSettings, profile, environment),
+				settings: initialSettings,
 				widgets: $elm$core$Dict$fromList(
 					_List_fromArray(
 						[
@@ -16117,10 +16162,6 @@ var $author$project$SmartTime$Moment$difference = F2(
 		var time2 = _v1.a;
 		return A2($author$project$SmartTime$Duration$difference, time1, time2);
 	});
-var $author$project$SmartTime$Period$end = function (_v0) {
-	var endMoment = _v0.b;
-	return endMoment;
-};
 var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm_community$list_extra$List$Extra$getAt = F2(
 	function (idx, xs) {
@@ -16243,10 +16284,6 @@ var $elm_community$list_extra$List$Extra$splitAt = F2(
 			A2($elm$core$List$take, n, xs),
 			A2($elm$core$List$drop, n, xs));
 	});
-var $author$project$SmartTime$Period$start = function (_v0) {
-	var startMoment = _v0.a;
-	return startMoment;
-};
 var $author$project$SmartTime$Human$Calendar$Month$next = function (givenMonth) {
 	switch (givenMonth.$) {
 		case 'Jan':
@@ -24277,8 +24314,8 @@ var $author$project$Timeflow$update = F4(
 					return _Debug_todo(
 						'Timeflow',
 						{
-							start: {line: 1212, column: 21},
-							end: {line: 1212, column: 31}
+							start: {line: 880, column: 21},
+							end: {line: 880, column: 31}
 						})('Tried to update a widget that has no stored state');
 				} else {
 					var _v2 = _v1.a;
@@ -26229,7 +26266,11 @@ var $author$project$Main$subscriptions = function (model) {
 					function (_v0) {
 						return $author$project$Main$Tick($author$project$Main$NoOp);
 					}),
-					$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData)
+					$author$project$Main$storageChangedElsewhere($author$project$Main$NewAppData),
+					A2(
+					$author$project$SmartTime$Moment$every,
+					$author$project$SmartTime$Duration$fromSeconds(1 / 30),
+					$author$project$Main$Tock($author$project$Main$NoOp))
 				]),
 			function () {
 				var _v1 = viewState.primaryView;
