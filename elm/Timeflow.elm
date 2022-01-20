@@ -189,10 +189,10 @@ allShapes state profile env =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
     in
     [ rect 100 boxHeight
-        |> filled white
+        |> filled black
         |> move ( 0, -boxHeight / 2 )
     , rect 100 boxHeight
-        |> filled (GraphicSVG.hsl 180 1 0.5)
+        |> filled (GraphicSVG.hsl 180 1 0.1)
         |> move ( 0, -3 * boxHeight / 2 )
 
     -- , polygon
