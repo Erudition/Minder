@@ -162,8 +162,8 @@ view maybeVState profile env =
                 [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row [ width (fillPortion 1) ]
-                    [ timeFlowLayout vState.settings profile env
-                    , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                    -- [ timeFlowLayout vState.settings profile env
+                    [ column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
                     ]
                 , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text "The future is below." ]
@@ -175,7 +175,7 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         ([ rect 100 48
             |> filled gray
             |> notifyMouseMoveAt PointerMove
-            |> move ( 0, -24 )
+            |> move ( 0, 150 )
          , graphPaperCustom 1 0.03 black
 
          -- , polygon
@@ -187,26 +187,26 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
          --    |> filled green
          --    |> move ( -50, 0 )
          --    |> notifyMouseMoveAt PointerMove
-         , circle 1
-            |> filled blue
-            |> move ( state.pointer.x / 4, state.pointer.y / 4 )
-            |> notifyMouseMoveAt PointerMove
+         -- , circle 1
+         --    |> filled blue
+         --    |> move ( state.pointer.x / 4, state.pointer.y / 4 )
+         --    |> notifyMouseMoveAt PointerMove
          , GraphicSVG.text (Clock.toShortString (HumanMoment.extractTime env.timeZone state.settings.pivotMoment))
             |> fixedwidth
             |> size 2
             |> filled black
-            |> move ( 0, 0 )
-         , GraphicSVG.text "Y = -1000"
-            |> fixedwidth
-            |> size 2
-            |> filled black
-            |> move ( 0, -1000 )
-         , GraphicSVG.text "Y = -2000"
-            |> fixedwidth
-            |> size 2
-            |> filled black
-            |> move ( 0, -2000 )
+            |> move ( 0, 150 )
 
+         -- , GraphicSVG.text "Y = -1000"
+         --    |> fixedwidth
+         --    |> size 2
+         --    |> filled black
+         --    |> move ( 0, -1000 )
+         -- , GraphicSVG.text "Y = -2000"
+         --    |> fixedwidth
+         --    |> size 2
+         --    |> filled black
+         --    |> move ( 0, -2000 )
          -- , curve ( 95, 0 )
          --     [ Pull ( 100, 0 ) ( 100, -5 )
          --     , Pull ( )
