@@ -125,7 +125,7 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 10
+    , hourRowSize = Duration.fromMinutes 5
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 1
     }
@@ -603,14 +603,34 @@ displayBlob displayState env flowBlob =
 
 blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
 blobToShape settings env flowBlob =
-    roundedPolygon 0.5
-        (blobToPolygonPoints settings env flowBlob)
-        |> filled (graphColor flowBlob.color)
+    let
+        pointsOfInterest =
+            blobToPoints settings env flowBlob
+
+        midPoint ( ( x1, y1 ), ( x2, y2 ) ) =
+            ( (x1 + x2) / 2, (y1 + y2) / 2 )
+
+        textSize =
+            0.5
+    in
+    group
+        [ roundedPolygon 0.5
+            pointsOfInterest.shell
+            |> filled (graphColor flowBlob.color)
+        , GraphicSVG.text flowBlob.label
+            |> size textSize
+            |> sansserif
+            |> italic
+            |> centered
+            |> filled black
+            |> move (midPoint pointsOfInterest.bestTextArea)
+            |> move ( 0, -textSize / 2 )
+        ]
         |> move ( -50, 0 )
 
 
-blobToPolygonPoints : ViewSettings -> Environment -> FlowBlob -> Polygon
-blobToPolygonPoints displayState env flowBlob =
+blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ) }
+blobToPoints displayState env flowBlob =
     let
         msBetweenWalls =
             Duration.inMs displayState.hourRowSize
@@ -688,65 +708,124 @@ blobToPolygonPoints displayState env flowBlob =
         floatingBlob =
             case isOddRow firstRowStartWall of
                 False ->
-                    [ ( startsAtPortion * 100, startHeight - h )
-                    , ( startsAtPortion * 100, startHeight )
-                    , ( endsAtPortion * 100, startHeight )
-                    , ( endsAtPortion * 100, startHeight - h )
-                    ]
+                    { shell =
+                        [ ( startsAtPortion * 100, startHeight - h )
+                        , ( startsAtPortion * 100, startHeight )
+                        , ( endsAtPortion * 100, startHeight )
+                        , ( endsAtPortion * 100, startHeight - h )
+                        ]
+                    , bestTextArea =
+                        ( ( startsAtPortion * 100, startHeight )
+                        , ( endsAtPortion * 100, startHeight - h )
+                        )
+                    }
 
                 True ->
-                    [ ( 100 - startsAtPortion * 100, startHeight - h )
-                    , ( 100 - startsAtPortion * 100, startHeight )
-                    , ( 100 - endsAtPortion * 100, startHeight )
-                    , ( 100 - endsAtPortion * 100, startHeight - h )
-                    ]
+                    { shell =
+                        [ ( 100 - endsAtPortion * 100, startHeight - h )
+                        , ( 100 - endsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        ]
+                    , bestTextArea =
+                        ( ( 100 - endsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        )
+                    }
 
         oneCrossingBlob =
             case isOddRow firstRowStartWall of
                 False ->
-                    [ ( startsAtPortion * 100, startHeight - h )
-                    , ( startsAtPortion * 100, startHeight )
-                    , ( 100, startHeight )
-                    , ( 100, startHeight - (2 * h) )
-                    , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
-                    , ( 100 - endsAtPortion * 100, startHeight - h )
-                    ]
+                    { shell =
+                        [ ( startsAtPortion * 100, startHeight - h )
+                        , ( startsAtPortion * 100, startHeight )
+                        , ( 100, startHeight )
+                        , ( 100, startHeight - (2 * h) )
+                        , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
+                        , ( 100 - endsAtPortion * 100, startHeight - h )
+                        ]
+                    , bestTextArea =
+                        if startsAtPortion >= endsAtPortion then
+                            ( ( startsAtPortion * 100, startHeight )
+                            , ( 100, startHeight - h )
+                            )
+
+                        else
+                            ( ( 100 - endsAtPortion * 100, startHeight )
+                            , ( 100, startHeight - (2 * h) )
+                            )
+                    }
 
                 True ->
-                    [ ( 0, startHeight - (2 * h) )
-                    , ( 0, startHeight )
-                    , ( 100 - startsAtPortion * 100, startHeight )
-                    , ( 100 - startsAtPortion * 100, startHeight - h )
-                    , ( endsAtPortion * 100, startHeight - h )
-                    , ( endsAtPortion * 100, startHeight - (2 * h) )
-                    ]
+                    { shell =
+                        [ ( 0, startHeight - (2 * h) )
+                        , ( 0, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        , ( endsAtPortion * 100, startHeight - h )
+                        , ( endsAtPortion * 100, startHeight - (2 * h) )
+                        ]
+                    , bestTextArea =
+                        if startsAtPortion >= endsAtPortion then
+                            ( ( 0, startHeight )
+                            , ( 100 - startsAtPortion * 100, startHeight - h )
+                            )
+
+                        else
+                            ( ( 0, startHeight - h )
+                            , ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
+                            )
+                    }
 
         sandwichBlob middlePieces =
-            case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
-                ( False, True ) ->
-                    [ ( startsAtPortion * 100, startHeight - h )
-                    , ( startsAtPortion * 100, startHeight )
-                    , ( 100, startHeight )
-                    , ( 100, startHeight - ((2 + middlePieces) * h) )
-                    , ( 100 - endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
-                    , ( 100 - endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
-                    , ( 0, startHeight - ((1 + middlePieces) * h) )
-                    , ( 0, startHeight - h )
-                    ]
+            { shell =
+                case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
+                    ( False, True ) ->
+                        [ ( startsAtPortion * 100, startHeight - h )
+                        , ( startsAtPortion * 100, startHeight )
+                        , ( 100, startHeight )
+                        , ( 100, startHeight - ((2 + middlePieces) * h) )
+                        , ( 100 - endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
+                        , ( 100 - endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
+                        , ( 0, startHeight - ((1 + middlePieces) * h) )
+                        , ( 0, startHeight - h )
+                        ]
 
-                ( True, False ) ->
-                    [ ( 0, startHeight - ((2 + middlePieces) * h) )
-                    , ( 0, startHeight )
-                    , ( 100 - startsAtPortion * 100, startHeight )
-                    , ( 100 - startsAtPortion * 100, startHeight - h )
-                    , ( 100, startHeight - h )
-                    , ( 100, startHeight - (h * (middlePieces + 1)) )
-                    , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
-                    , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
-                    ]
+                    ( True, False ) ->
+                        [ ( 0, startHeight - ((2 + middlePieces) * h) )
+                        , ( 0, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        , ( 100, startHeight - h )
+                        , ( 100, startHeight - (h * (middlePieces + 1)) )
+                        , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
+                        , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
+                        ]
 
-                _ ->
-                    []
+                    ( False, False ) ->
+                        [ ( startsAtPortion * 100, startHeight - h )
+                        , ( startsAtPortion * 100, startHeight )
+                        , ( 100, startHeight )
+                        , ( 100, startHeight - ((1 + middlePieces) * h) )
+                        , ( endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
+                        , ( endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
+                        , ( 0, startHeight - ((2 + middlePieces) * h) )
+                        , ( 0, startHeight - h )
+                        ]
+
+                    ( True, True ) ->
+                        [ ( 0, startHeight - ((1 + middlePieces) * h) )
+                        , ( 0, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight )
+                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        , ( 100, startHeight - h )
+                        , ( 100, startHeight - (h * (middlePieces + 2)) )
+                        , ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
+                        , ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
+                        ]
+            , bestTextArea =
+                ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
+            }
     in
     case List.length wallsCrossed of
         0 ->
@@ -786,7 +865,7 @@ historyBlobs env profile displayPeriod =
         activities =
             Activity.allActivities profile.activities
     in
-    List.map (makeHistoryBlob env activities)
+    List.map (makeHistoryBlob env activities displayPeriod)
         (List.takeWhile
             (\( _, _, m ) -> Period.contains displayPeriod m)
             historyList
@@ -1149,8 +1228,8 @@ getPositionInDay rowLength day givenSession =
             additionalSegments
 
 
-makeHistoryBlob : Environment -> IntDict Activity -> ( Activity.ActivityID, Maybe Task.InstanceID, Period ) -> FlowBlob
-makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
+makeHistoryBlob : Environment -> IntDict Activity -> Period -> ( Activity.ActivityID, Maybe Task.InstanceID, Period ) -> FlowBlob
+makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sessionPeriod ) =
     let
         -- sessionPositions =
         --     getPositionInDay day.rowLength day.period sessionPeriod
@@ -1217,8 +1296,11 @@ makeHistoryBlob env activities ( activityID, instanceIDMaybe, sessionPeriod ) =
                 , alpha = 0.99
                 }
                 |> HSLuv.toColor
+
+        croppedSessionPeriod =
+            Period.crop displayPeriod sessionPeriod
     in
-    FlowBlob (Period.start sessionPeriod) (Period.end sessionPeriod) activityColor activityName
+    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor activityName
 
 
 blockBrokenCoord coord =
