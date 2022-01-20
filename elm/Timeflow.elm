@@ -125,7 +125,7 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 20
+    , hourRowSize = Duration.fromMinutes 15
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 2
     }
@@ -218,26 +218,22 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         )
 
 
-demoPolygonPoints =
-    [ ( 0, 0 ), ( 100, 50 ), ( 100, 0 ) ]
 
-
-
+-- demoPolygonPoints =
+--     [ ( 0, 0 ), ( 100, 50 ), ( 100, 0 ) ]
 -- [ ( 0, 0 )
 -- , ( 100, 0 )
 -- , ( 100, -20 )
 -- , ( 0, -20 )
 -- ]
-
-
-demoPolygonPoints2 =
-    [ ( 0, 0 )
-    , ( 100, 0 )
-    , ( 100, -30 )
-    , ( 75, -30 )
-    , ( 75, -20 )
-    , ( 0, -20 )
-    ]
+-- demoPolygonPoints2 =
+--     [ ( 0, 0 )
+--     , ( 100, 0 )
+--     , ( 100, -30 )
+--     , ( 75, -30 )
+--     , ( 75, -20 )
+--     , ( 0, -20 )
+--     ]
 
 
 type alias Point =
@@ -617,6 +613,9 @@ blobToShape settings env flowBlob =
         [ roundedPolygon 0.5
             pointsOfInterest.shell
             |> filled (graphColor flowBlob.color)
+        , roundedPolygon 0.5
+            pointsOfInterest.shell
+            |> outlined (GraphicSVG.solid 0.1) (GraphicSVG.rgba 0 0 0 0.5)
         , GraphicSVG.text flowBlob.label
             |> size textSize
             |> sansserif
