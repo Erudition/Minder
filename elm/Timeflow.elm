@@ -172,7 +172,7 @@ view maybeVState profile env =
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view widgetState
-        ([ rect 100 48
+        ([ rect 100 (toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight)
             |> filled gray
             |> notifyMouseMoveAt PointerMove
             |> move ( 0, 150 )
@@ -325,40 +325,6 @@ addPoints radii points =
                 [ firstPoint, midPoint, secondPoint, lastPoint ]
             )
         |> List.concat
-
-
-roundedPolygon2 : Polygon -> Stencil
-roundedPolygon2 cornerList =
-    let
-        addedPoints =
-            addPoints 0.5 cornerList
-
-        pullers =
-            addedPoints
-                |> List.cycle (List.length addedPoints + 2)
-                |> List.drop 1
-                |> List.groupsOf 2
-
-        pullerList =
-            -- Convert the list of list of points into a list of pullers.
-            List.map
-                (\list ->
-                    let
-                        a =
-                            Maybe.withDefault ( 0, 0 ) <| List.getAt 0 list
-
-                        b =
-                            Maybe.withDefault ( 0, 0 ) <| List.getAt 1 list
-                    in
-                    GraphicSVG.Pull a b
-                )
-                pullers
-    in
-    curve
-        -- In this case, the first point is a `pulling` point. It does not pass through the first point as its a control point.
-        -- Thats why we start from the Second point to pass through.
-        (Maybe.withDefault ( 0.0, 0.0 ) <| List.getAt 3 addedPoints)
-        pullerList
 
 
 distanceBetweenPoints : Point -> Point -> Float
@@ -704,37 +670,43 @@ blobToPoints displayState env flowBlob =
         isOddRow startWall =
             modBy 2 (rowNumber startWall) == 1
 
+        slash =
+            1
+
         floatingBlob =
             case isOddRow firstRowStartWall of
                 False ->
+                    -- LTR row
                     { shell =
-                        [ ( startsAtPortion * 100, startHeight - h )
-                        , ( startsAtPortion * 100, startHeight )
-                        , ( endsAtPortion * 100, startHeight )
-                        , ( endsAtPortion * 100, startHeight - h )
+                        [ ( (startsAtPortion * 100) - slash, startHeight - h )
+                        , ( (startsAtPortion * 100) + slash, startHeight )
+                        , ( (endsAtPortion * 100) + slash, startHeight )
+                        , ( (endsAtPortion * 100) - slash, startHeight - h )
                         ]
                     , bestTextArea =
-                        ( ( startsAtPortion * 100, startHeight )
-                        , ( endsAtPortion * 100, startHeight - h )
+                        ( ( (startsAtPortion * 100) + slash, startHeight )
+                        , ( (endsAtPortion * 100) - slash, startHeight - h )
                         )
                     }
 
                 True ->
+                    -- RTL row
                     { shell =
-                        [ ( 100 - endsAtPortion * 100, startHeight - h )
-                        , ( 100 - endsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        [ ( (100 - endsAtPortion * 100) + slash, startHeight - h )
+                        , ( (100 - endsAtPortion * 100) - slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
                         ]
                     , bestTextArea =
-                        ( ( 100 - endsAtPortion * 100, startHeight )
-                        , ( 100 - startsAtPortion * 100, startHeight - h )
+                        ( ( (100 - endsAtPortion * 100) + slash, startHeight )
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
                         )
                     }
 
         oneCrossingBlob =
             case isOddRow firstRowStartWall of
                 False ->
+                    -- left to right row
                     { shell =
                         [ ( startsAtPortion * 100, startHeight - h )
                         , ( startsAtPortion * 100, startHeight )
@@ -779,6 +751,7 @@ blobToPoints displayState env flowBlob =
         sandwichBlob middlePieces =
             { shell =
                 case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
+                    -- top row is LTR, bottom is RTL
                     ( False, True ) ->
                         [ ( startsAtPortion * 100, startHeight - h )
                         , ( startsAtPortion * 100, startHeight )
@@ -790,6 +763,7 @@ blobToPoints displayState env flowBlob =
                         , ( 0, startHeight - h )
                         ]
 
+                    -- top row is RTL, bottom is LTR
                     ( True, False ) ->
                         [ ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight )
@@ -801,6 +775,7 @@ blobToPoints displayState env flowBlob =
                         , ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
                         ]
 
+                    -- top row is LTR, bottom is LTR
                     ( False, False ) ->
                         [ ( startsAtPortion * 100, startHeight - h )
                         , ( startsAtPortion * 100, startHeight )
@@ -812,6 +787,7 @@ blobToPoints displayState env flowBlob =
                         , ( 0, startHeight - h )
                         ]
 
+                    -- top row is RTL, bottom is RTL
                     ( True, True ) ->
                         [ ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight )
