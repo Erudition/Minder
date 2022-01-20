@@ -125,7 +125,7 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 20
+    , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 2
     }
@@ -189,7 +189,7 @@ allShapes state profile env =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
     in
     [ rect 100 boxHeight
-        |> filled black
+        |> filled white
         |> move ( 0, -boxHeight / 2 )
     , rect 100 boxHeight
         |> filled (GraphicSVG.hsl 180 1 0.5)
@@ -325,7 +325,7 @@ roundedPolygon radii cornerList =
 
         allThePoints =
             cornerList
-                |> List.cycle (List.length cornerList + 2)
+                |> List.cycle (List.length cornerList + 3)
                 |> applyRoundCorner
                 |> List.concat
 
@@ -374,7 +374,8 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
         --     atan2 (middleY - endY) (middleX - endX)
         --         - atan2 (middleY - startY) (middleX - startX)
         radii1 =
-            min radii <| min (distanceBetweenPoints ( startX, startY ) ( middleX, middleY )) (distanceBetweenPoints ( middleX, middleY ) ( endX, endY ))
+            min radii <|
+                min (distanceBetweenPoints ( startX, startY ) ( middleX, middleY ) / 2) (distanceBetweenPoints ( middleX, middleY ) ( endX, endY ) / 2)
 
         x1 =
             radii1 * cos basis
@@ -437,20 +438,25 @@ blobToShape settings env flowBlob =
             midPoint pointsOfInterest.bestTextArea
 
         theShell =
-            roundedPolygon 0.4 pointsOfInterest.shell
+            roundedPolygon 0.5 pointsOfInterest.shell
 
         rotateIfSquished shape =
             if textAreaW > toFloat settings.rowHeight then
                 shape
 
             else
-                shape |> GraphicSVG.rotate (degrees -90) |> GraphicSVG.scale 0.5
+                shape
+                    |> GraphicSVG.rotate (degrees -90)
+                    |> GraphicSVG.scale 0.5
     in
     group
         [ theShell
             |> filled (graphColor flowBlob.color)
             -- TODO outlines don't complete polygons :(
-            |> addOutline (GraphicSVG.solid 0.05) black
+            --  * Update: Verify that they do now.
+            -- TODO: Consider flipping to black when blobs are old
+            |> addOutline (GraphicSVG.solid 0.5) (GraphicSVG.rgba 255 255 255 0.55)
+            |> GraphicSVG.clip (filled black theShell)
         , GraphicSVG.text flowBlob.label
             |> size textSize
             |> sansserif
@@ -545,89 +551,87 @@ blobToPoints displayState env flowBlob =
 
         floatingBlob =
             -- all Points are in clockwise order, starting with the top left point or the one before it
-            case isOddRow firstRowStartWall of
-                False ->
-                    -- LTR row
-                    { shell =
-                        [ ( (startsAtPortion * 100) - slash, startHeight - h )
-                        , ( (startsAtPortion * 100) + slash, startHeight )
-                        , ( (endsAtPortion * 100) + slash, startHeight )
-                        , ( (endsAtPortion * 100) - slash, startHeight - h )
-                        ]
-                    , bestTextArea =
-                        ( ( (startsAtPortion * 100) + slash, startHeight )
-                        , ( (endsAtPortion * 100) - slash, startHeight - h )
-                        )
-                    }
+            if isOddRow firstRowStartWall then
+                -- RTL row
+                { shell =
+                    [ ( (100 - endsAtPortion * 100) + slash, startHeight - h )
+                    , ( (100 - endsAtPortion * 100) - slash, startHeight )
+                    , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                    , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
+                    ]
+                , bestTextArea =
+                    ( ( (100 - endsAtPortion * 100) + slash, startHeight )
+                    , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
+                    )
+                }
 
-                True ->
-                    -- RTL row
-                    { shell =
-                        [ ( (100 - endsAtPortion * 100) + slash, startHeight - h )
-                        , ( (100 - endsAtPortion * 100) - slash, startHeight )
-                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
-                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
-                        ]
-                    , bestTextArea =
-                        ( ( (100 - endsAtPortion * 100) + slash, startHeight )
-                        , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
-                        )
-                    }
+            else
+                -- LTR row
+                { shell =
+                    [ ( (startsAtPortion * 100) - slash, startHeight - h )
+                    , ( (startsAtPortion * 100) + slash, startHeight )
+                    , ( (endsAtPortion * 100) + slash, startHeight )
+                    , ( (endsAtPortion * 100) - slash, startHeight - h )
+                    ]
+                , bestTextArea =
+                    ( ( (startsAtPortion * 100) + slash, startHeight )
+                    , ( (endsAtPortion * 100) - slash, startHeight - h )
+                    )
+                }
 
         oneCrossingBlob =
-            case isOddRow firstRowStartWall of
-                False ->
-                    -- LTR row
-                    { shell =
-                        [ ( (startsAtPortion * 100) - slash, startHeight - h )
-                        , ( (startsAtPortion * 100) + slash, startHeight )
-                        , ( 100, startHeight )
-                        , ( 100, startHeight - (2 * h) )
-                        , ( (100 - endsAtPortion * 100) + slash, startHeight - (2 * h) )
-                        , ( (100 - endsAtPortion * 100) - slash, startHeight - h )
-                        ]
-                    , bestTextArea =
-                        -- no slash on right side shared wall
-                        if startsAtPortion >= endsAtPortion then
-                            -- use top piece, there's more room
-                            ( ( (startsAtPortion * 100) + slash, startHeight )
-                            , ( 100, startHeight - h )
-                            )
+            if isOddRow firstRowStartWall then
+                -- RTL row
+                { shell =
+                    -- share left wall
+                    [ ( 0, startHeight - (2 * h) )
+                    , ( 0, startHeight )
 
-                        else
-                            -- use bottom piece, there's more room
-                            ( ( (100 - endsAtPortion * 100) + slash, startHeight - h )
-                            , ( 100, startHeight - (2 * h) )
-                            )
-                    }
+                    -- starting side, RTL row
+                    , ( (100 - startsAtPortion * 100) - slash, startHeight )
+                    , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
 
-                True ->
-                    -- RTL row
-                    { shell =
-                        -- share left wall
-                        [ ( 0, startHeight - (2 * h) )
-                        , ( 0, startHeight )
+                    -- ending side, LTR row
+                    , ( (endsAtPortion * 100) + slash, startHeight - h )
+                    , ( (endsAtPortion * 100) - slash, startHeight - (2 * h) )
+                    ]
+                , bestTextArea =
+                    -- no slash on left side shared wall
+                    if startsAtPortion >= endsAtPortion then
+                        ( ( 0, startHeight )
+                        , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
+                        )
 
-                        -- starting side, RTL row
-                        , ( (100 - startsAtPortion * 100) - slash, startHeight )
-                        , ( (100 - startsAtPortion * 100) + slash, startHeight - h )
-
-                        -- ending side, LTR row
-                        , ( (endsAtPortion * 100) + slash, startHeight - h )
+                    else
+                        ( ( 0, startHeight - h )
                         , ( (endsAtPortion * 100) - slash, startHeight - (2 * h) )
-                        ]
-                    , bestTextArea =
-                        -- no slash on left side shared wall
-                        if startsAtPortion >= endsAtPortion then
-                            ( ( 0, startHeight )
-                            , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
-                            )
+                        )
+                }
 
-                        else
-                            ( ( 0, startHeight - h )
-                            , ( (endsAtPortion * 100) - slash, startHeight - (2 * h) )
-                            )
-                    }
+            else
+                -- LTR row
+                { shell =
+                    [ ( (startsAtPortion * 100) - slash, startHeight - h )
+                    , ( (startsAtPortion * 100) + slash, startHeight )
+                    , ( 100, startHeight )
+                    , ( 100, startHeight - (2 * h) )
+                    , ( (100 - endsAtPortion * 100) + slash, startHeight - (2 * h) )
+                    , ( (100 - endsAtPortion * 100) - slash, startHeight - h )
+                    ]
+                , bestTextArea =
+                    -- no slash on right side shared wall
+                    if startsAtPortion >= endsAtPortion then
+                        -- use top piece, there's more room
+                        ( ( (startsAtPortion * 100) + slash, startHeight )
+                        , ( 100, startHeight - h )
+                        )
+
+                    else
+                        -- use bottom piece, there's more room
+                        ( ( (100 - endsAtPortion * 100) + slash, startHeight - h )
+                        , ( 100, startHeight - (2 * h) )
+                        )
+                }
 
         sandwichBlob middlePieces =
             { shell =
