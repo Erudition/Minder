@@ -125,9 +125,9 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 5
+    , hourRowSize = Duration.fromMinutes 20
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 1
+    , rowHeight = 2
     }
 
 
@@ -135,7 +135,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 1000 "0"
+            Widget.init 100 300 "0"
     in
     ( { settings = updateViewSettings profile environment
       , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
@@ -161,10 +161,9 @@ view maybeVState profile env =
             column [ width fill, height fill ]
                 [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                , row [ width (fillPortion 1), height (fillPortion 20), scrollbarY ]
-                    [ --  timeFlowLayout vState.settings profile env
-                      -- ,
-                      column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                , row [ width (fillPortion 1) ]
+                    [ timeFlowLayout vState.settings profile env
+                    , column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
                     ]
                 , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text "The future is below." ]
@@ -178,15 +177,16 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
             |> notifyMouseMoveAt PointerMove
             |> move ( 0, -24 )
          , graphPaperCustom 1 0.03 black
-         , polygon
-            demoPolygonPoints
-            |> filled blue
-            |> move ( -50, 0 )
-            |> notifyMouseMoveAt PointerMove
-         , roundedPolygon 2 demoPolygonPoints
-            |> filled green
-            |> move ( -50, 0 )
-            |> notifyMouseMoveAt PointerMove
+
+         -- , polygon
+         --    demoPolygonPoints
+         --    |> filled blue
+         --    |> move ( -50, 0 )
+         --    |> notifyMouseMoveAt PointerMove
+         -- , roundedPolygon 2 demoPolygonPoints
+         --    |> filled green
+         --    |> move ( -50, 0 )
+         --    |> notifyMouseMoveAt PointerMove
          , circle 1
             |> filled blue
             |> move ( state.pointer.x / 4, state.pointer.y / 4 )
@@ -579,7 +579,7 @@ displayBlob displayState env flowBlob =
         middlePiece =
             el ([ width fill ] ++ blobAttributes) <|
                 centeredText <|
-                    "Middle"
+                    ""
 
         blobAttributes =
             [ Background.color (elementColor flowBlob.color), height fill, Element.clip ]
@@ -611,7 +611,7 @@ blobToShape settings env flowBlob =
             ( (x1 + x2) / 2, (y1 + y2) / 2 )
 
         textSize =
-            0.5
+            toFloat settings.rowHeight / 2
     in
     group
         [ roundedPolygon 0.5
@@ -626,7 +626,7 @@ blobToShape settings env flowBlob =
             |> move (midPoint pointsOfInterest.bestTextArea)
             |> move ( 0, -textSize / 2 )
         ]
-        |> move ( -50, 0 )
+        |> move ( -50, 150 )
 
 
 blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ) }
@@ -850,9 +850,12 @@ timeFlowLayout vstate profile env =
         allHourRowsPeriods : List Period
         allHourRowsPeriods =
             Period.divide vstate.hourRowSize vstate.flowRenderPeriod
+
+        adjustRowHeightVstate =
+            { vstate | rowHeight = vstate.rowHeight * 10 }
     in
     column [ height fill, width fill, clipX ]
-        (List.map (singleHourRow vstate profile env)
+        (List.map (singleHourRow adjustRowHeightVstate profile env)
             allHourRowsPeriods
         )
 

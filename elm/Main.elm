@@ -70,7 +70,7 @@ subscriptions ({ viewState, profile, environment } as model) =
         , storageChangedElsewhere NewAppData
 
         -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
-        , Moment.every (Duration.fromSeconds 1) (Tock NoOp)
+        , Moment.every (Duration.fromSeconds (1 / 30)) (Tock NoOp)
         ]
             ++ (case viewState.primaryView of
                     Timeflow subState ->
@@ -423,7 +423,7 @@ globalLayout viewState profile env innerStuff =
                 [ el [ centerX ] <| text "Minder - pre-alpha prototype"
                 , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
                 ]
-            , row [ width fill, height (fillPortion 20) ]
+            , row [ width fill, height (fillPortion 20), scrollbarY ]
                 [ html innerStuff ]
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ footerLinks
