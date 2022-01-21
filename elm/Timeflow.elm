@@ -124,8 +124,8 @@ updateViewSettings profile env =
             -- will be derived from profile settings
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
-    { flowRenderPeriod = week
-    , hourRowSize = Duration.fromMinutes 30
+    { flowRenderPeriod = today
+    , hourRowSize = Duration.fromMinutes 5
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 2
     }
@@ -548,22 +548,66 @@ blobToPoints displayState env flowBlob =
             modBy 2 (rowNumber startWall) == 1
 
         slash =
-            0.5
+            0.2
 
-        slashTopRTL ( x, y ) =
-            ( x - slash, y )
-
-        slashTopLTR ( x, y ) =
-            if True then
-                ( x + slash, y )
+        touchingRightWallBy ( x, y ) =
+            if (100 - x) < slash then
+                Debug.log "touching right wall portion" (1 - ((100 - x) / slash))
 
             else
-                ( x + slash, y )
+                0
+
+        touchingLeftWallBy ( x, y ) =
+            if x < slash then
+                Debug.log "touching left wall portion" (1 - (x / slash))
+
+            else
+                0
+
+        slashTopLTR ( x, y ) =
+            -- let
+            --     touchPortion =
+            --         touchingRightWallBy ( x, y )
+            -- in
+            -- if touchPortion > 0 then
+            --     ( 100, y - (touchPortion * h) )
+            --
+            -- else
+            ( x + slash, y )
 
         slashBottomLTR ( x, y ) =
+            -- if touchingRightWallBy ( x, y ) > 0 then
+            --     ( 100 - (2 * slash), y )
+            --
+            -- else
+            ( x - slash, y )
+
+        slashTopRTL ( x, y ) =
+            -- let
+            --     leftTouchPortion =
+            --         touchingLeftWallBy ( x, y )
+            -- in
+            -- if touchingRightWallBy ( x, y ) > 0 then
+            --     ( 100 - (2 * slash), y )
+            --
+            -- else if leftTouchPortion > 0 then
+            --     ( 0, y - (leftTouchPortion * h) )
+            --
+            -- else
             ( x - slash, y )
 
         slashBottomRTL ( x, y ) =
+            -- let
+            --     rightTouchPortion =
+            --         touchingRightWallBy ( x, y )
+            -- in
+            -- if touchingLeftWallBy ( x, y ) > 0 then
+            --     ( 0 + (2 * slash), y )
+            --
+            -- else if rightTouchPortion > 0 then
+            --     ( 100, y + (rightTouchPortion * h) )
+            --
+            -- else
             ( x + slash, y )
 
         floatingBlob =
