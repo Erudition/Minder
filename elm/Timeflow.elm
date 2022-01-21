@@ -125,7 +125,7 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
     in
     { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 5
+    , hourRowSize = Duration.fromMinutes 30
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = 2
     }
@@ -573,14 +573,14 @@ blobToPoints displayState env flowBlob =
             --     ( 100, y - (touchPortion * h) )
             --
             -- else
-            ( x + slash, y )
+            ( clamp 0 100 <| x + slash, y )
 
         slashBottomLTR ( x, y ) =
             -- if touchingRightWallBy ( x, y ) > 0 then
             --     ( 100 - (2 * slash), y )
             --
             -- else
-            ( x - slash, y )
+            ( clamp 0 100 <| x - slash, y )
 
         slashTopRTL ( x, y ) =
             -- let
@@ -594,7 +594,7 @@ blobToPoints displayState env flowBlob =
             --     ( 0, y - (leftTouchPortion * h) )
             --
             -- else
-            ( x - slash, y )
+            ( clamp 0 100 <| x - slash, y )
 
         slashBottomRTL ( x, y ) =
             -- let
@@ -608,7 +608,7 @@ blobToPoints displayState env flowBlob =
             --     ( 100, y + (rightTouchPortion * h) )
             --
             -- else
-            ( x + slash, y )
+            ( clamp 0 100 <| x + slash, y )
 
         floatingBlob =
             -- all Points are in clockwise order, starting with the top left point or the one before it
