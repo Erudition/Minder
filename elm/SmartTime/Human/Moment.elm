@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, everyMinuteOnTheMinute, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeVsNow, everyMinuteOnTheMinute, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -338,6 +338,19 @@ fromStringHelper givenParser input =
             Result.map (\d -> combiner d time) (Calendar.fromParts dateparts)
     in
     withNiceErrors |> Result.andThen fromAll
+
+
+
+-- Convenience functions for English
+
+
+describeVsNow : Zone -> Moment -> Moment -> String
+describeVsNow zone now moment =
+    let
+        ( date, time ) =
+            humanize zone moment
+    in
+    Calendar.describeVsToday (extractDate zone now) date ++ " at " ++ Clock.toShortString time
 
 
 
