@@ -102,6 +102,7 @@ type alias ViewSettings =
     , hourRowSize : Duration
     , pivotMoment : Moment
     , rowHeight : Int
+    , rows : Int
     }
 
 
@@ -120,14 +121,27 @@ updateViewSettings profile env =
                 , HumanMoment.fromDateAndTime env.timeZone (Calendar.toNext Week.Sun (HumanMoment.extractDate env.timeZone env.time)) chosenDayCutoffTime
                 )
 
+        chosenPeriod =
+            week
+
         chosenDayCutoffTime =
             -- will be derived from profile settings
             HumanDuration.build [ HumanDuration.Hours 3 ]
+
+        timePerRow =
+            Duration.fromMinutes 30
+
+        rowHeight =
+            2
+
+        rowCount =
+            List.length (Period.divide timePerRow chosenPeriod) * rowHeight
     in
-    { flowRenderPeriod = today
-    , hourRowSize = Duration.fromMinutes 30
+    { flowRenderPeriod = chosenPeriod
+    , hourRowSize = timePerRow
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
-    , rowHeight = 2
+    , rowHeight = rowHeight
+    , rows = rowCount
     }
 
 
@@ -135,7 +149,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 1000 "0"
+            Widget.init 100 (toFloat initialSettings.rowHeight * toFloat initialSettings.rows) "0"
 
         initialSettings =
             updateViewSettings profile environment
@@ -165,14 +179,41 @@ view maybeVState profile env =
     SH.fromUnstyled <|
         layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
             column [ width fill, height fill ]
-                [ row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                , row [ width (fillPortion 1) ]
+                , row [ width (fillPortion 1), height fill, htmlAttribute (Html.Attributes.style "flex-shrink" "1") ]
                     -- [ timeFlowLayout vState.settings profile env
-                    [ column [ width (fillPortion 1) ] <| List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets)
+                    [ column [ width (px 30), height fill, Background.color <| elementColor Color.grey, Font.size 30 ]
+                        [ el [ centerX, centerY ] <| Element.text "👋"
+                        , el [ centerX, centerY ] <| Element.text "🖖"
+                        , el [ centerX, centerY ] <| Element.text "👌"
+                        , el [ centerX, centerY ] <| Element.text "🤞"
+                        , el [ centerX, centerY ] <| Element.text "🖕"
+                        ]
+                    , column
+                        [ width fill, height fill, Element.clip, scrollbarY ]
+                        (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                     ]
-                , row [ width fill, height (fillPortion 1), Background.color (Element.rgb 0.5 0.5 0.5) ]
-                    [ el [ centerX ] <| Element.text "The future is below." ]
+                , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
+                    [ el [ centerX ] <|
+                        Element.text
+                            (multiline
+                                [ [ "Showing"
+                                  , Period.length vState.settings.flowRenderPeriod
+                                        |> HumanDuration.breakdownDH
+                                        |> HumanDuration.trim
+                                        |> HumanDuration.abbreviatedSpaced
+                                  , "(from"
+                                  , Period.start vState.settings.flowRenderPeriod
+                                        |> HumanMoment.describeVsNow env.timeZone env.time
+                                  , "through"
+                                  , Period.end vState.settings.flowRenderPeriod
+                                        |> HumanMoment.describeVsNow env.timeZone env.time
+                                  , ")"
+                                  ]
+                                ]
+                            )
+                    ]
                 ]
 
 

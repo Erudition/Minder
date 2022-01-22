@@ -15,6 +15,7 @@ import Element.Input as Input
 import Environment exposing (..)
 import External.Commands exposing (..)
 import Html as PlainHtml
+import Html.Attributes as HA
 import Html.Styled as H exposing (Html, a, div, li, ol, p, toUnstyled)
 import Html.Styled.Attributes as Attr exposing (class, href)
 import Html.Styled.Events as HtmlEvents
@@ -417,13 +418,13 @@ globalLayout viewState profile env innerStuff =
                 _ ->
                     Debug.todo "branch not implemented"
     in
-    layoutWith elmUIOptions [ width fill, height fill ] <|
+    layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
         column [ width fill, height fill ]
             [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ el [ centerX ] <| text "Minder - pre-alpha prototype"
                 , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
                 ]
-            , row [ width fill, height (fillPortion 20), scrollbarY ]
+            , row [ width fill, height (fillPortion 20), clip, scrollbarY ]
                 [ html innerStuff ]
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ footerLinks
