@@ -1,4 +1,4 @@
-module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, elementHsluv, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, graphColor, homogeneousTuple2AsArray, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, cycleGroupWithStep, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, elementHsluv, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, graphColor, homogeneousTuple2AsArray, listToTuple2, listToTuple3, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import Color
 import Element
@@ -571,3 +571,41 @@ graphColor color =
             Color.toRgba color
     in
     GraphicSVG.rgba (red * 255) (green * 255) (blue * 255) alpha
+
+
+listToTuple2 : List a -> Maybe ( a, a )
+listToTuple2 list =
+    case list of
+        [ a, b ] ->
+            Just ( a, b )
+
+        _ ->
+            Nothing
+
+
+listToTuple3 : List a -> Maybe ( a, a, a )
+listToTuple3 list =
+    case list of
+        [ a, b, c ] ->
+            Just ( a, b, c )
+
+        _ ->
+            Nothing
+
+
+
+{-
+   Given a list, return a list of 'grouped' elements with a step which Loops!.
+   Example:
+   cycleGroupWithStep 3 1 [ 1, 2, 3, 4 ]
+        -> [ [ 1, 2, 3 ], [ 2, 3, 4 ], [ 3, 4, 1 ], [ 4, 1, 2 ] ]
+    cycleGroupWithStep 4 4 [ 1, 2, 3, 4 ]
+        -> [ [ 1, 2, 3, 4 ] ]
+-}
+
+
+cycleGroupWithStep : Int -> Int -> List a -> List (List a)
+cycleGroupWithStep groupSize groupStep list =
+    list
+        |> List.cycle (List.length list + (groupSize - 1))
+        |> List.groupsOfWithStep groupSize groupStep
