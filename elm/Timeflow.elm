@@ -84,6 +84,22 @@ type alias ViewSettings =
     }
 
 
+type alias Point =
+    ( Float, Float )
+
+
+type alias Polygon =
+    List Point
+
+
+type alias FlowBlob =
+    { start : Moment
+    , end : Moment
+    , color : Color.Color
+    , label : String
+    }
+
+
 updateViewSettings : Profile -> Environment -> ViewSettings
 updateViewSettings profile env =
     let
@@ -198,17 +214,17 @@ allShapes state profile env =
         ++ List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod)
 
 
-type alias Point =
-    ( Float, Float )
-
-
-type alias Polygon =
-    List Point
-
-
 distanceBetweenPoints : Point -> Point -> Float
 distanceBetweenPoints ( x1, y1 ) ( x2, y2 ) =
     sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+
+
+
+{-
+   Given a list of points, returns a Stencil shape that represents the
+   polygon but with rounded corners. To do this, we need to extend the
+   polygon by two points, and then generate the rounded corners.
+-}
 
 
 roundedPolygon : Float -> Polygon -> Stencil
@@ -216,6 +232,7 @@ roundedPolygon radii cornerList =
     let
         allThePoints =
             cornerList
+                -- Extend list by two points to close the polygon
                 |> List.cycle (List.length cornerList + 2)
                 |> Helpers.cycleGroupWithStep 3 1
                 |> List.map (\e -> Maybe.withDefault ( ( 0, 0 ), ( 0, 0 ), ( 0, 0 ) ) <| Helpers.listToTuple3 e)
@@ -239,7 +256,16 @@ roundedPolygon radii cornerList =
         pullerList
 
 
-roundCorner : Float -> Point -> Point -> Point -> List Point
+
+{-
+   roundedCorner is a simple function that takes a radius and 3 points.
+   It returns a new list of points that represents a rounded corner.
+   Todo this, we need to return 4 points, where the first and third points
+   are the 'control points', and the second and fourth points are normal points.
+-}
+
+
+roundCorner : Float -> Point -> Point -> Point -> Polygon
 roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     let
         midPoint =
@@ -249,11 +275,10 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
             ( middleX, middleY )
 
         -- The angle between the vector and a horizontal line from 0,0
-        -- TODO: Consider if atan2 (middleY - middleY) (middleX - (middleX + 100)) should be replaced with pi
-        basis =
+        -- TODO: Consider if 'atan2 (middleY - middleY) (middleX - (middleX + 1))' should be replaced with 'pi'
+        basis1 =
             atan2 (middleY - startY) (middleX - startX) - atan2 (middleY - middleY) (middleX - (middleX + 1))
 
-        -- The angle between the vector and a horizontal line from 0,0
         basis2 =
             atan2 (middleY - endY) (middleX - endX) - atan2 (middleY - middleY) (middleX - (middleX + 1))
 
@@ -268,10 +293,10 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
                     (distanceBetweenPoints ( endX, endY ) ( middleX, middleY ) / 2)
 
         x1 =
-            minRadii * cos basis
+            minRadii * cos basis1
 
         y1 =
-            minRadii * sin basis
+            minRadii * sin basis1
 
         x2 =
             minRadii * cos basis2
@@ -286,14 +311,6 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
             ( middleX + x2, middleY + y2 )
     in
     [ midPoint, firstPoint, controlPoint, secondPoint ]
-
-
-type alias FlowBlob =
-    { start : Moment
-    , end : Moment
-    , color : Color.Color
-    , label : String
-    }
 
 
 blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
