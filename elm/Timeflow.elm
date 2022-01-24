@@ -17,6 +17,7 @@ import GraphicSVG exposing (..)
 import GraphicSVG.Widget as Widget
 import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
+import Html.Attributes
 import Html.Styled as SH
 import ID
 import Incubator.IntDict.Extra as IntDict
