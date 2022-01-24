@@ -422,7 +422,7 @@ defaults startWith =
             }
 
         Restroom ->
-            { names = [ "Restroom", "Toilet", "WC", "Washroom", "Latrine", "Lavatory", "Water Closet" ]
+            { names = [ "Restroom", "Toilet", "WC", "Washroom", "Latrine", "Lavatory", "Water Closet", "Bathroom" ]
             , icon = Emoji "🚽"
             , excusable = TemporarilyExcused ( Minutes 15, Hours 2 )
             , taskOptional = True
