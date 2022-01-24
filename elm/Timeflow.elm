@@ -1,15 +1,9 @@
-module Timeflow exposing (Msg, ViewState, addPoints, init, neighboringLoop, routeView, subscriptions, update, view)
-
--- import Nonnegative exposing (modBy)
+module Timeflow exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switching
 import Activity.Timeline
-import Array
-import Browser
-import Browser.Dom
 import Color exposing (Color)
-import Css as C
 import Date
 import Dict exposing (Dict)
 import Dict.Extra as Dict
@@ -23,41 +17,26 @@ import GraphicSVG exposing (..)
 import GraphicSVG.Widget as Widget
 import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
-import Html.Attributes
-import Html.Styled as SH exposing (Html)
-import Html.Styled.Attributes as SHA
-import Html.Styled.Events as SHE
-import Html.Styled.Keyed as SHK
-import Html.Styled.Lazy exposing (lazy, lazy2)
+import Html.Styled as SH
 import ID
 import Incubator.IntDict.Extra as IntDict
-import Incubator.Todoist as Todoist
-import Incubator.Todoist.Command as TodoistCommand
 import IntDict exposing (IntDict)
-import Integrations.Todoist
-import Json.Decode as OldDecode
-import Json.Decode.Exploration as Decode
-import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
-import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
-import List.Nonempty exposing (Nonempty)
 import Profile exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
+import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import String.Normalize
 import Task as Job
 import Task.Entry as Task
 import Task.Instance as Task exposing (Instance, InstanceSkel)
 import Task.Progress exposing (..)
 import Task.Session as Task
-import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
+import Url.Parser as P exposing ((</>), Parser)
 import VirtualDom
 import ZoneHistory
 
@@ -103,6 +82,22 @@ type alias ViewSettings =
     , pivotMoment : Moment
     , rowHeight : Int
     , rows : Int
+    }
+
+
+type alias Point =
+    ( Float, Float )
+
+
+type alias Polygon =
+    List Point
+
+
+type alias FlowBlob =
+    { start : Moment
+    , end : Moment
+    , color : Color.Color
+    , label : String
     }
 
 
@@ -262,115 +257,29 @@ allShapes state profile env =
         ++ List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod)
 
 
-type alias Point =
-    ( Float, Float )
-
-
-type alias Polygon =
-    List Point
-
-
-
-{-
-   Given a list, return a list of neightboring elements which Loops!.
-   Example: [ 1, 2, 3 ] -> [ ( 1, 2, 3 ), ( 2, 3, 1 ), ( 3, 1, 2 ) ]
--}
-
-
-neighboringLoop : List a -> List ( a, a, a )
-neighboringLoop list =
-    let
-        la =
-            list
-
-        lb =
-            List.drop 1 <| List.cycle (List.length list + 1) list
-
-        lc =
-            List.drop 2 <| List.cycle (List.length list + 2) list
-    in
-    List.zip3 la lb lc
-
-
-
-{-
-   addpoints simply adds in-between points to the list.
-   This is used to give the curve 'End Points'. The normal points then act as the 'Control Points'.
--}
-
-
-addPoints : Float -> Polygon -> Polygon
-addPoints radii points =
-    let
-        -- Shifted points to the right by 1
-        offsetPoints =
-            List.drop 1 <| List.cycle (List.length points + 1) points
-
-        -- This is only used to give the map access to two points at a time to calculate the midpoint between them.
-        neighboringPoints =
-            List.zip points offsetPoints
-    in
-    neighboringPoints
-        |> List.map
-            (\( a, b ) ->
-                let
-                    angleRads =
-                        atan2 (Tuple.second b - Tuple.second a) (Tuple.first b - Tuple.first a)
-
-                    x1 =
-                        radii * cos angleRads
-
-                    y1 =
-                        radii * sin angleRads
-
-                    x2 =
-                        -radii * cos angleRads
-
-                    y2 =
-                        -radii * sin angleRads
-
-                    firstPoint =
-                        ( Tuple.first a + x1, Tuple.second a + y1 )
-
-                    midPoint =
-                        ( (Tuple.first b + Tuple.first a) / 2, (Tuple.second a + Tuple.second b) / 2 )
-
-                    secondPoint =
-                        ( Tuple.first b + x2, Tuple.second b + y2 )
-
-                    lastPoint =
-                        ( Tuple.first b, Tuple.second b )
-                in
-                [ firstPoint, midPoint, secondPoint, lastPoint ]
-            )
-        |> List.concat
-
-
 distanceBetweenPoints : Point -> Point -> Float
 distanceBetweenPoints ( x1, y1 ) ( x2, y2 ) =
     sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 
 
+
+{-
+   Given a list of points, returns a Stencil shape that represents the
+   polygon but with rounded corners. To do this, we need to extend the
+   polygon by two points, and then generate the rounded corners.
+-}
+
+
 roundedPolygon : Float -> Polygon -> Stencil
 roundedPolygon radii cornerList =
     let
-        applyRoundCorner shorteningList =
-            case shorteningList of
-                a :: b :: c :: rest ->
-                    let
-                        newPoints : List Point
-                        newPoints =
-                            roundCorner radii a b c
-                    in
-                    newPoints :: applyRoundCorner (b :: c :: rest)
-
-                _ ->
-                    []
-
         allThePoints =
             cornerList
-                |> List.cycle (List.length cornerList + 3)
-                |> applyRoundCorner
+                -- Extend list by two points to close the polygon
+                |> List.cycle (List.length cornerList + 2)
+                |> Helpers.cycleGroupWithStep 3 1
+                |> List.map (\e -> Maybe.withDefault ( ( 0, 0 ), ( 0, 0 ), ( 0, 0 ) ) <| Helpers.listToTuple3 e)
+                |> List.map (\( a, b, c ) -> roundCorner radii a b c)
                 |> List.concat
 
         pullerList =
@@ -379,13 +288,10 @@ roundedPolygon radii cornerList =
                 |> List.map
                     (\list ->
                         let
-                            a =
-                                Maybe.withDefault ( 0, 0 ) <| List.getAt 0 list
-
-                            b =
-                                Maybe.withDefault ( 0, 0 ) <| List.getAt 1 list
+                            ( c, d ) =
+                                Maybe.withDefault ( ( 0, 0 ), ( 0, 0 ) ) <| Helpers.listToTuple2 list
                         in
-                        GraphicSVG.Pull a b
+                        GraphicSVG.Pull c d
                     )
     in
     curve
@@ -393,7 +299,16 @@ roundedPolygon radii cornerList =
         pullerList
 
 
-roundCorner : Float -> Point -> Point -> Point -> List Point
+
+{-
+   roundedCorner is a simple function that takes a radius and 3 points.
+   It returns a new list of points that represents a rounded corner.
+   Todo this, we need to return 4 points, where the first and third points
+   are the 'control points', and the second and fourth points are normal points.
+-}
+
+
+roundCorner : Float -> Point -> Point -> Point -> Polygon
 roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     let
         midPoint =
@@ -403,35 +318,34 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
             ( middleX, middleY )
 
         -- The angle between the vector and a horizontal line from 0,0
-        basis =
-            atan2 (middleY - startY) (middleX - startX)
-                - atan2 (middleY - middleY) (middleX - (middleX + 100))
+        -- TODO: Consider if 'atan2 (middleY - middleY) (middleX - (middleX + 1))' should be replaced with 'pi'
+        basis1 =
+            atan2 (middleY - startY) (middleX - startX) - atan2 (middleY - middleY) (middleX - (middleX + 1))
 
-        -- The angle between the vector and a horizontal line from 0,0
         basis2 =
-            atan2 (middleY - endY) (middleX - endX)
-                - atan2 (middleY - middleY) (middleX - (middleX + 100))
+            atan2 (middleY - endY) (middleX - endX) - atan2 (middleY - middleY) (middleX - (middleX + 1))
 
         -- The angle between the vectors
         -- angleRad =
         --     -- Debug.log "angleRad" <|
         --     atan2 (middleY - endY) (middleX - endX)
         --         - atan2 (middleY - startY) (middleX - startX)
-        radii1 =
+        minRadii =
             min radii <|
-                min (distanceBetweenPoints ( startX, startY ) ( middleX, middleY ) / 2) (distanceBetweenPoints ( middleX, middleY ) ( endX, endY ) / 2)
+                min (distanceBetweenPoints ( startX, startY ) ( middleX, middleY ) / 2)
+                    (distanceBetweenPoints ( endX, endY ) ( middleX, middleY ) / 2)
 
         x1 =
-            radii1 * cos basis
+            minRadii * cos basis1
 
         y1 =
-            radii1 * sin basis
+            minRadii * sin basis1
 
         x2 =
-            radii1 * cos basis2
+            minRadii * cos basis2
 
         y2 =
-            radii1 * sin basis2
+            minRadii * sin basis2
 
         firstPoint =
             ( middleX + x1, middleY + y1 )
@@ -440,14 +354,6 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
             ( middleX + x2, middleY + y2 )
     in
     [ midPoint, firstPoint, controlPoint, secondPoint ]
-
-
-type alias FlowBlob =
-    { start : Moment
-    , end : Moment
-    , color : Color.Color
-    , label : String
-    }
 
 
 blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
@@ -496,8 +402,6 @@ blobToShape settings env flowBlob =
     group
         [ theShell
             |> filled (graphColor flowBlob.color)
-            -- TODO outlines don't complete polygons :(
-            --  * Update: Verify that they do now.
             -- TODO: Consider flipping to black when blobs are old
             |> addOutline (GraphicSVG.solid 0.5) (GraphicSVG.rgba 255 255 255 0.55)
             |> GraphicSVG.clip (filled black theShell)
