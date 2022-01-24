@@ -1,8 +1,8 @@
 module NativeScript.Notification exposing (..)
 
+import Helpers exposing (normal, omittable, omittableList)
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
-import Helpers exposing (normal, omittable, omittableList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -72,6 +72,7 @@ build channel =
     , progress = Nothing
     , phone_only = Nothing
     , when = Nothing
+    , showWhen = Nothing
     , group = Nothing
     , groupAlertBehavior = Nothing
     , isGroupSummary = Nothing
@@ -83,245 +84,245 @@ build channel =
 
 -- Basics
 
+
 setText : { title : String, subtitle : String, body : String } -> Notification -> Notification
-setText  { title, subtitle, body } builder =
+setText { title, subtitle, body } builder =
     { builder | title = Just title, subtitle = Just subtitle, body = Just body }
 
+
 setTitleOnly : String -> Notification -> Notification
-setTitleOnly  title builder=
+setTitleOnly title builder =
     { builder | title = Just title }
 
 
 setID : NotificationID -> Notification -> Notification
-setID  id givenNotif=
+setID id givenNotif =
     { givenNotif | id = Just id }
 
 
 setTitle : String -> Notification -> Notification
-setTitle  title givenNotif =
+setTitle title givenNotif =
     { givenNotif | title = Just title }
 
 
 setSubtitle : String -> Notification -> Notification
-setSubtitle  subtitle givenNotif=
+setSubtitle subtitle givenNotif =
     { givenNotif | subtitle = Just subtitle }
 
 
 setBody : String -> Notification -> Notification
-setBody  body givenNotif =
+setBody body givenNotif =
     { givenNotif | body = Just body }
 
 
 setOngoing : Bool -> Notification -> Notification
-setOngoing  ongoing givenNotif =
+setOngoing ongoing givenNotif =
     { givenNotif | ongoing = Just ongoing }
 
 
 setBigTextStyle : Bool -> Notification -> Notification
-setBigTextStyle  bigTextStyle givenNotif =
+setBigTextStyle bigTextStyle givenNotif =
     { givenNotif | bigTextStyle = Just bigTextStyle }
 
 
 setGroupedMessages : List String -> Notification -> Notification
-setGroupedMessages  groupedMessages givenNotif=
+setGroupedMessages groupedMessages givenNotif =
     { givenNotif | groupedMessages = Just groupedMessages }
 
 
 setTicker : String -> Notification -> Notification
-setTicker  ticker givenNotif=
+setTicker ticker givenNotif =
     { givenNotif | ticker = Just ticker }
 
 
 setAt : Moment -> Notification -> Notification
-setAt  at givenNotif =
+setAt at givenNotif =
     { givenNotif | at = Just at }
 
 
 setBadge : Int -> Notification -> Notification
-setBadge  badge givenNotif =
+setBadge badge givenNotif =
     { givenNotif | badge = Just badge }
 
 
 setInterval : RepeatEvery -> Notification -> Notification
-setInterval  interval givenNotif=
+setInterval interval givenNotif =
     { givenNotif | interval = Just interval }
 
 
 setIcon : Path -> Notification -> Notification
-setIcon  icon givenNotif=
+setIcon icon givenNotif =
     { givenNotif | icon = Just icon }
 
 
 setSilhouetteIcon : Path -> Notification -> Notification
-setSilhouetteIcon  silhouetteIcon givenNotif=
+setSilhouetteIcon silhouetteIcon givenNotif =
     { givenNotif | silhouetteIcon = Just silhouetteIcon }
 
 
 setImage : Path -> Notification -> Notification
-setImage  image givenNotif=
+setImage image givenNotif =
     { givenNotif | image = Just image }
 
 
 setThumbnail : Thumbnail -> Notification -> Notification
-setThumbnail  thumbnail givenNotif=
+setThumbnail thumbnail givenNotif =
     { givenNotif | thumbnail = Just thumbnail }
 
 
 setExpiresAfter : Duration -> Notification -> Notification
-setExpiresAfter  expiresAfter givenNotif=
+setExpiresAfter expiresAfter givenNotif =
     { givenNotif | expiresAfter = Just expiresAfter }
 
 
 setAutoCancel : Bool -> Notification -> Notification
-setAutoCancel  autoCancel givenNotif =
+setAutoCancel autoCancel givenNotif =
     { givenNotif | autoCancel = Just autoCancel }
 
 
 setProgress : ProgressBar -> Notification -> Notification
-setProgress  progress givenNotif=
+setProgress progress givenNotif =
     { givenNotif | progress = Just progress }
 
 
 setWhen : Moment -> Notification -> Notification
-setWhen  when givenNotif=
+setWhen when givenNotif =
     { givenNotif | when = Just when }
 
 
+setShowWhen : Bool -> Notification -> Notification
+setShowWhen showWhen givenNotif =
+    { givenNotif | showWhen = Just showWhen }
+
+
 setChronometer : Bool -> Notification -> Notification
-setChronometer  chronometer givenNotif=
+setChronometer chronometer givenNotif =
     { givenNotif | chronometer = Just chronometer }
 
 
 setGroup : GroupKey -> Notification -> Notification
-setGroup  group givenNotif =
+setGroup group givenNotif =
     { givenNotif | group = Just group }
 
 
 setIsGroupSummary : Bool -> Notification -> Notification
-setIsGroupSummary  isGroupSummary givenNotif=
+setIsGroupSummary isGroupSummary givenNotif =
     { givenNotif | isGroupSummary = Just isGroupSummary }
 
 
 setGroupAlertBehavior : Int -> Notification -> Notification
-setGroupAlertBehavior  groupAlertBehavior givenNotif =
+setGroupAlertBehavior groupAlertBehavior givenNotif =
     { givenNotif | groupAlertBehavior = Just groupAlertBehavior }
 
 
 setSortKey : String -> Notification -> Notification
-setSortKey  sortKey givenNotif=
+setSortKey sortKey givenNotif =
     { givenNotif | sortKey = Just sortKey }
 
 
 setAccentColor : String -> Notification -> Notification
-setAccentColor  accentColor  givenNotif =
+setAccentColor accentColor givenNotif =
     { givenNotif | accentColor = Just accentColor }
 
 
 setUpdate : UpdateStrategy -> Notification -> Notification
-setUpdate  update givenNotif=
+setUpdate update givenNotif =
     { givenNotif | update = Just update }
 
 
 setPrivacy : Privacy -> Notification -> Notification
-setPrivacy  privacy givenNotif=
+setPrivacy privacy givenNotif =
     { givenNotif | privacy = Just privacy }
 
 
 setUseHTML : Bool -> Notification -> Notification
-setUseHTML  useHTML givenNotif=
+setUseHTML useHTML givenNotif =
     { givenNotif | useHTML = Just useHTML }
 
 
 setTitle_expanded : String -> Notification -> Notification
-setTitle_expanded  title_expanded givenNotif=
+setTitle_expanded title_expanded givenNotif =
     { givenNotif | title_expanded = Just title_expanded }
 
 
 setBody_expanded : String -> Notification -> Notification
-setBody_expanded  body_expanded givenNotif=
+setBody_expanded body_expanded givenNotif =
     { givenNotif | body_expanded = Just body_expanded }
 
 
 setDetail : Detail -> Notification -> Notification
-setDetail  detail givenNotif=
+setDetail detail givenNotif =
     { givenNotif | detail = Just detail }
 
 
 setStatus_icon : String -> Notification -> Notification
-setStatus_icon  status_icon givenNotif=
+setStatus_icon status_icon givenNotif =
     { givenNotif | status_icon = Just status_icon }
 
 
 setStatus_text_size : Int -> Notification -> Notification
-setStatus_text_size  status_text_size givenNotif=
+setStatus_text_size status_text_size givenNotif =
     { givenNotif | status_text_size = Just status_text_size }
 
 
 setBackground_color : String -> Notification -> Notification
-setBackground_color  background_color givenNotif=
+setBackground_color background_color givenNotif =
     { givenNotif | background_color = Just background_color }
 
 
 setColor_from_media : Bool -> Notification -> Notification
-setColor_from_media  color_from_media givenNotif=
+setColor_from_media color_from_media givenNotif =
     { givenNotif | color_from_media = Just color_from_media }
 
 
 setPicture_skip_cache : Bool -> Notification -> Notification
-setPicture_skip_cache  picture_skip_cache givenNotif=
+setPicture_skip_cache picture_skip_cache givenNotif =
     { givenNotif | picture_skip_cache = Just picture_skip_cache }
 
 
 setPicture_expanded_icon : String -> Notification -> Notification
-setPicture_expanded_icon  picture_expanded_icon givenNotif=
+setPicture_expanded_icon picture_expanded_icon givenNotif =
     { givenNotif | picture_expanded_icon = Just picture_expanded_icon }
 
 
 setMedia_layout : Bool -> Notification -> Notification
-setMedia_layout  media_layout givenNotif=
+setMedia_layout media_layout givenNotif =
     { givenNotif | media_layout = Just media_layout }
 
 
 setMedia : MediaInfo -> Notification -> Notification
-setMedia  media givenNotif=
+setMedia media givenNotif =
     { givenNotif | media = Just media }
 
 
 setUrl : String -> Notification -> Notification
-setUrl  url givenNotif=
+setUrl url givenNotif =
     { givenNotif | url = Just url }
 
 
 setOn_create : Command -> Notification -> Notification
-setOn_create  on_create givenNotif=
+setOn_create on_create givenNotif =
     { givenNotif | on_create = Just on_create }
 
 
 setOn_touch : Command -> Notification -> Notification
-setOn_touch  on_touch givenNotif=
+setOn_touch on_touch givenNotif =
     { givenNotif | on_touch = Just on_touch }
 
 
 setOn_dismiss : Command -> Notification -> Notification
-setOn_dismiss  on_dismiss givenNotif=
+setOn_dismiss on_dismiss givenNotif =
     { givenNotif | on_dismiss = Just on_dismiss }
 
 
 setCountdown : Bool -> Notification -> Notification
-setCountdown  countdown givenNotif=
+setCountdown countdown givenNotif =
     { givenNotif | countdown = Just countdown }
 
 
 setPhone_only : Bool -> Notification -> Notification
-setPhone_only  phone_only givenNotif=
+setPhone_only phone_only givenNotif =
     { givenNotif | phone_only = Just phone_only }
-
-
-
-
-
-
-
 
 
 
@@ -348,13 +349,15 @@ channelWithID : ChannelID -> String -> Channel
 channelWithID id name =
     { id = id, name = name, description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing }
 
+
 setChannelDescription : String -> Channel -> Channel
 setChannelDescription text givenChannel =
-    {givenChannel | description = Just text  }
+    { givenChannel | description = Just text }
+
 
 setChannelImportance : Importance -> Channel -> Channel
 setChannelImportance givenImportance givenChannel =
-    {givenChannel | importance = Just givenImportance  }
+    { givenChannel | importance = Just givenImportance }
 
 
 type alias Command =
@@ -719,6 +722,7 @@ type alias Notification =
     , autoCancel : Maybe Bool -- ADDED BY ME
     , progress : Maybe ProgressBar -- ADDED BY ME
     , when : Maybe Moment -- ADDED BY ME
+    , showWhen : Maybe Bool -- ADDED BY ME
     , chronometer : Maybe Bool -- ADDED BY ME
 
     -- Newer Android: What group should this notification be bundled into? For example, if your app has a messaging system, the recent messages can be bundled together, even from different people (which could mean different notification channels), and summarized with a groupSummary-type notification. Warning: If group is not specified, Android will bundle up your notifications into one big "group" if there are more than 3 of them in the drawer. To avoid this, specify a unique group for notifications you don't want bundled.
@@ -804,6 +808,7 @@ encode v =
         , omittable ( "progress", encodeProgress, v.progress )
         , omittable ( "progressMax", encodeProgressMax, v.progress )
         , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
+        , omittable ( "showWhen", Encode.bool, v.showWhen )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "sortKey", Encode.string, v.sortKey )
         ]

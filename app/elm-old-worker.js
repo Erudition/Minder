@@ -76,7 +76,7 @@ ns_hookup.addNativeScriptFeaturesToElm(elm);
 
 
 // NOTIFICATIONS --------------------------------------------------------
-const notifications = require ("nativescript-local-notifications").LocalNotifications;
+const notifications = require ("@nativescript/local-notifications").LocalNotifications;
 
 elm.ports.ns_notify_cancel.subscribe(function(notificationID) {
     notifications.cancel(notificationID);

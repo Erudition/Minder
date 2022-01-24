@@ -1,7 +1,7 @@
 {
-  "name": "docket",
+  "name": "minder",
   "version": "0.1.2",
-  "description": "Docket - personal agenda",
+  "description": "Minder - life tracker",
   "main": "app/app.js",
   "scripts": {
     "build": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm",
@@ -37,6 +37,7 @@
   "dependencies": {
     "@ionic/pwa-elements": "^1.3.0",
     "@nativescript/core": "~8.1.5",
+    "@nativescript/local-notifications": "file:../nativescript-plugins/packages/local-notifications",
     "assert": "^2.0.0",
     "ava": "^3.15.0",
     "browserify-zlib": "^0.2.0",
@@ -61,7 +62,6 @@
     "nativescript": "^8.1.5",
     "nativescript-crypto": "file:customized-node-modules/nativescript-crypto",
     "nativescript-dom-free": "^2.0.6",
-    "nativescript-local-notifications": "file:customized-node-modules/nativescript-local-notifications/publish/package/nativescript-local-notifications-4.1.0.tgz",
     "nativescript-nodeify": "^0.8.0",
     "nativescript-randombytes": "^1.0.0",
     "nativescript-theme-core": "^1.0.6",
@@ -92,5 +92,5 @@
     "elm-tooling": "^1.7.0"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
-  "readme": "NativeScript Application"
+  "readme": "Minder"
 }
