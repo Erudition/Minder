@@ -550,7 +550,7 @@ defaults startWith =
         Sleep ->
             { names = [ "Sleep", "Sleeping" ]
             , icon = Emoji "💤"
-            , excusable = IndefinitelyExcused
+            , excusable = TemporarilyExcused ( Hours 10, Hours 20 )
             , taskOptional = True
             , evidence = []
             , category = Slacking

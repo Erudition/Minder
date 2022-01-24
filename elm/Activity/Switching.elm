@@ -240,7 +240,8 @@ switchTracking newActivityID instanceIDMaybe app env =
                         -- OFF TASK BUT STILL EXCUSED ---------------------
                         ( updatedApp
                         , Cmd.batch
-                            [ popup
+                            [ cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
+                            , popup
                                 [ [ oldName, "stopped:", sessionTotalString ]
                                 , [ oldName, "➤", newName, "❌" ]
                                 , describeExcusedUsage
@@ -250,7 +251,6 @@ switchTracking newActivityID instanceIDMaybe app env =
                                     ++ scheduleExcusedReminders env.time (Timeline.excusableLimit newActivity) excusedLeft
                                     ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
                                     ++ suggestions
-                            , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
                             ]
                         )
 
@@ -319,7 +319,7 @@ updateSticky now todayTotal newActivity trackedTaskMaybe status nextTaskMaybe =
         , title = title
         , chronometer = Just True
         , when = Just (past now todayTotal)
-        , subtitle = Just (Activity.getName newActivity ++ status)
+        , subtitle = Just (Activity.getName newActivity ++ " - " ++ status)
         , body = Maybe.map (\nt -> "Up next:" ++ nt.class.title) nextTaskMaybe
         , ongoing = Just True
         , badge = Nothing
@@ -708,7 +708,7 @@ suggestedTasks profile env =
                 Just hasActivityID ->
                     Just ( task, hasActivityID )
     in
-    List.map (suggestedTaskNotif env.time) (List.take 10 actionableTasks)
+    List.map (suggestedTaskNotif env.time) (List.take 20 actionableTasks)
 
 
 taskClassNotifID : ClassID -> Int
