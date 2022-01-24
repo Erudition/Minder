@@ -149,13 +149,13 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 (toFloat initialSettings.rowHeight * toFloat initialSettings.rows) "0"
+            Widget.init 100 (toFloat initialWidgetHeight) "0"
 
         initialSettings =
             updateViewSettings profile environment
 
         initialWidgetHeight =
-            toFloat <| List.length (Period.divide initialSettings.hourRowSize initialSettings.flowRenderPeriod) * initialSettings.rowHeight
+            initialSettings.rowHeight * initialSettings.rows
     in
     ( { settings = initialSettings
       , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
@@ -181,7 +181,7 @@ view maybeVState profile env =
             column [ width fill, height fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                , row [ width (fillPortion 1), height fill, htmlAttribute (Html.Attributes.style "flex-shrink" "1") ]
+                , row [ width (fillPortion 1), height fill, htmlAttribute (Html.Attributes.style "max-height" "inherit") ]
                     -- [ timeFlowLayout vState.settings profile env
                     [ column [ width (px 30), height fill, Background.color <| elementColor Color.grey, Font.size 30 ]
                         [ el [ centerX, centerY ] <| Element.text "👋"
@@ -190,9 +190,11 @@ view maybeVState profile env =
                         , el [ centerX, centerY ] <| Element.text "🤞"
                         , el [ centerX, centerY ] <| Element.text "🖕"
                         ]
-                    , column
-                        [ width fill, height fill, Element.clip, scrollbarY ]
-                        (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
+                    , column [ width fill, height fill ]
+                        [ row
+                            [ width fill, height (px <| 30 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (Html.Attributes.style "flex-shrink" "1") ]
+                            (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
+                        ]
                     ]
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
