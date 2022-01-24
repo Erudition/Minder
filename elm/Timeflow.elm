@@ -17,6 +17,7 @@ import GraphicSVG exposing (..)
 import GraphicSVG.Widget as Widget
 import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
+import Html.Attributes as HA
 import Html.Styled as SH
 import ID
 import Incubator.IntDict.Extra as IntDict
@@ -176,7 +177,7 @@ view maybeVState profile env =
             column [ width fill, height fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                , row [ width (fillPortion 1), height fill, htmlAttribute (Html.Attributes.style "max-height" "inherit") ]
+                , row [ width (fillPortion 1), height fill, htmlAttribute (HA.style "max-height" "inherit") ]
                     -- [ timeFlowLayout vState.settings profile env
                     [ column [ width (px 30), height fill, Background.color <| elementColor Color.grey, Font.size 30 ]
                         [ el [ centerX, centerY ] <| Element.text "👋"
@@ -187,7 +188,7 @@ view maybeVState profile env =
                         ]
                     , column [ width fill, height fill ]
                         [ row
-                            [ width fill, height (px <| 30 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (Html.Attributes.style "flex-shrink" "1") ]
+                            [ width fill, height (px <| 30 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (HA.style "flex-shrink" "1") ]
                             (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                         ]
                     ]
