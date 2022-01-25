@@ -809,6 +809,5 @@ encode v =
         , omittable ( "progressMax", encodeProgressMax, v.progress )
         , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
         , omittable ( "showWhen", Encode.bool, v.showWhen )
-        , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "sortKey", Encode.string, v.sortKey )
         ]

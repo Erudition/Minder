@@ -81,6 +81,9 @@ ns_hookup.addNativeScriptFeaturesToElm(elm);
 // NOTIFICATIONS --------------------------------------------------------
 const notifications = require ("@nativescript/local-notifications").LocalNotifications;
 
+const Color = require("tns-core-modules/color").Color;
+const colors = require("tns-core-modules/color/known-colors");
+
 elm.ports.ns_notify_cancel.subscribe(function(notificationID) {
     notifications.cancel(notificationID);
     }
@@ -93,7 +96,18 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         function(notifObj) {
             //wrap js time (unix ms float) with Date object
             notifObj["at"] = new Date(notifObj["at"]);
-            //notifObj["when"] = new Date(notifObj["when"]);
+
+            try {
+              notifObj["when"] = new Date(notifObj["when"]);
+            } catch (e)
+            {console.log(e)}
+
+            let notifColor = notifObj["color"];
+            if (notifColor) {
+              // supports known names and hex values short and long
+                  notifObj["color"] = new Color(notifColor);
+            }
+
 
             // While we're at it, check if we missed it
             if (new Date() > notifObj["at"]) {
