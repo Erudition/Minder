@@ -668,6 +668,7 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setTitle "Todoist Response"
                         |> Notif.setSubtitle "Sync Status"
                         |> Notif.setBody whatHappened
+                        |> Notif.setAccentColor "green"
             in
             ( Model viewState newAppData environment
             , notify [ notification ]

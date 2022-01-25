@@ -304,6 +304,23 @@ updateSticky now todayTotal newActivity trackedTaskMaybe status nextTaskMaybe =
             [ { id = "sync=marvin", button = Notif.Button "Sync Tasks", launch = False }
             ]
 
+        color =
+            case status of
+                "❌ Off Task" ->
+                    Just "red"
+
+                "⏸ Off Task (Excused)" ->
+                    Just "yellow"
+
+                "✔️ On Task" ->
+                    Just "green"
+
+                "❌ Unknown - No Activity" ->
+                    Just "brown"
+
+                _ ->
+                    Nothing
+
         actionsIfTaskPresent instance =
             [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
             , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
@@ -349,6 +366,7 @@ updateSticky now todayTotal newActivity trackedTaskMaybe status nextTaskMaybe =
 
                 Nothing ->
                     actions
+        , accentColor = color
     }
 
 
@@ -505,6 +523,7 @@ giveUpNotif fireTime =
         , countdown = Just False
         , chronometer = Just False
         , expiresAfter = Just (Duration.fromHours 8)
+        , accentColor = Just "brown"
     }
 
 
@@ -682,6 +701,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , body = Nothing
         , actions = actions
         , when = Nothing
+        , showWhen = Just False
         , countdown = Just False
         , chronometer = Just False
         , expiresAfter = Just (Duration.fromHours 8)
