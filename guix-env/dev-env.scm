@@ -31,7 +31,7 @@
         	
         	
 	;; for running the android virtual devices (AVD):
-	"e2fsprogs" "qemu-minimal" "adb" 
+	"e2fsprogs" "qemu-minimal" ;; "adb" --jk use sdk one
         "alsa-lib" "expat" "libxcomposite" "libxcursor" "libxi" "libxtst"
         "mesa" "nss" "pulseaudio" "util-linux:lib" "libx11" "zlib" "gperftools"
         "gcc-objc:lib" "gcc-objc++:lib" "gcc-toolchain" "libcxx" "nspr" 
