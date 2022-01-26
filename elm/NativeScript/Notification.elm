@@ -78,6 +78,7 @@ build channel =
     , isGroupSummary = Nothing
     , sortKey = Nothing
     , accentColor = Nothing
+    , allowSystemGeneratedContextualActions = Nothing
     }
 
 
@@ -337,22 +338,28 @@ type alias Channel =
     , importance : Maybe Importance -- ADDED BY ME
     , led : Maybe LEDcolor
     , vibrate : Maybe VibrationSetting -- ADDED BY ME
+    , group : Maybe String
     }
 
 
 basicChannel : String -> Channel
 basicChannel name =
-    { id = name, name = name, description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing }
+    { id = name, name = name, description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing, group = Nothing }
 
 
 channelWithID : ChannelID -> String -> Channel
 channelWithID id name =
-    { id = id, name = name, description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing }
+    { id = id, name = name, description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing, group = Nothing }
 
 
 setChannelDescription : String -> Channel -> Channel
 setChannelDescription text givenChannel =
     { givenChannel | description = Just text }
+
+
+setChannelGroup : String -> Channel -> Channel
+setChannelGroup text givenChannel =
+    { givenChannel | group = Just text }
 
 
 setChannelImportance : Importance -> Channel -> Channel
@@ -633,7 +640,7 @@ type alias Action =
 
 type ButtonType
     = Button String
-    | Input String String
+    | Input { title : String, placeholder : String, choices : List String, editable : Bool, autoReplies : Bool }
 
 
 encodeAction : Action -> Encode.Value
@@ -648,10 +655,12 @@ encodeAction v =
                         , ( "title", Encode.string label )
                         ]
 
-                    Input textPlaceholder submitLabel ->
+                    Input input ->
                         [ ( "type", Encode.string "input" )
-                        , ( "placeholder", Encode.string textPlaceholder )
-                        , ( "submitLabel", Encode.string submitLabel )
+                        , ( "title", Encode.string input.title )
+                        , ( "placeholder", Encode.string input.placeholder )
+                        , ( "choices", Encode.list Encode.string input.choices )
+                        , ( "allowGeneratedReplies", Encode.bool input.autoReplies )
                         ]
                )
 
@@ -757,6 +766,7 @@ type alias Notification =
     , on_dismiss : Maybe Command -- NOT YET SUPPORTED
     , countdown : Maybe Bool -- NOT YET SUPPORTED
     , phone_only : Maybe Bool -- NOT YET SUPPORTED
+    , allowSystemGeneratedContextualActions : Maybe Bool
     }
 
 
@@ -767,10 +777,14 @@ encode v =
         , omittable ( "at", Encode.float << Moment.toJSTime, v.at )
         , omittable ( "ongoing", Encode.bool, v.ongoing )
         , omittable ( "expiresAfter", encodeExpiresAfter, v.expiresAfter )
-        , omittable ( "importance", encodeImportance, v.channel.importance )
+        , omittable ( "priority", encodeImportance, v.channel.importance )
+        , omittable ( "progress", encodeProgress, v.progress )
+        , omittable ( "progressMax", encodeProgressMax, v.progress )
+        , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
+        , omittable ( "showWhen", Encode.bool, v.showWhen )
+        , omittable ( "sortKey", Encode.string, v.sortKey )
         , omittable ( "title", Encode.string, v.title )
         , omittable ( "title_expanded", Encode.string, v.title_expanded )
-        , omittable ( "body", Encode.string, v.body )
         , omittable ( "bigTextStyle", Encode.bool, v.bigTextStyle )
         , omittable ( "subtitle", Encode.string, v.subtitle )
         , omittable ( "ticker", Encode.string, v.ticker )
@@ -792,8 +806,6 @@ encode v =
         , omittable ( "autoCancel", Encode.bool, v.autoCancel )
         , omittable ( "chronometer", Encode.bool, v.chronometer )
         , omittable ( "countdown", Encode.bool, v.countdown )
-        , normal ( "channel", Encode.string v.channel.name )
-        , omittable ( "channelDescription", Encode.string, v.channel.description )
         , omittable ( "notificationLed", Encode.string, v.channel.led )
         , omittable ( "sound", encodeSound, v.channel.sound )
         , omittable ( "vibratePattern", encodeVibrationSetting, v.channel.vibrate )
@@ -805,9 +817,9 @@ encode v =
         , omittable ( "silhouetteIcon", Encode.string, v.silhouetteIcon )
         , omittable ( "thumbnail", encodeThumbnail, v.thumbnail )
         , omittableList ( "actions", encodeAction, v.actions )
-        , omittable ( "progress", encodeProgress, v.progress )
-        , omittable ( "progressMax", encodeProgressMax, v.progress )
-        , omittable ( "when", Encode.float << Moment.toJSTime, v.when )
-        , omittable ( "showWhen", Encode.bool, v.showWhen )
-        , omittable ( "sortKey", Encode.string, v.sortKey )
+        , omittable ( "body", Encode.string, v.body )
+        , normal ( "channel", Encode.string v.channel.name )
+        , omittable ( "channelDescription", Encode.string, v.channel.description )
+        , omittable ( "channelGroup", Encode.string, v.channel.group )
+        , omittable ( "allowSystemGeneratedContextualActions", Encode.bool, v.allowSystemGeneratedContextualActions )
         ]

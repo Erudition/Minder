@@ -1,10 +1,10 @@
 module Activity.Template exposing (Template(..), decodeTemplate, encodeTemplate, stockActivities)
 
+import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Helpers exposing (..)
 
 
 type Template
@@ -64,6 +64,7 @@ type Template
     | Presentation
     | Projects
     | Research
+    | Repair
 
 
 decodeTemplate : Decoder Template
@@ -297,6 +298,9 @@ encodeTemplate v =
 
         Research ->
             Encode.string "Research"
+
+        Repair ->
+            Encode.string "Repair"
 
 
 stockActivities : List Template

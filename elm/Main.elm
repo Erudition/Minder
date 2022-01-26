@@ -668,7 +668,7 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setTitle "Todoist Response"
                         |> Notif.setSubtitle "Sync Status"
                         |> Notif.setBody whatHappened
-                        |> Notif.setAccentColor "green"
+                        |> Notif.setBigTextStyle True
             in
             ( Model viewState newAppData environment
             , notify [ notification ]
@@ -685,7 +685,8 @@ update msg ({ viewState, profile, environment } as model) =
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
                         |> Notif.setChannelDescription "Lets you know what happened the last time we tried to sync with online servers."
-                        |> Notif.setChannelImportance Notif.High
+                        |> Notif.setChannelImportance Notif.Min
+                        |> Notif.setChannelGroup "Status"
 
                 notification =
                     Notif.build syncStatusChannel
@@ -693,7 +694,9 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setTitle "Marvin Response"
                         |> Notif.setSubtitle "Sync Status"
                         |> Notif.setBody whatHappened
-                        |> Notif.setBody_expanded whatHappened
+                        |> Notif.setBigTextStyle True
+                        |> Notif.setAccentColor "green"
+                        |> Notif.setGroup (Notif.GroupKey "marvin")
             in
             ( Model viewState newProfile2WithErrors environment
             , Cmd.batch
