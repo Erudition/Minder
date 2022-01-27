@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (decodeSwitch, encodeSwitch)
@@ -184,6 +184,12 @@ getInstanceByID : Profile -> Environment -> Task.Instance.InstanceID -> Maybe Ta
 getInstanceByID profile env instanceID =
     -- TODO optimize
     List.head (List.filter (\i -> Task.Instance.getID i == instanceID) (instanceListNow profile env))
+
+
+getActivityByID : Profile -> ActivityID -> Activity
+getActivityByID profile activityID =
+    -- TODO optimize
+    Activity.getActivity activityID (allActivities profile.activities)
 
 
 exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String

@@ -1163,6 +1163,20 @@ defaults startWith =
             , externalIDs = Dict.empty
             }
 
+        Repair ->
+            { names = [ "Repair", "Fix", "Fixing", "Fixing stuff" ]
+            , icon = Emoji "🔧"
+            , excusable = TemporarilyExcused ( Minutes 10, Hours 3 )
+            , taskOptional = True
+            , evidence = []
+            , category = Slacking
+            , backgroundable = False
+            , maxTime = ( Hours 8, Days 1 )
+            , hidden = False
+            , template = startWith
+            , externalIDs = Dict.empty
+            }
+
 
 showing : Activity -> Bool
 showing activity =
