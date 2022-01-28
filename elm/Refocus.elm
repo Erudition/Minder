@@ -45,6 +45,7 @@ type alias StatusDetails =
 
 type alias OnTaskDetails =
     { win : FocusItem
+    , urgency : WINUrgency
     , spent : Duration
     , remaining : Duration
     , until : Moment
@@ -126,8 +127,19 @@ switchTracking newActivityID newInstanceIDMaybe profile env =
     let
         ( newStatusDetails, newFocusStatus ) =
             determineNewStatus newActivityID newInstanceIDMaybe profile env
+
+        oldInstanceIDMaybe =
+            Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline)
     in
-    reactToStatusChange newStatusDetails newFocusStatus profile
+    if
+        (Profile.currentActivityID profile == newActivityID)
+            && (newInstanceIDMaybe == oldInstanceIDMaybe)
+    then
+        -- we didn't change what we were tracking
+        ( profile, Cmd.none )
+
+    else
+        reactToStatusChange newStatusDetails newFocusStatus profile
 
 
 determineNewStatus : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( StatusDetails, FocusStatus )
@@ -218,6 +230,7 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
 
                         onTaskDetails =
                             { win = win
+                            , urgency = urgency
                             , spent = timeSpent
                             , remaining = timeRemaining
                             , until = future env.time timeRemaining
@@ -270,22 +283,55 @@ reactToStatusChange status focusStatus profile =
         Free ->
             ( profile, newlyFreeReaction status )
 
-        OnTask onTask ->
-            case status.newInstanceMaybe of
-                Just newInstance ->
-                    ( profile, newlyOnTaskReaction status onTask )
-
-                Nothing ->
-                    Debug.todo "on task with only an activity"
-
-        Excused excused ->
-            ( profile
-            , newlyExcusedReaction status excused
-            )
-
         OffTask offTask ->
             ( profile
             , newlyOffTaskReaction status offTask
+            )
+
+        Excused excused ->
+            let
+                expiredStatus =
+                    { status
+                        | now = excused.until
+                        , lastSession = Duration.add excused.remaining status.lastSession
+                    }
+
+                expiredOffTaskDetails =
+                    { win = excused.win
+                    , urgency = excused.urgency
+                    , reason = OverExcused
+                    }
+            in
+            ( profile
+            , Cmd.batch
+                [ newlyExcusedReaction status excused
+                , newlyOffTaskReaction expiredStatus expiredOffTaskDetails
+                ]
+            )
+
+        OnTask onTask ->
+            let
+                expiredStatus =
+                    { status
+                        | now = onTask.until
+                        , lastSession = Duration.add onTask.remaining status.lastSession
+                    }
+
+                expiredOffTaskDetails =
+                    { win = futureWIN
+                    , urgency = onTask.urgency
+                    , reason = TooLongOnTask
+                    }
+
+                futureWIN =
+                    --TODO
+                    onTask.win
+            in
+            ( profile
+            , Cmd.batch
+                [ newlyOnTaskReaction status onTask
+                , newlyOffTaskReaction expiredStatus expiredOffTaskDetails
+                ]
             )
 
 
@@ -314,20 +360,11 @@ newlyOnTaskReaction status onTask =
 
 
 newlyExcusedReaction status excused =
-    let
-        eventualOffTaskDetails =
-            { win = excused.win
-            , urgency = excused.urgency
-            , reason = OverExcused
-            }
-    in
     Cmd.batch
         [ switchToast status "❌"
         , notify <|
-            [ excusedSticky status excused
-            ]
+            excusedSticky status excused
                 ++ scheduleExcusedReminders status excused
-                ++ scheduleOffTaskReminders status eventualOffTaskDetails
         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
         ]
 
@@ -572,7 +609,7 @@ freeSticky status =
     [ final ]
 
 
-excusedSticky : StatusDetails -> ExcusedDetails -> Notification
+excusedSticky : StatusDetails -> ExcusedDetails -> List Notification
 excusedSticky status excused =
     let
         actionsIfTaskPresent instance =
@@ -587,7 +624,7 @@ excusedSticky status excused =
         ( winActivity, winInstanceMaybe ) =
             excused.win
     in
-    { stickyBase
+    [ { stickyBase
         | title = title
         , chronometer = Just True
         , when = Just excused.until
@@ -610,7 +647,8 @@ excusedSticky status excused =
                 Nothing ->
                     stickyBase.actions
         , accentColor = Just "yellow"
-    }
+      }
+    ]
 
 
 onTaskChannel : Notif.Channel
