@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, determineNextTask, refreshTracking, switchActivity, switchTracking)
+module Activity.Switching exposing (currentActivityFromApp, refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
@@ -7,6 +7,7 @@ import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (multiline)
 import List.Extra as List
+import List.Nonempty as Nonempty exposing (Nonempty)
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (..)
@@ -22,6 +23,64 @@ import Task.Progress
 import ZoneHistory
 
 
+type FocusStatus
+    = Free
+    | OnTask OnTaskDetails
+    | Excused ExcusedDetails
+    | OffTask OffTaskDetails
+
+
+{-| Everything I might need to make it nice to work with
+-}
+type alias StatusDetails =
+    { now : Moment
+    , oldActivity : Activity
+    , lastSession : Duration
+    , oldInstanceMaybe : Maybe Instance
+    , newActivity : Activity
+    , newActivityTodayTotal : Duration
+    , newInstanceMaybe : Maybe Instance
+    }
+
+
+type alias OnTaskDetails =
+    { win : FocusItem
+    , spent : Duration
+    , remaining : Duration
+    }
+
+
+type alias ExcusedDetails =
+    { win : FocusItem
+    , used : Duration
+    , limit : Duration
+    , remaining : Duration
+    , until : Moment
+    }
+
+
+type alias FocusItem =
+    ( Activity, Maybe Instance )
+
+
+type alias OffTaskDetails =
+    { win : FocusItem }
+
+
+type OffTaskReason
+    = NotExcused
+    | OverExcused
+    | TooLongOnTask
+    | NoLongerWIN
+    | BadTime
+
+
+type WIN
+    = MustFocus FocusItem
+    | ShouldFocus (Nonempty FocusItem)
+    | NothingToFocusOn
+
+
 prioritizeTasks : Profile -> Environment -> List Instance
 prioritizeTasks profile env =
     Task.Instance.prioritize env.time env.timeZone <|
@@ -29,82 +88,72 @@ prioritizeTasks profile env =
             instanceListNow profile env
 
 
-determineNextTask : Profile -> Environment -> Maybe Instance
-determineNextTask profile env =
-    List.head <|
-        prioritizeTasks profile env
+whatsImportantNow : Profile -> Environment -> WIN
+whatsImportantNow profile env =
+    let
+        -- TODO allow activities to be WIN
+        topPickMaybe =
+            List.head <|
+                prioritizeTasks profile env
+
+        topPickActivityMaybe =
+            Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.Instance.getActivityID topPickMaybe)
+    in
+    case ( topPickActivityMaybe, topPickMaybe ) of
+        ( Just topPickActivity, Just topPick ) ->
+            MustFocus ( topPickActivity, Just topPick )
+
+        _ ->
+            NothingToFocusOn
 
 
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
-switchActivity newActivityID app env =
-    switchTracking newActivityID Nothing app env
+switchActivity newActivityID profile env =
+    switchTracking newActivityID Nothing profile env
 
 
 refreshTracking : Profile -> Environment -> ( Profile, Cmd msg )
-refreshTracking app env =
-    switchTracking (currentActivityID app.timeline) (Timeline.currentInstanceID app.timeline) app env
+refreshTracking profile env =
+    switchTracking (currentActivityID profile.timeline) (Timeline.currentInstanceID profile.timeline) profile env
 
 
 switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
-switchTracking newActivityID instanceIDMaybe app env =
+switchTracking newActivityID newInstanceIDMaybe profile env =
     let
         updatedApp =
-            if (newActivityID == oldActivityID) && (instanceIDMaybe == oldInstanceIDMaybe) then
-                app
+            if (newActivityID == oldActivityID) && (newInstanceIDMaybe == oldInstanceIDMaybe) then
+                profile
 
             else
-                { app | timeline = newSwitch env.time newActivityID instanceIDMaybe :: app.timeline }
+                { profile | timeline = newSwitch env.time newActivityID newInstanceIDMaybe :: profile.timeline }
 
         newActivity =
-            Activity.getActivity newActivityID (allActivities app.activities)
+            Profile.getActivityByID profile newActivityID
 
         oldActivity =
-            Activity.getActivity oldActivityID (allActivities app.activities)
+            Profile.getActivityByID profile oldActivityID
 
         oldActivityID =
-            currentActivityFromApp app
+            currentActivityFromApp profile
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Timeline.latestSwitch app.timeline)
-
-        formatDuration givenDur =
-            HumanDuration.singleLetterSpaced <|
-                HumanDuration.trimToSmall <|
-                    HumanDuration.breakdownHMS givenDur
+            Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline)
 
         sessionTotalString =
-            formatDuration <| Maybe.withDefault Duration.zero lastSession
+            writeDur <| Maybe.withDefault Duration.zero lastSession
 
         lastSession =
             Timeline.lastSession updatedApp.timeline oldActivityID
 
         todayTotalString =
-            formatDuration <|
+            writeDur <|
                 todayTotal
 
         todayTotal =
             Timeline.justTodayTotal updatedApp.timeline env newActivityID
 
-        popup message =
-            Commands.toast (multiline message)
-
         ( oldName, newName ) =
             ( getName oldActivity, getName newActivity )
-
-        cancelAll idList =
-            Cmd.batch <| List.map notifyCancel idList
-
-        offTaskReminderIDs =
-            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
-
-        onTaskReminderIDs =
-            [ 0 ]
-
-        excusedReminderIDs =
-            [ 100 ]
-
-        statusIDs =
-            [ 42 ]
 
         describeTodayTotal =
             if Duration.isPositive todayTotal then
@@ -114,162 +163,214 @@ switchTracking newActivityID instanceIDMaybe app env =
                 []
 
         suggestions =
-            suggestedTasks app env
+            suggestedTasks profile env
 
         allTasks =
-            instanceListNow app env
+            instanceListNow profile env
 
         trackingTask =
-            case instanceIDMaybe of
+            case newInstanceIDMaybe of
                 Nothing ->
                     Nothing
 
                 Just instanceID ->
                     List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks
+
+        statusDetails =
+            { now = env.time
+            , oldActivity = Activity.getActivity oldActivityID (allActivities profile.activities)
+            , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession updatedApp.timeline oldActivityID
+            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID profile env) (Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline))
+            , newActivity = Activity.getActivity newActivityID (allActivities profile.activities)
+            , newActivityTodayTotal =
+                Timeline.totalLive env.time updatedApp.timeline newActivityID
+            , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks) newInstanceIDMaybe
+            }
     in
-    case determineNextTask app env of
-        Nothing ->
+    case whatsImportantNow profile env of
+        NothingToFocusOn ->
             -- ALL DONE
-            ( updatedApp
-            , Cmd.batch
-                [ popup
-                    [ [ oldName, "stopped:", sessionTotalString ]
-                    , [ oldName, "➤", newName ]
-                    , describeTodayTotal
-                    ]
-                , notify <| [ updateSticky env.time todayTotal newActivity trackingTask "✔️ All Done" Nothing ] ++ suggestions
-                , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
-                ]
-            )
+            ( updatedApp, newlyFreeReaction statusDetails )
 
-        Just nextTask ->
+        ShouldFocus _ ->
+            Debug.todo "ShouldFocus"
+
+        MustFocus (( nextActivity, nextInstanceMaybe ) as win) ->
             -- MORE TO BE DONE
-            case nextTask.class.activity of
-                Nothing ->
-                    -- Uh oh! next task has no activity!
-                    ( updatedApp
-                    , Cmd.batch
-                        [ popup
-                            [ [ "❌ Next Task has no Activity! " ]
-                            , [ oldName, "stopped:", sessionTotalString ]
-                            , [ oldName, "➤", newName ]
-                            , describeTodayTotal
-                            ]
-                        , notify <|
-                            [ updateSticky env.time todayTotal newActivity trackingTask "❌ Unknown - No Activity" (Just nextTask) ]
-                                ++ scheduleOffTaskReminders nextTask env.time
-                                ++ suggestions
-                        , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
-                        ]
-                    )
+            let
+                -- ALL EXCUSED CHECKS BELOW --
+                excusedUsageString =
+                    writeDur <| excusedUsage
 
-                Just nextActivity ->
+                excusedUsage =
+                    Timeline.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
+
+                excusedLeft =
+                    Timeline.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities profile.activities) )
+
+                isThisTheRightNextTask =
+                    case ( newInstanceIDMaybe, Maybe.map Task.Instance.getID nextInstanceMaybe ) of
+                        ( Just newInstanceID, Just nextInstanceID ) ->
+                            newInstanceID == nextInstanceID
+
+                        _ ->
+                            False
+
+                newInstanceMaybe =
+                    Maybe.andThen (Profile.getInstanceByID profile env) newInstanceIDMaybe
+            in
+            case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
+                ( Just newInstance, True, _ ) ->
                     let
-                        -- ALL EXCUSED CHECKS BELOW --
-                        excusedUsageString =
-                            formatDuration <| excusedUsage
+                        timeSpent =
+                            Timeline.totalLive env.time updatedApp.timeline newActivityID
 
-                        excusedUsage =
-                            Timeline.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
-
-                        excusedLeft =
-                            Timeline.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities app.activities) )
-
-                        describeExcusedUsage =
-                            if Duration.isPositive excusedUsage then
-                                [ "Already used", excusedUsageString ]
-
-                            else
-                                []
-
-                        isThisTheRightNextTask =
-                            Maybe.withDefault False (Maybe.map ((==) nextTask.instance.id) instanceIDMaybe)
-
-                        isThisTheRightNextActivity =
-                            nextActivity == newActivityID
+                        onTaskDetails =
+                            { win = win
+                            , spent = timeSpent
+                            , remaining = Duration.subtract newInstance.class.maxEffort timeSpent
+                            }
                     in
-                    if isThisTheRightNextTask then
+                    ( updatedApp, newlyOnTaskReaction statusDetails onTaskDetails )
+
+                -- with no task, is this the right next activity?
+                ( _, _, True ) ->
+                    Debug.todo "on task with only an activity"
+
+                _ ->
+                    if Duration.isPositive excusedLeft then
                         let
-                            timeSpent =
-                                Timeline.totalLive env.time updatedApp.timeline newActivityID
-
-                            timeRemaining =
-                                Duration.subtract nextTask.class.maxEffort timeSpent
+                            excusedDetails =
+                                { used = excusedUsage
+                                , limit = Timeline.excusableLimit newActivity
+                                , remaining = excusedLeft
+                                , until = future statusDetails.now excusedLeft
+                                , win = win
+                                }
                         in
-                        -- ON TASK LOGIC ---------------------------
-                        ( updatedApp
-                        , Cmd.batch
-                            [ popup
-                                [ [ oldName, "stopped:", sessionTotalString ]
-                                , [ oldName, "➤", newName, "✔️" ]
-                                , describeTodayTotal
-                                ]
-                            , notify <|
-                                [ updateSticky env.time todayTotal newActivity trackingTask "✔️ On Task" (Just nextTask) ]
-                                    ++ scheduleOnTaskReminders nextTask env.time timeRemaining
-                                    ++ suggestions
-                            , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
-                            ]
-                        )
-
-                    else if isThisTheRightNextActivity then
-                        let
-                            timeSpent =
-                                Timeline.totalLive env.time updatedApp.timeline newActivityID
-
-                            timeRemaining =
-                                Duration.subtract nextTask.class.maxEffort timeSpent
-                        in
-                        -- ON TASK LOGIC ---------------------------
-                        ( updatedApp
-                        , Cmd.batch
-                            [ popup
-                                [ [ oldName, "stopped:", sessionTotalString ]
-                                , [ oldName, "➤", newName, "✔️" ]
-                                , describeTodayTotal
-                                ]
-                            , notify <|
-                                [ updateSticky env.time todayTotal newActivity trackingTask "✔️ On Task" (Just nextTask) ]
-                                    ++ scheduleOnTaskReminders nextTask env.time timeRemaining
-                                    ++ suggestions
-                            , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
-                            ]
-                        )
-
-                    else if Duration.isPositive excusedLeft then
                         -- OFF TASK BUT STILL EXCUSED ---------------------
                         ( updatedApp
-                        , Cmd.batch
-                            [ cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
-                            , popup
-                                [ [ oldName, "stopped:", sessionTotalString ]
-                                , [ oldName, "➤", newName, "❌" ]
-                                , describeExcusedUsage
-                                ]
-                            , notify <|
-                                [ updateSticky env.time todayTotal newActivity trackingTask "⏸ Off Task (Excused)" (Just nextTask) ]
-                                    ++ scheduleExcusedReminders env.time (Timeline.excusableLimit newActivity) excusedLeft
-                                    ++ scheduleOffTaskReminders nextTask (future env.time excusedLeft)
-                                    ++ suggestions
-                            ]
+                        , newlyExcusedReaction statusDetails excusedDetails
                         )
 
                     else
+                        let
+                            offTaskDetails =
+                                { win = win }
+                        in
                         -- OFF TASK
                         ( updatedApp
-                        , Cmd.batch
-                            [ popup
-                                [ [ oldName, "stopped:", sessionTotalString ]
-                                , [ oldName, "➤", newName, "❌" ]
-                                , [ "Previously excused for", excusedUsageString ]
-                                ]
-                            , notify <|
-                                [ updateSticky env.time todayTotal newActivity trackingTask "❌ Off Task" (Just nextTask) ]
-                                    ++ scheduleOffTaskReminders nextTask env.time
-                                    ++ suggestions
-                            , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
-                            ]
+                        , newlyOffTaskReaction statusDetails offTaskDetails
                         )
+
+
+
+-- REACTIONS
+
+
+newlyFreeReaction : StatusDetails -> Cmd msg
+newlyFreeReaction status =
+    Cmd.batch
+        [ multiLineToast
+            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
+            , [ getName status.oldActivity, "➤", getName status.newActivity ]
+            , [ writeDur status.newActivityTodayTotal ]
+            ]
+        , notify <| freeSticky status
+        , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
+        ]
+
+
+newlyOnTaskReaction : StatusDetails -> OnTaskDetails -> Cmd msg
+newlyOnTaskReaction status onTask =
+    Cmd.batch
+        [ multiLineToast
+            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
+            , [ getName status.oldActivity, "➤", getName status.newActivity, "✔️" ]
+            , [ writeDur status.newActivityTodayTotal ]
+            ]
+        , notify <|
+            onTaskSticky status onTask
+
+        -- ++ scheduleOnTaskReminders nextTask env.time timeRemaining
+        , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
+        ]
+
+
+newlyExcusedReaction status excused =
+    let
+        eventualOffTaskDetails =
+            { win = excused.win }
+    in
+    Cmd.batch
+        [ cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
+        , multiLineToast
+            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
+            , [ getName status.oldActivity, "➤", getName status.newActivity, "❌" ]
+            , [ writeDur <| excused.used ]
+            ]
+        , notify <|
+            [ excusedSticky status excused
+            ]
+                ++ scheduleExcusedReminders status excused
+                ++ scheduleOffTaskReminders status eventualOffTaskDetails
+        ]
+
+
+newlyOffTaskReaction status offTask =
+    Cmd.batch
+        [ multiLineToast
+            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
+            , [ getName status.oldActivity, "➤", getName status.newActivity, "❌" ]
+            ]
+        , notify <|
+            offTaskSticky status offTask
+                ++ scheduleOffTaskReminders status offTask
+        , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
+        ]
+
+
+
+---    NOTIF HELPERS
+
+
+cancelAll idList =
+    Cmd.batch <| List.map notifyCancel idList
+
+
+offTaskReminderIDs =
+    [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+
+
+onTaskReminderIDs =
+    [ 0 ]
+
+
+excusedReminderIDs =
+    [ 100 ]
+
+
+statusIDs =
+    [ 42 ]
+
+
+
+-- HELPERS
+
+
+multiLineToast message =
+    Commands.toast (multiline message)
+
+
+writeDur givenDur =
+    HumanDuration.singleLetterSpaced <|
+        HumanDuration.trimToSmall <|
+            HumanDuration.breakdownHMS givenDur
+
+
+summarizeFocusItem : FocusItem -> String
+summarizeFocusItem ( winActivity, winInstanceMaybe ) =
+    Maybe.withDefault (Activity.getName winActivity) <| Maybe.map Task.Instance.getTitle winInstanceMaybe
 
 
 
@@ -278,106 +379,236 @@ switchTracking newActivityID instanceIDMaybe app env =
 -- , Cmd.batch
 --     [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
 --     , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString onTaskStatus )
---     , Tasker.variableOut ( "ExcusedUsage", Timeline.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "OnTaskUsage", Timeline.exportExcusedUsageSeconds app env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Timeline.excusedUsage app.timeline env.time ( activityID, newActivity )) )
+--     , Tasker.variableOut ( "ExcusedUsage", Timeline.exportExcusedUsageSeconds profile env.time ( activityID, newActivity ) )
+--     , Tasker.variableOut ( "OnTaskUsage", Timeline.exportExcusedUsageSeconds profile env.time ( activityID, newActivity ) )
+--     , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Timeline.excusedUsage profile.timeline env.time ( activityID, newActivity )) )
 --     , Tasker.variableOut ( "ExcusedLimit", String.fromInt <| Duration.inSecondsRounded (Timeline.excusableLimit newActivity) )
 --     , Tasker.variableOut ( "CurrentActivity", getName newActivity )
 --     , Tasker.variableOut ( "PreviousSessionTotal", Timeline.exportLastSession updatedApp oldActivityID )
 --     , Commands.hideWindow
---     , scheduleReminders app env updatedApp.timeline onTaskStatus ( activityID, newActivity )
---     , exportNextTask app env
+--     , scheduleReminders profile env updatedApp.timeline onTaskStatus ( activityID, newActivity )
+--     , exportNextTask profile env
 --     ]
 -- )
 
 
-updateSticky : Moment -> Duration -> Activity -> Maybe Instance -> String -> Maybe Instance -> Notification
-updateSticky now todayTotal newActivity trackedTaskMaybe status nextTaskMaybe =
+stickyBase : Notification
+stickyBase =
     let
         statusChannel =
-            Notif.basicChannel "Status"
+            { id = "activity"
+            , name = "Tracking Status"
+            , description = Just "The current activity, task and more."
+            , sound = Nothing
+            , importance = Just Notif.High
+            , led = Nothing -- TODO activityHue
+            , vibrate = Nothing
+            , group = Nothing
+            }
 
         blank =
             Notif.build statusChannel
 
-        actions =
-            [ { id = "sync=marvin", button = Notif.Button "Sync Tasks", launch = False }
+        defaultActions =
+            [ { id = "start=next", button = Notif.Button "Go", launch = True }
+            , { id = "addTask"
+              , button =
+                    Notif.Input
+                        { title = "Capture"
+                        , placeholder = "Quickly add a draft"
+                        , choices = []
+                        , editable = True
+                        , autoReplies = False
+                        }
+              , launch = False
+              }
+
+            -- , { id = "testInput"
+            --   , button =
+            --         Notif.Input
+            --             { title = "Test"
+            --             , placeholder = "Stuff that goes here"
+            --             , choices = [ "WOW", "Bleh", "Nah", "Sweet" ]
+            --             , editable = False
+            --             , autoReplies = False
+            --             }
+            --   , launch = False
+            --   }
+            , { id = "sync=marvin", button = Notif.Button "Sync Marvin", launch = False }
             ]
+    in
+    { blank
+        | id = Just 42
+        , group = Just (Notif.GroupKey "status")
+        , showWhen = Just True
+        , autoCancel = Just False
+        , ongoing = Just True
+        , chronometer = Just True
+        , bigTextStyle = Just True
+        , actions = defaultActions
+    }
 
-        color =
-            case status of
-                "❌ Off Task" ->
-                    Just "red"
 
-                "⏸ Off Task (Excused)" ->
-                    Just "yellow"
-
-                "✔️ On Task" ->
-                    Just "green"
-
-                "❌ Unknown - No Activity" ->
-                    Just "brown"
-
-                _ ->
-                    Nothing
-
+offTaskSticky : StatusDetails -> OffTaskDetails -> List Notification
+offTaskSticky status offTask =
+    let
         actionsIfTaskPresent instance =
             [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
             , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            trackedTaskMaybe
-                |> Maybe.map Task.Instance.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+
+        final =
+            { stickyBase
+                | title = title
+                , when = Just (past status.now status.newActivityTodayTotal)
+                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , progress =
+                    case status.newInstanceMaybe of
+                        Just task ->
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+
+                        Nothing ->
+                            Nothing
+                , actions =
+                    case status.newInstanceMaybe of
+                        Just instance ->
+                            stickyBase.actions ++ actionsIfTaskPresent instance
+
+                        Nothing ->
+                            stickyBase.actions
+                , accentColor = Just "green"
+            }
     in
-    { blank
-        | id = Just 42
-        , autoCancel = Just False
-        , title = title
+    [ final, { final | ongoing = Just False, id = Just 420 } ]
+
+
+onTaskSticky : StatusDetails -> OnTaskDetails -> List Notification
+onTaskSticky status onTask =
+    let
+        actionsIfTaskPresent instance =
+            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            ]
+
+        title =
+            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+
+        final =
+            { stickyBase
+                | title = title
+                , when = Just (past status.now status.newActivityTodayTotal)
+                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , progress =
+                    case status.newInstanceMaybe of
+                        Just task ->
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+
+                        Nothing ->
+                            Nothing
+                , actions =
+                    case status.newInstanceMaybe of
+                        Just instance ->
+                            stickyBase.actions ++ actionsIfTaskPresent instance
+
+                        Nothing ->
+                            stickyBase.actions
+                , accentColor = Just "green"
+            }
+    in
+    [ final, { final | ongoing = Just False, id = Just 420 } ]
+
+
+freeSticky : StatusDetails -> List Notification
+freeSticky status =
+    let
+        actionsIfTaskPresent instance =
+            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            ]
+
+        title =
+            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+
+        final =
+            { stickyBase
+                | title = title
+                , when = Just (past status.now status.newActivityTodayTotal)
+                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , progress =
+                    case status.newInstanceMaybe of
+                        Just task ->
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+
+                        Nothing ->
+                            Nothing
+                , actions =
+                    case status.newInstanceMaybe of
+                        Just instance ->
+                            stickyBase.actions ++ actionsIfTaskPresent instance
+
+                        Nothing ->
+                            stickyBase.actions
+                , accentColor = Just "green"
+            }
+    in
+    [ final, { final | ongoing = Just False, id = Just 420 } ]
+
+
+excusedSticky : StatusDetails -> ExcusedDetails -> Notification
+excusedSticky status excused =
+    let
+        actionsIfTaskPresent instance =
+            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            ]
+
+        title =
+            status.newInstanceMaybe
+                |> Maybe.map Task.Instance.getTitle
+
+        ( winActivity, winInstanceMaybe ) =
+            excused.win
+    in
+    { stickyBase
+        | title = title
         , chronometer = Just True
-        , when = Just (past now todayTotal)
-        , subtitle = Just (Activity.getName newActivity ++ " - " ++ status)
-        , body = Maybe.map (\nt -> "Up next:" ++ nt.class.title) nextTaskMaybe
-        , ongoing = Just True
-        , badge = Nothing
-        , icon = Nothing
-        , silhouetteIcon = Nothing
-        , update = Nothing
-        , privacy = Nothing
-        , useHTML = Nothing
-        , title_expanded = Nothing
-        , body_expanded = Nothing
-        , detail = Nothing
-        , status_icon = Nothing
-        , status_text_size = Nothing
-        , background_color = Nothing
-        , countdown = Nothing
+        , when = Just excused.until
+        , subtitle = Just (Activity.getName status.newActivity ++ " (excused up to " ++ writeDur excused.limit ++ ")")
+        , body = Just ("What's Important Now: \n" ++ summarizeFocusItem excused.win)
+        , countdown = Just True
         , progress =
-            case trackedTaskMaybe of
+            case status.newInstanceMaybe of
                 Just task ->
                     Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
 
                 Nothing ->
-                    Nothing
+                    -- show the decreasing amount of time left
+                    Just <| Notif.Progress (Duration.inMs excused.remaining) (Duration.inMs excused.limit)
         , actions =
-            case trackedTaskMaybe of
+            case status.newInstanceMaybe of
                 Just instance ->
-                    actions ++ actionsIfTaskPresent instance
+                    stickyBase.actions ++ actionsIfTaskPresent instance
 
                 Nothing ->
-                    actions
-        , accentColor = color
+                    stickyBase.actions
+        , accentColor = Just "yellow"
     }
 
 
 currentActivityFromApp : Profile -> ActivityID
-currentActivityFromApp app =
-    currentActivityID app.timeline
+currentActivityFromApp profile =
+    currentActivityID profile.timeline
 
 
 onTaskChannel : Notif.Channel
 onTaskChannel =
-    { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing }
+    { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing, group = Just "Reminders" }
 
 
 scheduleOnTaskReminders : Instance -> Moment -> Duration -> List Notification
@@ -451,6 +682,7 @@ offTaskChannel step =
     , importance = Just Notif.Max
     , led = Nothing
     , vibrate = Just (urgentVibe (5 + step))
+    , group = Just "Reminders"
     }
 
 
@@ -462,14 +694,19 @@ offTaskActions =
     ]
 
 
-scheduleOffTaskReminders : Instance -> Moment -> List Notification
-scheduleOffTaskReminders nextTask now =
+scheduleOffTaskReminders : StatusDetails -> OffTaskDetails -> List Notification
+scheduleOffTaskReminders status offTask =
     let
         title =
-            Just ("Do now: " ++ nextTask.class.title)
+            case offTask.win of
+                ( _, Just winInstance ) ->
+                    Just ("Do now: " ++ Task.Instance.getTitle winInstance)
+
+                ( winActivity, Nothing ) ->
+                    Just ("Do now: " ++ Activity.getName winActivity)
     in
-    List.map (offTaskReminder now) (List.range 0 stopAfterCount)
-        ++ [ giveUpNotif now ]
+    List.map (offTaskReminder status.now) (List.range 0 stopAfterCount)
+        ++ [ giveUpNotif status.now ]
 
 
 offTaskReminder : Moment -> Int -> Notification
@@ -509,6 +746,7 @@ giveUpNotif fireTime =
             , importance = Nothing
             , led = Nothing
             , vibrate = Nothing
+            , group = Just "Status"
             }
 
         base =
@@ -573,11 +811,11 @@ pickEncouragementMessage time =
 
 {-| Calculate the interim reminders before the activity expires from being excused.
 -}
-scheduleExcusedReminders : Moment -> Duration -> Duration -> List Notification
-scheduleExcusedReminders now excusedLimit timeLeft =
+scheduleExcusedReminders : StatusDetails -> ExcusedDetails -> List Notification
+scheduleExcusedReminders status excused =
     let
         excusedChannel =
-            { id = "Excused Reminders", name = "Excused Reminders", description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing }
+            { id = "Excused Reminders", name = "Excused Reminders", description = Nothing, sound = Nothing, importance = Nothing, led = Nothing, vibrate = Nothing, group = Just "Reminders" }
 
         scratch =
             Notif.build excusedChannel
@@ -587,7 +825,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
                 | id = Just 100
                 , channel = excusedChannel
                 , actions = actions
-                , when = Just timesUp
+                , when = Just excused.until
                 , countdown = Just True
                 , chronometer = Just True
                 , accentColor = Just "gold"
@@ -605,19 +843,15 @@ scheduleExcusedReminders now excusedLimit timeLeft =
 
         substantialTimeLeft =
             -- Don't bother with reminders if there's under 30 sec left
-            firstIsGreater timeLeft (Duration.fromSeconds 30.0)
-
-        timesUp =
-            -- The Moment the excused time expires, if it continues to be used without interruption
-            future now timeLeft
+            firstIsGreater excused.remaining (Duration.fromSeconds 30.0)
 
         beforeTimesUp timeBefore =
             -- get Moments before the expiration Moment, to schedule "time left" reminders. Don't make the mistake of using `future` from now - we should be working backwards from the expiry time for "time left".
-            past timesUp timeBefore
+            past excused.until timeBefore
 
         halfLeftThisSession =
             -- It would be annoying to immediately get warned "5 minutes left" when the period is only 7 minutes, so we make sure at least half the time is used before showing warnings
-            Duration.scale timeLeft (1 / 2)
+            Duration.scale excused.remaining (1 / 2)
 
         gettingCloseList =
             List.takeWhile (firstIsGreater halfLeftThisSession)
@@ -634,8 +868,8 @@ scheduleExcusedReminders now excusedLimit timeLeft =
             { base
                 | at = Just <| beforeTimesUp amountLeft
                 , title = Just <| "Finish up! Only " ++ write amountLeft ++ " left!"
-                , subtitle = Just <| "Excused for up to " ++ write excusedLimit
-                , progress = Just (Notif.Progress (Duration.inMs amountLeft) (Duration.inMs excusedLimit))
+                , subtitle = Just <| "Excused for up to " ++ write excused.limit
+                , progress = Just (Notif.Progress (Duration.inMs amountLeft) (Duration.inMs excused.limit))
             }
 
         write durLeft =
@@ -643,19 +877,19 @@ scheduleExcusedReminders now excusedLimit timeLeft =
 
         interimReminders =
             [ { base
-                | at = Just <| future now (dur (Minutes 10))
+                | at = Just <| future status.now (dur (Minutes 10))
                 , title = Just "Distraction taken care of?"
-                , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 10)))
+                , subtitle = Just <| pickEncouragementMessage (future status.now (dur (Minutes 10)))
               }
             , { base
-                | at = Just <| future now (dur (Minutes 20))
+                | at = Just <| future status.now (dur (Minutes 20))
                 , title = Just "Ready to get back on task?"
-                , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 20)))
+                , subtitle = Just <| pickEncouragementMessage (future status.now (dur (Minutes 20)))
               }
             , { base
-                | at = Just <| future now (dur (Minutes 30))
+                | at = Just <| future status.now (dur (Minutes 30))
                 , title = Just "Can this wait?"
-                , subtitle = Just <| pickEncouragementMessage (future now (dur (Minutes 30)))
+                , subtitle = Just <| pickEncouragementMessage (future status.now (dur (Minutes 30)))
               }
             ]
 
@@ -675,7 +909,7 @@ scheduleExcusedReminders now excusedLimit timeLeft =
 
 suggestedTasksChannel : Notif.Channel
 suggestedTasksChannel =
-    { id = "Suggested Tasks", name = "Suggested Tasks", description = Just "Other tasks you could start right now.", sound = Nothing, importance = Just Notif.Low, led = Nothing, vibrate = Nothing }
+    { id = "Suggested Tasks", name = "Suggested Tasks", description = Just "Other tasks you could start right now.", sound = Nothing, importance = Just Notif.Default, led = Nothing, vibrate = Nothing, group = Just "Actionable" }
 
 
 suggestedTasksGroup : Notif.GroupKey
@@ -696,6 +930,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
     { base
         | id = Just <| taskClassNotifID taskInstance.class.id
         , group = Just suggestedTasksGroup
+        , subtitle = Just "Suggested"
         , at = Just now
         , title = Just <| taskInstance.class.title
         , body = Nothing
@@ -704,7 +939,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , showWhen = Just False
         , countdown = Just False
         , chronometer = Just False
-        , expiresAfter = Just (Duration.fromHours 8)
+        , expiresAfter = Just (Duration.fromHours 1) -- TODO
         , progress =
             if Task.Instance.partiallyCompleted taskInstance then
                 Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.Instance.instanceProgress taskInstance))
@@ -728,7 +963,7 @@ suggestedTasks profile env =
                 Just hasActivityID ->
                     Just ( task, hasActivityID )
     in
-    List.map (suggestedTaskNotif env.time) (List.take 20 actionableTasks)
+    List.map (suggestedTaskNotif env.time) (List.take 10 actionableTasks)
 
 
 taskClassNotifID : ClassID -> Int
@@ -743,7 +978,7 @@ currentTaskNotif now task =
             Task.Instance.getID task
 
         currentTaskChannel =
-            { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing }
+            { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing, group = Just "Actionable" }
 
         blank =
             Notif.build currentTaskChannel
