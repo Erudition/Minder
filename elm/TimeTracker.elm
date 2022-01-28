@@ -1,7 +1,6 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
-import Refocus as Switching
 import Activity.Template
 import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
@@ -27,6 +26,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Profile exposing (..)
+import Refocus
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -124,7 +124,7 @@ viewActivity app env ( activityID, activity ) =
         [ class "activity" ]
         [ button
             [ class "activity-button"
-            , classList [ ( "current", Switching.currentActivityFromApp app == activityID ) ]
+            , classList [ ( "current", Profile.currentActivityID app == activityID ) ]
             , onClick (StartTracking activityID)
             , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline activityID))
             ]
@@ -243,7 +243,7 @@ update msg state app env =
         StartTracking activityId ->
             let
                 ( updatedApp, cmds ) =
-                    Switching.switchActivity activityId app env
+                    Refocus.switchActivity activityId app env
             in
             ( state
             , updatedApp

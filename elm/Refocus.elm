@@ -31,6 +31,8 @@ type FocusStatus
 
 
 {-| Everything I might need to make it nice to work with
+DO NOT INCLUDE STUFF THAT CHANGES WITH TIME, just calculate it based on .now
+since then we can recursively call with "later" statuses
 -}
 type alias StatusDetails =
     { now : Moment
@@ -123,52 +125,66 @@ refreshTracking profile env =
 
 
 switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
-switchTracking newActivityID newInstanceIDMaybe profile env =
+switchTracking newActivityID newInstanceIDMaybe oldProfile env =
     let
-        ( newStatusDetails, newFocusStatus ) =
-            determineNewStatus newActivityID newInstanceIDMaybe profile env
+        updatedProfile =
+            { oldProfile | timeline = newSwitch env.time newActivityID newInstanceIDMaybe :: oldProfile.timeline }
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline)
+            Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
     in
     if
-        (Profile.currentActivityID profile == newActivityID)
+        (Profile.currentActivityID oldProfile == newActivityID)
             && (newInstanceIDMaybe == oldInstanceIDMaybe)
     then
         -- we didn't change what we were tracking
-        ( profile, Cmd.none )
+        ( oldProfile, Cmd.none )
 
     else
-        reactToStatusChange newStatusDetails newFocusStatus profile
+        -- we actually changed tracking, add switch to timeline
+        let
+            ( newStatusDetails, newFocusStatus ) =
+                determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile env
+
+            ( reactionNow, checkbackTimeMaybe ) =
+                reactToStatusChange newStatusDetails newFocusStatus updatedProfile
+
+            reactionWhenExpired =
+                case checkbackTimeMaybe of
+                    Nothing ->
+                        Cmd.none
+
+                    Just checkbackTime ->
+                        let
+                            -- everything stays the same, just in the future
+                            ( futureStatusDetails, futureFocusStatus ) =
+                                determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile { env | time = checkbackTime }
+                        in
+                        Tuple.first (reactToStatusChange futureStatusDetails futureFocusStatus updatedProfile)
+        in
+        ( updatedProfile, Cmd.batch [ reactionNow, reactionWhenExpired ] )
 
 
-determineNewStatus : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( StatusDetails, FocusStatus )
-determineNewStatus newActivityID newInstanceIDMaybe profile env =
+determineNewStatus : ( ActivityID, Maybe InstanceID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
+determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile env =
     let
-        updatedApp =
-            if (newActivityID == oldActivityID) && (newInstanceIDMaybe == oldInstanceIDMaybe) then
-                profile
-
-            else
-                { profile | timeline = newSwitch env.time newActivityID newInstanceIDMaybe :: profile.timeline }
-
         newActivity =
-            Profile.getActivityByID profile newActivityID
+            Profile.getActivityByID newProfile newActivityID
 
         oldActivity =
-            Profile.getActivityByID profile oldActivityID
+            Profile.getActivityByID newProfile oldActivityID
 
         oldActivityID =
-            Profile.currentActivityID profile
+            Profile.currentActivityID oldProfile
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline)
+            Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
 
         suggestions =
-            suggestedTasks profile env
+            suggestedTasks newProfile env
 
         allTasks =
-            Profile.instanceListNow profile env
+            Profile.instanceListNow newProfile env
 
         trackingTask =
             case newInstanceIDMaybe of
@@ -180,16 +196,16 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
 
         statusDetails =
             { now = env.time
-            , oldActivity = Activity.getActivity oldActivityID (allActivities profile.activities)
-            , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession updatedApp.timeline oldActivityID
-            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID profile env) (Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline))
-            , newActivity = Activity.getActivity newActivityID (allActivities profile.activities)
+            , oldActivity = Activity.getActivity oldActivityID (allActivities newProfile.activities)
+            , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession newProfile.timeline oldActivityID
+            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
+            , newActivity = Activity.getActivity newActivityID (allActivities newProfile.activities)
             , newActivityTodayTotal =
-                Timeline.totalLive env.time updatedApp.timeline newActivityID
+                Timeline.totalLive env.time newProfile.timeline newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks) newInstanceIDMaybe
             }
     in
-    case whatsImportantNow profile env of
+    case whatsImportantNow newProfile env of
         Nothing ->
             -- ALL DONE
             ( statusDetails, Free )
@@ -202,10 +218,10 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                     writeDur <| excusedUsage
 
                 excusedUsage =
-                    Timeline.excusedUsage updatedApp.timeline env.time ( newActivityID, newActivity )
+                    Timeline.excusedUsage newProfile.timeline env.time ( newActivityID, newActivity )
 
                 excusedLeft =
-                    Timeline.excusedLeft updatedApp.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities profile.activities) )
+                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities newProfile.activities) )
 
                 isThisTheRightNextTask =
                     case ( newInstanceIDMaybe, Maybe.map Task.Instance.getID nextInstanceMaybe ) of
@@ -216,14 +232,14 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getInstanceByID profile env) newInstanceIDMaybe
+                    Maybe.andThen (Profile.getInstanceByID newProfile env) newInstanceIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
                             -- TODO is this the time spent on the task?
-                            Timeline.totalLive env.time updatedApp.timeline newActivityID
+                            Timeline.totalLive env.time newProfile.timeline newActivityID
 
                         timeRemaining =
                             Duration.subtract newInstance.class.maxEffort timeSpent
@@ -277,62 +293,24 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                         )
 
 
-reactToStatusChange : StatusDetails -> FocusStatus -> Profile -> ( Profile, Cmd msg )
+type alias CheckBack =
+    Moment
+
+
+reactToStatusChange : StatusDetails -> FocusStatus -> Profile -> ( Cmd msg, Maybe CheckBack )
 reactToStatusChange status focusStatus profile =
     case focusStatus of
         Free ->
-            ( profile, newlyFreeReaction status )
+            ( newlyFreeReaction status, Nothing )
 
         OffTask offTask ->
-            ( profile
-            , newlyOffTaskReaction status offTask
-            )
+            ( newlyOffTaskReaction status offTask, Nothing )
 
         Excused excused ->
-            let
-                expiredStatus =
-                    { status
-                        | now = excused.until
-                        , lastSession = Duration.add excused.remaining status.lastSession
-                    }
-
-                expiredOffTaskDetails =
-                    { win = excused.win
-                    , urgency = excused.urgency
-                    , reason = OverExcused
-                    }
-            in
-            ( profile
-            , Cmd.batch
-                [ newlyExcusedReaction status excused
-                , newlyOffTaskReaction expiredStatus expiredOffTaskDetails
-                ]
-            )
+            ( newlyExcusedReaction status excused, Just excused.until )
 
         OnTask onTask ->
-            let
-                expiredStatus =
-                    { status
-                        | now = onTask.until
-                        , lastSession = Duration.add onTask.remaining status.lastSession
-                    }
-
-                expiredOffTaskDetails =
-                    { win = futureWIN
-                    , urgency = onTask.urgency
-                    , reason = TooLongOnTask
-                    }
-
-                futureWIN =
-                    --TODO
-                    onTask.win
-            in
-            ( profile
-            , Cmd.batch
-                [ newlyOnTaskReaction status onTask
-                , newlyOffTaskReaction expiredStatus expiredOffTaskDetails
-                ]
-            )
+            ( newlyOnTaskReaction status onTask, Just onTask.until )
 
 
 
