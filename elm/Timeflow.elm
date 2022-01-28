@@ -1,7 +1,7 @@
 module Timeflow exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Switching
+import Refocus
 import Activity.Timeline
 import Color exposing (Color)
 import Date

@@ -2,7 +2,7 @@ module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewS
 
 import Activity.Activity exposing (ActivityID)
 import Activity.Switch
-import Activity.Switching
+import Refocus
 import Activity.Timeline
 import Browser
 import Browser.Dom
@@ -1021,7 +1021,7 @@ update msg state app env =
         StartTracking instanceID activityID ->
             let
                 ( newProfile1WithSwitch, switchCommands ) =
-                    Activity.Switching.switchTracking activityID (Just instanceID) app env
+                    Refocus.switchTracking activityID (Just instanceID) app env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
                     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
@@ -1043,7 +1043,7 @@ update msg state app env =
                     Activity.Timeline.currentInstanceID app.timeline
 
                 ( newProfile1WithSwitch, switchCommands ) =
-                    Activity.Switching.switchTracking activityToContinue Nothing app env
+                    Refocus.switchTracking activityToContinue Nothing app env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
                     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False

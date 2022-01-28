@@ -1,4 +1,4 @@
-module Activity.Switching exposing (currentActivityFromApp, refreshTracking, switchActivity, switchTracking, whatsImportantNow)
+module Refocus exposing (currentActivityFromApp, refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
@@ -64,7 +64,9 @@ type alias FocusItem =
 
 
 type alias OffTaskDetails =
-    { win : FocusItem }
+    { win : FocusItem
+    , reason : OffTaskReason
+    }
 
 
 type OffTaskReason
@@ -119,6 +121,15 @@ refreshTracking profile env =
 
 switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchTracking newActivityID newInstanceIDMaybe profile env =
+    let
+        ( newStatusDetails, newFocusStatus ) =
+            determineNewStatus newActivityID newInstanceIDMaybe profile env
+    in
+    reactToStatusChange newStatusDetails newFocusStatus profile
+
+
+determineNewStatus : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( StatusDetails, FocusStatus )
+determineNewStatus newActivityID newInstanceIDMaybe profile env =
     let
         updatedApp =
             if (newActivityID == oldActivityID) && (newInstanceIDMaybe == oldInstanceIDMaybe) then
@@ -190,7 +201,7 @@ switchTracking newActivityID newInstanceIDMaybe profile env =
     case whatsImportantNow profile env of
         NothingToFocusOn ->
             -- ALL DONE
-            ( updatedApp, newlyFreeReaction statusDetails )
+            ( statusDetails, Free )
 
         ShouldFocus _ ->
             Debug.todo "ShouldFocus"
@@ -231,7 +242,7 @@ switchTracking newActivityID newInstanceIDMaybe profile env =
                             , remaining = Duration.subtract newInstance.class.maxEffort timeSpent
                             }
                     in
-                    ( updatedApp, newlyOnTaskReaction statusDetails onTaskDetails )
+                    ( statusDetails, OnTask onTaskDetails )
 
                 -- with no task, is this the right next activity?
                 ( _, _, True ) ->
@@ -249,19 +260,50 @@ switchTracking newActivityID newInstanceIDMaybe profile env =
                                 }
                         in
                         -- OFF TASK BUT STILL EXCUSED ---------------------
-                        ( updatedApp
-                        , newlyExcusedReaction statusDetails excusedDetails
+                        ( statusDetails
+                        , Excused excusedDetails
                         )
 
                     else
                         let
                             offTaskDetails =
-                                { win = win }
+                                { win = win
+                                , reason = determineOffTaskReason
+                                }
+
+                            determineOffTaskReason =
+                                -- TODO
+                                NotExcused
                         in
                         -- OFF TASK
-                        ( updatedApp
-                        , newlyOffTaskReaction statusDetails offTaskDetails
+                        ( statusDetails
+                        , OffTask offTaskDetails
                         )
+
+
+reactToStatusChange : StatusDetails -> FocusStatus -> Profile -> ( Profile, Cmd msg )
+reactToStatusChange status focusStatus profile =
+    case focusStatus of
+        Free ->
+            ( profile, newlyFreeReaction status )
+
+        OnTask onTask ->
+            case status.newInstanceMaybe of
+                Just newInstance ->
+                    ( profile, newlyOnTaskReaction status onTask )
+
+                Nothing ->
+                    Debug.todo "on task with only an activity"
+
+        Excused excused ->
+            ( profile
+            , newlyExcusedReaction status excused
+            )
+
+        OffTask offTask ->
+            ( profile
+            , newlyOffTaskReaction status offTask
+            )
 
 
 
@@ -300,7 +342,9 @@ newlyOnTaskReaction status onTask =
 newlyExcusedReaction status excused =
     let
         eventualOffTaskDetails =
-            { win = excused.win }
+            { win = excused.win
+            , reason = OverExcused
+            }
     in
     Cmd.batch
         [ cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)

@@ -1,7 +1,7 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Switching as Switching
+import Refocus as Switching
 import Activity.Template
 import Activity.Timeline as Timeline exposing (Timeline)
 import Browser

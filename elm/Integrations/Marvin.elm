@@ -4,7 +4,7 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity exposing (StoredActivities)
-import Activity.Switching
+import Refocus
 import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
@@ -385,7 +385,7 @@ handle classCounter profile env response =
                             Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
 
                         ( profileWithRefocus, refocusCmds ) =
-                            Activity.Switching.refreshTracking
+                            Refocus.refreshTracking
                                 { profile | timeline = updatedTimeline }
                                 env
                     in
