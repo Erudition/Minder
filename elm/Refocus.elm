@@ -1,8 +1,8 @@
-module Refocus exposing (currentActivityFromApp, refreshTracking, switchActivity, switchTracking, whatsImportantNow)
+module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
-import Activity.Timeline as Timeline exposing (Timeline, currentActivityID)
+import Activity.Timeline as Timeline exposing (Timeline)
 import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (multiline)
@@ -10,7 +10,7 @@ import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty)
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
-import Profile exposing (..)
+import Profile exposing (Profile)
 import Random
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
@@ -47,11 +47,13 @@ type alias OnTaskDetails =
     { win : FocusItem
     , spent : Duration
     , remaining : Duration
+    , until : Moment
     }
 
 
 type alias ExcusedDetails =
     { win : FocusItem
+    , urgency : WINUrgency
     , used : Duration
     , limit : Duration
     , remaining : Duration
@@ -66,6 +68,7 @@ type alias FocusItem =
 type alias OffTaskDetails =
     { win : FocusItem
     , reason : OffTaskReason
+    , urgency : WINUrgency
     }
 
 
@@ -77,20 +80,19 @@ type OffTaskReason
     | BadTime
 
 
-type WIN
-    = MustFocus FocusItem
-    | ShouldFocus (Nonempty FocusItem)
-    | NothingToFocusOn
+type WINUrgency
+    = Gentle
+    | Strong
 
 
 prioritizeTasks : Profile -> Environment -> List Instance
 prioritizeTasks profile env =
     Task.Instance.prioritize env.time env.timeZone <|
         List.filter (Task.Instance.completed >> not) <|
-            instanceListNow profile env
+            Profile.instanceListNow profile env
 
 
-whatsImportantNow : Profile -> Environment -> WIN
+whatsImportantNow : Profile -> Environment -> Maybe ( FocusItem, WINUrgency )
 whatsImportantNow profile env =
     let
         -- TODO allow activities to be WIN
@@ -103,10 +105,10 @@ whatsImportantNow profile env =
     in
     case ( topPickActivityMaybe, topPickMaybe ) of
         ( Just topPickActivity, Just topPick ) ->
-            MustFocus ( topPickActivity, Just topPick )
+            Just ( ( topPickActivity, Just topPick ), Gentle )
 
         _ ->
-            NothingToFocusOn
+            Nothing
 
 
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
@@ -116,7 +118,7 @@ switchActivity newActivityID profile env =
 
 refreshTracking : Profile -> Environment -> ( Profile, Cmd msg )
 refreshTracking profile env =
-    switchTracking (currentActivityID profile.timeline) (Timeline.currentInstanceID profile.timeline) profile env
+    switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile env
 
 
 switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
@@ -145,39 +147,16 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
             Profile.getActivityByID profile oldActivityID
 
         oldActivityID =
-            currentActivityFromApp profile
+            Profile.currentActivityID profile
 
         oldInstanceIDMaybe =
             Activity.Switch.getInstanceID (Timeline.latestSwitch profile.timeline)
-
-        sessionTotalString =
-            writeDur <| Maybe.withDefault Duration.zero lastSession
-
-        lastSession =
-            Timeline.lastSession updatedApp.timeline oldActivityID
-
-        todayTotalString =
-            writeDur <|
-                todayTotal
-
-        todayTotal =
-            Timeline.justTodayTotal updatedApp.timeline env newActivityID
-
-        ( oldName, newName ) =
-            ( getName oldActivity, getName newActivity )
-
-        describeTodayTotal =
-            if Duration.isPositive todayTotal then
-                [ "So far", todayTotalString, "today" ]
-
-            else
-                []
 
         suggestions =
             suggestedTasks profile env
 
         allTasks =
-            instanceListNow profile env
+            Profile.instanceListNow profile env
 
         trackingTask =
             case newInstanceIDMaybe of
@@ -199,14 +178,11 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
             }
     in
     case whatsImportantNow profile env of
-        NothingToFocusOn ->
+        Nothing ->
             -- ALL DONE
             ( statusDetails, Free )
 
-        ShouldFocus _ ->
-            Debug.todo "ShouldFocus"
-
-        MustFocus (( nextActivity, nextInstanceMaybe ) as win) ->
+        Just ( ( nextActivity, nextInstanceMaybe ) as win, urgency ) ->
             -- MORE TO BE DONE
             let
                 -- ALL EXCUSED CHECKS BELOW --
@@ -234,12 +210,17 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
+                            -- TODO is this the time spent on the task?
                             Timeline.totalLive env.time updatedApp.timeline newActivityID
+
+                        timeRemaining =
+                            Duration.subtract newInstance.class.maxEffort timeSpent
 
                         onTaskDetails =
                             { win = win
                             , spent = timeSpent
-                            , remaining = Duration.subtract newInstance.class.maxEffort timeSpent
+                            , remaining = timeRemaining
+                            , until = future env.time timeRemaining
                             }
                     in
                     ( statusDetails, OnTask onTaskDetails )
@@ -253,6 +234,7 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                         let
                             excusedDetails =
                                 { used = excusedUsage
+                                , urgency = urgency
                                 , limit = Timeline.excusableLimit newActivity
                                 , remaining = excusedLeft
                                 , until = future statusDetails.now excusedLeft
@@ -269,6 +251,7 @@ determineNewStatus newActivityID newInstanceIDMaybe profile env =
                             offTaskDetails =
                                 { win = win
                                 , reason = determineOffTaskReason
+                                , urgency = urgency
                                 }
 
                             determineOffTaskReason =
@@ -313,11 +296,7 @@ reactToStatusChange status focusStatus profile =
 newlyFreeReaction : StatusDetails -> Cmd msg
 newlyFreeReaction status =
     Cmd.batch
-        [ multiLineToast
-            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
-            , [ getName status.oldActivity, "➤", getName status.newActivity ]
-            , [ writeDur status.newActivityTodayTotal ]
-            ]
+        [ switchToast status "Liesure time"
         , notify <| freeSticky status
         , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
         ]
@@ -326,15 +305,10 @@ newlyFreeReaction status =
 newlyOnTaskReaction : StatusDetails -> OnTaskDetails -> Cmd msg
 newlyOnTaskReaction status onTask =
     Cmd.batch
-        [ multiLineToast
-            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
-            , [ getName status.oldActivity, "➤", getName status.newActivity, "✔️" ]
-            , [ writeDur status.newActivityTodayTotal ]
-            ]
+        [ switchToast status "✔️"
         , notify <|
             onTaskSticky status onTask
-
-        -- ++ scheduleOnTaskReminders nextTask env.time timeRemaining
+                ++ scheduleOnTaskReminders status onTask
         , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
         ]
 
@@ -343,34 +317,38 @@ newlyExcusedReaction status excused =
     let
         eventualOffTaskDetails =
             { win = excused.win
+            , urgency = excused.urgency
             , reason = OverExcused
             }
     in
     Cmd.batch
-        [ cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
-        , multiLineToast
-            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
-            , [ getName status.oldActivity, "➤", getName status.newActivity, "❌" ]
-            , [ writeDur <| excused.used ]
-            ]
+        [ switchToast status "❌"
         , notify <|
             [ excusedSticky status excused
             ]
                 ++ scheduleExcusedReminders status excused
                 ++ scheduleOffTaskReminders status eventualOffTaskDetails
+        , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
         ]
 
 
 newlyOffTaskReaction status offTask =
     Cmd.batch
-        [ multiLineToast
-            [ [ getName status.oldActivity, "stopped:", writeDur status.lastSession ]
-            , [ getName status.oldActivity, "➤", getName status.newActivity, "❌" ]
-            ]
+        [ switchToast status "❌"
         , notify <|
             offTaskSticky status offTask
                 ++ scheduleOffTaskReminders status offTask
         , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
+        ]
+
+
+switchToast : StatusDetails -> String -> Cmd msg
+switchToast status addedText =
+    multiLineToast
+        [ [ getName status.oldActivity, "stopped after", writeDur status.lastSession ]
+        , [ getName status.oldActivity, "➤", getName status.newActivity ]
+        , [ writeDur status.newActivityTodayTotal, "today" ]
+        , [ addedText ]
         ]
 
 
@@ -395,7 +373,11 @@ excusedReminderIDs =
 
 
 statusIDs =
-    [ 42 ]
+    [ stickyID ]
+
+
+stickyID =
+    42
 
 
 
@@ -418,22 +400,7 @@ summarizeFocusItem ( winActivity, winInstanceMaybe ) =
 
 
 
--- Keep this here to reference for adding details to notifs
--- ( updatedApp
--- , Cmd.batch
---     [ Commands.toast (switchPopup updatedApp.timeline env ( activityID, newActivity ) ( oldActivityID, oldActivity ))
---     , Tasker.variableOut ( "OnTaskStatus", Activity.statusToString onTaskStatus )
---     , Tasker.variableOut ( "ExcusedUsage", Timeline.exportExcusedUsageSeconds profile env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "OnTaskUsage", Timeline.exportExcusedUsageSeconds profile env.time ( activityID, newActivity ) )
---     , Tasker.variableOut ( "ActivityTotal", String.fromInt <| Duration.inMinutesRounded (Timeline.excusedUsage profile.timeline env.time ( activityID, newActivity )) )
---     , Tasker.variableOut ( "ExcusedLimit", String.fromInt <| Duration.inSecondsRounded (Timeline.excusableLimit newActivity) )
---     , Tasker.variableOut ( "CurrentActivity", getName newActivity )
---     , Tasker.variableOut ( "PreviousSessionTotal", Timeline.exportLastSession updatedApp oldActivityID )
---     , Commands.hideWindow
---     , scheduleReminders profile env updatedApp.timeline onTaskStatus ( activityID, newActivity )
---     , exportNextTask profile env
---     ]
--- )
+-- STICKY NOTIFICATION
 
 
 stickyBase : Notification
@@ -482,7 +449,7 @@ stickyBase =
             ]
     in
     { blank
-        | id = Just 42
+        | id = Just stickyID
         , group = Just (Notif.GroupKey "status")
         , showWhen = Just True
         , autoCancel = Just False
@@ -508,7 +475,7 @@ offTaskSticky status offTask =
             { stickyBase
                 | title = title
                 , when = Just (past status.now status.newActivityTodayTotal)
-                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
+                , subtitle = Just ("Off Task (" ++ Activity.getName status.newActivity ++ ")")
                 , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
@@ -524,7 +491,7 @@ offTaskSticky status offTask =
 
                         Nothing ->
                             stickyBase.actions
-                , accentColor = Just "green"
+                , accentColor = Just "red"
             }
     in
     [ final, { final | ongoing = Just False, id = Just 420 } ]
@@ -545,8 +512,8 @@ onTaskSticky status onTask =
             { stickyBase
                 | title = title
                 , when = Just (past status.now status.newActivityTodayTotal)
-                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , subtitle = Just ("On Task (" ++ Activity.getName status.newActivity ++ ")")
+                , body = Maybe.map (\nt -> "Doing what's important now: " ++ nt.class.title) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -598,10 +565,11 @@ freeSticky status =
 
                         Nothing ->
                             stickyBase.actions
-                , accentColor = Just "green"
+                , accentColor = Nothing
+                , ongoing = Just False
             }
     in
-    [ final, { final | ongoing = Just False, id = Just 420 } ]
+    [ final ]
 
 
 excusedSticky : StatusDetails -> ExcusedDetails -> Notification
@@ -645,18 +613,13 @@ excusedSticky status excused =
     }
 
 
-currentActivityFromApp : Profile -> ActivityID
-currentActivityFromApp profile =
-    currentActivityID profile.timeline
-
-
 onTaskChannel : Notif.Channel
 onTaskChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing, group = Just "Reminders" }
 
 
-scheduleOnTaskReminders : Instance -> Moment -> Duration -> List Notification
-scheduleOnTaskReminders task now timeLeft =
+scheduleOnTaskReminders : StatusDetails -> OnTaskDetails -> List Notification
+scheduleOnTaskReminders status onTask =
     let
         blank =
             Notif.build onTaskChannel
@@ -665,39 +628,39 @@ scheduleOnTaskReminders task now timeLeft =
             { blank
                 | id = Just 0
                 , expiresAfter = Just (Duration.fromMinutes 1)
-                , when = Just (future now timeLeft)
+                , when = Just (future status.now onTask.remaining)
                 , accentColor = Just "green"
             }
 
         fractionLeft denom =
-            future now <| Duration.subtract timeLeft (Duration.scale timeLeft (1 / denom))
+            future status.now <| Duration.subtract onTask.remaining (Duration.scale onTask.remaining (1 / denom))
     in
     [ { reminderBase
         | at = Just <| fractionLeft 2
         , title = Just "Half-way done!"
         , body = Just "1/2 time left for this task."
-        , subtitle = Just task.class.title
+        , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 1 2)
       }
     , { reminderBase
         | at = Just <| fractionLeft 3
         , title = Just "Two-thirds done!"
         , body = Just "1/3 time left for this task."
-        , subtitle = Just task.class.title
+        , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 2 3)
       }
     , { reminderBase
         | at = Just <| fractionLeft 4
         , title = Just "Three-quarters done!"
         , body = Just "1/4 time left for this task."
-        , subtitle = Just task.class.title
+        , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 3 4)
       }
     , { reminderBase
-        | at = Just <| future now timeLeft
+        | at = Just <| future status.now onTask.remaining
         , title = Just "Time's up!"
         , body = Just "You have spent all of the time reserved for this task."
-        , subtitle = Just task.class.title
+        , subtitle = Just (summarizeFocusItem onTask.win)
       }
     ]
 

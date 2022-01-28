@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, decodeProfile, encodeProfile, fromScratch, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, currentActivityID, decodeProfile, encodeProfile, fromScratch, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Switch exposing (decodeSwitch, encodeSwitch)
@@ -211,3 +211,8 @@ userTimeZoneAtMoment profile env givenMoment =
     else
         -- TODO look at future plans to see where the User will likely be at this moment
         env.timeZone
+
+
+currentActivityID : Profile -> ActivityID
+currentActivityID profile =
+    Activity.Timeline.currentActivityID profile.timeline
