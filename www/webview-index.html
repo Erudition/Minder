@@ -11,7 +11,7 @@
 </head>
 
 <body>
-    This is the body of the HTML, but it should be replaced by Elm!
+    This is the body of the Webview HTML, but it should be replaced by Elm!
 <svg class="centered" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="lds-ripple">
     <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c1}}" ng-attr-stroke-width="{{config.width}}" stroke="#1d3f72" stroke-width="2">
         <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
@@ -36,21 +36,11 @@
 </body>
 
 
-<script src="capacitor.js"></script>
-<script type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
-<script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
 <script type="application/javascript" src="elm-gui.js"></script>
-<script type="text/javascript" src="tasker-fillers.js"></script>
-<script type="application/javascript" src="gui.js"></script>
+<script src="gui.js">
 
-<script>
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker
-           .register('./sw.js')
-           .then(function() { console.log("Service Worker Registered!"); });
-} else {
-    tk.flash("Uh oh! No service worker support! :(");
-}
+    let app = Elm.Main.init({ flags: (storedState ? storedState : null) };
+
 </script>
 
 
