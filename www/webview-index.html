@@ -36,10 +36,13 @@
 </body>
 
 
-<script type="application/javascript" src="elm-gui.js"></script>
+<script type="application/javascript" src="elm-browserless.js"></script>
 <script>
 
-    let app = Elm.Main.init({ flags: (null) });
+    let app = Elm.Browserless.init(
+       { node: document.body
+       , flags: ["https://minder.app/#/tasks", ""]
+       });
 
 </script>
 

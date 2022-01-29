@@ -1,7 +1,6 @@
 module Timeflow exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Refocus
 import Activity.Timeline
 import Color exposing (Color)
 import Date
@@ -17,6 +16,7 @@ import GraphicSVG exposing (..)
 import GraphicSVG.Widget as Widget
 import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
+import Html as H
 import Html.Attributes as HA
 import Html.Styled as SH
 import ID
@@ -24,6 +24,7 @@ import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import List.Extra as List
 import Profile exposing (..)
+import Refocus
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week
@@ -145,7 +146,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 (toFloat initialWidgetHeight) "0"
+            Widget.init 100 1000 "0"
 
         initialSettings =
             updateViewSettings profile environment
@@ -188,7 +189,7 @@ view maybeVState profile env =
                         ]
                     , column [ width fill, height fill ]
                         [ row
-                            [ width fill, height (px <| 30 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (HA.style "flex-shrink" "1") ]
+                            [ width fill, height (px <| 10 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (HA.style "flex-shrink" "1") ]
                             (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                         ]
                     ]
@@ -216,9 +217,12 @@ view maybeVState profile env =
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
-    Widget.view widgetState
-        [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
-        , group (allShapes state profile env) |> move ( 0, 200 )
+    H.div [ HA.width 100, HA.height 1000 ]
+        [ Widget.view
+            widgetState
+            [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
+            , group (allShapes state profile env) |> move ( 0, 200 )
+            ]
         ]
 
 

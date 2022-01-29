@@ -1,6 +1,7 @@
 port module Browserless exposing (..)
 
 import Browser
+import Html as PlainHtml
 import Html.Styled exposing (Html, node, toUnstyled)
 import Main exposing (JsonAppDatabase, Model, Msg)
 import Platform exposing (worker)
@@ -12,7 +13,7 @@ main : Program ( String, Maybe JsonAppDatabase ) Model Msg
 main =
     Browser.element
         { init = initBrowserless
-        , view = browserlessView
+        , view = \m -> PlainHtml.div [] (Main.view m).body
         , update = Main.updateWithTime
         , subscriptions = Main.subscriptions
         }

@@ -288,7 +288,7 @@ type alias ViewState =
 
 emptyViewState : ViewState
 emptyViewState =
-    { primaryView = TimeTracker TimeTracker.defaultView
+    { primaryView = TaskList TaskList.defaultView
     , uid = 0
     }
 
@@ -393,16 +393,16 @@ globalLayout viewState profile env innerStuff =
             { options = [] }
 
         timetrackerLink =
-            link [ centerX, centerY ] { url = "timetracker", label = text "Timetracker" }
+            link [ centerX, centerY ] { url = "#/timetracker", label = text "Timetracker" }
 
         classesLink =
             link [ centerX, centerY ] { url = "#", label = text "Classes" }
 
         tasksLink =
-            link [ centerX, centerY ] { url = "tasks", label = text "Tasks" }
+            link [ centerX, centerY ] { url = "#/tasks", label = text "Tasks" }
 
         timeflowLink =
-            link [ centerX, centerY ] { url = "timeflow", label = text "Timeflow" }
+            link [ centerX, centerY ] { url = "#/timeflow", label = text "Timeflow" }
 
         footerLinks =
             case viewState.primaryView of
