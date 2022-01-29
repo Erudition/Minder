@@ -4,6 +4,9 @@ const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { IgnorePlugin } = require('webpack');
 
 
+
+
+
 const configuredCircularPlugin = new CircularDependencyPlugin(
 {
  // exclude detection of files based on a RegExp
@@ -35,7 +38,7 @@ module.exports = (env) => {
           resolve: {
               mainFields: ['module', 'main', 'browser'],
               alias: { "tns-core-modules": "@nativescript/core", //somehow still necessary for old node modules
-                        "url": "whatwg-url", //better replacement
+                        //"url": "whatwg-url", //better replacement
                         "randombytes" : "nativescript-randombytes", // for crypto library
                         "nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
                         "nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
@@ -62,7 +65,7 @@ module.exports = (env) => {
 //                sys: require.resolve('util'),
                 timers: require.resolve('timers-browserify'),
                 tty: require.resolve('tty-browserify'),
-                url: require.resolve('whatwg-url'),
+                //url: require.resolve('whatwg-url'), conflict with ui-webview
                 util: require.resolve('util'),
                 vm: require.resolve('vm-browserify'),
                 zlib: require.resolve('browserify-zlib'),
@@ -87,6 +90,15 @@ module.exports = (env) => {
         //config.plugin('CircularDependencyPlugin').use(CircularDependencyPlugin, [configuredCircularPlugin])
 
       });
+
+
+
+        webpack.Utils.addCopyRule({
+            from: '**/*.*',
+            to: 'app/assets/www',
+            // the context of the "from" rule:
+            context: webpack.Utils.project.getProjectFilePath('www')
+          });
 
 
 	return webpack.resolveConfig();

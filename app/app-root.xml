@@ -5,12 +5,16 @@ Learn more about the TabView component in this documentation article:
 http://docs.nativescript.org/cookbook/ui/tab-view
 -->
 <TabView androidTabsPosition="bottom" id="root-tabview">
-    <TabViewItem title="Home" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
-        <Frame defaultPage="home/home-items-page"></Frame>
+    <TabViewItem title="Webapp" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
+        <Frame defaultPage="webapp/webapp-page"></Frame>
     </TabViewItem>
 
     <TabViewItem title="Time Tracking" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
         <Frame defaultPage="activities/activities-page"></Frame>
+    </TabViewItem>
+
+    <TabViewItem title="Home" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
+        <Frame defaultPage="home/home-items-page"></Frame>
     </TabViewItem>
 
     <TabViewItem title="Browse" ios:iconSource="res://tabIcons/browse" android:iconSource="res://browse">

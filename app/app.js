@@ -270,13 +270,17 @@ applicationModule.android.registerBroadcastReceiver(
 // LISTENING FOR STANDARD SYSTEM BROADCASTS ------------------------------------
 
 
-// START THE APP
+// START THE APP --------------------------------------------
 //const application = require("@nativescript/core/application");
+const traceModule = require("@nativescript/core/trace").Trace;
+const notaTraceCategory = require("@nativescript-community/ui-webview").NotaTraceCategory
 
+traceModule.addCategories(notaTraceCategory);
+traceModule.enable();
 
 
 function launchListener (args)  {
-//    console.info("Attempting Elm initialization! ---------------------------------");
+//    console.info("Attempting Elm initialization!");
 //    console.log("args is " + JSON.stringify(args));
 
 //    var rootElement =  document.getElementById("root-tabview");
@@ -303,7 +307,7 @@ function launchListener (args)  {
 }
 applicationModule.on(applicationModule.launchEvent, launchListener);
 
-
+//LAUNCH!
 applicationModule.run({ moduleName: "app-root" });
 
 

@@ -489,6 +489,7 @@ offTaskSticky status offTask =
         final =
             { stickyBase
                 | title = title
+                , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just ("Off Task (" ++ Activity.getName status.newActivity ++ ")")
                 , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
@@ -526,6 +527,7 @@ onTaskSticky status onTask =
         final =
             { stickyBase
                 | title = title
+                , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just ("On Task (" ++ Activity.getName status.newActivity ++ ")")
                 , body = Maybe.map (\nt -> "Doing what's important now: " ++ nt.class.title) status.newInstanceMaybe
@@ -563,6 +565,7 @@ freeSticky status =
         final =
             { stickyBase
                 | title = title
+                , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " - ")
                 , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
@@ -604,6 +607,7 @@ excusedSticky status excused =
     in
     [ { stickyBase
         | title = title
+        , at = Just status.now
         , chronometer = Just True
         , when = Just excused.until
         , subtitle = Just (Activity.getName status.newActivity ++ " (excused up to " ++ writeDur excused.limit ++ ")")
