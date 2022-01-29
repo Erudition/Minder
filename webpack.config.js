@@ -95,7 +95,7 @@ module.exports = (env) => {
 
         webpack.Utils.addCopyRule({
             from: '**/*.*',
-            to: 'app/assets/www',
+            to: 'assets/www',
             // the context of the "from" rule:
             context: webpack.Utils.project.getProjectFilePath('www')
           });
