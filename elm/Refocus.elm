@@ -8,6 +8,7 @@ import External.Commands as Commands
 import Helpers exposing (multiline)
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty)
+import Log
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (Profile)
@@ -98,10 +99,15 @@ prioritizeTasks profile env =
 whatsImportantNow : Profile -> Environment -> Maybe ( FocusItem, WINUrgency )
 whatsImportantNow profile env =
     let
+        prioritized =
+            -- Must have an activity to tell
+            List.filter (\i -> i.class.activity /= Nothing)
+                (prioritizeTasks profile env)
+
         -- TODO allow activities to be WIN
         topPickMaybe =
             List.head <|
-                prioritizeTasks profile env
+                prioritized
 
         topPickActivityMaybe =
             Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.Instance.getActivityID topPickMaybe)
@@ -110,8 +116,8 @@ whatsImportantNow profile env =
         ( Just topPickActivity, Just topPick ) ->
             Just ( ( topPickActivity, Just topPick ), Gentle )
 
-        _ ->
-            Nothing
+        somethingelse ->
+            Log.logSeparate "top pick" somethingelse Nothing
 
 
 switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
@@ -161,8 +167,11 @@ switchTracking newActivityID newInstanceIDMaybe oldProfile env =
                                 determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile { env | time = checkbackTime }
                         in
                         Tuple.first (reactToStatusChange futureStatusDetails futureFocusStatus updatedProfile)
+
+            suggestions =
+                suggestedTasks updatedProfile env
         in
-        ( updatedProfile, Cmd.batch [ reactionNow, reactionWhenExpired ] )
+        ( updatedProfile, Cmd.batch [ reactionNow, reactionWhenExpired, notify suggestions ] )
 
 
 determineNewStatus : ( ActivityID, Maybe InstanceID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
@@ -179,9 +188,6 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
 
         oldInstanceIDMaybe =
             Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
-
-        suggestions =
-            suggestedTasks newProfile env
 
         allTasks =
             Profile.instanceListNow newProfile env
@@ -255,9 +261,25 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     ( statusDetails, OnTask onTaskDetails )
 
                 -- with no task, is this the right next activity?
-                ( _, _, True ) ->
-                    Debug.todo "on task with only an activity"
-
+                -- ( Nothing, _, True ) ->
+                --     let
+                --         timeSpent =
+                --             -- TODO is this the time spent on the task?
+                --             Timeline.totalLive env.time newProfile.timeline newActivityID
+                --
+                --         timeRemaining =
+                --             -- TODO
+                --             Duration.anHour
+                --
+                --         onTaskDetails =
+                --             { win = win
+                --             , urgency = urgency
+                --             , spent = timeSpent
+                --             , remaining = timeRemaining
+                --             , until = future env.time timeRemaining
+                --             }
+                --     in
+                --     ( statusDetails, OnTask onTaskDetails )
                 _ ->
                     if Duration.isPositive excusedLeft then
                         let
@@ -1000,6 +1022,69 @@ suggestedTasks profile env =
 taskClassNotifID : ClassID -> Int
 taskClassNotifID instanceID =
     9000 + instanceID
+
+
+
+-- TASK CLEANUP ----------------------------------
+
+
+type CleanupRequired
+    = NeedsActivity
+    | NeedsDuration
+
+
+cleanupTasksChannel : Notif.Channel
+cleanupTasksChannel =
+    { id = "Quick Cleanup Prompts", name = "Quick Cleanup Prompts", description = Just "Prompts to clean up your tasks and drafts.", sound = Nothing, importance = Just Notif.Default, led = Nothing, vibrate = Nothing, group = Just "Actionable" }
+
+
+cleanupTasksGroup : Notif.GroupKey
+cleanupTasksGroup =
+    Notif.GroupKey "cleanup"
+
+
+cleanupTaskNotif : Moment -> ( Instance, List CleanupRequired ) -> Notification
+cleanupTaskNotif now ( taskInstance, needs ) =
+    let
+        base =
+            Notif.build cleanupTasksChannel
+
+        actions =
+            [ { id = "startTask=" ++ String.fromInt (Task.Instance.getID taskInstance), button = Notif.Button "Start", launch = False }
+            ]
+    in
+    { base
+        | id = Just <| taskClassNotifID taskInstance.class.id
+        , group = Just cleanupTasksGroup
+        , subtitle = Just "Missing Duration/Activity"
+        , at = Just now
+        , title = Just <| taskInstance.class.title
+        , body = Nothing
+        , actions = actions
+        , when = Nothing
+        , showWhen = Just False
+        , countdown = Just False
+        , chronometer = Just False
+        , expiresAfter = Nothing
+        , progress = Nothing
+    }
+
+
+cleanupTasks : Profile -> Environment -> List Notification
+cleanupTasks profile env =
+    let
+        tasksToCleanup =
+            List.filterMap needsCleanup (prioritizeTasks profile env)
+
+        needsCleanup task =
+            case Task.Instance.getActivityID task of
+                Nothing ->
+                    Just ( task, [ NeedsActivity ] )
+
+                Just hasActivityID ->
+                    Nothing
+    in
+    List.map (cleanupTaskNotif env.time) (List.take 3 tasksToCleanup)
 
 
 currentTaskNotif : Moment -> Instance -> Notification

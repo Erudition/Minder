@@ -759,8 +759,8 @@ labelToDocketActivity activities label =
             List.member label.title value.names || List.member (String.toLower label.title) (List.map (String.toLower << String.trim) value.names)
 
         matchingActivities =
-            -- Debug.log ("matching activity names for " ++ label.title) <| IntDict.filter nameMatch
-            Activity.allActivities activities
+            -- Debug.log ("matching activity names for " ++ label.title) <|
+            IntDict.filter nameMatch (Activity.allActivities activities)
 
         firstActivityMatch =
             List.head (IntDict.toList matchingActivities)

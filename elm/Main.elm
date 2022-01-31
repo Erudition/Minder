@@ -777,10 +777,18 @@ update msg ({ viewState, profile, environment } as model) =
                         _ ->
                             Tuple.first (Timeflow.init profile environment)
 
-                ( newState, newApp, newCommand ) =
+                ( newSubViewState, newApp, newCommand ) =
                     Timeflow.update subMsg subViewState profile environment
+
+                newViewState =
+                    case viewState.primaryView of
+                        Timeflow _ ->
+                            ViewState (Timeflow (Just newSubViewState)) 0
+
+                        _ ->
+                            viewState
             in
-            ( Model (ViewState (Timeflow (Just newState)) 0) newApp environment, Cmd.map TimeflowMsg newCommand )
+            ( Model newViewState newApp environment, Cmd.map TimeflowMsg newCommand )
 
         NewAppData newJSON ->
             let
