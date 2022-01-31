@@ -4,7 +4,6 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity exposing (StoredActivities)
-import Refocus
 import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
@@ -20,6 +19,7 @@ import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
 import Profile exposing (Profile)
+import Refocus
 import Set
 import SmartTime.Duration as Duration
 import SmartTime.Human.Duration as HumanDuration
@@ -821,7 +821,7 @@ marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
         Just instance ->
             case Task.Instance.getExtra "marvinID" instance of
                 Nothing ->
-                    ( profile, Debug.log "No MarvinID found" Cmd.none )
+                    ( profile, Cmd.none )
 
                 Just marvinID ->
                     let

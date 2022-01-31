@@ -426,7 +426,7 @@ stickyBase =
             , name = "Tracking Status"
             , description = Just "The current activity, task and more."
             , sound = Nothing
-            , importance = Just Notif.High
+            , importance = Just Notif.Default
             , led = Nothing -- TODO activityHue
             , vibrate = Nothing
             , group = Nothing
@@ -492,7 +492,7 @@ offTaskSticky status offTask =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just ("Off Task (" ++ Activity.getName status.newActivity ++ ")")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , body = Just ("What's Important Now: \n" ++ summarizeFocusItem offTask.win)
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -510,7 +510,7 @@ offTaskSticky status offTask =
                 , accentColor = Just "red"
             }
     in
-    [ final, { final | ongoing = Just False, id = Just 420 } ]
+    [ final ]
 
 
 onTaskSticky : StatusDetails -> OnTaskDetails -> List Notification
@@ -530,7 +530,7 @@ onTaskSticky status onTask =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just ("On Task (" ++ Activity.getName status.newActivity ++ ")")
-                , body = Maybe.map (\nt -> "Doing what's important now: " ++ nt.class.title) status.newInstanceMaybe
+                , body = Just ("Doing what's important now: " ++ summarizeFocusItem onTask.win)
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -548,7 +548,7 @@ onTaskSticky status onTask =
                 , accentColor = Just "green"
             }
     in
-    [ final, { final | ongoing = Just False, id = Just 420 } ]
+    [ final ]
 
 
 freeSticky : StatusDetails -> List Notification
@@ -567,7 +567,7 @@ freeSticky status =
                 | title = title
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
-                , subtitle = Just (Activity.getName status.newActivity ++ " - ")
+                , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")
                 , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
@@ -749,7 +749,7 @@ offTaskReminder fireTime reminderNum =
         | id = Just reminderNum
         , at = Just (Period.end reminderPeriod)
         , actions = offTaskActions
-        , subtitle = Just <| "Off Task! Warning " ++ String.fromInt reminderNum
+        , subtitle = Just <| "Off Task! Warning " ++ String.fromInt (reminderNum + 1)
         , body = Just <| pickEncouragementMessage (Period.start reminderPeriod)
         , accentColor = Just "red"
         , when = Just (Period.end reminderPeriod)
@@ -932,6 +932,10 @@ scheduleExcusedReminders status excused =
 
     else
         []
+
+
+
+-- TASK SUGGESTIONS ----------------------------------
 
 
 suggestedTasksChannel : Notif.Channel

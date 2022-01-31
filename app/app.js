@@ -22,13 +22,13 @@ let foregroundActivity = androidApp.foregroundActivity; // The current Activity 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------
 const appSettings = require("@nativescript/core/application-settings");
 // appSettings.clear("appData");
+var appDataString = "";
 try {
-    var appDataString = appSettings.getString("appData", "");
+    appDataString = appSettings.getString("appData", "");
 } catch (e) {
     console.error("Epic failure when fetching stored AppData.", e.toString());
-    var appDataString = "";
 }
-
+global.appDataString = appDataString;
 
 try {
     var appData = JSON.parse(appDataString);
@@ -118,8 +118,8 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         }
     );
 
-    //console.info("Here are the Notifications I'll try to schedule:");
-    //console.dir(correctedList);
+    console.info("Here are the Notifications I'll try to schedule:");
+    console.dir(correctedList);
 
     // Clean slate every time - TODO: better way
     // notifications.cancelAll();
@@ -141,6 +141,9 @@ notifications.addOnMessageReceivedCallback(
       //console.dir(notification);
       let actionTaken = notification.response;
         if (typeof actionTaken !== 'undefined') // No response if they just tap it or "Open"
+        console.log('ID: ' + notification.id);
+        console.log('Title: ' + notification.title);
+        console.log('Body: ' + notification.body);
         { elm.ports.headlessMsg.send("http://minder.app/?" + actionTaken ); }
 
     }

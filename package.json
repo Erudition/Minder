@@ -36,6 +36,7 @@
   "homepage": "https://github.com/Erudition/Docket#readme",
   "dependencies": {
     "@ionic/pwa-elements": "^1.3.0",
+    "@nativescript-community/perms": "^2.2.2",
     "@nativescript-community/ui-webview": "^1.3.4",
     "@nativescript/core": "~8.1.5",
     "@nativescript/local-notifications": "file:../nativescript-plugins/packages/local-notifications",
@@ -90,7 +91,8 @@
     "@nativescript/ios": "~8.1.0",
     "@nativescript/webpack": "~5.0.0",
     "elm-live": "^4.0.2",
-    "elm-tooling": "^1.7.0"
+    "elm-tooling": "^1.7.0",
+    "nativescript-dev-": "github:nativescript-community/perms"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder"

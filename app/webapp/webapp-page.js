@@ -9,17 +9,17 @@ import {
 import * as fastEqual from 'fast-deep-equal';
 import { request } from '@nativescript-community/perms';
 
-let webview: AWebView;
-let page: Page;
+let webview; //: AWebView
+let page; //: Page
 
 
 // Event handler for Page 'loaded' event attached in main-page.xml
-export function pageLoaded(args: EventData) {
-    page = args.object as Page;
+export function pageLoaded(args) { //: EventData
+    page = args.object; //  as Page
 }
 
-let gotMessageData: any = null;
-export function webviewLoaded(args: LoadEventData) {
+let gotMessageData = null;
+export function webviewLoaded(args) { //: LoadEventData
     webview = args.object;
 
     // if (global.isAndroid) {
@@ -27,20 +27,23 @@ export function webviewLoaded(args: LoadEventData) {
     // } else {
     //     webview.src = 'http://localhost:8080';
     // }
-    console.log("CONNOR YO SETTING THE SRC");
-    webview.src = "test.html";
-    console.log("CONNOR YO SET THE SRC");
 
-    webview.on(AWebView.shouldOverrideUrlLoadingEvent, (args: ShouldOverrideUrlLoadEventData) => {
+    webview.src = "~/assets/www/webview-index.html";
+
+
+    webview.on(AWebView.shouldOverrideUrlLoadingEvent, (args) => { // : ShouldOverrideUrlLoadEventData
         console.log(`${args.httpMethod} ${args.url}`);
         if (args.url.includes('google.com')) {
             args.cancel = true;
         }
     });
 
-    webview.on(AWebView.loadFinishedEvent, (args: LoadFinishedEventData) => {
-        console.log(`WebViewExt.loadFinishedEvent: ${args.url}`);
-        // webview.loadStyleSheetFile('local-stylesheet.css', '~/assets/test-data/css/local-stylesheet.css', false);
+    webview.on(AWebView.loadFinishedEvent, (args) => { //: LoadFinishedEventData
+        //console.log(`WebViewExt.loadFinishedEvent: ${args.url}`);
+    });
+
+    webview.on('readyForData', (msg) => {
+        webview.emitToWebView("getElmReady", global.appDataString);
     });
 
     webview.on('gotMessage', (msg) => {
@@ -48,16 +51,16 @@ export function webviewLoaded(args: LoadEventData) {
         console.log(`webview.gotMessage: ${JSON.stringify(msg.data)} (${typeof msg})`);
     });
 
-    webview.on('requestPermissions', async (args: any) => {
+    webview.on('requestPermissions', async (args) => {
         // only android
         const res = await request(args.permissions[0]);
         args.callback(res[0] === 'authorized');
     });
 }
 
-async function executeJavaScriptTest<T>(js: string, expected?: T): Promise<T> {
+async function executeJavaScriptTest(js, expected) { //<T>(js: string, expected?: T): Promise<T>
     try {
-        const res = await webview.executeJavaScript<T>(js);
+        const res = await webview.executeJavaScript(js);
         console.log(`executeJavaScript '${js}' => ${JSON.stringify(res)} (${typeof res})`);
         const jsonRes = JSON.stringify(res);
         const expectedJson = JSON.stringify(expected);
@@ -103,8 +106,8 @@ export async function runTests() {
         }
 }
 
-let closeFullscreen: () => void;
-export function enterFullscreen(eventData: EnterFullscreenEventData) {
+let closeFullscreen;
+export function enterFullscreen(eventData) { //: EnterFullscreenEventData
     page.actionBarHidden = true;
 
     closeFullscreen = eventData.exitFullscreen;
