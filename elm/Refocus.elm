@@ -405,19 +405,22 @@ newlyExcusedReaction isExtrapolated status excused =
 
 
 newlyOffTaskReaction isExtrapolated status offTask =
-    Cmd.batch <|
-        [ notify <|
-            offTaskSticky status offTask Duration.zero
-                ++ scheduleOffTaskReminders status offTask
-        ]
-            ++ (if not isExtrapolated then
-                    [ switchToast status "❌ Not W.I.N. "
-                    , cancelAll (onTaskReminderIDs ++ excusedReminderIDs)
-                    ]
+    let
+        realTimeOnly =
+            if not isExtrapolated then
+                [ switchToast status "❌ Not W.I.N. "
+                , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs ++ excusedReminderIDs) -- TODO safe to cancel first reminder at same time as scheduling it?
+                ]
 
-                else
-                    []
-               )
+            else
+                []
+    in
+    Cmd.batch <|
+        realTimeOnly
+            ++ [ notify <|
+                    offTaskSticky status offTask Duration.zero
+                        ++ scheduleOffTaskReminders status offTask
+               ]
 
 
 switchToast : StatusDetails -> String -> Cmd msg
@@ -440,11 +443,11 @@ cancelAll idList =
 
 offTaskReminderIDs =
     -- TODO better way (merge into one?)
-    [ 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711 ]
+    [ 700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711 ]
 
 
 onTaskReminderIDs =
-    [ 0 ]
+    [ 200, 201, 202, 203, 204 ]
 
 
 excusedReminderIDs =
@@ -781,38 +784,42 @@ scheduleOnTaskReminders status onTask =
 
         reminderBase =
             { blank
-                | id = Just 0
-                , expiresAfter = Just (Duration.fromMinutes 1)
+                | expiresAfter = Just (Duration.fromMinutes 1)
                 , when = Just (future status.now onTask.remaining)
                 , accentColor = Just "green"
+                , maxMinutesLate = Just 0
             }
 
         fractionLeft denom =
             future status.now <| Duration.subtract onTask.remaining (Duration.scale onTask.remaining (1 / denom))
     in
     [ { reminderBase
-        | at = Just <| fractionLeft 2
+        | id = Just 201
+        , at = Just <| fractionLeft 2
         , title = Just "Half-way done!"
         , body = Just "1/2 time left for this task."
         , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 1 2)
       }
     , { reminderBase
-        | at = Just <| fractionLeft 3
+        | id = Just 202
+        , at = Just <| fractionLeft 3
         , title = Just "Two-thirds done!"
         , body = Just "1/3 time left for this task."
         , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 2 3)
       }
     , { reminderBase
-        | at = Just <| fractionLeft 4
+        | id = Just 203
+        , at = Just <| fractionLeft 4
         , title = Just "Three-quarters done!"
         , body = Just "1/4 time left for this task."
         , subtitle = Just (summarizeFocusItem onTask.win)
         , progress = Just (Notif.Progress 3 4)
       }
     , { reminderBase
-        | at = Just <| future status.now onTask.remaining
+        | id = Just 204
+        , at = Just <| future status.now onTask.remaining
         , title = Just "Time's up!"
         , body = Just "You have spent all of the time reserved for this task."
         , subtitle = Just (summarizeFocusItem onTask.win)
@@ -867,30 +874,30 @@ scheduleOffTaskReminders status offTask =
                 ( winActivity, Nothing ) ->
                     Just ("Do now: " ++ Activity.getName winActivity)
     in
-    List.map (offTaskReminder status.now) (List.range 0 stopAfterCount)
+    List.map (offTaskReminder status offTask) (List.range 0 stopAfterCount)
         ++ [ giveUpNotif status.now ]
 
 
-offTaskReminder : Moment -> Int -> Notification
-offTaskReminder fireTime reminderNum =
+offTaskReminder : StatusDetails -> OffTaskDetails -> Int -> Notification
+offTaskReminder status offTask reminderNum =
     let
-        reminderPeriod =
-            Period.fromStart fireTime (reminderDistance reminderNum)
+        reminderStart =
+            Moment.future status.now (reminderDistance reminderNum)
 
         base =
             Notif.build (offTaskChannel reminderNum)
     in
     { base
         | id = Just (700 + reminderNum)
-        , at = Just (Period.end reminderPeriod)
+        , at = Just reminderStart
         , actions = offTaskActions
-        , subtitle = Just <| "Off Task! Warning " ++ String.fromInt (reminderNum + 1)
-        , body = Just <| pickEncouragementMessage (Period.start reminderPeriod)
+        , subtitle = Just <| "Off Task! Warning #" ++ String.fromInt (reminderNum + 1)
+        , body = Just <| pickEncouragementMessage reminderStart
         , accentColor = Just "red"
-        , when = Just (Period.end reminderPeriod)
-        , countdown = Just True
+        , when = Just status.now
+        , countdown = Just False
         , chronometer = Just True
-        , expiresAfter = Just (Duration.subtract (Period.length reminderPeriod) (Duration.fromSeconds 1))
+        , expiresAfter = Just (reminderDistance 3)
         , maxMinutesLate = Just 0
     }
 
