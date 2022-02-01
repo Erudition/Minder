@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeVsNow, everyMinuteOnTheMinute, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeGapVsNow, describeVsNow, everyMinuteOnTheMinute, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -344,6 +344,10 @@ fromStringHelper givenParser input =
 -- Convenience functions for English
 
 
+{-| Given the current zone and time, describe the following moment in relative terms.
+Output is a String in English,
+Ex. yesterday at 5:00, tomorrow at 12:00
+-}
 describeVsNow : Zone -> Moment -> Moment -> String
 describeVsNow zone now moment =
     let
@@ -351,6 +355,37 @@ describeVsNow zone now moment =
             humanize zone moment
     in
     Calendar.describeVsToday (extractDate zone now) date ++ " at " ++ Clock.toShortString time
+
+
+{-| Given the current zone and time, describe the distance to the following moment.
+Output is a String in English.
+Ex. 4 minutes ago, in 5 days
+
+The first `Moment` is assumed to be the current time.
+
+-}
+describeGapVsNow : Zone -> Moment -> Moment -> String
+describeGapVsNow zone now moment =
+    let
+        ( date, time ) =
+            humanize zone moment
+
+        gap =
+            Moment.difference now moment
+
+        breakdown =
+            gap
+                |> HumanDuration.breakdownNonzero
+    in
+    case Moment.compare moment now of
+        Moment.Coincident ->
+            "now"
+
+        Moment.Later ->
+            HumanDuration.abbreviatedSpaced breakdown ++ " ago"
+
+        Moment.Earlier ->
+            "in " ++ HumanDuration.abbreviatedSpaced breakdown
 
 
 
