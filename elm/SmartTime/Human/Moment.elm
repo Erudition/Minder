@@ -381,10 +381,10 @@ describeGapVsNow zone now moment =
         Moment.Coincident ->
             "now"
 
-        Moment.Later ->
+        Moment.Earlier ->
             HumanDuration.abbreviatedSpaced breakdown ++ " ago"
 
-        Moment.Earlier ->
+        Moment.Later ->
             "in " ++ HumanDuration.abbreviatedSpaced breakdown
 
 

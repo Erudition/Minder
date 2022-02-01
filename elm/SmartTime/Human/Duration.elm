@@ -600,8 +600,8 @@ dur =
     toDuration
 
 
-{-| Super-quick shorthand for `toDuration << singleLetterSpaced`, best when exposed. This is great while prototyping if you are putting out a lot of text that involves HumanDurations.
+{-| Super-quick shorthand for `toDuration << singleLetterSpaced`, with a default of 0s. This is great while prototyping if you are putting out a lot of text that involves HumanDurations.
 -}
 say : Duration -> String
-say =
-    breakdownNonzero >> abbreviatedSpaced
+say duration =
+    abbreviatedSpaced <| withDefault (Seconds 0) (breakdownNonzero duration)
