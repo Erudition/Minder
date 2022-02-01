@@ -79,6 +79,7 @@ build channel =
     , sortKey = Nothing
     , accentColor = Nothing
     , allowSystemGeneratedContextualActions = Nothing
+    , maxMinutesLate = Nothing
     }
 
 
@@ -324,6 +325,11 @@ setCountdown countdown givenNotif =
 setPhone_only : Bool -> Notification -> Notification
 setPhone_only phone_only givenNotif =
     { givenNotif | phone_only = Just phone_only }
+
+
+setMaxMinutesLate : Int -> Notification -> Notification
+setMaxMinutesLate maxMinutesLate givenNotif =
+    { givenNotif | maxMinutesLate = Just maxMinutesLate }
 
 
 
@@ -767,6 +773,7 @@ type alias Notification =
     , countdown : Maybe Bool -- NOT YET SUPPORTED
     , phone_only : Maybe Bool -- NOT YET SUPPORTED
     , allowSystemGeneratedContextualActions : Maybe Bool
+    , maxMinutesLate : Maybe Int
     }
 
 
@@ -822,4 +829,5 @@ encode v =
         , omittable ( "channelDescription", Encode.string, v.channel.description )
         , omittable ( "channelGroup", Encode.string, v.channel.group )
         , omittable ( "allowSystemGeneratedContextualActions", Encode.bool, v.allowSystemGeneratedContextualActions )
+        , omittable ( "maxMinutesLate", Encode.int, v.maxMinutesLate )
         ]
