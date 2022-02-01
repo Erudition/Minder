@@ -85,6 +85,7 @@ const Color = require("tns-core-modules/color").Color;
 const colors = require("tns-core-modules/color/known-colors");
 
 elm.ports.ns_notify_cancel.subscribe(function(notificationID) {
+    console.log("Canceling notification " + notificationID);
     notifications.cancel(notificationID);
     }
 );
@@ -118,15 +119,13 @@ elm.ports.ns_notify.subscribe(function(notificationList) {
         }
     );
 
-    console.info("Here are the Notifications I'll try to schedule:");
+    console.info("Here are the " + correctedList.length + " Notifications I'll try to schedule:");
     console.dir(correctedList);
 
-    // Clean slate every time - TODO: better way
-    // notifications.cancelAll();
 
     notifications.schedule(correctedList).then(
         function(scheduledIds) {
-          //console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
+          console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
 
         },
         function(error) {
