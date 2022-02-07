@@ -28,9 +28,9 @@ import ZoneHistory
 
 type FocusStatus
     = Free
-    | OnTask OnTaskDetails
+    | Traction TractionDetails
     | Excused ExcusedDetails
-    | OffTask OffTaskDetails
+    | Distraction DistractionDetails
 
 
 {-| Everything I might need to make it nice to work with
@@ -49,7 +49,7 @@ type alias StatusDetails =
     }
 
 
-type alias OnTaskDetails =
+type alias TractionDetails =
     { win : FocusItem
     , urgency : WINUrgency
     , spent : Duration
@@ -74,14 +74,14 @@ type alias FocusItem =
     ( Activity, Maybe Instance )
 
 
-type alias OffTaskDetails =
+type alias DistractionDetails =
     { win : FocusItem
-    , reason : OffTaskReason
+    , reason : DistractionReason
     , urgency : WINUrgency
     }
 
 
-type OffTaskReason
+type DistractionReason
     = NotExcused
     | OverExcused
     | TooLongOnTask
@@ -270,7 +270,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                             else
                                 Nothing
 
-                        onTaskDetails =
+                        tractionDetails =
                             { win = win
                             , urgency = urgency
                             , spent = timeSpent
@@ -287,7 +287,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                             , target = targetIfApplicable
                             }
                     in
-                    ( statusDetails, OnTask onTaskDetails )
+                    ( statusDetails, Traction tractionDetails )
 
                 -- with no task, is this the right next activity?
                 -- ( Nothing, _, True ) ->
@@ -300,7 +300,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                 --             -- TODO
                 --             Duration.anHour
                 --
-                --         onTaskDetails =
+                --         tractionDetails =
                 --             { win = win
                 --             , urgency = urgency
                 --             , spent = timeSpent
@@ -308,7 +308,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                 --             , until = future env.time timeRemaining
                 --             }
                 --     in
-                --     ( statusDetails, OnTask onTaskDetails )
+                --     ( statusDetails, Traction tractionDetails )
                 _ ->
                     if Duration.isPositive excusedLeft then
                         let
@@ -328,19 +328,19 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
 
                     else
                         let
-                            offTaskDetails =
+                            distractionDetails =
                                 { win = win
-                                , reason = determineOffTaskReason
+                                , reason = determineDistractionReason
                                 , urgency = urgency
                                 }
 
-                            determineOffTaskReason =
+                            determineDistractionReason =
                                 -- TODO
                                 NotExcused
                         in
                         -- OFF TASK
                         ( statusDetails
-                        , OffTask offTaskDetails
+                        , Distraction distractionDetails
                         )
 
 
@@ -354,14 +354,14 @@ reactToStatusChange isExtrapolated status focusStatus profile =
         Free ->
             ( newlyFreeReaction status, Nothing )
 
-        OffTask offTask ->
-            ( newlyOffTaskReaction isExtrapolated status offTask, Nothing )
+        Distraction distraction ->
+            ( newlyDistractionReaction isExtrapolated status distraction, Nothing )
 
         Excused excused ->
             ( newlyExcusedReaction isExtrapolated status excused, Just excused.until )
 
-        OnTask onTask ->
-            ( newlyOnTaskReaction status onTask, Just onTask.until )
+        Traction traction ->
+            ( newlyTractionReaction status traction, Just traction.until )
 
 
 
@@ -373,18 +373,18 @@ newlyFreeReaction status =
     Cmd.batch
         [ switchToast status "Liesure time"
         , notify <| freeSticky status
-        , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
+        , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
         ]
 
 
-newlyOnTaskReaction : StatusDetails -> OnTaskDetails -> Cmd msg
-newlyOnTaskReaction status onTask =
+newlyTractionReaction : StatusDetails -> TractionDetails -> Cmd msg
+newlyTractionReaction status traction =
     Cmd.batch
         [ switchToast status "✔️"
         , notify <|
-            onTaskSticky status onTask Duration.zero
-                ++ scheduleOnTaskReminders status onTask
-        , cancelAll (offTaskReminderIDs ++ excusedReminderIDs)
+            tractionSticky status traction Duration.zero
+                ++ scheduleTractionReminders status traction
+        , cancelAll (distractionReminderIDs ++ excusedReminderIDs)
         ]
 
 
@@ -396,7 +396,7 @@ newlyExcusedReaction isExtrapolated status excused =
         ]
             ++ (if not isExtrapolated then
                     [ switchToast status "❌ Not W.I.N. Excused."
-                    , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs)
+                    , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
                     ]
 
                 else
@@ -404,12 +404,12 @@ newlyExcusedReaction isExtrapolated status excused =
                )
 
 
-newlyOffTaskReaction isExtrapolated status offTask =
+newlyDistractionReaction isExtrapolated status distraction =
     let
         realTimeOnly =
             if not isExtrapolated then
                 [ switchToast status "❌ Not W.I.N. "
-                , cancelAll (offTaskReminderIDs ++ onTaskReminderIDs ++ excusedReminderIDs) -- TODO safe to cancel first reminder at same time as scheduling it?
+                , cancelAll (distractionReminderIDs ++ tractionReminderIDs ++ excusedReminderIDs) -- TODO safe to cancel first reminder at same time as scheduling it?
                 ]
 
             else
@@ -418,8 +418,8 @@ newlyOffTaskReaction isExtrapolated status offTask =
     Cmd.batch <|
         realTimeOnly
             ++ [ notify <|
-                    offTaskSticky status offTask Duration.zero
-                        ++ scheduleOffTaskReminders status offTask
+                    distractionSticky status distraction Duration.zero
+                        ++ scheduleDistractionReminders status distraction
                ]
 
 
@@ -441,12 +441,12 @@ cancelAll idList =
     Cmd.batch <| List.map notifyCancel idList
 
 
-offTaskReminderIDs =
+distractionReminderIDs =
     -- TODO better way (merge into one?)
     [ 700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711 ]
 
 
-onTaskReminderIDs =
+tractionReminderIDs =
     [ 200, 201, 202, 203, 204 ]
 
 
@@ -585,8 +585,8 @@ freeSticky status =
     [ final ]
 
 
-onTaskSticky : StatusDetails -> OnTaskDetails -> Duration -> List Notification
-onTaskSticky status onTask elapsed =
+tractionSticky : StatusDetails -> TractionDetails -> Duration -> List Notification
+tractionSticky status traction elapsed =
     let
         actionsIfTaskPresent instance =
             [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
@@ -600,7 +600,7 @@ onTaskSticky status onTask elapsed =
             Moment.future status.now elapsed
 
         lifetime =
-            Moment.difference notifTime onTask.until
+            Moment.difference notifTime traction.until
 
         sessionTotal =
             -- TODO this is activity today total not focus session total
@@ -612,7 +612,7 @@ onTaskSticky status onTask elapsed =
                 , at = Just notifTime
                 , when = Just (past notifTime sessionTotal)
                 , subtitle = Just ("On Task (" ++ Activity.getName status.newActivity ++ ")")
-                , body = Just ("Doing what's important now: " ++ summarizeFocusItem onTask.win)
+                , body = Just ("Doing what's important now: " ++ summarizeFocusItem traction.win)
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -635,8 +635,8 @@ onTaskSticky status onTask elapsed =
 
         laterUpdates =
             -- TODO not yet supported in LocalNotifications plugin - can schedule one update, but only one entry per ID in the Store is retrieved, so the last update to be scheduled becomes the content for every delayed update (even though the updates will happen at all the specified times)
-            if Moment.isEarlier nextUpdateMoment onTask.until then
-                onTaskSticky status onTask (Duration.add notifUpdateSpacing elapsed)
+            if Moment.isEarlier nextUpdateMoment traction.until then
+                tractionSticky status traction (Duration.add notifUpdateSpacing elapsed)
 
             else
                 []
@@ -726,8 +726,8 @@ excusedSticky status excused elapsed =
     [ final ]
 
 
-offTaskSticky : StatusDetails -> OffTaskDetails -> Duration -> List Notification
-offTaskSticky status offTask elapsed =
+distractionSticky : StatusDetails -> DistractionDetails -> Duration -> List Notification
+distractionSticky status distraction elapsed =
     let
         actionsIfTaskPresent instance =
             [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
@@ -750,7 +750,7 @@ offTaskSticky status offTask elapsed =
                 , at = Just notifTime
                 , when = Just (past notifTime sessionTotal)
                 , subtitle = Just ("Off Task (" ++ Activity.getName status.newActivity ++ ")")
-                , body = Just ("What's Important Now: \n" ++ summarizeFocusItem offTask.win)
+                , body = Just ("What's Important Now: \n" ++ summarizeFocusItem distraction.win)
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -771,34 +771,34 @@ offTaskSticky status offTask elapsed =
     [ final ]
 
 
-onTaskChannel : Notif.Channel
-onTaskChannel =
+tractionChannel : Notif.Channel
+tractionChannel =
     { id = "Task Progress", name = "Task Progress", description = Just "Reminders of time passing, as well as progress reports, while on task.", sound = Nothing, importance = Just Notif.High, led = Nothing, vibrate = Nothing, group = Just "Reminders" }
 
 
-scheduleOnTaskReminders : StatusDetails -> OnTaskDetails -> List Notification
-scheduleOnTaskReminders status onTask =
+scheduleTractionReminders : StatusDetails -> TractionDetails -> List Notification
+scheduleTractionReminders status traction =
     let
         blank =
-            Notif.build onTaskChannel
+            Notif.build tractionChannel
 
         reminderBase =
             { blank
                 | expiresAfter = Just (Duration.fromMinutes 1)
-                , when = Just (future status.now onTask.remaining)
+                , when = Just (future status.now traction.remaining)
                 , accentColor = Just "green"
                 , maxMinutesLate = Just 0
             }
 
         fractionLeft denom =
-            future status.now <| Duration.subtract onTask.remaining (Duration.scale onTask.remaining (1 / denom))
+            future status.now <| Duration.subtract traction.remaining (Duration.scale traction.remaining (1 / denom))
     in
     [ { reminderBase
         | id = Just 201
         , at = Just <| fractionLeft 2
         , title = Just "Half-way done!"
         , body = Just "1/2 time left for this task."
-        , subtitle = Just (summarizeFocusItem onTask.win)
+        , subtitle = Just (summarizeFocusItem traction.win)
         , progress = Just (Notif.Progress 1 2)
       }
     , { reminderBase
@@ -806,7 +806,7 @@ scheduleOnTaskReminders status onTask =
         , at = Just <| fractionLeft 3
         , title = Just "Two-thirds done!"
         , body = Just "1/3 time left for this task."
-        , subtitle = Just (summarizeFocusItem onTask.win)
+        , subtitle = Just (summarizeFocusItem traction.win)
         , progress = Just (Notif.Progress 2 3)
       }
     , { reminderBase
@@ -814,21 +814,21 @@ scheduleOnTaskReminders status onTask =
         , at = Just <| fractionLeft 4
         , title = Just "Three-quarters done!"
         , body = Just "1/4 time left for this task."
-        , subtitle = Just (summarizeFocusItem onTask.win)
+        , subtitle = Just (summarizeFocusItem traction.win)
         , progress = Just (Notif.Progress 3 4)
       }
     , { reminderBase
         | id = Just 204
-        , at = Just <| future status.now onTask.remaining
+        , at = Just <| future status.now traction.remaining
         , title = Just "Time's up!"
         , body = Just "You have spent all of the time reserved for this task."
-        , subtitle = Just (summarizeFocusItem onTask.win)
+        , subtitle = Just (summarizeFocusItem traction.win)
       }
     ]
 
 
-offTaskChannel : Int -> Notif.Channel
-offTaskChannel step =
+distractionChannel : Int -> Notif.Channel
+distractionChannel step =
     let
         channelName =
             case step of
@@ -855,42 +855,42 @@ offTaskChannel step =
     }
 
 
-offTaskActions : List Notif.Action
-offTaskActions =
+distractionActions : List Notif.Action
+distractionActions =
     [ { id = "SnoozeButton", button = Notif.Button "Snooze", launch = False }
     , { id = "LaunchButton", button = Notif.Button "Go", launch = True }
     , { id = "ZapButton", button = Notif.Button "Zap", launch = False }
     ]
 
 
-scheduleOffTaskReminders : StatusDetails -> OffTaskDetails -> List Notification
-scheduleOffTaskReminders status offTask =
+scheduleDistractionReminders : StatusDetails -> DistractionDetails -> List Notification
+scheduleDistractionReminders status distraction =
     let
         title =
-            case offTask.win of
+            case distraction.win of
                 ( _, Just winInstance ) ->
                     Just ("Do now: " ++ Task.Instance.getTitle winInstance)
 
                 ( winActivity, Nothing ) ->
                     Just ("Do now: " ++ Activity.getName winActivity)
     in
-    List.map (offTaskReminder status offTask) (List.range 0 stopAfterCount)
+    List.map (distractionReminder status distraction) (List.range 0 stopAfterCount)
         ++ [ giveUpNotif status.now ]
 
 
-offTaskReminder : StatusDetails -> OffTaskDetails -> Int -> Notification
-offTaskReminder status offTask reminderNum =
+distractionReminder : StatusDetails -> DistractionDetails -> Int -> Notification
+distractionReminder status distraction reminderNum =
     let
         reminderStart =
             Moment.future status.now (reminderDistance reminderNum)
 
         base =
-            Notif.build (offTaskChannel reminderNum)
+            Notif.build (distractionChannel reminderNum)
     in
     { base
         | id = Just (700 + reminderNum)
         , at = Just reminderStart
-        , actions = offTaskActions
+        , actions = distractionActions
         , subtitle = Just <| "Off Task! Warning #" ++ String.fromInt (reminderNum + 1)
         , body = Just <| pickEncouragementMessage reminderStart
         , accentColor = Just "red"

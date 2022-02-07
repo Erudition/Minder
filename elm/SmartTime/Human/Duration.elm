@@ -1,4 +1,4 @@
-module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, normalize, say, singleLetterSpaced, toDuration, trim, trimToLarge, trimToSmall, withAbbreviation, withDefault, withLetter)
+module SmartTime.Human.Duration exposing (HumanDuration(..), abbreviatedSpaced, abbreviatedWithCommas, breakdownDH, breakdownDHM, breakdownDHMS, breakdownDHMSM, breakdownHM, breakdownHMS, breakdownHMSM, breakdownMS, breakdownMSM, breakdownNonzero, breakdownSM, build, colonSeparated, dur, inLargestExactUnits, inLargestWholeUnits, justNumber, justNumberPadded, normalize, padNumber, say, singleLetterSpaced, toDuration, trim, trimToLarge, trimToSmall, withAbbreviation, withDefault, withLetter)
 
 import List.Extra as List
 import SmartTime.Duration exposing (..)

@@ -252,14 +252,19 @@ allShapes state profile env =
     --    |> filled blue
     --    |> move ( state.pointer.x / 4, state.pointer.y / 4 )
     --    |> notifyMouseMoveAt PointerMove
-    , GraphicSVG.text (Clock.toShortString (HumanMoment.extractTime env.timeZone state.settings.pivotMoment))
-        |> fixedwidth
-        |> size 3
-        |> centered
-        |> filled red
-        |> move ( 0, -5 )
+    , timeLabel env state.settings.pivotMoment
     ]
         ++ List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod)
+
+
+timeLabel : Environment -> Moment -> Shape msg
+timeLabel env stampMoment =
+    GraphicSVG.text (HumanMoment.describeVsNow env.timeZone env.time stampMoment)
+        |> fixedwidth
+        |> size 1
+        |> centered
+        |> filled red
+        |> move ( 0, 0 )
 
 
 distanceBetweenPoints : Point -> Point -> Float
@@ -403,12 +408,33 @@ blobToShape settings env flowBlob =
                 shape
                     |> GraphicSVG.rotate (degrees -90)
                     |> GraphicSVG.scale 0.5
+
+        capLabel moment =
+            group
+                [ GraphicSVG.text (Clock.padInt (Clock.hour (HumanMoment.extractTime env.timeZone moment)))
+                    |> size 0.7
+                    |> filled black
+                    |> move ( -0.3, 0 )
+                , GraphicSVG.text (Clock.padInt (Clock.minute (HumanMoment.extractTime env.timeZone moment)))
+                    |> size 0.7
+                    |> filled black
+                    |> move ( -0.3, -0.6 )
+                ]
+                |> makeTransparent 0.5
     in
     group
         [ theShell
             |> filled (graphColor flowBlob.color)
             -- TODO: Consider flipping to black when blobs are old
             |> addOutline (GraphicSVG.solid 0.5) (GraphicSVG.rgba 255 255 255 0.55)
+            |> GraphicSVG.clip (filled black theShell)
+        , capLabel flowBlob.start
+            |> move (Tuple.first pointsOfInterest.bestTextArea)
+            |> move ( 0.6, toFloat -settings.rowHeight / 2 )
+            |> GraphicSVG.clip (filled black theShell)
+        , capLabel flowBlob.end
+            |> move (Tuple.second pointsOfInterest.bestTextArea)
+            |> move ( -1, toFloat settings.rowHeight / 2 )
             |> GraphicSVG.clip (filled black theShell)
         , GraphicSVG.text flowBlob.label
             |> size textSize
@@ -844,7 +870,7 @@ makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sess
         croppedSessionPeriod =
             Period.crop displayPeriod sessionPeriod
     in
-    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor activityName
+    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor describeTiming
 
 
 blockBrokenCoord coord =
