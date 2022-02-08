@@ -51,10 +51,25 @@ import ZoneHistory
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
 
 
-type alias ChosenDayWindow =
-    { period : Period
-    , rowLength : Duration
+type alias Point =
+    ( Float, Float )
+
+
+type alias Polygon =
+    List Point
+
+
+type alias FlowBlob =
+    { start : Moment
+    , end : Moment
+    , color : Color.Color
+    , label : String
+    , id : String
     }
+
+
+type DraggingStatus
+    = DraggingStarted { id : String, start : Point, current : Point }
 
 
 
@@ -71,6 +86,7 @@ type alias ViewState =
     { settings : ViewSettings
     , widgets : Dict WidgetID ( Widget.Model, Cmd Widget.Msg )
     , pointer : Pointer
+    , dragging : Maybe DraggingStatus
     }
 
 
@@ -84,22 +100,6 @@ type alias ViewSettings =
     , pivotMoment : Moment
     , rowHeight : Int
     , rows : Int
-    }
-
-
-type alias Point =
-    ( Float, Float )
-
-
-type alias Polygon =
-    List Point
-
-
-type alias FlowBlob =
-    { start : Moment
-    , end : Moment
-    , color : Color.Color
-    , label : String
     }
 
 
@@ -157,6 +157,7 @@ init profile environment =
     ( { settings = initialSettings
       , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
       , pointer = { x = 0.0, y = 0.0 }
+      , dragging = Nothing
       }
     , Cmd.map (WidgetMsg "0") widget1init
     )
@@ -221,7 +222,10 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         [ Widget.view
             widgetState
             [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
-            , group (allShapes state profile env) |> move ( 0, 200 )
+            , group (allShapes state profile env)
+                |> move ( 0, 200 )
+                |> notifyMouseMoveAt PointerMove
+                |> notifyMouseUp MouseUp
             ]
         ]
 
@@ -254,7 +258,7 @@ allShapes state profile env =
     --    |> notifyMouseMoveAt PointerMove
     , timeLabel env state.settings.pivotMoment
     ]
-        ++ List.map (blobToShape state.settings env) (historyBlobs env profile state.settings.flowRenderPeriod)
+        ++ List.map (blobToShape state env) (historyBlobs env profile state.settings.flowRenderPeriod)
 
 
 timeLabel : Environment -> Moment -> Shape msg
@@ -272,14 +276,10 @@ distanceBetweenPoints ( x1, y1 ) ( x2, y2 ) =
     sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 
 
-
-{-
-   Given a list of points, returns a Stencil shape that represents the
-   polygon but with rounded corners. To do this, we need to extend the
-   polygon by two points, and then generate the rounded corners.
+{-| Given a list of points, returns a Stencil shape that represents the
+polygon but with rounded corners. To do this, we need to extend the
+polygon by two points, and then generate the rounded corners.
 -}
-
-
 roundedPolygon : Float -> Polygon -> Stencil
 roundedPolygon radii cornerList =
     let
@@ -309,15 +309,11 @@ roundedPolygon radii cornerList =
         pullerList
 
 
-
-{-
-   roundedCorner is a simple function that takes a radius and 3 points.
-   It returns a new list of points that represents a rounded corner.
-   Todo this, we need to return 4 points, where the first and third points
-   are the 'control points', and the second and fourth points are normal points.
+{-| roundedCorner is a simple function that takes a radius and 3 points.
+It returns a new list of points that represents a rounded corner.
+Todo this, we need to return 4 points, where the first and third points
+are the 'control points', and the second and fourth points are normal points.
 -}
-
-
 roundCorner : Float -> Point -> Point -> Point -> Polygon
 roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     let
@@ -366,17 +362,39 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     [ midPoint, firstPoint, controlPoint, secondPoint ]
 
 
-blobToShape : ViewSettings -> Environment -> FlowBlob -> Shape Msg
-blobToShape settings env flowBlob =
+blobToShape : ViewState -> Environment -> FlowBlob -> Shape Msg
+blobToShape display env initialBlob =
     let
+        ( blob, isDraggingMe ) =
+            case display.dragging of
+                Nothing ->
+                    ( initialBlob, False )
+
+                Just (DraggingStarted { id, start }) ->
+                    if id /= initialBlob.id then
+                        ( initialBlob, False )
+
+                    else
+                        let
+                            offset =
+                                dragOffsetDur display start
+                        in
+                        -- this blob is being dragged, change period
+                        ( { initialBlob
+                            | start = Moment.future initialBlob.start offset
+                            , end = Moment.future initialBlob.end offset
+                          }
+                        , True
+                        )
+
         pointsOfInterest =
-            blobToPoints settings env flowBlob
+            blobToPoints display.settings env blob
 
         midPoint ( ( x1, y1 ), ( x2, y2 ) ) =
             ( (x1 + x2) / 2, (y1 + y2) / 2 )
 
         textSize =
-            toFloat settings.rowHeight / 2
+            toFloat display.settings.rowHeight / 2
 
         textAreaW =
             (Tuple.first <| Tuple.second <| pointsOfInterest.bestTextArea)
@@ -401,7 +419,7 @@ blobToShape settings env flowBlob =
             roundedPolygon 0.5 pointsOfInterest.shell
 
         rotateIfSquished shape =
-            if textAreaW > toFloat settings.rowHeight then
+            if textAreaW > toFloat display.settings.rowHeight then
                 shape
 
             else
@@ -414,29 +432,36 @@ blobToShape settings env flowBlob =
                 [ GraphicSVG.text (Clock.padInt (Clock.hour (HumanMoment.extractTime env.timeZone moment)))
                     |> size 0.7
                     |> filled black
-                    |> move ( -0.3, 0 )
+                    |> move ( 0, 0 )
                 , GraphicSVG.text (Clock.padInt (Clock.minute (HumanMoment.extractTime env.timeZone moment)))
                     |> size 0.7
                     |> filled black
-                    |> move ( -0.3, -0.6 )
+                    |> move ( 0, -0.6 )
                 ]
                 |> makeTransparent 0.5
+
+        outlineColor =
+            if isDraggingMe then
+                GraphicSVG.rgba 255 255 255 1
+
+            else
+                GraphicSVG.rgba 255 255 255 0.55
     in
     group
         [ theShell
-            |> filled (graphColor flowBlob.color)
+            |> filled (graphColor blob.color)
             -- TODO: Consider flipping to black when blobs are old
-            |> addOutline (GraphicSVG.solid 0.5) (GraphicSVG.rgba 255 255 255 0.55)
+            |> addOutline (GraphicSVG.solid 0.5) outlineColor
             |> GraphicSVG.clip (filled black theShell)
-        , capLabel flowBlob.start
-            |> move (Tuple.first pointsOfInterest.bestTextArea)
-            |> move ( 0.6, toFloat -settings.rowHeight / 2 )
+        , capLabel blob.start
+            |> move pointsOfInterest.startCapTL
+            |> move ( 0.5, toFloat -display.settings.rowHeight / 2 )
             |> GraphicSVG.clip (filled black theShell)
-        , capLabel flowBlob.end
-            |> move (Tuple.second pointsOfInterest.bestTextArea)
-            |> move ( -1, toFloat settings.rowHeight / 2 )
+        , capLabel blob.end
+            |> move pointsOfInterest.endCapTL
+            |> move ( 0.6, toFloat -display.settings.rowHeight / 2 )
             |> GraphicSVG.clip (filled black theShell)
-        , GraphicSVG.text flowBlob.label
+        , GraphicSVG.text blob.label
             |> size textSize
             |> sansserif
             |> centered
@@ -447,17 +472,18 @@ blobToShape settings env flowBlob =
             |> GraphicSVG.clip (filled black theShell)
         ]
         |> move ( -50, 0 )
+        |> notifyMouseDownAt (MouseDownAt blob.id)
 
 
-blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ) }
-blobToPoints displayState env flowBlob =
+blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ), startCapTL : Point, endCapTL : Point }
+blobToPoints displaySettings env blob =
     let
         msBetweenWalls =
-            Duration.inMs displayState.hourRowSize
+            Duration.inMs displaySettings.hourRowSize
 
         startMs =
-            Duration.subtract (Moment.toDuration flowBlob.start Moment.y2k)
-                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+            Duration.subtract (Moment.toDuration blob.start Moment.y2k)
+                (Moment.toDuration displaySettings.pivotMoment Moment.y2k)
                 |> Duration.inMs
 
         offsetFromPriorWall ms =
@@ -468,8 +494,8 @@ blobToPoints displayState env flowBlob =
             msBetweenWalls - offsetFromPriorWall ms
 
         endMs =
-            Duration.subtract (Moment.toDuration flowBlob.end Moment.y2k)
-                (Moment.toDuration displayState.pivotMoment Moment.y2k)
+            Duration.subtract (Moment.toDuration blob.end Moment.y2k)
+                (Moment.toDuration displaySettings.pivotMoment Moment.y2k)
                 |> Duration.inMs
 
         firstWallAfterStart =
@@ -514,7 +540,7 @@ blobToPoints displayState env flowBlob =
             offsetFromPriorWall startMs == 0
 
         h =
-            toFloat displayState.rowHeight
+            toFloat displaySettings.rowHeight
 
         startHeight =
             0 - toFloat (rowNumber firstRowStartWall) * h
@@ -602,6 +628,8 @@ blobToPoints displayState env flowBlob =
                     ( ( (100 - endsAtPortion * 100) + slash, startHeight )
                     , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
                     )
+                , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
+                , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight )
                 }
 
             else
@@ -616,6 +644,8 @@ blobToPoints displayState env flowBlob =
                     ( ( clamp 0 100 <| (startsAtPortion * 100) + slash, startHeight )
                     , ( clamp 0 100 <| (endsAtPortion * 100) - slash, startHeight - h )
                     )
+                , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
+                , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight )
                 }
 
         oneCrossingBlob =
@@ -645,6 +675,8 @@ blobToPoints displayState env flowBlob =
                         ( ( 0, startHeight - h )
                         , ( clamp 0 100 <| (endsAtPortion * 100) - slash, startHeight - (2 * h) )
                         )
+                , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
+                , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - h )
                 }
 
             else
@@ -672,13 +704,15 @@ blobToPoints displayState env flowBlob =
                         ( ( clamp 0 100 <| (100 - endsAtPortion * 100) + slash, startHeight - h )
                         , ( 100, startHeight - (2 * h) )
                         )
+                , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
+                , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - h )
                 }
 
         sandwichBlob middlePieces =
-            { shell =
-                case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
-                    -- top row is LTR, bottom is RTL
-                    ( False, True ) ->
+            case ( isOddRow firstRowStartWall, isOddRow lastRowStartWall ) of
+                -- top row is LTR, bottom is RTL
+                ( False, True ) ->
+                    { shell =
                         -- start-side, LTR
                         [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
                         , slashTopLTR ( startsAtPortion * 100, startHeight )
@@ -695,9 +729,15 @@ blobToPoints displayState env flowBlob =
                         , ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
+                    , bestTextArea =
+                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
+                    , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+                    }
 
-                    -- top row is RTL, bottom is LTR
-                    ( True, False ) ->
+                -- top row is RTL, bottom is LTR
+                ( True, False ) ->
+                    { shell =
                         -- left wall
                         [ ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight )
@@ -714,9 +754,15 @@ blobToPoints displayState env flowBlob =
                         , slashTopLTR ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
                         , slashBottomLTR ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
                         ]
+                    , bestTextArea =
+                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
+                    , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - ((1 + middlePieces) * h) )
+                    }
 
-                    -- top row is LTR, bottom is LTR
-                    ( False, False ) ->
+                -- top row is LTR, bottom is LTR
+                ( False, False ) ->
+                    { shell =
                         -- start-side, LTR
                         [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
                         , slashTopLTR ( startsAtPortion * 100, startHeight )
@@ -733,9 +779,15 @@ blobToPoints displayState env flowBlob =
                         , ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
+                    , bestTextArea =
+                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
+                    , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - ((1 + middlePieces) * h) )
+                    }
 
-                    -- top row is RTL, bottom is RTL
-                    ( True, True ) ->
+                -- top row is RTL, bottom is RTL
+                ( True, True ) ->
+                    { shell =
                         -- left wall
                         [ ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight )
@@ -752,9 +804,11 @@ blobToPoints displayState env flowBlob =
                         , slashBottomRTL ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
                         , slashTopRTL ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
                         ]
-            , bestTextArea =
-                ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-            }
+                    , bestTextArea =
+                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
+                    , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+                    }
     in
     case List.length wallsCrossed of
         0 ->
@@ -780,6 +834,33 @@ historyBlobs env profile displayPeriod =
             (\( _, _, m ) -> Period.haveOverlap displayPeriod m)
             historyList
         )
+
+
+{-| How much a blob moves (in time) while being dragged.
+-}
+dragOffsetDur : ViewState -> Point -> Duration
+dragOffsetDur display ( startX, startY ) =
+    let
+        xOffset =
+            startX - display.pointer.x
+
+        yOffset =
+            startY - display.pointer.y
+
+        yOffsetInRows =
+            yOffset / rowHeightInMouseCoords
+
+        yOffsetInRowsRounded =
+            toFloat <| truncate yOffsetInRows
+
+        rowHeightInMouseCoords =
+            toFloat display.settings.rowHeight * 18
+
+        xOffsetAsPortion =
+            xOffset / 1000
+    in
+    -- TODO
+    Duration.scale display.settings.hourRowSize (yOffsetInRowsRounded - xOffsetAsPortion)
 
 
 timeLabelSidebar : ViewSettings -> Profile -> Environment -> Period -> Element Msg
@@ -829,14 +910,9 @@ makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sess
             )
 
         describeTiming =
-            activityName
-                ++ " "
-                ++ Clock.toShortString startTime
-                ++ "-"
-                ++ Clock.toShortString endTime
-                ++ " ("
-                ++ String.fromInt (round <| Duration.inMinutes (Period.length sessionPeriod))
-                ++ "m)"
+            String.fromInt (round <| Duration.inMinutes (Period.length sessionPeriod))
+                ++ "m "
+                ++ activityName
 
         sessionActivity =
             getActivity activityID activities
@@ -869,8 +945,11 @@ makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sess
 
         croppedSessionPeriod =
             Period.crop displayPeriod sessionPeriod
+
+        stringID =
+            HumanMoment.toStandardString (Period.start sessionPeriod)
     in
-    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor describeTiming
+    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor describeTiming stringID
 
 
 blockBrokenCoord coord =
@@ -894,6 +973,8 @@ type Msg
     = ChangeTimeWindow Moment Moment
     | WidgetMsg WidgetID Widget.Msg
     | PointerMove ( Float, Float )
+    | MouseDownAt String ( Float, Float )
+    | MouseUp
 
 
 type alias Pointer =
@@ -942,6 +1023,22 @@ update msg state profile env =
                     { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
             in
             ( { state | pointer = newPointer }, profile, Cmd.none )
+
+        MouseDownAt itemID startPoint ->
+            let
+                dragState =
+                    DraggingStarted { id = itemID, start = startPoint, current = startPoint }
+            in
+            ( { state | dragging = Just dragState }
+            , profile
+            , Cmd.none
+            )
+
+        MouseUp ->
+            ( { state | dragging = Nothing }
+            , profile
+            , Cmd.none
+            )
 
 
 subscriptions : Profile -> Environment -> Maybe ViewState -> Sub Msg
