@@ -6,8 +6,8 @@ import Json.Encode as Encode exposing (..)
 import Maybe.Extra
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Class exposing (ClassSkel, ParentProperties)
-import Task.Instance exposing (Instance, InstanceSkel)
+import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
+import Task.AssignedAction exposing (AssignedAction, AssignedActionSkel)
 import Task.SessionSkel exposing (..)
 
 
@@ -19,8 +19,8 @@ import Task.SessionSkel exposing (..)
 -}
 type alias FullSession =
     { parents : List ParentProperties
-    , class : ClassSkel
-    , instance : InstanceSkel
+    , class : ActionClassSkel
+    , instance : AssignedActionSkel
     , session : UserPlannedSession
     }
 
@@ -29,7 +29,7 @@ type alias FullSession =
 -- TODO replace this?
 
 
-makeFullSession : Instance -> UserPlannedSession -> FullSession
+makeFullSession : AssignedAction -> UserPlannedSession -> FullSession
 makeFullSession inherited justSession =
     { parents = inherited.parents
     , class = inherited.class
@@ -40,7 +40,7 @@ makeFullSession inherited justSession =
 
 {-| Get planned sessions for a FullInstance and build a FullSession list.
 -}
-getFullSessions : Instance -> List FullSession
+getFullSessions : AssignedAction -> List FullSession
 getFullSessions fullInstance =
     let
         ins =

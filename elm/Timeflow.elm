@@ -34,8 +34,8 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
+import Task.AssignedAction as Task exposing (AssignedAction, AssignedActionSkel)
 import Task.Entry as Task
-import Task.Instance as Task exposing (Instance, InstanceSkel)
 import Task.Progress exposing (..)
 import Task.Session as Task
 import Url.Parser as P exposing ((</>), Parser)
@@ -899,7 +899,7 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Environment -> IntDict Activity -> Period -> ( Activity.ActivityID, Maybe Task.InstanceID, Period ) -> FlowBlob
+makeHistoryBlob : Environment -> IntDict Activity -> Period -> ( Activity.ActivityID, Maybe Task.AssignedActionID, Period ) -> FlowBlob
 makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sessionPeriod ) =
     let
         -- sessionPositions =

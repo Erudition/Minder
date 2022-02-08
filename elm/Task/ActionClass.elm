@@ -1,7 +1,8 @@
-module Task.Class exposing (..)
+module Task.ActionClass exposing (..)
 
 import Activity.Activity exposing (ActivityID)
 import Dict exposing (Dict)
+import Helpers exposing (..)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
@@ -9,7 +10,6 @@ import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Helpers exposing (..)
 import Replicated.Serialize as Codec exposing (Codec)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
@@ -23,9 +23,9 @@ This way, the same task can be assigned multiple times in life (either automatic
 Tasks that are only similar, e.g. "take a bath", should be separate TaskClasses.
 
 -}
-type alias ClassSkel =
-    { title : String -- Class
-    , id : ClassID -- Class and Instance
+type alias ActionClassSkel =
+    { title : String -- ActionClass
+    , id : ActionClassID -- ActionClass and Instance
     , activity : Maybe ActivityID
 
     --, template : TaskTemplate
@@ -34,24 +34,24 @@ type alias ClassSkel =
     , predictedEffort : Duration -- Class. can always revise
     , maxEffort : Duration -- Class. can always revise
 
-    --, tags : List TagId -- Class
+    --, tags : List TagId -- ActionClass
     , defaultExternalDeadline : List RelativeTiming
     , defaultStartBy : List RelativeTiming --  THESE ARE NORMALLY SPECIFIED AT THE INSTANCE LEVEL
     , defaultFinishBy : List RelativeTiming
     , defaultRelevanceStarts : List RelativeTiming
     , defaultRelevanceEnds : List RelativeTiming
-    , importance : Float -- Class
+    , importance : Float -- ActionClass
     , extra : Dict String String
 
     -- future: default Session strategy
     }
 
 
-decodeClass : Decode.Decoder ClassSkel
-decodeClass =
-    decode ClassSkel
+decodeActionClassSkel : Decode.Decoder ActionClassSkel
+decodeActionClassSkel =
+    decode ActionClassSkel
         |> Pipeline.required "title" Decode.string
-        |> Pipeline.required "id" decodeClassID
+        |> Pipeline.required "id" decodeActionClassID
         |> Pipeline.required "activity" (Decode.nullable <| ID.decode)
         |> Pipeline.required "completionUnits" Progress.decodeUnit
         |> Pipeline.required "minEffort" decodeDuration
@@ -66,8 +66,8 @@ decodeClass =
         |> Pipeline.optional "extra" (Decode.dict Decode.string) Dict.empty
 
 
-encodeClass : ClassSkel -> Encode.Value
-encodeClass taskClass =
+encodeActionClassSkell : ActionClassSkel -> Encode.Value
+encodeActionClassSkell taskClass =
     object <|
         [ ( "title", Encode.string taskClass.title )
         , ( "id", Encode.int taskClass.id )
@@ -86,8 +86,8 @@ encodeClass taskClass =
         ]
 
 
-newClassSkel : String -> Int -> ClassSkel
-newClassSkel givenTitle newID =
+newActionClassSkel : String -> Int -> ActionClassSkel
+newActionClassSkel givenTitle newID =
     { title = givenTitle
     , id = newID
     , activity = Nothing
@@ -105,17 +105,17 @@ newClassSkel givenTitle newID =
     }
 
 
-type alias ClassID =
+type alias ActionClassID =
     Int
 
 
-decodeClassID : Decode.Decoder ClassID
-decodeClassID =
+decodeActionClassID : Decode.Decoder ActionClassID
+decodeActionClassID =
     Decode.int
 
 
-encodeClassID : ClassID -> Encode.Value
-encodeClassID taskClassID =
+encodeActionClassID : ActionClassID -> Encode.Value
+encodeActionClassID taskClassID =
     Encode.int taskClassID
 
 
@@ -135,17 +135,17 @@ parentPropertiesCodec =
         |> Codec.finishRecord
 
 
-{-| A fully spec'ed-out version of a TaskClass
+{-| A fully spec'ed-out version of a ActionClass
 -}
-type alias Class =
+type alias ActionClass =
     { parents : List ParentProperties
     , recurrence : Maybe Task.Series.Series
-    , class : ClassSkel
+    , class : ActionClassSkel
     }
 
 
-makeFullClass : List ParentProperties -> Maybe Task.Series.Series -> ClassSkel -> Class
-makeFullClass parentList recurrenceRules class =
+makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> ActionClassSkel -> ActionClass
+makeFullActionClass parentList recurrenceRules class =
     { parents = parentList
     , recurrence = recurrenceRules
     , class = class

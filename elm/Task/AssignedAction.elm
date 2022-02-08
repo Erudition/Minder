@@ -1,4 +1,4 @@
-module Task.Instance exposing (..)
+module Task.AssignedAction exposing (..)
 
 import Activity.Activity exposing (ActivityID)
 import Dict exposing (Dict)
@@ -14,7 +14,7 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
-import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, decodeClassID, decodeTaskMoment, encodeTaskMoment)
+import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, decodeActionClassID, decodeTaskMoment, encodeTaskMoment)
 import Task.Entry exposing (Entry, getClassesFromEntries)
 import Task.Progress as Progress exposing (..)
 import Task.Series exposing (Series, SeriesID)
@@ -23,14 +23,14 @@ import ZoneHistory exposing (ZoneHistory)
 
 
 
--- Instance Skeleton (bare minimum, non-derivative data, saved to disk) --------------------------------
+-- AssignedAction Skeleton (bare minimum, non-derivative data, saved to disk) --------------------------------
 
 
 {-| Definition of a single instance of a single task - one particular time that the specific thing will be done, that can be scheduled. Can be thought of as an "assignment" of a task (class). There may be zero (an unassigned task), and there may be many (a repeated task) for a given class.
 -}
-type alias InstanceSkel =
-    { class : ClassID
-    , id : InstanceID
+type alias AssignedActionSkel =
+    { class : ActionClassID
+    , id : AssignedActionID
     , memberOfSeries : Maybe SeriesID
     , completion : Progress.Portion
     , externalDeadline : Maybe FuzzyMoment -- *
@@ -43,11 +43,11 @@ type alias InstanceSkel =
     }
 
 
-decodeInstance : Decode.Decoder InstanceSkel
-decodeInstance =
-    decode InstanceSkel
-        |> Pipeline.required "class" decodeClassID
-        |> Pipeline.required "id" decodeInstanceID
+decodeAssignedActionSkel : Decode.Decoder AssignedActionSkel
+decodeAssignedActionSkel =
+    decode AssignedActionSkel
+        |> Pipeline.required "class" decodeActionClassID
+        |> Pipeline.required "id" decodeAssignedActionID
         |> Pipeline.optional "memberOfSeries" (Decode.nullable Decode.int) Nothing
         |> Pipeline.required "completion" Decode.int
         |> Pipeline.required "externalDeadline" (Decode.nullable decodeTaskMoment)
@@ -59,8 +59,8 @@ decodeInstance =
         |> Pipeline.optional "extra" (Decode.dict Decode.string) Dict.empty
 
 
-encodeInstance : InstanceSkel -> Encode.Value
-encodeInstance taskInstance =
+encodeAssignedActionSkel : AssignedActionSkel -> Encode.Value
+encodeAssignedActionSkel taskInstance =
     Encode.object <|
         [ ( "class", Encode.int taskInstance.class )
         , ( "id", Encode.int taskInstance.id )
@@ -76,8 +76,8 @@ encodeInstance taskInstance =
         ]
 
 
-newInstanceSkel : Int -> ClassSkel -> InstanceSkel
-newInstanceSkel newID class =
+newAssignedActionSkel : Int -> ActionClassSkel -> AssignedActionSkel
+newAssignedActionSkel newID class =
     { class = class.id
     , id = newID
     , memberOfSeries = Nothing
@@ -92,30 +92,30 @@ newInstanceSkel newID class =
     }
 
 
-type alias InstanceID =
+type alias AssignedActionID =
     Int
 
 
-decodeInstanceID : Decoder InstanceID
-decodeInstanceID =
+decodeAssignedActionID : Decoder AssignedActionID
+decodeAssignedActionID =
     Decode.int
 
 
-encodeInstanceID : InstanceID -> Encode.Value
-encodeInstanceID taskInstanceID =
+encodeAssignedActionID : AssignedActionID -> Encode.Value
+encodeAssignedActionID taskInstanceID =
     Encode.int taskInstanceID
 
 
 
--- FULL Instances (augmented with Entry & Class) ----------------------------------------
+-- FULL Instances (augmented with Entry & ActionClass) ----------------------------------------
 
 
 {-| A fully spec'ed-out version of a TaskInstance
 -}
-type alias Instance =
+type alias AssignedAction =
     { parents : List ParentProperties
-    , class : ClassSkel
-    , instance : InstanceSkel
+    , class : ActionClassSkel
+    , instance : AssignedActionSkel
     , index : Int
     }
 
@@ -127,9 +127,9 @@ Take the skeleton data and get all relevant(within given time period) instances 
 TODO organize with IDs somehow
 
 -}
-listAllInstances : List Class -> IntDict.IntDict InstanceSkel -> ( ZoneHistory, Period ) -> List Instance
-listAllInstances fullClasses savedInstanceSkeletons timeData =
-    List.concatMap (singleClassToActiveInstances timeData savedInstanceSkeletons) fullClasses
+listAllAssignedActions : List ActionClass -> IntDict.IntDict AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
+listAllAssignedActions fullClasses savedInstanceSkeletons timeData =
+    List.concatMap (assignedActionsOfClass timeData savedInstanceSkeletons) fullClasses
 
 
 {-| Take a class and return all of the instances relevant within the given period - saved or generated.
@@ -139,8 +139,8 @@ Combine the saved instances with generated ones, to get the full picture within 
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
 
 -}
-singleClassToActiveInstances : ( ZoneHistory, Period ) -> IntDict InstanceSkel -> Class -> List Instance
-singleClassToActiveInstances ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
+assignedActionsOfClass : ( ZoneHistory, Period ) -> IntDict AssignedActionSkel -> ActionClass -> List AssignedAction
+assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
     let
         -- Any & all saved instances that match this taskclass
         -- TODO more efficient way to filter?
@@ -150,7 +150,7 @@ singleClassToActiveInstances ( zoneHistory, relevantPeriod ) allSavedInstances f
         savedInstancesFull =
             List.indexedMap toFull savedInstancesWithMatchingClass
 
-        toFull : Int -> InstanceSkel -> Instance
+        toFull : Int -> AssignedActionSkel -> AssignedAction
         toFull indexFromZero instanceSkel =
             { parents = fullClass.parents
             , class = fullClass.class
@@ -174,13 +174,13 @@ singleClassToActiveInstances ( zoneHistory, relevantPeriod ) allSavedInstances f
         ++ relevantSeriesMembers
 
 
-fillSeries : ( ZoneHistory, Period ) -> Class -> Maybe Series -> List Instance
+fillSeries : ( ZoneHistory, Period ) -> ActionClass -> Maybe Series -> List AssignedAction
 fillSeries ( zoneHistory, relevantPeriod ) fullClass seriesRule =
     -- TODO
     []
 
 
-instanceProgress : Instance -> Progress
+instanceProgress : AssignedAction -> Progress
 instanceProgress fullInstance =
     ( fullInstance.instance.completion, fullInstance.class.completionUnits )
 
@@ -189,7 +189,7 @@ instanceProgress fullInstance =
 -- Task helper functions ---------------------------------------------
 
 
-isRelevantNow : Instance -> Moment -> Zone -> Bool
+isRelevantNow : AssignedAction -> Moment -> Zone -> Bool
 isRelevantNow instance now zone =
     let
         fuzzyNow =
@@ -210,12 +210,12 @@ isRelevantNow instance now zone =
     notBeforeStart && notAfterEnd
 
 
-completed : Instance -> Bool
+completed : AssignedAction -> Bool
 completed spec =
     isMax ( spec.instance.completion, spec.class.completionUnits )
 
 
-partiallyCompleted : Instance -> Bool
+partiallyCompleted : AssignedAction -> Bool
 partiallyCompleted spec =
     spec.instance.completion > 0
 
@@ -224,7 +224,7 @@ type alias WithSoonness t =
     { t | soonness : Duration }
 
 
-prioritize : Moment -> HumanMoment.Zone -> List Instance -> List Instance
+prioritize : Moment -> HumanMoment.Zone -> List AssignedAction -> List AssignedAction
 prioritize now zone taskList =
     let
         -- lowest values first
@@ -275,7 +275,7 @@ deepSort compareFuncs listToSort =
 
 {-| TODO this could be a Moment.Fuzzy function
 -}
-compareSoonness : HumanMoment.Zone -> CompareFunction Instance
+compareSoonness : HumanMoment.Zone -> CompareFunction AssignedAction
 compareSoonness zone taskA taskB =
     case ( taskA.instance.externalDeadline, taskB.instance.externalDeadline ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
@@ -294,36 +294,36 @@ compareSoonness zone taskA taskB =
             GT
 
 
-getID : Instance -> InstanceID
+getID : AssignedAction -> AssignedActionID
 getID ins =
     ins.instance.id
 
 
-getTitle : Instance -> String
+getTitle : AssignedAction -> String
 getTitle ins =
     ins.class.title
 
 
-getActivityID : Instance -> Maybe ActivityID
+getActivityID : AssignedAction -> Maybe ActivityID
 getActivityID ins =
     ins.class.activity
 
 
-getProgress : Instance -> Progress
+getProgress : AssignedAction -> Progress
 getProgress instance =
     ( instance.instance.completion, instance.class.completionUnits )
 
 
-getProgressMaxInt : Instance -> Portion
+getProgressMaxInt : AssignedAction -> Portion
 getProgressMaxInt instance =
     Progress.unitMax instance.class.completionUnits
 
 
-getCompletionInt : Instance -> Int
+getCompletionInt : AssignedAction -> Int
 getCompletionInt instance =
     instance.instance.completion
 
 
-getExtra : String -> Instance -> Maybe String
+getExtra : String -> AssignedAction -> Maybe String
 getExtra key instance =
     Dict.get key instance.instance.extra

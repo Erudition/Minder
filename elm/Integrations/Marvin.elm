@@ -26,9 +26,9 @@ import SmartTime.Human.Duration as HumanDuration
 import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import Task.Class
+import Task.ActionClass
 import Task.Entry
-import Task.Instance
+import Task.AssignedAction
 import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url.Builder
 
@@ -459,7 +459,7 @@ handle classCounter profile env response =
                             Maybe.andThen (Profile.getInstanceByID profile env) activeInstanceIDMaybe
 
                         activeMarvinIDMaybe =
-                            Maybe.andThen (Task.Instance.getExtra "marvinID") activeInstanceMaybe
+                            Maybe.andThen (Task.AssignedAction.getExtra "marvinID") activeInstanceMaybe
                     in
                     -- also Ok, Marvin returns empty string
                     ( profile
@@ -674,7 +674,7 @@ getTasks secret =
 
 {-| Update a marvin doc
 -}
-updateDoc : Moment -> List String -> Task.Instance.Instance -> Cmd Msg
+updateDoc : Moment -> List String -> Task.AssignedAction.AssignedAction -> Cmd Msg
 updateDoc timestamp updatedFields taskInstance =
     let
         asMarvinItem =
@@ -815,11 +815,11 @@ timeTrack secret taskID starting =
         }
 
 
-marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.Instance.InstanceID -> Bool -> ( Profile, Cmd Msg )
+marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.AssignedAction.AssignedActionID -> Bool -> ( Profile, Cmd Msg )
 marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
     case Maybe.andThen (Profile.getInstanceByID profile env) instanceIDMaybe of
         Just instance ->
-            case Task.Instance.getExtra "marvinID" instance of
+            case Task.AssignedAction.getExtra "marvinID" instance of
                 Nothing ->
                     ( profile, Cmd.none )
 
@@ -832,10 +832,10 @@ marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
                             instance.instance
 
                         updatedInstanceSkel =
-                            { instanceSkel | extra = Dict.insert "marvinTimes" (timesUpdater profile (Task.Instance.getID instance)) instanceSkel.extra }
+                            { instanceSkel | extra = Dict.insert "marvinTimes" (timesUpdater profile (Task.AssignedAction.getID instance)) instanceSkel.extra }
 
                         updatedInstanceDict =
-                            IntDict.insert (Task.Instance.getID instance) updatedInstanceSkel profile.taskInstances
+                            IntDict.insert (Task.AssignedAction.getID instance) updatedInstanceSkel profile.taskInstances
 
                         updatedProfile =
                             { profile | taskInstances = updatedInstanceDict }
@@ -849,7 +849,7 @@ marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
             ( profile, Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
 
 
-timesUpdater : Profile -> Task.Instance.InstanceID -> String
+timesUpdater : Profile -> Task.AssignedAction.AssignedActionID -> String
 timesUpdater profile instanceID =
     let
         timesList =
@@ -893,11 +893,11 @@ decodeTrackTruthItem =
         )
 
 
-trackTruthToTimelineSessions : Profile -> Environment -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.Instance.InstanceID, Period )
+trackTruthToTimelineSessions : Profile -> Environment -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.AssignedAction.AssignedActionID, Period )
 trackTruthToTimelineSessions profile env truthItem =
     let
         isCorrectInstance instance =
-            Just truthItem.task == Task.Instance.getExtra "marvinID" instance
+            Just truthItem.task == Task.AssignedAction.getExtra "marvinID" instance
 
         matchingInstance =
             List.find isCorrectInstance (Profile.instanceListNow profile env)
@@ -932,14 +932,14 @@ trackTruthToTimelineSessions profile env truthItem =
             Log.logMessage "no matching instance when constructing timeline sessions from marvin data!" []
 
         Just instance ->
-            case Task.Instance.getActivityID instance of
+            case Task.AssignedAction.getActivityID instance of
                 Nothing ->
                     []
 
                 Just activity ->
                     let
                         toSession moment1 moment2 =
-                            ( activity, Just <| Task.Instance.getID instance, Period.fromPair ( moment1, moment2 ) )
+                            ( activity, Just <| Task.AssignedAction.getID instance, Period.fromPair ( moment1, moment2 ) )
                     in
                     List.map2 toSession startsList stopsList
 

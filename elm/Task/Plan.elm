@@ -5,9 +5,9 @@ import List.Extra as List
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Period exposing (Period)
-import Task.Class as Class
+import Task.ActionClass as Class
 import Task.Entry as Entry
-import Task.Instance as Instance exposing (Instance)
+import Task.AssignedAction as Instance exposing (AssignedAction)
 
 
 {-| Current Idea: Go through list of To-Be-Planned in this order
@@ -36,7 +36,7 @@ type GenerationSource
 
 
 type alias SessionConstraints =
-    { instance : Instance
+    { instance : AssignedAction
     , allowedWindow : Period
     , duration : Duration
     , chunkMaximum : Duration
@@ -103,7 +103,7 @@ Idea: Step through list, attempt planning without compromises, if fail, start ag
 Problem: What if that takes forever
 
 -}
-buildConstraintsList : Environment -> List Instance -> Period -> ( List SessionConstraints, List Conflict )
+buildConstraintsList : Environment -> List AssignedAction -> Period -> ( List SessionConstraints, List Conflict )
 buildConstraintsList env instances growingSearchWindow =
     let
         makePreplannedSession =
@@ -122,7 +122,7 @@ buildConstraintsList env instances growingSearchWindow =
 -- take an instance, generate sessionConstraints, attempt to add it to list
 
 
-constraintsFromInstance : ( List SessionConstraints, List Conflict ) -> Period -> Instance -> ( List SessionConstraints, List Conflict )
+constraintsFromInstance : ( List SessionConstraints, List Conflict ) -> Period -> AssignedAction -> ( List SessionConstraints, List Conflict )
 constraintsFromInstance ( existingSCs, existingConflicts ) searchWindow instance =
     let
         instances =
@@ -146,7 +146,7 @@ constraintsFromInstance ( existingSCs, existingConflicts ) searchWindow instance
 
 
 type alias Conflict =
-    { instance : Instance
+    { instance : AssignedAction
     , resolutions : List Resolution
     }
 
@@ -156,5 +156,5 @@ type alias Resolution =
 
 
 type ResolutionAction
-    = MissOrEliminate Instance
-    | FinishLate Instance
+    = MissOrEliminate AssignedAction
+    | FinishLate AssignedAction

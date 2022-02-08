@@ -36,7 +36,7 @@ import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import Task as Job
-import Task.Instance as Instance
+import Task.AssignedAction as Instance
 import TaskList
 import TimeTracker
 import Timeflow

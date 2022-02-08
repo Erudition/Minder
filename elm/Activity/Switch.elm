@@ -19,11 +19,11 @@ import List.Nonempty exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
-import Task.Instance exposing (InstanceID)
+import Task.AssignedAction exposing (AssignedActionID)
 
 
 type Switch
-    = Switch Moment ActivityID (Maybe InstanceID)
+    = Switch Moment ActivityID (Maybe AssignedActionID)
 
 
 decodeSwitch : Decoder Switch
@@ -31,7 +31,7 @@ decodeSwitch =
     decode Switch
         |> required "Time" decodeMoment
         |> required "Activity" ID.decode
-        |> optional "Instance" (nullable Task.Instance.decodeInstanceID) Nothing
+        |> optional "Instance" (nullable Task.AssignedAction.decodeAssignedActionID) Nothing
 
 
 encodeSwitch : Switch -> Encode.Value
@@ -40,7 +40,7 @@ encodeSwitch (Switch time activityId instanceIDMaybe) =
         optionals =
             case instanceIDMaybe of
                 Just instanceID ->
-                    [ ( "Instance", Task.Instance.encodeInstanceID instanceID ) ]
+                    [ ( "Instance", Task.AssignedAction.encodeAssignedActionID instanceID ) ]
 
                 Nothing ->
                     []
@@ -53,7 +53,7 @@ switchToActivity moment activityID =
     Switch moment activityID Nothing
 
 
-newSwitch : Moment -> ActivityID -> Maybe InstanceID -> Switch
+newSwitch : Moment -> ActivityID -> Maybe AssignedActionID -> Switch
 newSwitch moment activityID instanceIDMaybe =
     Switch moment activityID instanceIDMaybe
 
@@ -68,6 +68,6 @@ getMoment (Switch moment _ _) =
     moment
 
 
-getInstanceID : Switch -> Maybe InstanceID
+getInstanceID : Switch -> Maybe AssignedActionID
 getInstanceID (Switch _ _ instanceIDMaybe) =
     instanceIDMaybe

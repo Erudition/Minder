@@ -25,8 +25,8 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Class as Task exposing (ClassSkel, newClassSkel)
-import Task.Instance as Task exposing (InstanceSkel)
+import Task.ActionClass as Task exposing (ActionClassSkel, newActionClassSkel)
+import Task.AssignedAction as Task exposing (AssignedActionSkel)
 import Task.Progress
 import Url
 import Url.Builder
@@ -223,7 +223,7 @@ filterActivityProjects projects activities =
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
 
 
-timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( ClassSkel, InstanceSkel )
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( ActionClassSkel, AssignedActionSkel )
 timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
@@ -236,11 +236,11 @@ timetrackItemToTask lookup item =
             Nothing
 
 
-itemToTask : Activity.ActivityID -> Item -> ( ClassSkel, InstanceSkel )
+itemToTask : Activity.ActivityID -> Item -> ( ActionClassSkel, AssignedActionSkel )
 itemToTask activityID item =
     let
         base =
-            newClassSkel (Task.normalizeTitle newName) item.id
+            newActionClassSkel (Task.normalizeTitle newName) item.id
 
         ( newName, ( minDur, maxDur ) ) =
             extractTiming2 item.content
@@ -268,7 +268,7 @@ itemToTask activityID item =
             }
 
         newTaskInstance =
-            Task.newInstanceSkel item.id class
+            Task.newAssignedActionSkel item.id class
     in
     ( class, instance )
 

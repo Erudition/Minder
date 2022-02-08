@@ -1,19 +1,19 @@
 module Task.Entry exposing (..)
 
 import Date exposing (Date)
+import Helpers exposing (..)
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
-import Helpers exposing (..)
 import Replicated.Serialize as Codec exposing (Codec)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
-import Task.Class exposing (Class, ClassID, ClassSkel, ParentProperties, makeFullClass, parentPropertiesCodec)
+import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, makeFullActionClass, parentPropertiesCodec)
 import Task.Series exposing (Series(..))
 
 
@@ -26,34 +26,34 @@ We could eliminate all the redundant wrapper containers, but for now it's easier
 
 -}
 type alias Entry =
-    WrapperParent
+    SuperProject
 
 
-newRootEntry : ClassID -> Entry
+newRootEntry : ActionClassID -> Entry
 newRootEntry classID =
     let
         parentProps =
             ParentProperties <| Just "none"
 
         outsideWrap =
-            WrapperParent parentProps (Nonempty.fromElement (LeaderIsHere leader))
+            SuperProject parentProps (Nonempty.fromElement (ProjectIsHere leader))
 
         leader =
-            LeaderParent parentProps Nothing (Nonempty.fromElement follower)
+            ProjectClass parentProps Nothing (Nonempty.fromElement follower)
 
         follower =
-            FollowerParent parentProps (Nonempty.fromElement (Singleton classID))
+            TaskClass parentProps (Nonempty.fromElement (Singleton classID))
     in
     outsideWrap
 
 
 decodeEntry : Decoder Entry
 decodeEntry =
-    customDecoder Decode.value (Result.mapError (\e -> "") << Codec.decodeFromJson wrapperParentCodec)
+    customDecoder Decode.value (Result.mapError (\e -> "") << Codec.decodeFromJson superProjectCodec)
 
 
 encodeEntry entry =
-    Codec.encodeToJson wrapperParentCodec entry
+    Codec.encodeToJson superProjectCodec entry
 
 
 
@@ -66,13 +66,13 @@ encodeEntry entry =
    , predictedEffort : Duration
    , maxEffort : Duration
    , tags : List TagId
-   , activity : Maybe ActivityID -- Class
-   , deadline : Maybe FuzzyMoment -- Class
+   , activity : Maybe ActivityID -- ActionClass
+   , deadline : Maybe FuzzyMoment -- ActionClass
    , plannedStart : Maybe FuzzyMoment -- PlannedSession
    , plannedFinish : Maybe FuzzyMoment -- PlannedSession
-   , relevanceStarts : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
-   , relevanceEnds : Maybe FuzzyMoment -- Class, but relative? & Instance, absolute
-   , importance : Float -- Class
+   , relevanceStarts : Maybe FuzzyMoment -- ActionClass, but relative? & Instance, absolute
+   , relevanceEnds : Maybe FuzzyMoment -- ActionClass, but relative? & Instance, absolute
+   , importance : Float -- ActionClass
    }
 -}
 
@@ -82,35 +82,35 @@ encodeEntry entry =
 Parents that contain only a single task are transparently unwrapped to appear like single tasks - in this case, with recurrence applied. Since it doesn't make sense for a bundle of tasks that recur on some schedule to contain other bundles of tasks with their own schedule and instances, all children of RecurringParents are considered "Constrained" and cannot contain recurrence information. This ensures that only one ancestor of a task dictates its recurrence pattern.
 
 -}
-type alias LeaderParent =
+type alias ProjectClass =
     { properties : ParentProperties
     , recurrenceRules : Maybe Series
-    , children : Nonempty FollowerParent
+    , children : Nonempty TaskClass
     }
 
 
-leaderParentCodec : Codec String LeaderParent
-leaderParentCodec =
-    Codec.record LeaderParent
+projectCodec : Codec String ProjectClass
+projectCodec =
+    Codec.record ProjectClass
         |> Codec.field .properties parentPropertiesCodec
         |> Codec.field .recurrenceRules (Codec.maybe (Codec.enum Series []))
-        |> Codec.field .children (nonEmptyCodec followerParentCodec)
+        |> Codec.field .children (nonEmptyCodec taskClassCodec)
         |> Codec.finishRecord
 
 
 {-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
 -}
-type alias WrapperParent =
+type alias SuperProject =
     { properties : ParentProperties
-    , children : Nonempty WrapperChild
+    , children : Nonempty SuperProjectChild
     }
 
 
-wrapperParentCodec : Codec String WrapperParent
-wrapperParentCodec =
-    Codec.record WrapperParent
+superProjectCodec : Codec String SuperProject
+superProjectCodec =
+    Codec.record SuperProject
         |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (nonEmptyCodec wrapperChildCodec)
+        |> Codec.field .children (nonEmptyCodec superProjectChildCodec)
         |> Codec.finishRecord
 
 
@@ -123,25 +123,25 @@ nonEmptyCodec wrappedCodec =
     Codec.mapValid nonEmptyFromList Nonempty.toList (Codec.list wrappedCodec)
 
 
-type WrapperChild
-    = LeaderIsDeeper WrapperParent
-    | LeaderIsHere LeaderParent
+type SuperProjectChild
+    = ProjectIsDeeper SuperProject
+    | ProjectIsHere ProjectClass
 
 
-wrapperChildCodec : Codec String WrapperChild
-wrapperChildCodec =
+superProjectChildCodec : Codec String SuperProjectChild
+superProjectChildCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->
             case value of
-                LeaderIsDeeper wrapperParent ->
+                ProjectIsDeeper wrapperParent ->
                     leaderIsDeeper wrapperParent
 
-                LeaderIsHere leaderParent ->
+                ProjectIsHere leaderParent ->
                     leaderIsHere leaderParent
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 LeaderIsDeeper (Codec.lazy (\_ -> wrapperParentCodec))
-        |> Codec.variant1 LeaderIsHere leaderParentCodec
+        |> Codec.variant1 ProjectIsDeeper (Codec.lazy (\_ -> superProjectCodec))
+        |> Codec.variant1 ProjectIsHere projectCodec
         |> Codec.finishCustomType
 
 
@@ -150,17 +150,17 @@ wrapperChildCodec =
 Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedParents.
 
 -}
-type alias FollowerParent =
+type alias TaskClass =
     { properties : ParentProperties
-    , children : Nonempty FollowerChild
+    , children : Nonempty TaskClassChild
     }
 
 
-followerParentCodec : Codec String FollowerParent
-followerParentCodec =
-    Codec.record FollowerParent
+taskClassCodec : Codec String TaskClass
+taskClassCodec =
+    Codec.record TaskClass
         |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (nonEmptyCodec followerChildCodec)
+        |> Codec.field .children (nonEmptyCodec taskClassChildCodec)
         |> Codec.finishRecord
 
 
@@ -179,13 +179,13 @@ followerParentCodec =
 -}
 
 
-type FollowerChild
-    = Singleton ClassID
-    | Nested FollowerParent
+type TaskClassChild
+    = Singleton ActionClassID
+    | Nested TaskClass
 
 
-followerChildCodec : Codec String FollowerChild
-followerChildCodec =
+taskClassChildCodec : Codec String TaskClassChild
+taskClassChildCodec =
     Codec.customType
         (\singleton nested value ->
             case value of
@@ -197,13 +197,13 @@ followerChildCodec =
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
         |> Codec.variant1 Singleton Codec.int
-        |> Codec.variant1 Nested (Codec.lazy (\_ -> followerParentCodec))
+        |> Codec.variant1 Nested (Codec.lazy (\_ -> taskClassCodec))
         |> Codec.finishCustomType
 
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( List Entry, IntDict.IntDict ClassSkel ) -> ( List Class, List Warning )
+getClassesFromEntries : ( List Entry, IntDict.IntDict ActionClassSkel ) -> ( List ActionClass, List Warning )
 getClassesFromEntries ( entries, classes ) =
     let
         traverseRootWrappers entry =
@@ -232,7 +232,7 @@ getClassesFromEntries ( entries, classes ) =
                 Singleton classID ->
                     case IntDict.get classID classes of
                         Just classSkel ->
-                            Nonempty.fromElement <| Ok <| makeFullClass accumulator recurrenceRules classSkel
+                            Nonempty.fromElement <| Ok <| makeFullActionClass accumulator recurrenceRules classSkel
 
                         Nothing ->
                             Nonempty.fromElement <| Err <| LookupFailure classID
@@ -242,14 +242,14 @@ getClassesFromEntries ( entries, classes ) =
 
         traverseWrapperChild accumulator child =
             case child of
-                LeaderIsDeeper parent ->
+                ProjectIsDeeper parent ->
                     traverseWrapperParent (appendPropsIfMeaningful accumulator parent.properties) parent
 
-                LeaderIsHere parent ->
+                ProjectIsHere parent ->
                     traverseLeaderParent (appendPropsIfMeaningful accumulator parent.properties) parent
     in
     Result.partition <| List.concatMap traverseRootWrappers entries
 
 
 type Warning
-    = LookupFailure ClassID
+    = LookupFailure ActionClassID

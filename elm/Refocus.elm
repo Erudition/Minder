@@ -19,9 +19,9 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), ab
 import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
-import Task.Class exposing (ClassID)
+import Task.ActionClass exposing (ActionClassID)
+import Task.AssignedAction exposing (AssignedAction, AssignedActionID)
 import Task.Entry
-import Task.Instance exposing (Instance, InstanceID)
 import Task.Progress
 import ZoneHistory
 
@@ -42,10 +42,10 @@ type alias StatusDetails =
     , zone : HumanMoment.Zone
     , oldActivity : Activity
     , lastSession : Duration
-    , oldInstanceMaybe : Maybe Instance
+    , oldInstanceMaybe : Maybe AssignedAction
     , newActivity : Activity
     , newActivityTodayTotal : Duration
-    , newInstanceMaybe : Maybe Instance
+    , newInstanceMaybe : Maybe AssignedAction
     }
 
 
@@ -71,7 +71,7 @@ type alias ExcusedDetails =
 
 
 type alias FocusItem =
-    ( Activity, Maybe Instance )
+    ( Activity, Maybe AssignedAction )
 
 
 type alias DistractionDetails =
@@ -94,10 +94,10 @@ type WINUrgency
     | Strong
 
 
-prioritizeTasks : Profile -> Environment -> List Instance
+prioritizeTasks : Profile -> Environment -> List AssignedAction
 prioritizeTasks profile env =
-    Task.Instance.prioritize env.time env.timeZone <|
-        List.filter (Task.Instance.completed >> not) <|
+    Task.AssignedAction.prioritize env.time env.timeZone <|
+        List.filter (Task.AssignedAction.completed >> not) <|
             Profile.instanceListNow profile env
 
 
@@ -115,7 +115,7 @@ whatsImportantNow profile env =
                 prioritized
 
         topPickActivityMaybe =
-            Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.Instance.getActivityID topPickMaybe)
+            Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.AssignedAction.getActivityID topPickMaybe)
     in
     case ( topPickActivityMaybe, topPickMaybe ) of
         ( Just topPickActivity, Just topPick ) ->
@@ -135,7 +135,7 @@ refreshTracking profile env =
     switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile env
 
 
-switchTracking : ActivityID -> Maybe InstanceID -> Profile -> Environment -> ( Profile, Cmd msg )
+switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment -> ( Profile, Cmd msg )
 switchTracking newActivityID newInstanceIDMaybe oldProfile env =
     let
         updatedProfile =
@@ -179,7 +179,7 @@ switchTracking newActivityID newInstanceIDMaybe oldProfile env =
         ( updatedProfile, Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
-determineNewStatus : ( ActivityID, Maybe InstanceID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
+determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
 determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile env =
     let
         newActivity =
@@ -236,7 +236,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities newProfile.activities) )
 
                 isThisTheRightNextTask =
-                    case ( newInstanceIDMaybe, Maybe.map Task.Instance.getID nextInstanceMaybe ) of
+                    case ( newInstanceIDMaybe, Maybe.map Task.AssignedAction.getID nextInstanceMaybe ) of
                         ( Just newInstanceID, Just nextInstanceID ) ->
                             newInstanceID == nextInstanceID
 
@@ -478,7 +478,7 @@ writeDur givenDur =
 
 summarizeFocusItem : FocusItem -> String
 summarizeFocusItem ( winActivity, winInstanceMaybe ) =
-    Maybe.withDefault (Activity.getName winActivity) <| Maybe.map Task.Instance.getTitle winInstanceMaybe
+    Maybe.withDefault (Activity.getName winActivity) <| Maybe.map Task.AssignedAction.getTitle winInstanceMaybe
 
 
 
@@ -550,12 +550,12 @@ freeSticky : StatusDetails -> List Notification
 freeSticky status =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.AssignedAction.getTitle
 
         final =
             { stickyBase
@@ -567,7 +567,7 @@ freeSticky status =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
 
                         Nothing ->
                             Nothing
@@ -589,12 +589,12 @@ tractionSticky : StatusDetails -> TractionDetails -> Duration -> List Notificati
 tractionSticky status traction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.AssignedAction.getTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -616,7 +616,7 @@ tractionSticky status traction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
 
                         Nothing ->
                             Nothing
@@ -648,13 +648,13 @@ excusedSticky : StatusDetails -> ExcusedDetails -> Duration -> List Notification
 excusedSticky status excused elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
             status.newInstanceMaybe
-                |> Maybe.map Task.Instance.getTitle
+                |> Maybe.map Task.AssignedAction.getTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -691,7 +691,7 @@ excusedSticky status excused elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
 
                         Nothing ->
                             -- show the decreasing amount of time left
@@ -730,12 +730,12 @@ distractionSticky : StatusDetails -> DistractionDetails -> Duration -> List Noti
 distractionSticky status distraction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.Instance.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Instance.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.AssignedAction.getTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -754,7 +754,7 @@ distractionSticky status distraction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
 
                         Nothing ->
                             Nothing
@@ -869,7 +869,7 @@ scheduleDistractionReminders status distraction =
         title =
             case distraction.win of
                 ( _, Just winInstance ) ->
-                    Just ("Do now: " ++ Task.Instance.getTitle winInstance)
+                    Just ("Do now: " ++ Task.AssignedAction.getTitle winInstance)
 
                 ( winActivity, Nothing ) ->
                     Just ("Do now: " ++ Activity.getName winActivity)
@@ -1088,14 +1088,14 @@ suggestedTasksGroup =
     Notif.GroupKey "suggestions"
 
 
-suggestedTaskNotif : Moment -> ( Instance, ActivityID ) -> Notification
+suggestedTaskNotif : Moment -> ( AssignedAction, ActivityID ) -> Notification
 suggestedTaskNotif now ( taskInstance, taskActivityID ) =
     let
         base =
             Notif.build suggestedTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ String.fromInt (Task.Instance.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ String.fromInt (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
             ]
     in
     { base
@@ -1112,8 +1112,8 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , chronometer = Just False
         , expiresAfter = Just (Duration.fromHours 1) -- TODO
         , progress =
-            if Task.Instance.partiallyCompleted taskInstance then
-                Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.Instance.instanceProgress taskInstance))
+            if Task.AssignedAction.partiallyCompleted taskInstance then
+                Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress taskInstance))
 
             else
                 Nothing
@@ -1127,7 +1127,7 @@ suggestedTasks profile env =
             List.filterMap withActivityID (prioritizeTasks profile env)
 
         withActivityID task =
-            case Task.Instance.getActivityID task of
+            case Task.AssignedAction.getActivityID task of
                 Nothing ->
                     Nothing
 
@@ -1137,7 +1137,7 @@ suggestedTasks profile env =
     List.map (suggestedTaskNotif env.time) (List.take 3 actionableTasks)
 
 
-taskClassNotifID : ClassID -> Int
+taskClassNotifID : ActionClassID -> Int
 taskClassNotifID instanceID =
     9000 + instanceID
 
@@ -1161,14 +1161,14 @@ cleanupTasksGroup =
     Notif.GroupKey "cleanup"
 
 
-cleanupTaskNotif : Moment -> ( Instance, List CleanupRequired ) -> Notification
+cleanupTaskNotif : Moment -> ( AssignedAction, List CleanupRequired ) -> Notification
 cleanupTaskNotif now ( taskInstance, needs ) =
     let
         base =
             Notif.build cleanupTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ String.fromInt (Task.Instance.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ String.fromInt (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
             ]
     in
     { base
@@ -1195,7 +1195,7 @@ cleanupTasks profile env =
             List.filterMap needsCleanup (prioritizeTasks profile env)
 
         needsCleanup task =
-            case Task.Instance.getActivityID task of
+            case Task.AssignedAction.getActivityID task of
                 Nothing ->
                     Just ( task, [ NeedsActivity ] )
 
@@ -1205,11 +1205,11 @@ cleanupTasks profile env =
     List.map (cleanupTaskNotif env.time) (List.take 3 tasksToCleanup)
 
 
-currentTaskNotif : Moment -> Instance -> Notification
+currentTaskNotif : Moment -> AssignedAction -> Notification
 currentTaskNotif now task =
     let
         currentID =
-            Task.Instance.getID task
+            Task.AssignedAction.getID task
 
         currentTaskChannel =
             { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing, group = Just "Actionable" }
@@ -1244,6 +1244,6 @@ currentTaskNotif now task =
         , status_text_size = Nothing
         , background_color = Nothing
         , countdown = Nothing
-        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.Instance.instanceProgress task)) (Task.Progress.getWhole (Task.Instance.instanceProgress task))
+        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
         , actions = actions
     }

@@ -18,9 +18,9 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import Task.Class
+import Task.ActionClass
+import Task.AssignedAction
 import Task.Entry
-import Task.Instance
 import Task.Progress exposing (..)
 import Task.Session
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
@@ -37,8 +37,8 @@ type alias Profile =
     { uid : AppInstance
     , errors : List String
     , taskEntries : List Task.Entry.Entry
-    , taskClasses : IntDict Task.Class.ClassSkel
-    , taskInstances : IntDict Task.Instance.InstanceSkel
+    , taskClasses : IntDict Task.ActionClass.ActionClassSkel
+    , taskInstances : IntDict Task.AssignedAction.AssignedActionSkel
     , activities : StoredActivities
     , timeline : Timeline
 
@@ -83,8 +83,8 @@ decodeProfile =
         |> required "uid" Decode.int
         |> optional "errors" (Decode.list Decode.string) []
         |> optional "taskEntries" (Decode.list Task.Entry.decodeEntry) []
-        |> optional "taskClasses" (Helpers.decodeIntDict Task.Class.decodeClass) IntDict.empty
-        |> optional "taskInstances" (Helpers.decodeIntDict Task.Instance.decodeInstance) IntDict.empty
+        |> optional "taskClasses" (Helpers.decodeIntDict Task.ActionClass.decodeActionClassSkel) IntDict.empty
+        |> optional "taskInstances" (Helpers.decodeIntDict Task.AssignedAction.decodeAssignedActionSkel) IntDict.empty
         |> optional "activities" Activity.decodeStoredActivities IntDict.empty
         |> optional "timeline" (Decode.list decodeSwitch) []
         |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
@@ -94,8 +94,8 @@ decodeProfile =
 encodeProfile : Profile -> Encode.Value
 encodeProfile record =
     Encode.object
-        [ ( "taskClasses", Helpers.encodeIntDict Task.Class.encodeClass record.taskClasses )
-        , ( "taskInstances", Helpers.encodeIntDict Task.Instance.encodeInstance record.taskInstances )
+        [ ( "taskClasses", Helpers.encodeIntDict Task.ActionClass.encodeActionClassSkell record.taskClasses )
+        , ( "taskInstances", Helpers.encodeIntDict Task.AssignedAction.encodeAssignedActionSkel record.taskInstances )
         , ( "taskEntries", Encode.list Task.Entry.encodeEntry record.taskEntries )
         , ( "activities", encodeStoredActivities record.activities )
         , ( "uid", Encode.int record.uid )
@@ -158,9 +158,10 @@ saveError appData error =
 --- HELPERS
 
 
-instanceListNow : Profile -> Environment -> List Task.Instance.Instance
+{-| All instances that are not expired or finished.
+-}
+instanceListNow : Profile -> Environment -> List Task.AssignedAction.AssignedAction
 instanceListNow profile env =
-    -- TODO figure out where to put this
     let
         ( fullClasses, warnings ) =
             Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
@@ -172,18 +173,18 @@ instanceListNow profile env =
         rightNow =
             Period.instantaneous env.time
     in
-    Task.Instance.listAllInstances fullClasses profile.taskInstances ( zoneHistory, rightNow )
+    Task.AssignedAction.listAllAssignedActions fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
-trackedInstance : Profile -> Environment -> Maybe Task.Instance.Instance
+trackedInstance : Profile -> Environment -> Maybe Task.AssignedAction.AssignedAction
 trackedInstance profile env =
     Maybe.andThen (getInstanceByID profile env) (Activity.Timeline.currentInstanceID profile.timeline)
 
 
-getInstanceByID : Profile -> Environment -> Task.Instance.InstanceID -> Maybe Task.Instance.Instance
+getInstanceByID : Profile -> Environment -> Task.AssignedAction.AssignedActionID -> Maybe Task.AssignedAction.AssignedAction
 getInstanceByID profile env instanceID =
     -- TODO optimize
-    List.head (List.filter (\i -> Task.Instance.getID i == instanceID) (instanceListNow profile env))
+    List.head (List.filter (\i -> Task.AssignedAction.getID i == instanceID) (instanceListNow profile env))
 
 
 getActivityByID : Profile -> ActivityID -> Activity

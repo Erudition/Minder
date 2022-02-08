@@ -22,9 +22,9 @@ import SmartTime.Human.Clock exposing (TimeOfDay)
 import SmartTime.Human.Moment
 import SmartTime.Moment as Moment exposing (Moment(..))
 import SmartTime.Period as Period exposing (Period(..))
-import Task.Class
+import Task.ActionClass
+import Task.AssignedAction
 import Task.Entry
-import Task.Instance
 import Task.Progress
 import Task.SessionSkel exposing (UserPlannedSession)
 import TimeBlock.TimeBlock exposing (TimeBlock)
@@ -356,7 +356,7 @@ toDocketItem marvinItem profile =
 
 
 type OutputType
-    = ConvertedToTaskTriplet { entries : List Task.Entry.Entry, classes : List Task.Class.ClassSkel, instances : List Task.Instance.InstanceSkel }
+    = ConvertedToTaskTriplet { entries : List Task.Entry.Entry, classes : List Task.ActionClass.ActionClassSkel, instances : List Task.AssignedAction.AssignedActionSkel }
     | ConvertedToActivity StoredActivities
 
 
@@ -402,7 +402,7 @@ projectToDocketActivity activities marvinCategory =
             activities
 
 
-toDocketTask : Profile -> MarvinItem -> { entries : List Task.Entry.Entry, classes : List Task.Class.ClassSkel, instances : List Task.Instance.InstanceSkel }
+toDocketTask : Profile -> MarvinItem -> { entries : List Task.Entry.Entry, classes : List Task.ActionClass.ActionClassSkel, instances : List Task.AssignedAction.AssignedActionSkel }
 toDocketTask profile marvinItem =
     let
         classCounter =
@@ -417,7 +417,7 @@ toDocketTask profile marvinItem =
     { entries = Maybe.Extra.toList newEntryMaybe, classes = [ finalClass ], instances = [ finalInstance ] }
 
 
-toDocketClassAndEntry : Int -> Profile -> MarvinItem -> ( Task.Class.ClassSkel, Maybe Task.Entry.Entry )
+toDocketClassAndEntry : Int -> Profile -> MarvinItem -> ( Task.ActionClass.ActionClassSkel, Maybe Task.Entry.Entry )
 toDocketClassAndEntry classCounter profile marvinItem =
     let
         newClassID =
@@ -451,7 +451,7 @@ toDocketClassAndEntry classCounter profile marvinItem =
             Task.Entry.newRootEntry newClassID
 
         classBase =
-            Maybe.withDefault (Task.Class.newClassSkel marvinItem.title newClassID) existingClassMaybe
+            Maybe.withDefault (Task.ActionClass.newActionClassSkel marvinItem.title newClassID) existingClassMaybe
 
         derivedMarvinGeneratorID =
             -- instance ID like 2021-11-11_b5946420-afe1-488e-adb0-3633b1905095
@@ -481,7 +481,7 @@ toDocketClassAndEntry classCounter profile marvinItem =
             ( finalClass, Just newEntry )
 
 
-toDocketInstance : Int -> Task.Class.ClassSkel -> Profile -> MarvinItem -> Task.Instance.InstanceSkel
+toDocketInstance : Int -> Task.ActionClass.ActionClassSkel -> Profile -> MarvinItem -> Task.AssignedAction.AssignedActionSkel
 toDocketInstance classCounter class profile marvinItem =
     let
         existingInstancesWithMarvinLink =
@@ -503,7 +503,7 @@ toDocketInstance classCounter class profile marvinItem =
             Maybe.andThen (\instanceID -> IntDict.get instanceID profile.taskInstances) existingInstanceIDMaybe
 
         instanceBase =
-            Maybe.withDefault (Task.Instance.newInstanceSkel classCounter class) existingInstanceMaybe
+            Maybe.withDefault (Task.AssignedAction.newAssignedActionSkel classCounter class) existingInstanceMaybe
 
         plannedSessionList : List UserPlannedSession
         plannedSessionList =
@@ -606,7 +606,7 @@ toDocketInstance classCounter class profile marvinItem =
     finalInstance
 
 
-fromDocket : Task.Instance.Instance -> Maybe MarvinItem
+fromDocket : Task.AssignedAction.AssignedAction -> Maybe MarvinItem
 fromDocket instance =
     let
         idMaybe =
@@ -629,7 +629,7 @@ fromDocket instance =
             Just
                 { id = id
                 , rev = rev
-                , done = Debug.log "checking completion" Task.Instance.completed instance
+                , done = Debug.log "checking completion" Task.AssignedAction.completed instance
                 , day = toDate <| Dict.get "marvinDay" instance.instance.extra
                 , title = instance.class.title
                 , parentId = Dict.get "marvinParentID" instance.instance.extra

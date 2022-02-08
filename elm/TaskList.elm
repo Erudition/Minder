@@ -41,9 +41,9 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.Class as Class exposing (ClassID)
+import Task.ActionClass as Class exposing (ActionClassID)
 import Task.Entry as Entry
-import Task.Instance as Instance exposing (Instance, InstanceID, InstanceSkel, completed, instanceProgress, isRelevantNow)
+import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, instanceProgress, isRelevantNow)
 import Task.Progress exposing (..)
 import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
@@ -91,7 +91,7 @@ defaultView =
 
 
 type alias ExpandedTask =
-    ClassID
+    ActionClassID
 
 
 type alias NewTaskField =
@@ -162,10 +162,10 @@ onEnter msg =
 
 
 -- VIEW ALL TODOS
--- viewTasks : String -> List Instance -> Html Msg
+-- viewTasks : String -> List AssignedAction -> Html Msg
 
 
-viewTasks : Environment -> Filter -> Maybe InstanceID -> List Instance -> Html Msg
+viewTasks : Environment -> Filter -> Maybe AssignedActionID -> List AssignedAction -> Html Msg
 viewTasks env filter trackedTaskMaybe tasks =
     let
         isVisible task =
@@ -206,16 +206,16 @@ viewTasks env filter trackedTaskMaybe tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Maybe InstanceID -> Instance -> ( String, Html Msg )
+viewKeyedTask : Environment -> Maybe AssignedActionID -> AssignedAction -> ( String, Html Msg )
 viewKeyedTask env trackedTaskMaybe task =
     ( String.fromInt task.instance.id, lazy3 viewTask env trackedTaskMaybe task )
 
 
 
--- viewTask : Instance -> Html Msg
+-- viewTask : AssignedAction -> Html Msg
 
 
-viewTask : Environment -> Maybe InstanceID -> Instance -> Html Msg
+viewTask : Environment -> Maybe AssignedActionID -> AssignedAction -> Html Msg
 viewTask env trackedTaskMaybe task =
     li
         [ class "task-entry"
@@ -341,7 +341,7 @@ viewTask env trackedTaskMaybe task =
         ]
 
 
-startTrackingButton : Instance -> Maybe InstanceID -> Maybe (Html Msg)
+startTrackingButton : AssignedAction -> Maybe AssignedActionID -> Maybe (Html Msg)
 startTrackingButton task trackedTaskMaybe =
     case ( Instance.getActivityID task, Maybe.map ((==) (Instance.getID task)) trackedTaskMaybe ) of
         ( Just activityID, Just True ) ->
@@ -443,9 +443,9 @@ taskTooltip env task =
                 )
 
 
-{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Instance entry.
+{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our AssignedAction entry.
 -}
-progressSlider : Instance -> Html Msg
+progressSlider : AssignedAction -> Html Msg
 progressSlider task =
     let
         completion =
@@ -498,7 +498,7 @@ dynamicSliderThumbCss portion =
         ]
 
 
-extractSliderInput : Instance -> String -> Msg
+extractSliderInput : AssignedAction -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task <|
         Basics.round <|
@@ -512,7 +512,7 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Environment -> Instance -> Html Msg
+timingInfo : Environment -> AssignedAction -> Html Msg
 timingInfo env task =
     let
         effortDescription =
@@ -617,7 +617,7 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : Instance -> String
+describeEffort : AssignedAction -> String
 describeEffort task =
     let
         sayEffort amount =
@@ -655,7 +655,7 @@ describeTaskPlan env fullSession =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : Environment -> ActionClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -679,7 +679,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> ClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : Environment -> ActionClassID -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -702,7 +702,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List Instance -> Html Msg
+viewControls : List Filter -> List AssignedAction -> Html Msg
 viewControls visibilityFilters tasks =
     let
         tasksCompleted =
@@ -821,20 +821,20 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle ClassID Bool
-    | UpdateTitle ClassID String
+    | EditingTitle ActionClassID Bool
+    | UpdateTitle ActionClassID String
     | Add
-    | Delete InstanceID
+    | Delete AssignedActionID
     | DeleteComplete
-    | UpdateProgress Instance Portion
-    | FocusSlider ClassID Bool
-    | UpdateTaskDate ClassID String (Maybe FuzzyMoment)
+    | UpdateProgress AssignedAction Portion
+    | FocusSlider ActionClassID Bool
+    | UpdateTaskDate ActionClassID String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
     | MarvinServerResponse Marvin.Msg
-    | StartTracking InstanceID ActivityID
-    | StopTracking InstanceID
+    | StartTracking AssignedActionID ActivityID
+    | StopTracking AssignedActionID
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
@@ -858,10 +858,10 @@ update msg state app env =
                             Entry.newRootEntry newClassID
 
                         newTaskClass =
-                            Class.newClassSkel (Class.normalizeTitle newTaskTitle) newClassID
+                            Class.newActionClassSkel (Class.normalizeTitle newTaskTitle) newClassID
 
                         newTaskInstance =
-                            Instance.newInstanceSkel (Moment.toSmartInt env.time) newTaskClass
+                            Instance.newAssignedActionSkel (Moment.toSmartInt env.time) newTaskClass
                     in
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks

@@ -26,7 +26,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
 import Svg.Styled exposing (..)
-import Task.Instance exposing (Instance, InstanceID)
+import Task.AssignedAction exposing (AssignedAction, AssignedActionID)
 import Time
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)
@@ -46,7 +46,7 @@ currentActivityID switchList =
     Switch.getActivityID (latestSwitch switchList)
 
 
-currentInstanceID : Timeline -> Maybe InstanceID
+currentInstanceID : Timeline -> Maybe AssignedActionID
 currentInstanceID switchList =
     Switch.getInstanceID (latestSwitch switchList)
 
@@ -56,7 +56,7 @@ currentActivity storedActivities switchList =
     getActivity (currentActivityID switchList) (Activity.allActivities storedActivities)
 
 
-startTask : Moment -> ActivityID -> InstanceID -> Timeline -> Timeline
+startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Timeline
 startTask time newActivityID instanceID timeline =
     Switch.newSwitch time newActivityID (Just instanceID) :: timeline
 
@@ -66,7 +66,7 @@ startActivity time newActivityID timeline =
     Switch.newSwitch time newActivityID Nothing :: timeline
 
 
-backfill : Timeline -> List ( ActivityID, Maybe InstanceID, Period ) -> Timeline
+backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline
 backfill timeline periodsToAdd =
     case periodsToAdd of
         [] ->
@@ -79,7 +79,7 @@ backfill timeline periodsToAdd =
             placeNewSession (backfill timeline rest) singlePeriod
 
 
-placeNewSession : Timeline -> ( ActivityID, Maybe InstanceID, Period ) -> Timeline
+placeNewSession : Timeline -> ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline
 placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, candidatePeriod ) =
     -- NOTE: don't forget the timeline is always backwards. Later switches come
     -- first!
@@ -447,7 +447,7 @@ lastSession timeline old =
 -- Below: Migrating to use SmartTime instead
 
 
-switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Maybe InstanceID, Period )
+switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Maybe AssignedActionID, Period )
 switchListLiveToPeriods now switchList =
     let
         fakeSwitch =
@@ -459,22 +459,22 @@ switchListLiveToPeriods now switchList =
     switchListToPeriods (fakeSwitch :: switchList)
 
 
-periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe InstanceID, Period )
+periodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe AssignedActionID, Period )
 periodFromSwitchPair newerSwitch olderSwitch =
     ( Switch.getActivityID olderSwitch, Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
-instancePeriodFromSwitchPair : Switch -> Switch -> ( Maybe InstanceID, Period )
+instancePeriodFromSwitchPair : Switch -> Switch -> ( Maybe AssignedActionID, Period )
 instancePeriodFromSwitchPair newerSwitch olderSwitch =
     ( Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
-fullPeriodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe InstanceID, Period )
+fullPeriodFromSwitchPair : Switch -> Switch -> ( ActivityID, Maybe AssignedActionID, Period )
 fullPeriodFromSwitchPair newerSwitch olderSwitch =
     ( Switch.getActivityID olderSwitch, Switch.getInstanceID olderSwitch, Period.fromPair ( Switch.getMoment newerSwitch, Switch.getMoment olderSwitch ) )
 
 
-switchListToPeriods : List Switch -> List ( ActivityID, Maybe InstanceID, Period )
+switchListToPeriods : List Switch -> List ( ActivityID, Maybe AssignedActionID, Period )
 switchListToPeriods switchList =
     let
         offsetList =
@@ -485,7 +485,7 @@ switchListToPeriods switchList =
 
 {-| Excludes period without an instanceID.
 -}
-switchListToInstancePeriods : List Switch -> List ( ActivityID, Task.Instance.InstanceID, Period )
+switchListToInstancePeriods : List Switch -> List ( ActivityID, Task.AssignedAction.AssignedActionID, Period )
 switchListToInstancePeriods switchList =
     let
         offsetList =
@@ -526,12 +526,12 @@ switchListToInstancePeriods switchList =
 --     List.filterMap maybeInstanceToMaybePair listWithBlanks
 
 
-getInstancePeriods : Timeline -> InstanceID -> List Period
+getInstancePeriods : Timeline -> AssignedActionID -> List Period
 getInstancePeriods timeline instanceID =
     List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods timeline)
 
 
-getInstanceTimes : Timeline -> InstanceID -> List Moment
+getInstanceTimes : Timeline -> AssignedActionID -> List Moment
 getInstanceTimes timeline instanceID =
     let
         periods =
