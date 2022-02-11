@@ -95,7 +95,7 @@ type alias ReducerNameString =
 
 
 updateNodeWithSingleOp op node =
-    { node | db = applyOpToDb node.db (Debug.log (Op.toString op) op) }
+    { node | db = applyOpToDb node.db op }
 
 
 {-| Takes a single (e.g. newly received) Op and inserts it deep into the structure

@@ -1,6 +1,7 @@
 module ReplicaTests exposing (suite)
 
 import Expect exposing (Expectation)
+import Fuzz exposing (Fuzzer, int, list, string)
 import GraphicSVG exposing (GraphicSVG)
 import List.Extra
 import Main exposing (Screen(..))
@@ -17,10 +18,9 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ temp
-
-        --   readOnlyObjectEncodeThenDecode
-        -- , writableObjectEncodeThenDecode
-        -- , writableObjectModify
+        , readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , writableObjectModify
         ]
 
 
@@ -39,7 +39,7 @@ fakeOps =
             @1244+0.0.0.0 :1200+0.0.0.0 [1,[[1,first],firstname]]
             """
     in
-    Maybe.withDefault [] <| Result.toMaybe <| Debug.log "Importing op" <| Op.fromFrame ops
+    Maybe.withDefault [] <| Result.toMaybe <| Op.fromFrame ops
 
 
 fakeNode =
@@ -93,7 +93,7 @@ fakeNodeWithExampleObject =
             RC.encodeToRonWithRootID fakeNode OpID.testCounter readOnlyObjectCodec
 
         apply op node =
-            { node | db = Node.applyOpToDb node.db (Debug.log (Op.toString op) op) }
+            { node | db = Node.applyOpToDb node.db op }
 
         filledNode =
             List.foldl apply fakeNode exampleObjectAsOpList

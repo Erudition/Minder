@@ -133,7 +133,7 @@ fromString : String -> Maybe Op -> Result String Op
 fromString inputString previousOpMaybe =
     let
         atoms =
-            Debug.log " words" <| String.words inputString
+            String.words inputString
 
         opIDatom =
             List.head (List.filter (String.startsWith "@") atoms)

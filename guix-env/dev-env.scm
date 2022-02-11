@@ -28,7 +28,8 @@
         	"node"  ;; for npm
         	"nss-certs"  ;; fixes git/git-via-npm errors accessing HTTPS sites
         	
-        	
+        	;; for elm-test
+        	"tar"
         	
 	;; for running the android virtual devices (AVD):
 	"e2fsprogs" "qemu-minimal" ;; "adb" --jk use sdk one

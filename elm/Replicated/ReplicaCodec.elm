@@ -470,7 +470,7 @@ encodeToRonWithRootID node counter codec =
                 encoded =
                     ronEncoder { node = node, existingObjectIDMaybe = Nothing, counter = counter, mode = IncludeDefaults }
             in
-            ( .ops encoded, Just <| Debug.log "genesis ID" <| .objectID encoded )
+            ( .ops encoded, Just <| .objectID encoded )
 
         Nothing ->
             ( [], Nothing )
@@ -1297,7 +1297,7 @@ nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer 
                     let
                         runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
                         runDecoderOnFoundField =
-                            Debug.log "trying to decode found field" <| JD.decodeString (getJsonDecoder fieldValueCodec outer) (Debug.log "found" (prepDecoder foundField))
+                            JD.decodeString (getJsonDecoder fieldValueCodec outer) (prepDecoder foundField)
 
                         convertResult : Result (Error e) fieldtype
                         convertResult =
@@ -1552,7 +1552,7 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
             Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
 
         defaultJsonEncoded =
-            Debug.log "encoding default" (encodeToJsonString fieldValueCodec fieldDefault)
+            encodeToJsonString fieldValueCodec fieldDefault
 
         isAlreadyDefault =
             -- missing values count as default

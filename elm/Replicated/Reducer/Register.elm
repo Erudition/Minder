@@ -3,9 +3,9 @@ module Replicated.Reducer.Register exposing (..)
 import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
+import Helpers
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
-import Helpers
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -107,7 +107,7 @@ toFieldChange : ( String, Object.Event ) -> Maybe FieldChange
 toFieldChange ( eventStampString, Object.Event eventDetails ) =
     let
         interpretedPayload =
-            Result.toMaybe (Debug.log "Decoding payload " <| JD.decodeString decodePayload eventDetails.payload)
+            Result.toMaybe (JD.decodeString decodePayload eventDetails.payload)
 
         stampFromString =
             Maybe.map OpID.getEventStamp (OpID.fromString eventStampString)

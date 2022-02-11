@@ -10,11 +10,12 @@ guix environment --container --network --share=$XAUTHORITY --share=/tmp/.X11-uni
     --share=/dev/shm --expose=/etc/machine-id --share=/home/$USER \
     --expose=$PROFILE/lib=/lib --expose=$PROFILE/lib=/lib64  \
     --share=/dev/kvm \
-    --share=/dev/ttyACM0 \
-    --share=/dev/serial \
     --share=/dev/bus/usb \
     --expose=/usr/bin/=/usr/bin \
     -m ./guix-env/dev-env.scm \
     -- env XAUTHORITY=$XAUTHORITY DISPLAY=$DISPLAY  \
     TERM=$TERM  \
     fish -C ./guix-env/inside-env.sh
+    
+     #--share=/dev/ttyACM0 \
+     #    --share=/dev/serial \
