@@ -3,7 +3,7 @@ module Replicated.Op.Op exposing (Op, Payload, PreOp(..), ReducerID, create, fin
 import Json.Encode
 import List.Extra
 import List.Nonempty exposing (Nonempty)
-import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import Result.Extra
 import Set exposing (Set)
@@ -16,7 +16,7 @@ type Op
 
 type alias OpRecord =
     { reducerID : ReducerID
-    , objectID : OpID
+    , objectID : ObjectID
     , operationID : OpID
     , referenceID : Maybe OpID
     , payload : Payload
