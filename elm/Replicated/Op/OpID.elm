@@ -33,6 +33,7 @@ type alias OpOrigin =
 type alias EventStamp =
     { time : Moment
     , origin : NodeID
+    , reversion : Bool
     }
 
 
@@ -48,7 +49,7 @@ testCounter =
 
 generate : InCounter -> NodeID -> ( OpID, OutCounter )
 generate (NewOpCounter counter) origin =
-    ( OpID { time = Moment.fromSmartInt counter, origin = origin }, NewOpCounter (counter + 1) )
+    ( OpID { time = Moment.fromSmartInt counter, origin = origin, reversion = False }, NewOpCounter (counter + 1) )
 
 
 toString : OpID -> OpIDString
@@ -65,11 +66,19 @@ toString (OpID eventStamp) =
 
 fromString : String -> Maybe OpID
 fromString input =
-    case String.split "+" input of
-        [ timeString, nodeIDString ] ->
+    case ( String.split "+" input, String.split "-" input ) of
+        ( [ timeString, nodeIDString ], _ ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
                 ( Just nodeID, Just time ) ->
-                    Just (OpID (EventStamp time nodeID))
+                    Just (OpID (EventStamp time nodeID False))
+
+                _ ->
+                    Nothing
+
+        ( _, [ timeString, nodeIDString ] ) ->
+            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
+                ( Just nodeID, Just time ) ->
+                    Just (OpID (EventStamp time nodeID True))
 
                 _ ->
                     Nothing

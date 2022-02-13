@@ -2,7 +2,7 @@ module Replicated.Reducer.RepSet exposing (..)
 
 import Dict exposing (Dict)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.OpID as OpID exposing (ObjectID)
+import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -46,11 +46,6 @@ The List will always be in chronological order, with the newest addition at the 
 -}
 list : RepSet a -> List a
 list aRepSet =
-    []
-
-
-rwList : RepSet a -> List a
-rwList aRepSet =
     []
 
 

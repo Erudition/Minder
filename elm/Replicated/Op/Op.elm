@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, Payload, PreOp(..), ReducerID, create, finishPreOp, fromFrame, fromLog, fromString, id, object, opCodec, payload, pre, reducer, reference, toString)
+module Replicated.Op.Op exposing (Op, OpPattern, Payload, PreOp(..), ReducerID, create, finishPreOp, fromFrame, fromLog, fromString, id, object, opCodec, payload, pre, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -57,6 +57,40 @@ type OpPattern
     | CreationOp
     | Acknowledgement
     | Annotation
+
+
+pattern : Op -> OpPattern
+pattern (Op opRecord) =
+    case ( getVersion opRecord.operationID, getVersion opRecord.referenceID ) of
+        ( "+", "+" ) ->
+            NormalOp
+
+        ( "-", "+" ) ->
+            DeletionOp
+
+        ( "-", "-" ) ->
+            UnDeletionOp
+
+        ( "+", "$" ) ->
+            CreationOp
+
+        ( "+", "-" ) ->
+            Acknowledgement
+
+        ( "$", "+" ) ->
+            Annotation
+
+        _ ->
+            Annotation
+
+
+{-| Gets the joiner within OpID and ref IDs.
+One of: +, -, or $.
+$ may be omitted...
+-}
+getVersion : String -> String
+getVersion refOrID =
+    Debug.todo "getversion"
 
 
 {-| A bunch of Ops that are all about the same object - consisting of, at a minimum, the object's creation Op.

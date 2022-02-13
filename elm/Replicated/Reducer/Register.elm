@@ -81,11 +81,11 @@ fieldToOp inCounter nodeID register opToReference fieldIdentifier fieldValue =
 
 {-| For Register we really don't need to check references, I think, except maybe to ensure that the events are in causal order.
 -}
-buildHistory : Dict String Object.Event -> List FieldChange
+buildHistory : Dict String Object.KeptEvent -> List FieldChange
 buildHistory eventDict =
     let
-        orderCheck : ( String, Object.Event ) -> Bool
-        orderCheck ( _, Object.Event eventDetails ) =
+        orderCheck : ( String, Object.KeptEvent ) -> Bool
+        orderCheck ( _, Object.KeptEvent eventDetails ) =
             -- TODO we need to fold to actually check this, right now we just see if it's there
             -- Dict.member eventDetails.reference eventDict
             True
@@ -103,8 +103,8 @@ type FieldChange
 
 {-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a Register field change item.
 -}
-toFieldChange : ( String, Object.Event ) -> Maybe FieldChange
-toFieldChange ( eventStampString, Object.Event eventDetails ) =
+toFieldChange : ( String, Object.KeptEvent ) -> Maybe FieldChange
+toFieldChange ( eventStampString, Object.KeptEvent eventDetails ) =
     let
         interpretedPayload =
             Result.toMaybe (JD.decodeString decodePayload eventDetails.payload)

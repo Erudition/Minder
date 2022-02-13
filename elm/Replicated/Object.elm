@@ -10,16 +10,18 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type alias Object =
     { creation : ObjectID
-    , events : Dict OpIDString Event
+    , events : Dict OpIDString KeptEvent
     , included : InclusionInfo
     , latest : OpID
     }
 
 
+{-| An event that has not been undone/deleted.
+-}
 type
-    Event
+    KeptEvent
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = Event { reference : OpID, payload : Payload }
+    = KeptEvent { reference : OpID, payload : Payload }
 
 
 create : Op.ReducerID -> OpID.ObjectID -> Op
@@ -37,13 +39,18 @@ applyOp : Op -> Maybe Object -> Maybe Object
 applyOp newOp oldObjectMaybe =
     let
         newEvent givenRef =
-            Event { reference = givenRef, payload = Op.payload newOp }
+            KeptEvent { reference = givenRef, payload = Op.payload newOp }
     in
     case ( oldObjectMaybe, Op.reference newOp ) of
         ( Just oldObject, Just ref ) ->
             Just
                 { creation = oldObject.creation
-                , events = Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
+                , events =
+                    if Op.pattern newOp == Op.DeletionOp then
+                        Dict.remove (OpID.toString ref) oldObject.events
+
+                    else
+                        Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
                 , included = oldObject.included
                 , latest = OpID.latest oldObject.latest (Op.id newOp)
                 }
