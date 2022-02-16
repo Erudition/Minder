@@ -21,7 +21,17 @@ type alias Object =
 type
     KeptEvent
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = KeptEvent { reference : OpID, payload : Payload }
+    = KeptEvent { id : OpID, reference : OpID, payload : Payload }
+
+
+eventReference : KeptEvent -> OpID
+eventReference (KeptEvent event) =
+    event.reference
+
+
+eventID : KeptEvent -> OpID
+eventID (KeptEvent event) =
+    event.id
 
 
 create : Op.ReducerID -> OpID.ObjectID -> Op
@@ -39,7 +49,7 @@ applyOp : Op -> Maybe Object -> Maybe Object
 applyOp newOp oldObjectMaybe =
     let
         newEvent givenRef =
-            KeptEvent { reference = givenRef, payload = Op.payload newOp }
+            KeptEvent { id = Op.id newOp, reference = givenRef, payload = Op.payload newOp }
     in
     case ( oldObjectMaybe, Op.reference newOp ) of
         ( Just oldObject, Just ref ) ->

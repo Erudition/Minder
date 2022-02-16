@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, jsonDecoder, latest, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, isReversion, jsonDecoder, latest, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -35,6 +35,11 @@ type alias EventStamp =
     , origin : NodeID
     , reversion : Bool
     }
+
+
+isReversion : OpID -> Bool
+isReversion (OpID event) =
+    event.reversion
 
 
 firstCounter : Moment -> NewOpCounter
