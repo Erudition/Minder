@@ -1,9 +1,9 @@
 module Replicated.Reducer.RepSet exposing (..)
 
-import Array
+import Array exposing (Array)
 import Dict exposing (Dict)
 import List.Extra as List
-import List.Nonempty as Nonempty exposing (Nonempty)
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -27,17 +27,17 @@ type Member a
         }
 
 
-fromReplicaDb : Object -> RepSet a
-fromReplicaDb object =
+fromReplicaDb : Object -> (String -> a) -> RepSet a
+fromReplicaDb object unstringifier =
     RepSet
         { id = object.creation
-        , members = eventsToMembers object.events
+        , members = eventsToMembers object.events unstringifier
         , included = object.included
         }
 
 
-eventsToMembers : Dict OpIDString Event -> Array (Member a)
-eventsToMembers events =
+eventsToMembers : Dict OpIDString Object.KeptEvent -> (String -> a) -> Array (Member a)
+eventsToMembers events unstringifier =
     -- This is the simplest way I could think to do this but definitely needs an eventual performance upgrade.
     -- Use grouping instead of maintaining a tree.
     let
@@ -50,12 +50,20 @@ eventsToMembers events =
             Object.eventReference event1 == Object.eventReference event2 || Object.eventID event1 == Object.eventReference event2
 
         concurrentGroups =
-            List.gatherEqualsBy (\( id, event ) -> Object.eventReference event) eventsList
-                |> (\( h, t ) -> Nonempty h t)
+            List.gatherEqualsBy Object.eventReference eventsList
+                |> List.map toNormalList
+
+        toNormalList ( head, tail ) =
+            head :: tail
+
+        toMember event =
+            Member
+                { stamp = OpID.getEventStamp (Object.eventID event)
+                , value = unstringifier (Object.eventPayload event)
+                }
     in
-    Nonempty.concat concurrentGroups
-        |> Nonempty.map toMember
-        |> Nonempty.toList
+    List.concat concurrentGroups
+        |> List.map toMember
         |> Array.fromList
 
 

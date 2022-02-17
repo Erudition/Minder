@@ -34,6 +34,11 @@ eventID (KeptEvent event) =
     event.id
 
 
+eventPayload : KeptEvent -> Payload
+eventPayload (KeptEvent event) =
+    event.payload
+
+
 create : Op.ReducerID -> OpID.ObjectID -> Op
 create givenReducer givenObject =
     -- object creation Ops don't have references

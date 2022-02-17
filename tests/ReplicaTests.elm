@@ -9,6 +9,7 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register exposing (RW)
+import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
 import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
 import SmartTime.Moment as Moment
 import Test exposing (..)
@@ -189,3 +190,10 @@ writableObjectModify =
             Expect.true "Expected the writable object to have modified fields" <|
                 Result.withDefault False
                     (Result.map correctModifiedObject processOutput)
+
+
+
+--- REPSETS
+-- simpleRepSet : RepSet Int
+-- simpleRepSet =
+--     _
