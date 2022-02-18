@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, generate, getEventStamp, isReversion, jsonDecoder, latest, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, fromStringForced, generate, getEventStamp, isReversion, jsonDecoder, latest, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -52,9 +52,9 @@ testCounter =
     NewOpCounter 0
 
 
-generate : InCounter -> NodeID -> ( OpID, OutCounter )
-generate (NewOpCounter counter) origin =
-    ( OpID { time = Moment.fromSmartInt counter, origin = origin, reversion = False }, NewOpCounter (counter + 1) )
+generate : InCounter -> NodeID -> Bool -> ( OpID, OutCounter )
+generate (NewOpCounter counter) origin reversion =
+    ( OpID { time = Moment.fromSmartInt counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
 
 
 toString : OpID -> OpIDString
@@ -90,6 +90,16 @@ fromString input =
 
         _ ->
             Nothing
+
+
+fromStringForced : String -> OpID
+fromStringForced string =
+    case fromString string of
+        Just success ->
+            success
+
+        Nothing ->
+            Debug.todo ("couldn't parse OpID:" ++ string)
 
 
 codec : Codec (RS.Error e) OpID

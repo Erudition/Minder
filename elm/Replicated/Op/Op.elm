@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, OpPattern(..), Payload, PreOp(..), ReducerID, create, finishPreOp, fromFrame, fromLog, fromString, id, object, opCodec, pattern, payload, pre, reducer, reference, toString)
+module Replicated.Op.Op exposing (Change, Op, OpPattern(..), Payload, ReducerID, create, fromChange, fromFrame, fromLog, fromString, id, makeChange, makeChangeWithRef, makeChanges, object, pattern, payload, reducer, reference, revert, toString)
 
 import Json.Encode
 import List.Extra
@@ -23,23 +23,20 @@ type alias OpRecord =
     }
 
 
-opCodec : Codec (RS.Error e) Op
-opCodec =
-    let
-        opRecordCodec =
-            RS.record OpRecord
-                |> RS.field .reducerID RS.string
-                |> RS.field .objectID OpID.codec
-                |> RS.field .operationID OpID.codec
-                |> RS.field .referenceID (RS.maybe OpID.codec)
-                |> RS.field .payload RS.string
-                |> RS.finishRecord
-    in
-    RS.map Op (\(Op opRecord) -> opRecord) opRecordCodec
 
-
-type alias EventStampString =
-    String
+-- opCodec : Codec (RS.Error e) Op
+-- opCodec =
+--     let
+--         opRecordCodec =
+--             RS.record OpRecord
+--                 |> RS.field .reducerID RS.string
+--                 |> RS.field .objectID OpID.codec
+--                 |> RS.field .operationID OpID.codec
+--                 |> RS.field .referenceID (RS.maybe OpID.codec)
+--                 |> RS.field .payload RS.string
+--                 |> RS.finishRecord
+--     in
+--     RS.map Op (\(Op opRecord) -> opRecord) opRecordCodec
 
 
 type alias Payload =
@@ -313,33 +310,60 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-
---- PRE-OPS
-
-
-type PreOp
-    = PreOp
-        { reducerID : ReducerID
-        , objectID : OpID
-        , payload : Payload
-        }
+type alias Change =
+    { reducerID : ReducerID -- TODO needed?
+    , objectID : ObjectID
+    , reference : Maybe OpID
+    , payload : Payload
+    , reversion : Bool
+    }
 
 
-pre : ReducerID -> OpID.ObjectID -> String -> PreOp
-pre givenReducer givenObject givenPayload =
-    PreOp
-        { reducerID = givenReducer
-        , objectID = givenObject
-        , payload = givenPayload
-        }
+
+-- TODO all of this should go in object maybe? Object.Change?
 
 
-finishPreOp : OpID -> OpID -> PreOp -> Op
-finishPreOp givenReference opID (PreOp preOp) =
+makeChange : ReducerID -> OpID.ObjectID -> Payload -> Change
+makeChange givenReducer givenObject givenPayload =
+    { reducerID = givenReducer
+    , objectID = givenObject
+    , reference = Nothing
+    , payload = givenPayload
+    , reversion = False
+    }
+
+
+makeChangeWithRef : ReducerID -> OpID.ObjectID -> OpID -> Payload -> Change
+makeChangeWithRef givenReducer givenObject ref givenPayload =
+    { reducerID = givenReducer
+    , objectID = givenObject
+    , reference = Just ref
+    , payload = givenPayload
+    , reversion = False
+    }
+
+
+revert : ReducerID -> OpID.ObjectID -> OpID -> Change
+revert givenReducer givenObject ref =
+    { reducerID = givenReducer
+    , objectID = givenObject
+    , reference = Just ref
+    , payload = ""
+    , reversion = True
+    }
+
+
+makeChanges : ReducerID -> OpID.ObjectID -> List Payload -> List Change
+makeChanges givenReducer givenObject payloadList =
+    List.map (makeChange givenReducer givenObject) payloadList
+
+
+fromChange : OpID -> OpID -> Change -> Op
+fromChange newIDToAssign lastSeen details =
     Op
-        { reducerID = preOp.reducerID
-        , objectID = preOp.objectID
-        , operationID = opID
-        , referenceID = Just givenReference
-        , payload = preOp.payload
+        { reducerID = details.reducerID
+        , objectID = details.objectID
+        , operationID = newIDToAssign
+        , referenceID = Just <| Maybe.withDefault lastSeen details.reference
+        , payload = details.payload
         }

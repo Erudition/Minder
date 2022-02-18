@@ -5,7 +5,7 @@ import List.Extra
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Op, PreOp, ReducerID, create)
+import Replicated.Op.Op as Op exposing (Change, Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment exposing (Moment)
@@ -55,22 +55,25 @@ blankNode =
     { identity = firstSessionEver, peers = [], db = Dict.empty, root = Nothing }
 
 
-applyLocalChanges : Moment -> Node -> List PreOp -> ( List Op, Node )
-applyLocalChanges time node preOps =
+applyLocalChanges : Moment -> Node -> List Change -> ( List Op, Node )
+applyLocalChanges time node changes =
     let
-        counterAtStart =
-            OpID.firstCounter time
+        initialAccumulator =
+            ( OpID.firstCounter time, Nothing )
 
-        finishOp : InCounter -> PreOp -> ( OutCounter, Op )
-        finishOp inCounter (Op.PreOp preOp) =
+        finishOneOp : ( InCounter, Maybe OpID ) -> Change -> ( ( OutCounter, Maybe OpID ), Op )
+        finishOneOp ( inCounter, lastIDMaybe ) givenChange =
             let
                 ( newID, outCounter ) =
-                    OpID.generate inCounter node.identity
+                    OpID.generate inCounter node.identity givenChange.reversion
+
+                objectLastSeenID =
+                    getObjectLastSeenID node givenChange.reducerID givenChange.objectID
             in
-            ( outCounter, Op.finishPreOp (getReference node preOp.reducerID preOp.objectID) newID (Op.PreOp preOp) )
+            ( ( outCounter, Just newID ), Op.fromChange newID (Maybe.withDefault objectLastSeenID lastIDMaybe) givenChange )
 
         ( finalCounter, finishedOps ) =
-            List.Extra.mapAccuml finishOp counterAtStart preOps
+            List.Extra.mapAccuml finishOneOp initialAccumulator changes
 
         updatedNode =
             List.foldl updateNodeWithSingleOp node finishedOps
@@ -78,8 +81,8 @@ applyLocalChanges time node preOps =
     ( finishedOps, updatedNode )
 
 
-getReference : Node -> ReducerID -> ObjectID -> OpID
-getReference node reducer objectID =
+getObjectLastSeenID : Node -> ReducerID -> ObjectID -> OpID
+getObjectLastSeenID node reducer objectID =
     let
         relevantObjectTypeDatabase =
             Maybe.withDefault Dict.empty <| Dict.get reducer node.db
@@ -122,6 +125,15 @@ type alias ReplicaTree =
 
 type alias ObjectsByCreationDb =
     Dict ObjectIDString Object
+
+
+getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
+getObjectIfExists node objectID =
+    let
+        registerDatabase =
+            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
+    in
+    Dict.get (OpID.toString objectID) registerDatabase
 
 
 

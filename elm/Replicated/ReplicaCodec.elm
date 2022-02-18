@@ -67,6 +67,7 @@ import Replicated.Node.Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..), buildRW)
+import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -662,22 +663,22 @@ opID =
 A "decoder" that looks in the replica for an RGA object.
 If found, decodes it as a list.
 -}
-findRga : Node -> OpID.ObjectID -> JD.Decoder (Result (Error e) (List a))
-findRga replica location =
-    case Dict.get "rga" replica.db of
+findRepSet : Node -> OpID.ObjectID -> JD.Decoder (Result (Error e) (List a))
+findRepSet replica location =
+    case Dict.get RepSet.reducerID replica.db of
         Nothing ->
-            JD.fail "Couldn't find where RGAs are stored"
+            JD.fail "Couldn't find where RepSets are stored"
 
-        Just rgaDatabase ->
-            case Dict.get (OpID.toString location) rgaDatabase of
+        Just repSetDatabase ->
+            case Dict.get (OpID.toString location) repSetDatabase of
                 Nothing ->
-                    JD.fail ("Couldn't find an RGA object with objectID " ++ OpID.toString location)
+                    JD.fail ("Couldn't find an RepSet object with objectID " ++ OpID.toString location)
 
-                Just rgaFound ->
-                    JD.succeed (Debug.todo "buildRGAfromJson")
+                Just repSetFound ->
+                    JD.succeed (Debug.todo "buildRepSetfromJson")
 
 
-{-| A list that can't change without being replaced with a whole new list.
+{-| A list
 -}
 list : Codec e a -> Codec e (List a)
 list codec =
@@ -688,9 +689,35 @@ list codec =
                 Nothing ->
                     normalJsonDecoder
 
-                Just ( replica, locationMaybe ) ->
-                    -- TODO convert to objectID decoder
-                    normalJsonDecoder
+                Just ( node, locationMaybe ) ->
+                    -- we're working with a replica! Try to decode a UUID instead.
+                    -- then, if we find a RepSet by that UUID, run the big decoder on that instead!
+                    let
+                        unstringifier memberAsString =
+                            case JD.decodeString (getJsonDecoder codec outer) memberAsString of
+                                Ok (Ok member) ->
+                                    member
+
+                                _ ->
+                                    Debug.todo "couldnt decode list member"
+
+                        stringifier member =
+                            JE.encode 0 (getJsonEncoder codec member)
+
+                        objectFinder : OpID.ObjectID -> Result (Error errs) (List a)
+                        objectFinder foundID =
+                            case RepSet.buildFromReplicaDb node foundID unstringifier stringifier of
+                                Nothing ->
+                                    Err <| Debug.todo "repset not found"
+
+                                Just repset ->
+                                    Ok (RepSet.list repset)
+
+                        finalDecoder =
+                            -- take our found ObjectID and convert it to a Register decoder
+                            JD.map objectFinder objectIDDecoder
+                    in
+                    finalDecoder
 
         normalJsonDecoder =
             JD.list (getJsonDecoder codec Nothing)
@@ -1322,6 +1349,11 @@ prepDecoder inputString =
             inputString
 
 
+objectIDDecoder : JD.Decoder OpID.ObjectID
+objectIDDecoder =
+    OpID.jsonDecoder
+
+
 {-| Finish creating a codec for a record.
 -}
 finishRecord : PartialRecord errs full full -> Codec errs full
@@ -1352,10 +1384,6 @@ finishRecord (PartialRecord allFieldsCodec) =
                     -- we're working with a replica! Try to decode a UUID instead.
                     -- then, if we find a Register by that UUID, run the big decoder on that instead!
                     let
-                        objectIDDecoder : JD.Decoder OpID.ObjectID
-                        objectIDDecoder =
-                            OpID.jsonDecoder
-
                         objectFinder : OpID.ObjectID -> Result (Error errs) full
                         objectFinder foundID =
                             case Register.build node foundID of
@@ -1414,7 +1442,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                             Just oldRegister
 
                         Nothing ->
-                            Debug.log ("objectRonEncoder was given ID of supposedly pre-existing Register '" ++ OpID.toString givenID ++ "' but Register.build couldn't find it") Nothing
+                            Debug.todo ("objectRonEncoder was given ID of supposedly pre-existing Register '" ++ OpID.toString givenID ++ "' but Register.build couldn't find it")
 
                 Nothing ->
                     Nothing
@@ -1443,7 +1471,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
         ( newRegister, newRegisterCreationOp, counterAfterInitialization ) =
             let
                 ( newObjectID, newOutCounter ) =
-                    OpID.generate objectReadyCounter node.identity
+                    OpID.generate objectReadyCounter node.identity False
 
                 newObjectCreationOp =
                     Register.creation node newObjectID

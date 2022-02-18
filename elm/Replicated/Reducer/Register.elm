@@ -9,7 +9,7 @@ import Json.Encode as JE exposing (Value)
 import Replicated.Node.Node exposing (Node, ReplicaTree)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Op, Payload, PreOp, ReducerID)
+import Replicated.Op.Op as Op exposing (Change, Op, Payload, ReducerID)
 import Replicated.Op.OpID as OpID
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -46,16 +46,7 @@ build node objectID =
         convertObjectToRegister obj =
             Register { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    Maybe.map convertObjectToRegister (getObjectIfExists node objectID)
-
-
-getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
-getObjectIfExists node objectID =
-    let
-        registerDatabase =
-            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
-    in
-    Dict.get (OpID.toString objectID) registerDatabase
+    Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID)
 
 
 creation : Node -> OpID.ObjectID -> Op
@@ -67,7 +58,7 @@ fieldToOp : OpID.InCounter -> NodeID -> Register -> OpID.OpID -> FieldIdentifier
 fieldToOp inCounter nodeID register opToReference fieldIdentifier fieldValue =
     let
         ( myNewID, nextCounter ) =
-            OpID.generate inCounter nodeID
+            OpID.generate inCounter nodeID False
     in
     ( Op.create
         reducerID
@@ -434,17 +425,17 @@ obsolete reservedList input =
 
 type alias RW yourtype =
     { get : yourtype
-    , set : yourtype -> PreOp
+    , set : yourtype -> Change
     }
 
 
-changeField : OpID.ObjectID -> FieldIdentifier -> String -> PreOp
+changeField : OpID.ObjectID -> FieldIdentifier -> String -> Change
 changeField objectID fieldIdentifier newValueEncoded =
     let
         newPayload =
             JE.encode 0 <| encodePayload ( fieldIdentifier, newValueEncoded )
     in
-    Op.pre reducerID objectID newPayload
+    Op.makeChange reducerID objectID newPayload
 
 
 buildRW : OpID.ObjectID -> FieldIdentifier -> (a -> String) -> a -> RW a
