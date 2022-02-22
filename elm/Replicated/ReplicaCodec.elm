@@ -62,8 +62,10 @@ import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
+import Log
 import Regex exposing (Regex)
-import Replicated.Node.Node exposing (Node)
+import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..), buildRW)
@@ -183,6 +185,7 @@ type Error e
     = CustomError e
     | DataCorrupted
     | SerializerOutOfDate
+    | ObjectNotFound OpID
 
 
 version : Int
@@ -624,14 +627,6 @@ char =
         )
 
 
-{-| A reference to an object somewhere else!
--}
-opID : Codec e OpID
-opID =
-    -- currently a copy of String codec
-    Debug.todo "OpID codec"
-
-
 
 -- DATA STRUCTURES
 --{-| Codec for serializing a `Maybe`
@@ -659,23 +654,210 @@ opID =
 --        |> finishCustomType
 
 
-{-| INTERNAL
-A "decoder" that looks in the replica for an RGA object.
-If found, decodes it as a list.
+{-| A repset
 -}
-findRepSet : Node -> OpID.ObjectID -> JD.Decoder (Result (Error e) (List a))
-findRepSet replica location =
-    case Dict.get RepSet.reducerID replica.db of
-        Nothing ->
-            JD.fail "Couldn't find where RepSets are stored"
-
-        Just repSetDatabase ->
-            case Dict.get (OpID.toString location) repSetDatabase of
+repSet : Codec e a -> Codec e (RepSet a)
+repSet memberCodec =
+    let
+        nestableJsonDecoder : ElsewhereData -> JD.Decoder (Result (Error e) (RepSet a))
+        nestableJsonDecoder outer =
+            case outer of
                 Nothing ->
-                    JD.fail ("Couldn't find an RepSet object with objectID " ++ OpID.toString location)
+                    normalJsonDecoder
 
-                Just repSetFound ->
-                    JD.succeed (Debug.todo "buildRepSetfromJson")
+                Just ( node, locationMaybe ) ->
+                    -- we're working with a replica! Try to decode a UUID instead.
+                    -- then, if we find a RepSet by that UUID, run the big decoder on that instead!
+                    let
+                        unstringifier memberAsString =
+                            case JD.decodeString (getJsonDecoder memberCodec outer) memberAsString of
+                                Ok (Ok member) ->
+                                    Just member
+
+                                other ->
+                                    Log.logSeparate "did not parse list member" other Nothing
+
+                        stringifier member =
+                            JE.encode 0 (getJsonEncoder memberCodec member)
+
+                        objectFinder : OpID.ObjectID -> Result (Error errs) (RepSet a)
+                        objectFinder foundID =
+                            case RepSet.buildFromReplicaDb node foundID unstringifier stringifier of
+                                Nothing ->
+                                    Err <| Debug.todo "repset not found"
+
+                                Just repset ->
+                                    Ok repset
+
+                        finalDecoder =
+                            -- take our found ObjectID and convert it to a Register decoder
+                            JD.map objectFinder objectIDDecoder
+                    in
+                    finalDecoder
+
+        normalJsonDecoder =
+            JD.fail "no repset"
+
+        jsonEncoder : RepSet a -> JE.Value
+        jsonEncoder input =
+            JE.list (getJsonEncoder memberCodec) (RepSet.list input)
+
+        bytesEncoder : RepSet a -> BE.Encoder
+        bytesEncoder input =
+            listEncode (getEncoder memberCodec) (RepSet.list input)
+
+        ronEncoder : RonEncoder
+        ronEncoder { node, registerMaybe, counter, mode } =
+            { required = PrerequisiteOps
+            , postPrereqCounter = OutCounter -- has only been used for prereqs & creation
+            , opToWrite = Maybe UnfinishedOp -- no counters used at first
+            }
+    in
+    Codec
+        { encoder = bytesEncoder
+        , decoder =
+            BD.fail
+        , jsonEncoder = jsonEncoder
+        , jsonDecoder = nestableJsonDecoder
+        , ronEncoder = ronEncoder
+        }
+
+
+{-| Encodes a RON object as a list of Ops.
+-- The Op initializing the object comes last in the output list, as the preceding Ops create objects that it depends on. That way we never reference an Op we haven't seen before.
+For nested values:
+-- if it's a normal value (no ronEncoder) just encode it, return a FieldPreOp
+-- if it's a nested object that does not yet exist in the tree, make an ID for it, then proceed with the following.
+-- if it's a nested object that does exist, run its ronEncoder and put its requisite ops above us.
+
+Also returns the ObjectID so that parent repSets can refer to it.
+
+-}
+repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> RonEncoderOutput
+repSetRonEncoder nestedCodec ({ node, existingObjectIDMaybe, counter, mode } as details) =
+    case ( Node.getObjectIfExists node existingObjectIDMaybe, RepSet.buildFromReplicaDb node existingObjectIDMaybe addMember ) of
+        ( Just foundObject, Just foundRepSet ) ->
+            let
+                -- run each nested encoder to build up our prerequisites
+                runRonEncoderOnNestedItems : ( Dict RepSet.MemberID memberType, RonEncoderOutput )
+                runRonEncoderOnNestedItems =
+                    let
+                        passDetailsToNestedEncoder : InCounter -> ( OutCounter, ( Dict RepSet.MemberID memberType, RonEncoderOutput ) )
+                        passDetailsToNestedEncoder thisMemberCounter =
+                            let
+                                toMember oldKey event dictSoFar =
+                                    case unstringifier (Object.eventPayload event) of
+                                        Just decodedPayload ->
+                                            Dict.insert ( OpID.toString (Object.eventReference event), OpID.toString (Object.eventID event) ) decodedPayload dictSoFar
+
+                                        Nothing ->
+                                            dictSoFar
+
+                                run =
+                                    getRonEncoder nestedCodec { node = node, repSetMaybe = oldRepSetMaybe, counter = thisMemberCounter, mode = mode }
+                            in
+                            ( run.postPrereqCounter, ( members, run ) )
+                    in
+                    -- keep track of how many new op IDs have already been used and pass it into the next
+                    List.Extra.mapAccuml passDetailsToNestedEncoder counter foundObject.events
+
+                -- this object's counter is the next one after all the nested encoders have been run
+                objectInitCounter : InCounter
+                objectInitCounter =
+                    runNestedRonEncoder.outCounter
+
+                -- how to create a new object if we can't find an existing one
+                ( newObject, newObjectCreationOp, counterAfterInitialization ) =
+                    let
+                        ( newObjectID, newOutCounter ) =
+                            OpID.generate objectInitCounter node.identity False
+
+                        newObjectCreationOp =
+                            Object.create RepSet.reducerID newObjectID
+                    in
+                    ( RepSet.buildFromReplicaDb node newObjectID unstringifier stringifier, newObjectCreationOp, newOutCounter )
+
+                newObjectCreationOpAsSingletonIfNeeded =
+                    case oldObjectMaybe of
+                        Just _ ->
+                            []
+
+                        Nothing ->
+                            [ newObjectCreationOp ]
+
+                counterToStartPrereqs : InCounter
+                counterToStartPrereqs =
+                    case oldRepSetMaybe of
+                        Just _ ->
+                            repSetReadyCounter
+
+                        Nothing ->
+                            counterAfterInitialization
+
+                prerequisiteOps : List Op
+                prerequisiteOps =
+                    List.concat (List.map .required (Tuple.second runFieldEncodersFirstPass))
+
+                finalRepSet =
+                    Maybe.withDefault newRepSet oldRepSetMaybe
+
+                latestReference =
+                    -- TODO if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
+                    -- RepSet.getLatestReference finalRepSet
+                    RepSet.getID finalRepSet
+
+                -- finally, the actual Ops that set each field
+                finishFieldOps : ( ( OutCounter, OpID.OpID ), List Op )
+                finishFieldOps =
+                    let
+                        accumulator : ( OutCounter, OpID.OpID )
+                        accumulator =
+                            ( counterToStartPrereqs, latestReference )
+
+                        unstampedOpList =
+                            List.filterMap .opToWrite (Tuple.second runFieldEncodersFirstPass)
+
+                        finishOps : ( InCounter, OpID.OpID ) -> UnfinishedOp -> ( ( OutCounter, OpID.OpID ), Op )
+                        finishOps ( givenOpCounter, priorOpID ) opFinisher =
+                            let
+                                ( finishedOp, counterToPassAlong, backReference ) =
+                                    opFinisher { counter = givenOpCounter, opToReference = priorOpID, containingRepSet = finalRepSet }
+                            in
+                            ( ( counterToPassAlong, backReference ), finishedOp )
+                    in
+                    List.Extra.mapAccuml finishOps accumulator unstampedOpList
+
+                exitCounter =
+                    Tuple.first (Tuple.first finishFieldOps)
+
+                fieldSettingOps =
+                    Tuple.second finishFieldOps
+            in
+            -- spit out Ops in dependency order
+            { ops = prerequisiteOps ++ newRepSetCreationOpAsSingletonIfNeeded ++ fieldSettingOps
+            , objectID = RepSet.getID finalRepSet
+            , nextCounter = exitCounter
+            }
+
+        _ ->
+            Debug.todo "not found"
+
+
+{-| Find an object in the replica object database.
+-}
+preExistingObjectMaybe : Node -> ObjectID -> Maybe Object
+preExistingObjectMaybe node givenID =
+    case existingObjectIDMaybe of
+        Just givenID ->
+            case Node.getObjectIfExists node givenID of
+                Just existingObject ->
+                    Ok existingObject
+
+                Nothing ->
+                    Nothing
+
+        Nothing ->
+            Nothing
 
 
 {-| A list
@@ -696,10 +878,10 @@ list codec =
                         unstringifier memberAsString =
                             case JD.decodeString (getJsonDecoder codec outer) memberAsString of
                                 Ok (Ok member) ->
-                                    member
+                                    Just member
 
-                                _ ->
-                                    Debug.todo "couldnt decode list member"
+                                other ->
+                                    Log.logSeparate "did not parse list member" other Nothing
 
                         stringifier member =
                             JE.encode 0 (getJsonEncoder codec member)
@@ -1415,24 +1597,24 @@ finishRecord (PartialRecord allFieldsCodec) =
         , decoder = allFieldsCodec.decoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = runJsonDecoderOnCorrectObject
-        , ronEncoder = Just (objectRonEncoder allFieldsCodec.ronEncoders) -- replace with Nothing for forced-immutable fields
+        , ronEncoder = Just (registerRonEncoder allFieldsCodec.ronEncoders) -- replace with Nothing for forced-immutable fields
         }
 
 
-{-| Encodes an object as a list of Ops.
--- The Op encoding the object comes last in the list, as the preceding Ops create objects that it depends on.
+{-| Encodes an register as a list of Ops.
+-- The Op encoding the register comes last in the list, as the preceding Ops create registers that it depends on.
 For each field:
 -- if it's a normal value (no ronEncoder) just encode it, return a FieldPreOp
--- if it's a nested object that does not yet exist in the tree, make an ID for it, then proceed with the following.
--- if it's a nested object that does exist, run its objectRonEncoder and put its requisite ops above us.
+-- if it's a nested register that does not yet exist in the tree, make an ID for it, then proceed with the following.
+-- if it's a nested register that does exist, run its registerRonEncoder and put its requisite ops above us.
 
-Also returns the ObjectID so that parent objects can refer to it.
+Also returns the ObjectID so that parent registers can refer to it.
 
 Why not create missing Objects in the encoder? Because if it already exists, we'd need to pass the existing ObjectID in anyway. Might as well pass in a guaranteed-existing Register (pre-created if needed)
 
 -}
-objectRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonEncoderOutput
-objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode } as details) =
+registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonEncoderOutput
+registerRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode } as details) =
     let
         oldRegisterMaybe =
             case existingObjectIDMaybe of
@@ -1442,12 +1624,12 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
                             Just oldRegister
 
                         Nothing ->
-                            Debug.todo ("objectRonEncoder was given ID of supposedly pre-existing Register '" ++ OpID.toString givenID ++ "' but Register.build couldn't find it")
+                            Nothing
 
                 Nothing ->
                     Nothing
 
-        -- run each field encoder to build up our object
+        -- run each field encoder to build up our register
         runFieldEncodersFirstPass : ( OutCounter, List RonFieldEncoderOutput )
         runFieldEncodersFirstPass =
             let
@@ -1462,16 +1644,16 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             -- keep track of how many new op IDs have already been used and pass it into the next
             List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
 
-        -- this object's counter is the next one after all the field encoders have been run
-        objectReadyCounter : InCounter
-        objectReadyCounter =
+        -- this register's counter is the next one after all the field encoders have been run
+        registerReadyCounter : InCounter
+        registerReadyCounter =
             Tuple.first runFieldEncodersFirstPass
 
         -- how to create a new Register object if we can't find an existing one
         ( newRegister, newRegisterCreationOp, counterAfterInitialization ) =
             let
                 ( newObjectID, newOutCounter ) =
-                    OpID.generate objectReadyCounter node.identity False
+                    OpID.generate registerReadyCounter node.identity False
 
                 newObjectCreationOp =
                     Register.creation node newObjectID
@@ -1490,7 +1672,7 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
         counterToStartPrereqs =
             case oldRegisterMaybe of
                 Just _ ->
-                    objectReadyCounter
+                    registerReadyCounter
 
                 Nothing ->
                     counterAfterInitialization
@@ -1503,9 +1685,8 @@ objectRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode 
             Maybe.withDefault newRegister oldRegisterMaybe
 
         latestReference =
-            -- TODO if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
-            -- Register.getLatestReference finalRegister
-            Register.getID finalRegister
+            -- if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
+            Maybe.withDefault (Register.getID finalRegister) (Maybe.map .lastSeen oldRegisterMaybe)
 
         -- finally, the actual Ops that set each field
         finishFieldOps : ( ( OutCounter, OpID.OpID ), List Op )

@@ -21,7 +21,7 @@ type RepSet memberType
         { id : ObjectID
         , members : Dict MemberID memberType
         , included : Object.InclusionInfo
-        , memberToString : memberType -> String
+        , addMember : memberType -> Change
         }
 
 
@@ -76,7 +76,7 @@ reducerID =
 --         |> Array.fromList
 
 
-buildFromObject : Object -> (String -> a) -> (a -> String) -> RepSet a
+buildFromObject : Object -> (String -> Maybe a) -> (a -> String) -> RepSet a
 buildFromObject object unstringifier stringifier =
     RepSet
         { id = object.creation
@@ -86,23 +86,13 @@ buildFromObject object unstringifier stringifier =
         }
 
 
-buildFromReplicaDb : Node -> OpID.ObjectID -> (String -> a) -> (a -> String) -> Maybe (RepSet a)
+buildFromReplicaDb : Node -> OpID.ObjectID -> (String -> Maybe a) -> (a -> String) -> Maybe (RepSet a)
 buildFromReplicaDb node objectID unstringifier stringifier =
     let
         convertObjectToRepSet object =
             buildFromObject object unstringifier stringifier
     in
-    Maybe.map convertObjectToRepSet (Node.getObjectIfExists node objectID)
-
-
-eventsToMembers : Dict OpIDString Object.KeptEvent -> (String -> memberType) -> Dict MemberID memberType
-eventsToMembers events unstringifier =
-    -- Forget manual grouping, we can just use a Dict with cleverly ordered tuples as keys, and let the Dict auto-sort itself.
-    let
-        toMember oldKey event dictSoFar =
-            Dict.insert ( OpID.toString (Object.eventReference event), OpID.toString (Object.eventID event) ) (unstringifier (Object.eventPayload event)) dictSoFar
-    in
-    Dict.foldl toMember Dict.empty events
+    Maybe.map convertObjectToRepSet (Node.getObjectIfExists node objectID reducerID)
 
 
 

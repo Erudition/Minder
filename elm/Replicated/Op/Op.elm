@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change, Op, OpPattern(..), Payload, ReducerID, create, fromChange, fromFrame, fromLog, fromString, id, makeChange, makeChangeWithRef, makeChanges, object, pattern, payload, reducer, reference, revert, toString)
+module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, ReducerID, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -119,6 +119,17 @@ create givenReducer givenObject opID givenReferenceMaybe givenPayload =
         , operationID = opID
         , referenceID = givenReferenceMaybe
         , payload = givenPayload
+        }
+
+
+initObject : ReducerID -> OpID -> Op
+initObject givenReducer opID =
+    Op
+        { reducerID = givenReducer
+        , objectID = opID
+        , operationID = opID
+        , referenceID = Nothing
+        , payload = ""
         }
 
 
@@ -310,60 +321,36 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-type alias Change =
-    { reducerID : ReducerID -- TODO needed?
-    , objectID : ObjectID
-    , reference : Maybe OpID
-    , payload : Payload
-    , reversion : Bool
-    }
-
-
-
--- TODO all of this should go in object maybe? Object.Change?
-
-
-makeChange : ReducerID -> OpID.ObjectID -> Payload -> Change
-makeChange givenReducer givenObject givenPayload =
-    { reducerID = givenReducer
-    , objectID = givenObject
-    , reference = Nothing
-    , payload = givenPayload
-    , reversion = False
-    }
-
-
-makeChangeWithRef : ReducerID -> OpID.ObjectID -> OpID -> Payload -> Change
-makeChangeWithRef givenReducer givenObject ref givenPayload =
-    { reducerID = givenReducer
-    , objectID = givenObject
-    , reference = Just ref
-    , payload = givenPayload
-    , reversion = False
-    }
-
-
-revert : ReducerID -> OpID.ObjectID -> OpID -> Change
-revert givenReducer givenObject ref =
-    { reducerID = givenReducer
-    , objectID = givenObject
-    , reference = Just ref
-    , payload = ""
-    , reversion = True
-    }
-
-
-makeChanges : ReducerID -> OpID.ObjectID -> List Payload -> List Change
-makeChanges givenReducer givenObject payloadList =
-    List.map (makeChange givenReducer givenObject) payloadList
-
-
-fromChange : OpID -> OpID -> Change -> Op
-fromChange newIDToAssign lastSeen details =
-    Op
-        { reducerID = details.reducerID
-        , objectID = details.objectID
-        , operationID = newIDToAssign
-        , referenceID = Just <| Maybe.withDefault lastSeen details.reference
-        , payload = details.payload
+type Change
+    = Chunk
+        { object : TargetObject
+        , objectChanges : List ObjectChange
         }
+
+
+type ObjectChange
+    = NewPayload Payload
+    | NewPayloadWithRef { payload : Payload, ref : OpID }
+    | NestedObject Change
+    | RevertOp OpID
+
+
+type TargetObject
+    = ExistingObject ObjectID
+    | NewObject ReducerID
+
+
+
+-- opsFromChange : OpID -> OpID -> Change -> List Op
+-- opsFromChange newIDToAssign lastSeen details =
+--     let
+--
+--     in
+--
+--     Op
+--         { reducerID = details.reducerID
+--         , objectID = details.objectID
+--         , operationID = newIDToAssign
+--         , referenceID = Just <| Maybe.withDefault lastSeen details.reference
+--         , payload = details.payload
+--         }

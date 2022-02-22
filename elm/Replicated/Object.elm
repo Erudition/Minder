@@ -9,10 +9,11 @@ import SmartTime.Moment as Moment exposing (Moment)
 {-| The most generic "object", to be inherited by other replicated data types for specific functionality.
 -}
 type alias Object =
-    { creation : ObjectID
+    { reducer : Op.ReducerID
+    , creation : ObjectID
     , events : Dict OpIDString KeptEvent
     , included : InclusionInfo
-    , latest : OpID
+    , lastSeen : OpID
     }
 
 
@@ -59,7 +60,8 @@ applyOp newOp oldObjectMaybe =
     case ( oldObjectMaybe, Op.reference newOp ) of
         ( Just oldObject, Just ref ) ->
             Just
-                { creation = oldObject.creation
+                { reducer = oldObject.reducer
+                , creation = oldObject.creation
                 , events =
                     if Op.pattern newOp == Op.DeletionOp then
                         Dict.remove (OpID.toString ref) oldObject.events
@@ -67,16 +69,17 @@ applyOp newOp oldObjectMaybe =
                     else
                         Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
                 , included = oldObject.included
-                , latest = OpID.latest oldObject.latest (Op.id newOp)
+                , lastSeen = OpID.latest oldObject.lastSeen (Op.id newOp)
                 }
 
         ( Nothing, Nothing ) ->
             -- assume empty payload means object creation
             Just
-                { creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
+                { reducer = Op.reducer newOp
+                , creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
                 , events = Dict.empty
                 , included = All
-                , latest = Op.id newOp
+                , lastSeen = Op.id newOp
                 }
 
         _ ->
@@ -87,31 +90,3 @@ type InclusionInfo
     = All
     | EverythingAfter Moment
     | LatestSnapshotOnly
-
-
-
---{-| Convert a Tree (just a list of same-object Ops) to an ObjectLog.
---Removes all the redundant metadata from the Ops and stores it in one place.
---
---ObjectLogs get passed on to reducers for further interpretation.
---
----}
---fromGroup : Op.Group -> Object
---fromGroup singleObjectLog =
---    let
---        commonObjectDetails =
---            (List.Nonempty.head singleObjectLog).specifier.object
---
---        nonCreationOps =
---            List.Nonempty.tail singleObjectLog
---
---        eventLog =
---            List.map toEvent nonCreationOps
---
---        toEvent op =
---            ( op.specifier.event, op.payload )
---    in
---    { root = commonObjectDetails
---    , events = eventLog
---    , included = All
---    }

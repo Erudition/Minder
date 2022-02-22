@@ -14,7 +14,7 @@ import SmartTime.Moment exposing (Moment)
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
 -}
 type alias Node =
-    { identity : NodeID, peers : List Peer, db : ReplicaTree, root : Maybe ObjectID }
+    { identity : NodeID, peers : List Peer, objects : ObjectsByCreationDb, root : Maybe ObjectID }
 
 
 {-| Start our program, persisting the identity we had last time.
@@ -33,7 +33,7 @@ initFromSaved foundIdentity inputDatabase =
             Ok
                 { identity = bumpSessionID oldNodeID
                 , peers = []
-                , db = Dict.empty
+                , objects = Dict.empty
                 , root = Nothing
                 }
 
@@ -52,28 +52,20 @@ firstSessionEver =
 
 blankNode : Node
 blankNode =
-    { identity = firstSessionEver, peers = [], db = Dict.empty, root = Nothing }
+    { identity = firstSessionEver, peers = [], objects = Dict.empty, root = Nothing }
 
 
 applyLocalChanges : Moment -> Node -> List Change -> ( List Op, Node )
 applyLocalChanges time node changes =
     let
         initialAccumulator =
-            ( OpID.firstCounter time, Nothing )
+            OpID.firstCounter time
 
-        finishOneOp : ( InCounter, Maybe OpID ) -> Change -> ( ( OutCounter, Maybe OpID ), Op )
-        finishOneOp ( inCounter, lastIDMaybe ) givenChange =
-            let
-                ( newID, outCounter ) =
-                    OpID.generate inCounter node.identity givenChange.reversion
+        ( finalCounter, listOfFinishedOpsLists ) =
+            List.Extra.mapAccuml (oneChangeToOps node) initialAccumulator changes
 
-                objectLastSeenID =
-                    getObjectLastSeenID node givenChange.reducerID givenChange.objectID
-            in
-            ( ( outCounter, Just newID ), Op.fromChange newID (Maybe.withDefault objectLastSeenID lastIDMaybe) givenChange )
-
-        ( finalCounter, finishedOps ) =
-            List.Extra.mapAccuml finishOneOp initialAccumulator changes
+        finishedOps =
+            List.concat listOfFinishedOpsLists
 
         updatedNode =
             List.foldl updateNodeWithSingleOp node finishedOps
@@ -81,46 +73,137 @@ applyLocalChanges time node changes =
     ( finishedOps, updatedNode )
 
 
-getObjectLastSeenID : Node -> ReducerID -> ObjectID -> OpID
-getObjectLastSeenID node reducer objectID =
+{-| Passed to mapAccuml, so must have accumulator and change as last params
+-}
+oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
+oneChangeToOps node inCounter change =
+    case change of
+        Op.Chunk chunk ->
+            chunkToOps node inCounter chunk
+
+
+chunkToOps : Node -> InCounter -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( OutCounter, List Op )
+chunkToOps node inCounter { object, objectChanges } =
     let
-        relevantObjectTypeDatabase =
-            Maybe.withDefault Dict.empty <| Dict.get reducer node.db
+        { reducerID, objectID, lastSeen, initializationOps, postInitCounter } =
+            getOrInitObject node inCounter object
 
-        relevantObject =
-            Dict.get (OpID.toString objectID) relevantObjectTypeDatabase
+        objectChangeOps =
+            List.Extra.mapAccuml (objectChangeToOp node reducerID objectID) ( inCounter, lastSeen ) objectChanges
     in
-    Maybe.withDefault objectID <| Maybe.map .latest relevantObject
+    ( someFinalCounter, [] )
 
 
-type alias ReducerNameString =
-    String
+objectChangeToOp : Node -> ReducerID -> ObjectID -> ( InCounter, OpID ) -> Op.ObjectChange -> ( ( OutCounter, OpID ), { pre : List Op, post : List Op } )
+objectChangeToOp node reducerID objectID ( inCounter, lastOpID ) objectChange =
+    let
+        newOpHelper : OpID -> Op.Payload -> ( OutCounter, Op )
+        newOpHelper =
+            let
+                ( newID, outCounter ) =
+                    OpID.generate inCounter node.identity False
+            in
+            Op.create reducerID objectID newID
+    in
+    case objectChange of
+        Op.NewPayload payload ->
+            let
+                ( outCounter, newOp ) =
+                    newOpHelper inCounter lastOpID payload
+            in
+            ( ( outCounter, Op.id newOp ), { pre = [], post = [ newOp ] } )
+
+        Op.NewPayloadWithRef { payload, ref } ->
+            let
+                ( outCounter, newOp ) =
+                    newOpHelper inCounter ref payload
+            in
+            ( ( outCounter, Op.id newOp ), { pre = [], post = [ newOp ] } )
+
+        Op.NestedObject change ->
+            let
+                ( outCounter, nestedOps ) =
+                    oneChangeToOps node inCounter change
+            in
+            { pre = nestedOps, post = [] }
+
+        Op.RevertOp opIDToRevert ->
+            let
+                ( outCounter, reversionOp ) =
+                    opThatRevertsAnOp node inCounter opIDToRevert
+            in
+            { pre = [], post = [ reversionOp ] }
+
+
+getOrInitObject :
+    Node
+    -> InCounter
+    -> Op.TargetObject
+    ->
+        { reducerID : ReducerID
+        , objectID : ObjectID
+        , lastSeen : OpID
+        , initializationOps : List Op
+        , postInitCounter : OutCounter
+        }
+getOrInitObject node inCounter targetObject =
+    case targetObject of
+        Op.ExistingObject objectID ->
+            case Dict.get (OpID.toString objectID) node.objects of
+                Nothing ->
+                    Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
+
+                Just foundObject ->
+                    { reducerID = foundObject.reducer
+                    , objectID = foundObject.creation
+                    , lastSeen = foundObject.lastSeen
+                    , initializationOps = []
+                    , postInitCounter = inCounter
+                    }
+
+        Op.NewObject reducerID ->
+            let
+                ( newID, outCounter ) =
+                    OpID.generate inCounter node.identity False
+            in
+            { reducerID = reducerID
+            , objectID = newID
+            , lastSeen = newID
+            , initializationOps = [ Op.initObject reducerID newID ]
+            , postInitCounter = outCounter
+            }
+
+
+opThatRevertsAnOp : Node -> InCounter -> OpID -> ( OutCounter, Op )
+opThatRevertsAnOp node inCounter ( opReducerID, opObjectID, opIDToRevert ) =
+    let
+        reversionOp =
+            Op.create opReducerID opObjectID newID (Just opIDToRevert) ""
+
+        ( newID, outCounter ) =
+            OpID.generate inCounter node.identity True
+    in
+    ( outCounter, reversionOp )
+
+
+
+-- getObjectLastSeenID : Node -> ReducerID -> ObjectID -> OpID
+-- getObjectLastSeenID node reducer objectID =
+--     let
+--         relevantObject =
+--             Dict.get (OpID.toString objectID) node.objects
+--     in
+--     Maybe.withDefault objectID <| Maybe.map .lastSeen relevantObject
 
 
 updateNodeWithSingleOp op node =
-    { node | db = applyOpToDb node.db op }
+    { node | objects = updateObject node.objects op }
 
 
-{-| Takes a single (e.g. newly received) Op and inserts it deep into the structure
--}
-applyOpToDb : ReplicaTree -> Op -> ReplicaTree
-applyOpToDb previous newOp =
-    let
-        updatedValue maybeOBCD =
-            -- If we've never seen this object before, we won't get a db, so make a fresh one
-            Just <| updateObject newOp (Maybe.withDefault Dict.empty maybeOBCD)
-    in
-    Dict.update (Op.reducer newOp) updatedValue previous
-
-
-updateObject : Op -> ObjectsByCreationDb -> ObjectsByCreationDb
-updateObject newOp oBCDict =
-    -- we have an object db. Do work inside it, and return it
+updateObject : ObjectsByCreationDb -> Op -> ObjectsByCreationDb
+updateObject oBCDict newOp =
+    -- we have an object objects. Do work inside it, and return it
     Dict.update (OpID.toString (Op.object newOp)) (Object.applyOp newOp) oBCDict
-
-
-type alias ReplicaTree =
-    Dict ReducerNameString ObjectsByCreationDb
 
 
 type alias ObjectsByCreationDb =
@@ -129,11 +212,7 @@ type alias ObjectsByCreationDb =
 
 getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
 getObjectIfExists node objectID =
-    let
-        registerDatabase =
-            Maybe.withDefault Dict.empty (Dict.get "lww" node.db)
-    in
-    Dict.get (OpID.toString objectID) registerDatabase
+    Dict.get (OpID.toString objectID) node.objects
 
 
 

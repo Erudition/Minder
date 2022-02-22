@@ -46,7 +46,7 @@ build node objectID =
         convertObjectToRegister obj =
             Register { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID)
+    Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID reducerID)
 
 
 creation : Node -> OpID.ObjectID -> Op

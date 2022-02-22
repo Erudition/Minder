@@ -22,6 +22,7 @@ suite =
         , readOnlyObjectEncodeThenDecode
         , writableObjectEncodeThenDecode
         , writableObjectModify
+        , repSetEncodeThenDecode
         ]
 
 
@@ -194,6 +195,40 @@ writableObjectModify =
 
 
 --- REPSETS
--- simpleRepSet : RepSet Int
--- simpleRepSet =
---     _
+
+
+simpleList : List String
+simpleList =
+    [ "Alpha", "Beta", "Charley", "Delta", "Gamma" ]
+
+
+simpleListCodec : Codec e (RepSet String)
+simpleListCodec =
+    RC.repSet RC.string
+
+
+fakeNodeWithSimpleList : Node
+fakeNodeWithSimpleList =
+    let
+        ( simpleListAsOpList, rootIDMaybe ) =
+            RC.encodeToRonWithRootID Node.blankNode OpID.testCounter simpleListCodec
+
+        apply op node =
+            { node | db = Node.applyOpToDb node.db op }
+
+        filledNode =
+            List.foldl apply Node.blankNode simpleListAsOpList
+    in
+    { filledNode | root = rootIDMaybe }
+
+
+repSetEncodeThenDecode =
+    test "Encoding a list to Ron, applying to a node, then decoding it from Ron." <|
+        \_ ->
+            let
+                processOutput =
+                    RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList
+                        |> Result.map RepSet.list
+            in
+            processOutput
+                |> Expect.equal (Ok simpleList)
