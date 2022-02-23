@@ -73,66 +73,107 @@ applyLocalChanges time node changes =
     ( finishedOps, updatedNode )
 
 
+
+-- combineSameObjectChunks : List Change -> List Change
+-- combineSameObjectChunks changes =
+--     let
+--         sameObject (Op.Chunk obj) =
+--             obj.object
+--     in
+--     List.Extra.uniqueBy sameObject changes
+
+
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
 oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
 oneChangeToOps node inCounter change =
     case change of
-        Op.Chunk chunk ->
-            chunkToOps node inCounter chunk
-
-
-chunkToOps : Node -> InCounter -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( OutCounter, List Op )
-chunkToOps node inCounter { object, objectChanges } =
-    let
-        { reducerID, objectID, lastSeen, initializationOps, postInitCounter } =
-            getOrInitObject node inCounter object
-
-        objectChangeOps =
-            List.Extra.mapAccuml (objectChangeToOp node reducerID objectID) ( inCounter, lastSeen ) objectChanges
-    in
-    ( someFinalCounter, [] )
-
-
-objectChangeToOp : Node -> ReducerID -> ObjectID -> ( InCounter, OpID ) -> Op.ObjectChange -> ( ( OutCounter, OpID ), { pre : List Op, post : List Op } )
-objectChangeToOp node reducerID objectID ( inCounter, lastOpID ) objectChange =
-    let
-        newOpHelper : OpID -> Op.Payload -> ( OutCounter, Op )
-        newOpHelper =
+        Op.Chunk chunkRecord ->
             let
-                ( newID, outCounter ) =
-                    OpID.generate inCounter node.identity False
+                ( ( outCounter, _ ), chunkOps ) =
+                    chunkToOps node ( inCounter, Nothing ) chunkRecord
             in
-            Op.create reducerID objectID newID
+            ( outCounter, chunkOps )
+
+
+{-| Turns a change Chunk (same-object changes) into finalized ops.
+in mapAccuml form
+-}
+chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps node ( inCounter, _ ) { object, objectChanges } =
+    let
+        -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
+        ( postPrereqCounter, processedChanges ) =
+            List.Extra.mapAccuml (objectChangeToUnstampedOp node) inCounter objectChanges
+
+        allPrereqOps =
+            List.concatMap .prerequisiteOps processedChanges
+
+        allUnstampedChunkOps =
+            List.map .thisObjectOp processedChanges
+
+        { reducerID, objectID, lastSeen, initializationOps, postInitCounter } =
+            getOrInitObject node postPrereqCounter object
+
+        stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
+        stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
+            let
+                ( newID, stampOutCounter ) =
+                    OpID.generate stampInCounter node.identity givenUCO.reversion
+
+                stampedOp =
+                    Op.create reducerID objectID newID (Just <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
+            in
+            ( ( stampOutCounter, newID ), stampedOp )
+
+        ( ( counterAfterObjectChanges, newLastSeen ), objectChangeOps ) =
+            List.Extra.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
+    in
+    ( ( counterAfterObjectChanges, Just objectID ), allPrereqOps ++ initializationOps ++ objectChangeOps )
+
+
+type alias UnstampedChunkOp =
+    { reference : Maybe OpID, payload : Op.Payload, reversion : Bool }
+
+
+{-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
+-}
+objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+objectChangeToUnstampedOp node inCounter objectChange =
+    let
+        outputHelper : UnstampedChunkOp -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+        outputHelper unstampedChunkOp =
+            ( inCounter
+            , { prerequisiteOps = []
+              , thisObjectOp = unstampedChunkOp
+              }
+            )
     in
     case objectChange of
         Op.NewPayload payload ->
-            let
-                ( outCounter, newOp ) =
-                    newOpHelper inCounter lastOpID payload
-            in
-            ( ( outCounter, Op.id newOp ), { pre = [], post = [ newOp ] } )
+            outputHelper { reference = Nothing, payload = payload, reversion = False }
 
         Op.NewPayloadWithRef { payload, ref } ->
-            let
-                ( outCounter, newOp ) =
-                    newOpHelper inCounter ref payload
-            in
-            ( ( outCounter, Op.id newOp ), { pre = [], post = [ newOp ] } )
-
-        Op.NestedObject change ->
-            let
-                ( outCounter, nestedOps ) =
-                    oneChangeToOps node inCounter change
-            in
-            { pre = nestedOps, post = [] }
+            outputHelper { reference = Just ref, payload = payload, reversion = False }
 
         Op.RevertOp opIDToRevert ->
+            outputHelper { reference = Just opIDToRevert, payload = "", reversion = True }
+
+        Op.NestedObject (Op.Chunk chunk) newObjectIDToPayload ->
             let
-                ( outCounter, reversionOp ) =
-                    opThatRevertsAnOp node inCounter opIDToRevert
+                ( ( postPrereqCounter, subObjectIDMaybe ), prereqOps ) =
+                    chunkToOps node ( inCounter, Nothing ) chunk
+
+                pointerPayload =
+                    -- subObjectIDMaybe should never be nothing, but we have no way to pass an initial value to mapAccuml without wrapping in maybe...
+                    Maybe.map newObjectIDToPayload subObjectIDMaybe
+                        |> Maybe.withDefault ""
             in
-            { pre = [], post = [ reversionOp ] }
+            ( postPrereqCounter
+            , { prerequisiteOps = prereqOps
+              , thisObjectOp = { reference = Nothing, payload = pointerPayload, reversion = False }
+              }
+            )
 
 
 getOrInitObject :
@@ -172,18 +213,6 @@ getOrInitObject node inCounter targetObject =
             , initializationOps = [ Op.initObject reducerID newID ]
             , postInitCounter = outCounter
             }
-
-
-opThatRevertsAnOp : Node -> InCounter -> OpID -> ( OutCounter, Op )
-opThatRevertsAnOp node inCounter ( opReducerID, opObjectID, opIDToRevert ) =
-    let
-        reversionOp =
-            Op.create opReducerID opObjectID newID (Just opIDToRevert) ""
-
-        ( newID, outCounter ) =
-            OpID.generate inCounter node.identity True
-    in
-    ( outCounter, reversionOp )
 
 
 

@@ -6,7 +6,7 @@ import Dict exposing (Dict)
 import Helpers
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
-import Replicated.Node.Node exposing (Node, ReplicaTree)
+import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Change, Op, Payload, ReducerID)

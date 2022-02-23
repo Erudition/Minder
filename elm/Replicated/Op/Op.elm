@@ -18,7 +18,7 @@ type alias OpRecord =
     { reducerID : ReducerID
     , objectID : ObjectID
     , operationID : OpID
-    , referenceID : Maybe OpID
+    , reference : Maybe OpID
     , payload : Payload
     }
 
@@ -32,7 +32,7 @@ type alias OpRecord =
 --                 |> RS.field .reducerID RS.string
 --                 |> RS.field .objectID OpID.codec
 --                 |> RS.field .operationID OpID.codec
---                 |> RS.field .referenceID (RS.maybe OpID.codec)
+--                 |> RS.field .reference (RS.maybe OpID.codec)
 --                 |> RS.field .payload RS.string
 --                 |> RS.finishRecord
 --     in
@@ -58,7 +58,7 @@ type OpPattern
 
 pattern : Op -> OpPattern
 pattern (Op opRecord) =
-    case ( OpID.isReversion opRecord.operationID, Maybe.map OpID.isReversion opRecord.referenceID ) of
+    case ( OpID.isReversion opRecord.operationID, Maybe.map OpID.isReversion opRecord.reference ) of
         ( False, Just False ) ->
             -- "+", "+"
             NormalOp
@@ -117,7 +117,7 @@ create givenReducer givenObject opID givenReferenceMaybe givenPayload =
         { reducerID = givenReducer
         , objectID = givenObject
         , operationID = opID
-        , referenceID = givenReferenceMaybe
+        , reference = givenReferenceMaybe
         , payload = givenPayload
         }
 
@@ -128,13 +128,13 @@ initObject givenReducer opID =
         { reducerID = givenReducer
         , objectID = opID
         , operationID = opID
-        , referenceID = Nothing
+        , reference = Nothing
         , payload = ""
         }
 
 
 reference (Op op) =
-    op.referenceID
+    op.reference
 
 
 reducer (Op op) =
@@ -160,7 +160,7 @@ toString (Op op) =
             "@" ++ OpID.toString op.operationID
 
         ref =
-            ":" ++ OpID.toString (Maybe.withDefault op.objectID op.referenceID)
+            ":" ++ OpID.toString (Maybe.withDefault op.objectID op.reference)
     in
     opID ++ " " ++ ref ++ " " ++ op.payload
 
@@ -331,7 +331,7 @@ type Change
 type ObjectChange
     = NewPayload Payload
     | NewPayloadWithRef { payload : Payload, ref : OpID }
-    | NestedObject Change
+    | NestedObject Change (ObjectID -> Payload)
     | RevertOp OpID
 
 
@@ -351,6 +351,6 @@ type TargetObject
 --         { reducerID = details.reducerID
 --         , objectID = details.objectID
 --         , operationID = newIDToAssign
---         , referenceID = Just <| Maybe.withDefault lastSeen details.reference
+--         , reference = Just <| Maybe.withDefault lastSeen details.reference
 --         , payload = details.payload
 --         }
