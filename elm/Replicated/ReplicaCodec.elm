@@ -117,14 +117,7 @@ type alias NestableJsonDecoder e a =
 
 
 type alias RonEncoder =
-    RonEncoderInputs -> RonEncoderOutput
-
-
-type alias RonEncoderOutput =
-    { ops : List Op
-    , objectID : OpID
-    , nextCounter : OutCounter
-    }
+    RonEncoderInputs -> Op.Change
 
 
 {-| The Ops formed by running nested ronEncoders. They always come first because the current encoder may rely on objects that have not been created yet.
@@ -472,7 +465,7 @@ encodeToRonWithRootID node counter codec =
         Just ronEncoder ->
             let
                 encoded =
-                    ronEncoder { node = node, existingObjectIDMaybe = Nothing, counter = counter, mode = IncludeDefaults }
+                    ronEncoder { node = node, existingObjectIDMaybe = Nothing, mode = IncludeDefaults }
             in
             ( .ops encoded, Just <| .objectID encoded )
 
@@ -707,11 +700,16 @@ repSet memberCodec =
             listEncode (getEncoder memberCodec) (RepSet.list input)
 
         ronEncoder : RonEncoder
-        ronEncoder { node, registerMaybe, counter, mode } =
-            { required = PrerequisiteOps
-            , postPrereqCounter = OutCounter -- has only been used for prereqs & creation
-            , opToWrite = Maybe UnfinishedOp -- no counters used at first
-            }
+        ronEncoder { node, existingMaybe, mode } =
+            case RepSet.buildFromReplicaDb node existingMaybe unstringifier stringifier of
+                Nothing ->
+                    Op.Chunk { object = Op.NewObject RepSet.reducerID, objectChanges = [] }
+
+                Just foundRepSetObjectID ->
+                    Op.Chunk
+                        { object = Op.ExistingObject foundRepSetObjectID
+                        , objectChanges = []
+                        }
     in
     Codec
         { encoder = bytesEncoder

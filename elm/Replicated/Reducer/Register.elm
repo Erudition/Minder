@@ -46,7 +46,7 @@ build node objectID =
         convertObjectToRegister obj =
             Register { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
     in
-    Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID reducerID)
+    Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID)
 
 
 creation : Node -> OpID.ObjectID -> Op
@@ -429,17 +429,17 @@ type alias RW yourtype =
     }
 
 
-changeField : OpID.ObjectID -> FieldIdentifier -> String -> Change
-changeField objectID fieldIdentifier newValueEncoded =
+changeField : Op.TargetObject -> FieldIdentifier -> String -> Change
+changeField targetObject fieldIdentifier newValueEncoded =
     let
         newPayload =
             JE.encode 0 <| encodePayload ( fieldIdentifier, newValueEncoded )
     in
-    Op.makeChange reducerID objectID newPayload
+    Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload newPayload ] }
 
 
 buildRW : OpID.ObjectID -> FieldIdentifier -> (a -> String) -> a -> RW a
 buildRW objectID fieldIdentifier stringifier thing =
     { get = thing
-    , set = \new -> changeField objectID fieldIdentifier (stringifier new)
+    , set = \new -> changeField (Op.ExistingObject objectID) fieldIdentifier (stringifier new)
     }

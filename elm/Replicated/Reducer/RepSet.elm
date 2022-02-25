@@ -5,7 +5,7 @@ import Dict exposing (Dict)
 import Dict.Extra as Dict
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Replicated.Node.Node as Node exposing (Node, ReplicaTree)
+import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Change)
@@ -131,16 +131,31 @@ dict (RepSet repSetRecord) =
 -}
 insertAfter : RepSet memberType -> MemberID -> memberType -> Change
 insertAfter (RepSet repSetRecord) attachmentPoint newItem =
-    Op.makeChangeWithRef reducerID repSetRecord.id (memberIDToOpID attachmentPoint) (repSetRecord.memberToString newItem)
+    Op.Chunk
+        { object = Op.ExistingObject repSetRecord.id
+        , objectChanges =
+            [ Op.NewPayloadWithRef { payload = repSetRecord.memberToString newItem, ref = memberIDToOpID attachmentPoint } ]
+        }
 
 
 {-| Add items to the collection.
 -}
-append : RepSet memberType -> List memberType -> List Change
+append : RepSet memberType -> List memberType -> Change
 append (RepSet repSetRecord) newItems =
-    Op.makeChanges reducerID repSetRecord.id (List.map repSetRecord.memberToString newItems)
+    let
+        newItemToObjectChange newItem =
+            Op.NewPayload (repSetRecord.memberToString newItem)
+    in
+    Op.Chunk
+        { object = Op.ExistingObject repSetRecord.id
+        , objectChanges = List.map newItemToObjectChange newItems
+        }
 
 
 remove : RepSet memberType -> MemberID -> Change
 remove (RepSet repSetRecord) itemToRemove =
-    Op.revert reducerID repSetRecord.id (memberIDToOpID itemToRemove)
+    Op.Chunk
+        { object = Op.ExistingObject repSetRecord.id
+        , objectChanges =
+            [ Op.RevertOp (memberIDToOpID itemToRemove) ]
+        }
