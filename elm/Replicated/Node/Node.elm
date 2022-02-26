@@ -14,13 +14,18 @@ import SmartTime.Moment exposing (Moment)
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
 -}
 type alias Node =
-    { identity : NodeID, peers : List Peer, objects : ObjectsByCreationDb, root : Maybe ObjectID }
+    { identity : NodeID
+    , objects : ObjectsByCreationDb
+    , root : Maybe ObjectID -- TODO should this be maybe?
+    , lastUsedCounter : OutCounter
+    , peers : List Peer
+    }
 
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> List Op -> Result InitError Node
-initFromSaved foundIdentity inputDatabase =
+initFromSaved : String -> Int -> List Op -> Result InitError Node
+initFromSaved foundIdentity foundCounter inputDatabase =
     let
         lastIdentity =
             fromString foundIdentity
@@ -35,6 +40,7 @@ initFromSaved foundIdentity inputDatabase =
                 , peers = []
                 , objects = Dict.empty
                 , root = Nothing
+                , lastUsedCounter = OpID.importCounter foundCounter
                 }
 
         Nothing ->
@@ -50,19 +56,16 @@ firstSessionEver =
     { primus = 0, peer = 0, client = 0, session = 0 }
 
 
-blankNode : Node
-blankNode =
-    { identity = firstSessionEver, peers = [], objects = Dict.empty, root = Nothing }
+startNewNode : Moment -> Node
+startNewNode now =
+    { identity = firstSessionEver, peers = [], objects = Dict.empty, root = Nothing, lastUsedCounter = OpID.firstCounter now }
 
 
 applyLocalChanges : Moment -> Node -> List Change -> ( List Op, Node )
 applyLocalChanges time node changes =
     let
-        initialAccumulator =
-            OpID.firstCounter time
-
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.Extra.mapAccuml (oneChangeToOps node) initialAccumulator changes
+            List.Extra.mapAccuml (oneChangeToOps node) node.lastUsedCounter (combineSameObjectChunks changes)
 
         finishedOps =
             List.concat listOfFinishedOpsLists
@@ -73,14 +76,29 @@ applyLocalChanges time node changes =
     ( finishedOps, updatedNode )
 
 
+combineSameObjectChunks : List Change -> List Change
+combineSameObjectChunks changes =
+    let
+        sameObjectID change1 change2 =
+            case ( change1, change2 ) of
+                ( Op.Chunk (Op.ExistingObject objectID1), Op.Chunk (Op.ExistingObject objectID2) ) ->
+                    objectID1 == objectID2
 
--- combineSameObjectChunks : List Change -> List Change
--- combineSameObjectChunks changes =
---     let
---         sameObject (Op.Chunk obj) =
---             obj.object
---     in
---     List.Extra.uniqueBy sameObject changes
+                _ ->
+                    False
+
+        sameObjectGroups =
+            List.Extra.gatherWith sameObjectID changes
+
+        combineGroupedItems group =
+            case group of
+                ( Op.Chunk { object, objectChanges }, rest ) ->
+                    Op.Chunk { object = object, objectChanges = objectChanges ++ extractChanges rest }
+
+                ( singleItem, rest ) ->
+                    singleItem :: rest
+    in
+    List.concatMap combineGroupedItems sameObjectGroups
 
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
