@@ -45,7 +45,7 @@ fakeOps =
 
 
 fakeNode =
-    List.foldl Node.updateNodeWithSingleOp Node.blankNode fakeOps
+    List.foldl Node.updateNodeWithSingleOp Node.startNewNode fakeOps
 
 
 type alias ReadOnlyObject =
@@ -211,13 +211,13 @@ fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
     let
         ( simpleListAsOpList, rootIDMaybe ) =
-            RC.encodeToRonWithRootID Node.blankNode OpID.testCounter simpleListCodec
+            RC.encodeToRonWithRootID Node.startNewNode OpID.testCounter simpleListCodec
 
         apply op node =
             { node | db = Node.applyOpToDb node.db op }
 
         filledNode =
-            List.foldl apply Node.blankNode simpleListAsOpList
+            List.foldl apply Node.startNewNode simpleListAsOpList
     in
     { filledNode | root = rootIDMaybe }
 

@@ -39,53 +39,30 @@ reducerID =
     "repset"
 
 
-
--- type Member memberType
---     = Member
---         { stamp : OpID.EventStamp
---         , value : memberType
---         }
--- eventsToMembersOld : Dict OpIDString Object.KeptEvent -> (String -> a) -> Array (Member a)
--- eventsToMembersOld events unstringifier =
---     -- This is the simplest way I could think to do this but definitely needs an eventual performance upgrade.
---     -- Use grouping instead of maintaining a tree.
---     let
---         eventsList =
---             Dict.values events
---
---         eventsHaveSameNode event1 event2 =
---             -- This should group events with the later events that reference them.
---             -- TODO is it necessary to include || Object.eventID event2 == Object.eventReference event1 ?
---             Object.eventReference event1 == Object.eventReference event2 || Object.eventID event1 == Object.eventReference event2
---
---         concurrentGroups =
---             List.gatherEqualsBy Object.eventReference eventsList
---                 |> List.map toNormalList
---
---         toNormalList ( head, tail ) =
---             head :: tail
---
---         toMember event =
---             Member
---                 { stamp = OpID.getEventStamp (Object.eventID event)
---                 , value = unstringifier (Object.eventPayload event)
---                 }
---     in
---     List.concat concurrentGroups
---         |> List.map toMember
---         |> Array.fromList
-
-
 buildFromObject : Object -> (String -> Maybe a) -> (a -> String) -> RepSet a
 buildFromObject object unstringifier stringifier =
+    let
+        eventsAsMembers : Dict MemberID memberType
+        eventsAsMembers =
+            Dict.foldl
+                (\k event acc ->
+                    Dict.insert ( Object.eventReference event |> OpID.toString, Object.eventID event |> OpID.toString )
+                        (unstringifier (Object.eventPayload event))
+                        acc
+                )
+                Dict.empty
+                object.events
+    in
     RepSet
         { id = object.creation
-        , members = eventsToMembers object.events unstringifier
+        , members = eventsAsMembers
         , memberToString = stringifier
         , included = object.included
         }
 
 
+{-| We assume object exists, missing object should be handled beforehand.
+-}
 buildFromReplicaDb : Node -> OpID.ObjectID -> (String -> Maybe a) -> (a -> String) -> Maybe (RepSet a)
 buildFromReplicaDb node objectID unstringifier stringifier =
     let

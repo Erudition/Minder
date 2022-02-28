@@ -81,22 +81,27 @@ combineSameObjectChunks changes =
     let
         sameObjectID change1 change2 =
             case ( change1, change2 ) of
-                ( Op.Chunk (Op.ExistingObject objectID1), Op.Chunk (Op.ExistingObject objectID2) ) ->
-                    objectID1 == objectID2
+                ( Op.Chunk chunk1, Op.Chunk chunk2 ) ->
+                    case ( chunk1.object, chunk2.object ) of
+                        ( Op.ExistingObject objectID1, Op.ExistingObject objectID2 ) ->
+                            objectID1 == objectID2
 
-                _ ->
-                    False
+                        _ ->
+                            False
 
         sameObjectGroups =
             List.Extra.gatherWith sameObjectID changes
 
         combineGroupedItems group =
             case group of
-                ( Op.Chunk { object, objectChanges }, rest ) ->
-                    Op.Chunk { object = object, objectChanges = objectChanges ++ extractChanges rest }
+                ( singleItem, [] ) ->
+                    [ singleItem ]
 
-                ( singleItem, rest ) ->
-                    singleItem :: rest
+                ( Op.Chunk { object, objectChanges }, rest ) ->
+                    [ Op.Chunk { object = object, objectChanges = objectChanges ++ List.concatMap extractChanges rest } ]
+
+        extractChanges (Op.Chunk { objectChanges }) =
+            objectChanges
     in
     List.concatMap combineGroupedItems sameObjectGroups
 

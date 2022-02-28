@@ -90,3 +90,7 @@ type InclusionInfo
     = All
     | EverythingAfter Moment
     | LatestSnapshotOnly
+
+
+type ReducerWarning
+    = OpDecodeFailed OpIDString Payload

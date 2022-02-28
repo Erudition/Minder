@@ -20,7 +20,6 @@ import SmartTime.Moment as Moment exposing (Moment)
 type Register
     = Register
         { id : OpID.ObjectID
-        , changeHistory : List FieldChange -- can be truncated by timestamp for a historical snapshot
         , included : Object.InclusionInfo
         }
 
@@ -36,7 +35,7 @@ getID (Register register) =
 
 empty : OpID.ObjectID -> Register
 empty objectID =
-    Register { id = objectID, changeHistory = [], included = Object.All }
+    Register { id = objectID, included = Object.All }
 
 
 build : Node -> OpID.ObjectID -> Maybe Register
@@ -44,7 +43,7 @@ build node objectID =
     let
         convertObjectToRegister : Object -> Register
         convertObjectToRegister obj =
-            Register { id = objectID, changeHistory = buildHistory obj.events, included = Object.All }
+            Register { id = objectID, included = Object.All }
     in
     Maybe.map convertObjectToRegister (Replicated.Node.Node.getObjectIfExists node objectID)
 
@@ -92,33 +91,31 @@ type FieldChange
         }
 
 
-{-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a Register field change item.
--}
-toFieldChange : ( String, Object.KeptEvent ) -> Maybe FieldChange
-toFieldChange ( eventStampString, Object.KeptEvent eventDetails ) =
-    let
-        interpretedPayload =
-            Result.toMaybe (JD.decodeString decodePayload eventDetails.payload)
 
-        stampFromString =
-            Maybe.map OpID.getEventStamp (OpID.fromString eventStampString)
-
-        fieldChangeWithStamp validStamp validPayload =
-            FieldChange
-                { stamp = validStamp
-                , field = Tuple.first validPayload
-                , changedTo = Tuple.second validPayload
-                }
-    in
-    case ( interpretedPayload, stampFromString ) of
-        ( Just payload, Just stamp ) ->
-            Just (fieldChangeWithStamp stamp payload)
-
-        _ ->
-            Nothing
-
-
-
+-- {-| Converts a generic Object Event (with its eventstampstring used as Dict key) to a Register field change item.
+-- -}
+-- toFieldChange : ( String, Object.KeptEvent ) -> Maybe FieldChange
+-- toFieldChange ( eventStampString, Object.KeptEvent eventDetails ) =
+--     let
+--         interpretedPayload =
+--             Result.toMaybe (JD.decodeString decodePayload eventDetails.payload)
+--
+--         stampFromString =
+--             Maybe.map OpID.getEventStamp (OpID.fromString eventStampString)
+--
+--         fieldChangeWithStamp validStamp validPayload =
+--             FieldChange
+--                 { stamp = validStamp
+--                 , field = Tuple.first validPayload
+--                 , changedTo = Tuple.second validPayload
+--                 }
+--     in
+--     case ( interpretedPayload, stampFromString ) of
+--         ( Just payload, Just stamp ) ->
+--             Just (fieldChangeWithStamp stamp payload)
+--
+--         _ ->
+--             Nothing
 --payloadCodec : Codec e RegisterPayload
 --payloadCodec =
 --    RS.tuple fieldIdentifierCodec RS.string
@@ -144,29 +141,25 @@ getFieldLatest (Register register) ( slot, name ) =
     List.head changesToThisField
 
 
-{-| A sample of a Replicated Record at a given point in time - such as right now.
-contains only the latest (as of the desired time) update to each field.
--}
-type alias Snapshot =
-    Dict FieldIdentifier FieldValue
 
-
-{-| Take a snapshot of the record object, since all we care about is the latest value of each field.
--}
-latest : Register -> Snapshot
-latest (Register { changeHistory }) =
-    -- TODO OPTIMIZE by stopping once we've found something for all fields (if possible)
-    let
-        toKeyValuePair (FieldChange fieldEvent) =
-            ( fieldEvent.field, fieldEvent.changedTo )
-    in
-    -- redundant keys in the list should overwrite previous ones, so
-    -- TODO make sure list is in oldest to newest order
-    -- TODO ideally we'd start from newest and iteratively Dict.insert only unseen keys?
-    Dict.fromList (List.map toKeyValuePair changeHistory)
-
-
-
+-- {-| A sample of a Replicated Record at a given point in time - such as right now.
+-- contains only the latest (as of the desired time) update to each field.
+-- -}
+-- type alias Snapshot =
+--     Dict FieldIdentifier FieldValue
+-- {-| Take a snapshot of the record object, since all we care about is the latest value of each field.
+-- -}
+-- latest : Register -> Snapshot
+-- latest (Register { changeHistory }) =
+--     -- TODO OPTIMIZE by stopping once we've found something for all fields (if possible)
+--     let
+--         toKeyValuePair (FieldChange fieldEvent) =
+--             ( fieldEvent.field, fieldEvent.changedTo )
+--     in
+--     -- redundant keys in the list should overwrite previous ones, so
+--     -- TODO make sure list is in oldest to newest order
+--     -- TODO ideally we'd start from newest and iteratively Dict.insert only unseen keys?
+--     Dict.fromList (List.map toKeyValuePair changeHistory)
 --{-| A snapshot of what the Replicated Record looked like at some point in the past.
 ---}
 --asOf : Moment -> RegisterObject -> Snapshot
@@ -426,6 +419,7 @@ obsolete reservedList input =
 type alias RW yourtype =
     { get : yourtype
     , set : yourtype -> Change
+    , older : List yourtype
     }
 
 
@@ -438,8 +432,9 @@ changeField targetObject fieldIdentifier newValueEncoded =
     Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload newPayload ] }
 
 
-buildRW : OpID.ObjectID -> FieldIdentifier -> (a -> String) -> a -> RW a
-buildRW objectID fieldIdentifier stringifier thing =
-    { get = thing
+buildRW : OpID.ObjectID -> FieldIdentifier -> (a -> String) -> ( a, List a ) -> RW a
+buildRW objectID fieldIdentifier stringifier ( head, rest ) =
+    { get = head
     , set = \new -> changeField (Op.ExistingObject objectID) fieldIdentifier (stringifier new)
+    , older = rest
     }
