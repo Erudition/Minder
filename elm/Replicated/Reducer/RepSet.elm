@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepSet exposing (RepSet, append, buildFromObject, buildFromReplicaDb, dict, insertAfter, list, reducerID, remove)
+module Replicated.Reducer.RepSet exposing (RepSet, append, buildFromReplicaDb, dict, insertAfter, list, reducerID, remove)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
@@ -21,7 +21,7 @@ type RepSet memberType
         { id : ObjectID
         , members : Dict MemberID memberType
         , included : Object.InclusionInfo
-        , addMember : memberType -> Change
+        , memberToString : memberType -> String
         }
 
 
@@ -39,37 +39,37 @@ reducerID =
     "repset"
 
 
-buildFromObject : Object -> (String -> Maybe a) -> (a -> String) -> RepSet a
-buildFromObject object unstringifier stringifier =
+{-| We assume object exists, missing object should be handled beforehand.
+-}
+buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> String) -> ( RepSet memberType, List Object.ReducerWarning )
+buildFromReplicaDb node object unstringifier stringifier =
     let
-        eventsAsMembers : Dict MemberID memberType
-        eventsAsMembers =
-            Dict.foldl
-                (\k event acc ->
-                    Dict.insert ( Object.eventReference event |> OpID.toString, Object.eventID event |> OpID.toString )
-                        (unstringifier (Object.eventPayload event))
+        ( eventsAsMembers, decodeWarnings ) =
+            Dict.foldl addToNewDictOrWarn ( Dict.empty, [] ) object.events
+
+        addToNewDictOrWarn : OpIDString -> Object.KeptEvent -> ( Dict MemberID memberType, List Object.ReducerWarning ) -> ( Dict MemberID memberType, List Object.ReducerWarning )
+        addToNewDictOrWarn _ event ( acc, warnings ) =
+            case unstringifier (Object.eventPayload event) of
+                Just successfullyDecodedPayload ->
+                    ( Dict.insert ( Object.eventReference event |> OpID.toString, Object.eventID event |> OpID.toString )
+                        successfullyDecodedPayload
                         acc
-                )
-                Dict.empty
-                object.events
+                    , warnings
+                    )
+
+                Nothing ->
+                    ( acc
+                    , warnings ++ [ Object.OpDecodeFailed (OpID.toString (Object.eventID event)) (Object.eventPayload event) ]
+                    )
     in
-    RepSet
+    ( RepSet
         { id = object.creation
         , members = eventsAsMembers
         , memberToString = stringifier
         , included = object.included
         }
-
-
-{-| We assume object exists, missing object should be handled beforehand.
--}
-buildFromReplicaDb : Node -> OpID.ObjectID -> (String -> Maybe a) -> (a -> String) -> Maybe (RepSet a)
-buildFromReplicaDb node objectID unstringifier stringifier =
-    let
-        convertObjectToRepSet object =
-            buildFromObject object unstringifier stringifier
-    in
-    Maybe.map convertObjectToRepSet (Node.getObjectIfExists node objectID reducerID)
+    , decodeWarnings
+    )
 
 
 

@@ -67,7 +67,7 @@ import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
-import Replicated.Op.OpID as OpID exposing (InCounter, OpID, OutCounter)
+import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..), buildRW)
 import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
 import Set exposing (Set)
@@ -96,8 +96,7 @@ type Codec e a
 
 type alias RonEncoderInputs =
     { node : Node
-    , existingObjectIDMaybe : Maybe OpID.ObjectID
-    , counter : InCounter
+    , containedBy : List ObjectID
     , mode : ReplicaEncodeDepth
     }
 
@@ -120,39 +119,19 @@ type alias RonEncoder =
     RonEncoderInputs -> Op.Change
 
 
-{-| The Ops formed by running nested ronEncoders. They always come first because the current encoder may rely on objects that have not been created yet.
-RULE: If these Ops create something that needs to be referenced by its caller, the caller will assume the newly created object has the ID of the last Op in the list.
--}
-type alias PrerequisiteOps =
-    List Op
-
-
 type alias RonFieldEncoder =
     RonFieldEncoderInputs -> RonFieldEncoderOutput
 
 
 type alias RonFieldEncoderInputs =
     { node : Node
-    , registerMaybe : Maybe Register -- no this MAY NOT exist yet, but it doesn't matter because
-    , counter : InCounter
+    , register : Register -- no this MAY NOT exist yet, but it doesn't matter because
     , mode : ReplicaEncodeDepth
     }
 
 
 type alias RonFieldEncoderOutput =
-    { required : PrerequisiteOps
-    , postPrereqCounter : OutCounter -- has only been used for prereqs & creation
-    , opToWrite : Maybe UnfinishedOp -- no counters used at first
-    }
-
-
-{-| Since we must first publish each RonFieldEncoderEntry's prerequisite ops before assigning an OpIDs, we use a function that will later finish the Ops off with the next safe ID.
-
-spits out OpID for next op to reference
-
--}
-type alias UnfinishedOp =
-    { counter : InCounter, opToReference : OpID, containingRegister : Register } -> ( Op, OutCounter, OpID )
+    Op.ObjectChange
 
 
 type alias SmartJsonFieldEncoder full =
@@ -451,7 +430,7 @@ encodeToRon : Node -> InCounter -> Codec e a -> List Op
 encodeToRon node counter codec =
     case getRonEncoder codec of
         Just ronEncoder ->
-            .ops (ronEncoder { node = node, existingObjectIDMaybe = Nothing, counter = counter, mode = IncludeDefaults })
+            .ops (ronEncoder { node = node, containedBy = Nothing, counter = counter, mode = IncludeDefaults })
 
         Nothing ->
             []
@@ -465,7 +444,7 @@ encodeToRonWithRootID node counter codec =
         Just ronEncoder ->
             let
                 encoded =
-                    ronEncoder { node = node, existingObjectIDMaybe = Nothing, mode = IncludeDefaults }
+                    ronEncoder { node = node, containedBy = Nothing, mode = IncludeDefaults }
             in
             ( .ops encoded, Just <| .objectID encoded )
 
@@ -732,8 +711,8 @@ Also returns the ObjectID so that parent repSets can refer to it.
 
 -}
 repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> RonEncoderOutput
-repSetRonEncoder nestedCodec ({ node, existingObjectIDMaybe, counter, mode } as details) =
-    case ( Node.getObjectIfExists node existingObjectIDMaybe, RepSet.buildFromReplicaDb node existingObjectIDMaybe addMember ) of
+repSetRonEncoder nestedCodec ({ node, containedBy, counter, mode } as details) =
+    case ( Node.getObjectIfExists node containedBy, RepSet.buildFromReplicaDb node containedBy addMember ) of
         ( Just foundObject, Just foundRepSet ) ->
             let
                 -- run each nested encoder to build up our prerequisites
@@ -839,23 +818,6 @@ repSetRonEncoder nestedCodec ({ node, existingObjectIDMaybe, counter, mode } as 
 
         _ ->
             Debug.todo "not found"
-
-
-{-| Find an object in the replica object database.
--}
-preExistingObjectMaybe : Node -> ObjectID -> Maybe Object
-preExistingObjectMaybe node givenID =
-    case existingObjectIDMaybe of
-        Just givenID ->
-            case Node.getObjectIfExists node givenID of
-                Just existingObject ->
-                    Ok existingObject
-
-                Nothing ->
-                    Nothing
-
-        Nothing ->
-            Nothing
 
 
 {-| A list
@@ -1612,10 +1574,10 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 
 -}
 registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonEncoderOutput
-registerRonEncoder ronFieldEncoders ({ node, existingObjectIDMaybe, counter, mode } as details) =
+registerRonEncoder ronFieldEncoders ({ node, containedBy, counter, mode } as details) =
     let
         oldRegisterMaybe =
-            case existingObjectIDMaybe of
+            case containedBy of
                 Just givenID ->
                     case Register.build node givenID of
                         Just oldRegister ->
@@ -1772,7 +1734,7 @@ ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, 
         opToWriteField lazyInput =
             let
                 ( op, outCounter ) =
-                    Register.fieldToOp
+                    Register.fieldChanger
                         lazyInput.counter
                         node.identity
                         lazyInput.containingRegister
@@ -1840,7 +1802,7 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
         runNestedRonEncoder =
             ronEncoder
                 { node = node
-                , existingObjectIDMaybe = Maybe.map Register.getID findNestedRegister
+                , containedBy = Maybe.map Register.getID findNestedRegister
                 , counter = counter -- right?
                 , mode = mode
                 }
@@ -1856,7 +1818,7 @@ ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec 
         opToWriteField lazyInputs =
             let
                 ( op, outCounter ) =
-                    Register.fieldToOp
+                    Register.fieldChanger
                         lazyInputs.counter
                         node.identity
                         lazyInputs.containingRegister
