@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepSet exposing (RepSet, append, buildFromReplicaDb, dict, insertAfter, list, reducerID, remove)
+module Replicated.Reducer.RepSet exposing (RepSet, append, buildFromReplicaDb, dict, getID, insertAfter, list, reducerID, remove)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
@@ -23,6 +23,11 @@ type RepSet memberType
         , included : Object.InclusionInfo
         , memberToString : memberType -> String
         }
+
+
+getID : RepSet memberType -> ObjectID
+getID (RepSet repSet) =
+    repSet.id
 
 
 type alias MemberID =

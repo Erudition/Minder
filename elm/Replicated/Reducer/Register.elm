@@ -94,6 +94,12 @@ type alias FieldSlot =
     Int
 
 
+getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
+getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
+    Dict.get fieldSlot register.fields
+        |> Maybe.map Tuple.second
+
+
 type alias RW fieldVal =
     { get : fieldVal
     , set : fieldVal -> Change

@@ -66,7 +66,7 @@ import Log
 import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Op as Op exposing (Change(..), Op, TargetObject(..))
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..), buildRW)
 import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
@@ -85,8 +85,9 @@ type Codec e a
         { encoder : a -> BE.Encoder
         , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
-        , jsonDecoder : NestableJsonDecoder e a
+        , jsonDecoder : JD.Decoder (Result (Error e) a)
         , ronEncoder : Maybe RonEncoder
+        , ronDecoder : Maybe (RonDecoder e a)
         }
 
 
@@ -107,20 +108,17 @@ type ReplicaEncodeDepth
     | IncludeDefaults
 
 
-type alias ElsewhereData =
-    Maybe ( Node, Maybe Register )
-
-
-type alias NestableJsonDecoder e a =
-    ElsewhereData -> JD.Decoder (Result (Error e) a)
-
-
 type alias RonEncoder =
     RonEncoderInputs -> Op.Change
 
 
+type alias RonDecoder e a =
+    -- For now we just reuse Json Decoders
+    JD.Decoder (Result (Error e) a)
+
+
 type alias RonFieldEncoder =
-    RonFieldEncoderInputs -> RonFieldEncoderOutput
+    RonFieldEncoderInputs -> Op.ObjectChange
 
 
 type alias RonFieldEncoderInputs =
@@ -128,10 +126,6 @@ type alias RonFieldEncoderInputs =
     , register : Register -- no this MAY NOT exist yet, but it doesn't matter because
     , mode : ReplicaEncodeDepth
     }
-
-
-type alias RonFieldEncoderOutput =
-    Op.ObjectChange
 
 
 type alias SmartJsonFieldEncoder full =
@@ -218,16 +212,21 @@ getBytesDecoder (Codec m) =
 
 {-| Extracts the json `Decoder` contained inside the `Codec`.
 -}
-getJsonDecoder : Codec e a -> ElsewhereData -> JD.Decoder (Result (Error e) a)
-getJsonDecoder (Codec m) elsewhereData =
-    m.jsonDecoder elsewhereData
+getJsonDecoder : Codec e a -> JD.Decoder (Result (Error e) a)
+getJsonDecoder (Codec m) =
+    m.jsonDecoder
 
 
 {-| Extracts the json `Decoder` contained inside the `Codec`.
 -}
-getNestableJsonDecoder : Codec e a -> NestableJsonDecoder e a
-getNestableJsonDecoder (Codec m) =
-    m.jsonDecoder
+getRonDecoder : Codec e a -> RonDecoder e a
+getRonDecoder (Codec m) =
+    case m.ronDecoder of
+        Nothing ->
+            m.jsonDecoder
+
+        Just ronDecoder ->
+            ronDecoder
 
 
 {-| Run a `Codec` to turn a sequence of bytes into an Elm value.
@@ -282,7 +281,7 @@ decodeFromJson codec json =
                             Err DataCorrupted |> JD.succeed
 
                         else if value == version then
-                            JD.index 1 (getJsonDecoder codec Nothing)
+                            JD.index 1 (getJsonDecoder codec)
 
                         else
                             Err SerializerOutOfDate |> JD.succeed
@@ -424,67 +423,55 @@ replaceForUrl =
     Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
 
 
-{-| Convert an Elm value into Ops.
+{-| Convert an Elm value into a Change.
 -}
-encodeToRon : Node -> InCounter -> Codec e a -> List Op
-encodeToRon node counter codec =
+encodeToRon : Node -> List ObjectID -> Codec e a -> Maybe Change
+encodeToRon node containers codec =
     case getRonEncoder codec of
         Just ronEncoder ->
-            .ops (ronEncoder { node = node, containedBy = Nothing, counter = counter, mode = IncludeDefaults })
+            Just <| ronEncoder { node = node, containedBy = containers, mode = IncludeDefaults }
 
         Nothing ->
-            []
-
-
-{-| Convert an Elm value into Ops, capturing the root object's output ID.
--}
-encodeToRonWithRootID : Node -> InCounter -> Codec e a -> ( List Op, Maybe OpID.ObjectID )
-encodeToRonWithRootID node counter codec =
-    case getRonEncoder codec of
-        Just ronEncoder ->
-            let
-                encoded =
-                    ronEncoder { node = node, containedBy = Nothing, mode = IncludeDefaults }
-            in
-            ( .ops encoded, Just <| .objectID encoded )
-
-        Nothing ->
-            ( [], Nothing )
+            Nothing
 
 
 
 -- BASE
 
 
-buildNoNest :
+buildUnnestableCodec :
     (a -> BE.Encoder)
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
     -> Codec e a
-buildNoNest encoder_ decoder_ jsonEncoder jsonDecoder =
-    Codec
-        { encoder = encoder_
-        , decoder = decoder_
-        , jsonEncoder = jsonEncoder
-        , jsonDecoder = \_ -> jsonDecoder
-        , ronEncoder = Nothing
-        }
-
-
-buildNestable :
-    (a -> BE.Encoder)
-    -> BD.Decoder (Result (Error e) a)
-    -> (a -> JE.Value)
-    -> NestableJsonDecoder e a
-    -> Codec e a
-buildNestable encoder_ decoder_ jsonEncoder jsonDecoder =
+buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
     Codec
         { encoder = encoder_
         , decoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
         , ronEncoder = Nothing
+        , ronDecoder = Nothing
+        }
+
+
+buildNestableCodec :
+    (a -> BE.Encoder)
+    -> BD.Decoder (Result (Error e) a)
+    -> (a -> JE.Value)
+    -> JD.Decoder (Result (Error e) a)
+    -> Maybe RonEncoder
+    -> Maybe (RonDecoder e a)
+    -> Codec e a
+buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ronDecoderMaybe =
+    Codec
+        { encoder = encoder_
+        , decoder = decoder_
+        , jsonEncoder = jsonEncoder
+        , jsonDecoder = jsonDecoder
+        , ronEncoder = ronEncoderMaybe
+        , ronDecoder = ronDecoderMaybe
         }
 
 
@@ -492,7 +479,7 @@ buildNestable encoder_ decoder_ jsonEncoder jsonDecoder =
 -}
 string : Codec e String
 string =
-    buildNoNest
+    buildUnnestableCodec
         (\text ->
             BE.sequence
                 [ BE.unsignedInt32 endian (BE.getStringWidth text)
@@ -511,7 +498,7 @@ string =
 -}
 bool : Codec e Bool
 bool =
-    buildNoNest
+    buildUnnestableCodec
         (\value ->
             case value of
                 True ->
@@ -542,7 +529,7 @@ bool =
 -}
 int : Codec e Int
 int =
-    buildNoNest
+    buildUnnestableCodec
         (toFloat >> BE.float64 endian)
         (BD.float64 endian |> BD.map (round >> Ok))
         JE.int
@@ -553,7 +540,7 @@ int =
 -}
 float : Codec e Float
 float =
-    buildNoNest
+    buildUnnestableCodec
         (BE.float64 endian)
         (BD.float64 endian |> BD.map Ok)
         JE.float
@@ -571,7 +558,7 @@ char =
                 , BE.string text
                 ]
     in
-    buildNoNest
+    buildUnnestableCodec
         (String.fromChar >> charEncode)
         (BD.unsignedInt32 endian
             |> BD.andThen (\charCount -> BD.string charCount)
@@ -601,29 +588,31 @@ char =
 
 
 -- DATA STRUCTURES
---{-| Codec for serializing a `Maybe`
---
---    import Serialize as S
---
---    maybeIntCodec : S.Codec e (Maybe Int)
---    maybeIntCodec =
---        S.maybe S.int
---
----}
---maybe : NestableCodec e a -> NestableCodec e (Maybe a)
---maybe justCodec =
---    customType
---        (\nothingEncoder justEncoder value ->
---            case value of
---                Nothing ->
---                    nothingEncoder
---
---                Just value_ ->
---                    justEncoder value_
---        )
---        |> variant0 Nothing
---        |> variant1 Just justCodec
---        |> finishCustomType
+
+
+{-| Codec for serializing a `Maybe`
+
+import Serialize as S
+
+maybeIntCodec : S.Codec e (Maybe Int)
+maybeIntCodec =
+S.maybe S.int
+
+-}
+maybe : Codec e a -> Codec e (Maybe a)
+maybe justCodec =
+    customType
+        (\nothingEncoder justEncoder value ->
+            case value of
+                Nothing ->
+                    nothingEncoder
+
+                Just value_ ->
+                    justEncoder value_
+        )
+        |> variant0 Nothing
+        |> variant1 Just justCodec
+        |> finishCustomType
 
 
 {-| A repset
@@ -631,42 +620,6 @@ char =
 repSet : Codec e a -> Codec e (RepSet a)
 repSet memberCodec =
     let
-        nestableJsonDecoder : ElsewhereData -> JD.Decoder (Result (Error e) (RepSet a))
-        nestableJsonDecoder outer =
-            case outer of
-                Nothing ->
-                    normalJsonDecoder
-
-                Just ( node, locationMaybe ) ->
-                    -- we're working with a replica! Try to decode a UUID instead.
-                    -- then, if we find a RepSet by that UUID, run the big decoder on that instead!
-                    let
-                        unstringifier memberAsString =
-                            case JD.decodeString (getJsonDecoder memberCodec outer) memberAsString of
-                                Ok (Ok member) ->
-                                    Just member
-
-                                other ->
-                                    Log.logSeparate "did not parse list member" other Nothing
-
-                        stringifier member =
-                            JE.encode 0 (getJsonEncoder memberCodec member)
-
-                        objectFinder : OpID.ObjectID -> Result (Error errs) (RepSet a)
-                        objectFinder foundID =
-                            case RepSet.buildFromReplicaDb node foundID unstringifier stringifier of
-                                Nothing ->
-                                    Err <| Debug.todo "repset not found"
-
-                                Just repset ->
-                                    Ok repset
-
-                        finalDecoder =
-                            -- take our found ObjectID and convert it to a Register decoder
-                            JD.map objectFinder objectIDDecoder
-                    in
-                    finalDecoder
-
         normalJsonDecoder =
             JD.fail "no repset"
 
@@ -677,26 +630,14 @@ repSet memberCodec =
         bytesEncoder : RepSet a -> BE.Encoder
         bytesEncoder input =
             listEncode (getEncoder memberCodec) (RepSet.list input)
-
-        ronEncoder : RonEncoder
-        ronEncoder { node, existingMaybe, mode } =
-            case RepSet.buildFromReplicaDb node existingMaybe unstringifier stringifier of
-                Nothing ->
-                    Op.Chunk { object = Op.NewObject RepSet.reducerID, objectChanges = [] }
-
-                Just foundRepSetObjectID ->
-                    Op.Chunk
-                        { object = Op.ExistingObject foundRepSetObjectID
-                        , objectChanges = []
-                        }
     in
     Codec
         { encoder = bytesEncoder
         , decoder =
             BD.fail
         , jsonEncoder = jsonEncoder
-        , jsonDecoder = nestableJsonDecoder
-        , ronEncoder = ronEncoder
+        , jsonDecoder = normalJsonDecoder
+        , ronEncoder = Just (repSetRonEncoder memberCodec)
         }
 
 
@@ -710,114 +651,34 @@ For nested values:
 Also returns the ObjectID so that parent repSets can refer to it.
 
 -}
-repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> RonEncoderOutput
-repSetRonEncoder nestedCodec ({ node, containedBy, counter, mode } as details) =
-    case ( Node.getObjectIfExists node containedBy, RepSet.buildFromReplicaDb node containedBy addMember ) of
-        ( Just foundObject, Just foundRepSet ) ->
+repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> Change
+repSetRonEncoder nestedCodec ({ node, containedBy, mode } as details) =
+    let
+        existingObjectMaybe =
+            Maybe.map (Node.getObjectIfExists node) (List.head containedBy)
+    in
+    case existingObjectMaybe of
+        Nothing ->
+            Chunk
+                { object = NewObject RepSet.reducerID
+                , objectChanges = []
+                }
+
+        Just foundObject ->
             let
-                -- run each nested encoder to build up our prerequisites
-                runRonEncoderOnNestedItems : ( Dict RepSet.MemberID memberType, RonEncoderOutput )
-                runRonEncoderOnNestedItems =
-                    let
-                        passDetailsToNestedEncoder : InCounter -> ( OutCounter, ( Dict RepSet.MemberID memberType, RonEncoderOutput ) )
-                        passDetailsToNestedEncoder thisMemberCounter =
-                            let
-                                toMember oldKey event dictSoFar =
-                                    case unstringifier (Object.eventPayload event) of
-                                        Just decodedPayload ->
-                                            Dict.insert ( OpID.toString (Object.eventReference event), OpID.toString (Object.eventID event) ) decodedPayload dictSoFar
-
-                                        Nothing ->
-                                            dictSoFar
-
-                                run =
-                                    getRonEncoder nestedCodec { node = node, repSetMaybe = oldRepSetMaybe, counter = thisMemberCounter, mode = mode }
-                            in
-                            ( run.postPrereqCounter, ( members, run ) )
-                    in
-                    -- keep track of how many new op IDs have already been used and pass it into the next
-                    List.Extra.mapAccuml passDetailsToNestedEncoder counter foundObject.events
-
-                -- this object's counter is the next one after all the nested encoders have been run
-                objectInitCounter : InCounter
-                objectInitCounter =
-                    runNestedRonEncoder.outCounter
-
-                -- how to create a new object if we can't find an existing one
-                ( newObject, newObjectCreationOp, counterAfterInitialization ) =
-                    let
-                        ( newObjectID, newOutCounter ) =
-                            OpID.generate objectInitCounter node.identity False
-
-                        newObjectCreationOp =
-                            Object.create RepSet.reducerID newObjectID
-                    in
-                    ( RepSet.buildFromReplicaDb node newObjectID unstringifier stringifier, newObjectCreationOp, newOutCounter )
-
-                newObjectCreationOpAsSingletonIfNeeded =
-                    case oldObjectMaybe of
-                        Just _ ->
-                            []
-
+                ( unstringifier, memberChanger ) =
+                    case getRonEncoder nestedCodec of
                         Nothing ->
-                            [ newObjectCreationOp ]
+                            Nothing
 
-                counterToStartPrereqs : InCounter
-                counterToStartPrereqs =
-                    case oldRepSetMaybe of
-                        Just _ ->
-                            repSetReadyCounter
-
-                        Nothing ->
-                            counterAfterInitialization
-
-                prerequisiteOps : List Op
-                prerequisiteOps =
-                    List.concat (List.map .required (Tuple.second runFieldEncodersFirstPass))
-
-                finalRepSet =
-                    Maybe.withDefault newRepSet oldRepSetMaybe
-
-                latestReference =
-                    -- TODO if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
-                    -- RepSet.getLatestReference finalRepSet
-                    RepSet.getID finalRepSet
-
-                -- finally, the actual Ops that set each field
-                finishFieldOps : ( ( OutCounter, OpID.OpID ), List Op )
-                finishFieldOps =
-                    let
-                        accumulator : ( OutCounter, OpID.OpID )
-                        accumulator =
-                            ( counterToStartPrereqs, latestReference )
-
-                        unstampedOpList =
-                            List.filterMap .opToWrite (Tuple.second runFieldEncodersFirstPass)
-
-                        finishOps : ( InCounter, OpID.OpID ) -> UnfinishedOp -> ( ( OutCounter, OpID.OpID ), Op )
-                        finishOps ( givenOpCounter, priorOpID ) opFinisher =
-                            let
-                                ( finishedOp, counterToPassAlong, backReference ) =
-                                    opFinisher { counter = givenOpCounter, opToReference = priorOpID, containingRepSet = finalRepSet }
-                            in
-                            ( ( counterToPassAlong, backReference ), finishedOp )
-                    in
-                    List.Extra.mapAccuml finishOps accumulator unstampedOpList
-
-                exitCounter =
-                    Tuple.first (Tuple.first finishFieldOps)
-
-                fieldSettingOps =
-                    Tuple.second finishFieldOps
+                ( existingRepSet, warnings ) =
+                    -- TODO use warnings
+                    RepSet.buildFromReplicaDb node foundObject unstringifier memberChanger
             in
-            -- spit out Ops in dependency order
-            { ops = prerequisiteOps ++ newRepSetCreationOpAsSingletonIfNeeded ++ fieldSettingOps
-            , objectID = RepSet.getID finalRepSet
-            , nextCounter = exitCounter
-            }
-
-        _ ->
-            Debug.todo "not found"
+            Chunk
+                { object = ExistingObject RepSet.getID existingRepSet
+                , objectChanges = [] -- TODO should this be blank
+                }
 
 
 {-| A list
@@ -825,42 +686,6 @@ repSetRonEncoder nestedCodec ({ node, containedBy, counter, mode } as details) =
 list : Codec e a -> Codec e (List a)
 list codec =
     let
-        nestableJsonDecoder : ElsewhereData -> JD.Decoder (Result (Error e) (List a))
-        nestableJsonDecoder outer =
-            case outer of
-                Nothing ->
-                    normalJsonDecoder
-
-                Just ( node, locationMaybe ) ->
-                    -- we're working with a replica! Try to decode a UUID instead.
-                    -- then, if we find a RepSet by that UUID, run the big decoder on that instead!
-                    let
-                        unstringifier memberAsString =
-                            case JD.decodeString (getJsonDecoder codec outer) memberAsString of
-                                Ok (Ok member) ->
-                                    Just member
-
-                                other ->
-                                    Log.logSeparate "did not parse list member" other Nothing
-
-                        stringifier member =
-                            JE.encode 0 (getJsonEncoder codec member)
-
-                        objectFinder : OpID.ObjectID -> Result (Error errs) (List a)
-                        objectFinder foundID =
-                            case RepSet.buildFromReplicaDb node foundID unstringifier stringifier of
-                                Nothing ->
-                                    Err <| Debug.todo "repset not found"
-
-                                Just repset ->
-                                    Ok (RepSet.list repset)
-
-                        finalDecoder =
-                            -- take our found ObjectID and convert it to a Register decoder
-                            JD.map objectFinder objectIDDecoder
-                    in
-                    finalDecoder
-
         normalJsonDecoder =
             JD.list (getJsonDecoder codec Nothing)
                 |> JD.map
@@ -886,7 +711,7 @@ list codec =
                 |> BD.andThen
                     (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
         , jsonEncoder = JE.list (getJsonEncoder codec)
-        , jsonDecoder = nestableJsonDecoder
+        , jsonDecoder = normalJsonDecoder
         , ronEncoder = Nothing
         }
 
@@ -953,7 +778,7 @@ set codec =
 -}
 unit : Codec e ()
 unit =
-    buildNoNest
+    buildUnnestableCodec
         (always (BE.sequence []))
         (BD.succeed (Ok ()))
         (\_ -> JE.int 0)
@@ -998,7 +823,7 @@ triple codecFirst codecSecond codecThird =
 
 --{-| Codec for serializing a `Result`
 ---}
---result : NestableCodec e error -> NestableCodec e value -> NestableCodec e (Result error value)
+--result : Codec e error -> Codec e value -> Codec e (Result error value)
 --result errorCodec valueCodec =
 --    customType
 --        (\errEncoder okEncoder value ->
@@ -1030,7 +855,7 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
 -}
 bytes : Codec e Bytes.Bytes
 bytes =
-    buildNoNest
+    buildUnnestableCodec
         (\bytes_ ->
             BE.sequence
                 [ BE.unsignedInt32 endian (Bytes.width bytes_)
@@ -1077,7 +902,7 @@ So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 -}
 byte : Codec e Int
 byte =
-    buildNoNest
+    buildUnnestableCodec
         BE.unsignedInt8
         (BD.unsignedInt8 |> BD.map Ok)
         (modBy 256 >> JE.int)
@@ -1125,7 +950,7 @@ enum defaultItem items =
             else
                 getAt (index - 1) items |> Maybe.withDefault defaultItem |> Ok
     in
-    buildNoNest
+    buildUnnestableCodec
         (getIndex >> BE.unsignedInt32 endian)
         (BD.unsignedInt32 endian |> BD.map getItem)
         (getIndex >> JE.int)
@@ -1175,7 +1000,7 @@ type FragileRecordCodec e a b
         { encoder : a -> List BE.Encoder
         , decoder : BD.Decoder (Result (Error e) b)
         , jsonEncoder : a -> List JE.Value
-        , jsonDecoder : NestableJsonDecoder e b
+        , jsonDecoder : JD.Decoder (Result (Error e) b)
         , fieldIndex : Int
         }
 
@@ -1294,7 +1119,7 @@ type PartialRecord errs full remaining
         { encoder : full -> List BE.Encoder
         , decoder : BD.Decoder (Result (Error errs) remaining)
         , jsonEncoders : List (SmartJsonFieldEncoder full)
-        , jsonArrayDecoder : NestableJsonDecoder errs remaining
+        , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
         , ronEncoders : List RonFieldEncoder
         }
@@ -1306,7 +1131,7 @@ record remainingConstructor =
         { encoder = \_ -> []
         , decoder = BD.succeed (Ok remainingConstructor)
         , jsonEncoders = []
-        , jsonArrayDecoder = \elsewhereData -> JD.succeed (Ok remainingConstructor)
+        , jsonArrayDecoder = JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
         , ronEncoders = []
         }
@@ -1332,20 +1157,6 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
 
         rwWrapper objectID =
             buildRW objectID ( fieldSlot, fieldName ) (encodeToJsonString fieldValueCodec)
-
-        wrappedNestableJsonFieldDecoder : ElsewhereData -> JD.Decoder (Result (Error errs) (RW fieldType))
-        wrappedNestableJsonFieldDecoder elsewheredata =
-            let
-                registerObjectMaybe =
-                    Maybe.andThen Tuple.second elsewheredata
-            in
-            case registerObjectMaybe of
-                Nothing ->
-                    -- TODO should still work as readable for JSON encoding
-                    JD.fail "No ObjectID to give to RW writer"
-
-                Just registerObject ->
-                    nestableJsonFieldDecoder ( fieldSlot, fieldName ) (rwWrapper (Register.getID registerObject) fieldDefault) (wrappedFieldValueCodec (Register.getID registerObject)) elsewheredata
     in
     PartialRecord
         { encoder = addToPartialBytesEncoderList
@@ -1357,12 +1168,12 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
                 BD.fail
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
-            nestableJDmap2
+            JD.map2
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.jsonArrayDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                wrappedNestableJsonFieldDecoder
+                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
         }
@@ -1392,12 +1203,12 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 (getBytesDecoder fieldValueCodec)
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
-            nestableJDmap2
+            JD.map2
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.jsonArrayDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                (nestableJsonFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec)
+                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
         }
@@ -1407,7 +1218,7 @@ combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Erro
 combineIfBothSucceed decoderA decoderB =
     case ( decoderA, decoderB ) of
         ( Ok aDecodedValue, Ok bDecodedValue ) ->
-            -- is A being applied to B?
+            -- a is being applied to b
             Ok (aDecodedValue bDecodedValue)
 
         ( Err a_error, _ ) ->
@@ -1417,68 +1228,47 @@ combineIfBothSucceed decoderA decoderB =
             Err b_error
 
 
-{-| Same as JD.map2, but with the elsewheredata argument built in
--}
-nestableJDmap2 :
-    (a -> b -> value)
-    -> (ElsewhereData -> JD.Decoder a)
-    -> (ElsewhereData -> JD.Decoder b)
-    -> ElsewhereData
-    -> JD.Decoder value
-nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB elsewhereData =
-    let
-        -- typevars a and b contain the Result blob
-        decoderA : JD.Decoder a
-        decoderA =
-            nestableDecoderA elsewhereData
 
-        decoderB : JD.Decoder b
-        decoderB =
-            nestableDecoderB elsewhereData
-    in
-    JD.map2 twoArgFunction decoderA decoderB
-
-
-{-| JSON version: what to do when decoding a (potentially nested!) object field.
--}
-nestableJsonFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> ElsewhereData -> JD.Decoder (Result (Error e) fieldtype)
-nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer =
-    case outer of
-        -- There is no known replica. This is normal decoding.
-        Nothing ->
-            -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
-            JD.field (String.fromInt fieldSlot ++ "_" ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
-
-        Just ( replica, Nothing ) ->
-            Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
-
-        -- We are working with an Register
-        Just ( replica, Just registerObject ) ->
-            let
-                desiredField =
-                    Register.getFieldLatest registerObject ( fieldSlot, fieldName )
-            in
-            case desiredField of
-                Nothing ->
-                    JD.succeed (Ok default)
-
-                Just foundField ->
-                    let
-                        runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
-                        runDecoderOnFoundField =
-                            JD.decodeString (getJsonDecoder fieldValueCodec outer) (prepDecoder foundField)
-
-                        convertResult : Result (Error e) fieldtype
-                        convertResult =
-                            case runDecoderOnFoundField of
-                                Ok something ->
-                                    something
-
-                                Err problem ->
-                                    -- TODO FIXME
-                                    Err DataCorrupted
-                    in
-                    JD.succeed convertResult
+-- {-| JSON version: what to do when decoding a (potentially nested!) object field.
+-- -}
+-- nestableJsonFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> ElsewhereData -> JD.Decoder (Result (Error e) fieldtype)
+-- nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer =
+--     case outer of
+--         -- There is no known replica. This is normal decoding.
+--         Nothing ->
+--             -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
+--             JD.field (String.fromInt fieldSlot ++ "_" ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
+--
+--         Just ( replica, Nothing ) ->
+--             Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
+--
+--         -- We are working with an Register
+--         Just ( replica, Just registerObject ) ->
+--             let
+--                 desiredField =
+--                     Register.getFieldLatest registerObject ( fieldSlot, fieldName )
+--             in
+--             case desiredField of
+--                 Nothing ->
+--                     JD.succeed (Ok default)
+--
+--                 Just foundField ->
+--                     let
+--                         runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
+--                         runDecoderOnFoundField =
+--                             JD.decodeString (getJsonDecoder fieldValueCodec outer) (prepDecoder foundField)
+--
+--                         convertResult : Result (Error e) fieldtype
+--                         convertResult =
+--                             case runDecoderOnFoundField of
+--                                 Ok something ->
+--                                     something
+--
+--                                 Err problem ->
+--                                     -- TODO FIXME
+--                                     Err DataCorrupted
+--                     in
+--                     JD.succeed convertResult
 
 
 prepDecoder : String -> String
@@ -1513,51 +1303,14 @@ finishRecord (PartialRecord allFieldsCodec) =
 
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
-
-        -- Are we running on a Json object or a replica object?
-        runJsonDecoderOnCorrectObject : Maybe ( Node, Maybe Register ) -> JD.Decoder (Result (Error errs) full)
-        runJsonDecoderOnCorrectObject elsewhereData =
-            case elsewhereData of
-                Nothing ->
-                    -- we're not working with a replica, fall back to normal behavior
-                    allFieldsCodec.jsonArrayDecoder elsewhereData
-
-                Just ( node, _ ) ->
-                    -- we're working with a replica! Try to decode a UUID instead.
-                    -- then, if we find a Register by that UUID, run the big decoder on that instead!
-                    let
-                        objectFinder : OpID.ObjectID -> Result (Error errs) full
-                        objectFinder foundID =
-                            case Register.build node foundID of
-                                Nothing ->
-                                    Debug.todo "register not found"
-
-                                Just register ->
-                                    case JD.decodeString (decodeWhatWeFound register) "{}" of
-                                        Ok nestedResult ->
-                                            -- could be Ok (Ok something) or Ok (Err something)
-                                            nestedResult
-
-                                        Err someerror ->
-                                            -- TODO FIXME
-                                            Tuple.second ( Debug.log "found register but error decoding it" someerror, Err DataCorrupted )
-
-                        decodeWhatWeFound : Register -> JD.Decoder (Result (Error errs) full)
-                        decodeWhatWeFound register =
-                            allFieldsCodec.jsonArrayDecoder (Just ( node, Just register ))
-
-                        finalDecoder =
-                            -- take our found ObjectID and convert it to a Register decoder
-                            JD.map objectFinder objectIDDecoder
-                    in
-                    finalDecoder
     in
     Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
         , decoder = allFieldsCodec.decoder
         , jsonEncoder = encodeAsJsonObject
-        , jsonDecoder = runJsonDecoderOnCorrectObject
+        , jsonDecoder = allFieldsCodec.jsonArrayDecoder
         , ronEncoder = Just (registerRonEncoder allFieldsCodec.ronEncoders) -- replace with Nothing for forced-immutable fields
+        , ronDecoder = Nothing
         }
 
 
@@ -1573,113 +1326,32 @@ Also returns the ObjectID so that parent registers can refer to it.
 Why not create missing Objects in the encoder? Because if it already exists, we'd need to pass the existing ObjectID in anyway. Might as well pass in a guaranteed-existing Register (pre-created if needed)
 
 -}
-registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonEncoderOutput
-registerRonEncoder ronFieldEncoders ({ node, containedBy, counter, mode } as details) =
+registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> Change
+registerRonEncoder ronFieldEncoders ({ node, containedBy, mode } as details) =
     let
-        oldRegisterMaybe =
-            case containedBy of
+        existingRegisterMaybe =
+            case List.head containedBy of
                 Just givenID ->
-                    case Register.build node givenID of
-                        Just oldRegister ->
-                            Just oldRegister
+                    Register.build node givenID
 
-                        Nothing ->
-                            Nothing
-
-                Nothing ->
+                _ ->
                     Nothing
 
-        -- run each field encoder to build up our register
-        runFieldEncodersFirstPass : ( OutCounter, List RonFieldEncoderOutput )
-        runFieldEncodersFirstPass =
-            let
-                passDetailsToField : InCounter -> RonFieldEncoder -> ( OutCounter, RonFieldEncoderOutput )
-                passDetailsToField thisFieldCounter fieldFunction =
-                    let
-                        run =
-                            fieldFunction { node = node, registerMaybe = oldRegisterMaybe, counter = thisFieldCounter, mode = mode }
-                    in
-                    ( run.postPrereqCounter, run )
-            in
-            -- keep track of how many new op IDs have already been used and pass it into the next
-            List.Extra.mapAccuml passDetailsToField counter ronFieldEncoders
-
-        -- this register's counter is the next one after all the field encoders have been run
-        registerReadyCounter : InCounter
-        registerReadyCounter =
-            Tuple.first runFieldEncodersFirstPass
-
-        -- how to create a new Register object if we can't find an existing one
-        ( newRegister, newRegisterCreationOp, counterAfterInitialization ) =
-            let
-                ( newObjectID, newOutCounter ) =
-                    OpID.generate registerReadyCounter node.identity False
-
-                newObjectCreationOp =
-                    Register.creation node newObjectID
-            in
-            ( Register.empty newObjectID, newObjectCreationOp, newOutCounter )
-
-        newRegisterCreationOpAsSingletonIfNeeded =
-            case oldRegisterMaybe of
-                Just _ ->
-                    []
-
+        target =
+            case existingRegisterMaybe of
                 Nothing ->
-                    [ newRegisterCreationOp ]
+                    NewObject Register.reducerID
 
-        counterToStartPrereqs : InCounter
-        counterToStartPrereqs =
-            case oldRegisterMaybe of
-                Just _ ->
-                    registerReadyCounter
+                Just foundRegister ->
+                    ExistingObject <| Register.getID foundRegister
 
-                Nothing ->
-                    counterAfterInitialization
-
-        prerequisiteOps : List Op
-        prerequisiteOps =
-            List.concat (List.map .required (Tuple.second runFieldEncodersFirstPass))
-
-        finalRegister =
-            Maybe.withDefault newRegister oldRegisterMaybe
-
-        latestReference =
-            -- if prewritten Ops for this Object exist, use the latest OpID, otherwise the creation OpID
-            Maybe.withDefault (Register.getID finalRegister) (Maybe.map .lastSeen oldRegisterMaybe)
-
-        -- finally, the actual Ops that set each field
-        finishFieldOps : ( ( OutCounter, OpID.OpID ), List Op )
-        finishFieldOps =
-            let
-                accumulator : ( OutCounter, OpID.OpID )
-                accumulator =
-                    ( counterToStartPrereqs, latestReference )
-
-                unstampedOpList =
-                    List.filterMap .opToWrite (Tuple.second runFieldEncodersFirstPass)
-
-                finishOps : ( InCounter, OpID.OpID ) -> UnfinishedOp -> ( ( OutCounter, OpID.OpID ), Op )
-                finishOps ( givenOpCounter, priorOpID ) opFinisher =
-                    let
-                        ( finishedOp, counterToPassAlong, backReference ) =
-                            opFinisher { counter = givenOpCounter, opToReference = priorOpID, containingRegister = finalRegister }
-                    in
-                    ( ( counterToPassAlong, backReference ), finishedOp )
-            in
-            List.Extra.mapAccuml finishOps accumulator unstampedOpList
-
-        exitCounter =
-            Tuple.first (Tuple.first finishFieldOps)
-
-        fieldSettingOps =
-            Tuple.second finishFieldOps
+        subChanges =
+            List.map { node = node, registerMaybe = existingRegisterMaybe, mode = mode } ronFieldEncoders
     in
-    -- spit out Ops in dependency order
-    { ops = prerequisiteOps ++ newRegisterCreationOpAsSingletonIfNeeded ++ fieldSettingOps
-    , objectID = Register.getID finalRegister
-    , nextCounter = exitCounter
-    }
+    Chunk
+        { object = target
+        , objectChanges = subChanges
+        }
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -1694,162 +1366,20 @@ obsolete reservedList input =
 Updated to separate cases where the object needs to be created.
 
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
+newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Op.ObjectChange)
 newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec details =
     case getRonEncoder fieldValueCodec of
         -- leaf node : nothing nested further, just a flat value
         Nothing ->
-            ronEncoderForNoNestFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec details
+            Op.NewPayload Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (JE.encode 0 (getJsonEncoder fieldValueCodec))
 
         Just fieldRonEncoder ->
-            ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec fieldRonEncoder details
+            Op.NestedObject (fieldRonEncoder details) quoteID
 
 
-ronEncoderForNoNestFields : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
-ronEncoderForNoNestFields fieldIdentifier fieldDefault fieldValueCodec ({ node, registerMaybe, counter, mode } as details) =
-    let
-        -- attempt to find this field set in memory already
-        registerField =
-            case registerMaybe of
-                Just existingRegister ->
-                    Register.getFieldLatest existingRegister fieldIdentifier
-
-                Nothing ->
-                    Nothing
-
-        interpretFieldValue encodedValue =
-            Result.toMaybe (decodeFromString fieldValueCodec encodedValue)
-
-        defaultJsonEncoded =
-            encodeToJsonString fieldValueCodec fieldDefault
-
-        isAlreadyDefault =
-            -- missing values count as default
-            Maybe.withDefault True (Maybe.map ((==) defaultJsonEncoded) registerField)
-
-        valueToWrite =
-            Maybe.withDefault defaultJsonEncoded registerField
-
-        opToWriteField : UnfinishedOp
-        opToWriteField lazyInput =
-            let
-                ( op, outCounter ) =
-                    Register.fieldChanger
-                        lazyInput.counter
-                        node.identity
-                        lazyInput.containingRegister
-                        lazyInput.opToReference
-                        fieldIdentifier
-                        valueToWrite
-            in
-            ( op, outCounter, Op.id op )
-
-        finalOpFilteredByRequest =
-            case mode of
-                MissingObjectsOnly ->
-                    Nothing
-
-                NonDefaultValues ->
-                    if isAlreadyDefault then
-                        Nothing
-
-                    else
-                        Just opToWriteField
-
-                IncludeDefaults ->
-                    Just opToWriteField
-    in
-    { required = []
-    , postPrereqCounter = counter -- never used because no prereqs
-    , opToWrite = finalOpFilteredByRequest
-    }
-
-
-ronEncoderForNestedFields : FieldIdentifier -> fieldType -> Codec e fieldType -> RonEncoder -> (RonFieldEncoderInputs -> RonFieldEncoderOutput)
-ronEncoderForNestedFields ( fieldSlot, fieldName ) fieldDefault fieldValueCodec ronEncoder ({ node, registerMaybe, counter, mode } as details) =
-    let
-        -- attempt to find this field set in memory already
-        registerField =
-            case registerMaybe of
-                Just registerFound ->
-                    -- still returns a maybe
-                    Register.getFieldLatest registerFound ( fieldSlot, fieldName )
-
-                Nothing ->
-                    Nothing
-
-        fieldValueToObjectID : FieldValue -> Maybe OpID.ObjectID
-        fieldValueToObjectID fieldValue =
-            OpID.fromString fieldValue
-
-        finalObjectMaybe =
-            Maybe.andThen fieldValueToObjectID registerField
-
-        defaultJsonEncoded =
-            encodeToJsonString fieldValueCodec fieldDefault
-
-        isAlreadyDefault =
-            -- TODO: True if stored value is same as default
-            False
-
-        -- is there a nested Register? If so, dig in
-        findNestedRegister : Maybe Register
-        findNestedRegister =
-            Maybe.andThen (Register.build node) finalObjectMaybe
-
-        -- if we found a nested Register,
-        runNestedRonEncoder : RonEncoderOutput
-        runNestedRonEncoder =
-            ronEncoder
-                { node = node
-                , containedBy = Maybe.map Register.getID findNestedRegister
-                , counter = counter -- right?
-                , mode = mode
-                }
-
-        finalCounter =
-            runNestedRonEncoder.nextCounter
-
-        childID : OpID.ObjectID
-        childID =
-            runNestedRonEncoder.objectID
-
-        opToWriteField : UnfinishedOp
-        opToWriteField lazyInputs =
-            let
-                ( op, outCounter ) =
-                    Register.fieldChanger
-                        lazyInputs.counter
-                        node.identity
-                        lazyInputs.containingRegister
-                        lazyInputs.opToReference
-                        ( fieldSlot, fieldName )
-                        ("{" ++ OpID.toString childID ++ "}")
-            in
-            ( op, outCounter, Op.id op )
-
-        decideToEncodeOpBasedOnMode : Maybe UnfinishedOp
-        decideToEncodeOpBasedOnMode =
-            case mode of
-                MissingObjectsOnly ->
-                    Nothing
-
-                -- TODO how do we know it's not missing
-                NonDefaultValues ->
-                    -- field set so probably non-default! check to be sure
-                    if isAlreadyDefault then
-                        Nothing
-
-                    else
-                        Just opToWriteField
-
-                IncludeDefaults ->
-                    Just opToWriteField
-    in
-    { opToWrite = decideToEncodeOpBasedOnMode
-    , required = runNestedRonEncoder.ops
-    , postPrereqCounter = finalCounter
-    }
+quoteID : OpID -> Op.Payload
+quoteID opID =
+    "{" ++ OpID.toString opID ++ "}"
 
 
 
@@ -1890,11 +1420,11 @@ map fromBytes_ toBytes_ codec =
 
 mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> Codec e a -> Codec e b
 mapHelper fromBytes_ toBytes_ codec =
-    buildNestable
+    buildUnnestableCodec
         (\v -> toBytes_ v |> getEncoder codec)
         (getBytesDecoder codec |> BD.map fromBytes_)
         (\v -> toBytes_ v |> getJsonEncoder codec)
-        (\elsewheredata -> getJsonDecoder codec elsewheredata |> JD.map fromBytes_)
+        (getJsonDecoder codec |> JD.map fromBytes_)
 
 
 {-| Map from one codec to another codec in a way that can potentially fail when decoding.
@@ -1926,7 +1456,7 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 -}
 mapValid : (a -> Result e b) -> (b -> a) -> Codec e a -> Codec e b
 mapValid fromBytes_ toBytes_ codec =
-    buildNestable
+    buildUnnestableCodec
         (\v -> toBytes_ v |> getEncoder codec)
         (getBytesDecoder codec
             |> BD.map
@@ -1940,17 +1470,16 @@ mapValid fromBytes_ toBytes_ codec =
                 )
         )
         (\v -> toBytes_ v |> getJsonEncoder codec)
-        (\elsewhereData ->
-            getJsonDecoder codec elsewhereData
-                |> JD.map
-                    (\value ->
-                        case value of
-                            Ok ok ->
-                                fromBytes_ ok |> Result.mapError CustomError
+        (getJsonDecoder codec
+            |> JD.map
+                (\value ->
+                    case value of
+                        Ok ok ->
+                            fromBytes_ ok |> Result.mapError CustomError
 
-                            Err err ->
-                                Err err
-                    )
+                        Err err ->
+                            Err err
+                )
         )
 
 
@@ -1958,11 +1487,11 @@ mapValid fromBytes_ toBytes_ codec =
 -}
 mapError : (e1 -> e2) -> Codec e1 a -> Codec e2 a
 mapError mapFunc codec =
-    buildNestable
+    buildUnnestableCodec
         (getEncoder codec)
         (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
         (getJsonEncoder codec)
-        (\elsewhereData -> getJsonDecoder codec elsewhereData |> JD.map (mapErrorHelper mapFunc))
+        (getJsonDecoder codec |> JD.map (mapErrorHelper mapFunc))
 
 
 mapErrorHelper : (e -> a) -> Result (Error e) b -> Result (Error a) b
@@ -2013,8 +1542,754 @@ Be careful here, and test your codecs using elm-test with larger inputs than you
 -}
 lazy : (() -> Codec e a) -> Codec e a
 lazy f =
-    buildNestable
+    buildUnnestableCodec
         (\value -> getEncoder (f ()) value)
         (BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ())))
         (\value -> getJsonEncoder (f ()) value)
-        (\elsewhereData -> JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()) elsewhereData))
+        (JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ())))
+
+
+{-| A partially built codec for a custom type.
+-}
+
+
+
+-- CUSTOM
+
+
+type CustomTypeCodec a e match v
+    = CustomTypeCodec
+        { match : match
+        , jsonMatch : match
+        , decoder : Int -> BD.Decoder (Result (Error e) v) -> BD.Decoder (Result (Error e) v)
+        , jsonDecoder : Int -> JD.Decoder (Result (Error e) v) -> JD.Decoder (Result (Error e) v)
+        , idCounter : Int
+        }
+
+
+{-| Starts building a `Codec` for a custom type.
+You need to pass a pattern matching function, see the FAQ for details.
+
+    import Serialize as S
+
+    type Semaphore
+        = Red Int String Bool
+        | Yellow Float
+        | Green
+
+    semaphoreCodec : S.Codec e Semaphore
+    semaphoreCodec =
+        S.customType
+            (\redEncoder yellowEncoder greenEncoder value ->
+                case value of
+                    Red i s b ->
+                        redEncoder i s b
+
+                    Yellow f ->
+                        yellowEncoder f
+
+                    Green ->
+                        greenEncoder
+            )
+            -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
+            |> S.variant3 Red S.int S.string S.bool
+            |> S.variant1 Yellow S.float
+            |> S.variant0 Green
+            -- It's safe to add new variants here later though
+            |> S.finishCustomType
+
+-}
+customType : match -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e match value
+customType match =
+    CustomTypeCodec
+        { match = match
+        , jsonMatch = match
+        , decoder = \_ -> identity
+        , jsonDecoder = \_ -> identity
+        , idCounter = 0
+        }
+
+
+{-| -}
+type VariantEncoder
+    = VariantEncoder ( BE.Encoder, JE.Value )
+
+
+variant :
+    ((List BE.Encoder -> VariantEncoder) -> a)
+    -> ((List JE.Value -> VariantEncoder) -> a)
+    -> BD.Decoder (Result (Error error) v)
+    -> JD.Decoder (Result (Error error) v)
+    -> CustomTypeCodec z error (a -> b) v
+    -> CustomTypeCodec () error b v
+variant matchPiece matchJsonPiece decoderPiece jsonDecoderPiece (CustomTypeCodec am) =
+    let
+        enc : List BE.Encoder -> VariantEncoder
+        enc v =
+            ( BE.unsignedInt16 endian am.idCounter :: v |> BE.sequence
+            , JE.null
+            )
+                |> VariantEncoder
+
+        jsonEnc : List JE.Value -> VariantEncoder
+        jsonEnc v =
+            ( BE.sequence []
+            , JE.int am.idCounter :: v |> JE.list identity
+            )
+                |> VariantEncoder
+
+        decoder_ : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
+        decoder_ tag orElse =
+            if tag == am.idCounter then
+                decoderPiece
+
+            else
+                am.decoder tag orElse
+
+        jsonDecoder_ : Int -> JD.Decoder (Result (Error error) v) -> JD.Decoder (Result (Error error) v)
+        jsonDecoder_ tag orElse =
+            if tag == am.idCounter then
+                jsonDecoderPiece
+
+            else
+                am.jsonDecoder tag orElse
+    in
+    CustomTypeCodec
+        { match = am.match <| matchPiece enc
+        , jsonMatch = am.jsonMatch <| matchJsonPiece jsonEnc
+        , decoder = decoder_
+        , jsonDecoder = jsonDecoder_
+        , idCounter = am.idCounter + 1
+        }
+
+
+{-| Define a variant with 0 parameters for a custom type.
+-}
+variant0 : v -> CustomTypeCodec z e (VariantEncoder -> a) v -> CustomTypeCodec () e a v
+variant0 ctor =
+    variant
+        (\c -> c [])
+        (\c -> c [])
+        (BD.succeed (Ok ctor))
+        (JD.succeed (Ok ctor))
+
+
+{-| Define a variant with 1 parameters for a custom type.
+-}
+variant1 :
+    (a -> v)
+    -> Codec error a
+    -> CustomTypeCodec z error ((a -> VariantEncoder) -> b) v
+    -> CustomTypeCodec () error b v
+variant1 ctor m1 =
+    variant
+        (\c v ->
+            c
+                [ getEncoder m1 v
+                ]
+        )
+        (\c v ->
+            c
+                [ getJsonEncoder m1 v
+                ]
+        )
+        (BD.map (result1 ctor) (getBytesDecoder m1))
+        (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder m1)))
+
+
+result1 :
+    (value -> a)
+    -> Result error value
+    -> Result error a
+result1 ctor value =
+    case value of
+        Ok ok ->
+            ctor ok |> Ok
+
+        Err err ->
+            Err err
+
+
+{-| Define a variant with 2 parameters for a custom type.
+-}
+variant2 :
+    (a -> b -> v)
+    -> Codec error a
+    -> Codec error b
+    -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> c) v
+    -> CustomTypeCodec () error c v
+variant2 ctor m1 m2 =
+    variant
+        (\c v1 v2 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            ]
+                |> c
+        )
+        (\c v1 v2 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            ]
+                |> c
+        )
+        (BD.map2
+            (result2 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+        )
+        (JD.map2
+            (result2 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+        )
+
+
+result2 :
+    (value -> a -> b)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+result2 ctor v1 v2 =
+    case ( v1, v2 ) of
+        ( Ok ok1, Ok ok2 ) ->
+            ctor ok1 ok2 |> Ok
+
+        ( Err err, _ ) ->
+            Err err
+
+        ( _, Err err ) ->
+            Err err
+
+
+{-| Define a variant with 3 parameters for a custom type.
+-}
+variant3 :
+    (a -> b -> c -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> CustomTypeCodec z error ((a -> b -> c -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant3 ctor m1 m2 m3 =
+    variant
+        (\c v1 v2 v3 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            ]
+                |> c
+        )
+        (BD.map3
+            (result3 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (getBytesDecoder m3)
+        )
+        (JD.map3
+            (result3 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 3 (getJsonDecoder m3))
+        )
+
+
+result3 :
+    (value -> a -> b -> c)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> Result error c
+result3 ctor v1 v2 v3 =
+    case ( v1, v2, v3 ) of
+        ( Ok ok1, Ok ok2, Ok ok3 ) ->
+            ctor ok1 ok2 ok3 |> Ok
+
+        ( Err err, _, _ ) ->
+            Err err
+
+        ( _, Err err, _ ) ->
+            Err err
+
+        ( _, _, Err err ) ->
+            Err err
+
+
+{-| Define a variant with 4 parameters for a custom type.
+-}
+variant4 :
+    (a -> b -> c -> d -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> Codec error d
+    -> CustomTypeCodec z error ((a -> b -> c -> d -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant4 ctor m1 m2 m3 m4 =
+    variant
+        (\c v1 v2 v3 v4 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            , getEncoder m4 v4
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 v4 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            , getJsonEncoder m4 v4
+            ]
+                |> c
+        )
+        (BD.map4
+            (result4 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (getBytesDecoder m3)
+            (getBytesDecoder m4)
+        )
+        (JD.map4
+            (result4 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 3 (getJsonDecoder m3))
+            (JD.index 4 (getJsonDecoder m4))
+        )
+
+
+result4 :
+    (value -> a -> b -> c -> d)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> Result error c
+    -> Result error d
+result4 ctor v1 v2 v3 v4 =
+    case T4 v1 v2 v3 v4 of
+        T4 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) ->
+            ctor ok1 ok2 ok3 ok4 |> Ok
+
+        T4 (Err err) _ _ _ ->
+            Err err
+
+        T4 _ (Err err) _ _ ->
+            Err err
+
+        T4 _ _ (Err err) _ ->
+            Err err
+
+        T4 _ _ _ (Err err) ->
+            Err err
+
+
+{-| Define a variant with 5 parameters for a custom type.
+-}
+variant5 :
+    (a -> b -> c -> d -> e -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> Codec error d
+    -> Codec error e
+    -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant5 ctor m1 m2 m3 m4 m5 =
+    variant
+        (\c v1 v2 v3 v4 v5 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            , getEncoder m4 v4
+            , getEncoder m5 v5
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 v4 v5 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            , getJsonEncoder m4 v4
+            , getJsonEncoder m5 v5
+            ]
+                |> c
+        )
+        (BD.map5
+            (result5 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (getBytesDecoder m3)
+            (getBytesDecoder m4)
+            (getBytesDecoder m5)
+        )
+        (JD.map5
+            (result5 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 3 (getJsonDecoder m3))
+            (JD.index 4 (getJsonDecoder m4))
+            (JD.index 5 (getJsonDecoder m5))
+        )
+
+
+result5 :
+    (value -> a -> b -> c -> d -> e)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> Result error c
+    -> Result error d
+    -> Result error e
+result5 ctor v1 v2 v3 v4 v5 =
+    case T5 v1 v2 v3 v4 v5 of
+        T5 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) (Ok ok5) ->
+            ctor ok1 ok2 ok3 ok4 ok5 |> Ok
+
+        T5 (Err err) _ _ _ _ ->
+            Err err
+
+        T5 _ (Err err) _ _ _ ->
+            Err err
+
+        T5 _ _ (Err err) _ _ ->
+            Err err
+
+        T5 _ _ _ (Err err) _ ->
+            Err err
+
+        T5 _ _ _ _ (Err err) ->
+            Err err
+
+
+{-| Define a variant with 6 parameters for a custom type.
+-}
+variant6 :
+    (a -> b -> c -> d -> e -> f -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> Codec error d
+    -> Codec error e
+    -> Codec error f
+    -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant6 ctor m1 m2 m3 m4 m5 m6 =
+    variant
+        (\c v1 v2 v3 v4 v5 v6 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            , getEncoder m4 v4
+            , getEncoder m5 v5
+            , getEncoder m6 v6
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 v4 v5 v6 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            , getJsonEncoder m4 v4
+            , getJsonEncoder m5 v5
+            , getJsonEncoder m6 v6
+            ]
+                |> c
+        )
+        (BD.map5
+            (result6 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (getBytesDecoder m3)
+            (getBytesDecoder m4)
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m5)
+                (getBytesDecoder m6)
+            )
+        )
+        (JD.map5
+            (result6 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 3 (getJsonDecoder m3))
+            (JD.index 4 (getJsonDecoder m4))
+            (JD.map2 Tuple.pair
+                (JD.index 5 (getJsonDecoder m5))
+                (JD.index 6 (getJsonDecoder m6))
+            )
+        )
+
+
+result6 :
+    (value -> a -> b -> c -> d -> e -> f)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> Result error c
+    -> ( Result error d, Result error e )
+    -> Result error f
+result6 ctor v1 v2 v3 v4 ( v5, v6 ) =
+    case T6 v1 v2 v3 v4 v5 v6 of
+        T6 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) (Ok ok5) (Ok ok6) ->
+            ctor ok1 ok2 ok3 ok4 ok5 ok6 |> Ok
+
+        T6 (Err err) _ _ _ _ _ ->
+            Err err
+
+        T6 _ (Err err) _ _ _ _ ->
+            Err err
+
+        T6 _ _ (Err err) _ _ _ ->
+            Err err
+
+        T6 _ _ _ (Err err) _ _ ->
+            Err err
+
+        T6 _ _ _ _ (Err err) _ ->
+            Err err
+
+        T6 _ _ _ _ _ (Err err) ->
+            Err err
+
+
+{-| Define a variant with 7 parameters for a custom type.
+-}
+variant7 :
+    (a -> b -> c -> d -> e -> f -> g -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> Codec error d
+    -> Codec error e
+    -> Codec error f
+    -> Codec error g
+    -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant7 ctor m1 m2 m3 m4 m5 m6 m7 =
+    variant
+        (\c v1 v2 v3 v4 v5 v6 v7 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            , getEncoder m4 v4
+            , getEncoder m5 v5
+            , getEncoder m6 v6
+            , getEncoder m7 v7
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 v4 v5 v6 v7 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            , getJsonEncoder m4 v4
+            , getJsonEncoder m5 v5
+            , getJsonEncoder m6 v6
+            , getJsonEncoder m7 v7
+            ]
+                |> c
+        )
+        (BD.map5
+            (result7 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (getBytesDecoder m3)
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m4)
+                (getBytesDecoder m5)
+            )
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m6)
+                (getBytesDecoder m7)
+            )
+        )
+        (JD.map5
+            (result7 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 3 (getJsonDecoder m3))
+            (JD.map2 Tuple.pair
+                (JD.index 4 (getJsonDecoder m4))
+                (JD.index 5 (getJsonDecoder m5))
+            )
+            (JD.map2 Tuple.pair
+                (JD.index 6 (getJsonDecoder m6))
+                (JD.index 7 (getJsonDecoder m7))
+            )
+        )
+
+
+result7 :
+    (value -> a -> b -> c -> d -> e -> f -> g)
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> ( Result error c, Result error d )
+    -> ( Result error e, Result error f )
+    -> Result error g
+result7 ctor v1 v2 v3 ( v4, v5 ) ( v6, v7 ) =
+    case T7 v1 v2 v3 v4 v5 v6 v7 of
+        T7 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) (Ok ok5) (Ok ok6) (Ok ok7) ->
+            ctor ok1 ok2 ok3 ok4 ok5 ok6 ok7 |> Ok
+
+        T7 (Err err) _ _ _ _ _ _ ->
+            Err err
+
+        T7 _ (Err err) _ _ _ _ _ ->
+            Err err
+
+        T7 _ _ (Err err) _ _ _ _ ->
+            Err err
+
+        T7 _ _ _ (Err err) _ _ _ ->
+            Err err
+
+        T7 _ _ _ _ (Err err) _ _ ->
+            Err err
+
+        T7 _ _ _ _ _ (Err err) _ ->
+            Err err
+
+        T7 _ _ _ _ _ _ (Err err) ->
+            Err err
+
+
+{-| Define a variant with 8 parameters for a custom type.
+-}
+variant8 :
+    (a -> b -> c -> d -> e -> f -> g -> h -> v)
+    -> Codec error a
+    -> Codec error b
+    -> Codec error c
+    -> Codec error d
+    -> Codec error e
+    -> Codec error f
+    -> Codec error g
+    -> Codec error h
+    -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> h -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
+variant8 ctor m1 m2 m3 m4 m5 m6 m7 m8 =
+    variant
+        (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
+            [ getEncoder m1 v1
+            , getEncoder m2 v2
+            , getEncoder m3 v3
+            , getEncoder m4 v4
+            , getEncoder m5 v5
+            , getEncoder m6 v6
+            , getEncoder m7 v7
+            , getEncoder m8 v8
+            ]
+                |> c
+        )
+        (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
+            [ getJsonEncoder m1 v1
+            , getJsonEncoder m2 v2
+            , getJsonEncoder m3 v3
+            , getJsonEncoder m4 v4
+            , getJsonEncoder m5 v5
+            , getJsonEncoder m6 v6
+            , getJsonEncoder m7 v7
+            , getJsonEncoder m8 v8
+            ]
+                |> c
+        )
+        (BD.map5
+            (result8 ctor)
+            (getBytesDecoder m1)
+            (getBytesDecoder m2)
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m3)
+                (getBytesDecoder m4)
+            )
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m5)
+                (getBytesDecoder m6)
+            )
+            (BD.map2 Tuple.pair
+                (getBytesDecoder m7)
+                (getBytesDecoder m8)
+            )
+        )
+        (JD.map5
+            (result8 ctor)
+            (JD.index 1 (getJsonDecoder m1))
+            (JD.index 2 (getJsonDecoder m2))
+            (JD.map2 Tuple.pair
+                (JD.index 3 (getJsonDecoder m3))
+                (JD.index 4 (getJsonDecoder m4))
+            )
+            (JD.map2 Tuple.pair
+                (JD.index 5 (getJsonDecoder m5))
+                (JD.index 6 (getJsonDecoder m6))
+            )
+            (JD.map2 Tuple.pair
+                (JD.index 7 (getJsonDecoder m7))
+                (JD.index 8 (getJsonDecoder m8))
+            )
+        )
+
+
+result8 :
+    (value -> a -> b -> c -> d -> e -> f -> g -> h)
+    -> Result error value
+    -> Result error a
+    -> ( Result error b, Result error c )
+    -> ( Result error d, Result error e )
+    -> ( Result error f, Result error g )
+    -> Result error h
+result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
+    case T8 v1 v2 v3 v4 v5 v6 v7 v8 of
+        T8 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) (Ok ok5) (Ok ok6) (Ok ok7) (Ok ok8) ->
+            ctor ok1 ok2 ok3 ok4 ok5 ok6 ok7 ok8 |> Ok
+
+        T8 (Err err) _ _ _ _ _ _ _ ->
+            Err err
+
+        T8 _ (Err err) _ _ _ _ _ _ ->
+            Err err
+
+        T8 _ _ (Err err) _ _ _ _ _ ->
+            Err err
+
+        T8 _ _ _ (Err err) _ _ _ _ ->
+            Err err
+
+        T8 _ _ _ _ (Err err) _ _ _ ->
+            Err err
+
+        T8 _ _ _ _ _ (Err err) _ _ ->
+            Err err
+
+        T8 _ _ _ _ _ _ (Err err) _ ->
+            Err err
+
+        T8 _ _ _ _ _ _ _ (Err err) ->
+            Err err
+
+
+{-| Finish creating a codec for a custom type.
+-}
+finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> Codec e a
+finishCustomType (CustomTypeCodec am) =
+    buildUnnestableCodec
+        (am.match >> (\(VariantEncoder ( a, _ )) -> a))
+        (BD.unsignedInt16 endian
+            |> BD.andThen
+                (\tag ->
+                    am.decoder tag (BD.succeed (Err DataCorrupted))
+                )
+        )
+        (am.jsonMatch >> (\(VariantEncoder ( _, a )) -> a))
+        (JD.index 0 JD.int
+            |> JD.andThen
+                (\tag ->
+                    am.jsonDecoder tag (JD.succeed (Err DataCorrupted))
+                )
+        )
