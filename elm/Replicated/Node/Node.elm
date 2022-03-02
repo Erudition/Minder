@@ -171,21 +171,14 @@ objectChangeToUnstampedOp node inCounter objectChange =
               , thisObjectOp = unstampedChunkOp
               }
             )
-    in
-    case objectChange of
-        Op.NewPayload payload ->
-            outputHelper { reference = Nothing, payload = payload, reversion = False }
 
-        Op.NewPayloadWithRef { payload, ref } ->
-            outputHelper { reference = Just ref, payload = payload, reversion = False }
-
-        Op.RevertOp opIDToRevert ->
-            outputHelper { reference = Just opIDToRevert, payload = "", reversion = True }
-
-        Op.NestedObject (Op.Chunk chunk) newObjectIDToPayload ->
+        nestedHelper (Op.Chunk chunk) newObjectIDToPayloadMaybe refMaybe =
             let
                 ( ( postPrereqCounter, subObjectIDMaybe ), prereqOps ) =
                     chunkToOps node ( inCounter, Nothing ) chunk
+
+                newObjectIDToPayload =
+                    Maybe.withDefault (\opID -> "{" ++ OpID.toString opID ++ "}") newObjectIDToPayloadMaybe
 
                 pointerPayload =
                     -- subObjectIDMaybe should never be nothing, but we have no way to pass an initial value to mapAccuml without wrapping in maybe...
@@ -197,6 +190,22 @@ objectChangeToUnstampedOp node inCounter objectChange =
               , thisObjectOp = { reference = Nothing, payload = pointerPayload, reversion = False }
               }
             )
+    in
+    case objectChange of
+        Op.NewPayload payload ->
+            outputHelper { reference = Nothing, payload = payload, reversion = False }
+
+        Op.NewPayloadWithRef { payload, ref } ->
+            outputHelper { reference = Just ref, payload = payload, reversion = False }
+
+        Op.RevertOp opIDToRevert ->
+            outputHelper { reference = Just opIDToRevert, payload = "", reversion = True }
+
+        Op.NestedObject { nested, ref } ->
+            nestedHelper nested Nothing ref
+
+        Op.NestedObjectWithCustomQuoter { nested, toPayload, ref } ->
+            nestedHelper nested (Just toPayload) ref
 
 
 getOrInitObject :

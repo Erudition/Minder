@@ -118,12 +118,12 @@ type alias RonDecoder e a =
 
 
 type alias RonFieldEncoder =
-    RonFieldEncoderInputs -> Op.ObjectChange
+    RonFieldEncoderInputs -> Maybe Op.ObjectChange
 
 
 type alias RonFieldEncoderInputs =
     { node : Node
-    , register : Register -- no this MAY NOT exist yet, but it doesn't matter because
+    , registerMaybe : Maybe Register -- no this MAY NOT exist yet, but it doesn't matter because
     , mode : ReplicaEncodeDepth
     }
 
@@ -175,14 +175,14 @@ decodeFromNode codec node =
                             Err DataCorrupted |> JD.succeed
 
                         else if value == version then
-                            JD.index 1 (getJsonDecoder codec (Just ( node, Nothing )))
+                            JD.index 1 (getJsonDecoder codec)
 
                         else
                             Err SerializerOutOfDate |> JD.succeed
                     )
 
         decoder =
-            getJsonDecoder codec (Just ( node, Nothing ))
+            getJsonDecoder codec
     in
     case node.root of
         Just rootID ->
@@ -638,6 +638,7 @@ repSet memberCodec =
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
         , ronEncoder = Just (repSetRonEncoder memberCodec)
+        , ronDecoder = Nothing
         }
 
 
@@ -655,7 +656,7 @@ repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> Change
 repSetRonEncoder nestedCodec ({ node, containedBy, mode } as details) =
     let
         existingObjectMaybe =
-            Maybe.map (Node.getObjectIfExists node) (List.head containedBy)
+            Maybe.andThen (Node.getObjectIfExists node) (List.head containedBy)
     in
     case existingObjectMaybe of
         Nothing ->
@@ -666,17 +667,32 @@ repSetRonEncoder nestedCodec ({ node, containedBy, mode } as details) =
 
         Just foundObject ->
             let
+                flatMemberChanger newMemberValue newRefMaybe =
+                    case newRefMaybe of
+                        Just givenRef ->
+                            Op.NewPayloadWithRef { payload = encodeToURLString nestedCodec newMemberValue, ref = givenRef }
+
+                        Nothing ->
+                            Op.NewPayload (encodeToURLString nestedCodec newMemberValue)
+
                 ( unstringifier, memberChanger ) =
                     case getRonEncoder nestedCodec of
                         Nothing ->
-                            Nothing
+                            ( decodeFromString nestedCodec >> Result.toMaybe, flatMemberChanger )
+
+                        Just nestedRonEncoder ->
+                            ( decodeFromString nestedCodec >> Result.toMaybe
+                            , \newMemberValue newRefMaybe ->
+                                Op.NestedObject
+                                    { nested = nestedRonEncoder details, ref = newRefMaybe }
+                            )
 
                 ( existingRepSet, warnings ) =
                     -- TODO use warnings
                     RepSet.buildFromReplicaDb node foundObject unstringifier memberChanger
             in
             Chunk
-                { object = ExistingObject RepSet.getID existingRepSet
+                { object = ExistingObject (RepSet.getID existingRepSet)
                 , objectChanges = [] -- TODO should this be blank
                 }
 
@@ -687,7 +703,7 @@ list : Codec e a -> Codec e (List a)
 list codec =
     let
         normalJsonDecoder =
-            JD.list (getJsonDecoder codec Nothing)
+            JD.list (getJsonDecoder codec)
                 |> JD.map
                     (List.foldr
                         (\value state ->
@@ -713,6 +729,7 @@ list codec =
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = normalJsonDecoder
         , ronEncoder = Nothing
+        , ronDecoder = Nothing
         }
 
 
@@ -820,23 +837,22 @@ triple codecFirst codecSecond codecThird =
         |> finishFragileRecord
 
 
+{-| Codec for serializing a `Result`
+-}
+result : Codec e error -> Codec e value -> Codec e (Result error value)
+result errorCodec valueCodec =
+    customType
+        (\errEncoder okEncoder value ->
+            case value of
+                Err err ->
+                    errEncoder err
 
---{-| Codec for serializing a `Result`
----}
---result : Codec e error -> Codec e value -> Codec e (Result error value)
---result errorCodec valueCodec =
---    customType
---        (\errEncoder okEncoder value ->
---            case value of
---                Err err ->
---                    errEncoder err
---
---                Ok ok ->
---                    okEncoder ok
---        )
---        |> variant1 Err errorCodec
---        |> variant1 Ok valueCodec
---        |> finishCustomType
+                Ok ok ->
+                    okEncoder ok
+        )
+        |> variant1 Err errorCodec
+        |> variant1 Ok valueCodec
+        |> finishCustomType
 
 
 {-| Codec for serializing [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/).
@@ -1029,7 +1045,7 @@ fragileRecord ctor =
         { encoder = \_ -> []
         , decoder = BD.succeed (Ok ctor)
         , jsonEncoder = \_ -> []
-        , jsonDecoder = \_ -> JD.succeed (Ok ctor)
+        , jsonDecoder = JD.succeed (Ok ctor)
         , fieldIndex = 0
         }
 
@@ -1039,7 +1055,7 @@ fragileRecord ctor =
 fixedField : (a -> f) -> Codec e f -> FragileRecordCodec e a (f -> b) -> FragileRecordCodec e a b
 fixedField getter codec (FragileRecordCodec recordCodec) =
     let
-        normalJsonDecoder elsewhereData =
+        normalJsonDecoder =
             JD.map2
                 (\f x ->
                     case ( f, x ) of
@@ -1052,9 +1068,8 @@ fixedField getter codec (FragileRecordCodec recordCodec) =
                         ( _, Err err ) ->
                             Err err
                 )
-                -- TODO proper to use both elsewhereData here?
-                (recordCodec.jsonDecoder elsewhereData)
-                (JD.index recordCodec.fieldIndex (getJsonDecoder codec elsewhereData))
+                recordCodec.jsonDecoder
+                (JD.index recordCodec.fieldIndex (getJsonDecoder codec))
     in
     FragileRecordCodec
         { encoder = \v -> (getEncoder codec <| getter v) :: recordCodec.encoder v
@@ -1089,6 +1104,7 @@ finishFragileRecord (FragileRecordCodec codec) =
         , jsonEncoder = codec.jsonEncoder >> List.reverse >> JE.list identity
         , jsonDecoder = codec.jsonDecoder
         , ronEncoder = Nothing
+        , ronDecoder = Nothing
         }
 
 
@@ -1160,20 +1176,9 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
     in
     PartialRecord
         { encoder = addToPartialBytesEncoderList
-        , decoder =
-            BD.map2
-                combineIfBothSucceed
-                recordCodecSoFar.decoder
-                -- (getBytesDecoder wrappedFieldValueCodec)
-                BD.fail
+        , decoder = BD.fail
         , jsonEncoders = addToPartialJsonEncoderList
-        , jsonArrayDecoder =
-            JD.map2
-                combineIfBothSucceed
-                -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.jsonArrayDecoder
-                -- and now we're wrapping it in yet another layer, this field's decoder
-                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
+        , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
         }
@@ -1226,49 +1231,6 @@ combineIfBothSucceed decoderA decoderB =
 
         ( _, Err b_error ) ->
             Err b_error
-
-
-
--- {-| JSON version: what to do when decoding a (potentially nested!) object field.
--- -}
--- nestableJsonFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> ElsewhereData -> JD.Decoder (Result (Error e) fieldtype)
--- nestableJsonFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec outer =
---     case outer of
---         -- There is no known replica. This is normal decoding.
---         Nothing ->
---             -- Getting JSON Object field seems more efficient than finding our field in an array because the elm kernel uses JS direct access, object["fieldname"], under the hood. That's better than `index` because Elm won't let us use Strings for that or even numbers out of order. Plus it's more human-readable JSON!
---             JD.field (String.fromInt fieldSlot ++ "_" ++ fieldName) (getJsonDecoder fieldValueCodec Nothing)
---
---         Just ( replica, Nothing ) ->
---             Debug.todo "a replica exists but we seem to be working with normal flat decoding. Why was a replica passed in then?"
---
---         -- We are working with an Register
---         Just ( replica, Just registerObject ) ->
---             let
---                 desiredField =
---                     Register.getFieldLatest registerObject ( fieldSlot, fieldName )
---             in
---             case desiredField of
---                 Nothing ->
---                     JD.succeed (Ok default)
---
---                 Just foundField ->
---                     let
---                         runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
---                         runDecoderOnFoundField =
---                             JD.decodeString (getJsonDecoder fieldValueCodec outer) (prepDecoder foundField)
---
---                         convertResult : Result (Error e) fieldtype
---                         convertResult =
---                             case runDecoderOnFoundField of
---                                 Ok something ->
---                                     something
---
---                                 Err problem ->
---                                     -- TODO FIXME
---                                     Err DataCorrupted
---                     in
---                     JD.succeed convertResult
 
 
 prepDecoder : String -> String
@@ -1332,7 +1294,7 @@ registerRonEncoder ronFieldEncoders ({ node, containedBy, mode } as details) =
         existingRegisterMaybe =
             case List.head containedBy of
                 Just givenID ->
-                    Register.build node givenID
+                    Maybe.map (Register.build node) (Node.getObjectIfExists node givenID)
 
                 _ ->
                     Nothing
@@ -1345,8 +1307,9 @@ registerRonEncoder ronFieldEncoders ({ node, containedBy, mode } as details) =
                 Just foundRegister ->
                     ExistingObject <| Register.getID foundRegister
 
+        subChanges : List Op.ObjectChange
         subChanges =
-            List.map { node = node, registerMaybe = existingRegisterMaybe, mode = mode } ronFieldEncoders
+            List.filterMap (\f -> f { node = node, registerMaybe = existingRegisterMaybe, mode = mode }) ronFieldEncoders
     in
     Chunk
         { object = target
@@ -1366,15 +1329,55 @@ obsolete reservedList input =
 Updated to separate cases where the object needs to be created.
 
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Op.ObjectChange)
-newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec details =
+newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
+newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { mode, registerMaybe, node } =
     case getRonEncoder fieldValueCodec of
         -- leaf node : nothing nested further, just a flat value
         Nothing ->
-            Op.NewPayload Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (JE.encode 0 (getJsonEncoder fieldValueCodec))
+            let
+                createNewPayload value =
+                    Register.encodeFieldPayloadAsObjectPayload
+                        ( fieldSlot, fieldName )
+                        (JE.encode 0 (getJsonEncoder fieldValueCodec value))
+
+                getValue register =
+                    Register.getFieldLatestOnly register ( fieldSlot, fieldName )
+                        |> Maybe.withDefault encodedDefault
+
+                encodedDefault =
+                    JE.encode 0 (getJsonEncoder fieldValueCodec fieldDefault)
+            in
+            case ( registerMaybe, mode ) of
+                ( Nothing, MissingObjectsOnly ) ->
+                    Nothing
+
+                ( Nothing, NonDefaultValues ) ->
+                    Nothing
+
+                ( Nothing, IncludeDefaults ) ->
+                    Just <| Op.NewPayload <| createNewPayload fieldDefault
+
+                ( Just register, MissingObjectsOnly ) ->
+                    Nothing
+
+                ( Just register, NonDefaultValues ) ->
+                    if getValue register /= encodedDefault then
+                        Nothing
+
+                    else
+                        Just <| Op.NewPayload <| createNewPayload fieldDefault
+
+                ( Just register, IncludeDefaults ) ->
+                    Just
+                        (Op.NewPayload
+                            (Register.encodeFieldPayloadAsObjectPayload
+                                ( fieldSlot, fieldName )
+                                (getValue register)
+                            )
+                        )
 
         Just fieldRonEncoder ->
-            Op.NestedObject (fieldRonEncoder details) quoteID
+            Just <| Op.NestedObject { nested = fieldRonEncoder { mode = mode, containedBy = [], node = node }, ref = Nothing }
 
 
 quoteID : OpID -> Op.Payload
@@ -1383,7 +1386,6 @@ quoteID opID =
 
 
 
--- create op using default
 ---- MAPPING
 
 
@@ -1507,6 +1509,9 @@ mapErrorHelper mapFunc =
 
                 SerializerOutOfDate ->
                     SerializerOutOfDate
+
+                ObjectNotFound opID ->
+                    ObjectNotFound opID
         )
 
 

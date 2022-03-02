@@ -21,7 +21,7 @@ type RepSet memberType
         { id : ObjectID
         , members : Dict MemberID memberType
         , included : Object.InclusionInfo
-        , memberToString : memberType -> String
+        , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
         }
 
 
@@ -46,8 +46,8 @@ reducerID =
 
 {-| We assume object exists, missing object should be handled beforehand.
 -}
-buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> String) -> ( RepSet memberType, List Object.ReducerWarning )
-buildFromReplicaDb node object unstringifier stringifier =
+buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> ( RepSet memberType, List Object.ReducerWarning )
+buildFromReplicaDb node object unstringifier memberChanger =
     let
         ( eventsAsMembers, decodeWarnings ) =
             Dict.foldl addToNewDictOrWarn ( Dict.empty, [] ) object.events
@@ -70,7 +70,7 @@ buildFromReplicaDb node object unstringifier stringifier =
     ( RepSet
         { id = object.creation
         , members = eventsAsMembers
-        , memberToString = stringifier
+        , memberChanger = memberChanger
         , included = object.included
         }
     , decodeWarnings
@@ -116,7 +116,7 @@ insertAfter (RepSet repSetRecord) attachmentPoint newItem =
     Op.Chunk
         { object = Op.ExistingObject repSetRecord.id
         , objectChanges =
-            [ Op.NewPayloadWithRef { payload = repSetRecord.memberToString newItem, ref = memberIDToOpID attachmentPoint } ]
+            [ repSetRecord.memberChanger newItem (Just (memberIDToOpID attachmentPoint)) ]
         }
 
 
@@ -126,7 +126,7 @@ append : RepSet memberType -> List memberType -> Change
 append (RepSet repSetRecord) newItems =
     let
         newItemToObjectChange newItem =
-            Op.NewPayload (repSetRecord.memberToString newItem)
+            repSetRecord.memberChanger newItem Nothing
     in
     Op.Chunk
         { object = Op.ExistingObject repSetRecord.id

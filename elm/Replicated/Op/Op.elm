@@ -331,7 +331,8 @@ type Change
 type ObjectChange
     = NewPayload Payload
     | NewPayloadWithRef { payload : Payload, ref : OpID }
-    | NestedObject Change (ObjectID -> Payload)
+    | NestedObject { nested : Change, ref : Maybe OpID }
+    | NestedObjectWithCustomQuoter { nested : Change, toPayload : ObjectID -> Payload, ref : Maybe OpID }
     | RevertOp OpID
 
 
