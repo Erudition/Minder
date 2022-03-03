@@ -16,7 +16,7 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , objects : ObjectsByCreationDb
-    , root : Maybe ObjectID -- TODO should this be maybe?
+    , root : Maybe ObjectID
     , lastUsedCounter : OutCounter
     , peers : List Peer
     }
@@ -24,8 +24,8 @@ type alias Node =
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> Int -> List Op -> Result InitError Node
-initFromSaved foundIdentity foundCounter inputDatabase =
+initFromSaved : String -> Int -> OpID -> List Op -> Result InitError Node
+initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
             fromString foundIdentity
@@ -39,7 +39,7 @@ initFromSaved foundIdentity foundCounter inputDatabase =
                 { identity = bumpSessionID oldNodeID
                 , peers = []
                 , objects = Dict.empty
-                , root = Nothing
+                , root = Just foundRoot
                 , lastUsedCounter = OpID.importCounter foundCounter
                 }
 
@@ -56,16 +56,46 @@ firstSessionEver =
     { primus = 0, peer = 0, client = 0, session = 0 }
 
 
-startNewNode : Moment -> Node
-startNewNode now =
-    { identity = firstSessionEver, peers = [], objects = Dict.empty, root = Nothing, lastUsedCounter = OpID.firstCounter now }
+testNode =
+    { identity = firstSessionEver
+    , peers = []
+    , objects = Dict.empty
+    , root = Nothing
+    , lastUsedCounter = OpID.testCounter
+    }
 
 
-applyLocalChanges : Moment -> Node -> List Change -> ( List Op, Node )
-applyLocalChanges time node changes =
+startNewNode : Maybe Moment -> Change -> Node
+startNewNode nowMaybe rootChange =
     let
+        { updatedNode, created } =
+            apply nowMaybe testNode [ rootChange ]
+
+        rootObjectID =
+            List.head created
+
+        nodeStartCounter =
+            Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
+    in
+    { updatedNode | root = rootObjectID, lastUsedCounter = nodeStartCounter }
+
+
+{-| Save your changes!
+Always supply the current time (`Just moment`).
+(Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
+If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
+-}
+apply : Maybe Moment -> Node -> List Change -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+apply timeMaybe node changes =
+    let
+        fallbackCounter =
+            Maybe.withDefault node.lastUsedCounter (Maybe.map OpID.firstCounter timeMaybe)
+
+        frameStartCounter =
+            OpID.highestCounter fallbackCounter node.lastUsedCounter
+
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.Extra.mapAccuml (oneChangeToOps node) node.lastUsedCounter (combineSameObjectChunks changes)
+            List.Extra.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
 
         finishedOps =
             List.concat listOfFinishedOpsLists
@@ -73,7 +103,10 @@ applyLocalChanges time node changes =
         updatedNode =
             List.foldl updateNodeWithSingleOp node finishedOps
     in
-    ( finishedOps, updatedNode )
+    { ops = finishedOps
+    , updatedNode = { updatedNode | lastUsedCounter = finalCounter }
+    , created = []
+    }
 
 
 combineSameObjectChunks : List Change -> List Change

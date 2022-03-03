@@ -97,7 +97,7 @@ type Codec e a
 
 type alias RonEncoderInputs =
     { node : Node
-    , containedBy : List ObjectID
+    , existingObjectsToUse : List ObjectID
     , mode : ReplicaEncodeDepth
     }
 
@@ -163,9 +163,10 @@ version =
 -- DECODE
 
 
-{-| -}
+{-| Pass in the codec for the root object.
+-}
 decodeFromNode : Codec e a -> Node -> Result (Error e) a
-decodeFromNode codec node =
+decodeFromNode rootCodec node =
     let
         oldDecoder =
             JD.index 0 JD.int
@@ -175,27 +176,27 @@ decodeFromNode codec node =
                             Err DataCorrupted |> JD.succeed
 
                         else if value == version then
-                            JD.index 1 (getJsonDecoder codec)
+                            JD.index 1 (getJsonDecoder rootCodec)
 
                         else
                             Err SerializerOutOfDate |> JD.succeed
                     )
 
         decoder =
-            getJsonDecoder codec
+            getJsonDecoder rootCodec
     in
     case node.root of
-        Just rootID ->
+        Nothing ->
+            Err DataCorrupted
+
+        Just nodeRootObjectID ->
             -- TODO we need to get rid of those quotes, but JD.string expects them for now
-            case JD.decodeString decoder ("\"" ++ OpID.toString rootID ++ "\"") of
+            case JD.decodeString decoder ("\"" ++ OpID.toString nodeRootObjectID ++ "\"") of
                 Ok value ->
                     value
 
                 Err something ->
                     Tuple.second ( Debug.log "problem decoding root" something, Err DataCorrupted )
-
-        Nothing ->
-            Debug.log "no root of node!" <| Err DataCorrupted
 
 
 endian : Bytes.Endianness
@@ -423,16 +424,25 @@ replaceForUrl =
     Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
 
 
-{-| Convert an Elm value into a Change.
+{-| Get values from the Node into a Change.
+Pass the codec of the root object.
 -}
-encodeToRon : Node -> List ObjectID -> Codec e a -> Maybe Change
-encodeToRon node containers codec =
-    case getRonEncoder codec of
+encodeNodeToChanges : Node -> Codec e a -> Change
+encodeNodeToChanges node rootCodec =
+    case getRonEncoder rootCodec of
         Just ronEncoder ->
-            Just <| ronEncoder { node = node, containedBy = containers, mode = IncludeDefaults }
+            ronEncoder { node = node, existingObjectsToUse = [], mode = IncludeDefaults }
 
         Nothing ->
-            Nothing
+            -- TODO
+            Chunk { object = Op.NewObject Register.reducerID, objectChanges = [] }
+
+
+{-| Generates naked Changes from a Codec's default values.
+-}
+encodeFreshChanges : Codec e a -> Change
+encodeFreshChanges rootCodec =
+    encodeNodeToChanges Node.testNode rootCodec
 
 
 
@@ -653,10 +663,10 @@ Also returns the ObjectID so that parent repSets can refer to it.
 
 -}
 repSetRonEncoder : Codec e nestedType -> RonEncoderInputs -> Change
-repSetRonEncoder nestedCodec ({ node, containedBy, mode } as details) =
+repSetRonEncoder nestedCodec ({ node, existingObjectsToUse, mode } as details) =
     let
         existingObjectMaybe =
-            Maybe.andThen (Node.getObjectIfExists node) (List.head containedBy)
+            Maybe.andThen (Node.getObjectIfExists node) (List.head existingObjectsToUse)
     in
     case existingObjectMaybe of
         Nothing ->
@@ -1289,10 +1299,10 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 
 -}
 registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> Change
-registerRonEncoder ronFieldEncoders ({ node, containedBy, mode } as details) =
+registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as details) =
     let
         existingRegisterMaybe =
-            case List.head containedBy of
+            case List.head existingObjectsToUse of
                 Just givenID ->
                     Maybe.map (Register.build node) (Node.getObjectIfExists node givenID)
 
@@ -1377,7 +1387,7 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { 
                         )
 
         Just fieldRonEncoder ->
-            Just <| Op.NestedObject { nested = fieldRonEncoder { mode = mode, containedBy = [], node = node }, ref = Nothing }
+            Just <| Op.NestedObject { nested = fieldRonEncoder { mode = mode, existingObjectsToUse = [], node = node }, ref = Nothing }
 
 
 quoteID : OpID -> Op.Payload

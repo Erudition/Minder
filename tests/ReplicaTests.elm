@@ -18,18 +18,16 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ temp
-        , readOnlyObjectEncodeThenDecode
+        [ readOnlyObjectEncodeThenDecode
         , writableObjectEncodeThenDecode
         , writableObjectModify
         , repSetEncodeThenDecode
         ]
 
 
-temp =
-    test "Empty placeholder test" <|
-        \_ ->
-            Expect.equal 1 1
+nodeFromCodec : Codec e a -> Node
+nodeFromCodec rootCodec =
+    Node.startNewNode Nothing (RC.encodeFreshChanges rootCodec)
 
 
 fakeOps : List Op
@@ -42,10 +40,6 @@ fakeOps =
             """
     in
     Maybe.withDefault [] <| Result.toMaybe <| Op.fromFrame ops
-
-
-fakeNode =
-    List.foldl Node.updateNodeWithSingleOp Node.startNewNode fakeOps
 
 
 type alias ReadOnlyObject =
@@ -88,19 +82,9 @@ correctDefaultName =
     ExampleSubObjectName "firstname" "specific-codec default surname"
 
 
-fakeNodeWithExampleObject : Node
-fakeNodeWithExampleObject =
-    let
-        ( exampleObjectAsOpList, rootIDMaybe ) =
-            RC.encodeToRonWithRootID fakeNode OpID.testCounter readOnlyObjectCodec
-
-        apply op node =
-            { node | db = Node.applyOpToDb node.db op }
-
-        filledNode =
-            List.foldl apply fakeNode exampleObjectAsOpList
-    in
-    { filledNode | root = rootIDMaybe }
+fakeNode1 : Node
+fakeNode1 =
+    nodeFromCodec readOnlyObjectCodec
 
 
 readOnlyObjectEncodeThenDecode =
@@ -108,7 +92,7 @@ readOnlyObjectEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode readOnlyObjectCodec fakeNodeWithExampleObject
+                    RC.decodeFromNode readOnlyObjectCodec fakeNode1
             in
             processOutput
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
@@ -142,21 +126,21 @@ correctDefaultWritableObject obj =
 fakeNodeWithModifications =
     let
         exampleObjectMaybe =
-            Result.toMaybe (exampleObjectReDecoded fakeNodeWithExampleObject)
+            Result.toMaybe (exampleObjectReDecoded fakeNode1)
     in
     case exampleObjectMaybe of
         Just exampleObjectFound ->
             let
-                preOpList =
+                changeList =
                     [ exampleObjectFound.address.set "candylane" ]
 
-                ( outputOps, updatedNode ) =
-                    Node.applyLocalChanges (Moment.fromSmartInt 1000) fakeNodeWithExampleObject preOpList
+                { updatedNode } =
+                    Node.apply Nothing fakeNode1 changeList
             in
             updatedNode
 
         Nothing ->
-            fakeNodeWithExampleObject
+            fakeNode1
 
 
 correctModifiedObject : WritableObject -> Bool
@@ -166,7 +150,7 @@ correctModifiedObject obj =
 
 exampleObjectReDecoded : Node -> Result (RC.Error String) WritableObject
 exampleObjectReDecoded node =
-    RC.decodeFromNode writableObjectCodec fakeNodeWithExampleObject
+    RC.decodeFromNode writableObjectCodec fakeNode1
 
 
 writableObjectEncodeThenDecode =
@@ -174,7 +158,7 @@ writableObjectEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode writableObjectCodec fakeNodeWithExampleObject
+                    RC.decodeFromNode writableObjectCodec fakeNode1
             in
             Expect.true "Expected the writable object to have default fields" <|
                 Result.withDefault False
@@ -209,17 +193,7 @@ simpleListCodec =
 
 fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
-    let
-        ( simpleListAsOpList, rootIDMaybe ) =
-            RC.encodeToRonWithRootID Node.startNewNode OpID.testCounter simpleListCodec
-
-        apply op node =
-            { node | db = Node.applyOpToDb node.db op }
-
-        filledNode =
-            List.foldl apply Node.startNewNode simpleListAsOpList
-    in
-    { filledNode | root = rootIDMaybe }
+    nodeFromCodec simpleListCodec
 
 
 repSetEncodeThenDecode =
