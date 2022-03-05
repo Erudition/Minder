@@ -115,10 +115,28 @@ changeField targetObject fieldIdentifier stringifier newValue =
     Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload newPayload ] }
 
 
-buildRW : OpID.ObjectID -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> RW fieldVal
-buildRW objectID fieldIdentifier stringifier head =
+buildUnnestableRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> RW fieldVal
+buildUnnestableRW targetObject fieldIdentifier stringifier head =
     { get = head
-    , set = \new -> changeField (Op.ExistingObject objectID) fieldIdentifier stringifier new
+    , set = \new -> changeField targetObject fieldIdentifier stringifier new
+    }
+
+
+buildNestableRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Change) -> fieldVal -> RW fieldVal
+buildNestableRW targetObject fieldIdentifier nestedChanger head =
+    let
+        nestedChange new =
+            Op.NestedObjectWithCustomQuoter
+                { nested = nestedChanger new
+                , toPayload = setFieldToObjectPointer
+                , ref = Nothing
+                }
+
+        setFieldToObjectPointer objectID =
+            encodeFieldPayloadAsObjectPayload fieldIdentifier ("{" ++ OpID.toString objectID ++ "}")
+    in
+    { get = head
+    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ nestedChange new ] }
     }
 
 
@@ -129,9 +147,28 @@ type alias RWH fieldVal =
     }
 
 
-buildRWH : OpID.ObjectID -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
-buildRWH objectID fieldIdentifier stringifier head rest =
+buildUnnestableRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildUnnestableRWH targetObject fieldIdentifier stringifier head rest =
     { get = head
-    , set = \new -> changeField (Op.ExistingObject objectID) fieldIdentifier stringifier new
+    , set = \new -> changeField targetObject fieldIdentifier stringifier new
+    , history = rest
+    }
+
+
+buildNestableRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Change) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildNestableRWH targetObject fieldIdentifier nestedChanger head rest =
+    let
+        nestedChange new =
+            Op.NestedObjectWithCustomQuoter
+                { nested = nestedChanger new
+                , toPayload = setFieldToObjectPointer
+                , ref = Nothing
+                }
+
+        setFieldToObjectPointer objectID =
+            encodeFieldPayloadAsObjectPayload fieldIdentifier ("{" ++ OpID.toString objectID ++ "}")
+    in
+    { get = head
+    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ nestedChange new ] }
     , history = rest
     }

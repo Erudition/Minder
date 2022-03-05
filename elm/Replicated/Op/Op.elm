@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, ReducerID, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -338,7 +338,15 @@ type ObjectChange
 
 type TargetObject
     = ExistingObject ObjectID
-    | NewObject ReducerID
+    | NewObject ReducerID (Maybe PendingObjectID)
+
+
+type alias PendingObjectCounter =
+    Int
+
+
+type alias PendingObjectID =
+    Int
 
 
 

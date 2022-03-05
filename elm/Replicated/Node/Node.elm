@@ -119,6 +119,9 @@ combineSameObjectChunks changes =
                         ( Op.ExistingObject objectID1, Op.ExistingObject objectID2 ) ->
                             objectID1 == objectID2
 
+                        ( Op.NewObject reducerID1 pendingID1, Op.NewObject reducerID2 pendingID2 ) ->
+                            pendingID1 == pendingID2 && reducerID1 == reducerID2
+
                         _ ->
                             False
 
@@ -267,7 +270,7 @@ getOrInitObject node inCounter targetObject =
                     , postInitCounter = inCounter
                     }
 
-        Op.NewObject reducerID ->
+        Op.NewObject reducerID _ ->
             let
                 ( newID, outCounter ) =
                     OpID.generate inCounter node.identity False
