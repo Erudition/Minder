@@ -25,7 +25,7 @@ suite =
         ]
 
 
-nodeFromCodec : Codec e a -> Node
+nodeFromCodec : Codec e a -> Node p
 nodeFromCodec rootCodec =
     Node.startNewNode Nothing (RC.encodeFreshChanges rootCodec)
 
@@ -82,7 +82,7 @@ correctDefaultName =
     ExampleSubObjectName "firstname" "specific-codec default surname"
 
 
-fakeNode1 : Node
+fakeNode1 : Node p
 fakeNode1 =
     nodeFromCodec readOnlyObjectCodec
 
@@ -148,7 +148,7 @@ correctModifiedObject obj =
     obj.name.get == correctDefaultName && obj.address.get == "candylane" && obj.number.get == 0
 
 
-exampleObjectReDecoded : Node -> Result (RC.Error String) WritableObject
+exampleObjectReDecoded : Node p -> Result (RC.Error String) WritableObject
 exampleObjectReDecoded node =
     RC.decodeFromNode writableObjectCodec fakeNode1
 
@@ -191,7 +191,7 @@ simpleListCodec =
     RC.repSet RC.string
 
 
-fakeNodeWithSimpleList : Node
+fakeNodeWithSimpleList : Node p
 fakeNodeWithSimpleList =
     nodeFromCodec simpleListCodec
 

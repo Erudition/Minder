@@ -44,7 +44,7 @@ empty objectID =
     Register { id = objectID, included = Object.All, version = objectID, fields = Dict.empty }
 
 
-build : Node -> Object -> Register
+build : Node p -> Object -> Register
 build node object =
     let
         fieldsDict =

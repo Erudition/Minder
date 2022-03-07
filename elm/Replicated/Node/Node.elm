@@ -28,7 +28,7 @@ type SavedProfile p
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> Int -> OpID -> List Op -> Result InitError Node
+initFromSaved : String -> Int -> OpID -> List Op -> Result InitError (Node p)
 initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
@@ -69,7 +69,7 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> Change -> Node
+startNewNode : Maybe Moment -> Change -> Node p
 startNewNode nowMaybe rootChange =
     let
         { updatedNode, created } =
@@ -89,7 +89,7 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node -> List Change -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+apply : Maybe Moment -> Node p -> List Change -> { ops : List Op, updatedNode : Node p, created : List ObjectID }
 apply timeMaybe node changes =
     let
         fallbackCounter =
@@ -148,7 +148,7 @@ combineSameObjectChunks changes =
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
-oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
+oneChangeToOps : Node p -> InCounter -> Change -> ( OutCounter, List Op )
 oneChangeToOps node inCounter change =
     case change of
         Op.Chunk chunkRecord ->
@@ -162,7 +162,7 @@ oneChangeToOps node inCounter change =
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps : Node p -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
 chunkToOps node ( inCounter, _ ) { object, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
@@ -201,7 +201,7 @@ type alias UnstampedChunkOp =
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
 -}
-objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+objectChangeToUnstampedOp : Node p -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
         perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
@@ -258,7 +258,7 @@ newObjectIDToPayload opID =
 
 
 getOrInitObject :
-    Node
+    Node p
     -> InCounter
     -> Op.TargetObject
     ->
@@ -297,7 +297,7 @@ getOrInitObject node inCounter targetObject =
 
 
 
--- getObjectLastSeenID : Node -> ReducerID -> ObjectID -> OpID
+-- getObjectLastSeenID : (Node p) -> ReducerID -> ObjectID -> OpID
 -- getObjectLastSeenID node reducer objectID =
 --     let
 --         relevantObject =

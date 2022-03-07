@@ -96,7 +96,7 @@ type Codec e a
 
 
 type alias RonEncoderInputs =
-    { node : Node
+    { node : Node p
     , existingObjectsToUse : List ObjectID
     , mode : ChangesToGenerate
     }
@@ -120,7 +120,7 @@ type alias RonDecoder e a =
 
 
 type alias RonDecoderInputs =
-    { node : Node
+    { node : Node p
     , pendingCounter : Op.PendingObjectCounter
     }
 
@@ -136,7 +136,7 @@ First launch ever, Register would not exist, can't create it during decode phase
 
 -}
 type alias RonFieldEncoderInputs =
-    { node : Node
+    { node : Node p
     , registerMaybe : Maybe Register
     , mode : ChangesToGenerate
     }
@@ -148,7 +148,7 @@ type alias RonFieldDecoder e a =
 
 
 type alias RonFieldDecoderInputs =
-    { node : Node
+    { node : Node p
     , pendingCounter : Op.PendingObjectCounter
     , parent : FieldParent
     }
@@ -196,7 +196,7 @@ version =
 
 {-| Pass in the codec for the root object.
 -}
-decodeFromNode : Codec e a -> Node -> Result (Error e) a
+decodeFromNode : Codec e a -> Node p -> Result (Error e) a
 decodeFromNode rootCodec node =
     let
         oldDecoder =
