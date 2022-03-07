@@ -98,14 +98,16 @@ type Codec e a
 type alias RonEncoderInputs =
     { node : Node
     , existingObjectsToUse : List ObjectID
-    , mode : ReplicaEncodeDepth
+    , mode : ChangesToGenerate
     }
 
 
-type ReplicaEncodeDepth
-    = MissingObjectsOnly
-    | NonDefaultValues
-    | IncludeDefaults
+type alias ChangesToGenerate =
+    { initializeUnusedObjects : Bool
+    , setDefaultsExplicitly : Bool
+    , generateSnapshot : Bool
+    , cloneOldOps : Bool
+    }
 
 
 type alias RonEncoder a =
@@ -136,7 +138,7 @@ First launch ever, Register would not exist, can't create it during decode phase
 type alias RonFieldEncoderInputs =
     { node : Node
     , registerMaybe : Maybe Register
-    , mode : ReplicaEncodeDepth
+    , mode : ChangesToGenerate
     }
 
 
@@ -458,15 +460,24 @@ replaceForUrl =
 {-| Get values from the Node into a Change.
 Pass the codec of the root object.
 -}
-encodeNodeToChanges : Node -> Codec e a -> Change
+encodeNodeToChanges : Node p -> Codec e p -> Change
 encodeNodeToChanges node rootCodec =
-    case getRonEncoder rootCodec of
-        Just ronEncoder ->
-            ronEncoder { node = node, existingObjectsToUse = [], mode = IncludeDefaults }
-
-        Nothing ->
-            -- TODO
-            Chunk { object = Op.NewObject Register.reducerID Nothing, objectChanges = [] }
+    let
+        quotedRootObject =
+            Maybe.map Node.newObjectIDToPayload node.root
+                |> Maybe.withDefault ""
+    in
+    getRonEncoder rootCodec
+        { node = node
+        , existingObjectsToUse = []
+        , mode =
+            { initializeUnusedObjects = False
+            , setDefaultsExplicitly = False
+            , generateSnapshot = False
+            , cloneOldOps = False
+            }
+        }
+        quotedRootObject
 
 
 {-| Generates naked Changes from a Codec's default values.
@@ -1508,35 +1519,29 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { 
 
         encodedDefault =
             fieldRonEncoder fieldDefault
-    in
-    case ( registerMaybe, mode ) of
-        ( Nothing, MissingObjectsOnly ) ->
-            Nothing
 
-        ( Nothing, NonDefaultValues ) ->
-            Nothing
-
-        ( Nothing, IncludeDefaults ) ->
-            Just <| Op.NewPayload <| createNewPayload fieldDefault
-
-        ( Just register, MissingObjectsOnly ) ->
-            Nothing
-
-        ( Just register, NonDefaultValues ) ->
-            if getValue register /= encodedDefault then
-                Nothing
-
-            else
+        explicitDefaultIfNeeded =
+            if mode.setDefaultsExplicitly then
                 Just <| Op.NewPayload <| createNewPayload fieldDefault
 
-        ( Just register, IncludeDefaults ) ->
-            Just
-                (Op.NewPayload
-                    (Register.encodeFieldPayloadAsObjectPayload
-                        ( fieldSlot, fieldName )
-                        (getValue register)
-                    )
-                )
+            else
+                Nothing
+    in
+    case registerMaybe of
+        Nothing ->
+            explicitDefaultIfNeeded
+
+        Just register ->
+            case Register.getFieldLatestOnly register ( fieldSlot, fieldName ) of
+                Nothing ->
+                    explicitDefaultIfNeeded
+
+                Just foundPreviousValue ->
+                    if foundPreviousValue == encodedDefault then
+                        explicitDefaultIfNeeded
+
+                    else
+                        Just <| Op.NewPayload <| createNewPayload foundPreviousValue
 
 
 

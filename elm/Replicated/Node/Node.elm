@@ -13,13 +13,17 @@ import SmartTime.Moment exposing (Moment)
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
 -}
-type alias Node =
+type alias Node p =
     { identity : NodeID
     , objects : ObjectsByCreationDb
-    , root : Maybe ObjectID
+    , profiles : List (SavedProfile p)
     , lastUsedCounter : OutCounter
     , peers : List Peer
     }
+
+
+type SavedProfile p
+    = SavedProfile ObjectID
 
 
 {-| Start our program, persisting the identity we had last time.
@@ -316,7 +320,7 @@ type alias ObjectsByCreationDb =
     Dict ObjectIDString Object
 
 
-getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
+getObjectIfExists : Node p -> OpID.ObjectID -> Maybe Object
 getObjectIfExists node objectID =
     Dict.get (OpID.toString objectID) node.objects
 
