@@ -200,7 +200,7 @@ type alias UnstampedChunkOp =
 objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        perPiece : Op.RonAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
+        perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
         perPiece piece accumulated =
             case piece of
                 Op.JustString stringPiece ->

@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, RonAtom(..), RonPayload, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, RonPayload, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -322,7 +322,7 @@ fromLog log =
 
 
 type alias RonPayload =
-    List RonAtom
+    List ChangeAtom
 
 
 type Change
@@ -351,7 +351,7 @@ type alias PendingObjectID =
     Int
 
 
-type RonAtom
+type ChangeAtom
     = JustString Payload
     | QuoteNestedObject Change
 

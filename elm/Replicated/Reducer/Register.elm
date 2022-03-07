@@ -77,9 +77,12 @@ extractFieldEventFromObjectPayload payload =
             Nothing
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> FieldPayload -> Payload
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Op.RonPayload -> Op.RonPayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    String.fromInt fieldSlot ++ "\t" ++ fieldName ++ "\t" ++ fieldPayload
+    [ Op.JustString (String.fromInt fieldSlot)
+    , Op.JustString fieldName
+    ]
+        ++ fieldPayload
 
 
 type alias FieldIdentifier =
@@ -106,37 +109,14 @@ type alias RW fieldVal =
     }
 
 
-changeField : Op.TargetObject -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> Change
-changeField targetObject fieldIdentifier stringifier newValue =
+buildRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Op.RonPayload) -> fieldVal -> RW fieldVal
+buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder head =
     let
-        newPayload =
-            encodeFieldPayloadAsObjectPayload fieldIdentifier (stringifier newValue)
-    in
-    Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload newPayload ] }
-
-
-buildUnnestableRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> RW fieldVal
-buildUnnestableRW targetObject fieldIdentifier stringifier head =
-    { get = head
-    , set = \new -> changeField targetObject fieldIdentifier stringifier new
-    }
-
-
-buildNestableRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Change) -> fieldVal -> RW fieldVal
-buildNestableRW targetObject fieldIdentifier nestedChanger head =
-    let
-        nestedChange new =
-            Op.NestedObjectWithCustomQuoter
-                { nested = nestedChanger new
-                , toPayload = setFieldToObjectPointer
-                , ref = Nothing
-                }
-
-        setFieldToObjectPointer objectID =
-            encodeFieldPayloadAsObjectPayload fieldIdentifier ("{" ++ OpID.toString objectID ++ "}")
+        nestedChange newValue =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ nestedChange new ] }
+    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
     }
 
 
@@ -147,28 +127,13 @@ type alias RWH fieldVal =
     }
 
 
-buildUnnestableRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> String) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
-buildUnnestableRWH targetObject fieldIdentifier stringifier head rest =
-    { get = head
-    , set = \new -> changeField targetObject fieldIdentifier stringifier new
-    , history = rest
-    }
-
-
-buildNestableRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Change) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
-buildNestableRWH targetObject fieldIdentifier nestedChanger head rest =
+buildRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Op.RonPayload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder head rest =
     let
-        nestedChange new =
-            Op.NestedObjectWithCustomQuoter
-                { nested = nestedChanger new
-                , toPayload = setFieldToObjectPointer
-                , ref = Nothing
-                }
-
-        setFieldToObjectPointer objectID =
-            encodeFieldPayloadAsObjectPayload fieldIdentifier ("{" ++ OpID.toString objectID ++ "}")
+        nestedChange newValue =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ nestedChange new ] }
+    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
     , history = rest
     }

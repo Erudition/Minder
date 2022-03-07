@@ -66,7 +66,7 @@ import Log
 import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Change(..), Op, TargetObject(..))
+import Replicated.Op.Op as Op exposing (Change(..), ChangeAtom(..), Op, RonPayload, TargetObject(..))
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..))
 import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
@@ -86,7 +86,7 @@ type Codec e a
         , decoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : JD.Decoder (Result (Error e) a)
-        , ronEncoder : Maybe RonEncoder
+        , ronEncoder : Maybe (RonEncoder a)
         , ronDecoder : Maybe (RonDecoder e a)
         }
 
@@ -108,7 +108,7 @@ type ReplicaEncodeDepth
     | IncludeDefaults
 
 
-type alias RonEncoder =
+type alias RonEncoder a =
     RonEncoderInputs -> a -> RonPayload
 
 
@@ -372,9 +372,14 @@ getEncoder (Codec m) =
 
 {-| Extracts the replica encoding function contained inside the `Codec`.
 -}
-getRonEncoder : Codec e a -> Maybe RonEncoder
-getRonEncoder (Codec m) =
-    m.ronEncoder
+getRonEncoder : Codec e a -> RonEncoder a
+getRonEncoder (Codec m) inputs value =
+    case m.ronEncoder of
+        Nothing ->
+            Op.JustString <| JE.encode 0 m.jsonEncoder value
+
+        Just nativeRonEncoder ->
+            nativeRonEncoder inputs value
 
 
 {-| Extracts the json encoding function contained inside the `Codec`.
@@ -497,7 +502,7 @@ buildNestableCodec :
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
-    -> Maybe RonEncoder
+    -> Maybe (RonEncoder a)
     -> Maybe (RonDecoder e a)
     -> Codec e a
 buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ronDecoderMaybe =
@@ -712,16 +717,11 @@ repSetRonEncoder nestedCodec ({ node, existingObjectsToUse, mode } as details) =
                             Op.NewPayload (encodeToURLString nestedCodec newMemberValue)
 
                 ( unstringifier, memberChanger ) =
-                    case getRonEncoder nestedCodec of
-                        Nothing ->
-                            ( decodeFromString nestedCodec >> Result.toMaybe, flatMemberChanger )
-
-                        Just nestedRonEncoder ->
-                            ( decodeFromString nestedCodec >> Result.toMaybe
-                            , \newMemberValue newRefMaybe ->
-                                Op.NestedObject
-                                    { nested = nestedRonEncoder details, ref = newRefMaybe }
-                            )
+                    ( decodeFromString nestedCodec >> Result.toMaybe
+                    , \newMemberValue newRefMaybe ->
+                        Op.NewPayload
+                            { nested = getRonEncoder nestedCodec details, ref = newRefMaybe }
+                    )
 
                 ( existingRepSet, warnings ) =
                     -- TODO use warnings
@@ -1354,19 +1354,9 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
         sameInputs =
             { node = inputs.node, pendingCounter = inputs.pendingCounter }
 
-        flatEncoder : fieldtype -> String
-        flatEncoder val =
-            -- JE.encode 0 (getJsonEncoder fieldValueCodec val)
-            encodeToJsonString fieldValueCodec val
-
         wrapRW : Op.TargetObject -> fieldtype -> RW fieldtype
         wrapRW targetObject fieldVal =
-            case getRonEncoder fieldValueCodec of
-                Nothing ->
-                    Register.buildUnnestableRW targetObject ( fieldSlot, fieldName ) flatEncoder fieldVal
-
-                Just nestedRonEncoder ->
-                    Register.buildNestableRW targetObject ( fieldSlot, fieldName ) (nestedRonEncoder inputs) fieldVal
+            Register.buildRW targetObject ( fieldSlot, fieldName ) (getRonEncoder fieldValueCodec inputs) fieldVal
     in
     case inputs.parent of
         PendingRegister pendingID ->
@@ -1438,7 +1428,7 @@ finishRecord (PartialRecord allFieldsCodec) =
         , decoder = allFieldsCodec.decoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = allFieldsCodec.jsonArrayDecoder
-        , ronEncoder = Just (registerRonEncoder allFieldsCodec.ronEncoders) -- replace with Nothing for forced-immutable fields
+        , ronEncoder = \inputs -> Just (registerRonEncoder allFieldsCodec.ronEncoders inputs)
         , ronDecoder = Nothing
         }
 
@@ -1457,7 +1447,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> Change
+registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs -> RonPayload
 registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as details) =
     let
         existingRegisterMaybe =
@@ -1480,10 +1470,13 @@ registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as det
         subChanges =
             List.filterMap (\f -> f { node = node, registerMaybe = existingRegisterMaybe, mode = mode }) ronFieldEncoders
     in
-    Chunk
-        { object = target
-        , objectChanges = subChanges
-        }
+    [ Op.QuoteNestedObject
+        (Chunk
+            { object = target
+            , objectChanges = subChanges
+            }
+        )
+    ]
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -1500,58 +1493,50 @@ Updated to separate cases where the object needs to be created.
 -}
 newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
 newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { mode, registerMaybe, node } =
-    case getRonEncoder fieldValueCodec of
-        -- leaf node : nothing nested further, just a flat value
-        Nothing ->
-            let
-                createNewPayload value =
-                    Register.encodeFieldPayloadAsObjectPayload
+    let
+        fieldRonEncoder =
+            getRonEncoder fieldValueCodec { mode = mode, node = node, existingObjectsToUse = [] }
+
+        createNewPayload value =
+            Register.encodeFieldPayloadAsObjectPayload
+                ( fieldSlot, fieldName )
+                (fieldRonEncoder value)
+
+        getValue register =
+            Register.getFieldLatestOnly register ( fieldSlot, fieldName )
+                |> Maybe.withDefault encodedDefault
+
+        encodedDefault =
+            fieldRonEncoder fieldDefault
+    in
+    case ( registerMaybe, mode ) of
+        ( Nothing, MissingObjectsOnly ) ->
+            Nothing
+
+        ( Nothing, NonDefaultValues ) ->
+            Nothing
+
+        ( Nothing, IncludeDefaults ) ->
+            Just <| Op.NewPayload <| createNewPayload fieldDefault
+
+        ( Just register, MissingObjectsOnly ) ->
+            Nothing
+
+        ( Just register, NonDefaultValues ) ->
+            if getValue register /= encodedDefault then
+                Nothing
+
+            else
+                Just <| Op.NewPayload <| createNewPayload fieldDefault
+
+        ( Just register, IncludeDefaults ) ->
+            Just
+                (Op.NewPayload
+                    (Register.encodeFieldPayloadAsObjectPayload
                         ( fieldSlot, fieldName )
-                        (JE.encode 0 (getJsonEncoder fieldValueCodec value))
-
-                getValue register =
-                    Register.getFieldLatestOnly register ( fieldSlot, fieldName )
-                        |> Maybe.withDefault encodedDefault
-
-                encodedDefault =
-                    JE.encode 0 (getJsonEncoder fieldValueCodec fieldDefault)
-            in
-            case ( registerMaybe, mode ) of
-                ( Nothing, MissingObjectsOnly ) ->
-                    Nothing
-
-                ( Nothing, NonDefaultValues ) ->
-                    Nothing
-
-                ( Nothing, IncludeDefaults ) ->
-                    Just <| Op.NewPayload <| createNewPayload fieldDefault
-
-                ( Just register, MissingObjectsOnly ) ->
-                    Nothing
-
-                ( Just register, NonDefaultValues ) ->
-                    if getValue register /= encodedDefault then
-                        Nothing
-
-                    else
-                        Just <| Op.NewPayload <| createNewPayload fieldDefault
-
-                ( Just register, IncludeDefaults ) ->
-                    Just
-                        (Op.NewPayload
-                            (Register.encodeFieldPayloadAsObjectPayload
-                                ( fieldSlot, fieldName )
-                                (getValue register)
-                            )
-                        )
-
-        Just fieldRonEncoder ->
-            Just <| Op.NestedObject { nested = fieldRonEncoder { mode = mode, existingObjectsToUse = [], node = node }, ref = Nothing }
-
-
-quoteID : OpID -> Op.Payload
-quoteID opID =
-    "{" ++ OpID.toString opID ++ "}"
+                        (getValue register)
+                    )
+                )
 
 
 
