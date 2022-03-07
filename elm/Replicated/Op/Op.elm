@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Change(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, RonAtom(..), RonPayload, TargetObject(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
 
 import Json.Encode
 import List.Extra
@@ -321,6 +321,10 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
+type alias RonPayload =
+    List RonAtom
+
+
 type Change
     = Chunk
         { object : TargetObject
@@ -329,10 +333,8 @@ type Change
 
 
 type ObjectChange
-    = NewPayload Payload
-    | NewPayloadWithRef { payload : Payload, ref : OpID }
-    | NestedObject { nested : Change, ref : Maybe OpID }
-    | NestedObjectWithCustomQuoter { nested : Change, toPayload : ObjectID -> Payload, ref : Maybe OpID }
+    = NewPayload RonPayload
+    | NewPayloadWithRef { payload : RonPayload, ref : OpID }
     | RevertOp OpID
 
 
@@ -347,6 +349,11 @@ type alias PendingObjectCounter =
 
 type alias PendingObjectID =
     Int
+
+
+type RonAtom
+    = JustString Payload
+    | QuoteNestedObject Change
 
 
 

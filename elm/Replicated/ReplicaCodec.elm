@@ -109,7 +109,7 @@ type ReplicaEncodeDepth
 
 
 type alias RonEncoder =
-    RonEncoderInputs -> Op.Change
+    RonEncoderInputs -> a -> RonPayload
 
 
 type alias RonDecoder e a =

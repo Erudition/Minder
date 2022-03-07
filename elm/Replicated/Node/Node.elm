@@ -200,48 +200,57 @@ type alias UnstampedChunkOp =
 objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        outputHelper : UnstampedChunkOp -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
-        outputHelper unstampedChunkOp =
-            ( inCounter
-            , { prerequisiteOps = []
-              , thisObjectOp = unstampedChunkOp
-              }
-            )
+        perPiece : Op.RonAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
+        perPiece piece accumulated =
+            case piece of
+                Op.JustString stringPiece ->
+                    { counter = accumulated.counter
+                    , finalPiecePayload = accumulated.finalPiecePayload ++ "\t" ++ stringPiece
+                    , prerequisiteOps = accumulated.prerequisiteOps
+                    }
 
-        nestedHelper (Op.Chunk chunk) newObjectIDToPayloadMaybe refMaybe =
+                Op.QuoteNestedObject (Op.Chunk chunkDetails) ->
+                    let
+                        ( ( postPrereqCounter, subObjectIDMaybe ), newPrereqOps ) =
+                            chunkToOps node ( accumulated.counter, Nothing ) chunkDetails
+
+                        pointerPayload =
+                            Maybe.map newObjectIDToPayload subObjectIDMaybe
+                                |> Maybe.withDefault ""
+                    in
+                    { counter = postPrereqCounter
+                    , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
+                    , finalPiecePayload = accumulated.finalPiecePayload ++ "\t" ++ pointerPayload
+                    }
+
+        outputHelper pieceList reference =
             let
-                ( ( postPrereqCounter, subObjectIDMaybe ), prereqOps ) =
-                    chunkToOps node ( inCounter, Nothing ) chunk
-
-                newObjectIDToPayload =
-                    Maybe.withDefault (\opID -> "{" ++ OpID.toString opID ++ "}") newObjectIDToPayloadMaybe
-
-                pointerPayload =
-                    -- subObjectIDMaybe should never be nothing, but we have no way to pass an initial value to mapAccuml without wrapping in maybe...
-                    Maybe.map newObjectIDToPayload subObjectIDMaybe
-                        |> Maybe.withDefault ""
+                { counter, prerequisiteOps, finalPiecePayload } =
+                    List.foldl perPiece { counter = inCounter, finalPiecePayload = "", prerequisiteOps = [] } pieceList
             in
-            ( postPrereqCounter
-            , { prerequisiteOps = prereqOps
-              , thisObjectOp = { reference = Nothing, payload = pointerPayload, reversion = False }
+            ( counter
+            , { prerequisiteOps = prerequisiteOps
+              , thisObjectOp = { reference = reference, payload = finalPiecePayload, reversion = False }
               }
             )
     in
     case objectChange of
-        Op.NewPayload payload ->
-            outputHelper { reference = Nothing, payload = payload, reversion = False }
+        Op.NewPayload pieceList ->
+            outputHelper pieceList Nothing
 
         Op.NewPayloadWithRef { payload, ref } ->
-            outputHelper { reference = Just ref, payload = payload, reversion = False }
+            outputHelper payload (Just ref)
 
         Op.RevertOp opIDToRevert ->
-            outputHelper { reference = Just opIDToRevert, payload = "", reversion = True }
+            ( inCounter
+            , { prerequisiteOps = []
+              , thisObjectOp = { reference = Just opIDToRevert, payload = "", reversion = True }
+              }
+            )
 
-        Op.NestedObject { nested, ref } ->
-            nestedHelper nested Nothing ref
 
-        Op.NestedObjectWithCustomQuoter { nested, toPayload, ref } ->
-            nestedHelper nested (Just toPayload) ref
+newObjectIDToPayload opID =
+    "{" ++ OpID.toString opID ++ "}"
 
 
 getOrInitObject :
