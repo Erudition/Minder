@@ -13,22 +13,18 @@ import SmartTime.Moment exposing (Moment)
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
 -}
-type alias Node p =
+type alias Node =
     { identity : NodeID
     , objects : ObjectsByCreationDb
-    , profiles : List (SavedProfile p)
+    , profiles : List ObjectID
     , lastUsedCounter : OutCounter
     , peers : List Peer
     }
 
 
-type SavedProfile p
-    = SavedProfile ObjectID
-
-
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> Int -> OpID -> List Op -> Result InitError (Node p)
+initFromSaved : String -> Int -> OpID -> List Op -> Result InitError Node
 initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
@@ -69,7 +65,7 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> Change -> Node p
+startNewNode : Maybe Moment -> Change -> Node
 startNewNode nowMaybe rootChange =
     let
         { updatedNode, created } =
@@ -89,7 +85,7 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node p -> List Change -> { ops : List Op, updatedNode : Node p, created : List ObjectID }
+apply : Maybe Moment -> Node -> List Change -> { ops : List Op, updatedNode : Node, created : List ObjectID }
 apply timeMaybe node changes =
     let
         fallbackCounter =
@@ -148,7 +144,7 @@ combineSameObjectChunks changes =
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
-oneChangeToOps : Node p -> InCounter -> Change -> ( OutCounter, List Op )
+oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
 oneChangeToOps node inCounter change =
     case change of
         Op.Chunk chunkRecord ->
@@ -162,7 +158,7 @@ oneChangeToOps node inCounter change =
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node p -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
 chunkToOps node ( inCounter, _ ) { object, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
@@ -201,7 +197,7 @@ type alias UnstampedChunkOp =
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
 -}
-objectChangeToUnstampedOp : Node p -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
         perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
@@ -258,7 +254,7 @@ newObjectIDToPayload opID =
 
 
 getOrInitObject :
-    Node p
+    Node
     -> InCounter
     -> Op.TargetObject
     ->
@@ -297,7 +293,7 @@ getOrInitObject node inCounter targetObject =
 
 
 
--- getObjectLastSeenID : (Node p) -> ReducerID -> ObjectID -> OpID
+-- getObjectLastSeenID : (Node) -> ReducerID -> ObjectID -> OpID
 -- getObjectLastSeenID node reducer objectID =
 --     let
 --         relevantObject =
@@ -320,7 +316,7 @@ type alias ObjectsByCreationDb =
     Dict ObjectIDString Object
 
 
-getObjectIfExists : Node p -> OpID.ObjectID -> Maybe Object
+getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
 getObjectIfExists node objectID =
     Dict.get (OpID.toString objectID) node.objects
 

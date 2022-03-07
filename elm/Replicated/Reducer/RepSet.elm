@@ -46,7 +46,7 @@ reducerID =
 
 {-| We assume object exists, missing object should be handled beforehand.
 -}
-buildFromReplicaDb : Node p -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> ( RepSet memberType, List Object.ReducerWarning )
+buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> ( RepSet memberType, List Object.ReducerWarning )
 buildFromReplicaDb node object unstringifier memberChanger =
     let
         ( eventsAsMembers, decodeWarnings ) =
