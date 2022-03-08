@@ -6,6 +6,7 @@ import Dict exposing (Dict)
 import Helpers
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -37,6 +38,10 @@ reducerID =
 
 getID (Register register) =
     register.id
+
+
+getVersion (Register register) =
+    register.version
 
 
 empty : OpID.ObjectID -> Register
@@ -83,6 +88,31 @@ encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     , Op.JustString fieldName
     ]
         ++ fieldPayload
+
+
+merge : Nonempty Register -> Register
+merge registers =
+    let
+        (Register firstDetails) =
+            Nonempty.head registers
+
+        highestVersion : OpID.ObjectVersion
+        highestVersion =
+            Nonempty.head (Nonempty.sortBy OpID.toString (Nonempty.map getVersion registers))
+
+        minimumInclusion =
+            -- TODO
+            Object.All
+
+        getFields (Register reg) =
+            reg.fields
+    in
+    Register
+        { id = firstDetails.id
+        , version = highestVersion
+        , fields = Nonempty.foldl1 Dict.union (Nonempty.map getFields registers)
+        , included = minimumInclusion
+        }
 
 
 type alias FieldIdentifier =

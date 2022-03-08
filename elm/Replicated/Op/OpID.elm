@@ -132,7 +132,7 @@ jsonDecoder =
                     JD.succeed opID
 
                 Nothing ->
-                    JD.fail "Not a valid OpID..."
+                    JD.fail (string ++ " is not a valid OpID...")
     in
     JD.andThen try JD.string
 

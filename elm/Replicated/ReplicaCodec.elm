@@ -62,6 +62,7 @@ import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
@@ -1468,19 +1469,29 @@ finishRecord (PartialRecord allFieldsCodec) =
         ronDecoder : RonDecoder errs full
         ronDecoder { node, pendingCounter } =
             let
-                registerDecoder : ObjectID -> JD.Decoder (Result (Error errs) full)
-                registerDecoder objectID =
+                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) full)
+                registerDecoder objectIDs =
                     let
-                        register =
-                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectID)
+                        toRegister givenObjectID =
+                            Maybe.map (Register.build node) (Node.getObjectIfExists node givenObjectID)
+
+                        concurrentRegisters =
+                            List.filterMap toRegister objectIDs
 
                         parent =
-                            Maybe.map ExistingRegister register
-                                |> Maybe.withDefault (PendingRegister pendingCounter)
+                            case concurrentRegisters of
+                                [] ->
+                                    PendingRegister pendingCounter
+
+                                [ foundOne ] ->
+                                    ExistingRegister foundOne
+
+                                firstFound :: moreFound ->
+                                    ExistingRegister <| Register.merge (Nonempty firstFound moreFound)
                     in
                     allFieldsCodec.ronDecoder { node = node, pendingCounter = pendingCounter + 1, parent = parent }
             in
-            JD.andThen registerDecoder objectIDDecoder
+            JD.andThen registerDecoder (JD.list objectIDDecoder)
     in
     Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
