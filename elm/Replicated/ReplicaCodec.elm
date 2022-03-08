@@ -218,19 +218,21 @@ decodeFromNode profileCodec node =
                         else
                             Err SerializerOutOfDate |> JD.succeed
                     )
+
+        rootEncoded =
+            List.head node.profiles
+                -- TODO we need to get rid of those quotes, but JD.string expects them for now
+                |> Maybe.map (\i -> "\"[" ++ OpID.toString i ++ "]\"")
+                |> Maybe.withDefault "\"[]\""
     in
-    case ( node.profiles, getRonDecoder profileCodec ) of
-        ( [ nodeRootObjectID ], ronDecoder ) ->
-            -- TODO we need to get rid of those quotes, but JD.string expects them for now
-            case JD.decodeString (ronDecoder { node = node, pendingCounter = 0 }) ("\"" ++ OpID.toString nodeRootObjectID ++ "\"") of
+    case getRonDecoder profileCodec of
+        ronDecoder ->
+            case JD.decodeString (ronDecoder { node = node, pendingCounter = 0 }) rootEncoded of
                 Ok value ->
                     value
 
                 Err something ->
-                    Tuple.second ( Debug.log "problem decoding root" something, Err DataCorrupted )
-
-        _ ->
-            Err DataCorrupted
+                    Log.logSeparate "failed to decode root ID" something (Err DataCorrupted)
 
 
 endian : Bytes.Endianness
@@ -252,7 +254,7 @@ getJsonDecoder (Codec m) =
     m.jsonDecoder
 
 
-{-| Extracts the json `Decoder` contained inside the `Codec`.
+{-| Extracts the ron decoder contained inside the `Codec`.
 -}
 getRonDecoder : Codec e a -> RonDecoder e a
 getRonDecoder (Codec m) =
@@ -473,29 +475,36 @@ Pass the codec of the root object.
 -}
 encodeNodeToChanges : Node -> Codec e profile -> RonPayload
 encodeNodeToChanges node profileCodec =
-    let
-        quotedRootObject =
-            Maybe.map Node.newObjectIDToPayload (List.head node.profiles)
-                |> Maybe.withDefault ""
-    in
     getRonEncoder profileCodec
         { node = node
         , existingObjectsToUse = List.filterMap identity [ List.head node.profiles ]
-        , mode =
-            { initializeUnusedObjects = False
-            , setDefaultsExplicitly = False
-            , generateSnapshot = False
-            , cloneOldOps = False
-            }
+        , mode = defaultEncodeMode
         , thingToEncode = Nothing
         }
 
 
 {-| Generates naked Changes from a Codec's default values.
 -}
-encodeFreshChanges : Codec e a -> RonPayload
-encodeFreshChanges rootCodec =
-    encodeNodeToChanges Node.testNode rootCodec
+encodeDefaults : Codec e a -> Change
+encodeDefaults rootCodec =
+    let
+        ronPayload =
+            getRonEncoder rootCodec
+                { node = Node.testNode
+                , existingObjectsToUse = []
+                , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
+                , thingToEncode = Nothing
+                }
+
+        bogusChange =
+            Op.Chunk { object = Op.NewObject "dummy" Nothing, objectChanges = [] }
+    in
+    case ronPayload of
+        [ Op.QuoteNestedObject change ] ->
+            change
+
+        _ ->
+            bogusChange
 
 
 
@@ -1419,7 +1428,8 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
 
                 Just (Err e) ->
                     -- better than failing silently? should be unreachable
-                    JD.succeed <| Err DataCorrupted
+                    --JD.succeed <| Err DataCorrupted
+                    Debug.todo "should be unreachable, error!"
 
 
 prepDecoder : String -> String
@@ -1454,6 +1464,23 @@ finishRecord (PartialRecord allFieldsCodec) =
 
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+
+        ronDecoder : RonDecoder errs full
+        ronDecoder { node, pendingCounter } =
+            let
+                registerDecoder : ObjectID -> JD.Decoder (Result (Error errs) full)
+                registerDecoder objectID =
+                    let
+                        register =
+                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectID)
+
+                        parent =
+                            Maybe.map ExistingRegister register
+                                |> Maybe.withDefault (PendingRegister pendingCounter)
+                    in
+                    allFieldsCodec.ronDecoder { node = node, pendingCounter = pendingCounter + 1, parent = parent }
+            in
+            JD.andThen registerDecoder objectIDDecoder
     in
     Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
@@ -1461,7 +1488,7 @@ finishRecord (PartialRecord allFieldsCodec) =
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = allFieldsCodec.jsonArrayDecoder
         , ronEncoder = Just (\inputs -> registerRonEncoder allFieldsCodec.ronEncoders inputs)
-        , ronDecoder = Nothing
+        , ronDecoder = Just ronDecoder
         }
 
 

@@ -1,7 +1,7 @@
 module Replicated.Node.Node exposing (..)
 
 import Dict exposing (Dict)
-import List.Extra
+import List.Extra as List
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
@@ -72,10 +72,15 @@ startNewNode nowMaybe rootChange =
         { updatedNode, created } =
             apply nowMaybe testNode [ rootChange ]
 
+        newRoot =
+            List.last created
+                |> Maybe.map List.singleton
+                |> Maybe.withDefault []
+
         nodeStartCounter =
             Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
     in
-    { updatedNode | profiles = created, lastUsedCounter = nodeStartCounter }
+    { updatedNode | profiles = newRoot, lastUsedCounter = nodeStartCounter }
 
 
 {-| Save your changes!
@@ -93,17 +98,25 @@ apply timeMaybe node changes =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.Extra.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
+            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
 
         finishedOps =
             List.concat listOfFinishedOpsLists
 
         updatedNode =
             List.foldl updateNodeWithSingleOp node finishedOps
+
+        creationOpsToObjectIDs op =
+            case Op.pattern op of
+                Op.CreationOp ->
+                    Just (Op.object op)
+
+                _ ->
+                    Nothing
     in
     { ops = finishedOps
     , updatedNode = { updatedNode | lastUsedCounter = finalCounter }
-    , created = []
+    , created = List.filterMap creationOpsToObjectIDs finishedOps
     }
 
 
@@ -124,7 +137,7 @@ combineSameObjectChunks changes =
                             False
 
         sameObjectGroups =
-            List.Extra.gatherWith sameObjectID changes
+            List.gatherWith sameObjectID changes
 
         combineGroupedItems group =
             case group of
@@ -147,7 +160,7 @@ oneChangeToOps node inCounter change =
     case change of
         Op.Chunk chunkRecord ->
             let
-                ( ( outCounter, _ ), chunkOps ) =
+                ( ( outCounter, createdObjectMaybe ), chunkOps ) =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
             in
             ( outCounter, chunkOps )
@@ -161,7 +174,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
         ( postPrereqCounter, processedChanges ) =
-            List.Extra.mapAccuml (objectChangeToUnstampedOp node) inCounter objectChanges
+            List.mapAccuml (objectChangeToUnstampedOp node) inCounter objectChanges
 
         allPrereqOps =
             List.concatMap .prerequisiteOps processedChanges
@@ -184,7 +197,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
             ( ( stampOutCounter, newID ), stampedOp )
 
         ( ( counterAfterObjectChanges, newLastSeen ), objectChangeOps ) =
-            List.Extra.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
+            List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
     in
     ( ( counterAfterObjectChanges, Just objectID ), allPrereqOps ++ initializationOps ++ objectChangeOps )
 

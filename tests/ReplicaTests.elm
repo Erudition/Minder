@@ -19,15 +19,16 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , writableObjectModify
-        , repSetEncodeThenDecode
+
+        -- , writableObjectEncodeThenDecode
+        -- , writableObjectModify
+        -- , repSetEncodeThenDecode
         ]
 
 
-nodeFromCodec : Codec e a -> Node
-nodeFromCodec rootCodec =
-    Node.startNewNode Nothing (RC.encodeFreshChanges rootCodec)
+nodeFromCodec : Codec e profile -> Node
+nodeFromCodec profileCodec =
+    Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
 
 
 fakeOps : List Op
