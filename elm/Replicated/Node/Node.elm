@@ -39,7 +39,7 @@ initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
                 { identity = bumpSessionID oldNodeID
                 , peers = []
                 , objects = Dict.empty
-                , root = Just foundRoot
+                , profiles = [ foundRoot ]
                 , lastUsedCounter = OpID.importCounter foundCounter
                 }
 
@@ -56,11 +56,12 @@ firstSessionEver =
     { primus = 0, peer = 0, client = 0, session = 0 }
 
 
+testNode : Node
 testNode =
     { identity = firstSessionEver
     , peers = []
     , objects = Dict.empty
-    , root = Nothing
+    , profiles = []
     , lastUsedCounter = OpID.testCounter
     }
 
@@ -71,13 +72,10 @@ startNewNode nowMaybe rootChange =
         { updatedNode, created } =
             apply nowMaybe testNode [ rootChange ]
 
-        rootObjectID =
-            List.head created
-
         nodeStartCounter =
             Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
     in
-    { updatedNode | root = rootObjectID, lastUsedCounter = nodeStartCounter }
+    { updatedNode | profiles = created, lastUsedCounter = nodeStartCounter }
 
 
 {-| Save your changes!
