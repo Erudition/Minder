@@ -19,10 +19,9 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ readOnlyObjectEncodeThenDecode
-
-        -- , writableObjectEncodeThenDecode
-        -- , writableObjectModify
-        -- , repSetEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , writableObjectModify
+        , repSetEncodeThenDecode
         ]
 
 

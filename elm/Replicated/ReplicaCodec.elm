@@ -14,7 +14,7 @@ Here's some advice when choosing:
 
 \*`encodeToJson` is more compact when encoding integers with 6 or fewer digits. You may want to try both `encodeToBytes` and `encodeToJson` and see which is better for your use case.
 
-@docs encodeToJson, decodeFromJson, encodeToBytes, decodeFromBytes, encodeToString, decodeFromString
+@docs encodeToJson, decodeFromJson, encodeToBytes, decodeFromBytes, encodeToString, decodeFromCompactString
 
 
 # Definition
@@ -206,24 +206,23 @@ version =
 decodeFromNode : Codec e profile -> Node -> Result (Error e) profile
 decodeFromNode profileCodec node =
     let
-        oldDecoder =
-            JD.index 0 JD.int
-                |> JD.andThen
-                    (\value ->
-                        if value <= 0 then
-                            Err DataCorrupted |> JD.succeed
-
-                        else if value == version then
-                            JD.index 1 (getJsonDecoder profileCodec)
-
-                        else
-                            Err SerializerOutOfDate |> JD.succeed
-                    )
-
+        -- oldDecoder =
+        --     JD.index 0 JD.int
+        --         |> JD.andThen
+        --             (\value ->
+        --                 if value <= 0 then
+        --                     Err DataCorrupted |> JD.succeed
+        --
+        --                 else if value == version then
+        --                     JD.index 1 (getJsonDecoder profileCodec)
+        --
+        --                 else
+        --                     Err SerializerOutOfDate |> JD.succeed
+        --             )
         rootEncoded =
             List.head node.profiles
                 -- TODO we need to get rid of those quotes, but JD.string expects them for now
-                |> Maybe.map (\i -> "\"[" ++ OpID.toString i ++ "]\"")
+                |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
     case getRonDecoder profileCodec of
@@ -232,8 +231,8 @@ decodeFromNode profileCodec node =
                 Ok value ->
                     value
 
-                Err something ->
-                    Log.logSeparate "failed to decode root ID" something (Err DataCorrupted)
+                Err jdError ->
+                    Log.logMessage ("failed to decode root ID: " ++ rootEncoded ++ " because:\n" ++ JD.errorToString jdError ++ "\n") (Err DataCorrupted)
 
 
 endian : Bytes.Endianness
@@ -296,8 +295,8 @@ decodeFromBytes codec bytes_ =
 
 {-| Run a `Codec` to turn a String encoded with `encodeToString` into an Elm value.
 -}
-decodeFromString : Codec e a -> String -> Result (Error e) a
-decodeFromString codec base64 =
+decodeFromCompactString : Codec e a -> String -> Result (Error e) a
+decodeFromCompactString codec base64 =
     case decode base64 of
         Just bytes_ ->
             decodeFromBytes codec bytes_
@@ -426,8 +425,8 @@ encodeToBytes codec value =
 and not risk generating an invalid url.
 
 -}
-encodeToURLString : Codec e a -> a -> String
-encodeToURLString codec =
+encodeToCompactString : Codec e a -> a -> String
+encodeToCompactString codec =
     encodeToBytes codec >> replaceBase64Chars
 
 
@@ -759,7 +758,7 @@ repSetRonEncoder nestedCodec ({ node, existingObjectsToUse, mode } as details) =
                             Op.NewPayload (nestedEncoder newMemberValue)
 
                 unstringifier =
-                    decodeFromString nestedCodec >> Result.toMaybe
+                    getRonDecoder nestedCodec >> Result.toMaybe
 
                 ( existingRepSet, warnings ) =
                     -- TODO use warnings
