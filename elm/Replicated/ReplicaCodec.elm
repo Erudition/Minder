@@ -689,19 +689,83 @@ maybe justCodec =
 
 {-| A repset
 -}
-repSet : Codec e a -> Codec e (RepSet a)
+repSet : Codec e memberType -> Codec e (RepSet memberType)
 repSet memberCodec =
     let
         normalJsonDecoder =
             JD.fail "no repset"
 
-        jsonEncoder : RepSet a -> JE.Value
+        jsonEncoder : RepSet memberType -> JE.Value
         jsonEncoder input =
             JE.list (getJsonEncoder memberCodec) (RepSet.list input)
 
-        bytesEncoder : RepSet a -> BE.Encoder
+        bytesEncoder : RepSet memberType -> BE.Encoder
         bytesEncoder input =
             listEncode (getEncoder memberCodec) (RepSet.list input)
+
+        memberRonEncoder : Node -> Maybe ChangesToGenerate -> memberType -> RonPayload
+        memberRonEncoder node encodeModeMaybe newValue =
+            getRonEncoder memberCodec
+                { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                , node = node
+                , existingObjectsToUse = []
+                , thingToEncode = Just newValue
+                }
+
+        memberChanger node encodeModeMaybe newMemberValue newRefMaybe =
+            case newRefMaybe of
+                Just givenRef ->
+                    Op.NewPayloadWithRef { payload = memberRonEncoder node encodeModeMaybe newMemberValue, ref = givenRef }
+
+                Nothing ->
+                    Op.NewPayload (memberRonEncoder node encodeModeMaybe newMemberValue)
+
+        memberRonDecoder : Node -> String -> Maybe memberType
+        memberRonDecoder node encodedMember =
+            case JD.decodeString (getRonDecoder memberCodec { node = node, pendingCounter = 0 }) encodedMember of
+                Ok (Ok member) ->
+                    Just member
+
+                _ ->
+                    Nothing
+
+        getRepSet node encodeModeMaybe foundObject =
+            let
+                ( existingRepSet, warnings ) =
+                    -- TODO use warnings
+                    RepSet.buildFromReplicaDb node foundObject (memberRonDecoder node) (memberChanger node encodeModeMaybe)
+            in
+            existingRepSet
+
+        repSetRonDecoder : RonDecoder e (RepSet memberType)
+        repSetRonDecoder ({ node, pendingCounter } as details) =
+            let
+                foundRepSet foundObjects =
+                    Maybe.map (getRepSet node Nothing) (Node.getObjectIfExists node foundObjects)
+                        |> Result.fromMaybe (Maybe.withDefault DataCorrupted (Maybe.map ObjectNotFound <| List.head foundObjects))
+            in
+            JD.map foundRepSet concurrentObjectIDsDecoder
+
+        repSetRonEncoder : RonEncoder (RepSet memberType)
+        repSetRonEncoder ({ node, existingObjectsToUse, mode } as details) =
+            let
+                existingRepSetMaybe =
+                    Maybe.map (getRepSet node (Just mode)) (Node.getObjectIfExists node existingObjectsToUse)
+            in
+            case existingRepSetMaybe of
+                Nothing ->
+                    changeToRonPayload <|
+                        Chunk
+                            { object = NewObject RepSet.reducerID Nothing
+                            , objectChanges = []
+                            }
+
+                Just existingRepSet ->
+                    changeToRonPayload <|
+                        Chunk
+                            { object = ExistingObject (RepSet.getID existingRepSet)
+                            , objectChanges = [] -- TODO should this be blank
+                            }
     in
     Codec
         { encoder = bytesEncoder
@@ -709,66 +773,9 @@ repSet memberCodec =
             BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
-        , ronEncoder = Just (repSetRonEncoder memberCodec)
-        , ronDecoder = Nothing
+        , ronEncoder = Just repSetRonEncoder
+        , ronDecoder = Just repSetRonDecoder
         }
-
-
-{-| Encodes a RON object as a list of Ops.
--- The Op initializing the object comes last in the output list, as the preceding Ops create objects that it depends on. That way we never reference an Op we haven't seen before.
-For nested values:
--- if it's a normal value (no ronEncoder) just encode it, return a FieldPreOp
--- if it's a nested object that does not yet exist in the tree, make an ID for it, then proceed with the following.
--- if it's a nested object that does exist, run its ronEncoder and put its requisite ops above us.
-
-Also returns the ObjectID so that parent repSets can refer to it.
-
--}
-repSetRonEncoder : Codec e nestedType -> RonEncoder a
-repSetRonEncoder nestedCodec ({ node, existingObjectsToUse, mode } as details) =
-    let
-        existingObjectMaybe =
-            Maybe.andThen (Node.getObjectIfExists node) (List.head existingObjectsToUse)
-    in
-    case existingObjectMaybe of
-        Nothing ->
-            changeToRonPayload <|
-                Chunk
-                    { object = NewObject RepSet.reducerID Nothing
-                    , objectChanges = []
-                    }
-
-        Just foundObject ->
-            let
-                nestedEncoder : nestedType -> RonPayload
-                nestedEncoder newValue =
-                    getRonEncoder nestedCodec
-                        { mode = mode
-                        , node = node
-                        , existingObjectsToUse = []
-                        , thingToEncode = Just newValue
-                        }
-
-                memberChanger newMemberValue newRefMaybe =
-                    case newRefMaybe of
-                        Just givenRef ->
-                            Op.NewPayloadWithRef { payload = nestedEncoder newMemberValue, ref = givenRef }
-
-                        Nothing ->
-                            Op.NewPayload (nestedEncoder newMemberValue)
-
-                unstringifier =
-                    getRonDecoder nestedCodec >> Result.toMaybe
-
-                ( existingRepSet, warnings ) =
-                    -- TODO use warnings
-                    RepSet.buildFromReplicaDb node foundObject unstringifier memberChanger
-            in
-            changeToRonPayload <|
-                Chunk
-                    { object = ExistingObject (RepSet.getID existingRepSet)
-                    , objectChanges = [] -- TODO should this be blank
-                    }
 
 
 {-| A list
@@ -1442,9 +1449,9 @@ prepDecoder inputString =
             inputString
 
 
-objectIDDecoder : JD.Decoder OpID.ObjectID
-objectIDDecoder =
-    OpID.jsonDecoder
+concurrentObjectIDsDecoder : JD.Decoder (List OpID.ObjectID)
+concurrentObjectIDsDecoder =
+    JD.list OpID.jsonDecoder
 
 
 {-| Finish creating a codec for a record.
@@ -1471,26 +1478,20 @@ finishRecord (PartialRecord allFieldsCodec) =
                 registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) full)
                 registerDecoder objectIDs =
                     let
-                        toRegister givenObjectID =
-                            Maybe.map (Register.build node) (Node.getObjectIfExists node givenObjectID)
-
-                        concurrentRegisters =
-                            List.filterMap toRegister objectIDs
+                        register =
+                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectIDs)
 
                         parent =
-                            case concurrentRegisters of
-                                [] ->
+                            case register of
+                                Nothing ->
                                     PendingRegister pendingCounter
 
-                                [ foundOne ] ->
+                                Just foundOne ->
                                     ExistingRegister foundOne
-
-                                firstFound :: moreFound ->
-                                    ExistingRegister <| Register.merge (Nonempty firstFound moreFound)
                     in
                     allFieldsCodec.ronDecoder { node = node, pendingCounter = pendingCounter + 1, parent = parent }
             in
-            JD.andThen registerDecoder (JD.list objectIDDecoder)
+            JD.andThen registerDecoder concurrentObjectIDsDecoder
     in
     Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
@@ -1520,12 +1521,7 @@ registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs a -> RonPayload
 registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as details) =
     let
         existingRegisterMaybe =
-            case List.head existingObjectsToUse of
-                Just givenID ->
-                    Maybe.map (Register.build node) (Node.getObjectIfExists node givenID)
-
-                _ ->
-                    Nothing
+            Maybe.map (Register.build node) (Node.getObjectIfExists node existingObjectsToUse)
 
         target =
             case existingRegisterMaybe of

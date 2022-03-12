@@ -327,9 +327,25 @@ type alias ObjectsByCreationDb =
     Dict ObjectIDString Object
 
 
-getObjectIfExists : Node -> OpID.ObjectID -> Maybe Object
-getObjectIfExists node objectID =
-    Dict.get (OpID.toString objectID) node.objects
+getObjectIfExists : Node -> List OpID.ObjectID -> Maybe Object
+getObjectIfExists node objectIDs =
+    --TODO handle multiple concurrent objects and merge
+    let
+        getObject id =
+            Dict.get (OpID.toString id) node.objects
+
+        foundObjects =
+            List.filterMap getObject objectIDs
+    in
+    case foundObjects of
+        [] ->
+            Nothing
+
+        [ solo ] ->
+            Just solo
+
+        first :: more ->
+            Debug.todo "gotta merge multiple concurrently created objects"
 
 
 

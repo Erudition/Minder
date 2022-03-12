@@ -193,7 +193,23 @@ simpleListCodec =
 
 fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
-    nodeFromCodec simpleListCodec
+    let
+        startNode =
+            nodeFromCodec simpleListCodec
+
+        startRepSet =
+            RC.decodeFromNode simpleListCodec startNode
+
+        addChanges repset =
+            RepSet.append repset simpleList
+    in
+    case startRepSet of
+        Ok repset ->
+            Node.apply Nothing startNode [ addChanges repset ]
+                |> .updatedNode
+
+        Err _ ->
+            Debug.todo "no start repset"
 
 
 repSetEncodeThenDecode =
@@ -201,7 +217,7 @@ repSetEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList
+                    RC.decodeFromNode simpleListCodec (Debug.log "list node" fakeNodeWithSimpleList)
                         |> Result.map RepSet.list
             in
             processOutput
