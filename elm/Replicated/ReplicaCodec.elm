@@ -742,7 +742,7 @@ repSet memberCodec =
 
         getRepSet node encodeModeMaybe foundObject =
             let
-                ( existingRepSet, warnings ) =
+                existingRepSet =
                     -- TODO use warnings
                     RepSet.buildFromReplicaDb node foundObject (memberRonDecoder node) (memberChanger node encodeModeMaybe)
             in

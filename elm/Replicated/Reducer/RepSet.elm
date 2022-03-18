@@ -19,10 +19,16 @@ Order is maintained, but cannot be changed.
 type RepSet memberType
     = RepSet
         { id : ObjectID
-        , members : Dict Handle memberType
+        , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
         }
+
+
+type alias Item memberType =
+    { handle : Handle
+    , value : memberType
+    }
 
 
 getID : RepSet memberType -> ObjectID
@@ -31,11 +37,11 @@ getID (RepSet repSet) =
 
 
 type alias Handle =
-    ( OpIDString, OpIDString )
+    OpIDString
 
 
 memberIDToOpID : Handle -> OpID
-memberIDToOpID ( _, opID ) =
+memberIDToOpID opID =
     OpID.fromStringForced opID
 
 
@@ -46,35 +52,54 @@ reducerID =
 
 {-| We assume object exists, missing object should be handled beforehand.
 -}
-buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> ( RepSet memberType, List Object.ReducerWarning )
+buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepSet memberType
 buildFromReplicaDb node object unstringifier memberChanger =
     let
-        ( eventsAsMembers, decodeWarnings ) =
-            Dict.foldl addToNewDictOrWarn ( Dict.empty, [] ) object.events
+        sortedEvents =
+            Dict.values object.events
+                |> List.sortWith compareEvents
 
-        addToNewDictOrWarn : OpIDString -> Object.KeptEvent -> ( Dict Handle memberType, List Object.ReducerWarning ) -> ( Dict Handle memberType, List Object.ReducerWarning )
-        addToNewDictOrWarn _ event ( acc, warnings ) =
+        compareEvents : Object.KeptEvent -> Object.KeptEvent -> Order
+        compareEvents eventA eventB =
+            case compare (OpID.toString (Object.eventID eventA)) (OpID.toString (Object.eventID eventB)) of
+                GT ->
+                    GT
+
+                LT ->
+                    LT
+
+                EQ ->
+                    case compare (OpID.toString (Object.eventReference eventA)) (OpID.toString (Object.eventReference eventB)) of
+                        -- later references should come FIRST
+                        GT ->
+                            LT
+
+                        LT ->
+                            GT
+
+                        EQ ->
+                            EQ
+
+        sortedEventsAsItems =
+            List.filterMap eventToItem sortedEvents
+
+        eventToItem event =
             case unstringifier (Object.eventPayload event) of
-                Just successfullyDecodedPayload ->
-                    ( Dict.insert ( Object.eventReference event |> OpID.toString, Object.eventID event |> OpID.toString )
-                        successfullyDecodedPayload
-                        acc
-                    , warnings
-                    )
-
                 Nothing ->
-                    ( acc
-                    , warnings ++ [ Object.OpDecodeFailed (OpID.toString (Object.eventID event)) (Object.eventPayload event) ]
-                    )
+                    Nothing
+
+                Just item ->
+                    Just
+                        { handle = OpID.toString (Object.eventID event)
+                        , value = item
+                        }
     in
-    ( RepSet
+    RepSet
         { id = object.creation
-        , members = eventsAsMembers
+        , members = sortedEventsAsItems
         , memberChanger = memberChanger
         , included = object.included
         }
-    , decodeWarnings
-    )
 
 
 
@@ -86,7 +111,7 @@ The List will always be in chronological order, with the newest addition at the 
 -}
 list : RepSet memberType -> List memberType
 list (RepSet repSetRecord) =
-    Dict.values repSetRecord.members
+    List.map .value repSetRecord.members
 
 
 {-| Get your RepSet as a standard Dict, where the provided keys are unique identifiers that can be used for mutating the collection:
@@ -98,7 +123,7 @@ list (RepSet repSetRecord) =
 -}
 dict : RepSet memberType -> Dict Handle memberType
 dict (RepSet repSetRecord) =
-    repSetRecord.members
+    Dict.fromList (List.map (\mem -> ( mem.handle, mem.value )) repSetRecord.members)
 
 
 
