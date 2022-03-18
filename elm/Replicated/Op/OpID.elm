@@ -74,8 +74,15 @@ toString (OpID eventStamp) =
 
         timeString =
             String.fromInt (Moment.toSmartInt eventStamp.time)
+
+        separator =
+            if eventStamp.reversion then
+                "-"
+
+            else
+                "+"
     in
-    timeString ++ "+" ++ nodeString
+    timeString ++ separator ++ nodeString
 
 
 fromString : String -> Maybe OpID

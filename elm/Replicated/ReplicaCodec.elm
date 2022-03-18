@@ -70,7 +70,7 @@ import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Change(..), ChangeAtom(..), Op, RonPayload, TargetObject(..), changeToRonPayload)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..))
-import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -569,6 +569,7 @@ string =
                 \inputs ->
                     case inputs.thingToEncode of
                         Just thing ->
+                            -- TODO eliminate quotes and decode without them
                             [ Op.JustString <| JE.encode 0 (JE.string thing) ]
 
                         Nothing ->
@@ -698,21 +699,21 @@ maybe justCodec =
         |> finishCustomType
 
 
-{-| A repset
+{-| A replicated list
 -}
-repSet : Codec e memberType -> Codec e (RepSet memberType)
-repSet memberCodec =
+repList : Codec e memberType -> Codec e (RepList memberType)
+repList memberCodec =
     let
         normalJsonDecoder =
-            JD.fail "no repset"
+            JD.fail "no replist"
 
-        jsonEncoder : RepSet memberType -> JE.Value
+        jsonEncoder : RepList memberType -> JE.Value
         jsonEncoder input =
-            JE.list (getJsonEncoder memberCodec) (RepSet.list input)
+            JE.list (getJsonEncoder memberCodec) (RepList.list input)
 
-        bytesEncoder : RepSet memberType -> BE.Encoder
+        bytesEncoder : RepList memberType -> BE.Encoder
         bytesEncoder input =
-            listEncode (getEncoder memberCodec) (RepSet.list input)
+            listEncode (getEncoder memberCodec) (RepList.list input)
 
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> memberType -> RonPayload
         memberRonEncoder node encodeModeMaybe newValue =
@@ -740,41 +741,40 @@ repSet memberCodec =
                 _ ->
                     Nothing
 
-        getRepSet node encodeModeMaybe foundObject =
+        getRepList node encodeModeMaybe foundObject =
             let
-                existingRepSet =
-                    -- TODO use warnings
-                    RepSet.buildFromReplicaDb node foundObject (memberRonDecoder node) (memberChanger node encodeModeMaybe)
+                existingRepList =
+                    RepList.buildFromReplicaDb node foundObject (memberRonDecoder node) (memberChanger node encodeModeMaybe)
             in
-            existingRepSet
+            existingRepList
 
-        repSetRonDecoder : RonDecoder e (RepSet memberType)
-        repSetRonDecoder ({ node, pendingCounter } as details) =
+        repListRonDecoder : RonDecoder e (RepList memberType)
+        repListRonDecoder ({ node, pendingCounter } as details) =
             let
-                foundRepSet foundObjects =
-                    Maybe.map (getRepSet node Nothing) (Node.getObjectIfExists node foundObjects)
+                foundRepList foundObjects =
+                    Maybe.map (getRepList node Nothing) (Node.getObjectIfExists node foundObjects)
                         |> Result.fromMaybe (Maybe.withDefault DataCorrupted (Maybe.map ObjectNotFound <| List.head foundObjects))
             in
-            JD.map foundRepSet concurrentObjectIDsDecoder
+            JD.map foundRepList concurrentObjectIDsDecoder
 
-        repSetRonEncoder : RonEncoder (RepSet memberType)
-        repSetRonEncoder ({ node, existingObjectsToUse, mode } as details) =
+        repListRonEncoder : RonEncoder (RepList memberType)
+        repListRonEncoder ({ node, existingObjectsToUse, mode } as details) =
             let
-                existingRepSetMaybe =
-                    Maybe.map (getRepSet node (Just mode)) (Node.getObjectIfExists node existingObjectsToUse)
+                existingRepListMaybe =
+                    Maybe.map (getRepList node (Just mode)) (Node.getObjectIfExists node existingObjectsToUse)
             in
-            case existingRepSetMaybe of
+            case existingRepListMaybe of
                 Nothing ->
                     changeToRonPayload <|
                         Chunk
-                            { object = NewObject RepSet.reducerID Nothing
+                            { object = NewObject RepList.reducerID Nothing
                             , objectChanges = []
                             }
 
-                Just existingRepSet ->
+                Just existingRepList ->
                     changeToRonPayload <|
                         Chunk
-                            { object = ExistingObject (RepSet.getID existingRepSet)
+                            { object = ExistingObject (RepList.getID existingRepList)
                             , objectChanges = [] -- TODO should this be blank
                             }
     in
@@ -784,8 +784,8 @@ repSet memberCodec =
             BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
-        , ronEncoder = Just repSetRonEncoder
-        , ronDecoder = Just repSetRonDecoder
+        , ronEncoder = Just repListRonEncoder
+        , ronDecoder = Just repListRonDecoder
         }
 
 

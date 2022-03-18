@@ -13,8 +13,7 @@ import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-{-| A replicated Set.
-Order is maintained, but cannot be changed.
+{-| A replicated list.
 -}
 type RepList memberType
     = RepList
@@ -47,7 +46,7 @@ memberIDToOpID opID =
 
 reducerID : Op.ReducerID
 reducerID =
-    "repset"
+    "replist"
 
 
 {-| We assume object exists, missing object should be handled beforehand.

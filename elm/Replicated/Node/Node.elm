@@ -210,9 +210,9 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
                 ++ String.concat (List.map (\op -> Op.toString op ++ "\n") ops)
     in
     ( ( counterAfterObjectChanges, Just objectID )
-    , Log.logMessage (logOps "prereq ops" allPrereqOps) allPrereqOps
-        ++ Log.logMessage (logOps "initialization ops" initializationOps) initializationOps
-        ++ Log.logMessage (logOps "object change ops" objectChangeOps) objectChangeOps
+    , allPrereqOps
+        ++ initializationOps
+        ++ objectChangeOps
     )
 
 
@@ -241,7 +241,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
 
                         pointerPayload =
                             Maybe.map newObjectIDToPayload subObjectIDMaybe
-                                |> Maybe.withDefault (Debug.todo "no pointer!")
+                                |> Maybe.withDefault "no pointer, help!"
                     in
                     { counter = postPrereqCounter
                     , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
