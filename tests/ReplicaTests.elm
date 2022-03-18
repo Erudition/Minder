@@ -217,7 +217,7 @@ fakeNodeWithSimpleList =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
                         |> String.concat
             in
-            Log.logMessage ("These ops were applied:" ++ logOps) applied.updatedNode
+            applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"
@@ -268,7 +268,7 @@ fakeNodeWithModifiedList =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
                         |> String.concat
             in
-            Log.logMessage ("These ops were applied:" ++ logOps) applied.updatedNode
+            applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"

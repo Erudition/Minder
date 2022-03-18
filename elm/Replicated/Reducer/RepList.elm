@@ -163,5 +163,5 @@ remove (RepList repSetRecord) itemToRemove =
     Op.Chunk
         { object = Op.ExistingObject repSetRecord.id
         , objectChanges =
-            [ Op.RevertOp (Debug.log "reverting op" <| memberIDToOpID (Debug.log "removing member" itemToRemove)) ]
+            [ Op.RevertOp (memberIDToOpID itemToRemove) ]
         }

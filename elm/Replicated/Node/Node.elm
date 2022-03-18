@@ -99,7 +99,7 @@ apply timeMaybe node changes =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks (Debug.log "apply has been run on these changes" changes))
+            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
 
         finishedOps =
             List.concat listOfFinishedOpsLists
@@ -241,7 +241,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
 
                         pointerPayload =
                             Maybe.map newObjectIDToPayload subObjectIDMaybe
-                                |> Maybe.withDefault "no pointer, help!"
+                                |> Maybe.withDefault "ERROR no pointer, unreachable"
                     in
                     { counter = postPrereqCounter
                     , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
