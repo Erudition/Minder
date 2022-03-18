@@ -12,7 +12,7 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register exposing (RW)
-import Replicated.Reducer.RepSet as RepSet exposing (RepSet)
+import Replicated.Reducer.RepSet as RepSet exposing (RepList)
 import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
 import SmartTime.Moment as Moment
 import Test exposing (..)
@@ -191,7 +191,7 @@ simpleList =
     [ "0-Alpha", "1-Beta", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
-simpleListCodec : Codec e (RepSet String)
+simpleListCodec : Codec e (RepList String)
 simpleListCodec =
     RC.repSet RC.string
 
@@ -285,7 +285,7 @@ repSetInsertAndRemove =
         \_ ->
             let
                 generatedRepSet =
-                    Debug.log "generated repset-----------------------------------------------------------------------" <| RC.decodeFromNode simpleListCodec fakeNodeWithModifiedList
+                    RC.decodeFromNode simpleListCodec fakeNodeWithModifiedList
 
                 list =
                     Result.map RepSet.list generatedRepSet
