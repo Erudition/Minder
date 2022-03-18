@@ -19,7 +19,7 @@ Order is maintained, but cannot be changed.
 type RepSet memberType
     = RepSet
         { id : ObjectID
-        , members : Dict MemberID memberType
+        , members : Dict Handle memberType
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
         }
@@ -30,12 +30,12 @@ getID (RepSet repSet) =
     repSet.id
 
 
-type alias MemberID =
+type alias Handle =
     ( OpIDString, OpIDString )
 
 
-memberIDToOpID : MemberID -> OpID
-memberIDToOpID ( opID, _ ) =
+memberIDToOpID : Handle -> OpID
+memberIDToOpID ( _, opID ) =
     OpID.fromStringForced opID
 
 
@@ -52,7 +52,7 @@ buildFromReplicaDb node object unstringifier memberChanger =
         ( eventsAsMembers, decodeWarnings ) =
             Dict.foldl addToNewDictOrWarn ( Dict.empty, [] ) object.events
 
-        addToNewDictOrWarn : OpIDString -> Object.KeptEvent -> ( Dict MemberID memberType, List Object.ReducerWarning ) -> ( Dict MemberID memberType, List Object.ReducerWarning )
+        addToNewDictOrWarn : OpIDString -> Object.KeptEvent -> ( Dict Handle memberType, List Object.ReducerWarning ) -> ( Dict Handle memberType, List Object.ReducerWarning )
         addToNewDictOrWarn _ event ( acc, warnings ) =
             case unstringifier (Object.eventPayload event) of
                 Just successfullyDecodedPayload ->
@@ -96,7 +96,7 @@ list (RepSet repSetRecord) =
   - using it as your item's unique ID in a record type
 
 -}
-dict : RepSet memberType -> Dict MemberID memberType
+dict : RepSet memberType -> Dict Handle memberType
 dict (RepSet repSetRecord) =
     repSetRecord.members
 
@@ -104,14 +104,14 @@ dict (RepSet repSetRecord) =
 
 -- {-| Insert an item, right after the member with the given ID.
 -- -}
--- insert : RepSet memberType -> Dict MemberID memberType -> Change
+-- insert : RepSet memberType -> Dict Handle memberType -> Change
 -- insert (RepSet repSetRecord) =
 --     Debug.todo "insertAfter"
 
 
 {-| Insert an item, right after the member with the given ID.
 -}
-insertAfter : RepSet memberType -> MemberID -> memberType -> Change
+insertAfter : RepSet memberType -> Handle -> memberType -> Change
 insertAfter (RepSet repSetRecord) attachmentPoint newItem =
     Op.Chunk
         { object = Op.ExistingObject repSetRecord.id
@@ -134,10 +134,10 @@ append (RepSet repSetRecord) newItems =
         }
 
 
-remove : RepSet memberType -> MemberID -> Change
+remove : RepSet memberType -> Handle -> Change
 remove (RepSet repSetRecord) itemToRemove =
     Op.Chunk
         { object = Op.ExistingObject repSetRecord.id
         , objectChanges =
-            [ Op.RevertOp (memberIDToOpID itemToRemove) ]
+            [ Op.RevertOp (Debug.log "reverting op" <| memberIDToOpID (Debug.log "removing member" itemToRemove)) ]
         }

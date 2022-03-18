@@ -1,10 +1,13 @@
 module ReplicaTests exposing (suite)
 
+import Dict
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import GraphicSVG exposing (GraphicSVG)
 import List.Extra
+import Log
 import Main exposing (Screen(..))
+import Maybe.Extra
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
@@ -18,10 +21,12 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , writableObjectModify
-        , repSetEncodeThenDecode
+        [ repSetEncodeThenDecode
+        , repSetInsertAndRemove
+
+        -- , readOnlyObjectEncodeThenDecode
+        -- , writableObjectEncodeThenDecode
+        -- , writableObjectModify
         ]
 
 
@@ -183,7 +188,7 @@ writableObjectModify =
 
 simpleList : List String
 simpleList =
-    [ "Alpha", "Beta", "Charley", "Delta", "Gamma" ]
+    [ "0-Alpha", "1-Beta", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
 simpleListCodec : Codec e (RepSet String)
@@ -205,8 +210,15 @@ fakeNodeWithSimpleList =
     in
     case startRepSet of
         Ok repset ->
-            Node.apply Nothing startNode [ addChanges repset ]
-                |> .updatedNode
+            let
+                applied =
+                    Node.apply Nothing startNode [ addChanges repset ]
+
+                logOps =
+                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                        |> String.concat
+            in
+            Log.logMessage ("These ops were applied:" ++ logOps) applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repset"
@@ -216,9 +228,66 @@ repSetEncodeThenDecode =
     test "Encoding a list to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
             let
-                processOutput =
-                    RC.decodeFromNode simpleListCodec (Debug.log "list node" fakeNodeWithSimpleList)
-                        |> Result.map RepSet.list
+                generatedRepSet =
+                    RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList
             in
-            processOutput
-                |> Expect.equal (Ok simpleList)
+            Result.map RepSet.list generatedRepSet |> Expect.equal (Ok simpleList)
+
+
+fakeNodeWithModifiedList : Node
+fakeNodeWithModifiedList =
+    case RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList of
+        Ok repset ->
+            let
+                membersWithIDs =
+                    Dict.toList (RepSet.dict repset)
+
+                secondMemberHandle =
+                    List.Extra.getAt 1 membersWithIDs
+                        |> Maybe.map Tuple.first
+
+                firstMemberHandle =
+                    List.head membersWithIDs
+                        |> Maybe.map Tuple.first
+
+                addItemInPosition3 handle =
+                    RepSet.insertAfter repset handle "Inserted after 1"
+
+                removeItemPosition0 handle =
+                    RepSet.remove repset handle
+
+                changes =
+                    List.filterMap identity
+                        [ Maybe.map addItemInPosition3 secondMemberHandle
+                        , Maybe.map removeItemPosition0 firstMemberHandle
+                        ]
+
+                applied =
+                    Node.apply Nothing fakeNodeWithSimpleList changes
+
+                logOps =
+                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                        |> String.concat
+            in
+            Log.logMessage ("These ops were applied:" ++ logOps) applied.updatedNode
+
+        Err _ ->
+            Debug.todo "no start repset"
+
+
+modifiedList : List String
+modifiedList =
+    [ "1-Beta", "Inserted after 1", "2-Charley", "3-Delta", "4-Gamma" ]
+
+
+repSetInsertAndRemove =
+    test "taking the node's list, adding an item after the second one, then removing the first item." <|
+        \_ ->
+            let
+                generatedRepSet =
+                    Debug.log "generated repset-----------------------------------------------------------------------" <| RC.decodeFromNode simpleListCodec fakeNodeWithModifiedList
+
+                list =
+                    Result.map RepSet.list generatedRepSet
+            in
+            list |> Expect.equal (Ok modifiedList)

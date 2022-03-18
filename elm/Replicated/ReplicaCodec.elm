@@ -551,19 +551,30 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ron
 -}
 string : Codec e String
 string =
-    buildUnnestableCodec
-        (\text ->
-            BE.sequence
-                [ BE.unsignedInt32 endian (BE.getStringWidth text)
-                , BE.string text
-                ]
-        )
-        (BD.unsignedInt32 endian
-            |> BD.andThen
-                (\charCount -> BD.string charCount |> BD.map Ok)
-        )
-        JE.string
-        (JD.string |> JD.map Ok)
+    Codec
+        { encoder =
+            \text ->
+                BE.sequence
+                    [ BE.unsignedInt32 endian (BE.getStringWidth text)
+                    , BE.string text
+                    ]
+        , decoder =
+            BD.unsignedInt32 endian
+                |> BD.andThen
+                    (\charCount -> BD.string charCount |> BD.map Ok)
+        , jsonEncoder = JE.string
+        , jsonDecoder = JD.string |> JD.map Ok
+        , ronEncoder =
+            Just <|
+                \inputs ->
+                    case inputs.thingToEncode of
+                        Just thing ->
+                            [ Op.JustString <| JE.encode 0 (JE.string thing) ]
+
+                        Nothing ->
+                            []
+        , ronDecoder = Nothing
+        }
 
 
 {-| Codec for serializing a `Bool`

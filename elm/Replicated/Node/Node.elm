@@ -2,6 +2,7 @@ module Replicated.Node.Node exposing (..)
 
 import Dict exposing (Dict)
 import List.Extra as List
+import Log
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
@@ -70,7 +71,7 @@ startNewNode : Maybe Moment -> Change -> Node
 startNewNode nowMaybe rootChange =
     let
         { updatedNode, created } =
-            apply nowMaybe testNode [ rootChange ]
+            apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } [ rootChange ]
 
         newRoot =
             List.last created
@@ -80,7 +81,7 @@ startNewNode nowMaybe rootChange =
         nodeStartCounter =
             Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
     in
-    { updatedNode | profiles = newRoot, lastUsedCounter = nodeStartCounter }
+    { updatedNode | profiles = newRoot }
 
 
 {-| Save your changes!
@@ -98,13 +99,13 @@ apply timeMaybe node changes =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
+            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks (Debug.log "apply has been run on these changes" changes))
 
         finishedOps =
             List.concat listOfFinishedOpsLists
 
         updatedNode =
-            List.foldl updateNodeWithSingleOp node finishedOps
+            List.foldl (\op n -> { n | objects = updateObject n.objects op }) node finishedOps
 
         creationOpsToObjectIDs op =
             case Op.pattern op of
@@ -162,6 +163,10 @@ oneChangeToOps node inCounter change =
             let
                 ( ( outCounter, createdObjectMaybe ), chunkOps ) =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
+
+                logOps =
+                    List.map (\op -> Op.toString op ++ "\n") chunkOps
+                        |> String.concat
             in
             ( outCounter, chunkOps )
 
@@ -198,8 +203,17 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
 
         ( ( counterAfterObjectChanges, newLastSeen ), objectChangeOps ) =
             List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
+
+        logOps prefix ops =
+            prefix
+                ++ ":\n"
+                ++ String.concat (List.map (\op -> Op.toString op ++ "\n") ops)
     in
-    ( ( counterAfterObjectChanges, Just objectID ), allPrereqOps ++ initializationOps ++ objectChangeOps )
+    ( ( counterAfterObjectChanges, Just objectID )
+    , Log.logMessage (logOps "prereq ops" allPrereqOps) allPrereqOps
+        ++ Log.logMessage (logOps "initialization ops" initializationOps) initializationOps
+        ++ Log.logMessage (logOps "object change ops" objectChangeOps) objectChangeOps
+    )
 
 
 type alias UnstampedChunkOp =
@@ -227,7 +241,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
 
                         pointerPayload =
                             Maybe.map newObjectIDToPayload subObjectIDMaybe
-                                |> Maybe.withDefault ""
+                                |> Maybe.withDefault (Debug.todo "no pointer!")
                     in
                     { counter = postPrereqCounter
                     , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
@@ -313,14 +327,14 @@ getOrInitObject node inCounter targetObject =
 --     Maybe.withDefault objectID <| Maybe.map .lastSeen relevantObject
 
 
-updateNodeWithSingleOp op node =
-    { node | objects = updateObject node.objects op }
-
-
 updateObject : ObjectsByCreationDb -> Op -> ObjectsByCreationDb
 updateObject oBCDict newOp =
+    let
+        opIDStringToUpdate =
+            OpID.toString (Op.object newOp)
+    in
     -- we have an object objects. Do work inside it, and return it
-    Dict.update (OpID.toString (Op.object newOp)) (Object.applyOp newOp) oBCDict
+    Dict.update opIDStringToUpdate (Object.applyOp newOp) oBCDict
 
 
 type alias ObjectsByCreationDb =
