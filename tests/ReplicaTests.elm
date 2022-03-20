@@ -56,7 +56,7 @@ type alias ReadOnlyObject =
 readOnlyObjectCodec : Codec e ReadOnlyObject
 readOnlyObjectCodec =
     RC.record ReadOnlyObject
-        |> RC.fieldR ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
+        |> RC.fieldN ( 1, "name" ) .name exampleSubObjectCodec
         |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
         |> RC.fieldR ( 3, "number" ) .number RC.int 0
         |> RC.finishRecord
@@ -124,7 +124,7 @@ writableObjectCodec =
 
 correctDefaultWritableObject : WritableObject -> Bool
 correctDefaultWritableObject obj =
-    obj.name.get == correctDefaultName && obj.address.get == "default address" && obj.number.get == 0
+    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "default address" && obj.number.get == 0
 
 
 fakeNodeWithModifications =
@@ -149,7 +149,7 @@ fakeNodeWithModifications =
 
 correctModifiedObject : WritableObject -> Bool
 correctModifiedObject obj =
-    obj.name.get == correctDefaultName && obj.address.get == "candylane" && obj.number.get == 0
+    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "candylane" && obj.number.get == 0
 
 
 exampleObjectReDecoded : Node -> Result (RC.Error String) WritableObject
@@ -162,7 +162,7 @@ writableObjectEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode writableObjectCodec fakeNode1
+                    Debug.log "writable object output" <| RC.decodeFromNode writableObjectCodec fakeNode1
             in
             Expect.true "Expected the writable object to have default fields" <|
                 Result.withDefault False

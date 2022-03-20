@@ -1272,7 +1272,7 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
         , ronDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1300,7 +1300,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
 
         ronDecoder : RonFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         ronDecoder inputs =
-            ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
+            ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
     in
     PartialRecord
         { encoder = addToPartialBytesEncoderList
@@ -1318,7 +1318,53 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronDecoder =
+            nestableJDmap2
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                recordCodecSoFar.ronDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                ronDecoder
+        }
+
+
+fieldN : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recordCodecSoFar) =
+    let
+        jsonObjectFieldKey =
+            -- For now, just stick number and name together.
+            String.fromInt fieldSlot ++ fieldName
+
+        addToPartialBytesEncoderList existingRecord =
+            -- Tack on the new encoder to the big list of all the encoders
+            (getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
+
+        addToPartialJsonEncoderList =
+            -- Tack on the new encoder to the big list of all the encoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+
+        ronDecoder : RonFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        ronDecoder inputs =
+            ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
+    in
+    PartialRecord
+        { encoder = addToPartialBytesEncoderList
+        , decoder =
+            BD.map2
+                combineIfBothSucceed
+                recordCodecSoFar.decoder
+                (getBytesDecoder fieldValueCodec)
+        , jsonEncoders = addToPartialJsonEncoderList
+        , jsonArrayDecoder =
+            JD.map2
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                recordCodecSoFar.jsonArrayDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
+        , fieldIndex = recordCodecSoFar.fieldIndex + 1
+        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
         , ronDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1365,19 +1411,16 @@ nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
     JD.map2 twoArgFunction decoderA decoderB
 
 
-{-| JSON version: what to do when decoding a (potentially nested!) object field.
+{-| RON what to do when decoding a (potentially nested!) object field.
 -}
-ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
-ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs =
+ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
+ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
     let
         sameInputs =
             { node = inputs.node, pendingCounter = inputs.pendingCounter }
     in
-    case inputs.parent of
-        PendingRegister _ ->
-            getRonDecoder fieldValueCodec sameInputs
-
-        ExistingRegister registerObject ->
+    case ( defaultMaybe, inputs.parent ) of
+        ( Just default, ExistingRegister registerObject ) ->
             let
                 desiredField =
                     Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
@@ -1402,6 +1445,9 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
                                     Ok default
                     in
                     JD.succeed convertResult
+
+        _ ->
+            getRonDecoder fieldValueCodec sameInputs
 
 
 ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
@@ -1567,8 +1613,8 @@ obsolete reservedList input =
 Updated to separate cases where the object needs to be created.
 
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
-newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { mode, registerMaybe, node } =
+newRonFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
+newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, registerMaybe, node } =
     let
         runFieldRonEncoder value =
             getRonEncoder fieldValueCodec { mode = mode, node = node, existingObjectsToUse = [], thingToEncode = Just value }
@@ -1583,31 +1629,34 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefault fieldValueCodec { 
                 |> Maybe.map (\v -> [ Op.JustString v ])
 
         -- TODO can there be nested objects in register memory?
-        encodedDefault =
+        encodedDefault fieldDefault =
             runFieldRonEncoder fieldDefault
 
-        explicitDefaultIfNeeded =
+        explicitDefaultIfNeeded fieldDefault =
             if mode.setDefaultsExplicitly then
                 Just <| Op.NewPayload <| createNewPayload fieldDefault
 
             else
                 Nothing
     in
-    case registerMaybe of
-        Nothing ->
-            explicitDefaultIfNeeded
+    case ( fieldDefaultIfApplies, registerMaybe ) of
+        ( Just fieldDefault, Nothing ) ->
+            explicitDefaultIfNeeded fieldDefault
 
-        Just register ->
+        ( Just fieldDefault, Just register ) ->
             case getValue register of
                 Nothing ->
-                    explicitDefaultIfNeeded
+                    explicitDefaultIfNeeded fieldDefault
 
                 Just foundPreviousValue ->
-                    if foundPreviousValue == encodedDefault then
-                        explicitDefaultIfNeeded
+                    if foundPreviousValue == encodedDefault fieldDefault then
+                        explicitDefaultIfNeeded fieldDefault
 
                     else
                         Just <| Op.NewPayload foundPreviousValue
+
+        _ ->
+            Nothing
 
 
 
