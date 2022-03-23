@@ -230,7 +230,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
             case piece of
                 Op.JustString stringPiece ->
                     { counter = accumulated.counter
-                    , finalPiecePayload = accumulated.finalPiecePayload ++ "\t" ++ stringPiece
+                    , finalPiecePayload = concatAtoms accumulated.finalPiecePayload stringPiece
                     , prerequisiteOps = accumulated.prerequisiteOps
                     }
 
@@ -245,8 +245,15 @@ objectChangeToUnstampedOp node inCounter objectChange =
                     in
                     { counter = postPrereqCounter
                     , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
-                    , finalPiecePayload = accumulated.finalPiecePayload ++ "\t" ++ pointerPayload
+                    , finalPiecePayload = concatAtoms accumulated.finalPiecePayload pointerPayload
                     }
+
+        concatAtoms existing new =
+            if existing == "" then
+                new
+
+            else
+                existing ++ "\t" ++ new
 
         outputHelper pieceList reference =
             let

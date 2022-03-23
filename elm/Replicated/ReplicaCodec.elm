@@ -1425,6 +1425,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
         ( Just default, ExistingRegister registerObject ) ->
             let
                 desiredField =
+                    -- are we looking in the parent when we should look in the child?
                     Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
             in
             case desiredField of

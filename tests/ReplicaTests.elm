@@ -21,11 +21,11 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ -- repListEncodeThenDecode
-          -- , repListInsertAndRemove
-          -- , readOnlyObjectEncodeThenDecode
-          -- , writableObjectEncodeThenDecode
-          writableObjectModify
+        [ repListEncodeThenDecode
+        , repListInsertAndRemove
+        , readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , writableObjectModify
         ]
 
 

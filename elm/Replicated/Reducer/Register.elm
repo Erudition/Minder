@@ -7,6 +7,7 @@ import Helpers
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Log
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -62,7 +63,7 @@ build node object =
                     Dict.insert fieldSlot ( id, fieldPayload ) buildingDict
 
                 Nothing ->
-                    buildingDict
+                    Log.logSeparate "warning - failed to extract field event" payload buildingDict
     in
     Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
 
