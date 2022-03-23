@@ -64,6 +64,7 @@ import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
+import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
@@ -98,9 +99,9 @@ type Codec e a
 
 type alias RonEncoderInputs a =
     { node : Node
-    , existingObjectsToUse : List ObjectID
     , mode : ChangesToGenerate
-    , thingToEncode : Maybe a
+    , thingToEncode : Maybe a -- else use the value here for flat encoding
+    , encodeRegisterInstead : Maybe Register -- first check to see if it's a register, use that instead
     }
 
 
@@ -144,7 +145,7 @@ First launch ever, Register would not exist, can't create it during decode phase
 -}
 type alias RonFieldEncoderInputs =
     { node : Node
-    , registerMaybe : Maybe Register
+    , containingRegisterMaybe : Maybe Register
     , mode : ChangesToGenerate
     }
 
@@ -477,7 +478,7 @@ encodeNodeToChanges : Node -> Codec e profile -> RonPayload
 encodeNodeToChanges node profileCodec =
     getRonEncoder profileCodec
         { node = node
-        , existingObjectsToUse = List.filterMap identity [ List.head node.profiles ]
+        , encodeRegisterInstead = Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ List.head node.profiles ]
         , mode = defaultEncodeMode
         , thingToEncode = Nothing
         }
@@ -491,7 +492,7 @@ encodeDefaults rootCodec =
         ronPayload =
             getRonEncoder rootCodec
                 { node = Node.testNode
-                , existingObjectsToUse = []
+                , encodeRegisterInstead = Nothing
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
                 , thingToEncode = Nothing
                 }
@@ -720,7 +721,7 @@ repList memberCodec =
             getRonEncoder memberCodec
                 { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
                 , node = node
-                , existingObjectsToUse = []
+                , encodeRegisterInstead = Nothing
                 , thingToEncode = Just newValue
                 }
 
@@ -758,12 +759,13 @@ repList memberCodec =
             JD.map foundRepList concurrentObjectIDsDecoder
 
         repListRonEncoder : RonEncoder (RepList memberType)
-        repListRonEncoder ({ node, existingObjectsToUse, mode } as details) =
+        repListRonEncoder ({ node, thingToEncode, mode } as details) =
             let
-                existingRepListMaybe =
-                    Maybe.map (getRepList node (Just mode)) (Node.getObjectIfExists node existingObjectsToUse)
+                existing : Maybe (RepList memberType)
+                existing =
+                    thingToEncode
             in
-            case existingRepListMaybe of
+            case existing of
                 Nothing ->
                     changeToRonPayload <|
                         Chunk
@@ -1461,7 +1463,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
             Register.buildRW targetObject ( fieldSlot, fieldName ) fieldEncoder head
 
         fieldEncoder newValue =
-            getRonEncoder fieldValueCodec { existingObjectsToUse = [], node = inputs.node, mode = defaultEncodeMode, thingToEncode = Just newValue }
+            getRonEncoder fieldValueCodec { encodeRegisterInstead = Nothing, node = inputs.node, mode = defaultEncodeMode, thingToEncode = Just newValue }
     in
     case inputs.parent of
         PendingRegister pendingID ->
@@ -1549,13 +1551,17 @@ finishRecord (PartialRecord allFieldsCodec) =
                     allFieldsCodec.ronDecoder { node = node, pendingCounter = pendingCounter + 1, parent = parent }
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
+
+        ronEncoder : RonEncoder full
+        ronEncoder inputs =
+            registerRonEncoder allFieldsCodec.ronEncoders { thingToEncode = Nothing, mode = inputs.mode, node = inputs.node, encodeRegisterInstead = Nothing }
     in
     Codec
         { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
         , decoder = allFieldsCodec.decoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = allFieldsCodec.jsonArrayDecoder
-        , ronEncoder = Just (\inputs -> registerRonEncoder allFieldsCodec.ronEncoders inputs)
+        , ronEncoder = Just ronEncoder
         , ronDecoder = Just ronDecoder
         }
 
@@ -1574,11 +1580,13 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs a -> RonPayload
-registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as details) =
+registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs Register -> RonPayload
+registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode } as details) =
     let
+        existingRegisterMaybe : Maybe Register
         existingRegisterMaybe =
-            Maybe.map (Register.build node) (Node.getObjectIfExists node existingObjectsToUse)
+            --Maybe.map (Register.build node) (Node.getObjectIfExists node existingObjectsToUse)
+            thingToEncode
 
         target =
             case existingRegisterMaybe of
@@ -1590,7 +1598,7 @@ registerRonEncoder ronFieldEncoders ({ node, existingObjectsToUse, mode } as det
 
         subChanges : List Op.ObjectChange
         subChanges =
-            List.filterMap (\f -> f { node = node, registerMaybe = existingRegisterMaybe, mode = mode }) ronFieldEncoders
+            List.filterMap (\f -> f { node = node, containingRegisterMaybe = existingRegisterMaybe, mode = mode }) ronFieldEncoders
     in
     [ Op.QuoteNestedObject
         (Chunk
@@ -1614,15 +1622,46 @@ Updated to separate cases where the object needs to be created.
 
 -}
 newRonFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
-newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, registerMaybe, node } =
+newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, containingRegisterMaybe, node } =
     let
         runFieldRonEncoder value =
-            getRonEncoder fieldValueCodec { mode = mode, node = node, existingObjectsToUse = [], thingToEncode = Just value }
+            getRonEncoder fieldValueCodec
+                { mode = mode, node = node, thingToEncode = Just value, encodeRegisterInstead = attemptRegisterOverride }
 
         createNewPayload value =
             Register.encodeFieldPayloadAsObjectPayload
                 ( fieldSlot, fieldName )
                 (runFieldRonEncoder value)
+
+        attemptRegisterOverride : Maybe Register
+        attemptRegisterOverride =
+            let
+                hasNestedWritableObject =
+                    -- check to see if there's a nested object, otherwise no point checking for register override
+                    case fieldValueCodec of
+                        Codec codecrecord ->
+                            Maybe.Extra.isJust codecrecord.ronEncoder
+
+                encodedSubRegisterPotentially =
+                    Maybe.andThen (\register -> Register.getFieldLatestOnly register ( fieldSlot, fieldName )) containingRegisterMaybe
+
+                subRegisterObjectIDsMaybe : Maybe (List ObjectID)
+                subRegisterObjectIDsMaybe =
+                    Maybe.andThen (JD.decodeString concurrentObjectIDsDecoder >> Result.toMaybe) encodedSubRegisterPotentially
+
+                subRegisterMaybe =
+                    case subRegisterObjectIDsMaybe of
+                        Just objectIDs ->
+                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectIDs)
+
+                        _ ->
+                            Nothing
+            in
+            if hasNestedWritableObject then
+                subRegisterMaybe
+
+            else
+                Nothing
 
         getValue register =
             Register.getFieldLatestOnly register ( fieldSlot, fieldName )
@@ -1639,12 +1678,12 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValu
             else
                 Nothing
     in
-    case ( fieldDefaultIfApplies, registerMaybe ) of
+    case ( fieldDefaultIfApplies, containingRegisterMaybe ) of
         ( Just fieldDefault, Nothing ) ->
             explicitDefaultIfNeeded fieldDefault
 
-        ( Just fieldDefault, Just register ) ->
-            case getValue register of
+        ( Just fieldDefault, Just containingRegister ) ->
+            case getValue containingRegister of
                 Nothing ->
                     explicitDefaultIfNeeded fieldDefault
 
@@ -1655,11 +1694,20 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValu
                     else
                         Just <| Op.NewPayload foundPreviousValue
 
-        _ ->
+        ( Nothing, Just containingRegister ) ->
+            case getValue containingRegister of
+                Nothing ->
+                    Nothing
+
+                Just foundPreviousValue ->
+                    Just <| Op.NewPayload foundPreviousValue
+
+        ( Nothing, Nothing ) ->
             Nothing
 
 
 
+--Nothing
 ---- MAPPING
 
 

@@ -21,11 +21,11 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ repListEncodeThenDecode
-        , repListInsertAndRemove
-        , readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , writableObjectModify
+        [ -- repListEncodeThenDecode
+          -- , repListInsertAndRemove
+          -- , readOnlyObjectEncodeThenDecode
+          -- , writableObjectEncodeThenDecode
+          writableObjectModify
         ]
 
 
@@ -127,31 +127,6 @@ correctDefaultWritableObject obj =
     obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "default address" && obj.number.get == 0
 
 
-fakeNodeWithModifications =
-    let
-        exampleObjectMaybe =
-            Result.toMaybe (exampleObjectReDecoded fakeNode1)
-    in
-    case exampleObjectMaybe of
-        Just exampleObjectFound ->
-            let
-                changeList =
-                    [ exampleObjectFound.address.set "candylane" ]
-
-                { updatedNode } =
-                    Node.apply Nothing fakeNode1 changeList
-            in
-            updatedNode
-
-        Nothing ->
-            fakeNode1
-
-
-correctModifiedObject : WritableObject -> Bool
-correctModifiedObject obj =
-    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "candylane" && obj.number.get == 0
-
-
 exampleObjectReDecoded : Node -> Result (RC.Error String) WritableObject
 exampleObjectReDecoded node =
     RC.decodeFromNode writableObjectCodec fakeNode1
@@ -162,11 +137,46 @@ writableObjectEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    Debug.log "writable object output" <| RC.decodeFromNode writableObjectCodec fakeNode1
+                    RC.decodeFromNode writableObjectCodec fakeNode1
             in
             Expect.true "Expected the writable object to have default fields" <|
                 Result.withDefault False
                     (Result.map correctDefaultWritableObject processOutput)
+
+
+
+-- NOW MODIFY IT
+
+
+fakeNodeWithModifications =
+    let
+        exampleObjectMaybe =
+            Result.toMaybe (exampleObjectReDecoded fakeNode1)
+    in
+    case exampleObjectMaybe of
+        Just exampleObjectFound ->
+            let
+                changeList =
+                    [ exampleObjectFound.address.set "candylane"
+                    , exampleObjectFound.number.set 7
+                    ]
+
+                { updatedNode, ops } =
+                    Node.apply Nothing fakeNode1 changeList
+
+                logOps =
+                    List.map (\op -> Op.toString op ++ "\n") ops
+                        |> String.concat
+            in
+            updatedNode
+
+        Nothing ->
+            Debug.todo "should always be found"
+
+
+correctModifiedObject : WritableObject -> Bool
+correctModifiedObject obj =
+    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "candylane" && obj.number.get == 7
 
 
 writableObjectModify =
@@ -174,7 +184,7 @@ writableObjectModify =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode writableObjectCodec fakeNodeWithModifications
+                    Debug.log "decoded into" <| RC.decodeFromNode writableObjectCodec fakeNodeWithModifications
             in
             Expect.true "Expected the writable object to have modified fields" <|
                 Result.withDefault False
