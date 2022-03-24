@@ -1420,37 +1420,57 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
     let
         sameInputs =
             { node = inputs.node, pendingCounter = inputs.pendingCounter }
-    in
-    case ( defaultMaybe, inputs.parent ) of
-        ( Just default, ExistingRegister registerObject ) ->
-            let
-                desiredField =
-                    -- are we looking in the parent when we should look in the child?
+
+        fieldValueMaybe =
+            case inputs.parent of
+                ExistingRegister registerObject ->
                     Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
-            in
-            case desiredField of
+
+                _ ->
+                    Nothing
+
+        runFieldDecoder thingToDecode =
+            JD.decodeString (getRonDecoder fieldValueCodec sameInputs) thingToDecode
+    in
+    case defaultMaybe of
+        Just default ->
+            case fieldValueMaybe of
                 Nothing ->
+                    -- field was never set - fall back to default
                     JD.succeed (Ok default)
 
                 Just foundField ->
-                    let
-                        runDecoderOnFoundField : Result JD.Error (Result (Error e) fieldtype)
-                        runDecoderOnFoundField =
-                            JD.decodeString (getRonDecoder fieldValueCodec sameInputs) (prepDecoder foundField)
+                    -- field was set - decode value and use it
+                    case runFieldDecoder (prepDecoder foundField) of
+                        Ok something ->
+                            JD.succeed something
 
-                        convertResult : Result (Error e) fieldtype
-                        convertResult =
-                            case runDecoderOnFoundField of
-                                Ok something ->
-                                    something
+                        Err problem ->
+                            -- fall back to default if we failed to decode set value for some reason
+                            -- TODO error instead?
+                            JD.succeed <| Ok default
 
-                                Err problem ->
-                                    Ok default
-                    in
-                    JD.succeed convertResult
+        Nothing ->
+            -- for nested objects
+            let
+                nestedObjectDefault =
+                    -- decode an empty UUID list when there's no pre-existing objects
+                    case runFieldDecoder (JE.encode 0 (JE.list JE.string [])) of
+                        Ok something ->
+                            JD.succeed something
 
-        _ ->
-            getRonDecoder fieldValueCodec sameInputs
+                        Err problem ->
+                            -- should be unreachable since we're decoding a hardcoded value
+                            JD.fail "failed to decode an empty UUID list (for forcing a Register to give defaults)"
+            in
+            case Maybe.map runFieldDecoder fieldValueMaybe of
+                Just (Ok something) ->
+                    -- there was a set value AND it decoded successfully
+                    JD.succeed something
+
+                _ ->
+                    -- there was no value set OR it failed to decode
+                    nestedObjectDefault
 
 
 ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))

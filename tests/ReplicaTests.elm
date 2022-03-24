@@ -31,6 +31,11 @@ suite =
 
 nodeFromCodec : Codec e profile -> Node
 nodeFromCodec profileCodec =
+    let
+        logOps ops =
+            List.map (\op -> Op.toString op ++ "\n") ops
+                |> String.concat
+    in
     Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
 
 
@@ -47,43 +52,49 @@ fakeOps =
 
 
 type alias ReadOnlyObject =
-    { name : ExampleSubObjectName
+    { name : ExampleSubObjectLegalName
     , address : String
     , number : Int
+    , living : Bool
     }
 
 
 readOnlyObjectCodec : Codec e ReadOnlyObject
 readOnlyObjectCodec =
     RC.record ReadOnlyObject
-        |> RC.fieldN ( 1, "name" ) .name exampleSubObjectCodec
+        |> RC.fieldN ( 1, "legal_name" ) .name exampleSubObjectCodec
         |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
         |> RC.fieldR ( 3, "number" ) .number RC.int 0
+        |> RC.fieldR ( 4, "living" ) .living RC.bool True
         |> RC.finishRecord
 
 
 correctDefaultReadOnlyObject : ReadOnlyObject
 correctDefaultReadOnlyObject =
-    ReadOnlyObject correctDefaultName "default address" 0
+    { name = correctDefaultName
+    , address = "default address"
+    , number = 0
+    , living = True
+    }
 
 
-type alias ExampleSubObjectName =
+type alias ExampleSubObjectLegalName =
     { first : String
     , last : String
     }
 
 
-exampleSubObjectCodec : Codec e ExampleSubObjectName
+exampleSubObjectCodec : Codec e ExampleSubObjectLegalName
 exampleSubObjectCodec =
-    RC.record ExampleSubObjectName
+    RC.record ExampleSubObjectLegalName
         |> RC.fieldR ( 1, "first" ) .first RC.string "firstname"
-        |> RC.fieldR ( 2, "last" ) .last RC.string "specific-codec default surname"
+        |> RC.fieldR ( 2, "last" ) .last RC.string "default surname"
         |> RC.finishRecord
 
 
-correctDefaultName : ExampleSubObjectName
+correctDefaultName : ExampleSubObjectLegalName
 correctDefaultName =
-    ExampleSubObjectName "firstname" "specific-codec default surname"
+    ExampleSubObjectLegalName "firstname" "default surname"
 
 
 fakeNode1 : Node
@@ -92,7 +103,7 @@ fakeNode1 =
 
 
 readOnlyObjectEncodeThenDecode =
-    test "Encoding an object to Ron, applying to a node, then decoding it from Ron." <|
+    test "Encoding a read-only object to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
             let
                 processOutput =
@@ -107,7 +118,7 @@ readOnlyObjectEncodeThenDecode =
 
 
 type alias WritableObject =
-    { name : RW ExampleSubObjectName
+    { name : RW ExampleSubObjectLegalName
     , address : RW String
     , number : RW Int
     }
@@ -184,7 +195,7 @@ writableObjectModify =
         \_ ->
             let
                 processOutput =
-                    Debug.log "decoded into" <| RC.decodeFromNode writableObjectCodec fakeNodeWithModifications
+                    RC.decodeFromNode writableObjectCodec fakeNodeWithModifications
             in
             Expect.true "Expected the writable object to have modified fields" <|
                 Result.withDefault False
