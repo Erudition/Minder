@@ -17,7 +17,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepList memberType
     = RepList
-        { id : ObjectID
+        { id : Op.TargetObject
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
@@ -30,7 +30,7 @@ type alias Item memberType =
     }
 
 
-getID : RepList memberType -> ObjectID
+getID : RepList memberType -> Op.TargetObject
 getID (RepList repSet) =
     repSet.id
 
@@ -51,12 +51,16 @@ reducerID =
 
 {-| We assume object exists, missing object should be handled beforehand.
 -}
-buildFromReplicaDb : Node -> Object -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
-buildFromReplicaDb node object unstringifier memberChanger =
+buildFromReplicaDb : Node -> Op.TargetObject -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
+buildFromReplicaDb node targetObject unstringifier memberChanger =
     let
-        sortedEvents =
-            Dict.values object.events
-                |> List.sortWith compareEvents
+        existingObjectMaybe =
+            case targetObject of
+                Op.ExistingObject objectID ->
+                    Node.getObjectIfExists node [ objectID ]
+
+                Op.NewObject _ _ ->
+                    Nothing
 
         compareEvents : Object.KeptEvent -> Object.KeptEvent -> Order
         compareEvents eventA eventB =
@@ -80,7 +84,17 @@ buildFromReplicaDb node object unstringifier memberChanger =
                             EQ
 
         sortedEventsAsItems =
-            List.filterMap eventToItem sortedEvents
+            case existingObjectMaybe of
+                Just foundObject ->
+                    let
+                        sortedEvents =
+                            Dict.values foundObject.events
+                                |> List.sortWith compareEvents
+                    in
+                    List.filterMap eventToItem sortedEvents
+
+                Nothing ->
+                    []
 
         eventToItem event =
             case unstringifier (Object.eventPayload event) of
@@ -94,10 +108,10 @@ buildFromReplicaDb node object unstringifier memberChanger =
                         }
     in
     RepList
-        { id = object.creation
+        { id = targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
-        , included = object.included
+        , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
         }
 
 
@@ -138,7 +152,7 @@ dict (RepList repSetRecord) =
 insertAfter : RepList memberType -> Handle -> memberType -> Change
 insertAfter (RepList repSetRecord) attachmentPoint newItem =
     Op.Chunk
-        { object = Op.ExistingObject repSetRecord.id
+        { object = repSetRecord.id
         , objectChanges =
             [ repSetRecord.memberChanger newItem (Just (memberIDToOpID attachmentPoint)) ]
         }
@@ -153,7 +167,7 @@ append (RepList repSetRecord) newItems =
             repSetRecord.memberChanger newItem Nothing
     in
     Op.Chunk
-        { object = Op.ExistingObject repSetRecord.id
+        { object = repSetRecord.id
         , objectChanges = List.map newItemToObjectChange newItems
         }
 
@@ -161,7 +175,7 @@ append (RepList repSetRecord) newItems =
 remove : RepList memberType -> Handle -> Change
 remove (RepList repSetRecord) itemToRemove =
     Op.Chunk
-        { object = Op.ExistingObject repSetRecord.id
+        { object = repSetRecord.id
         , objectChanges =
             [ Op.RevertOp (memberIDToOpID itemToRemove) ]
         }

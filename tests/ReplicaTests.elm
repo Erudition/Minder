@@ -26,6 +26,7 @@ suite =
         , readOnlyObjectEncodeThenDecode
         , writableObjectEncodeThenDecode
         , writableObjectModify
+        , nestedStressTestIntegrityCheck
         ]
 
 
@@ -311,3 +312,84 @@ repListInsertAndRemove =
                     Result.map RepList.list generatedRepList
             in
             list |> Expect.equal (Ok modifiedList)
+
+
+
+-- HELPERS
+
+
+expectOkAndEqualWhenMapped mapper expectedValue testedResultValue =
+    case testedResultValue of
+        Ok foundValue ->
+            Expect.equal expectedValue (mapper foundValue)
+
+        Err error ->
+            Expect.fail (Log.logSeparate "failure" error "did not decode")
+
+
+
+-- NESTED MESS
+
+
+type alias NestedStressTest =
+    { recordDepth : String
+    , recordOf3Records : RecordOf3Records
+    , listOfNestedRecords : RepList WritableObject
+    }
+
+
+nestedStressTestCodec : Codec e NestedStressTest
+nestedStressTestCodec =
+    RC.record NestedStressTest
+        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "first layer"
+        |> RC.fieldN ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
+        |> RC.fieldN ( 3, "listOfNestedRecords" ) .listOfNestedRecords (RC.repList writableObjectCodec)
+        |> RC.finishRecord
+
+
+type alias RecordOf3Records =
+    { recordDepth : String
+    , recordOf2Records : RecordOf2Records
+    }
+
+
+recordOf3RecordsCodec : Codec e RecordOf3Records
+recordOf3RecordsCodec =
+    RC.record RecordOf3Records
+        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "second layer"
+        |> RC.fieldN ( 2, "recordOf2Records" ) .recordOf2Records recordOf2RecordsCodec
+        |> RC.finishRecord
+
+
+type alias RecordOf2Records =
+    { recordDepth : String
+    , recordWithRecord : WritableObject
+    }
+
+
+recordOf2RecordsCodec : Codec e RecordOf2Records
+recordOf2RecordsCodec =
+    RC.record RecordOf2Records
+        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "third layer"
+        |> RC.fieldN ( 2, "recordWithRecord" ) .recordWithRecord writableObjectCodec
+        |> RC.finishRecord
+
+
+
+-- NOW TEST IT
+
+
+nestedStressTestReDecoded : Result (RC.Error String) NestedStressTest
+nestedStressTestReDecoded =
+    RC.decodeFromNode nestedStressTestCodec (nodeFromCodec nestedStressTestCodec)
+
+
+nestedStressTestIntegrityCheck =
+    test "checking the nested mess has everything we put in it" <|
+        \_ ->
+            Expect.all
+                [ expectOkAndEqualWhenMapped .recordDepth "first layer"
+                , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordDepth) "second layer"
+                , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordDepth) "third layer"
+                ]
+                nestedStressTestReDecoded

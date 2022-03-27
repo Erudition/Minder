@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingObjectCounter, PendingObjectID, ReducerID, RonPayload, TargetObject(..), changeToRonPayload, create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingCounter, PendingID, ReducerID, RonPayload, TargetObject(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -340,15 +340,7 @@ type ObjectChange
 
 type TargetObject
     = ExistingObject ObjectID
-    | NewObject ReducerID (Maybe PendingObjectID)
-
-
-type alias PendingObjectCounter =
-    Int
-
-
-type alias PendingObjectID =
-    Int
+    | NewObject ReducerID (Maybe PendingID)
 
 
 type ChangeAtom
@@ -359,6 +351,35 @@ type ChangeAtom
 changeToRonPayload : Change -> RonPayload
 changeToRonPayload change =
     [ QuoteNestedObject change ]
+
+
+type PendingCounter
+    = PendingCounter (List Int)
+
+
+type PendingID
+    = PendingID (List Int)
+
+
+usePendingCounter : PendingCounter -> { id : PendingID, passToNext : PendingCounter, passToChild : PendingCounter }
+usePendingCounter (PendingCounter inCounterList) =
+    let
+        ( ancestors, siblingNum ) =
+            case inCounterList of
+                [] ->
+                    ( [], 0 )
+
+                myNum :: prior ->
+                    ( prior, myNum )
+    in
+    { id = PendingID inCounterList
+    , passToNext = PendingCounter ((siblingNum + 1) :: ancestors)
+    , passToChild = PendingCounter (0 :: inCounterList)
+    }
+
+
+firstPendingCounter =
+    PendingCounter [ 0 ]
 
 
 
