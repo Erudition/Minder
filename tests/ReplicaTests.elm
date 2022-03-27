@@ -21,12 +21,14 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ repListEncodeThenDecode
-        , repListInsertAndRemove
-        , readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , writableObjectModify
-        , nestedStressTestIntegrityCheck
+        [ writableObjectEncodeThenDecode
+
+        -- repListEncodeThenDecode
+        -- , repListInsertAndRemove
+        -- , readOnlyObjectEncodeThenDecode
+        -- , writableObjectEncodeThenDecode
+        -- , writableObjectModify
+        -- , nestedStressTestIntegrityCheck
         ]
 
 
@@ -65,7 +67,7 @@ readOnlyObjectCodec =
     RC.record ReadOnlyObject
         |> RC.fieldN ( 1, "legal_name" ) .name exampleSubObjectCodec
         |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
-        |> RC.fieldR ( 3, "number" ) .number RC.int 0
+        |> RC.fieldR ( 3, "number" ) .number RC.int 1
         |> RC.fieldR ( 4, "living" ) .living RC.bool True
         |> RC.finishRecord
 
@@ -74,7 +76,7 @@ correctDefaultReadOnlyObject : ReadOnlyObject
 correctDefaultReadOnlyObject =
     { name = correctDefaultName
     , address = "default address"
-    , number = 0
+    , number = 1
     , living = True
     }
 
@@ -108,7 +110,7 @@ readOnlyObjectEncodeThenDecode =
         \_ ->
             let
                 processOutput =
-                    RC.decodeFromNode readOnlyObjectCodec fakeNode1
+                    RC.decodeFromNode readOnlyObjectCodec (nodeFromCodec readOnlyObjectCodec)
             in
             processOutput
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
@@ -130,30 +132,26 @@ writableObjectCodec =
     RC.record WritableObject
         |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
         |> RC.fieldRW ( 2, "address" ) .address RC.string "default address"
-        |> RC.fieldRW ( 3, "number" ) .number RC.int 0
+        |> RC.fieldRW ( 3, "number" ) .number RC.int 42
         |> RC.finishRecord
 
 
 correctDefaultWritableObject : WritableObject -> Bool
 correctDefaultWritableObject obj =
-    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "default address" && obj.number.get == 0
+    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "default address" && obj.number.get == 42
 
 
-exampleObjectReDecoded : Node -> Result (RC.Error String) WritableObject
-exampleObjectReDecoded node =
-    RC.decodeFromNode writableObjectCodec fakeNode1
+exampleObjectReDecoded : Result (RC.Error String) WritableObject
+exampleObjectReDecoded =
+    RC.decodeFromNode writableObjectCodec (nodeFromCodec writableObjectCodec)
 
 
 writableObjectEncodeThenDecode =
     test "Encoding a writable object to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
-            let
-                processOutput =
-                    RC.decodeFromNode writableObjectCodec fakeNode1
-            in
             Expect.true "Expected the writable object to have default fields" <|
                 Result.withDefault False
-                    (Result.map correctDefaultWritableObject processOutput)
+                    (Result.map correctDefaultWritableObject exampleObjectReDecoded)
 
 
 
@@ -163,7 +161,7 @@ writableObjectEncodeThenDecode =
 fakeNodeWithModifications =
     let
         exampleObjectMaybe =
-            Result.toMaybe (exampleObjectReDecoded fakeNode1)
+            Result.toMaybe exampleObjectReDecoded
     in
     case exampleObjectMaybe of
         Just exampleObjectFound ->
@@ -174,7 +172,7 @@ fakeNodeWithModifications =
                     ]
 
                 { updatedNode, ops } =
-                    Node.apply Nothing fakeNode1 changeList
+                    Node.apply Nothing (nodeFromCodec writableObjectCodec) changeList
 
                 logOps =
                     List.map (\op -> Op.toString op ++ "\n") ops
@@ -391,5 +389,6 @@ nestedStressTestIntegrityCheck =
                 [ expectOkAndEqualWhenMapped .recordDepth "first layer"
                 , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordDepth) "second layer"
                 , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordDepth) "third layer"
+                , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordWithRecord.number.get) 42
                 ]
                 nestedStressTestReDecoded

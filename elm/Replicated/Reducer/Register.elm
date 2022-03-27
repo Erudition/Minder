@@ -134,6 +134,29 @@ getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
         |> Maybe.map Tuple.second
 
 
+getFieldHistory : Register -> Object -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory (Register register) coreObject ( desiredFieldSlot, _ ) =
+    let
+        eventToOldValue ( key, Object.KeptEvent { id, payload } ) =
+            case extractFieldEventFromObjectPayload payload of
+                Just ( ( fieldSlot, fieldName ), fieldPayload ) ->
+                    if desiredFieldSlot == fieldSlot then
+                        Just ( id, fieldPayload )
+
+                    else
+                        Log.logSeparate "warning - failed to extract field event" payload Nothing
+
+                Nothing ->
+                    Log.logSeparate "warning - failed to extract field event" payload Nothing
+    in
+    List.filterMap eventToOldValue (Dict.toList coreObject.events)
+
+
+getFieldHistoryValues : Register -> Object -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues register coreObject field =
+    List.map Tuple.second (getFieldHistory register coreObject field)
+
+
 type alias RW fieldVal =
     { get : fieldVal
     , set : fieldVal -> Change
