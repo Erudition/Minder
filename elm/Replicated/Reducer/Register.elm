@@ -23,7 +23,7 @@ type Register
     = Register
         { id : OpID.ObjectID
         , version : OpID.ObjectVersion
-        , fields : Dict FieldSlot ( OpID, FieldPayload )
+        , fields : Dict FieldSlot (List ( OpID, FieldPayload ))
         , included : Object.InclusionInfo
         }
 
@@ -56,14 +56,18 @@ build node object =
         fieldsDict =
             Dict.foldl addFieldEntry Dict.empty object.events
 
-        addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot ( OpID, FieldPayload ) -> Dict FieldSlot ( OpID, FieldPayload )
+        addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
             case extractFieldEventFromObjectPayload payload of
                 Just ( ( fieldSlot, fieldName ), fieldPayload ) ->
-                    Dict.insert fieldSlot ( id, fieldPayload ) buildingDict
+                    Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
 
                 Nothing ->
                     Log.logSeparate "warning - failed to extract field event" payload buildingDict
+
+        addUpdate : ( OpID, FieldPayload ) -> Maybe (List ( OpID, FieldPayload )) -> Maybe (List ( OpID, FieldPayload ))
+        addUpdate newUpdate existingUpdatesMaybe =
+            Just (newUpdate :: Maybe.withDefault [] existingUpdatesMaybe)
     in
     Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
 
@@ -131,30 +135,19 @@ type alias FieldSlot =
 getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
+        |> Maybe.andThen List.head
         |> Maybe.map Tuple.second
 
 
-getFieldHistory : Register -> Object -> FieldIdentifier -> List ( OpID, FieldPayload )
-getFieldHistory (Register register) coreObject ( desiredFieldSlot, _ ) =
-    let
-        eventToOldValue ( key, Object.KeptEvent { id, payload } ) =
-            case extractFieldEventFromObjectPayload payload of
-                Just ( ( fieldSlot, fieldName ), fieldPayload ) ->
-                    if desiredFieldSlot == fieldSlot then
-                        Just ( id, fieldPayload )
-
-                    else
-                        Log.logSeparate "warning - failed to extract field event" payload Nothing
-
-                Nothing ->
-                    Log.logSeparate "warning - failed to extract field event" payload Nothing
-    in
-    List.filterMap eventToOldValue (Dict.toList coreObject.events)
+getFieldHistory : Register -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory (Register register) ( desiredFieldSlot, _ ) =
+    Dict.get desiredFieldSlot register.fields
+        |> Maybe.withDefault []
 
 
-getFieldHistoryValues : Register -> Object -> FieldIdentifier -> List FieldPayload
-getFieldHistoryValues register coreObject field =
-    List.map Tuple.second (getFieldHistory register coreObject field)
+getFieldHistoryValues : Register -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues register field =
+    List.map Tuple.second (getFieldHistory register field)
 
 
 type alias RW fieldVal =

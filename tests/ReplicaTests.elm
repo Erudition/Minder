@@ -21,7 +21,7 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ writableObjectEncodeThenDecode
+        [ modifiedNestedStressTestIntegrityCheck
 
         -- repListEncodeThenDecode
         -- , repListInsertAndRemove
@@ -29,6 +29,7 @@ suite =
         -- , writableObjectEncodeThenDecode
         -- , writableObjectModify
         -- , nestedStressTestIntegrityCheck
+        -- , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -100,11 +101,6 @@ correctDefaultName =
     ExampleSubObjectLegalName "firstname" "default surname"
 
 
-fakeNode1 : Node
-fakeNode1 =
-    nodeFromCodec readOnlyObjectCodec
-
-
 readOnlyObjectEncodeThenDecode =
     test "Encoding a read-only object to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
@@ -136,22 +132,23 @@ writableObjectCodec =
         |> RC.finishRecord
 
 
-correctDefaultWritableObject : WritableObject -> Bool
-correctDefaultWritableObject obj =
-    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "default address" && obj.number.get == 42
-
-
-exampleObjectReDecoded : Result (RC.Error String) WritableObject
-exampleObjectReDecoded =
-    RC.decodeFromNode writableObjectCodec (nodeFromCodec writableObjectCodec)
+writableObjectReDecoded : Result (RC.Error String) WritableObject
+writableObjectReDecoded =
+    Debug.log "writable object decoded to" <|
+        RC.decodeFromNode writableObjectCodec (nodeFromCodec writableObjectCodec)
 
 
 writableObjectEncodeThenDecode =
     test "Encoding a writable object to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
-            Expect.true "Expected the writable object to have default fields" <|
-                Result.withDefault False
-                    (Result.map correctDefaultWritableObject exampleObjectReDecoded)
+            Expect.all
+                [ expectOkAndEqualWhenMapped (\obj -> obj.address.get) "default address"
+                , expectOkAndEqualWhenMapped (\obj -> obj.number.get) 42
+
+                -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
+                -- disabled because forced default op generation is overruled by codec defaults
+                ]
+                writableObjectReDecoded
 
 
 
@@ -161,7 +158,7 @@ writableObjectEncodeThenDecode =
 fakeNodeWithModifications =
     let
         exampleObjectMaybe =
-            Result.toMaybe exampleObjectReDecoded
+            Result.toMaybe writableObjectReDecoded
     in
     case exampleObjectMaybe of
         Just exampleObjectFound ->
@@ -184,21 +181,14 @@ fakeNodeWithModifications =
             Debug.todo "should always be found"
 
 
-correctModifiedObject : WritableObject -> Bool
-correctModifiedObject obj =
-    obj.name.get == { first = "default first", last = "default last" } && obj.address.get == "candylane" && obj.number.get == 7
-
-
 writableObjectModify =
     test "Encoding a writable object to Ron, applying to a node, writing new values to some fields, then decoding it from Ron." <|
         \_ ->
-            let
-                processOutput =
-                    RC.decodeFromNode writableObjectCodec fakeNodeWithModifications
-            in
-            Expect.true "Expected the writable object to have modified fields" <|
-                Result.withDefault False
-                    (Result.map correctModifiedObject processOutput)
+            Expect.all
+                [ expectOkAndEqualWhenMapped (\obj -> obj.address.get) "candylane"
+                , expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7
+                ]
+                (RC.decodeFromNode writableObjectCodec fakeNodeWithModifications)
 
 
 
@@ -392,3 +382,47 @@ nestedStressTestIntegrityCheck =
                 , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordWithRecord.number.get) 42
                 ]
                 nestedStressTestReDecoded
+
+
+
+-- NOW MODIFY THE STRESSTEST
+
+
+nodeWithModifiedNestedStressTest : Node
+nodeWithModifiedNestedStressTest =
+    case RC.decodeFromNode nestedStressTestCodec (nodeFromCodec nestedStressTestCodec) of
+        Ok nestedStressTest ->
+            let
+                repList =
+                    nestedStressTest.listOfNestedRecords
+
+                dummyItem =
+                    Result.toMaybe <| writableObjectReDecoded
+
+                addItems =
+                    RepList.addNewWithChanges repList [ \obj -> obj.address.set "balogna street" ]
+
+                changes =
+                    [ addItems
+                    ]
+
+                applied =
+                    Node.apply Nothing (nodeFromCodec nestedStressTestCodec) changes
+
+                logOps =
+                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                        |> String.concat
+            in
+            Debug.log logOps applied.updatedNode
+
+        Err _ ->
+            Debug.todo "no start dummy object"
+
+
+modifiedNestedStressTestIntegrityCheck =
+    test "checking the nested mess has been correctly modified" <|
+        \_ ->
+            Expect.all
+                [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "bologna street" ]
+                ]
+                (RC.decodeFromNode nestedStressTestCodec nodeWithModifiedNestedStressTest)

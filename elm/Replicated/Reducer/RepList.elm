@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, getID, insertAfter, list, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, insertAfter, length, list, reducerID, remove)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
@@ -21,6 +21,7 @@ type RepList memberType
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
+        , memberGenerator : String -> Maybe memberType
         }
 
 
@@ -111,6 +112,7 @@ buildFromReplicaDb node targetObject unstringifier memberChanger =
         { id = targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
+        , memberGenerator = unstringifier
         , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
         }
 
@@ -161,21 +163,66 @@ insertAfter (RepList repSetRecord) attachmentPoint newItem =
 {-| Add items to the collection.
 -}
 append : RepList memberType -> List memberType -> Change
-append (RepList repSetRecord) newItems =
+append (RepList record) newItems =
     let
         newItemToObjectChange newItem =
-            repSetRecord.memberChanger newItem Nothing
+            record.memberChanger newItem Nothing
     in
     Op.Chunk
-        { object = repSetRecord.id
+        { object = record.id
         , objectChanges = List.map newItemToObjectChange newItems
         }
 
 
 remove : RepList memberType -> Handle -> Change
-remove (RepList repSetRecord) itemToRemove =
+remove (RepList record) itemToRemove =
     Op.Chunk
-        { object = repSetRecord.id
+        { object = record.id
         , objectChanges =
             [ Op.RevertOp (memberIDToOpID itemToRemove) ]
+        }
+
+
+length : RepList memberType -> Int
+length (RepList record) =
+    List.length record.members
+
+
+addNew : RepList memberType -> Change
+addNew (RepList record) =
+    let
+        newItemMaybe =
+            record.memberGenerator "{}"
+
+        newItemToObjectChange newItem =
+            record.memberChanger newItem Nothing
+    in
+    Op.Chunk
+        { object = record.id
+        , objectChanges =
+            List.filterMap (Maybe.map newItemToObjectChange) [ newItemMaybe ]
+        }
+
+
+addNewWithChanges : RepList memberType -> List (memberType -> Change) -> Change
+addNewWithChanges (RepList record) desiredChanges =
+    let
+        newItemMaybe =
+            record.memberGenerator "{}"
+
+        newItemToObjectChanges =
+            case newItemMaybe of
+                Nothing ->
+                    []
+
+                Just newItem ->
+                    List.map (\modification -> Op.NewPayload <| Op.changeToRonPayload <| modification newItem) desiredChanges
+
+        originalChange newItem =
+            record.memberChanger newItem Nothing
+    in
+    Op.Chunk
+        { object = record.id
+        , objectChanges =
+            newItemToObjectChanges
         }

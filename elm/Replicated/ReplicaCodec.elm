@@ -1293,6 +1293,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
+            -- TODO initial numbers  allowed in JSON field names?
             String.fromInt fieldSlot ++ fieldName
 
         addToPartialBytesEncoderList existingRecord =
@@ -1421,10 +1422,7 @@ nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
 ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
 ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
     let
-        sameInputs =
-            { node = inputs.node, pendingCounter = inputs.pendingCounter }
-
-        fieldValueMaybe =
+        fieldLatestValueMaybe =
             case inputs.parent of
                 ExistingRegister registerObject ->
                     Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
@@ -1433,11 +1431,15 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     Nothing
 
         runFieldDecoder thingToDecode =
-            JD.decodeString (getRonDecoder fieldValueCodec sameInputs) thingToDecode
+            JD.decodeString
+                (getRonDecoder fieldValueCodec
+                    { node = inputs.node, pendingCounter = inputs.pendingCounter }
+                )
+                thingToDecode
     in
     case defaultMaybe of
         Just default ->
-            case fieldValueMaybe of
+            case fieldLatestValueMaybe of
                 Nothing ->
                     -- field was never set - fall back to default
                     JD.succeed (Ok default)
@@ -1454,26 +1456,28 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                             JD.succeed <| Ok default
 
         Nothing ->
-            -- for nested objects
+            -- for nested objects ONLY (fieldN)
             let
-                nestedObjectDefault =
-                    -- decode an empty UUID list when there's no pre-existing objects
-                    case runFieldDecoder (JE.encode 0 (JE.list JE.string [])) of
-                        Ok something ->
-                            JD.succeed something
+                fieldUUIDHistoryList =
+                    case inputs.parent of
+                        ExistingRegister register ->
+                            Register.getFieldHistoryValues register ( fieldSlot, fieldName )
 
-                        Err problem ->
-                            -- should be unreachable since we're decoding a hardcoded value
-                            JD.fail "failed to decode an empty UUID list (for forcing a Register to give defaults)"
+                        _ ->
+                            -- decode an empty UUID list when there's no pre-existing objects
+                            []
+
+                allNestedObjects =
+                    runFieldDecoder (JE.encode 0 (JE.list JE.string fieldUUIDHistoryList))
             in
-            case Maybe.map runFieldDecoder fieldValueMaybe of
-                Just (Ok something) ->
+            case allNestedObjects of
+                Ok something ->
                     -- there was a set value AND it decoded successfully
                     JD.succeed something
 
                 _ ->
                     -- there was no value set OR it failed to decode
-                    nestedObjectDefault
+                    Debug.todo "failed to decode UUID list"
 
 
 ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
@@ -1542,7 +1546,7 @@ prepDecoder inputString =
 
 concurrentObjectIDsDecoder : JD.Decoder (List OpID.ObjectID)
 concurrentObjectIDsDecoder =
-    JD.list OpID.jsonDecoder
+    JD.oneOf [ JD.list OpID.jsonDecoder, JD.map List.singleton OpID.jsonDecoder, JD.succeed [] ]
 
 
 {-| Finish creating a codec for a record.
