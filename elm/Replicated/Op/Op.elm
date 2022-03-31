@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingCounter, PendingID, ReducerID, RonPayload, TargetObject(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingCounter, PendingID, ReducerID, Reference(..), RonPayload, TargetObject(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -18,25 +18,34 @@ type alias OpRecord =
     { reducerID : ReducerID
     , objectID : ObjectID
     , operationID : OpID
-    , reference : Maybe OpID
+    , reference : Reference
     , payload : Payload
     }
 
 
+type Reference
+    = OpReference OpID
+    | ReducerReference ReducerID
 
--- opCodec : Codec (RS.Error e) Op
--- opCodec =
---     let
---         opRecordCodec =
---             RS.record OpRecord
---                 |> RS.field .reducerID RS.string
---                 |> RS.field .objectID OpID.codec
---                 |> RS.field .operationID OpID.codec
---                 |> RS.field .reference (RS.maybe OpID.codec)
---                 |> RS.field .payload RS.string
---                 |> RS.finishRecord
---     in
---     RS.map Op (\(Op opRecord) -> opRecord) opRecordCodec
+
+referenceToString : Reference -> String
+referenceToString givenRef =
+    case givenRef of
+        OpReference opID ->
+            OpID.toString opID
+
+        ReducerReference reducerID ->
+            reducerID
+
+
+opIDFromReference : Reference -> Maybe OpID
+opIDFromReference givenRef =
+    case givenRef of
+        OpReference opID ->
+            Just opID
+
+        _ ->
+            Nothing
 
 
 type alias Payload =
@@ -58,7 +67,7 @@ type OpPattern
 
 pattern : Op -> OpPattern
 pattern (Op opRecord) =
-    case ( OpID.isReversion opRecord.operationID, Maybe.map OpID.isReversion opRecord.reference ) of
+    case ( OpID.isReversion opRecord.operationID, Maybe.map OpID.isReversion (opIDFromReference opRecord.reference) ) of
         ( False, Just False ) ->
             -- "+", "+"
             NormalOp
@@ -111,13 +120,13 @@ type alias Frame =
     Nonempty Op
 
 
-create : ReducerID -> OpID.ObjectID -> OpID -> Maybe OpID -> String -> Op
-create givenReducer givenObject opID givenReferenceMaybe givenPayload =
+create : ReducerID -> OpID.ObjectID -> OpID -> Reference -> String -> Op
+create givenReducer givenObject opID givenReference givenPayload =
     Op
         { reducerID = givenReducer
         , objectID = givenObject
         , operationID = opID
-        , reference = givenReferenceMaybe
+        , reference = givenReference
         , payload = givenPayload
         }
 
@@ -128,7 +137,7 @@ initObject givenReducer opID =
         { reducerID = givenReducer
         , objectID = opID
         , operationID = opID
-        , reference = Nothing
+        , reference = ReducerReference givenReducer
         , payload = ""
         }
 
@@ -160,7 +169,7 @@ toString (Op op) =
             "@" ++ OpID.toString op.operationID
 
         ref =
-            ":" ++ OpID.toString (Maybe.withDefault op.objectID op.reference)
+            ":" ++ referenceToString op.reference
     in
     opID ++ " " ++ ref ++ " " ++ op.payload
 
@@ -210,13 +219,13 @@ fromString inputString previousOpMaybe =
             case ( opIDMaybe, otherAtoms, referenceMaybe ) of
                 ( Just opID, [], _ ) ->
                     -- no payload - must be a creation op
-                    Ok (create givenReducer opID opID Nothing "")
+                    Ok (create givenReducer opID opID (ReducerReference givenReducer) "")
 
                 ( Just opID, _, Just ref ) ->
                     -- there's a payload - reference is required
                     case Maybe.map object previousOpMaybe of
                         Just objectLastTime ->
-                            Ok (create givenReducer objectLastTime opID (Just ref) remainderPayload)
+                            Ok (create givenReducer objectLastTime opID (OpReference ref) remainderPayload)
 
                         Nothing ->
                             -- TODO locate object via tree somehow

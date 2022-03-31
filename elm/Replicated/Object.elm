@@ -40,14 +40,6 @@ eventPayload (KeptEvent event) =
     event.payload
 
 
-create : Op.ReducerID -> OpID.ObjectID -> Op
-create givenReducer givenObject =
-    -- object creation Ops don't have references
-    -- objectID is OpID
-    -- Payload is not needed
-    Op.create givenReducer givenObject givenObject Nothing ""
-
-
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
@@ -58,7 +50,7 @@ applyOp newOp oldObjectMaybe =
             KeptEvent { id = Op.id newOp, reference = givenRef, payload = Op.payload newOp }
     in
     case ( oldObjectMaybe, Op.reference newOp ) of
-        ( Just oldObject, Just ref ) ->
+        ( Just oldObject, Op.OpReference ref ) ->
             Just
                 { reducer = oldObject.reducer
                 , creation = oldObject.creation
@@ -72,10 +64,10 @@ applyOp newOp oldObjectMaybe =
                 , lastSeen = OpID.latest oldObject.lastSeen (Op.id newOp)
                 }
 
-        ( Nothing, Nothing ) ->
+        ( Nothing, Op.ReducerReference reducerID ) ->
             -- assume empty payload means object creation
             Just
-                { reducer = Op.reducer newOp
+                { reducer = reducerID
                 , creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
                 , events = Dict.empty
                 , included = All
@@ -83,7 +75,7 @@ applyOp newOp oldObjectMaybe =
                 }
 
         _ ->
-            Nothing
+            Debug.todo "not initiating an object, but no existing one either"
 
 
 type InclusionInfo

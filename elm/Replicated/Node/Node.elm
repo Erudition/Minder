@@ -197,7 +197,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
                     OpID.generate stampInCounter node.identity givenUCO.reversion
 
                 stampedOp =
-                    Op.create reducerID objectID newID (Just <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
+                    Op.create reducerID objectID newID (Op.OpReference <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
             in
             ( ( stampOutCounter, newID ), stampedOp )
 
