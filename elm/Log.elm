@@ -12,6 +12,15 @@ logMessage label thing =
         thing
 
 
+logMessage2 : String -> a -> a
+logMessage2 label thing =
+    if Debug.log "" label == label then
+        thing
+
+    else
+        thing
+
+
 log label item =
     Debug.log label item
 

@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import List.Extra as List
 import Log
 import Replicated.Identifier exposing (..)
-import Replicated.Node.NodeID exposing (NodeID, codec, fromString)
+import Replicated.Node.NodeID as NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Change, Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
@@ -30,14 +30,11 @@ initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
             fromString foundIdentity
-
-        bumpSessionID nodeID =
-            { nodeID | session = nodeID.session + 1 }
     in
     case lastIdentity of
         Just oldNodeID ->
             Ok
-                { identity = bumpSessionID oldNodeID
+                { identity = NodeID.bumpSessionID oldNodeID
                 , peers = []
                 , objects = Dict.empty
                 , profiles = [ foundRoot ]
@@ -54,7 +51,7 @@ type InitError
 
 firstSessionEver : NodeID
 firstSessionEver =
-    { primus = 0, peer = 0, client = 0, session = 0 }
+    NodeID.generate { primus = 0, peer = 0, client = 0, session = 0 }
 
 
 testNode : Node
@@ -116,7 +113,7 @@ apply timeMaybe node changes =
                     Nothing
     in
     { ops = finishedOps
-    , updatedNode = { updatedNode | lastUsedCounter = finalCounter }
+    , updatedNode = { updatedNode | lastUsedCounter = OpID.nextGenCounter finalCounter }
     , created = List.filterMap creationOpsToObjectIDs finishedOps
     }
 
@@ -207,8 +204,16 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
         logOps prefix ops =
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.toString op ++ "\t") ops))
 
+        prereqLogMsg =
+            case List.length allPrereqOps of
+                0 ->
+                    "----\tchunk"
+
+                n ->
+                    "----\t^^last " ++ String.fromInt n ++ " are prereqs for chunk"
+
         allOpsInDependencyOrder =
-            Log.logMessage (logOps "prereq" allPrereqOps) allPrereqOps
+            Log.logMessage prereqLogMsg allPrereqOps
                 ++ Log.logMessage (logOps "init" initializationOps) initializationOps
                 ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
     in

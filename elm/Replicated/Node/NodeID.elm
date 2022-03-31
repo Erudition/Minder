@@ -4,30 +4,38 @@ import Replicated.Serialize as RS
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-type alias NodeID =
-    -- never store "session" part - generate that on every run
-    { primus : Int, peer : Int, client : Int, session : Int }
+type NodeID
+    = -- never store "session" part - generate that on every run
+      -- { primus : Int, peer : Int, client : Int, session : Int }
+      NodeID String
+
+
+generate : { primus : Int, peer : Int, client : Int, session : Int } -> NodeID
+generate record =
+    --TODO
+    NodeID "here"
+
+
+bumpSessionID : NodeID -> NodeID
+bumpSessionID (NodeID nodeIDString) =
+    -- TODO { nodeID | session = nodeID.session + 1 }
+    NodeID (nodeIDString ++ "+")
 
 
 toString : NodeID -> String
-toString nodeID =
-    String.fromInt nodeID.primus
-        ++ "."
-        ++ String.fromInt nodeID.peer
-        ++ "."
-        ++ String.fromInt nodeID.client
-        ++ "."
-        ++ String.fromInt nodeID.session
+toString (NodeID nodeIDString) =
+    nodeIDString
 
 
 fromString : String -> Maybe NodeID
 fromString input =
-    case List.map String.toInt (String.split "." input) of
-        [ Just first, Just second, Just third, Just fourth ] ->
-            Just (NodeID first second third fourth)
-
-        _ ->
-            Nothing
+    -- case List.map String.toInt (String.split "." input) of
+    --     [ Just first, Just second, Just third, Just fourth ] ->
+    --         Just (NodeID first second third fourth)
+    --
+    --     _ ->
+    --         Nothing
+    Just (NodeID input)
 
 
 codec : RS.Codec String NodeID
