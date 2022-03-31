@@ -205,14 +205,15 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
             List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
 
         logOps prefix ops =
-            prefix
-                ++ ":\n"
-                ++ String.concat (List.map (\op -> Op.toString op ++ "\n") ops)
+            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.toString op ++ "\t") ops))
+
+        allOpsInDependencyOrder =
+            Log.logMessage (logOps "prereq" allPrereqOps) allPrereqOps
+                ++ Log.logMessage (logOps "init" initializationOps) initializationOps
+                ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
     in
     ( ( counterAfterObjectChanges, Just objectID )
-    , allPrereqOps
-        ++ initializationOps
-        ++ objectChangeOps
+    , allOpsInDependencyOrder
     )
 
 

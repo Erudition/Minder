@@ -396,14 +396,11 @@ nodeWithModifiedNestedStressTest =
                 repList =
                     nestedStressTest.listOfNestedRecords
 
-                dummyItem =
-                    Result.toMaybe <| writableObjectReDecoded
-
                 addItems =
                     RepList.addNewWithChanges repList [ \obj -> obj.address.set "balogna street" ]
 
                 changes =
-                    [ addItems
+                    [ Debug.log "add item change:" addItems
                     ]
 
                 applied =
@@ -413,7 +410,7 @@ nodeWithModifiedNestedStressTest =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
                         |> String.concat
             in
-            Debug.log logOps applied.updatedNode
+            applied.updatedNode
 
         Err _ ->
             Debug.todo "no start dummy object"
@@ -423,6 +420,6 @@ modifiedNestedStressTestIntegrityCheck =
     test "checking the nested mess has been correctly modified" <|
         \_ ->
             Expect.all
-                [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "bologna street" ]
+                [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list (Debug.log "\n\nfinal replist" o.listOfNestedRecords)) [ "bologna street" ]
                 ]
                 (RC.decodeFromNode nestedStressTestCodec nodeWithModifiedNestedStressTest)

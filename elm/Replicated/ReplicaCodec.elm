@@ -777,11 +777,14 @@ repList memberCodec =
                                 }
 
                 Just existingRepList ->
-                    changeToRonPayload <|
-                        Chunk
-                            { object = RepList.getID existingRepList
-                            , objectChanges = [] -- TODO should this be blank
-                            }
+                    firstChangeWrapper <|
+                        -- TODO first run only?
+                        changeToRonPayload
+                        <|
+                            Chunk
+                                { object = RepList.getID existingRepList
+                                , objectChanges = [] -- TODO should this be blank
+                                }
     in
     Codec
         { encoder = bytesEncoder
@@ -1458,14 +1461,17 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
         Nothing ->
             -- for nested objects ONLY (fieldN)
             let
+                logMsg =
+                    "ronReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
+
                 fieldUUIDHistoryList =
                     case inputs.parent of
                         ExistingRegister register ->
-                            Register.getFieldHistoryValues register ( fieldSlot, fieldName )
+                            Debug.log logMsg <| Register.getFieldHistoryValues (Debug.log "the register was" register) ( fieldSlot, fieldName )
 
                         _ ->
                             -- decode an empty UUID list when there's no pre-existing objects
-                            []
+                            Debug.log ("parent register was not passed in, so no way to retrieve " ++ fieldName) []
 
                 allNestedObjects =
                     runFieldDecoder (JE.encode 0 (JE.list JE.string fieldUUIDHistoryList))
