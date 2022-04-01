@@ -128,7 +128,7 @@ combineSameObjectChunks changes =
                         ( Op.ExistingObject objectID1, Op.ExistingObject objectID2 ) ->
                             objectID1 == objectID2
 
-                        ( Op.NewObject reducerID1 pendingID1, Op.NewObject reducerID2 pendingID2 ) ->
+                        ( Op.UninitializedObject reducerID1 pendingID1, Op.UninitializedObject reducerID2 pendingID2 ) ->
                             pendingID1 == pendingID2 && reducerID1 == reducerID2
 
                         _ ->
@@ -184,7 +184,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
         allUnstampedChunkOps =
             List.map .thisObjectOp processedChanges
 
-        { reducerID, objectID, lastSeen, initializationOps, postInitCounter } =
+        { reducerID, objectID, lastSeen, initOps, postInitCounter } =
             getOrInitObject node postPrereqCounter object
 
         stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
@@ -214,7 +214,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
 
         allOpsInDependencyOrder =
             Log.logMessage prereqLogMsg allPrereqOps
-                ++ Log.logMessage (logOps "init" initializationOps) initializationOps
+                ++ Log.logMessage (logOps "init" initOps) initOps
                 ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
     in
     ( ( counterAfterObjectChanges, Just objectID )
@@ -299,7 +299,7 @@ getOrInitObject :
         { reducerID : ReducerID
         , objectID : ObjectID
         , lastSeen : OpID
-        , initializationOps : List Op
+        , initOps : List Op
         , postInitCounter : OutCounter
         }
 getOrInitObject node inCounter targetObject =
@@ -313,11 +313,11 @@ getOrInitObject node inCounter targetObject =
                     { reducerID = foundObject.reducer
                     , objectID = foundObject.creation
                     , lastSeen = foundObject.lastSeen
-                    , initializationOps = []
+                    , initOps = []
                     , postInitCounter = inCounter
                     }
 
-        Op.NewObject reducerID _ ->
+        Op.UninitializedObject reducerID _ ->
             let
                 ( newID, outCounter ) =
                     OpID.generate inCounter node.identity False
@@ -325,7 +325,7 @@ getOrInitObject node inCounter targetObject =
             { reducerID = reducerID
             , objectID = newID
             , lastSeen = newID
-            , initializationOps = [ Op.initObject reducerID newID ]
+            , initOps = [ Op.initObject reducerID newID ]
             , postInitCounter = outCounter
             }
 

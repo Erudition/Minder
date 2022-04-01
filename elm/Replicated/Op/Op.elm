@@ -349,7 +349,7 @@ type ObjectChange
 
 type TargetObject
     = ExistingObject ObjectID
-    | NewObject ReducerID (Maybe PendingID)
+    | UninitializedObject ReducerID PendingID
 
 
 type ChangeAtom

@@ -102,7 +102,8 @@ type alias RonEncoderInputs a =
     , mode : ChangesToGenerate
     , thingToEncode : Maybe a -- else use the value here for flat encoding
     , encodeRegisterInstead : Maybe Register -- first check to see if it's a register, use that instead
-    , firstChangeWrapper : RonPayload -> RonPayload
+    , pendingCounter : Op.PendingCounter
+    , latentChangeWrapper : Change -> Change
     }
 
 
@@ -131,11 +132,12 @@ type alias RonDecoder e a =
 type alias RonDecoderInputs =
     { node : Node
     , pendingCounter : Op.PendingCounter
+    , latentChangeWrapper : Change -> Change
     }
 
 
-type alias RonFieldEncoder =
-    RonFieldEncoderInputs -> Maybe Op.ObjectChange
+type alias RegisterFieldEncoder =
+    RegisterFieldEncoderInputs -> Maybe Op.ObjectChange
 
 
 {-| Inputs to a node Field decoder.
@@ -144,22 +146,24 @@ Why is Register a Maybe?
 First launch ever, Register would not exist, can't create it during decode phase either. Yet we need the record to be filled, which is we have field defaults. It would be created as soon as the first field is set to a non-default value.
 
 -}
-type alias RonFieldEncoderInputs =
+type alias RegisterFieldEncoderInputs =
     { node : Node
-    , containingRegisterMaybe : Maybe Register
+    , parent : FieldParent
     , mode : ChangesToGenerate
+    , updateRegisterAfterChildInit : RonPayload -> RonPayload
     }
 
 
-type alias RonFieldDecoder e a =
+type alias RegisterFieldDecoder e a =
     -- For now we just reuse Json Decoders
-    RonFieldDecoderInputs -> JD.Decoder (Result (Error e) a)
+    RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) a)
 
 
-type alias RonFieldDecoderInputs =
+type alias RegisterFieldDecoderInputs =
     { node : Node
     , pendingCounter : Op.PendingCounter
     , parent : FieldParent
+    , latentChangeWrapper : Change -> Change
     }
 
 
@@ -482,7 +486,7 @@ encodeNodeToChanges node profileCodec =
         , encodeRegisterInstead = Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ List.head node.profiles ]
         , mode = defaultEncodeMode
         , thingToEncode = Nothing
-        , firstChangeWrapper = identity
+        , latentChangeWrapper = identity
         }
 
 
@@ -497,11 +501,11 @@ encodeDefaults rootCodec =
                 , encodeRegisterInstead = Nothing
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
                 , thingToEncode = Nothing
-                , firstChangeWrapper = identity
+                , latentChangeWrapper = identity
                 }
 
         bogusChange =
-            Op.Chunk { object = Op.NewObject "dummy" Nothing, objectChanges = [] }
+            Op.Chunk { object = Op.UninitializedObject "dummy" Nothing, objectChanges = [] }
     in
     case ronPayload of
         [ Op.QuoteNestedObject change ] ->
@@ -726,7 +730,7 @@ repList memberCodec =
                 , node = node
                 , encodeRegisterInstead = Nothing
                 , thingToEncode = Just newValue
-                , firstChangeWrapper = identity -- TODO
+                , latentChangeWrapper = identity -- TODO
                 }
 
         memberChanger node encodeModeMaybe newMemberValue newRefMaybe =
@@ -758,7 +762,7 @@ repList memberCodec =
                             Op.ExistingObject objectFound.creation
 
                         Nothing ->
-                            Op.NewObject RepList.reducerID (Just pending.id)
+                            Op.UninitializedObject RepList.reducerID pending.id
 
                 foundOrGeneratedRepList foundObjects =
                     Ok <| RepList.buildFromReplicaDb node (target foundObjects) (memberRonDecoder node pending.passToChild) (memberChanger node Nothing)
@@ -766,25 +770,21 @@ repList memberCodec =
             JD.map foundOrGeneratedRepList concurrentObjectIDsDecoder
 
         repListRonEncoder : RonEncoder (RepList memberType)
-        repListRonEncoder ({ node, thingToEncode, mode, firstChangeWrapper } as details) =
+        repListRonEncoder ({ node, thingToEncode, mode, latentChangeWrapper, pendingCounter } as details) =
             case thingToEncode of
                 Nothing ->
-                    firstChangeWrapper <|
-                        changeToRonPayload <|
-                            Chunk
-                                { object = NewObject RepList.reducerID Nothing
-                                , objectChanges = []
-                                }
+                    changeToRonPayload <|
+                        Chunk
+                            { object = Op.UninitializedObject RepList.reducerID (Op.usePendingCounter pendingCounter).id
+                            , objectChanges = []
+                            }
 
                 Just existingRepList ->
-                    firstChangeWrapper <|
-                        -- TODO first run only?
-                        changeToRonPayload
-                        <|
-                            Chunk
-                                { object = RepList.getID existingRepList
-                                , objectChanges = [] -- TODO should this be blank
-                                }
+                    changeToRonPayload <|
+                        Chunk
+                            { object = RepList.getID existingRepList
+                            , objectChanges = [] -- TODO should this be blank
+                            }
     in
     Codec
         { encoder = bytesEncoder
@@ -1237,8 +1237,8 @@ type PartialRecord errs full remaining
         , jsonEncoders : List (SmartJsonFieldEncoder full)
         , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
-        , ronEncoders : List RonFieldEncoder
-        , ronDecoder : RonFieldDecoder errs remaining
+        , ronEncoders : List RegisterFieldEncoder
+        , ronDecoder : RegisterFieldDecoder errs remaining
         }
 
 
@@ -1270,7 +1270,7 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RonFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
+        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
         ronDecoder inputs =
             ronWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
     in
@@ -1280,7 +1280,7 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
         , ronDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1307,7 +1307,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RonFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         ronDecoder inputs =
             ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
     in
@@ -1327,7 +1327,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
         , ronDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1353,7 +1353,7 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RonFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         ronDecoder inputs =
             ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
     in
@@ -1373,7 +1373,7 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRonFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
         , ronDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1398,13 +1398,13 @@ combineIfBothSucceed decoderA decoderB =
             Err b_error
 
 
-{-| Same as JD.map2, but with RonFieldDecoderInputs argument built in
+{-| Same as JD.map2, but with RegisterFieldDecoderInputs argument built in
 -}
 nestableJDmap2 :
     (a -> b -> value)
-    -> (RonFieldDecoderInputs -> JD.Decoder a)
-    -> (RonFieldDecoderInputs -> JD.Decoder b)
-    -> RonFieldDecoderInputs
+    -> (RegisterFieldDecoderInputs -> JD.Decoder a)
+    -> (RegisterFieldDecoderInputs -> JD.Decoder b)
+    -> RegisterFieldDecoderInputs
     -> JD.Decoder value
 nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
     let
@@ -1422,7 +1422,7 @@ nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 {-| RON what to do when decoding a (potentially nested!) object field.
 -}
-ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
+ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
 ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
     let
         fieldLatestValueMaybe =
@@ -1486,7 +1486,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     Debug.todo "failed to decode UUID list"
 
 
-ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RonFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
+ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
 ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs =
     let
         sameInputs =
@@ -1502,12 +1502,12 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
                 , node = inputs.node
                 , mode = defaultEncodeMode
                 , thingToEncode = Just newValue
-                , firstChangeWrapper = Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
+                , latentChangeWrapper = Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
                 }
     in
     case inputs.parent of
         PendingRegister pendingID ->
-            JD.succeed <| Ok <| wrapRW (Op.NewObject Register.reducerID (Just pendingID)) default
+            JD.succeed <| Ok <| wrapRW (Op.UninitializedObject Register.reducerID pendingID) default
 
         -- We are working with an Register
         ExistingRegister registerObject ->
@@ -1583,7 +1583,7 @@ finishRecord (PartialRecord allFieldsCodec) =
                             Op.usePendingCounter pendingCounter
 
                         register =
-                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectIDs)
+                            Register.build node (Node.getObjectIfExists node objectIDs)
 
                         parent =
                             case register of
@@ -1604,7 +1604,7 @@ finishRecord (PartialRecord allFieldsCodec) =
                 , mode = inputs.mode
                 , node = inputs.node
                 , encodeRegisterInstead = Nothing
-                , firstChangeWrapper = identity
+                , latentChangeWrapper = identity
                 }
     in
     Codec
@@ -1631,25 +1631,34 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerRonEncoder : List RonFieldEncoder -> RonEncoderInputs Register -> RonPayload
-registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode } as details) =
+registerRonEncoder : List RegisterFieldEncoder -> RonEncoderInputs Register -> RonPayload
+registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, latentChangeWrapper } as details) =
     let
         existingRegisterMaybe : Maybe Register
         existingRegisterMaybe =
             --Maybe.map (Register.build node) (Node.getObjectIfExists node existingObjectsToUse)
             thingToEncode
 
+        pending =
+            Op.usePendingCounter pendingCounter
+
         target =
             case existingRegisterMaybe of
                 Nothing ->
-                    NewObject Register.reducerID Nothing
+                    UninitializedObject Register.reducerID pending.id
 
                 Just foundRegister ->
                     ExistingObject <| Register.getID foundRegister
 
+        updateMePostChildInit fieldChangedPayload =
+            Op.Chunk
+                { object = target
+                , objectChanges = [ Op.NewPayload fieldChangedPayload ]
+                }
+
         subChanges : List Op.ObjectChange
         subChanges =
-            List.filterMap (\f -> f { node = node, containingRegisterMaybe = existingRegisterMaybe, mode = mode }) ronFieldEncoders
+            List.filterMap (\f -> f { node = node, parent = existingRegisterMaybe, mode = mode, pendingCounter = pending.passToChild, latentChangeWrapper = updateMePostChildInit }) ronFieldEncoders
     in
     [ Op.QuoteNestedObject
         (Chunk
@@ -1672,8 +1681,8 @@ obsolete reservedList input =
 Updated to separate cases where the object needs to be created.
 
 -}
-newRonFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RonFieldEncoderInputs -> Maybe Op.ObjectChange)
-newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, containingRegisterMaybe, node } =
+newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs -> Maybe Op.ObjectChange)
+newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, parent, node, updateRegisterAfterChildInit } =
     let
         runFieldRonEncoder value =
             getRonEncoder fieldValueCodec
@@ -1681,7 +1690,6 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValu
                 , node = node
                 , thingToEncode = Just value
                 , encodeRegisterInstead = attemptRegisterOverride
-                , firstChangeWrapper = Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
                 }
 
         createNewPayload value =
@@ -1699,7 +1707,7 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValu
                             Maybe.Extra.isJust codecrecord.ronEncoder
 
                 encodedSubRegisterPotentially =
-                    Maybe.andThen (\register -> Register.getFieldLatestOnly register ( fieldSlot, fieldName )) containingRegisterMaybe
+                    Maybe.andThen (\register -> Register.getFieldLatestOnly register ( fieldSlot, fieldName )) parent
 
                 subRegisterObjectIDsMaybe : Maybe (List ObjectID)
                 subRegisterObjectIDsMaybe =
@@ -1734,7 +1742,7 @@ newRonFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValu
             else
                 Nothing
     in
-    case ( fieldDefaultIfApplies, containingRegisterMaybe ) of
+    case ( fieldDefaultIfApplies, parent ) of
         ( Just fieldDefault, Nothing ) ->
             explicitDefaultIfNeeded fieldDefault
 

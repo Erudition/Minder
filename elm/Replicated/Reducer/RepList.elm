@@ -50,7 +50,7 @@ reducerID =
     "replist"
 
 
-{-| We assume object exists, missing object should be handled beforehand.
+{-| Only run in codec
 -}
 buildFromReplicaDb : Node -> Op.TargetObject -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
 buildFromReplicaDb node targetObject unstringifier memberChanger =
@@ -60,7 +60,7 @@ buildFromReplicaDb node targetObject unstringifier memberChanger =
                 Op.ExistingObject objectID ->
                     Node.getObjectIfExists node [ objectID ]
 
-                Op.NewObject _ _ ->
+                _ ->
                     Nothing
 
         compareEvents : Object.KeptEvent -> Object.KeptEvent -> Order
