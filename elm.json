@@ -39,6 +39,7 @@
             "mgold/elm-nonempty-list": "4.0.1",
             "rtfeldman/elm-css": "16.1.0",
             "sporto/time-distance": "1.0.0",
+            "turboMaCk/any-dict": "2.6.0",
             "zwilias/json-decode-exploration": "5.0.1"
         },
         "indirect": {

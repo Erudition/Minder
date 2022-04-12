@@ -67,8 +67,11 @@ testNode =
 startNewNode : Maybe Moment -> Change -> Node
 startNewNode nowMaybe rootChange =
     let
+        firstChangeFrame =
+            saveChanges "Node initialized" [ rootChange ]
+
         { updatedNode, created } =
-            apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } [ rootChange ]
+            apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } firstChangeFrame
 
         newRoot =
             List.last created
@@ -86,9 +89,12 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node -> List Change -> { ops : List Op, updatedNode : Node, created : List ObjectID }
-apply timeMaybe node changes =
+apply : Maybe Moment -> Node -> ChangeFrame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
     let
+        changes =
+            Dict.values normalizedChanges
+
         fallbackCounter =
             Maybe.withDefault node.lastUsedCounter (Maybe.map OpID.firstCounter timeMaybe)
 
@@ -96,7 +102,7 @@ apply timeMaybe node changes =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.mapAccuml (oneChangeToOps node) frameStartCounter (combineSameObjectChunks changes)
+            List.mapAccuml (oneChangeToOps node) frameStartCounter changes
 
         finishedOps =
             List.concat listOfFinishedOpsLists
@@ -118,37 +124,38 @@ apply timeMaybe node changes =
     }
 
 
-combineSameObjectChunks : List Change -> List Change
-combineSameObjectChunks changes =
-    let
-        sameObjectID change1 change2 =
-            case ( change1, change2 ) of
-                ( Op.Chunk chunk1, Op.Chunk chunk2 ) ->
-                    case ( chunk1.object, chunk2.object ) of
-                        ( Op.ExistingObject objectID1, Op.ExistingObject objectID2 ) ->
-                            objectID1 == objectID2
 
-                        ( Op.UninitializedObject reducerID1 pendingID1, Op.UninitializedObject reducerID2 pendingID2 ) ->
-                            pendingID1 == pendingID2 && reducerID1 == reducerID2
-
-                        _ ->
-                            False
-
-        sameObjectGroups =
-            List.gatherWith sameObjectID changes
-
-        combineGroupedItems group =
-            case group of
-                ( singleItem, [] ) ->
-                    [ singleItem ]
-
-                ( Op.Chunk { object, objectChanges }, rest ) ->
-                    [ Op.Chunk { object = object, objectChanges = objectChanges ++ List.concatMap extractChanges rest } ]
-
-        extractChanges (Op.Chunk { objectChanges }) =
-            objectChanges
-    in
-    List.concatMap combineGroupedItems sameObjectGroups
+-- combineSameObjectChunks : List Change -> List Change
+-- combineSameObjectChunks changes =
+--     let
+--         sameObjectID change1 change2 =
+--             case ( change1, change2 ) of
+--                 ( Op.Chunk chunk1, Op.Chunk chunk2 ) ->
+--                     case ( chunk1.object, chunk2.object ) of
+--                         ( Op.ExistingObjectPointer objectID1, Op.ExistingObjectPointer objectID2 ) ->
+--                             objectID1 == objectID2
+--
+--                         ( Op.PlaceholderPointer reducerID1 pendingID1, Op.PlaceholderPointer reducerID2 pendingID2 ) ->
+--                             pendingID1 == pendingID2 && reducerID1 == reducerID2
+--
+--                         _ ->
+--                             False
+--
+--         sameObjectGroups =
+--             List.gatherWith sameObjectID changes
+--
+--         combineGroupedItems group =
+--             case group of
+--                 ( singleItem, [] ) ->
+--                     [ singleItem ]
+--
+--                 ( Op.Chunk { object, objectChanges }, rest ) ->
+--                     [ Op.Chunk { object = object, objectChanges = objectChanges ++ List.concatMap extractChanges rest } ]
+--
+--         extractChanges (Op.Chunk { objectChanges }) =
+--             objectChanges
+--     in
+--     List.concatMap combineGroupedItems sameObjectGroups
 
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
@@ -171,8 +178,8 @@ oneChangeToOps node inCounter change =
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { object : Op.TargetObject, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
-chunkToOps node ( inCounter, _ ) { object, objectChanges } =
+chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { target : Op.Pointer, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps node ( inCounter, _ ) { target, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
         ( postPrereqCounter, processedChanges ) =
@@ -185,7 +192,7 @@ chunkToOps node ( inCounter, _ ) { object, objectChanges } =
             List.map .thisObjectOp processedChanges
 
         { reducerID, objectID, lastSeen, initOps, postInitCounter } =
-            getOrInitObject node postPrereqCounter object
+            getOrInitObject node postPrereqCounter target
 
         stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
         stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
@@ -294,7 +301,7 @@ newObjectIDToPayload opID =
 getOrInitObject :
     Node
     -> InCounter
-    -> Op.TargetObject
+    -> Op.Pointer
     ->
         { reducerID : ReducerID
         , objectID : ObjectID
@@ -304,7 +311,7 @@ getOrInitObject :
         }
 getOrInitObject node inCounter targetObject =
     case targetObject of
-        Op.ExistingObject objectID ->
+        Op.ExistingObjectPointer objectID ->
             case Dict.get (OpID.toString objectID) node.objects of
                 Nothing ->
                     Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
@@ -317,7 +324,7 @@ getOrInitObject node inCounter targetObject =
                     , postInitCounter = inCounter
                     }
 
-        Op.UninitializedObject reducerID _ ->
+        Op.PlaceholderPointer reducerID _ _ ->
             let
                 ( newID, outCounter ) =
                     OpID.generate inCounter node.identity False
@@ -388,3 +395,72 @@ peerCodec =
     RS.record Peer
         |> RS.field .identity codec
         |> RS.finishRecord
+
+
+
+-- CHANGEFRAMES
+
+
+type ChangeFrame
+    = ChangeFrame
+        { normalizedChanges : Dict String Change
+        , description : String
+        }
+
+
+saveChanges : String -> List Change -> ChangeFrame
+saveChanges description changes =
+    ChangeFrame { normalizedChanges = normalizeChanges changes, description = description }
+
+
+{-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
+
+We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
+
+-}
+normalizeChanges : List Change -> Dict String Change
+normalizeChanges changes =
+    let
+        insertChunk givenChunk existingDict =
+            let
+                normalizedChunk =
+                    wrapInParent givenChunk
+            in
+            Dict.update (targetToString normalizedChunk) (combineWithExisting normalizedChunk) existingDict
+
+        wrapInParent : Change -> Change
+        wrapInParent ((Op.Chunk chunkDetails) as originalChange) =
+            case chunkDetails.target of
+                Op.ExistingObjectPointer _ ->
+                    originalChange
+
+                Op.PlaceholderPointer reducerID pendingID parentNotifier ->
+                    -- TODO how to recurse upwards
+                    parentNotifier originalChange
+
+        combineWithExisting : Change -> Maybe Change -> Maybe Change
+        combineWithExisting (Op.Chunk thisChange) existingChangeMaybe =
+            let
+                extractChanges (Op.Chunk chunkDetails) =
+                    chunkDetails.objectChanges
+
+                existingObjectChanges =
+                    Maybe.map extractChanges existingChangeMaybe
+                        |> Maybe.withDefault []
+            in
+            Just <| Op.Chunk { thisChange | objectChanges = existingObjectChanges ++ thisChange.objectChanges }
+
+        targetToString : Change -> String
+        targetToString (Op.Chunk chunkDetails) =
+            case chunkDetails.target of
+                Op.ExistingObjectPointer objectID ->
+                    OpID.toString objectID
+
+                Op.PlaceholderPointer reducerID pendingID _ ->
+                    reducerID ++ " " ++ Op.pendingIDToString pendingID
+
+        startingDict : Dict String Change
+        startingDict =
+            Dict.empty
+    in
+    List.foldl insertChunk startingDict changes

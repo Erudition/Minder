@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ObjectChange(..), Op, OpPattern(..), Payload, PendingCounter, PendingID, ReducerID, Reference(..), RonPayload, TargetObject(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -330,26 +330,26 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-type alias RonPayload =
+type alias ChangePayload =
     List ChangeAtom
 
 
 type Change
     = Chunk
-        { object : TargetObject
+        { target : Pointer
         , objectChanges : List ObjectChange
         }
 
 
 type ObjectChange
-    = NewPayload RonPayload
-    | NewPayloadWithRef { payload : RonPayload, ref : OpID }
+    = NewPayload ChangePayload
+    | NewPayloadWithRef { payload : ChangePayload, ref : OpID }
     | RevertOp OpID
 
 
-type TargetObject
-    = ExistingObject ObjectID
-    | UninitializedObject ReducerID PendingID
+type Pointer
+    = ExistingObjectPointer ObjectID
+    | PlaceholderPointer ReducerID PendingID ParentNotifier
 
 
 type ChangeAtom
@@ -357,9 +357,13 @@ type ChangeAtom
     | QuoteNestedObject Change
 
 
-changeToRonPayload : Change -> RonPayload
+changeToRonPayload : Change -> ChangePayload
 changeToRonPayload change =
     [ QuoteNestedObject change ]
+
+
+type alias ParentNotifier =
+    Change -> Change
 
 
 type PendingCounter
@@ -370,25 +374,29 @@ type PendingID
     = PendingID (List Int)
 
 
-usePendingCounter : PendingCounter -> { id : PendingID, passToNext : PendingCounter, passToChild : PendingCounter }
-usePendingCounter (PendingCounter inCounterList) =
+usePendingCounter : Int -> PendingCounter -> { id : PendingID, passToChild : PendingCounter }
+usePendingCounter siblingNum (PendingCounter inCounterList) =
     let
-        ( ancestors, siblingNum ) =
+        ancestors =
             case inCounterList of
                 [] ->
-                    ( [], 0 )
+                    []
 
                 myNum :: prior ->
-                    ( prior, myNum )
+                    prior
     in
     { id = PendingID inCounterList
-    , passToNext = PendingCounter ((siblingNum + 1) :: ancestors)
-    , passToChild = PendingCounter (0 :: inCounterList)
+    , passToChild = PendingCounter (siblingNum :: ancestors)
     }
 
 
 firstPendingCounter =
     PendingCounter [ 0 ]
+
+
+pendingIDToString : PendingID -> String
+pendingIDToString (PendingID intList) =
+    String.concat <| List.intersperse "." (List.map String.fromInt intList)
 
 
 

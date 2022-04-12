@@ -87,7 +87,7 @@ extractFieldEventFromObjectPayload payload =
             Nothing
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Op.RonPayload -> Op.RonPayload
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Op.ChangePayload -> Op.ChangePayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     [ Op.JustString (String.fromInt fieldSlot)
     , Op.JustString fieldName
@@ -156,14 +156,14 @@ type alias RW fieldVal =
     }
 
 
-buildRW : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Op.RonPayload) -> fieldVal -> RW fieldVal
+buildRW : Op.Pointer -> FieldIdentifier -> (fieldVal -> Op.ChangePayload) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder head =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
+    , set = \new -> Op.Chunk { target = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
     }
 
 
@@ -174,13 +174,13 @@ type alias RWH fieldVal =
     }
 
 
-buildRWH : Op.TargetObject -> FieldIdentifier -> (fieldVal -> Op.RonPayload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Op.Pointer -> FieldIdentifier -> (fieldVal -> Op.ChangePayload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder head rest =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { object = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
+    , set = \new -> Op.Chunk { target = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
     , history = rest
     }

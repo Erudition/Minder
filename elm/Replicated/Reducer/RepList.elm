@@ -17,7 +17,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepList memberType
     = RepList
-        { id : Op.TargetObject
+        { id : Op.Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
@@ -31,7 +31,7 @@ type alias Item memberType =
     }
 
 
-getID : RepList memberType -> Op.TargetObject
+getID : RepList memberType -> Op.Pointer
 getID (RepList repSet) =
     repSet.id
 
@@ -52,12 +52,12 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Op.TargetObject -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
+buildFromReplicaDb : Node -> Op.Pointer -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
 buildFromReplicaDb node targetObject unstringifier memberChanger =
     let
         existingObjectMaybe =
             case targetObject of
-                Op.ExistingObject objectID ->
+                Op.ExistingObjectPointer objectID ->
                     Node.getObjectIfExists node [ objectID ]
 
                 _ ->
@@ -154,7 +154,7 @@ dict (RepList repSetRecord) =
 insertAfter : RepList memberType -> Handle -> memberType -> Change
 insertAfter (RepList repSetRecord) attachmentPoint newItem =
     Op.Chunk
-        { object = repSetRecord.id
+        { target = repSetRecord.id
         , objectChanges =
             [ repSetRecord.memberChanger newItem (Just (memberIDToOpID attachmentPoint)) ]
         }
@@ -169,7 +169,7 @@ append (RepList record) newItems =
             record.memberChanger newItem Nothing
     in
     Op.Chunk
-        { object = record.id
+        { target = record.id
         , objectChanges = List.map newItemToObjectChange newItems
         }
 
@@ -177,7 +177,7 @@ append (RepList record) newItems =
 remove : RepList memberType -> Handle -> Change
 remove (RepList record) itemToRemove =
     Op.Chunk
-        { object = record.id
+        { target = record.id
         , objectChanges =
             [ Op.RevertOp (memberIDToOpID itemToRemove) ]
         }
@@ -198,7 +198,7 @@ addNew (RepList record) =
             record.memberChanger newItem Nothing
     in
     Op.Chunk
-        { object = record.id
+        { target = record.id
         , objectChanges =
             List.filterMap (Maybe.map newItemToObjectChange) [ newItemMaybe ]
         }
@@ -222,7 +222,7 @@ addNewWithChanges (RepList record) desiredChanges =
             record.memberChanger newItem Nothing
     in
     Op.Chunk
-        { object = record.id
+        { target = record.id
         , objectChanges =
             newItemToObjectChanges
         }
