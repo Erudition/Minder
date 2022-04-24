@@ -1551,7 +1551,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
 
                 runDecoderOnFoundField : String -> Result JD.Error (Result (Error e) fieldtype)
                 runDecoderOnFoundField foundValue =
-                    Debug.log "decoding found field" <| JD.decodeString (getRonDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) (prepDecoder (Debug.log "with foundValue" foundValue))
+                    Debug.log ("decoding found field for " ++ fieldName) <| JD.decodeString (getRonDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) (prepDecoder (Debug.log ("with foundValue for " ++ fieldName) foundValue))
 
                 -- TODO if nested codec is another register, decode with getFieldHistoryValues instead, using that as the list of objects
             in

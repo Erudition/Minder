@@ -54,7 +54,7 @@ build : Node -> Object -> Register
 build node object =
     let
         fieldsDict =
-            Dict.foldl addFieldEntry Dict.empty object.events
+            Dict.foldl addFieldEntry Dict.empty (Debug.log "\n\nobj events reg" object.events)
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
@@ -69,7 +69,7 @@ build node object =
         addUpdate newUpdate existingUpdatesMaybe =
             Just (newUpdate :: Maybe.withDefault [] existingUpdatesMaybe)
     in
-    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
+    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log "final fields dict" fieldsDict }
 
 
 extractFieldEventFromObjectPayload : Payload -> Maybe ( FieldIdentifier, FieldPayload )

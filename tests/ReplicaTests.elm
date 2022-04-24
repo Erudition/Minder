@@ -21,26 +21,31 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ modifiedNestedStressTestIntegrityCheck
-
-        -- repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , readOnlyObjectEncodeThenDecode
-        -- , writableObjectEncodeThenDecode
-        -- , writableObjectModify
-        -- , nestedStressTestIntegrityCheck
-        -- , modifiedNestedStressTestIntegrityCheck
+        [ repListEncodeThenDecode
+        , repListInsertAndRemove
+        , readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , only writableObjectApplied
+        , writableObjectModify
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
-nodeFromCodec : Codec e profile -> Node
+nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile }
 nodeFromCodec profileCodec =
     let
         logOps ops =
             List.map (\op -> Op.toString op ++ "\n") ops
                 |> String.concat
+
+        startedNode =
+            Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
+
+        tryDecoding =
+            RC.decodeFromNode profileCodec startedNode
     in
-    Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
+    { startNode = startedNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding }
 
 
 fakeOps : List Op
@@ -105,10 +110,10 @@ readOnlyObjectEncodeThenDecode =
     test "Encoding a read-only object to Ron, applying to a node, then decoding it from Ron." <|
         \_ ->
             let
-                processOutput =
-                    RC.decodeFromNode readOnlyObjectCodec (nodeFromCodec readOnlyObjectCodec)
+                { result } =
+                    nodeFromCodec readOnlyObjectCodec
             in
-            processOutput
+            result
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
 
 
@@ -127,58 +132,77 @@ writableObjectCodec : Codec e WritableObject
 writableObjectCodec =
     RC.record WritableObject
         |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
-        |> RC.fieldRW ( 2, "address" ) .address RC.string "default address"
+        |> RC.fieldRW ( 2, "address" ) .address RC.string "default address 2"
         |> RC.fieldRW ( 3, "number" ) .number RC.int 42
         |> RC.finishRecord
 
 
-writableObjectReDecoded : Result (RC.Error String) WritableObject
-writableObjectReDecoded =
-    Debug.log "writable object decoded to" <|
-        RC.decodeFromNode writableObjectCodec (nodeFromCodec writableObjectCodec)
-
-
 writableObjectEncodeThenDecode =
-    test "Encoding a writable object to Ron, applying to a node, then decoding it from Ron." <|
+    test "Encoding a writable object to Changes, applying to a node, then decoding it from the node." <|
         \_ ->
             Expect.all
-                [ expectOkAndEqualWhenMapped (\obj -> obj.address.get) "default address"
+                [ expectOkAndEqualWhenMapped (\obj -> obj.address.get) "default address 2"
                 , expectOkAndEqualWhenMapped (\obj -> obj.number.get) 42
 
                 -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
                 -- disabled because forced default op generation is overruled by codec defaults
                 ]
-                writableObjectReDecoded
+                (nodeFromCodec writableObjectCodec).result
 
 
 
 -- NOW MODIFY IT
 
 
-fakeNodeWithModifications =
+nodeModifications =
     let
-        exampleObjectMaybe =
-            Result.toMaybe writableObjectReDecoded
+        changeList =
+            -- designed to allow changes in place
+            [ (\obj -> obj.address.set "CaNdYlAnE", _)
+            , (\obj -> obj.number.set 7, checker)
+            ]
+
+        { beforeNode, outputMaybe } =
+            nodeFromCodec writableObjectCodec
+
+        afterNode =
+            case outputMaybe of
+                Just exampleObjectFound ->
+                    let
+                        makeChanges =
+                            List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
+
+                        { updatedNode, ops } =
+                            Node.apply Nothing startNode (Node.saveChanges "making some changes to the writable object" makeChanges)
+
+                        logOps =
+                            List.map (\op -> Op.toString op ++ "\n") ops
+                                |> String.concat
+                    in
+                    Log.logMessage ("\n Adding ops to afterNode: \n" ++ logOps) updatedNode
+
+                Nothing ->
+                    Debug.todo "should always be found"
+
+        getObjectEventList node =
+            Dict.get "3+here" node.objects
+                |> Maybe.map .events
+                |> Maybe.withDefault Dict.empty
     in
-    case exampleObjectMaybe of
-        Just exampleObjectFound ->
-            let
-                changeList =
-                    [ exampleObjectFound.address.set "candylane"
-                    , exampleObjectFound.number.set 7
-                    ]
-
-                { updatedNode, ops } =
-                    Node.apply Nothing (nodeFromCodec writableObjectCodec) changeList
-
-                logOps =
-                    List.map (\op -> Op.toString op ++ "\n") ops
-                        |> String.concat
-            in
-            updatedNode
-
-        Nothing ->
-            Debug.todo "should always be found"
+    describe "Modifying a simple node with a writable root object."
+        [ describe "Checking the node has changed in correct places"
+            [ test "the node should have more objects in it." <|
+                \_ ->
+                    Expect.greaterThan (Dict.size beforeNode.objects) (Dict.size afterNode.objects)
+            , test "the demo node should have one profile" <|
+                \_ ->
+                    Expect.equal (List.length afterNode.profiles) 1
+            , test "the root object should have n more events, with n being the number of new changes to the root object" <|
+                \_ -> Expect.equal (Dict.size (getObjectEventList beforeNode + List.length changeList)) (Dict.size (getObjectEventList afterNode))
+            ]
+        , describe "Successfully decoded objects from the afterNode are modified"
+            []
+        ]
 
 
 writableObjectModify =
@@ -208,20 +232,17 @@ simpleListCodec =
 fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
     let
-        startNode =
+        { startNode, result } =
             nodeFromCodec simpleListCodec
-
-        startRepList =
-            RC.decodeFromNode simpleListCodec startNode
 
         addChanges repList =
             RepList.append repList simpleList
     in
-    case startRepList of
+    case result of
         Ok repList ->
             let
                 applied =
-                    Node.apply Nothing startNode [ addChanges repList ]
+                    Node.apply Nothing startNode (Node.saveChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
@@ -272,7 +293,7 @@ fakeNodeWithModifiedList =
                         ]
 
                 applied =
-                    Node.apply Nothing fakeNodeWithSimpleList changes
+                    Node.apply Nothing fakeNodeWithSimpleList (Node.saveChanges "making some changes to the replist" changes)
 
                 logOps =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
@@ -367,11 +388,6 @@ recordOf2RecordsCodec =
 -- NOW TEST IT
 
 
-nestedStressTestReDecoded : Result (RC.Error String) NestedStressTest
-nestedStressTestReDecoded =
-    RC.decodeFromNode nestedStressTestCodec (nodeFromCodec nestedStressTestCodec)
-
-
 nestedStressTestIntegrityCheck =
     test "checking the nested mess has everything we put in it" <|
         \_ ->
@@ -381,7 +397,7 @@ nestedStressTestIntegrityCheck =
                 , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordDepth) "third layer"
                 , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records.recordOf2Records.recordWithRecord.number.get) 42
                 ]
-                nestedStressTestReDecoded
+                (nodeFromCodec nestedStressTestCodec).result
 
 
 
@@ -390,7 +406,11 @@ nestedStressTestIntegrityCheck =
 
 nodeWithModifiedNestedStressTest : Node
 nodeWithModifiedNestedStressTest =
-    case RC.decodeFromNode nestedStressTestCodec (nodeFromCodec nestedStressTestCodec) of
+    let
+        { startNode, result } =
+            nodeFromCodec nestedStressTestCodec
+    in
+    case result of
         Ok nestedStressTest ->
             let
                 repList =
@@ -404,7 +424,7 @@ nodeWithModifiedNestedStressTest =
                     ]
 
                 applied =
-                    Node.apply Nothing (nodeFromCodec nestedStressTestCodec) changes
+                    Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
 
                 logOps =
                     List.map (\op -> Op.toString op ++ "\n") applied.ops
