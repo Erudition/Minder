@@ -234,12 +234,12 @@ decodeFromNode profileCodec node =
     in
     case getRonDecoder profileCodec of
         ronDecoder ->
-            case JD.decodeString (ronDecoder { node = node, pendingCounter = Op.firstPendingCounter, parentNotifier = identity }) rootEncoded of
+            case JD.decodeString (ronDecoder { node = node, pendingCounter = Op.firstPendingCounter, parentNotifier = identity }) (prepDecoder rootEncoded) of
                 Ok value ->
                     value
 
                 Err jdError ->
-                    Log.logMessage ("failed to decode root ID: " ++ rootEncoded ++ " because:\n" ++ JD.errorToString jdError ++ "\n") (Err DataCorrupted)
+                    Log.logMessage ("failed to decode something within node: " ++ rootEncoded ++ " because:\n" ++ JD.errorToString jdError ++ "\n") (Err DataCorrupted)
 
 
 endian : Bytes.Endianness
@@ -747,7 +747,7 @@ repList memberCodec =
 
         memberRonDecoder : Node -> Op.PendingCounter -> String -> Maybe memberType
         memberRonDecoder node childPendingCounter encodedMember =
-            case JD.decodeString (getRonDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) encodedMember of
+            case JD.decodeString (getRonDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) (prepDecoder encodedMember) of
                 Ok (Ok member) ->
                     Just member
 
@@ -1442,7 +1442,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                 (getRonDecoder fieldValueCodec
                     { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }
                 )
-                thingToDecode
+                (prepDecoder (Debug.log ("@@@running field " ++ fieldName ++ " decoder on input") thingToDecode))
 
         updateMePostChildInit changeToWrap =
             Op.Chunk
@@ -1473,18 +1473,19 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                         Err problem ->
                             -- fall back to default if we failed to decode set value for some reason
                             -- TODO error instead?
-                            JD.succeed <| Ok default
+                            -- JD.succeed <| Ok (default)
+                            Debug.todo "decode failure!"
 
         Nothing ->
             -- for nested objects ONLY (fieldN)
             let
                 logMsg =
-                    "ronReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
+                    "++++ ronReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
 
                 fieldUUIDHistoryList =
                     case inputs.parent of
                         ExistingRegister register ->
-                            Debug.log logMsg <| Register.getFieldHistoryValues (Debug.log "the register was" register) ( fieldSlot, fieldName )
+                            Debug.log logMsg <| Register.getFieldHistoryValues (Debug.log "+++ the register was" register) ( fieldSlot, fieldName )
 
                         _ ->
                             -- decode an empty UUID list when there's no pre-existing objects
@@ -1498,9 +1499,9 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     -- there was a set value AND it decoded successfully
                     JD.succeed something
 
-                _ ->
+                Err problem ->
                     -- there was no value set OR it failed to decode
-                    Debug.todo "failed to decode UUID list"
+                    Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
 
 
 ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
@@ -1573,7 +1574,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
 
 prepDecoder : String -> String
 prepDecoder inputString =
-    case String.startsWith "{" inputString of
+    case String.startsWith "❰" inputString of
         True ->
             "\"" ++ String.dropLeft 1 (String.dropRight 1 inputString) ++ "\""
 
@@ -1583,7 +1584,31 @@ prepDecoder inputString =
 
 concurrentObjectIDsDecoder : JD.Decoder (List OpID.ObjectID)
 concurrentObjectIDsDecoder =
-    JD.oneOf [ JD.list OpID.jsonDecoder, JD.map List.singleton OpID.jsonDecoder, JD.succeed [] ]
+    let
+        try givenString =
+            case OpID.fromString (unquoteObjectID givenString) of
+                Just opID ->
+                    JD.succeed opID
+
+                Nothing ->
+                    JD.fail (givenString ++ " is not a valid OpID...")
+
+        unquoteObjectID quoted =
+            case String.startsWith "❰" quoted of
+                True ->
+                    String.dropLeft 1 (String.dropRight 1 quoted)
+
+                False ->
+                    quoted
+
+        quotedObjectDecoder =
+            JD.andThen try JD.string
+    in
+    JD.oneOf
+        [ JD.list quotedObjectDecoder
+        , JD.map List.singleton quotedObjectDecoder
+        , JD.succeed [] -- TODO this may swallow errors.. currently needed to allow blank objects to initialize
+        ]
 
 
 {-| Finish creating a codec for a record.
@@ -1765,7 +1790,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
                 subRegisterObjectIDsMaybe : Maybe (List ObjectID)
                 subRegisterObjectIDsMaybe =
-                    Maybe.andThen (JD.decodeString concurrentObjectIDsDecoder >> Result.toMaybe) encodedSubRegisterPotentially
+                    Maybe.andThen (\input -> Result.toMaybe (JD.decodeString concurrentObjectIDsDecoder (prepDecoder input))) encodedSubRegisterPotentially
 
                 subRegisterMaybe =
                     case subRegisterObjectIDsMaybe of

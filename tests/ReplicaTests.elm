@@ -428,7 +428,10 @@ nodeWithModifiedNestedStressTest =
                     nestedStressTest.listOfNestedRecords
 
                 addItems =
-                    RepList.addNewWithChanges repList [ \obj -> obj.address.set "balogna street" ]
+                    RepList.addNewWithChanges repList
+                        [ \obj -> obj.address.set "bologna street"
+                        , \obj -> obj.number.set 999
+                        ]
 
                 changes =
                     [ addItems
@@ -456,7 +459,7 @@ modifiedNestedStressTestIntegrityCheck =
             "0+here"
 
         generatedRepListObjectID =
-            "104+here"
+            "102+here"
 
         eventListSize givenID givenNode =
             Dict.size (getObjectEventList givenID givenNode)
@@ -473,9 +476,9 @@ modifiedNestedStressTestIntegrityCheck =
                 \_ ->
                     Expect.equal (List.length nodeWithModifiedNestedStressTest.profiles) 1
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
-                \_ -> Expect.equal 1 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
+                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
             , test "the repList has been initialized and its ID is not a placeholder" <|
-                \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (Debug.log "the modified replist has ID" <| RepList.getID o.listOfNestedRecords)) False (Debug.log "*** okay here's the decoded NST" decodedNST)
+                \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
             ]
         , test "checking the decoded nested mess has the changes" <|
             \_ ->

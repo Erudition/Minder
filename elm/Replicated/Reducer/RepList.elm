@@ -56,7 +56,7 @@ buildFromReplicaDb : Node -> Op.Pointer -> (String -> Maybe memberType) -> (memb
 buildFromReplicaDb node targetObject unstringifier memberChanger =
     let
         existingObjectMaybe =
-            case targetObject of
+            case Debug.log "@@ creating replist from" targetObject of
                 Op.ExistingObjectPointer objectID ->
                     Node.getObjectIfExists node [ objectID ]
 
@@ -224,5 +224,5 @@ addNewWithChanges (RepList record) desiredChanges =
     Op.Chunk
         { target = record.id
         , objectChanges =
-            newItemToObjectChanges
+            Debug.log ">>> new member with changes" newItemToObjectChanges
         }

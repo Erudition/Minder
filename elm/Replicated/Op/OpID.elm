@@ -98,8 +98,11 @@ fromString input =
                 ( Just nodeID, Just time ) ->
                     Just (OpID input)
 
-                _ ->
-                    Nothing
+                ( Just nodeID, Nothing ) ->
+                    Debug.todo ("OpID from string failed to figure out a moment from input " ++ input)
+
+                ( Nothing, _ ) ->
+                    Debug.todo ("OpID from string failed to figure out a nodeID from input " ++ input)
 
         ( _, [ timeString, nodeIDString ] ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
@@ -115,10 +118,6 @@ fromString input =
 
 toStamp : OpID -> EventStamp
 toStamp (OpID input) =
-    let
-        problem =
-            Debug.todo ("Something went wrong parsing OpID " ++ input ++ "into an event stamp!")
-    in
     case ( String.split "+" input, String.split "-" input ) of
         ( [ timeString, nodeIDString ], _ ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
@@ -126,7 +125,7 @@ toStamp (OpID input) =
                     EventStamp time nodeID False
 
                 _ ->
-                    problem
+                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found timeString+nodeIDString format though")
 
         ( _, [ timeString, nodeIDString ] ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
@@ -134,10 +133,10 @@ toStamp (OpID input) =
                     EventStamp time nodeID True
 
                 _ ->
-                    problem
+                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found timeString-nodeIDString format though")
 
         _ ->
-            problem
+            Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! couldn't split based on plus or minus...")
 
 
 fromStringForced : String -> OpID

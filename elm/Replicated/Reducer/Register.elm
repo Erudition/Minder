@@ -141,9 +141,11 @@ getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
 
 
 getFieldHistory : Register -> FieldIdentifier -> List ( OpID, FieldPayload )
-getFieldHistory (Register register) ( desiredFieldSlot, _ ) =
-    Dict.get desiredFieldSlot register.fields
-        |> Maybe.withDefault []
+getFieldHistory (Register register) ( desiredFieldSlot, name ) =
+    Debug.log ("getting field history for " ++ name) <|
+        (Dict.get desiredFieldSlot register.fields
+            |> Maybe.withDefault []
+        )
 
 
 getFieldHistoryValues : Register -> FieldIdentifier -> List FieldPayload

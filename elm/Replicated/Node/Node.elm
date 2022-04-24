@@ -295,7 +295,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
 
 
 newObjectIDToPayload opID =
-    "{" ++ OpID.toString opID ++ "}"
+    "❰" ++ OpID.toString opID ++ "❱"
 
 
 getOrInitObject :
@@ -463,4 +463,4 @@ normalizeChanges changes =
         startingDict =
             Dict.empty
     in
-    List.foldl insertChunk startingDict changes
+    Debug.log ">>> saved changes formed unique dict" <| List.foldl insertChunk startingDict changes
