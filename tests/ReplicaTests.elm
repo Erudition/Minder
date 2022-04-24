@@ -21,7 +21,7 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ only nodeModifications
+        [ modifiedNestedStressTestIntegrityCheck
 
         -- , repListEncodeThenDecode
         -- , repListInsertAndRemove
@@ -195,11 +195,6 @@ nodeModifications =
         generatedRootObjectID =
             "3+here"
 
-        getObjectEventList node =
-            Dict.get generatedRootObjectID node.objects
-                |> Maybe.map .events
-                |> Maybe.withDefault Dict.empty
-
         changedObjectDecoded =
             RC.decodeFromNode writableObjectCodec afterNode
     in
@@ -212,7 +207,7 @@ nodeModifications =
                 \_ ->
                     Expect.equal (List.length afterNode.profiles) 1
             , test "the root object should have n more events, with n being the number of new changes to the root object" <|
-                \_ -> Expect.equal (Dict.size (getObjectEventList beforeNode) + List.length changeList) (Dict.size (getObjectEventList afterNode))
+                \_ -> Expect.equal (Dict.size (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) (Dict.size (getObjectEventList generatedRootObjectID afterNode))
             ]
         , test "Testing the final decoded object for the new changes" <|
             \_ ->
@@ -343,6 +338,15 @@ expectOkAndEqualWhenMapped mapper expectedValue testedResultValue =
             Expect.fail (Log.logSeparate "failure" error "did not decode")
 
 
+getObjectEventList generatedRootObjectID node =
+    case Dict.get generatedRootObjectID node.objects of
+        Just foundObject ->
+            foundObject.events
+
+        Nothing ->
+            Debug.todo ("There was no " ++ generatedRootObjectID ++ " in the objects database, all I found was these " ++ String.fromInt (Dict.size node.objects) ++ ": \n" ++ String.join "\n" (Dict.keys node.objects) ++ ".")
+
+
 
 -- NESTED MESS
 
@@ -427,7 +431,7 @@ nodeWithModifiedNestedStressTest =
                     RepList.addNewWithChanges repList [ \obj -> obj.address.set "balogna street" ]
 
                 changes =
-                    [ Debug.log "add item change:" addItems
+                    [ addItems
                     ]
 
                 applied =
@@ -444,9 +448,39 @@ nodeWithModifiedNestedStressTest =
 
 
 modifiedNestedStressTestIntegrityCheck =
-    test "checking the nested mess has been correctly modified" <|
-        \_ ->
-            Expect.all
-                [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list (Debug.log "\n\nfinal replist" o.listOfNestedRecords)) [ "bologna street" ]
-                ]
-                (RC.decodeFromNode nestedStressTestCodec nodeWithModifiedNestedStressTest)
+    let
+        { startNode, result } =
+            nodeFromCodec nestedStressTestCodec
+
+        generatedRootObjectID =
+            "0+here"
+
+        generatedRepListObjectID =
+            "104+here"
+
+        eventListSize givenID givenNode =
+            Dict.size (getObjectEventList givenID givenNode)
+
+        decodedNST =
+            RC.decodeFromNode nestedStressTestCodec nodeWithModifiedNestedStressTest
+    in
+    describe "checking the modified NST node and objects"
+        [ describe "Checking the node has changed in correct places"
+            [ test "the node should have 2 more initialized objects in it." <|
+                \_ ->
+                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 3
+            , test "the demo node should have one profile" <|
+                \_ ->
+                    Expect.equal (List.length nodeWithModifiedNestedStressTest.profiles) 1
+            , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
+                \_ -> Expect.equal 1 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
+            , test "the repList has been initialized and its ID is not a placeholder" <|
+                \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (Debug.log "the modified replist has ID" <| RepList.getID o.listOfNestedRecords)) False (Debug.log "*** okay here's the decoded NST" decodedNST)
+            ]
+        , test "checking the decoded nested mess has the changes" <|
+            \_ ->
+                Expect.all
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list (Debug.log "\n\nfinal post-modified replist" o.listOfNestedRecords)) [ "bologna street" ]
+                    ]
+                    decodedNST
+        ]

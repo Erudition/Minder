@@ -54,6 +54,7 @@ build : Node -> Object -> Register
 build node object =
     let
         fieldsDict =
+            -- for some reason foldL puts older events first, so foldR for now. TODO more efficient to have the list already reversed?
             Dict.foldr addFieldEntry Dict.empty (Debug.log "\n\nobj events reg" object.events)
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))

@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -350,6 +350,15 @@ type ObjectChange
 type Pointer
     = ExistingObjectPointer ObjectID
     | PlaceholderPointer ReducerID PendingID ParentNotifier
+
+
+isPlaceholder pointer =
+    case pointer of
+        PlaceholderPointer _ _ _ ->
+            True
+
+        _ ->
+            False
 
 
 type ChangeAtom
