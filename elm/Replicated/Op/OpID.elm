@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, codec, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -7,7 +7,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 
 type OpID
-    = OpID EventStamp
+    = OpID String
 
 
 type alias ObjectID =
@@ -42,8 +42,8 @@ type alias EventStamp =
 
 
 isReversion : OpID -> Bool
-isReversion (OpID event) =
-    event.reversion
+isReversion input =
+    (toStamp input).reversion
 
 
 highestCounter : NewOpCounter -> NewOpCounter -> NewOpCounter
@@ -63,11 +63,16 @@ testCounter =
 
 generate : InCounter -> NodeID -> Bool -> ( OpID, OutCounter )
 generate (NewOpCounter counter) origin reversion =
-    ( OpID { time = Moment.fromSmartInt counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
+    ( fromStamp { time = Moment.fromSmartInt counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
 
 
 toString : OpID -> OpIDString
-toString (OpID eventStamp) =
+toString (OpID string) =
+    string
+
+
+fromStamp : EventStamp -> OpID
+fromStamp eventStamp =
     let
         nodeString =
             NodeID.toString <| eventStamp.origin
@@ -82,7 +87,7 @@ toString (OpID eventStamp) =
             else
                 "+"
     in
-    timeString ++ separator ++ nodeString
+    OpID (timeString ++ separator ++ nodeString)
 
 
 fromString : String -> Maybe OpID
@@ -91,7 +96,7 @@ fromString input =
         ( [ timeString, nodeIDString ], _ ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
                 ( Just nodeID, Just time ) ->
-                    Just (OpID (EventStamp time nodeID False))
+                    Just (OpID input)
 
                 _ ->
                     Nothing
@@ -99,7 +104,7 @@ fromString input =
         ( _, [ timeString, nodeIDString ] ) ->
             case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
                 ( Just nodeID, Just time ) ->
-                    Just (OpID (EventStamp time nodeID True))
+                    Just (OpID input)
 
                 _ ->
                     Nothing
@@ -108,26 +113,36 @@ fromString input =
             Nothing
 
 
+toStamp : OpID -> EventStamp
+toStamp (OpID input) =
+    let
+        problem =
+            Debug.todo ("Something went wrong parsing OpID " ++ input ++ "into an event stamp!")
+    in
+    case ( String.split "+" input, String.split "-" input ) of
+        ( [ timeString, nodeIDString ], _ ) ->
+            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
+                ( Just nodeID, Just time ) ->
+                    EventStamp time nodeID False
+
+                _ ->
+                    problem
+
+        ( _, [ timeString, nodeIDString ] ) ->
+            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
+                ( Just nodeID, Just time ) ->
+                    EventStamp time nodeID True
+
+                _ ->
+                    problem
+
+        _ ->
+            problem
+
+
 fromStringForced : String -> OpID
 fromStringForced string =
-    case fromString string of
-        Just success ->
-            success
-
-        Nothing ->
-            Debug.todo ("couldn't parse OpID:" ++ string)
-
-
-codec : Codec (RS.Error e) OpID
-codec =
-    let
-        to =
-            toString
-
-        from inputString =
-            Result.fromMaybe RS.DataCorrupted (fromString inputString)
-    in
-    RS.mapValid from to RS.string
+    OpID string
 
 
 jsonDecoder : JD.Decoder OpID
@@ -153,8 +168,15 @@ getEventStamp (OpID stamp) =
 
 
 nextOpInChain : OpID -> OpID
-nextOpInChain (OpID stamp) =
-    OpID { stamp | time = Moment.fromSmartInt (Moment.toSmartInt stamp.time + 1) }
+nextOpInChain input =
+    let
+        inputStamp =
+            toStamp input
+
+        outputStamp =
+            { inputStamp | time = Moment.fromSmartInt (Moment.toSmartInt inputStamp.time + 1) }
+    in
+    fromStamp outputStamp
 
 
 
@@ -190,13 +212,13 @@ nextGenCounter (NewOpCounter int) =
 {-| Determine which OpID is newer and return the newest one.
 -}
 latest : OpID -> OpID -> OpID
-latest (OpID firstID) (OpID secondID) =
-    case Moment.compare firstID.time secondID.time of
+latest firstID secondID =
+    case Moment.compare (toStamp firstID).time (toStamp secondID).time of
         Moment.Later ->
-            OpID firstID
+            firstID
 
         _ ->
-            OpID secondID
+            secondID
 
 
 importCounter : Int -> InCounter
