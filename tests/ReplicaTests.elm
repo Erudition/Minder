@@ -21,14 +21,15 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ repListEncodeThenDecode
-        , repListInsertAndRemove
-        , readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , only writableObjectApplied
-        , writableObjectModify
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        [ only nodeModifications
+
+        -- , repListEncodeThenDecode
+        -- , repListInsertAndRemove
+        -- , readOnlyObjectEncodeThenDecode
+        -- , writableObjectEncodeThenDecode
+        -- , nodeModifications
+        -- , nestedStressTestIntegrityCheck
+        -- , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -125,6 +126,7 @@ type alias WritableObject =
     { name : RW ExampleSubObjectLegalName
     , address : RW String
     , number : RW Int
+    , minor : RW Bool
     }
 
 
@@ -134,6 +136,7 @@ writableObjectCodec =
         |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
         |> RC.fieldRW ( 2, "address" ) .address RC.string "default address 2"
         |> RC.fieldRW ( 3, "number" ) .number RC.int 42
+        |> RC.fieldRW ( 4, "minor" ) .minor RC.bool False
         |> RC.finishRecord
 
 
@@ -154,16 +157,21 @@ writableObjectEncodeThenDecode =
 -- NOW MODIFY IT
 
 
+changeList =
+    -- designed to allow changes in place
+    [ ( \obj -> obj.minor.set True, expectOkAndEqualWhenMapped (\obj -> obj.minor.get) True )
+    , ( \obj -> obj.number.set 7, expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7 )
+    , ( \obj -> obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
+    ]
+
+
 nodeModifications =
     let
-        changeList =
-            -- designed to allow changes in place
-            [ (\obj -> obj.address.set "CaNdYlAnE", _)
-            , (\obj -> obj.number.set 7, checker)
-            ]
-
-        { beforeNode, outputMaybe } =
+        { startNode, outputMaybe } =
             nodeFromCodec writableObjectCodec
+
+        beforeNode =
+            startNode
 
         afterNode =
             case outputMaybe of
@@ -173,7 +181,7 @@ nodeModifications =
                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
 
                         { updatedNode, ops } =
-                            Node.apply Nothing startNode (Node.saveChanges "making some changes to the writable object" makeChanges)
+                            Node.apply Nothing beforeNode (Node.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
                             List.map (\op -> Op.toString op ++ "\n") ops
@@ -184,35 +192,34 @@ nodeModifications =
                 Nothing ->
                     Debug.todo "should always be found"
 
+        generatedRootObjectID =
+            "3+here"
+
         getObjectEventList node =
-            Dict.get "3+here" node.objects
+            Dict.get generatedRootObjectID node.objects
                 |> Maybe.map .events
                 |> Maybe.withDefault Dict.empty
+
+        changedObjectDecoded =
+            RC.decodeFromNode writableObjectCodec afterNode
     in
     describe "Modifying a simple node with a writable root object."
         [ describe "Checking the node has changed in correct places"
-            [ test "the node should have more objects in it." <|
+            [ test "the node should the same number of objects in it." <|
                 \_ ->
-                    Expect.greaterThan (Dict.size beforeNode.objects) (Dict.size afterNode.objects)
+                    Expect.equal (Dict.size beforeNode.objects) (Dict.size afterNode.objects)
             , test "the demo node should have one profile" <|
                 \_ ->
                     Expect.equal (List.length afterNode.profiles) 1
             , test "the root object should have n more events, with n being the number of new changes to the root object" <|
-                \_ -> Expect.equal (Dict.size (getObjectEventList beforeNode + List.length changeList)) (Dict.size (getObjectEventList afterNode))
+                \_ -> Expect.equal (Dict.size (getObjectEventList beforeNode) + List.length changeList) (Dict.size (getObjectEventList afterNode))
             ]
-        , describe "Successfully decoded objects from the afterNode are modified"
-            []
+        , test "Testing the final decoded object for the new changes" <|
+            \_ ->
+                Expect.all
+                    (List.map Tuple.second changeList)
+                    changedObjectDecoded
         ]
-
-
-writableObjectModify =
-    test "Encoding a writable object to Ron, applying to a node, writing new values to some fields, then decoding it from Ron." <|
-        \_ ->
-            Expect.all
-                [ expectOkAndEqualWhenMapped (\obj -> obj.address.get) "candylane"
-                , expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7
-                ]
-                (RC.decodeFromNode writableObjectCodec fakeNodeWithModifications)
 
 
 

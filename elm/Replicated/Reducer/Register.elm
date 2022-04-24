@@ -54,7 +54,7 @@ build : Node -> Object -> Register
 build node object =
     let
         fieldsDict =
-            Dict.foldl addFieldEntry Dict.empty (Debug.log "\n\nobj events reg" object.events)
+            Dict.foldr addFieldEntry Dict.empty (Debug.log "\n\nobj events reg" object.events)
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
@@ -134,7 +134,7 @@ type alias FieldSlot =
 
 getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
-    Dict.get fieldSlot register.fields
+    Dict.get fieldSlot (Debug.log "* running getFieldLatestOnly on field list" <| register.fields)
         |> Maybe.andThen List.head
         |> Maybe.map Tuple.second
 
