@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, create, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, combineChangesOfSameTarget, create, equalPointers, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -352,6 +352,18 @@ type Pointer
     | PlaceholderPointer ReducerID PendingID ParentNotifier
 
 
+equalPointers pointer1 pointer2 =
+    case ( pointer1, pointer2 ) of
+        ( ExistingObjectPointer objectID1, ExistingObjectPointer objectID2 ) ->
+            objectID1 == objectID2
+
+        ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
+            reducerID1 == reducerID2 && pendingID1 == pendingID2
+
+        _ ->
+            False
+
+
 isPlaceholder pointer =
     case pointer of
         PlaceholderPointer _ _ _ ->
@@ -408,17 +420,27 @@ pendingIDToString (PendingID intList) =
     String.concat <| List.intersperse "." (List.map String.fromInt intList)
 
 
+combineChangesOfSameTarget changeList =
+    -- bundle together changes that have the same target object
+    List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
 
--- opsFromChange : OpID -> OpID -> Change -> List Op
--- opsFromChange newIDToAssign lastSeen details =
---     let
---
---     in
---
---     Op
---         { reducerID = details.reducerID
---         , objectID = details.objectID
---         , operationID = newIDToAssign
---         , reference = Just <| Maybe.withDefault lastSeen details.reference
---         , payload = details.payload
---         }
+
+sameTarget (Chunk a) (Chunk b) =
+    equalPointers a.target b.target
+
+
+groupCombiner ( firstChange, moreChanges ) =
+    -- for each grouping, fold multiple changes together
+    case moreChanges of
+        [] ->
+            firstChange
+
+        rest ->
+            List.foldl mergeSameTargetChanges firstChange rest
+
+
+mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =
+    Chunk
+        { target = change1Details.target
+        , objectChanges = change1Details.objectChanges ++ change2Details.objectChanges
+        }

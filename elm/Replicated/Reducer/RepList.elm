@@ -210,13 +210,16 @@ addNewWithChanges (RepList record) desiredChanges =
         newItemMaybe =
             record.memberGenerator "{}"
 
-        newItemToObjectChanges =
+        newItemChanges =
             case newItemMaybe of
                 Nothing ->
                     []
 
                 Just newItem ->
-                    List.map (\modification -> Op.NewPayload <| Op.changeToRonPayload <| modification newItem) desiredChanges
+                    Op.combineChangesOfSameTarget <| List.map (\modification -> modification newItem) desiredChanges
+
+        newItemChangesAsRepListObjectChanges =
+            List.map (Op.NewPayload << Op.changeToRonPayload) newItemChanges
 
         originalChange newItem =
             record.memberChanger newItem Nothing
@@ -224,5 +227,5 @@ addNewWithChanges (RepList record) desiredChanges =
     Op.Chunk
         { target = record.id
         , objectChanges =
-            Debug.log ">>> new member with changes" newItemToObjectChanges
+            Debug.log ">>> new member with changes" newItemChangesAsRepListObjectChanges
         }

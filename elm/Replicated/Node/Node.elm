@@ -92,9 +92,6 @@ If the clock is set backwards or another node loses track of time, we will never
 apply : Maybe Moment -> Node -> ChangeFrame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
 apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
     let
-        changes =
-            Dict.values normalizedChanges
-
         fallbackCounter =
             Maybe.withDefault node.lastUsedCounter (Maybe.map OpID.firstCounter timeMaybe)
 
@@ -102,7 +99,7 @@ apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
         ( finalCounter, listOfFinishedOpsLists ) =
-            List.mapAccuml (oneChangeToOps node) frameStartCounter changes
+            List.mapAccuml (oneChangeToOps node) frameStartCounter normalizedChanges
 
         finishedOps =
             List.concat listOfFinishedOpsLists
@@ -403,7 +400,7 @@ peerCodec =
 
 type ChangeFrame
     = ChangeFrame
-        { normalizedChanges : Dict String Change
+        { normalizedChanges : List Change
         , description : String
         }
 
@@ -418,16 +415,9 @@ saveChanges description changes =
 We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
 
 -}
-normalizeChanges : List Change -> Dict String Change
-normalizeChanges changes =
+normalizeChanges : List Change -> List Change
+normalizeChanges changesToNormalize =
     let
-        insertChunk givenChunk existingDict =
-            let
-                normalizedChunk =
-                    wrapInParent givenChunk
-            in
-            Dict.update (targetToString normalizedChunk) (combineWithExisting normalizedChunk) existingDict
-
         wrapInParent : Change -> Change
         wrapInParent ((Op.Chunk chunkDetails) as originalChange) =
             case chunkDetails.target of
@@ -437,30 +427,6 @@ normalizeChanges changes =
                 Op.PlaceholderPointer reducerID pendingID parentNotifier ->
                     -- TODO how to recurse upwards
                     parentNotifier originalChange
-
-        combineWithExisting : Change -> Maybe Change -> Maybe Change
-        combineWithExisting (Op.Chunk thisChange) existingChangeMaybe =
-            let
-                extractChanges (Op.Chunk chunkDetails) =
-                    chunkDetails.objectChanges
-
-                existingObjectChanges =
-                    Maybe.map extractChanges existingChangeMaybe
-                        |> Maybe.withDefault []
-            in
-            Just <| Op.Chunk { thisChange | objectChanges = existingObjectChanges ++ thisChange.objectChanges }
-
-        targetToString : Change -> String
-        targetToString (Op.Chunk chunkDetails) =
-            case chunkDetails.target of
-                Op.ExistingObjectPointer objectID ->
-                    OpID.toString objectID
-
-                Op.PlaceholderPointer reducerID pendingID _ ->
-                    reducerID ++ " " ++ Op.pendingIDToString pendingID
-
-        startingDict : Dict String Change
-        startingDict =
-            Dict.empty
     in
-    Debug.log ">>> saved changes formed unique dict" <| List.foldl insertChunk startingDict changes
+    Op.combineChangesOfSameTarget changesToNormalize
+        |> List.map wrapInParent
