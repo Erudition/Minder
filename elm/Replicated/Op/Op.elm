@@ -462,7 +462,7 @@ groupCombiner ( firstChange, moreChanges ) =
             firstChange
 
         rest ->
-            List.foldl mergeSameTargetChanges firstChange rest
+            List.foldr mergeSameTargetChanges firstChange rest
 
 
 mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =

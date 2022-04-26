@@ -438,6 +438,7 @@ nodeWithModifiedNestedStressTest =
 
                 changes =
                     Debug.log "\n\nREPLIST changes"
+                        -- TODO why is the order reversed
                         [ RepList.addNew repList
                         , addCustomItemToRepList
                         ]

@@ -2029,10 +2029,12 @@ lazy f =
 
 type CustomTypeCodec a e match v
     = CustomTypeCodec
-        { match : match
+        { bytesMatch : match
         , jsonMatch : match
-        , decoder : Int -> BD.Decoder (Result (Error e) v) -> BD.Decoder (Result (Error e) v)
+        , nodeMatch : match
+        , bytesDecoder : Int -> BD.Decoder (Result (Error e) v) -> BD.Decoder (Result (Error e) v)
         , jsonDecoder : Int -> JD.Decoder (Result (Error e) v) -> JD.Decoder (Result (Error e) v)
+        , nodeDecoder : Int -> RonDecoder e v -> RonDecoder e v
         , idCounter : Int
         }
 
@@ -2072,17 +2074,23 @@ You need to pass a pattern matching function, see the FAQ for details.
 customType : match -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e match value
 customType match =
     CustomTypeCodec
-        { match = match
+        { bytesMatch = match
         , jsonMatch = match
-        , decoder = \_ -> identity
+        , nodeMatch = match
+        , bytesDecoder = \_ -> identity
         , jsonDecoder = \_ -> identity
+        , nodeDecoder = \_ -> identity
         , idCounter = 0
         }
 
 
 {-| -}
 type VariantEncoder
-    = VariantEncoder ( BE.Encoder, JE.Value )
+    = VariantEncoder
+        { bytes : BE.Encoder
+        , json : JE.Value
+        , node : ChangePayload
+        }
 
 
 variant :
@@ -2096,16 +2104,26 @@ variant matchPiece matchJsonPiece decoderPiece jsonDecoderPiece (CustomTypeCodec
     let
         enc : List BE.Encoder -> VariantEncoder
         enc v =
-            ( BE.unsignedInt16 endian am.idCounter :: v |> BE.sequence
-            , JE.null
-            )
+            { bytes = BE.unsignedInt16 endian am.idCounter :: v |> BE.sequence
+            , json = JE.null
+            , node = []
+            }
                 |> VariantEncoder
 
         jsonEnc : List JE.Value -> VariantEncoder
         jsonEnc v =
-            ( BE.sequence []
-            , JE.int am.idCounter :: v |> JE.list identity
-            )
+            { bytes = BE.sequence []
+            , json = JE.int am.idCounter :: v |> JE.list identity
+            , node = []
+            }
+                |> VariantEncoder
+
+        nodeEnc : ChangePayload -> VariantEncoder
+        nodeEnc changeAtoms =
+            { bytes = BE.sequence []
+            , json = JE.null
+            , node = Debug.todo "node encode variant here"
+            }
                 |> VariantEncoder
 
         decoder_ : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -2114,7 +2132,7 @@ variant matchPiece matchJsonPiece decoderPiece jsonDecoderPiece (CustomTypeCodec
                 decoderPiece
 
             else
-                am.decoder tag orElse
+                am.bytesDecoder tag orElse
 
         jsonDecoder_ : Int -> JD.Decoder (Result (Error error) v) -> JD.Decoder (Result (Error error) v)
         jsonDecoder_ tag orElse =
@@ -2123,12 +2141,17 @@ variant matchPiece matchJsonPiece decoderPiece jsonDecoderPiece (CustomTypeCodec
 
             else
                 am.jsonDecoder tag orElse
+
+        matchNodePiece =
+            Debug.todo "will be passed in"
     in
     CustomTypeCodec
-        { match = am.match <| matchPiece enc
+        { bytesMatch = am.bytesMatch <| matchPiece enc
         , jsonMatch = am.jsonMatch <| matchJsonPiece jsonEnc
-        , decoder = decoder_
+        , nodeMatch = am.nodeMatch <| matchNodePiece nodeEnc
+        , bytesDecoder = decoder_
         , jsonDecoder = jsonDecoder_
+        , nodeDecoder = Debug.todo "custom type node decoder"
         , idCounter = am.idCounter + 1
         }
 
@@ -2151,20 +2174,20 @@ variant1 :
     -> Codec error a
     -> CustomTypeCodec z error ((a -> VariantEncoder) -> b) v
     -> CustomTypeCodec () error b v
-variant1 ctor m1 =
+variant1 ctor codec1 =
     variant
         (\c v ->
             c
-                [ getEncoder m1 v
+                [ getEncoder codec1 v
                 ]
         )
         (\c v ->
             c
-                [ getJsonEncoder m1 v
+                [ getJsonEncoder codec1 v
                 ]
         )
-        (BD.map (result1 ctor) (getBytesDecoder m1))
-        (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder m1)))
+        (BD.map (result1 ctor) (getBytesDecoder codec1))
+        (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder codec1)))
 
 
 result1 :
@@ -2188,29 +2211,29 @@ variant2 :
     -> Codec error b
     -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> c) v
     -> CustomTypeCodec () error c v
-variant2 ctor m1 m2 =
+variant2 ctor codec1 codec2 =
     variant
         (\c v1 v2 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
             ]
                 |> c
         )
         (\c v1 v2 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
             ]
                 |> c
         )
         (BD.map2
             (result2 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
         )
         (JD.map2
             (result2 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
         )
 
 
@@ -2240,33 +2263,33 @@ variant3 :
     -> Codec error c
     -> CustomTypeCodec z error ((a -> b -> c -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant3 ctor m1 m2 m3 =
+variant3 ctor codec1 codec2 codec3 =
     variant
         (\c v1 v2 v3 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
             ]
                 |> c
         )
         (\c v1 v2 v3 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
             ]
                 |> c
         )
         (BD.map3
             (result3 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
-            (getBytesDecoder m3)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
+            (getBytesDecoder codec3)
         )
         (JD.map3
             (result3 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
-            (JD.index 3 (getJsonDecoder m3))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
+            (JD.index 3 (getJsonDecoder codec3))
         )
 
 
@@ -2301,37 +2324,37 @@ variant4 :
     -> Codec error d
     -> CustomTypeCodec z error ((a -> b -> c -> d -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant4 ctor m1 m2 m3 m4 =
+variant4 ctor codec1 codec2 codec3 codec4 =
     variant
         (\c v1 v2 v3 v4 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
-            , getEncoder m4 v4
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
+            , getEncoder codec4 v4
             ]
                 |> c
         )
         (\c v1 v2 v3 v4 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
-            , getJsonEncoder m4 v4
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
+            , getJsonEncoder codec4 v4
             ]
                 |> c
         )
         (BD.map4
             (result4 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
-            (getBytesDecoder m3)
-            (getBytesDecoder m4)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
+            (getBytesDecoder codec3)
+            (getBytesDecoder codec4)
         )
         (JD.map4
             (result4 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
-            (JD.index 3 (getJsonDecoder m3))
-            (JD.index 4 (getJsonDecoder m4))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
+            (JD.index 3 (getJsonDecoder codec3))
+            (JD.index 4 (getJsonDecoder codec4))
         )
 
 
@@ -2371,41 +2394,41 @@ variant5 :
     -> Codec error e
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant5 ctor m1 m2 m3 m4 m5 =
+variant5 ctor codec1 codec2 codec3 codec4 codec5 =
     variant
         (\c v1 v2 v3 v4 v5 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
-            , getEncoder m4 v4
-            , getEncoder m5 v5
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
+            , getEncoder codec4 v4
+            , getEncoder codec5 v5
             ]
                 |> c
         )
         (\c v1 v2 v3 v4 v5 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
-            , getJsonEncoder m4 v4
-            , getJsonEncoder m5 v5
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
+            , getJsonEncoder codec4 v4
+            , getJsonEncoder codec5 v5
             ]
                 |> c
         )
         (BD.map5
             (result5 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
-            (getBytesDecoder m3)
-            (getBytesDecoder m4)
-            (getBytesDecoder m5)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
+            (getBytesDecoder codec3)
+            (getBytesDecoder codec4)
+            (getBytesDecoder codec5)
         )
         (JD.map5
             (result5 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
-            (JD.index 3 (getJsonDecoder m3))
-            (JD.index 4 (getJsonDecoder m4))
-            (JD.index 5 (getJsonDecoder m5))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
+            (JD.index 3 (getJsonDecoder codec3))
+            (JD.index 4 (getJsonDecoder codec4))
+            (JD.index 5 (getJsonDecoder codec5))
         )
 
 
@@ -2450,48 +2473,48 @@ variant6 :
     -> Codec error f
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant6 ctor m1 m2 m3 m4 m5 m6 =
+variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
     variant
         (\c v1 v2 v3 v4 v5 v6 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
-            , getEncoder m4 v4
-            , getEncoder m5 v5
-            , getEncoder m6 v6
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
+            , getEncoder codec4 v4
+            , getEncoder codec5 v5
+            , getEncoder codec6 v6
             ]
                 |> c
         )
         (\c v1 v2 v3 v4 v5 v6 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
-            , getJsonEncoder m4 v4
-            , getJsonEncoder m5 v5
-            , getJsonEncoder m6 v6
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
+            , getJsonEncoder codec4 v4
+            , getJsonEncoder codec5 v5
+            , getJsonEncoder codec6 v6
             ]
                 |> c
         )
         (BD.map5
             (result6 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
-            (getBytesDecoder m3)
-            (getBytesDecoder m4)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
+            (getBytesDecoder codec3)
+            (getBytesDecoder codec4)
             (BD.map2 Tuple.pair
-                (getBytesDecoder m5)
-                (getBytesDecoder m6)
+                (getBytesDecoder codec5)
+                (getBytesDecoder codec6)
             )
         )
         (JD.map5
             (result6 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
-            (JD.index 3 (getJsonDecoder m3))
-            (JD.index 4 (getJsonDecoder m4))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
+            (JD.index 3 (getJsonDecoder codec3))
+            (JD.index 4 (getJsonDecoder codec4))
             (JD.map2 Tuple.pair
-                (JD.index 5 (getJsonDecoder m5))
-                (JD.index 6 (getJsonDecoder m6))
+                (JD.index 5 (getJsonDecoder codec5))
+                (JD.index 6 (getJsonDecoder codec6))
             )
         )
 
@@ -2541,56 +2564,56 @@ variant7 :
     -> Codec error g
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant7 ctor m1 m2 m3 m4 m5 m6 m7 =
+variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
     variant
         (\c v1 v2 v3 v4 v5 v6 v7 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
-            , getEncoder m4 v4
-            , getEncoder m5 v5
-            , getEncoder m6 v6
-            , getEncoder m7 v7
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
+            , getEncoder codec4 v4
+            , getEncoder codec5 v5
+            , getEncoder codec6 v6
+            , getEncoder codec7 v7
             ]
                 |> c
         )
         (\c v1 v2 v3 v4 v5 v6 v7 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
-            , getJsonEncoder m4 v4
-            , getJsonEncoder m5 v5
-            , getJsonEncoder m6 v6
-            , getJsonEncoder m7 v7
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
+            , getJsonEncoder codec4 v4
+            , getJsonEncoder codec5 v5
+            , getJsonEncoder codec6 v6
+            , getJsonEncoder codec7 v7
             ]
                 |> c
         )
         (BD.map5
             (result7 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
-            (getBytesDecoder m3)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
+            (getBytesDecoder codec3)
             (BD.map2 Tuple.pair
-                (getBytesDecoder m4)
-                (getBytesDecoder m5)
+                (getBytesDecoder codec4)
+                (getBytesDecoder codec5)
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder m6)
-                (getBytesDecoder m7)
+                (getBytesDecoder codec6)
+                (getBytesDecoder codec7)
             )
         )
         (JD.map5
             (result7 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
-            (JD.index 3 (getJsonDecoder m3))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
+            (JD.index 3 (getJsonDecoder codec3))
             (JD.map2 Tuple.pair
-                (JD.index 4 (getJsonDecoder m4))
-                (JD.index 5 (getJsonDecoder m5))
+                (JD.index 4 (getJsonDecoder codec4))
+                (JD.index 5 (getJsonDecoder codec5))
             )
             (JD.map2 Tuple.pair
-                (JD.index 6 (getJsonDecoder m6))
-                (JD.index 7 (getJsonDecoder m7))
+                (JD.index 6 (getJsonDecoder codec6))
+                (JD.index 7 (getJsonDecoder codec7))
             )
         )
 
@@ -2644,64 +2667,64 @@ variant8 :
     -> Codec error h
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> h -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant8 ctor m1 m2 m3 m4 m5 m6 m7 m8 =
+variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
     variant
         (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
-            [ getEncoder m1 v1
-            , getEncoder m2 v2
-            , getEncoder m3 v3
-            , getEncoder m4 v4
-            , getEncoder m5 v5
-            , getEncoder m6 v6
-            , getEncoder m7 v7
-            , getEncoder m8 v8
+            [ getEncoder codec1 v1
+            , getEncoder codec2 v2
+            , getEncoder codec3 v3
+            , getEncoder codec4 v4
+            , getEncoder codec5 v5
+            , getEncoder codec6 v6
+            , getEncoder codec7 v7
+            , getEncoder codec8 v8
             ]
                 |> c
         )
         (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
-            [ getJsonEncoder m1 v1
-            , getJsonEncoder m2 v2
-            , getJsonEncoder m3 v3
-            , getJsonEncoder m4 v4
-            , getJsonEncoder m5 v5
-            , getJsonEncoder m6 v6
-            , getJsonEncoder m7 v7
-            , getJsonEncoder m8 v8
+            [ getJsonEncoder codec1 v1
+            , getJsonEncoder codec2 v2
+            , getJsonEncoder codec3 v3
+            , getJsonEncoder codec4 v4
+            , getJsonEncoder codec5 v5
+            , getJsonEncoder codec6 v6
+            , getJsonEncoder codec7 v7
+            , getJsonEncoder codec8 v8
             ]
                 |> c
         )
         (BD.map5
             (result8 ctor)
-            (getBytesDecoder m1)
-            (getBytesDecoder m2)
+            (getBytesDecoder codec1)
+            (getBytesDecoder codec2)
             (BD.map2 Tuple.pair
-                (getBytesDecoder m3)
-                (getBytesDecoder m4)
+                (getBytesDecoder codec3)
+                (getBytesDecoder codec4)
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder m5)
-                (getBytesDecoder m6)
+                (getBytesDecoder codec5)
+                (getBytesDecoder codec6)
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder m7)
-                (getBytesDecoder m8)
+                (getBytesDecoder codec7)
+                (getBytesDecoder codec8)
             )
         )
         (JD.map5
             (result8 ctor)
-            (JD.index 1 (getJsonDecoder m1))
-            (JD.index 2 (getJsonDecoder m2))
+            (JD.index 1 (getJsonDecoder codec1))
+            (JD.index 2 (getJsonDecoder codec2))
             (JD.map2 Tuple.pair
-                (JD.index 3 (getJsonDecoder m3))
-                (JD.index 4 (getJsonDecoder m4))
+                (JD.index 3 (getJsonDecoder codec3))
+                (JD.index 4 (getJsonDecoder codec4))
             )
             (JD.map2 Tuple.pair
-                (JD.index 5 (getJsonDecoder m5))
-                (JD.index 6 (getJsonDecoder m6))
+                (JD.index 5 (getJsonDecoder codec5))
+                (JD.index 6 (getJsonDecoder codec6))
             )
             (JD.map2 Tuple.pair
-                (JD.index 7 (getJsonDecoder m7))
-                (JD.index 8 (getJsonDecoder m8))
+                (JD.index 7 (getJsonDecoder codec7))
+                (JD.index 8 (getJsonDecoder codec8))
             )
         )
 
@@ -2748,18 +2771,20 @@ result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
 -}
 finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> Codec e a
 finishCustomType (CustomTypeCodec am) =
-    buildUnnestableCodec
-        (am.match >> (\(VariantEncoder ( a, _ )) -> a))
+    buildNestableCodec
+        (am.bytesMatch >> (\(VariantEncoder encoders) -> encoders.bytes))
         (BD.unsignedInt16 endian
             |> BD.andThen
                 (\tag ->
-                    am.decoder tag (BD.succeed (Err DataCorrupted))
+                    am.bytesDecoder tag (BD.succeed (Err DataCorrupted))
                 )
         )
-        (am.jsonMatch >> (\(VariantEncoder ( _, a )) -> a))
+        (am.jsonMatch >> (\(VariantEncoder encoders) -> encoders.json))
         (JD.index 0 JD.int
             |> JD.andThen
                 (\tag ->
                     am.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
+        Nothing
+        Nothing
