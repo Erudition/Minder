@@ -342,8 +342,8 @@ decodeFromJson codec json =
 decode : String -> Maybe Bytes.Bytes
 decode base64text =
     let
-        replaceChar rematch =
-            case rematch.match of
+        replaceChar rematcher =
+            case rematcher.matcher of
                 "-" ->
                     "+"
 
@@ -458,8 +458,8 @@ encodeToJson codec value =
 replaceBase64Chars : Bytes.Bytes -> String
 replaceBase64Chars =
     let
-        replaceChar rematch =
-            case rematch.match of
+        replaceChar rematcher =
+            case rematcher.matcher of
                 "+" ->
                     "-"
 
@@ -2027,11 +2027,15 @@ lazy f =
 -- CUSTOM
 
 
-type CustomTypeCodec a e match v
+type alias VariantTag =
+    ( Int, String )
+
+
+type CustomTypeCodec a e matcher v
     = CustomTypeCodec
-        { bytesMatch : match
-        , jsonMatch : match
-        , nodeMatch : match
+        { bytesMatcher : matcher
+        , jsonMatcher : matcher
+        , nodeMatcher : matcher
         , bytesDecoder : Int -> BD.Decoder (Result (Error e) v) -> BD.Decoder (Result (Error e) v)
         , jsonDecoder : Int -> JD.Decoder (Result (Error e) v) -> JD.Decoder (Result (Error e) v)
         , nodeDecoder : Int -> RonDecoder e v -> RonDecoder e v
@@ -2040,7 +2044,7 @@ type CustomTypeCodec a e match v
 
 
 {-| Starts building a `Codec` for a custom type.
-You need to pass a pattern matching function, see the FAQ for details.
+You need to pass a pattern matchering function, see the FAQ for details.
 
     import Serialize as S
 
@@ -2071,15 +2075,22 @@ You need to pass a pattern matching function, see the FAQ for details.
             |> S.finishCustomType
 
 -}
-customType : match -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e match value
-customType match =
+customType : matcher -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e matcher value
+customType matcher =
+    let
+        noMatchFound givenTagNum orElse =
+            -- all the variant decoders have been run, but none of them matched the given tag
+            orElse
+    in
     CustomTypeCodec
-        { bytesMatch = match
-        , jsonMatch = match
-        , nodeMatch = match
-        , bytesDecoder = \_ -> identity
-        , jsonDecoder = \_ -> identity
-        , nodeDecoder = \_ -> identity
+        { bytesMatcher = matcher
+        , jsonMatcher = matcher
+        , nodeMatcher = matcher
+
+        -- the
+        , bytesDecoder = noMatchFound
+        , jsonDecoder = noMatchFound
+        , nodeDecoder = noMatchFound
         , idCounter = 0
         }
 
@@ -2094,65 +2105,80 @@ type VariantEncoder
 
 
 variant :
-    ((List BE.Encoder -> VariantEncoder) -> a)
+    VariantTag
+    -> ((List BE.Encoder -> VariantEncoder) -> a)
     -> ((List JE.Value -> VariantEncoder) -> a)
+    -> ((ChangePayload -> VariantEncoder) -> a)
     -> BD.Decoder (Result (Error error) v)
     -> JD.Decoder (Result (Error error) v)
+    -> RonDecoder error v
     -> CustomTypeCodec z error (a -> b) v
     -> CustomTypeCodec () error b v
-variant matchPiece matchJsonPiece decoderPiece jsonDecoderPiece (CustomTypeCodec am) =
+variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncoder piecesBytesDecoder piecesJsonDecoder piecesNodeDecoder (CustomTypeCodec priorVariants) =
     let
-        enc : List BE.Encoder -> VariantEncoder
-        enc v =
-            { bytes = BE.unsignedInt16 endian am.idCounter :: v |> BE.sequence
-            , json = JE.null
-            , node = []
-            }
-                |> VariantEncoder
+        -- for these encoder functions: input list is individual encoders of the variant's sub-pieces. The variant's tag is prepended and the output is effectively an encoder of the entire variant at once. It then gets combined below with the other variant encoders to form the encoder of the whole custom type.
+        wrapBE : List BE.Encoder -> VariantEncoder
+        wrapBE variantPieces =
+            VariantEncoder
+                { bytes = BE.unsignedInt16 endian tagNum :: variantPieces |> BE.sequence
+                , json = JE.null
+                , node = []
+                }
 
-        jsonEnc : List JE.Value -> VariantEncoder
-        jsonEnc v =
-            { bytes = BE.sequence []
-            , json = JE.int am.idCounter :: v |> JE.list identity
-            , node = []
-            }
-                |> VariantEncoder
+        wrapJE : List JE.Value -> VariantEncoder
+        wrapJE variantPieces =
+            VariantEncoder
+                { bytes = BE.sequence []
+                , json = JE.string (String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces |> JE.list identity
+                , node = []
+                }
 
-        nodeEnc : ChangePayload -> VariantEncoder
-        nodeEnc changeAtoms =
-            { bytes = BE.sequence []
-            , json = JE.null
-            , node = Debug.todo "node encode variant here"
-            }
-                |> VariantEncoder
+        wrapNE : ChangePayload -> VariantEncoder
+        wrapNE variantPieces =
+            VariantEncoder
+                { bytes = BE.sequence []
+                , json = JE.null
+                , node = (Op.JustString <| String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces
+                }
 
-        decoder_ : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
-        decoder_ tag orElse =
-            if tag == am.idCounter then
-                decoderPiece
-
-            else
-                am.bytesDecoder tag orElse
-
-        jsonDecoder_ : Int -> JD.Decoder (Result (Error error) v) -> JD.Decoder (Result (Error error) v)
-        jsonDecoder_ tag orElse =
-            if tag == am.idCounter then
-                jsonDecoderPiece
+        unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
+        unwrapBD tagNumToDecode orElse =
+            if tagNumToDecode == tagNum then
+                -- variant match! now decode the pieces
+                piecesBytesDecoder
 
             else
-                am.jsonDecoder tag orElse
+                -- not this variant, pass along to other variant decoders
+                priorVariants.bytesDecoder tagNumToDecode orElse
 
-        matchNodePiece =
-            Debug.todo "will be passed in"
+        unwrapJD : Int -> JD.Decoder (Result (Error error) v) -> JD.Decoder (Result (Error error) v)
+        unwrapJD tagNumToDecode orElse =
+            if tagNumToDecode == tagNum then
+                -- variant match! now decode the pieces
+                piecesJsonDecoder
+
+            else
+                -- not this variant, pass along to other variant decoders
+                priorVariants.jsonDecoder tagNumToDecode orElse
+
+        unwrapND : Int -> RonDecoder error v -> RonDecoder error v
+        unwrapND tagNumToDecode orElse =
+            if tagNumToDecode == tagNum then
+                -- variant match! now decode the pieces
+                piecesNodeDecoder
+
+            else
+                -- not this variant, pass along to other variant decoders
+                priorVariants.nodeDecoder tagNumToDecode orElse
     in
     CustomTypeCodec
-        { bytesMatch = am.bytesMatch <| matchPiece enc
-        , jsonMatch = am.jsonMatch <| matchJsonPiece jsonEnc
-        , nodeMatch = am.nodeMatch <| matchNodePiece nodeEnc
-        , bytesDecoder = decoder_
-        , jsonDecoder = jsonDecoder_
-        , nodeDecoder = Debug.todo "custom type node decoder"
-        , idCounter = am.idCounter + 1
+        { bytesMatcher = priorVariants.bytesMatcher <| piecesBytesEncoder wrapBE
+        , jsonMatcher = priorVariants.jsonMatcher <| piecesJsonEncoder wrapJE
+        , nodeMatcher = priorVariants.nodeMatcher <| piecesNodeEncoder wrapNE
+        , bytesDecoder = unwrapBD
+        , jsonDecoder = unwrapJD
+        , nodeDecoder = unwrapND
+        , idCounter = priorVariants.idCounter + 1
         }
 
 
@@ -2770,20 +2796,20 @@ result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
 {-| Finish creating a codec for a custom type.
 -}
 finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> Codec e a
-finishCustomType (CustomTypeCodec am) =
+finishCustomType (CustomTypeCodec priorVariants) =
     buildNestableCodec
-        (am.bytesMatch >> (\(VariantEncoder encoders) -> encoders.bytes))
+        (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))
         (BD.unsignedInt16 endian
             |> BD.andThen
                 (\tag ->
-                    am.bytesDecoder tag (BD.succeed (Err DataCorrupted))
+                    priorVariants.bytesDecoder tag (BD.succeed (Err DataCorrupted))
                 )
         )
-        (am.jsonMatch >> (\(VariantEncoder encoders) -> encoders.json))
+        (priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json))
         (JD.index 0 JD.int
             |> JD.andThen
                 (\tag ->
-                    am.jsonDecoder tag (JD.succeed (Err DataCorrupted))
+                    priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
         Nothing
