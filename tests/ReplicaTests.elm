@@ -134,6 +134,7 @@ writableObjectCodec : Codec e WritableObject
 writableObjectCodec =
     RC.record WritableObject
         |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
+        -- ^ an example of using fieldRW instead of fieldN, providing an explicit default
         |> RC.fieldRW ( 2, "address" ) .address RC.string "default address 2"
         |> RC.fieldRW ( 3, "number" ) .number RC.int 42
         |> RC.fieldRW ( 4, "minor" ) .minor RC.bool False
@@ -427,15 +428,19 @@ nodeWithModifiedNestedStressTest =
                 repList =
                     nestedStressTest.listOfNestedRecords
 
-                addItems =
+                addCustomItemToRepList =
                     RepList.addNewWithChanges repList
                         [ \obj -> obj.address.set "bologna street"
                         , \obj -> obj.number.set 999
+                        , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
+                        , \obj -> obj.minor.set True
                         ]
 
                 changes =
-                    [ addItems
-                    ]
+                    Debug.log "\n\nREPLIST changes"
+                        [ RepList.addNew repList
+                        , addCustomItemToRepList
+                        ]
 
                 applied =
                     Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
@@ -469,21 +474,21 @@ modifiedNestedStressTestIntegrityCheck =
     in
     describe "checking the modified NST node and objects"
         [ describe "Checking the node has changed in correct places"
-            [ test "the node should have 2 more initialized objects in it." <|
+            [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 3
+                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 4
             , test "the demo node should have one profile" <|
                 \_ ->
                     Expect.equal (List.length nodeWithModifiedNestedStressTest.profiles) 1
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
-                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
+                \_ -> Expect.equal 4 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
             ]
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
                 Expect.all
-                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list (Debug.log "\n\nfinal post-modified replist" o.listOfNestedRecords)) [ "bologna street" ]
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "bologna street 2", "default address 2" ]
                     ]
                     decodedNST
         ]

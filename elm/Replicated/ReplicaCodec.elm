@@ -726,24 +726,24 @@ repList memberCodec =
         bytesEncoder input =
             listEncode (getEncoder memberCodec) (RepList.list input)
 
-        memberRonEncoder : Node -> Maybe ChangesToGenerate -> Op.PendingCounter -> Op.ParentNotifier -> memberType -> ChangePayload
-        memberRonEncoder node encodeModeMaybe pendingCounter parentNotifier newValue =
+        memberRonEncoder : Node -> Maybe ChangesToGenerate -> Op.ParentNotifier -> memberType -> ChangePayload
+        memberRonEncoder node encodeModeMaybe parentNotifier newValue =
             getRonEncoder memberCodec
                 { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
                 , node = node
                 , encodeRegisterInstead = Nothing
                 , thingToEncode = Just newValue
                 , parentNotifier = parentNotifier
-                , pendingCounter = pendingCounter
+                , pendingCounter = Op.unmatchableCounter
                 }
 
-        memberChanger node encodeModeMaybe pendingCounter parentNotifier newMemberValue newRefMaybe =
+        memberChanger node encodeModeMaybe parentNotifier newMemberValue newRefMaybe =
             case newRefMaybe of
                 Just givenRef ->
-                    Op.NewPayloadWithRef { payload = memberRonEncoder node encodeModeMaybe pendingCounter parentNotifier newMemberValue, ref = givenRef }
+                    Op.NewPayloadWithRef { payload = memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue, ref = givenRef }
 
                 Nothing ->
-                    Op.NewPayload (memberRonEncoder node encodeModeMaybe pendingCounter parentNotifier newMemberValue)
+                    Op.NewPayload (memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue)
 
         memberRonDecoder : Node -> Op.PendingCounter -> String -> Maybe memberType
         memberRonDecoder node childPendingCounter encodedMember =
@@ -769,7 +769,7 @@ repList memberCodec =
                             Op.PlaceholderPointer RepList.reducerID pending.id parentNotifier
 
                 foundOrGeneratedRepList foundObjects =
-                    Ok <| RepList.buildFromReplicaDb node (target foundObjects) (memberRonDecoder node pending.passToChild) (memberChanger node Nothing pendingCounter parentNotifier)
+                    Ok <| RepList.buildFromReplicaDb node (target foundObjects) (memberRonDecoder node pending.passToChild) (memberChanger node Nothing parentNotifier)
             in
             JD.map foundOrGeneratedRepList concurrentObjectIDsDecoder
 

@@ -21,7 +21,7 @@ type RepList memberType
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
-        , memberGenerator : String -> Maybe memberType
+        , memberGenerator : () -> Maybe memberType
         }
 
 
@@ -112,7 +112,7 @@ buildFromReplicaDb node targetObject unstringifier memberChanger =
         { id = targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
-        , memberGenerator = unstringifier
+        , memberGenerator = \_ -> unstringifier "{}"
         , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
         }
 
@@ -189,26 +189,15 @@ length (RepList record) =
 
 
 addNew : RepList memberType -> Change
-addNew (RepList record) =
-    let
-        newItemMaybe =
-            record.memberGenerator "{}"
-
-        newItemToObjectChange newItem =
-            record.memberChanger newItem Nothing
-    in
-    Op.Chunk
-        { target = record.id
-        , objectChanges =
-            List.filterMap (Maybe.map newItemToObjectChange) [ newItemMaybe ]
-        }
+addNew repList =
+    addNewWithChanges repList []
 
 
 addNewWithChanges : RepList memberType -> List (memberType -> Change) -> Change
 addNewWithChanges (RepList record) desiredChanges =
     let
         newItemMaybe =
-            record.memberGenerator "{}"
+            record.memberGenerator ()
 
         newItemChanges =
             case newItemMaybe of
@@ -216,16 +205,26 @@ addNewWithChanges (RepList record) desiredChanges =
                     []
 
                 Just newItem ->
-                    Op.combineChangesOfSameTarget <| List.map (\modification -> modification newItem) desiredChanges
+                    List.map (\modification -> modification newItem) desiredChanges
+                        |> Op.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =
             List.map (Op.NewPayload << Op.changeToRonPayload) newItemChanges
 
-        originalChange newItem =
-            record.memberChanger newItem Nothing
+        finalChangeList =
+            case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of
+                ( [], Just newItem ) ->
+                    -- effectively a no-op so the member object will still initialize
+                    [ record.memberChanger newItem Nothing ]
+
+                ( [], Nothing ) ->
+                    Debug.todo "gahh"
+
+                ( nonEmptyChangeList, _ ) ->
+                    newItemChangesAsRepListObjectChanges
     in
     Op.Chunk
         { target = record.id
         , objectChanges =
-            Debug.log ">>> new member with changes" newItemChangesAsRepListObjectChanges
+            Debug.log ">>> new replist member with changes" finalChangeList
         }

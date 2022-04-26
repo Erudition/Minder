@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, combineChangesOfSameTarget, create, equalPointers, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, combineChangesOfSameTarget, create, equalPointers, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, unmatchableCounter, usePendingCounter)
 
 import Json.Encode
 import List.Extra
@@ -358,7 +358,7 @@ equalPointers pointer1 pointer2 =
             objectID1 == objectID2
 
         ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
-            reducerID1 == reducerID2 && pendingID1 == pendingID2
+            reducerID1 == reducerID2 && pendingIDMatch pendingID1 pendingID2
 
         _ ->
             False
@@ -389,6 +389,7 @@ type alias ParentNotifier =
 
 type PendingCounter
     = PendingCounter (List Int)
+    | PendingWildcard
 
 
 type PendingID
@@ -396,23 +397,48 @@ type PendingID
 
 
 usePendingCounter : Int -> PendingCounter -> { id : PendingID, passToChild : PendingCounter }
-usePendingCounter siblingNum (PendingCounter inCounterList) =
-    let
-        ancestors =
-            case inCounterList of
-                [] ->
-                    []
+usePendingCounter siblingNum givenPendingCounter =
+    case givenPendingCounter of
+        PendingWildcard ->
+            { id = PendingID [] -- these are always considered unequal
+            , passToChild = firstPendingCounter -- children can become matchable again
+            }
 
-                myNum :: prior ->
-                    prior
-    in
-    { id = PendingID inCounterList
-    , passToChild = PendingCounter (siblingNum :: ancestors)
-    }
+        PendingCounter inCounterList ->
+            let
+                ancestors =
+                    case inCounterList of
+                        [] ->
+                            []
+
+                        myNum :: prior ->
+                            prior
+            in
+            { id = PendingID inCounterList
+            , passToChild = PendingCounter (siblingNum :: ancestors)
+            }
+
+
+unmatchableCounter : PendingCounter
+unmatchableCounter =
+    PendingWildcard
 
 
 firstPendingCounter =
     PendingCounter [ 0 ]
+
+
+pendingIDMatch : PendingID -> PendingID -> Bool
+pendingIDMatch pendingID1 pendingID2 =
+    case ( pendingID1, pendingID2 ) of
+        ( PendingID [], _ ) ->
+            False
+
+        ( _, PendingID [] ) ->
+            False
+
+        _ ->
+            pendingID1 == pendingID2
 
 
 pendingIDToString : PendingID -> String
