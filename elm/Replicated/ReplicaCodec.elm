@@ -2106,17 +2106,18 @@ type VariantEncoder
 
 variant :
     VariantTag
-    -> ((List BE.Encoder -> VariantEncoder) -> a)
-    -> ((List JE.Value -> VariantEncoder) -> a)
-    -> ((ChangePayload -> VariantEncoder) -> a)
+    -> ((List BE.Encoder -> VariantEncoder) -> finalWrappedValue)
+    -> ((List JE.Value -> VariantEncoder) -> finalWrappedValue)
+    -> ((ChangePayload -> VariantEncoder) -> finalWrappedValue)
     -> BD.Decoder (Result (Error error) v)
     -> JD.Decoder (Result (Error error) v)
     -> RonDecoder error v
-    -> CustomTypeCodec z error (a -> b) v
+    -> CustomTypeCodec z error (finalWrappedValue -> b) v
     -> CustomTypeCodec () error b v
 variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncoder piecesBytesDecoder piecesJsonDecoder piecesNodeDecoder (CustomTypeCodec priorVariants) =
     let
-        -- for these encoder functions: input list is individual encoders of the variant's sub-pieces. The variant's tag is prepended and the output is effectively an encoder of the entire variant at once. It then gets combined below with the other variant encoders to form the encoder of the whole custom type.
+        -- for the input encoder functions: they're expecting to be handed one of the wrappers below, but otherwise they're just the piecewise encoders of all the variant's pieces (in one big final encoder) needing only to be wrapped (e.g. add the `Just`).
+        -- for these wrapper functions: input list is individual encoders of the variant's sub-pieces. The variant's tag is prepended and the output is effectively an encoder of the entire variant at once. It then gets combined below with the other variant encoders to form the encoder of the whole custom type.
         wrapBE : List BE.Encoder -> VariantEncoder
         wrapBE variantPieces =
             VariantEncoder
@@ -2187,8 +2188,8 @@ variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncod
 variant0 : v -> CustomTypeCodec z e (VariantEncoder -> a) v -> CustomTypeCodec () e a v
 variant0 ctor =
     variant
-        (\c -> c [])
-        (\c -> c [])
+        (\wrapper -> wrapper [])
+        (\wrapper -> wrapper [])
         (BD.succeed (Ok ctor))
         (JD.succeed (Ok ctor))
 
@@ -2198,17 +2199,17 @@ variant0 ctor =
 variant1 :
     (a -> v)
     -> Codec error a
-    -> CustomTypeCodec z error ((a -> VariantEncoder) -> b) v
-    -> CustomTypeCodec () error b v
+    -> CustomTypeCodec z error ((a -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
 variant1 ctor codec1 =
     variant
-        (\c v ->
-            c
+        (\wrapper v ->
+            wrapper
                 [ getEncoder codec1 v
                 ]
         )
-        (\c v ->
-            c
+        (\wrapper v ->
+            wrapper
                 [ getJsonEncoder codec1 v
                 ]
         )
@@ -2235,21 +2236,21 @@ variant2 :
     (a -> b -> v)
     -> Codec error a
     -> Codec error b
-    -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> c) v
-    -> CustomTypeCodec () error c v
+    -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> partial) v
+    -> CustomTypeCodec () error partial v
 variant2 ctor codec1 codec2 =
     variant
-        (\c v1 v2 ->
+        (\wrapper v1 v2 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 ->
+        (\wrapper v1 v2 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             ]
-                |> c
+                |> wrapper
         )
         (BD.map2
             (result2 ctor)
@@ -2291,19 +2292,19 @@ variant3 :
     -> CustomTypeCodec () error partial v
 variant3 ctor codec1 codec2 codec3 =
     variant
-        (\c v1 v2 v3 ->
+        (\wrapper v1 v2 v3 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 ->
+        (\wrapper v1 v2 v3 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
             ]
-                |> c
+                |> wrapper
         )
         (BD.map3
             (result3 ctor)
@@ -2352,21 +2353,21 @@ variant4 :
     -> CustomTypeCodec () error partial v
 variant4 ctor codec1 codec2 codec3 codec4 =
     variant
-        (\c v1 v2 v3 v4 ->
+        (\wrapper v1 v2 v3 v4 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
             , getEncoder codec4 v4
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 v4 ->
+        (\wrapper v1 v2 v3 v4 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
             , getJsonEncoder codec4 v4
             ]
-                |> c
+                |> wrapper
         )
         (BD.map4
             (result4 ctor)
@@ -2422,23 +2423,23 @@ variant5 :
     -> CustomTypeCodec () error partial v
 variant5 ctor codec1 codec2 codec3 codec4 codec5 =
     variant
-        (\c v1 v2 v3 v4 v5 ->
+        (\wrapper v1 v2 v3 v4 v5 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
             , getEncoder codec4 v4
             , getEncoder codec5 v5
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 v4 v5 ->
+        (\wrapper v1 v2 v3 v4 v5 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
             , getJsonEncoder codec4 v4
             , getJsonEncoder codec5 v5
             ]
-                |> c
+                |> wrapper
         )
         (BD.map5
             (result5 ctor)
@@ -2501,7 +2502,7 @@ variant6 :
     -> CustomTypeCodec () error partial v
 variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
     variant
-        (\c v1 v2 v3 v4 v5 v6 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
@@ -2509,9 +2510,9 @@ variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
             , getEncoder codec5 v5
             , getEncoder codec6 v6
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 v4 v5 v6 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
@@ -2519,7 +2520,7 @@ variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
             , getJsonEncoder codec5 v5
             , getJsonEncoder codec6 v6
             ]
-                |> c
+                |> wrapper
         )
         (BD.map5
             (result6 ctor)
@@ -2592,7 +2593,7 @@ variant7 :
     -> CustomTypeCodec () error partial v
 variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
     variant
-        (\c v1 v2 v3 v4 v5 v6 v7 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
@@ -2601,9 +2602,9 @@ variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
             , getEncoder codec6 v6
             , getEncoder codec7 v7
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 v4 v5 v6 v7 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
@@ -2612,7 +2613,7 @@ variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
             , getJsonEncoder codec6 v6
             , getJsonEncoder codec7 v7
             ]
-                |> c
+                |> wrapper
         )
         (BD.map5
             (result7 ctor)
@@ -2695,7 +2696,7 @@ variant8 :
     -> CustomTypeCodec () error partial v
 variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
     variant
-        (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 v8 ->
             [ getEncoder codec1 v1
             , getEncoder codec2 v2
             , getEncoder codec3 v3
@@ -2705,9 +2706,9 @@ variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
             , getEncoder codec7 v7
             , getEncoder codec8 v8
             ]
-                |> c
+                |> wrapper
         )
-        (\c v1 v2 v3 v4 v5 v6 v7 v8 ->
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 v8 ->
             [ getJsonEncoder codec1 v1
             , getJsonEncoder codec2 v2
             , getJsonEncoder codec3 v3
@@ -2717,7 +2718,7 @@ variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
             , getJsonEncoder codec7 v7
             , getJsonEncoder codec8 v8
             ]
-                |> c
+                |> wrapper
         )
         (BD.map5
             (result8 ctor)
