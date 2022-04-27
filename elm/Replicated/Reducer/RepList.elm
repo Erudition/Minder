@@ -218,7 +218,7 @@ addNewWithChanges (RepList record) desiredChanges =
                     [ record.memberChanger newItem Nothing ]
 
                 ( [], Nothing ) ->
-                    Debug.todo "gahh"
+                    Debug.todo "Should never happen, no item generated to add to list"
 
                 ( nonEmptyChangeList, _ ) ->
                     newItemChangesAsRepListObjectChanges

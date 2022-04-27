@@ -107,6 +107,15 @@ type alias NodeEncoderInputs a =
     }
 
 
+type alias NodeEncoderInputsNoVariable =
+    { node : Node
+    , mode : ChangesToGenerate
+    , encodeRegisterInstead : Maybe Register -- first check to see if it's a register, use that instead
+    , pendingCounter : Op.PendingCounter
+    , parentNotifier : Change -> Change
+    }
+
+
 type alias ChangesToGenerate =
     { initializeUnusedObjects : Bool
     , setDefaultsExplicitly : Bool
@@ -232,7 +241,7 @@ decodeFromNode profileCodec node =
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
-    case getRonDecoder profileCodec of
+    case getNodeDecoder profileCodec of
         nodeDecoder ->
             case JD.decodeString (nodeDecoder { node = node, pendingCounter = Op.firstPendingCounter, parentNotifier = identity }) (prepDecoder rootEncoded) of
                 Ok value ->
@@ -263,8 +272,8 @@ getJsonDecoder (Codec m) =
 
 {-| Extracts the ron decoder contained inside the `Codec`.
 -}
-getRonDecoder : Codec e a -> NodeDecoder e a
-getRonDecoder (Codec m) =
+getNodeDecoder : Codec e a -> NodeDecoder e a
+getNodeDecoder (Codec m) =
     case m.nodeDecoder of
         Nothing ->
             \_ -> m.jsonDecoder
@@ -389,8 +398,8 @@ getBytesEncoder (Codec m) =
 
 {-| Extracts the replica encoding function contained inside the `Codec`.
 -}
-getRonEncoder : Codec e a -> NodeEncoder a
-getRonEncoder (Codec m) inputs =
+getNodeEncoder : Codec e a -> NodeEncoder a
+getNodeEncoder (Codec m) inputs =
     case m.nodeEncoder of
         Just nativeRonEncoder ->
             nativeRonEncoder inputs
@@ -402,6 +411,21 @@ getRonEncoder (Codec m) inputs =
 
                 Nothing ->
                     []
+
+
+getNodeEncoderSplit : Codec e a -> Maybe a -> (NodeEncoderInputsNoVariable -> ChangePayload)
+getNodeEncoderSplit codec thingToEncodeMaybe =
+    let
+        finishInputs alt =
+            { node = alt.node
+            , mode = alt.mode
+            , thingToEncode = thingToEncodeMaybe
+            , encodeRegisterInstead = alt.encodeRegisterInstead
+            , pendingCounter = alt.pendingCounter
+            , parentNotifier = alt.parentNotifier
+            }
+    in
+    \altInputs -> getNodeEncoder codec (finishInputs altInputs)
 
 
 {-| Extracts the json encoding function contained inside the `Codec`.
@@ -482,7 +506,7 @@ Pass the codec of the root object.
 -}
 encodeNodeToChanges : Node -> Codec e profile -> ChangePayload
 encodeNodeToChanges node profileCodec =
-    getRonEncoder profileCodec
+    getNodeEncoder profileCodec
         { node = node
         , encodeRegisterInstead = Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ List.head node.profiles ]
         , mode = defaultEncodeMode
@@ -498,7 +522,7 @@ encodeDefaults : Codec e a -> Change
 encodeDefaults rootCodec =
     let
         ronPayload =
-            getRonEncoder rootCodec
+            getNodeEncoder rootCodec
                 { node = Node.testNode
                 , encodeRegisterInstead = Nothing
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
@@ -728,7 +752,7 @@ repList memberCodec =
 
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> Op.ParentNotifier -> memberType -> ChangePayload
         memberRonEncoder node encodeModeMaybe parentNotifier newValue =
-            getRonEncoder memberCodec
+            getNodeEncoder memberCodec
                 { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
                 , node = node
                 , encodeRegisterInstead = Nothing
@@ -747,7 +771,7 @@ repList memberCodec =
 
         memberRonDecoder : Node -> Op.PendingCounter -> String -> Maybe memberType
         memberRonDecoder node childPendingCounter encodedMember =
-            case JD.decodeString (getRonDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) (prepDecoder encodedMember) of
+            case JD.decodeString (getNodeDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) (prepDecoder encodedMember) of
                 Ok (Ok member) ->
                     Just member
 
@@ -1439,7 +1463,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
 
         runFieldDecoder thingToDecode =
             JD.decodeString
-                (getRonDecoder fieldValueCodec
+                (getNodeDecoder fieldValueCodec
                     { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }
                 )
                 (prepDecoder (Debug.log ("@@@running field " ++ fieldName ++ " decoder on input") thingToDecode))
@@ -1515,7 +1539,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
             Register.buildRW targetObject ( fieldSlot, fieldName ) fieldEncoder head
 
         fieldEncoder newValue =
-            getRonEncoder fieldValueCodec
+            getNodeEncoder fieldValueCodec
                 { encodeRegisterInstead = Nothing
                 , node = inputs.node
                 , mode = defaultEncodeMode
@@ -1552,7 +1576,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
 
                 runDecoderOnFoundField : String -> Result JD.Error (Result (Error e) fieldtype)
                 runDecoderOnFoundField foundValue =
-                    Debug.log ("* decoding found field for " ++ fieldName) <| JD.decodeString (getRonDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) (prepDecoder (Debug.log ("with foundValue for " ++ fieldName) foundValue))
+                    Debug.log ("* decoding found field for " ++ fieldName) <| JD.decodeString (getNodeDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) (prepDecoder (Debug.log ("with foundValue for " ++ fieldName) foundValue))
 
                 -- TODO if nested codec is another register, decode with getFieldHistoryValues instead, using that as the list of objects
             in
@@ -1755,7 +1779,7 @@ newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fie
 newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, registerMaybe, node, updateRegisterAfterChildInit, pendingCounter } =
     let
         runFieldRonEncoder value =
-            getRonEncoder fieldValueCodec
+            getNodeEncoder fieldValueCodec
                 { mode = mode
                 , node = node
                 , thingToEncode = Just value
@@ -2219,7 +2243,7 @@ variant1 tag ctor codec1 =
         (Debug.todo "node encoder here")
         (BD.map (result1 ctor) (getBytesDecoder codec1))
         (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder codec1)))
-        (\inputsND -> JD.map (result1 ctor) (JD.index 1 (getRonDecoder codec1 inputsND)))
+        (\inputsND -> JD.map (result1 ctor) (JD.index 1 (getNodeDecoder codec1 inputsND)))
 
 
 result1 :
