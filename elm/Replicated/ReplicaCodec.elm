@@ -84,12 +84,12 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 -}
 type Codec e a
     = Codec
-        { encoder : a -> BE.Encoder
-        , decoder : BD.Decoder (Result (Error e) a)
+        { bytesEncoder : a -> BE.Encoder
+        , bytesDecoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : JD.Decoder (Result (Error e) a)
-        , ronEncoder : Maybe (RonEncoder a)
-        , ronDecoder : Maybe (RonDecoder e a)
+        , nodeEncoder : Maybe (NodeEncoder a)
+        , nodeDecoder : Maybe (NodeDecoder e a)
         }
 
 
@@ -97,7 +97,7 @@ type Codec e a
 -- RON DEFINITIONS
 
 
-type alias RonEncoderInputs a =
+type alias NodeEncoderInputs a =
     { node : Node
     , mode : ChangesToGenerate
     , thingToEncode : Maybe a -- else use the value here for flat encoding
@@ -120,16 +120,16 @@ defaultEncodeMode =
     { initializeUnusedObjects = False, setDefaultsExplicitly = False, generateSnapshot = False, cloneOldOps = False }
 
 
-type alias RonEncoder a =
-    RonEncoderInputs a -> ChangePayload
+type alias NodeEncoder a =
+    NodeEncoderInputs a -> ChangePayload
 
 
-type alias RonDecoder e a =
+type alias NodeDecoder e a =
     -- For now we just reuse Json Decoders
-    RonDecoderInputs -> JD.Decoder (Result (Error e) a)
+    NodeDecoderInputs -> JD.Decoder (Result (Error e) a)
 
 
-type alias RonDecoderInputs =
+type alias NodeDecoderInputs =
     { node : Node
     , pendingCounter : Op.PendingCounter
     , parentNotifier : Change -> Change
@@ -233,8 +233,8 @@ decodeFromNode profileCodec node =
                 |> Maybe.withDefault "\"[]\""
     in
     case getRonDecoder profileCodec of
-        ronDecoder ->
-            case JD.decodeString (ronDecoder { node = node, pendingCounter = Op.firstPendingCounter, parentNotifier = identity }) (prepDecoder rootEncoded) of
+        nodeDecoder ->
+            case JD.decodeString (nodeDecoder { node = node, pendingCounter = Op.firstPendingCounter, parentNotifier = identity }) (prepDecoder rootEncoded) of
                 Ok value ->
                     value
 
@@ -251,7 +251,7 @@ endian =
 -}
 getBytesDecoder : Codec e a -> BD.Decoder (Result (Error e) a)
 getBytesDecoder (Codec m) =
-    m.decoder
+    m.bytesDecoder
 
 
 {-| Extracts the json `Decoder` contained inside the `Codec`.
@@ -263,14 +263,14 @@ getJsonDecoder (Codec m) =
 
 {-| Extracts the ron decoder contained inside the `Codec`.
 -}
-getRonDecoder : Codec e a -> RonDecoder e a
+getRonDecoder : Codec e a -> NodeDecoder e a
 getRonDecoder (Codec m) =
-    case m.ronDecoder of
+    case m.nodeDecoder of
         Nothing ->
             \_ -> m.jsonDecoder
 
-        Just ronDecoder ->
-            ronDecoder
+        Just nodeDecoder ->
+            nodeDecoder
 
 
 {-| Run a `Codec` to turn a sequence of bytes into an Elm value.
@@ -342,8 +342,8 @@ decodeFromJson codec json =
 decode : String -> Maybe Bytes.Bytes
 decode base64text =
     let
-        replaceChar rematcher =
-            case rematcher.matcher of
+        replaceChar rematch =
+            case rematch.match of
                 "-" ->
                     "+"
 
@@ -382,16 +382,16 @@ replaceFromUrl =
 
 {-| Extracts the encoding function contained inside the `Codec`.
 -}
-getEncoder : Codec e a -> a -> BE.Encoder
-getEncoder (Codec m) =
-    m.encoder
+getBytesEncoder : Codec e a -> a -> BE.Encoder
+getBytesEncoder (Codec m) =
+    m.bytesEncoder
 
 
 {-| Extracts the replica encoding function contained inside the `Codec`.
 -}
-getRonEncoder : Codec e a -> RonEncoder a
+getRonEncoder : Codec e a -> NodeEncoder a
 getRonEncoder (Codec m) inputs =
-    case m.ronEncoder of
+    case m.nodeEncoder of
         Just nativeRonEncoder ->
             nativeRonEncoder inputs
 
@@ -417,7 +417,7 @@ encodeToBytes : Codec e a -> a -> Bytes.Bytes
 encodeToBytes codec value =
     BE.sequence
         [ BE.unsignedInt8 version
-        , value |> getEncoder codec
+        , value |> getBytesEncoder codec
         ]
         |> BE.encode
 
@@ -458,8 +458,8 @@ encodeToJson codec value =
 replaceBase64Chars : Bytes.Bytes -> String
 replaceBase64Chars =
     let
-        replaceChar rematcher =
-            case rematcher.matcher of
+        replaceChar rematch =
+            case rematch.match of
                 "+" ->
                     "-"
 
@@ -530,12 +530,12 @@ buildUnnestableCodec :
     -> Codec e a
 buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
     Codec
-        { encoder = encoder_
-        , decoder = decoder_
+        { bytesEncoder = encoder_
+        , bytesDecoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
-        , ronEncoder = Nothing
-        , ronDecoder = Nothing
+        , nodeEncoder = Nothing
+        , nodeDecoder = Nothing
         }
 
 
@@ -544,17 +544,17 @@ buildNestableCodec :
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
-    -> Maybe (RonEncoder a)
-    -> Maybe (RonDecoder e a)
+    -> Maybe (NodeEncoder a)
+    -> Maybe (NodeDecoder e a)
     -> Codec e a
 buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ronDecoderMaybe =
     Codec
-        { encoder = encoder_
-        , decoder = decoder_
+        { bytesEncoder = encoder_
+        , bytesDecoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
-        , ronEncoder = ronEncoderMaybe
-        , ronDecoder = ronDecoderMaybe
+        , nodeEncoder = ronEncoderMaybe
+        , nodeDecoder = ronDecoderMaybe
         }
 
 
@@ -563,19 +563,19 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ron
 string : Codec e String
 string =
     Codec
-        { encoder =
+        { bytesEncoder =
             \text ->
                 BE.sequence
                     [ BE.unsignedInt32 endian (BE.getStringWidth text)
                     , BE.string text
                     ]
-        , decoder =
+        , bytesDecoder =
             BD.unsignedInt32 endian
                 |> BD.andThen
                     (\charCount -> BD.string charCount |> BD.map Ok)
         , jsonEncoder = JE.string
         , jsonDecoder = JD.string |> JD.map Ok
-        , ronEncoder =
+        , nodeEncoder =
             Just <|
                 \inputs ->
                     case inputs.thingToEncode of
@@ -585,7 +585,7 @@ string =
 
                         Nothing ->
                             []
-        , ronDecoder = Nothing
+        , nodeDecoder = Nothing
         }
 
 
@@ -705,8 +705,8 @@ maybe justCodec =
                 Just value_ ->
                     justEncoder value_
         )
-        |> variant0 Nothing
-        |> variant1 Just justCodec
+        |> variant0 ( 0, "Nothing" ) Nothing
+        |> variant1 ( 1, "Just" ) Just justCodec
         |> finishCustomType
 
 
@@ -724,7 +724,7 @@ repList memberCodec =
 
         bytesEncoder : RepList memberType -> BE.Encoder
         bytesEncoder input =
-            listEncode (getEncoder memberCodec) (RepList.list input)
+            listEncode (getBytesEncoder memberCodec) (RepList.list input)
 
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> Op.ParentNotifier -> memberType -> ChangePayload
         memberRonEncoder node encodeModeMaybe parentNotifier newValue =
@@ -754,7 +754,7 @@ repList memberCodec =
                 _ ->
                     Nothing
 
-        repListRonDecoder : RonDecoder e (RepList memberType)
+        repListRonDecoder : NodeDecoder e (RepList memberType)
         repListRonDecoder ({ node, pendingCounter, parentNotifier } as details) =
             let
                 pending =
@@ -773,7 +773,7 @@ repList memberCodec =
             in
             JD.map foundOrGeneratedRepList concurrentObjectIDsDecoder
 
-        repListRonEncoder : RonEncoder (RepList memberType)
+        repListRonEncoder : NodeEncoder (RepList memberType)
         repListRonEncoder ({ node, thingToEncode, mode, parentNotifier, pendingCounter } as details) =
             case thingToEncode of
                 Nothing ->
@@ -791,13 +791,13 @@ repList memberCodec =
                             }
     in
     Codec
-        { encoder = bytesEncoder
-        , decoder =
+        { bytesEncoder = bytesEncoder
+        , bytesDecoder =
             BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
-        , ronEncoder = Just repListRonEncoder
-        , ronDecoder = Just repListRonDecoder
+        , nodeEncoder = Just repListRonEncoder
+        , nodeDecoder = Just repListRonDecoder
         }
 
 
@@ -825,15 +825,15 @@ list codec =
                     )
     in
     Codec
-        { encoder = listEncode (getEncoder codec)
-        , decoder =
+        { bytesEncoder = listEncode (getBytesEncoder codec)
+        , bytesDecoder =
             BD.unsignedInt32 endian
                 |> BD.andThen
                     (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = normalJsonDecoder
-        , ronEncoder = Nothing
-        , ronDecoder = Nothing
+        , nodeEncoder = Nothing
+        , nodeDecoder = Nothing
         }
 
 
@@ -954,8 +954,8 @@ result errorCodec valueCodec =
                 Ok ok ->
                     okEncoder ok
         )
-        |> variant1 Err errorCodec
-        |> variant1 Ok valueCodec
+        |> variant1 ( 0, "Err" ) Err errorCodec
+        |> variant1 ( 1, "Ok" ) Ok valueCodec
         |> finishCustomType
 
 
@@ -1117,8 +1117,8 @@ findIndexHelp index predicate list_ =
 -}
 type FragileRecordCodec e a b
     = FragileRecordCodec
-        { encoder : a -> List BE.Encoder
-        , decoder : BD.Decoder (Result (Error e) b)
+        { bytesEncoder : a -> List BE.Encoder
+        , bytesDecoder : BD.Decoder (Result (Error e) b)
         , jsonEncoder : a -> List JE.Value
         , jsonDecoder : JD.Decoder (Result (Error e) b)
         , fieldIndex : Int
@@ -1146,8 +1146,8 @@ type FragileRecordCodec e a b
 fragileRecord : b -> FragileRecordCodec e a b
 fragileRecord ctor =
     FragileRecordCodec
-        { encoder = \_ -> []
-        , decoder = BD.succeed (Ok ctor)
+        { bytesEncoder = \_ -> []
+        , bytesDecoder = BD.succeed (Ok ctor)
         , jsonEncoder = \_ -> []
         , jsonDecoder = JD.succeed (Ok ctor)
         , fieldIndex = 0
@@ -1176,8 +1176,8 @@ fixedField getter codec (FragileRecordCodec recordCodec) =
                 (JD.index recordCodec.fieldIndex (getJsonDecoder codec))
     in
     FragileRecordCodec
-        { encoder = \v -> (getEncoder codec <| getter v) :: recordCodec.encoder v
-        , decoder =
+        { bytesEncoder = \v -> (getBytesEncoder codec <| getter v) :: recordCodec.bytesEncoder v
+        , bytesDecoder =
             BD.map2
                 (\f x ->
                     case ( f, x ) of
@@ -1190,7 +1190,7 @@ fixedField getter codec (FragileRecordCodec recordCodec) =
                         ( _, Err err ) ->
                             Err err
                 )
-                recordCodec.decoder
+                recordCodec.bytesDecoder
                 (getBytesDecoder codec)
         , jsonEncoder = \v -> (getJsonEncoder codec <| getter v) :: recordCodec.jsonEncoder v
         , jsonDecoder = normalJsonDecoder
@@ -1203,12 +1203,12 @@ fixedField getter codec (FragileRecordCodec recordCodec) =
 finishFragileRecord : FragileRecordCodec e a a -> Codec e a
 finishFragileRecord (FragileRecordCodec codec) =
     Codec
-        { encoder = codec.encoder >> List.reverse >> BE.sequence
-        , decoder = codec.decoder
+        { bytesEncoder = codec.bytesEncoder >> List.reverse >> BE.sequence
+        , bytesDecoder = codec.bytesDecoder
         , jsonEncoder = codec.jsonEncoder >> List.reverse >> JE.list identity
         , jsonDecoder = codec.jsonDecoder
-        , ronEncoder = Nothing
-        , ronDecoder = Nothing
+        , nodeEncoder = Nothing
+        , nodeDecoder = Nothing
         }
 
 
@@ -1236,26 +1236,26 @@ type alias FieldValue =
 -}
 type PartialRecord errs full remaining
     = PartialRecord
-        { encoder : full -> List BE.Encoder
-        , decoder : BD.Decoder (Result (Error errs) remaining)
+        { bytesEncoder : full -> List BE.Encoder
+        , bytesDecoder : BD.Decoder (Result (Error errs) remaining)
         , jsonEncoders : List (SmartJsonFieldEncoder full)
         , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
         , ronEncoders : List RegisterFieldEncoder
-        , ronDecoder : RegisterFieldDecoder errs remaining
+        , nodeDecoder : RegisterFieldDecoder errs remaining
         }
 
 
 record : remaining -> PartialRecord errs full remaining
 record remainingConstructor =
     PartialRecord
-        { encoder = \_ -> []
-        , decoder = BD.succeed (Ok remainingConstructor)
+        { bytesEncoder = \_ -> []
+        , bytesDecoder = BD.succeed (Ok remainingConstructor)
         , jsonEncoders = []
         , jsonArrayDecoder = JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
         , ronEncoders = []
-        , ronDecoder = \_ -> JD.succeed (Ok remainingConstructor)
+        , nodeDecoder = \_ -> JD.succeed (Ok remainingConstructor)
         }
 
 
@@ -1268,30 +1268,30 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.encoder existingRecord
+            (getBytesEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
-        ronDecoder inputs =
+        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
+        nodeDecoder inputs =
             ronWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
     in
     PartialRecord
-        { encoder = addToPartialBytesEncoderList
-        , decoder = BD.fail
+        { bytesEncoder = addToPartialBytesEncoderList
+        , bytesDecoder = BD.fail
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , ronDecoder =
+        , nodeDecoder =
             nestableJDmap2
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.ronDecoder
+                recordCodecSoFar.nodeDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                ronDecoder
+                nodeDecoder
         }
 
 
@@ -1305,22 +1305,22 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
+            (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
-        ronDecoder inputs =
+        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        nodeDecoder inputs =
             ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
     in
     PartialRecord
-        { encoder = addToPartialBytesEncoderList
-        , decoder =
+        { bytesEncoder = addToPartialBytesEncoderList
+        , bytesDecoder =
             BD.map2
                 combineIfBothSucceed
-                recordCodecSoFar.decoder
+                recordCodecSoFar.bytesDecoder
                 (getBytesDecoder fieldValueCodec)
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
@@ -1332,13 +1332,13 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , ronDecoder =
+        , nodeDecoder =
             nestableJDmap2
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.ronDecoder
+                recordCodecSoFar.nodeDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                ronDecoder
+                nodeDecoder
         }
 
 
@@ -1351,22 +1351,22 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.encoder existingRecord
+            (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
-        ronDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
-        ronDecoder inputs =
+        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        nodeDecoder inputs =
             ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
     in
     PartialRecord
-        { encoder = addToPartialBytesEncoderList
-        , decoder =
+        { bytesEncoder = addToPartialBytesEncoderList
+        , bytesDecoder =
             BD.map2
                 combineIfBothSucceed
-                recordCodecSoFar.decoder
+                recordCodecSoFar.bytesDecoder
                 (getBytesDecoder fieldValueCodec)
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
@@ -1378,13 +1378,13 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , ronDecoder =
+        , nodeDecoder =
             nestableJDmap2
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.ronDecoder
+                recordCodecSoFar.nodeDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                ronDecoder
+                nodeDecoder
         }
 
 
@@ -1629,8 +1629,8 @@ finishRecord (PartialRecord allFieldsCodec) =
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
-        ronDecoder : RonDecoder errs full
-        ronDecoder { node, pendingCounter, parentNotifier } =
+        nodeDecoder : NodeDecoder errs full
+        nodeDecoder { node, pendingCounter, parentNotifier } =
             let
                 registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) full)
                 registerDecoder objectIDs =
@@ -1649,12 +1649,12 @@ finishRecord (PartialRecord allFieldsCodec) =
                                 Just foundOne ->
                                     ExistingRegister foundOne
                     in
-                    allFieldsCodec.ronDecoder { node = node, pendingCounter = pending.passToChild, parent = parent, parentNotifier = parentNotifier }
+                    allFieldsCodec.nodeDecoder { node = node, pendingCounter = pending.passToChild, parent = parent, parentNotifier = parentNotifier }
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
-        ronEncoder : RonEncoder full
-        ronEncoder inputs =
+        nodeEncoder : NodeEncoder full
+        nodeEncoder inputs =
             registerRonEncoder allFieldsCodec.ronEncoders
                 { thingToEncode = Nothing
                 , mode = inputs.mode
@@ -1665,19 +1665,19 @@ finishRecord (PartialRecord allFieldsCodec) =
                 }
     in
     Codec
-        { encoder = allFieldsCodec.encoder >> List.reverse >> BE.sequence
-        , decoder = allFieldsCodec.decoder
+        { bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
+        , bytesDecoder = allFieldsCodec.bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = allFieldsCodec.jsonArrayDecoder
-        , ronEncoder = Just ronEncoder
-        , ronDecoder = Just ronDecoder
+        , nodeEncoder = Just nodeEncoder
+        , nodeDecoder = Just nodeDecoder
         }
 
 
 {-| Encodes an register as a list of Ops.
 -- The Op encoding the register comes last in the list, as the preceding Ops create registers that it depends on.
 For each field:
--- if it's a normal value (no ronEncoder) just encode it, return a FieldPreOp
+-- if it's a normal value (no nodeEncoder) just encode it, return a FieldPreOp
 -- if it's a nested register that does not yet exist in the tree, make an ID for it, then proceed with the following.
 -- if it's a nested register that does exist, run its registerRonEncoder and put its requisite ops above us.
 
@@ -1688,7 +1688,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerRonEncoder : List RegisterFieldEncoder -> RonEncoderInputs Register -> ChangePayload
+registerRonEncoder : List RegisterFieldEncoder -> NodeEncoderInputs Register -> ChangePayload
 registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
     let
         existingRegisterMaybe : Maybe Register
@@ -1783,7 +1783,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     -- check to see if there's a nested object, otherwise no point checking for register override
                     case fieldValueCodec of
                         Codec codecrecord ->
-                            Maybe.Extra.isJust codecrecord.ronEncoder
+                            Maybe.Extra.isJust codecrecord.nodeEncoder
 
                 encodedSubRegisterPotentially =
                     Maybe.andThen (\register -> Register.getFieldLatestOnly register ( fieldSlot, fieldName )) registerMaybe
@@ -1888,7 +1888,7 @@ map fromBytes_ toBytes_ codec =
 mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> Codec e a -> Codec e b
 mapHelper fromBytes_ toBytes_ codec =
     buildUnnestableCodec
-        (\v -> toBytes_ v |> getEncoder codec)
+        (\v -> toBytes_ v |> getBytesEncoder codec)
         (getBytesDecoder codec |> BD.map fromBytes_)
         (\v -> toBytes_ v |> getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map fromBytes_)
@@ -1924,7 +1924,7 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 mapValid : (a -> Result e b) -> (b -> a) -> Codec e a -> Codec e b
 mapValid fromBytes_ toBytes_ codec =
     buildUnnestableCodec
-        (\v -> toBytes_ v |> getEncoder codec)
+        (\v -> toBytes_ v |> getBytesEncoder codec)
         (getBytesDecoder codec
             |> BD.map
                 (\value ->
@@ -1955,7 +1955,7 @@ mapValid fromBytes_ toBytes_ codec =
 mapError : (e1 -> e2) -> Codec e1 a -> Codec e2 a
 mapError mapFunc codec =
     buildUnnestableCodec
-        (getEncoder codec)
+        (getBytesEncoder codec)
         (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
         (getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map (mapErrorHelper mapFunc))
@@ -2013,7 +2013,7 @@ Be careful here, and test your codecs using elm-test with larger inputs than you
 lazy : (() -> Codec e a) -> Codec e a
 lazy f =
     buildUnnestableCodec
-        (\value -> getEncoder (f ()) value)
+        (\value -> getBytesEncoder (f ()) value)
         (BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ())))
         (\value -> getJsonEncoder (f ()) value)
         (JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ())))
@@ -2038,7 +2038,7 @@ type CustomTypeCodec a e matcher v
         , nodeMatcher : matcher
         , bytesDecoder : Int -> BD.Decoder (Result (Error e) v) -> BD.Decoder (Result (Error e) v)
         , jsonDecoder : Int -> JD.Decoder (Result (Error e) v) -> JD.Decoder (Result (Error e) v)
-        , nodeDecoder : Int -> RonDecoder e v -> RonDecoder e v
+        , nodeDecoder : Int -> NodeDecoder e v -> NodeDecoder e v
         , idCounter : Int
         }
 
@@ -2067,7 +2067,7 @@ You need to pass a pattern matchering function, see the FAQ for details.
                     Green ->
                         greenEncoder
             )
-            -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
+            -- Note that removing a variantBuilder, inserting a variantBuilder before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
             |> S.variant3 Red S.int S.string S.bool
             |> S.variant1 Yellow S.float
             |> S.variant0 Green
@@ -2079,7 +2079,7 @@ customType : matcher -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e matc
 customType matcher =
     let
         noMatchFound givenTagNum orElse =
-            -- all the variant decoders have been run, but none of them matched the given tag
+            -- all the variantBuilder decoders have been run, but none of them matched the given tag
             orElse
     in
     CustomTypeCodec
@@ -2104,20 +2104,20 @@ type VariantEncoder
         }
 
 
-variant :
+variantBuilder :
     VariantTag
     -> ((List BE.Encoder -> VariantEncoder) -> finalWrappedValue)
     -> ((List JE.Value -> VariantEncoder) -> finalWrappedValue)
     -> ((ChangePayload -> VariantEncoder) -> finalWrappedValue)
     -> BD.Decoder (Result (Error error) v)
     -> JD.Decoder (Result (Error error) v)
-    -> RonDecoder error v
+    -> NodeDecoder error v
     -> CustomTypeCodec z error (finalWrappedValue -> b) v
     -> CustomTypeCodec () error b v
-variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncoder piecesBytesDecoder piecesJsonDecoder piecesNodeDecoder (CustomTypeCodec priorVariants) =
+variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncoder piecesBytesDecoder piecesJsonDecoder piecesNodeDecoder (CustomTypeCodec priorVariants) =
     let
         -- for the input encoder functions: they're expecting to be handed one of the wrappers below, but otherwise they're just the piecewise encoders of all the variant's pieces (in one big final encoder) needing only to be wrapped (e.g. add the `Just`).
-        -- for these wrapper functions: input list is individual encoders of the variant's sub-pieces. The variant's tag is prepended and the output is effectively an encoder of the entire variant at once. It then gets combined below with the other variant encoders to form the encoder of the whole custom type.
+        -- for these wrapper functions: input list is individual encoders of the variant's sub-pieces. The variant's tag is prepended and the output is effectively an encoder of the entire variantBuilder at once. It then gets combined below with the other variantBuilder encoders to form the encoder of the whole custom type.
         wrapBE : List BE.Encoder -> VariantEncoder
         wrapBE variantPieces =
             VariantEncoder
@@ -2145,31 +2145,31 @@ variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncod
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
         unwrapBD tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
-                -- variant match! now decode the pieces
+                -- variantBuilder match! now decode the pieces
                 piecesBytesDecoder
 
             else
-                -- not this variant, pass along to other variant decoders
+                -- not this variantBuilder, pass along to other variantBuilder decoders
                 priorVariants.bytesDecoder tagNumToDecode orElse
 
         unwrapJD : Int -> JD.Decoder (Result (Error error) v) -> JD.Decoder (Result (Error error) v)
         unwrapJD tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
-                -- variant match! now decode the pieces
+                -- variantBuilder match! now decode the pieces
                 piecesJsonDecoder
 
             else
-                -- not this variant, pass along to other variant decoders
+                -- not this variantBuilder, pass along to other variantBuilder decoders
                 priorVariants.jsonDecoder tagNumToDecode orElse
 
-        unwrapND : Int -> RonDecoder error v -> RonDecoder error v
+        unwrapND : Int -> NodeDecoder error v -> NodeDecoder error v
         unwrapND tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
-                -- variant match! now decode the pieces
+                -- variantBuilder match! now decode the pieces
                 piecesNodeDecoder
 
             else
-                -- not this variant, pass along to other variant decoders
+                -- not this variantBuilder, pass along to other variantBuilder decoders
                 priorVariants.nodeDecoder tagNumToDecode orElse
     in
     CustomTypeCodec
@@ -2183,29 +2183,32 @@ variant ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncod
         }
 
 
-{-| Define a variant with 0 parameters for a custom type.
+{-| Define a variantBuilder with 0 parameters for a custom type.
 -}
-variant0 : v -> CustomTypeCodec z e (VariantEncoder -> a) v -> CustomTypeCodec () e a v
-variant0 ctor =
-    variant
+variant0 : VariantTag -> v -> CustomTypeCodec z e (VariantEncoder -> a) v -> CustomTypeCodec () e a v
+variant0 tag ctor =
+    variantBuilder tag
+        (\wrapper -> wrapper [])
         (\wrapper -> wrapper [])
         (\wrapper -> wrapper [])
         (BD.succeed (Ok ctor))
         (JD.succeed (Ok ctor))
+        (\_ -> JD.succeed (Ok ctor))
 
 
-{-| Define a variant with 1 parameters for a custom type.
+{-| Define a variantBuilder with 1 parameters for a custom type.
 -}
 variant1 :
-    (a -> v)
+    VariantTag
+    -> (a -> v)
     -> Codec error a
     -> CustomTypeCodec z error ((a -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant1 ctor codec1 =
-    variant
+variant1 tag ctor codec1 =
+    variantBuilder tag
         (\wrapper v ->
             wrapper
-                [ getEncoder codec1 v
+                [ getBytesEncoder codec1 v
                 ]
         )
         (\wrapper v ->
@@ -2213,8 +2216,10 @@ variant1 ctor codec1 =
                 [ getJsonEncoder codec1 v
                 ]
         )
+        (Debug.todo "node encoder here")
         (BD.map (result1 ctor) (getBytesDecoder codec1))
         (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder codec1)))
+        (\inputsND -> JD.map (result1 ctor) (JD.index 1 (getRonDecoder codec1 inputsND)))
 
 
 result1 :
@@ -2230,19 +2235,20 @@ result1 ctor value =
             Err err
 
 
-{-| Define a variant with 2 parameters for a custom type.
+{-| Define a variantBuilder with 2 parameters for a custom type.
 -}
 variant2 :
-    (a -> b -> v)
+    VariantTag
+    -> (a -> b -> v)
     -> Codec error a
     -> Codec error b
     -> CustomTypeCodec z error ((a -> b -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant2 ctor codec1 codec2 =
-    variant
+variant2 tag ctor codec1 codec2 =
+    variantBuilder tag
         (\wrapper v1 v2 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
             ]
                 |> wrapper
         )
@@ -2252,6 +2258,7 @@ variant2 ctor codec1 codec2 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map2
             (result2 ctor)
             (getBytesDecoder codec1)
@@ -2262,6 +2269,7 @@ variant2 ctor codec1 codec2 =
             (JD.index 1 (getJsonDecoder codec1))
             (JD.index 2 (getJsonDecoder codec2))
         )
+        (Debug.todo "node decoder here")
 
 
 result2 :
@@ -2281,21 +2289,22 @@ result2 ctor v1 v2 =
             Err err
 
 
-{-| Define a variant with 3 parameters for a custom type.
+{-| Define a variantBuilder with 3 parameters for a custom type.
 -}
 variant3 :
-    (a -> b -> c -> v)
+    VariantTag
+    -> (a -> b -> c -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
     -> CustomTypeCodec z error ((a -> b -> c -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant3 ctor codec1 codec2 codec3 =
-    variant
+variant3 tag ctor codec1 codec2 codec3 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
             ]
                 |> wrapper
         )
@@ -2306,6 +2315,7 @@ variant3 ctor codec1 codec2 codec3 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map3
             (result3 ctor)
             (getBytesDecoder codec1)
@@ -2318,6 +2328,7 @@ variant3 ctor codec1 codec2 codec3 =
             (JD.index 2 (getJsonDecoder codec2))
             (JD.index 3 (getJsonDecoder codec3))
         )
+        (Debug.todo "node decoder here")
 
 
 result3 :
@@ -2341,23 +2352,24 @@ result3 ctor v1 v2 v3 =
             Err err
 
 
-{-| Define a variant with 4 parameters for a custom type.
+{-| Define a variantBuilder with 4 parameters for a custom type.
 -}
 variant4 :
-    (a -> b -> c -> d -> v)
+    VariantTag
+    -> (a -> b -> c -> d -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
     -> Codec error d
     -> CustomTypeCodec z error ((a -> b -> c -> d -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant4 ctor codec1 codec2 codec3 codec4 =
-    variant
+variant4 tag ctor codec1 codec2 codec3 codec4 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 v4 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
-            , getEncoder codec4 v4
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
+            , getBytesEncoder codec4 v4
             ]
                 |> wrapper
         )
@@ -2369,6 +2381,7 @@ variant4 ctor codec1 codec2 codec3 codec4 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map4
             (result4 ctor)
             (getBytesDecoder codec1)
@@ -2383,6 +2396,7 @@ variant4 ctor codec1 codec2 codec3 codec4 =
             (JD.index 3 (getJsonDecoder codec3))
             (JD.index 4 (getJsonDecoder codec4))
         )
+        (Debug.todo "node decoder here")
 
 
 result4 :
@@ -2410,10 +2424,11 @@ result4 ctor v1 v2 v3 v4 =
             Err err
 
 
-{-| Define a variant with 5 parameters for a custom type.
+{-| Define a variantBuilder with 5 parameters for a custom type.
 -}
 variant5 :
-    (a -> b -> c -> d -> e -> v)
+    VariantTag
+    -> (a -> b -> c -> d -> e -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
@@ -2421,14 +2436,14 @@ variant5 :
     -> Codec error e
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant5 ctor codec1 codec2 codec3 codec4 codec5 =
-    variant
+variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 v4 v5 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
-            , getEncoder codec4 v4
-            , getEncoder codec5 v5
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
+            , getBytesEncoder codec4 v4
+            , getBytesEncoder codec5 v5
             ]
                 |> wrapper
         )
@@ -2441,6 +2456,7 @@ variant5 ctor codec1 codec2 codec3 codec4 codec5 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map5
             (result5 ctor)
             (getBytesDecoder codec1)
@@ -2457,6 +2473,7 @@ variant5 ctor codec1 codec2 codec3 codec4 codec5 =
             (JD.index 4 (getJsonDecoder codec4))
             (JD.index 5 (getJsonDecoder codec5))
         )
+        (Debug.todo "node decoder here")
 
 
 result5 :
@@ -2488,10 +2505,11 @@ result5 ctor v1 v2 v3 v4 v5 =
             Err err
 
 
-{-| Define a variant with 6 parameters for a custom type.
+{-| Define a variantBuilder with 6 parameters for a custom type.
 -}
 variant6 :
-    (a -> b -> c -> d -> e -> f -> v)
+    VariantTag
+    -> (a -> b -> c -> d -> e -> f -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
@@ -2500,15 +2518,15 @@ variant6 :
     -> Codec error f
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
-    variant
+variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 v4 v5 v6 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
-            , getEncoder codec4 v4
-            , getEncoder codec5 v5
-            , getEncoder codec6 v6
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
+            , getBytesEncoder codec4 v4
+            , getBytesEncoder codec5 v5
+            , getBytesEncoder codec6 v6
             ]
                 |> wrapper
         )
@@ -2522,6 +2540,7 @@ variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map5
             (result6 ctor)
             (getBytesDecoder codec1)
@@ -2544,6 +2563,7 @@ variant6 ctor codec1 codec2 codec3 codec4 codec5 codec6 =
                 (JD.index 6 (getJsonDecoder codec6))
             )
         )
+        (Debug.todo "node decoder here")
 
 
 result6 :
@@ -2578,10 +2598,11 @@ result6 ctor v1 v2 v3 v4 ( v5, v6 ) =
             Err err
 
 
-{-| Define a variant with 7 parameters for a custom type.
+{-| Define a variantBuilder with 7 parameters for a custom type.
 -}
 variant7 :
-    (a -> b -> c -> d -> e -> f -> g -> v)
+    VariantTag
+    -> (a -> b -> c -> d -> e -> f -> g -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
@@ -2591,16 +2612,16 @@ variant7 :
     -> Codec error g
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
-    variant
+variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 v4 v5 v6 v7 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
-            , getEncoder codec4 v4
-            , getEncoder codec5 v5
-            , getEncoder codec6 v6
-            , getEncoder codec7 v7
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
+            , getBytesEncoder codec4 v4
+            , getBytesEncoder codec5 v5
+            , getBytesEncoder codec6 v6
+            , getBytesEncoder codec7 v7
             ]
                 |> wrapper
         )
@@ -2615,6 +2636,7 @@ variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map5
             (result7 ctor)
             (getBytesDecoder codec1)
@@ -2643,6 +2665,7 @@ variant7 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
                 (JD.index 7 (getJsonDecoder codec7))
             )
         )
+        (Debug.todo "node decoder here")
 
 
 result7 :
@@ -2680,10 +2703,11 @@ result7 ctor v1 v2 v3 ( v4, v5 ) ( v6, v7 ) =
             Err err
 
 
-{-| Define a variant with 8 parameters for a custom type.
+{-| Define a variantBuilder with 8 parameters for a custom type.
 -}
 variant8 :
-    (a -> b -> c -> d -> e -> f -> g -> h -> v)
+    VariantTag
+    -> (a -> b -> c -> d -> e -> f -> g -> h -> v)
     -> Codec error a
     -> Codec error b
     -> Codec error c
@@ -2694,17 +2718,17 @@ variant8 :
     -> Codec error h
     -> CustomTypeCodec z error ((a -> b -> c -> d -> e -> f -> g -> h -> VariantEncoder) -> partial) v
     -> CustomTypeCodec () error partial v
-variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
-    variant
+variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
+    variantBuilder tag
         (\wrapper v1 v2 v3 v4 v5 v6 v7 v8 ->
-            [ getEncoder codec1 v1
-            , getEncoder codec2 v2
-            , getEncoder codec3 v3
-            , getEncoder codec4 v4
-            , getEncoder codec5 v5
-            , getEncoder codec6 v6
-            , getEncoder codec7 v7
-            , getEncoder codec8 v8
+            [ getBytesEncoder codec1 v1
+            , getBytesEncoder codec2 v2
+            , getBytesEncoder codec3 v3
+            , getBytesEncoder codec4 v4
+            , getBytesEncoder codec5 v5
+            , getBytesEncoder codec6 v6
+            , getBytesEncoder codec7 v7
+            , getBytesEncoder codec8 v8
             ]
                 |> wrapper
         )
@@ -2720,6 +2744,7 @@ variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
             ]
                 |> wrapper
         )
+        (Debug.todo "node encoder here")
         (BD.map5
             (result8 ctor)
             (getBytesDecoder codec1)
@@ -2754,6 +2779,7 @@ variant8 ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
                 (JD.index 8 (getJsonDecoder codec8))
             )
         )
+        (Debug.todo "node decoder here")
 
 
 result8 :
