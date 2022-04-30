@@ -21,12 +21,11 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ modifiedNestedStressTestIntegrityCheck
+        [ readOnlyObjectEncodeThenDecode
 
+        -- , writableObjectEncodeThenDecode
         -- , repListEncodeThenDecode
         -- , repListInsertAndRemove
-        -- , readOnlyObjectEncodeThenDecode
-        -- , writableObjectEncodeThenDecode
         -- , nodeModifications
         -- , nestedStressTestIntegrityCheck
         -- , modifiedNestedStressTestIntegrityCheck
@@ -66,6 +65,7 @@ type alias ReadOnlyObject =
     , address : String
     , number : Int
     , living : Bool
+    , heightMaybe : Maybe Int
     }
 
 
@@ -76,6 +76,7 @@ readOnlyObjectCodec =
         |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
         |> RC.fieldR ( 3, "number" ) .number RC.int 1
         |> RC.fieldR ( 4, "living" ) .living RC.bool True
+        |> RC.fieldR ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) Nothing
         |> RC.finishRecord
 
 
@@ -85,6 +86,7 @@ correctDefaultReadOnlyObject =
     , address = "default address"
     , number = 1
     , living = True
+    , heightMaybe = Nothing
     }
 
 

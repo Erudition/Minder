@@ -1498,7 +1498,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                             -- fall back to default if we failed to decode set value for some reason
                             -- TODO error instead?
                             -- JD.succeed <| Ok (default)
-                            Debug.todo "decode failure!"
+                            Debug.todo <| "decoder failure: " ++ JD.errorToString problem
 
         Nothing ->
             -- for nested objects ONLY (fieldN)
@@ -2155,10 +2155,14 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 }
 
         wrapJE : List JE.Value -> VariantEncoder
-        wrapJE variantPieces =
+        wrapJE variantPiecesEncoders =
             VariantEncoder
                 { bytes = BE.sequence []
-                , json = JE.string (String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces |> JE.list identity
+                , json =
+                    JE.object
+                        [ ( "tag", JE.string (String.fromInt tagNum ++ "_" ++ tagName) )
+                        , ( "pieces", JE.list identity variantPiecesEncoders )
+                        ]
                 , node = \_ -> []
                 }
 
@@ -2196,7 +2200,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
         unwrapJD tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
                 -- variantBuilder match! now decode the pieces
-                piecesJsonDecoder
+                JD.field "pieces" piecesJsonDecoder
 
             else
                 -- not this variantBuilder, pass along to other variantBuilder decoders
@@ -3028,11 +3032,20 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
         nodeDecoder : NodeDecoder e a
         nodeDecoder inputs =
-            JD.index 0 JD.int
+            -- used to be JD.index 0 JD.int
+            JD.field "tag" JD.string
                 |> JD.andThen
                     (\tag ->
-                        priorVariants.nodeDecoder tag (\_ -> JD.succeed (Err DataCorrupted)) inputs
+                        priorVariants.nodeDecoder (tagToInt tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
                     )
+
+        tagToInt : String -> Int
+        tagToInt input =
+            -- TODO optimize
+            String.split "_" input
+                |> List.head
+                |> Maybe.andThen String.toInt
+                |> Maybe.withDefault 0
     in
     buildNestableCodec
         (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))
@@ -3043,10 +3056,10 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 )
         )
         (priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json))
-        (JD.index 0 JD.int
+        (JD.field "tag" JD.string
             |> JD.andThen
                 (\tag ->
-                    priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
+                    priorVariants.jsonDecoder (tagToInt tag) (JD.succeed (Err DataCorrupted))
                 )
         )
         (Just nodeEncoder)
