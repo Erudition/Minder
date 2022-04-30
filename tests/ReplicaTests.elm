@@ -76,7 +76,7 @@ readOnlyObjectCodec =
         |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
         |> RC.fieldR ( 3, "number" ) .number RC.int 1
         |> RC.fieldR ( 4, "living" ) .living RC.bool True
-        |> RC.fieldR ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) Nothing
+        |> RC.fieldR ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) (Just 5)
         |> RC.finishRecord
 
 

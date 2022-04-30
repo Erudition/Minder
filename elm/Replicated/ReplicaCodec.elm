@@ -2155,14 +2155,10 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 }
 
         wrapJE : List JE.Value -> VariantEncoder
-        wrapJE variantPiecesEncoders =
+        wrapJE variantPieces =
             VariantEncoder
                 { bytes = BE.sequence []
-                , json =
-                    JE.object
-                        [ ( "tag", JE.string (String.fromInt tagNum ++ "_" ++ tagName) )
-                        , ( "pieces", JE.list identity variantPiecesEncoders )
-                        ]
+                , json = JE.string (String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces |> JE.list identity
                 , node = \_ -> []
                 }
 
@@ -2173,17 +2169,20 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                     List.indexedMap (applyIndexedInputs inputs) variantEncoders
                         |> List.concat
 
-                tagAtom =
-                    Op.JustString <| String.fromInt tagNum ++ "_" ++ tagName
+                tag =
+                    JE.string <| String.fromInt tagNum ++ "_" ++ tagName
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
                         { inputs | pendingCounter = (Op.usePendingCounter index inputs.pendingCounter).passToChild }
+
+                encodedTagAndPiecesList inputs =
+                    JE.list identity (tag :: piecesApplied inputs)
             in
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = \inputs -> tagAtom :: piecesApplied inputs
+                , node = \inputs -> [ Op.JustString (JE.encode 0 (encodedTagAndPiecesList inputs)) ]
                 }
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -2200,7 +2199,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
         unwrapJD tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
                 -- variantBuilder match! now decode the pieces
-                JD.field "pieces" piecesJsonDecoder
+                piecesJsonDecoder
 
             else
                 -- not this variantBuilder, pass along to other variantBuilder decoders
@@ -3032,20 +3031,11 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
         nodeDecoder : NodeDecoder e a
         nodeDecoder inputs =
-            -- used to be JD.index 0 JD.int
-            JD.field "tag" JD.string
+            JD.index 0 JD.int
                 |> JD.andThen
                     (\tag ->
-                        priorVariants.nodeDecoder (tagToInt tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
+                        priorVariants.nodeDecoder tag (\_ -> JD.succeed (Err DataCorrupted)) inputs
                     )
-
-        tagToInt : String -> Int
-        tagToInt input =
-            -- TODO optimize
-            String.split "_" input
-                |> List.head
-                |> Maybe.andThen String.toInt
-                |> Maybe.withDefault 0
     in
     buildNestableCodec
         (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))
@@ -3056,10 +3046,10 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 )
         )
         (priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json))
-        (JD.field "tag" JD.string
+        (JD.index 0 JD.int
             |> JD.andThen
                 (\tag ->
-                    priorVariants.jsonDecoder (tagToInt tag) (JD.succeed (Err DataCorrupted))
+                    priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
         (Just nodeEncoder)
