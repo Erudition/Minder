@@ -2124,15 +2124,19 @@ type VariantEncoder
     = VariantEncoder
         { bytes : BE.Encoder
         , json : JE.Value
-        , node : ChangePayload
+        , node : NodeEncoderInputsNoVariable -> ChangePayload
         }
+
+
+type alias VariantNodeEncoder =
+    NodeEncoderInputsNoVariable -> ChangePayload
 
 
 variantBuilder :
     VariantTag
     -> ((List BE.Encoder -> VariantEncoder) -> finalWrappedValue)
     -> ((List JE.Value -> VariantEncoder) -> finalWrappedValue)
-    -> ((ChangePayload -> VariantEncoder) -> finalWrappedValue)
+    -> ((List VariantNodeEncoder -> VariantEncoder) -> finalWrappedValue)
     -> BD.Decoder (Result (Error error) v)
     -> JD.Decoder (Result (Error error) v)
     -> NodeDecoder error v
@@ -2147,7 +2151,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.unsignedInt16 endian tagNum :: variantPieces |> BE.sequence
                 , json = JE.null
-                , node = []
+                , node = \_ -> []
                 }
 
         wrapJE : List JE.Value -> VariantEncoder
@@ -2155,15 +2159,27 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.string (String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces |> JE.list identity
-                , node = []
+                , node = \_ -> []
                 }
 
-        wrapNE : ChangePayload -> VariantEncoder
-        wrapNE variantPieces =
+        wrapNE : List VariantNodeEncoder -> VariantEncoder
+        wrapNE variantEncoders =
+            let
+                piecesApplied inputs =
+                    List.indexedMap (applyIndexedInputs inputs) variantEncoders
+                        |> List.concat
+
+                tagAtom =
+                    Op.JustString <| String.fromInt tagNum ++ "_" ++ tagName
+
+                applyIndexedInputs inputs index encoderFunction =
+                    encoderFunction
+                        { inputs | pendingCounter = (Op.usePendingCounter index inputs.pendingCounter).passToChild }
+            in
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = (Op.JustString <| String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces
+                , node = \inputs -> tagAtom :: piecesApplied inputs
                 }
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -2220,6 +2236,11 @@ variant0 tag ctor =
         (\_ -> JD.succeed (Ok ctor))
 
 
+passNDInputs : Int -> NodeDecoderInputs -> NodeDecoderInputs
+passNDInputs pieceNum inputsND =
+    { inputsND | pendingCounter = (Op.usePendingCounter pieceNum inputsND.pendingCounter).passToChild }
+
+
 {-| Define a variantBuilder with 1 parameters for a custom type.
 -}
 variant1 :
@@ -2240,10 +2261,16 @@ variant1 tag ctor codec1 =
                 [ getJsonEncoder codec1 v
                 ]
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v)
+                ]
+        )
         (BD.map (result1 ctor) (getBytesDecoder codec1))
         (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder codec1)))
-        (\inputsND -> JD.map (result1 ctor) (JD.index 1 (getNodeDecoder codec1 inputsND)))
+        (\inputsND ->
+            JD.map (result1 ctor) (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+        )
 
 
 result1 :
@@ -2282,7 +2309,12 @@ variant2 tag ctor codec1 codec2 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                ]
+        )
         (BD.map2
             (result2 ctor)
             (getBytesDecoder codec1)
@@ -2293,7 +2325,12 @@ variant2 tag ctor codec1 codec2 =
             (JD.index 1 (getJsonDecoder codec1))
             (JD.index 2 (getJsonDecoder codec2))
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map2
+                (result2 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+        )
 
 
 result2 :
@@ -2339,7 +2376,13 @@ variant3 tag ctor codec1 codec2 codec3 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                ]
+        )
         (BD.map3
             (result3 ctor)
             (getBytesDecoder codec1)
@@ -2352,7 +2395,13 @@ variant3 tag ctor codec1 codec2 codec3 =
             (JD.index 2 (getJsonDecoder codec2))
             (JD.index 3 (getJsonDecoder codec3))
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map3
+                (result3 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+        )
 
 
 result3 :
@@ -2405,7 +2454,14 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 v4 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                , getNodeEncoderSplit codec4 (Just v4)
+                ]
+        )
         (BD.map4
             (result4 ctor)
             (getBytesDecoder codec1)
@@ -2420,7 +2476,14 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
             (JD.index 3 (getJsonDecoder codec3))
             (JD.index 4 (getJsonDecoder codec4))
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map4
+                (result4 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+        )
 
 
 result4 :
@@ -2480,7 +2543,15 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 v4 v5 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                , getNodeEncoderSplit codec4 (Just v4)
+                , getNodeEncoderSplit codec5 (Just v5)
+                ]
+        )
         (BD.map5
             (result5 ctor)
             (getBytesDecoder codec1)
@@ -2497,7 +2568,15 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
             (JD.index 4 (getJsonDecoder codec4))
             (JD.index 5 (getJsonDecoder codec5))
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map5
+                (result5 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+        )
 
 
 result5 :
@@ -2564,7 +2643,16 @@ variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 v4 v5 v6 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                , getNodeEncoderSplit codec4 (Just v4)
+                , getNodeEncoderSplit codec5 (Just v5)
+                , getNodeEncoderSplit codec6 (Just v6)
+                ]
+        )
         (BD.map5
             (result6 ctor)
             (getBytesDecoder codec1)
@@ -2587,7 +2675,18 @@ variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
                 (JD.index 6 (getJsonDecoder codec6))
             )
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map5
+                (result6 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                (JD.map2 Tuple.pair
+                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
+                )
+        )
 
 
 result6 :
@@ -2660,7 +2759,17 @@ variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                , getNodeEncoderSplit codec4 (Just v4)
+                , getNodeEncoderSplit codec5 (Just v5)
+                , getNodeEncoderSplit codec6 (Just v6)
+                , getNodeEncoderSplit codec7 (Just v7)
+                ]
+        )
         (BD.map5
             (result7 ctor)
             (getBytesDecoder codec1)
@@ -2689,7 +2798,21 @@ variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
                 (JD.index 7 (getJsonDecoder codec7))
             )
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map5
+                (result7 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.map2 Tuple.pair
+                    (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+                )
+                (JD.map2 Tuple.pair
+                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
+                    (JD.index 7 (getNodeDecoder codec7 (passNDInputs 7 inputsND)))
+                )
+        )
 
 
 result7 :
@@ -2768,7 +2891,18 @@ variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
             ]
                 |> wrapper
         )
-        (Debug.todo "node encoder here")
+        (\wrapper v1 v2 v3 v4 v5 v6 v7 v8 ->
+            wrapper
+                [ getNodeEncoderSplit codec1 (Just v1)
+                , getNodeEncoderSplit codec2 (Just v2)
+                , getNodeEncoderSplit codec3 (Just v3)
+                , getNodeEncoderSplit codec4 (Just v4)
+                , getNodeEncoderSplit codec5 (Just v5)
+                , getNodeEncoderSplit codec6 (Just v6)
+                , getNodeEncoderSplit codec7 (Just v7)
+                , getNodeEncoderSplit codec8 (Just v8)
+                ]
+        )
         (BD.map5
             (result8 ctor)
             (getBytesDecoder codec1)
@@ -2803,7 +2937,24 @@ variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
                 (JD.index 8 (getJsonDecoder codec8))
             )
         )
-        (Debug.todo "node decoder here")
+        (\inputsND ->
+            JD.map5
+                (result8 ctor)
+                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.map2 Tuple.pair
+                    (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                    (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                )
+                (JD.map2 Tuple.pair
+                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
+                )
+                (JD.map2 Tuple.pair
+                    (JD.index 7 (getNodeDecoder codec7 (passNDInputs 7 inputsND)))
+                    (JD.index 8 (getNodeDecoder codec8 (passNDInputs 8 inputsND)))
+                )
+        )
 
 
 result8 :
@@ -2848,6 +2999,41 @@ result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
 -}
 finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> Codec e a
 finishCustomType (CustomTypeCodec priorVariants) =
+    let
+        nodeEncoder : NodeEncoder a
+        nodeEncoder nodeEncoderInputs =
+            let
+                newInputs : NodeEncoderInputsNoVariable
+                newInputs =
+                    { node = nodeEncoderInputs.node
+                    , mode = nodeEncoderInputs.mode
+                    , encodeRegisterInstead = nodeEncoderInputs.encodeRegisterInstead
+                    , pendingCounter = nodeEncoderInputs.pendingCounter
+                    , parentNotifier = nodeEncoderInputs.parentNotifier
+                    }
+
+                nodeMatcher : VariantEncoder
+                nodeMatcher =
+                    case nodeEncoderInputs.thingToEncode of
+                        Just encodeThing ->
+                            priorVariants.nodeMatcher encodeThing
+
+                        Nothing ->
+                            Debug.todo "there was nothing to encode, should never happen"
+
+                getNodeVariantEncoder (VariantEncoder encoders) =
+                    encoders.node newInputs
+            in
+            getNodeVariantEncoder nodeMatcher
+
+        nodeDecoder : NodeDecoder e a
+        nodeDecoder inputs =
+            JD.index 0 JD.int
+                |> JD.andThen
+                    (\tag ->
+                        priorVariants.nodeDecoder tag (\_ -> JD.succeed (Err DataCorrupted)) inputs
+                    )
+    in
     buildNestableCodec
         (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))
         (BD.unsignedInt16 endian
@@ -2863,5 +3049,5 @@ finishCustomType (CustomTypeCodec priorVariants) =
                     priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
-        Nothing
-        Nothing
+        (Just nodeEncoder)
+        (Just nodeDecoder)
