@@ -68,7 +68,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Change(..), ChangeAtom(..), ChangePayload, Op, Pointer(..), changeToRonPayload)
+import Replicated.Op.Op as Op exposing (Change(..), ChangeAtom(..), ChangePayload, Op, Pointer(..), changeToChangePayload)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -407,7 +407,7 @@ getNodeEncoder (Codec m) inputs =
         Nothing ->
             case inputs.thingToEncode of
                 Just thing ->
-                    [ Op.JustString <| JE.encode 0 (m.jsonEncoder thing) ]
+                    [ Op.ValueAtom <| m.jsonEncoder thing ]
 
                 Nothing ->
                     []
@@ -605,7 +605,7 @@ string =
                     case inputs.thingToEncode of
                         Just thing ->
                             -- TODO eliminate quotes and decode without them
-                            [ Op.JustString <| JE.encode 0 (JE.string thing) ]
+                            [ Op.ValueAtom (JE.string thing) ]
 
                         Nothing ->
                             []
@@ -769,9 +769,9 @@ repList memberCodec =
                 Nothing ->
                     Op.NewPayload (memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue)
 
-        memberRonDecoder : Node -> Op.PendingCounter -> String -> Maybe memberType
+        memberRonDecoder : Node -> Op.PendingCounter -> JE.Value -> Maybe memberType
         memberRonDecoder node childPendingCounter encodedMember =
-            case JD.decodeString (getNodeDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) (prepDecoder encodedMember) of
+            case JD.decodeValue (getNodeDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) encodedMember of
                 Ok (Ok member) ->
                     Just member
 
@@ -801,14 +801,14 @@ repList memberCodec =
         repListRonEncoder ({ node, thingToEncode, mode, parentNotifier, pendingCounter } as details) =
             case thingToEncode of
                 Nothing ->
-                    changeToRonPayload <|
+                    changeToChangePayload <|
                         Chunk
                             { target = Op.PlaceholderPointer RepList.reducerID (Op.usePendingCounter 0 pendingCounter).id identity
                             , objectChanges = []
                             }
 
                 Just existingRepList ->
-                    changeToRonPayload <|
+                    changeToChangePayload <|
                         Chunk
                             { target = RepList.getID existingRepList
                             , objectChanges = [] -- TODO should this be blank
@@ -1462,11 +1462,11 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     Nothing
 
         runFieldDecoder thingToDecode =
-            JD.decodeString
+            JD.decodeValue
                 (getNodeDecoder fieldValueCodec
                     { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }
                 )
-                (prepDecoder (Debug.log ("@@@running field " ++ fieldName ++ " decoder on input") thingToDecode))
+                thingToDecode
 
         updateMePostChildInit changeToWrap =
             Op.Chunk
@@ -1478,7 +1478,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                         ExistingRegister reg ->
                             ExistingObjectPointer <| Register.getID reg
                 , objectChanges =
-                    [ Op.NewPayload (Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (changeToRonPayload changeToWrap)) ]
+                    [ Op.NewPayload (Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (changeToChangePayload changeToWrap)) ]
                 }
     in
     case defaultMaybe of
@@ -1490,7 +1490,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
 
                 Just foundField ->
                     -- field was set - decode value and use it
-                    case runFieldDecoder (prepDecoder foundField) of
+                    case runFieldDecoder foundField of
                         Ok something ->
                             JD.succeed something
 
@@ -1513,10 +1513,10 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
 
                         _ ->
                             -- decode an empty UUID list when there's no pre-existing objects
-                            Debug.log ("parent register was not passed in, so no way to retrieve " ++ fieldName) []
+                            []
 
                 allNestedObjects =
-                    runFieldDecoder (JE.encode 0 (JE.list JE.string fieldUUIDHistoryList))
+                    runFieldDecoder (JE.list identity fieldUUIDHistoryList)
             in
             case allNestedObjects of
                 Ok something ->
@@ -1558,7 +1558,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
                         ExistingRegister reg ->
                             ExistingObjectPointer <| Register.getID reg
                 , objectChanges =
-                    [ Op.NewPayload (Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (changeToRonPayload changeToWrap)) ]
+                    [ Op.NewPayload (Register.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (changeToChangePayload changeToWrap)) ]
                 }
     in
     case inputs.parent of
@@ -1574,9 +1574,9 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
                 desiredFieldDecodedMaybe =
                     Maybe.map runDecoderOnFoundField desiredFieldEncodedMaybe
 
-                runDecoderOnFoundField : String -> Result JD.Error (Result (Error e) fieldtype)
+                runDecoderOnFoundField : JE.Value -> Result JD.Error (Result (Error e) fieldtype)
                 runDecoderOnFoundField foundValue =
-                    Debug.log ("* decoding found field for " ++ fieldName) <| JD.decodeString (getNodeDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) (prepDecoder (Debug.log ("with foundValue for " ++ fieldName) foundValue))
+                    JD.decodeValue (getNodeDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateMePostChildInit }) foundValue
 
                 -- TODO if nested codec is another register, decode with getFieldHistoryValues instead, using that as the list of objects
             in
@@ -1789,7 +1789,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                         updateRegisterAfterChildInit
                             (Register.encodeFieldPayloadAsObjectPayload
                                 ( fieldSlot, fieldName )
-                                (changeToRonPayload changeToWrap)
+                                (changeToChangePayload changeToWrap)
                             )
                 , pendingCounter = pendingCounter -- Already "used" by register encoder
                 }
@@ -1814,7 +1814,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
                 subRegisterObjectIDsMaybe : Maybe (List ObjectID)
                 subRegisterObjectIDsMaybe =
-                    Maybe.andThen (\input -> Result.toMaybe (JD.decodeString concurrentObjectIDsDecoder (prepDecoder input))) encodedSubRegisterPotentially
+                    Maybe.andThen (\input -> Result.toMaybe (JD.decodeValue concurrentObjectIDsDecoder input)) encodedSubRegisterPotentially
 
                 subRegisterMaybe =
                     case subRegisterObjectIDsMaybe of
@@ -1832,9 +1832,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
         getValue register =
             Register.getFieldLatestOnly register ( fieldSlot, fieldName )
-                |> Maybe.map (\v -> [ Op.JustString v ])
 
-        -- TODO can there be nested objects in register memory?
         encodedDefault fieldDefault =
             runFieldRonEncoder fieldDefault
 
@@ -1855,11 +1853,12 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     explicitDefaultIfNeeded fieldDefault
 
                 Just foundPreviousValue ->
-                    if foundPreviousValue == encodedDefault fieldDefault then
+                    -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
+                    if [ Op.ValueAtom foundPreviousValue ] == encodedDefault fieldDefault then
                         explicitDefaultIfNeeded fieldDefault
 
                     else
-                        Just <| Op.NewPayload foundPreviousValue
+                        Just <| Op.NewPayload [ Op.ValueAtom foundPreviousValue ]
 
         ( Nothing, Just containingRegister ) ->
             case getValue containingRegister of
@@ -1867,7 +1866,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     Nothing
 
                 Just foundPreviousValue ->
-                    Just <| Op.NewPayload foundPreviousValue
+                    Just <| Op.NewPayload [ Op.ValueAtom foundPreviousValue ]
 
         ( Nothing, Nothing ) ->
             Nothing
@@ -2170,19 +2169,16 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                         |> List.concat
 
                 tag =
-                    JE.string <| String.fromInt tagNum ++ "_" ++ tagName
+                    Op.ValueAtom <| JE.string <| String.fromInt tagNum ++ "_" ++ tagName
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
                         { inputs | pendingCounter = (Op.usePendingCounter index inputs.pendingCounter).passToChild }
-
-                encodedTagAndPiecesList inputs =
-                    JE.list identity (tag :: piecesApplied inputs)
             in
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = \inputs -> [ Op.JustString (JE.encode 0 (encodedTagAndPiecesList inputs)) ]
+                , node = \inputs -> [ Op.NestedAtoms (tag :: piecesApplied inputs) ]
                 }
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -3031,10 +3027,17 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
         nodeDecoder : NodeDecoder e a
         nodeDecoder inputs =
-            JD.index 0 JD.int
+            let
+                getTagNum tag =
+                    String.split "_" tag
+                        |> List.head
+                        |> Maybe.andThen String.toInt
+                        |> Maybe.withDefault -1
+            in
+            JD.index 0 JD.string
                 |> JD.andThen
                     (\tag ->
-                        priorVariants.nodeDecoder tag (\_ -> JD.succeed (Err DataCorrupted)) inputs
+                        priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
                     )
     in
     buildNestableCodec

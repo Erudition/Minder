@@ -1,6 +1,7 @@
-module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), ParentNotifier, Payload, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToRonPayload, combineChangesOfSameTarget, create, equalPointers, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, unmatchableCounter, usePendingCounter)
+module Replicated.Op.Op exposing (Change(..), ChangeAtom(..), ChangePayload, ObjectChange(..), Op, OpPattern(..), OpPayloadAtoms, ParentNotifier, PendingCounter, PendingID, Pointer(..), ReducerID, Reference(..), changeToChangePayload, combineChangesOfSameTarget, create, equalPointers, firstPendingCounter, fromFrame, fromLog, fromString, id, initObject, isPlaceholder, object, pattern, payload, pendingIDToString, reducer, reference, toString, unmatchableCounter, usePendingCounter)
 
-import Json.Encode
+import Json.Decode as JD
+import Json.Encode as JE
 import List.Extra
 import List.Nonempty exposing (Nonempty)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
@@ -19,7 +20,7 @@ type alias OpRecord =
     , objectID : ObjectID
     , operationID : OpID
     , reference : Reference
-    , payload : Payload
+    , payload : OpPayloadAtoms
     }
 
 
@@ -48,8 +49,8 @@ opIDFromReference givenRef =
             Nothing
 
 
-type alias Payload =
-    String
+type alias OpPayloadAtoms =
+    List JE.Value
 
 
 type alias ReducerID =
@@ -120,7 +121,7 @@ type alias Frame =
     Nonempty Op
 
 
-create : ReducerID -> OpID.ObjectID -> OpID -> Reference -> String -> Op
+create : ReducerID -> OpID.ObjectID -> OpID -> Reference -> OpPayloadAtoms -> Op
 create givenReducer givenObject opID givenReference givenPayload =
     Op
         { reducerID = givenReducer
@@ -138,7 +139,7 @@ initObject givenReducer opID =
         , objectID = opID
         , operationID = opID
         , reference = ReducerReference givenReducer
-        , payload = ""
+        , payload = []
         }
 
 
@@ -170,8 +171,11 @@ toString (Op op) =
 
         ref =
             ":" ++ referenceToString op.reference
+
+        encodePayloadAtom atom =
+            JE.encode 0 atom
     in
-    opID ++ " " ++ ref ++ " " ++ op.payload
+    opID ++ " " ++ ref ++ " " ++ String.join " " (List.map encodePayloadAtom op.payload)
 
 
 fromString : String -> Maybe Op -> Result String Op
@@ -200,7 +204,12 @@ fromString inputString previousOpMaybe =
             List.Extra.filterNot (\atom -> String.startsWith ":" atom || String.startsWith "@" atom) atoms
 
         remainderPayload =
-            String.concat otherAtoms
+            let
+                atomAsJEValue atomString =
+                    JD.decodeString JD.value atomString
+                        |> Result.toMaybe
+            in
+            List.filterMap atomAsJEValue otherAtoms
 
         reducerMaybe =
             case ( referenceAtom, previousOpMaybe ) of
@@ -219,7 +228,7 @@ fromString inputString previousOpMaybe =
             case ( opIDMaybe, otherAtoms, referenceMaybe ) of
                 ( Just opID, [], _ ) ->
                     -- no payload - must be a creation op
-                    Ok (create givenReducer opID opID (ReducerReference givenReducer) "")
+                    Ok (create givenReducer opID opID (ReducerReference givenReducer) [])
 
                 ( Just opID, _, Just ref ) ->
                     -- there's a payload - reference is required
@@ -374,12 +383,29 @@ isPlaceholder pointer =
 
 
 type ChangeAtom
-    = JustString Payload
+    = ValueAtom JE.Value
     | QuoteNestedObject Change
+    | NestedAtoms ChangePayload
 
 
-changeToRonPayload : Change -> ChangePayload
-changeToRonPayload change =
+
+-- wrapNestedPayload : List ChangeAtom -> ChangeAtom
+-- wrapNestedPayload changeAtomList =
+--     let
+--         encodedAtoms =
+--             case changeAtomList of
+--                 [] ->
+--                     JE.list JE.string []
+--
+--                 [(singleton)] ->
+--                     JE
+--     in
+--
+--     NestedAtoms (JE.encode 0 encodedAtoms)
+
+
+changeToChangePayload : Change -> ChangePayload
+changeToChangePayload change =
     [ QuoteNestedObject change ]
 
 

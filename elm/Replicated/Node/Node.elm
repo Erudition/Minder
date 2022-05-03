@@ -1,6 +1,7 @@
 module Replicated.Node.Node exposing (..)
 
 import Dict exposing (Dict)
+import Json.Encode as JE
 import List.Extra as List
 import Log
 import Replicated.Identifier exposing (..)
@@ -227,7 +228,7 @@ chunkToOps node ( inCounter, _ ) { target, objectChanges } =
 
 
 type alias UnstampedChunkOp =
-    { reference : Maybe OpID, payload : Op.Payload, reversion : Bool }
+    { reference : Maybe OpID, payload : Op.OpPayloadAtoms, reversion : Bool }
 
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
@@ -235,12 +236,12 @@ type alias UnstampedChunkOp =
 objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String } -> { counter : OutCounter, prerequisiteOps : List Op, finalPiecePayload : String }
+        perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value }
         perPiece piece accumulated =
             case piece of
-                Op.JustString stringPiece ->
+                Op.ValueAtom value ->
                     { counter = accumulated.counter
-                    , finalPiecePayload = concatAtoms accumulated.finalPiecePayload stringPiece
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ value ]
                     , prerequisiteOps = accumulated.prerequisiteOps
                     }
 
@@ -255,24 +256,39 @@ objectChangeToUnstampedOp node inCounter objectChange =
                     in
                     { counter = postPrereqCounter
                     , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
-                    , finalPiecePayload = concatAtoms accumulated.finalPiecePayload pointerPayload
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ JE.string pointerPayload ]
                     }
 
-        concatAtoms existing new =
-            if existing == "" then
-                new
+                Op.NestedAtoms nestedChangeAtoms ->
+                    let
+                        outputAtoms =
+                            List.foldl perPiece
+                                { counter = accumulated.counter
+                                , piecesSoFar = []
+                                , prerequisiteOps = []
+                                }
+                                nestedChangeAtoms
 
-            else
-                existing ++ "\t" ++ new
+                        finalNestedPayloadAsString =
+                            JE.list identity outputAtoms.piecesSoFar
+                    in
+                    { counter = outputAtoms.counter
+                    , prerequisiteOps = accumulated.prerequisiteOps ++ outputAtoms.prerequisiteOps
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ finalNestedPayloadAsString ]
+                    }
 
         outputHelper pieceList reference =
             let
-                { counter, prerequisiteOps, finalPiecePayload } =
-                    List.foldl perPiece { counter = inCounter, finalPiecePayload = "", prerequisiteOps = [] } pieceList
+                { counter, prerequisiteOps, piecesSoFar } =
+                    List.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteOps = [] } pieceList
             in
             ( counter
             , { prerequisiteOps = prerequisiteOps
-              , thisObjectOp = { reference = reference, payload = finalPiecePayload, reversion = False }
+              , thisObjectOp =
+                    { reference = reference
+                    , payload = piecesSoFar
+                    , reversion = False
+                    }
               }
             )
     in
@@ -286,7 +302,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
         Op.RevertOp opIDToRevert ->
             ( inCounter
             , { prerequisiteOps = []
-              , thisObjectOp = { reference = Just opIDToRevert, payload = "", reversion = True }
+              , thisObjectOp = { reference = Just opIDToRevert, payload = [], reversion = True }
               }
             )
 

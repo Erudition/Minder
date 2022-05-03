@@ -10,8 +10,8 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Change, Op, Payload, ReducerID)
+import Replicated.Object as Object exposing (EventPayload, Object)
+import Replicated.Op.Op as Op exposing (Change, Op, ReducerID)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -29,7 +29,7 @@ type Register
 
 
 type alias FieldPayload =
-    String
+    JE.Value
 
 
 reducerID : Op.ReducerID
@@ -73,15 +73,15 @@ build node object =
     Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log "final fields dict" fieldsDict }
 
 
-extractFieldEventFromObjectPayload : Payload -> Maybe ( FieldIdentifier, FieldPayload )
+extractFieldEventFromObjectPayload : EventPayload -> Maybe ( FieldIdentifier, FieldPayload )
 extractFieldEventFromObjectPayload payload =
-    case String.split "\t" payload of
-        fieldSlotString :: fieldName :: rest ->
-            case String.toInt fieldSlotString of
-                Just fieldSlot ->
-                    Just ( ( fieldSlot, fieldName ), String.concat rest )
+    case JD.decodeValue (JD.list JD.value) payload of
+        Ok (fieldSlotValue :: fieldNameEncoded :: rest) ->
+            case ( JD.decodeValue JD.int fieldSlotValue, JD.decodeValue JD.string fieldNameEncoded ) of
+                ( Ok fieldSlot, Ok fieldName ) ->
+                    Just ( ( fieldSlot, fieldName ), JE.list identity rest )
 
-                Nothing ->
+                _ ->
                     Nothing
 
         _ ->
@@ -90,8 +90,8 @@ extractFieldEventFromObjectPayload payload =
 
 encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Op.ChangePayload -> Op.ChangePayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    [ Op.JustString (String.fromInt fieldSlot)
-    , Op.JustString fieldName
+    [ Op.ValueAtom (JE.int fieldSlot)
+    , Op.ValueAtom (JE.string fieldName)
     ]
         ++ fieldPayload
 

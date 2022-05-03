@@ -3,6 +3,7 @@ module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, 
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Dict.Extra as Dict
+import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Replicated.Node.Node as Node exposing (Node)
@@ -52,8 +53,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Op.Pointer -> (String -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
-buildFromReplicaDb node targetObject unstringifier memberChanger =
+buildFromReplicaDb : Node -> Op.Pointer -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
+buildFromReplicaDb node targetObject payloadToMember memberChanger =
     let
         existingObjectMaybe =
             case Debug.log "@@ creating replist from" targetObject of
@@ -98,7 +99,7 @@ buildFromReplicaDb node targetObject unstringifier memberChanger =
                     []
 
         eventToItem event =
-            case unstringifier (Object.eventPayload event) of
+            case payloadToMember (Object.eventPayload event) of
                 Nothing ->
                     Nothing
 
@@ -112,7 +113,7 @@ buildFromReplicaDb node targetObject unstringifier memberChanger =
         { id = targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
-        , memberGenerator = \_ -> unstringifier "{}"
+        , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- was "{}" for decoding nothingness
         , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
         }
 
@@ -209,7 +210,7 @@ addNewWithChanges (RepList record) desiredChanges =
                         |> Op.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =
-            List.map (Op.NewPayload << Op.changeToRonPayload) newItemChanges
+            List.map (Op.NewPayload << Op.changeToChangePayload) newItemChanges
 
         finalChangeList =
             case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of

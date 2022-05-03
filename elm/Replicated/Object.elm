@@ -1,7 +1,8 @@
 module Replicated.Object exposing (..)
 
 import Dict exposing (Dict)
-import Replicated.Op.Op as Op exposing (Op, Payload)
+import Json.Encode as JE
+import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -17,12 +18,16 @@ type alias Object =
     }
 
 
+type alias EventPayload =
+    JE.Value
+
+
 {-| An event that has not been undone/deleted.
 -}
 type
     KeptEvent
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = KeptEvent { id : OpID, reference : OpID, payload : Payload }
+    = KeptEvent { id : OpID, reference : OpID, payload : EventPayload }
 
 
 eventReference : KeptEvent -> OpID
@@ -35,7 +40,7 @@ eventID (KeptEvent event) =
     event.id
 
 
-eventPayload : KeptEvent -> Payload
+eventPayload : KeptEvent -> EventPayload
 eventPayload (KeptEvent event) =
     event.payload
 
@@ -46,8 +51,16 @@ Ops must have a reference.
 applyOp : Op -> Maybe Object -> Maybe Object
 applyOp newOp oldObjectMaybe =
     let
+        opPayloadToEventPayload opPayload =
+            case opPayload of
+                [ singleValue ] ->
+                    singleValue
+
+                multipleValues ->
+                    JE.list identity multipleValues
+
         newEvent givenRef =
-            KeptEvent { id = Op.id newOp, reference = givenRef, payload = Op.payload newOp }
+            KeptEvent { id = Op.id newOp, reference = givenRef, payload = opPayloadToEventPayload (Op.payload newOp) }
     in
     case ( oldObjectMaybe, Op.reference newOp ) of
         ( Just oldObject, Op.OpReference ref ) ->
@@ -85,4 +98,4 @@ type InclusionInfo
 
 
 type ReducerWarning
-    = OpDecodeFailed OpIDString Payload
+    = OpDecodeFailed OpIDString OpPayloadAtoms
