@@ -76,10 +76,10 @@ build node object =
 extractFieldEventFromObjectPayload : EventPayload -> Maybe ( FieldIdentifier, FieldPayload )
 extractFieldEventFromObjectPayload payload =
     case JD.decodeValue (JD.list JD.value) payload of
-        Ok (fieldSlotValue :: fieldNameEncoded :: rest) ->
+        Ok (fieldSlotValue :: fieldNameEncoded :: [ rest ]) ->
             case ( JD.decodeValue JD.int fieldSlotValue, JD.decodeValue JD.string fieldNameEncoded ) of
                 ( Ok fieldSlot, Ok fieldName ) ->
-                    Just ( ( fieldSlot, fieldName ), JE.list identity rest )
+                    Just ( ( fieldSlot, fieldName ), rest )
 
                 _ ->
                     Nothing

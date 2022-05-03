@@ -22,13 +22,12 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ readOnlyObjectEncodeThenDecode
-
-        -- , writableObjectEncodeThenDecode
-        -- , repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , nodeModifications
-        -- , nestedStressTestIntegrityCheck
-        -- , modifiedNestedStressTestIntegrityCheck
+        , writableObjectEncodeThenDecode
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -86,7 +85,7 @@ correctDefaultReadOnlyObject =
     , address = "default address"
     , number = 1
     , living = True
-    , heightMaybe = Nothing
+    , heightMaybe = Just 5
     }
 
 

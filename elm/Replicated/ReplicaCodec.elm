@@ -1492,7 +1492,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     -- field was set - decode value and use it
                     case runFieldDecoder foundField of
                         Ok something ->
-                            JD.succeed something
+                            Debug.log ("field " ++ fieldName ++ " was set to " ++ JE.encode 0 foundField ++ ", decoding as " ++ Debug.toString something) <| JD.succeed something
 
                         Err problem ->
                             -- fall back to default if we failed to decode set value for some reason
