@@ -89,9 +89,20 @@ correctDefaultReadOnlyObject =
     }
 
 
+type FormalTitle
+    = Mr
+    | Mrs
+    | Ms
+
+
+titleCodec =
+    RC.fragileEnum Mr [ Mrs, Ms ]
+
+
 type alias ExampleSubObjectLegalName =
     { first : String
     , last : String
+    , title : FormalTitle
     }
 
 
@@ -100,12 +111,13 @@ exampleSubObjectCodec =
     RC.record ExampleSubObjectLegalName
         |> RC.fieldR ( 1, "first" ) .first RC.string "firstname"
         |> RC.fieldR ( 2, "last" ) .last RC.string "default surname"
+        |> RC.fieldR ( 3, "title" ) .title titleCodec Mrs
         |> RC.finishRecord
 
 
 correctDefaultName : ExampleSubObjectLegalName
 correctDefaultName =
-    ExampleSubObjectLegalName "firstname" "default surname"
+    ExampleSubObjectLegalName "firstname" "default surname" Mrs
 
 
 readOnlyObjectEncodeThenDecode =
@@ -119,6 +131,36 @@ readOnlyObjectEncodeThenDecode =
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
 
 
+type KidsStatus
+    = NoKids
+    | BiologicalKids (RepList ExampleSubObjectLegalName)
+    | FosterKids (RepList ExampleSubObjectLegalName)
+    | SomeOfBoth (RepList ExampleSubObjectLegalName) (RepList ExampleSubObjectLegalName)
+
+
+kidsStatusCodec =
+    RC.customType
+        (\noKidsEncoder bioKidsEncoder fosterKidsEncoder someEncoder value ->
+            case value of
+                NoKids ->
+                    noKidsEncoder
+
+                BiologicalKids kidsList ->
+                    bioKidsEncoder kidsList
+
+                FosterKids kidsList ->
+                    fosterKidsEncoder kidsList
+
+                SomeOfBoth bio foster ->
+                    someEncoder bio foster
+        )
+        |> RC.variant0 ( 0, "nokids" ) NoKids
+        |> RC.variant1 ( 1, "biokids" ) BiologicalKids (RC.repList exampleSubObjectCodec)
+        |> RC.variant1 ( 2, "fosterkids" ) FosterKids (RC.repList exampleSubObjectCodec)
+        |> RC.variant2 ( 3, "bothkindsofkids" ) SomeOfBoth (RC.repList exampleSubObjectCodec) (RC.repList exampleSubObjectCodec)
+        |> RC.finishCustomType
+
+
 
 -- WRITABLES
 
@@ -128,17 +170,19 @@ type alias WritableObject =
     , address : RW String
     , number : RW Int
     , minor : RW Bool
+    , kids : RW KidsStatus
     }
 
 
 writableObjectCodec : Codec e WritableObject
 writableObjectCodec =
     RC.record WritableObject
-        |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last" }
+        |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last", title = Ms }
         -- ^ an example of using fieldRW instead of fieldN, providing an explicit default
         |> RC.fieldRW ( 2, "address" ) .address RC.string "default address 2"
         |> RC.fieldRW ( 3, "number" ) .number RC.int 42
         |> RC.fieldRW ( 4, "minor" ) .minor RC.bool False
+        |> RC.fieldRW ( 5, "kids" ) .kids kidsStatusCodec NoKids
         |> RC.finishRecord
 
 
@@ -195,7 +239,7 @@ nodeModifications =
                     Debug.todo "should always be found"
 
         generatedRootObjectID =
-            "3+here"
+            "4+here"
 
         changedObjectDecoded =
             RC.decodeFromNode writableObjectCodec afterNode
@@ -435,6 +479,7 @@ nodeWithModifiedNestedStressTest =
                         , \obj -> obj.number.set 999
                         , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                         , \obj -> obj.minor.set True
+                        , \obj -> obj.kids.set newKidsList
                         ]
 
                 changes =
@@ -443,6 +488,9 @@ nodeWithModifiedNestedStressTest =
                         [ RepList.addNew repList
                         , addCustomItemToRepList
                         ]
+
+                newKidsList =
+                    BiologicalKids (RepList.fromList [])
 
                 applied =
                     Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)

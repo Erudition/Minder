@@ -26,6 +26,17 @@ type RepList memberType
         }
 
 
+empty : RepList a
+empty =
+    RepList
+        { id = Op.PlaceholderPointer reducerID (Op.usePendingCounter 0 Op.unmatchableCounter).id identity
+        , members = []
+        , included = Object.All
+        , memberChanger = \memberType opIDMaybe -> Op.NewPayload []
+        , memberGenerator = \() -> Nothing
+        }
+
+
 type alias Item memberType =
     { handle : Handle
     , value : memberType
@@ -113,7 +124,7 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
         { id = targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
-        , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- was "{}" for decoding nothingness
+        , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
         , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
         }
 
