@@ -470,28 +470,27 @@ nodeWithModifiedNestedStressTest =
     case result of
         Ok nestedStressTest ->
             let
-                repList =
+                repListOfWritables =
                     nestedStressTest.listOfNestedRecords
 
                 addCustomItemToRepList =
-                    RepList.addNewWithChanges repList
+                    RepList.addNewWithChanges repListOfWritables
                         [ \obj -> obj.address.set "bologna street"
                         , \obj -> obj.number.set 999
                         , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
-                        , \obj -> obj.minor.set True
-
-                        -- , \obj -> obj.kids.set newKidsList
+                        , \obj -> obj.minor.set False
+                        , \obj -> obj.kids.set newKidsList
                         ]
 
                 changes =
                     Debug.log "\n\nREPLIST changes"
                         -- TODO why is the order reversed
-                        [ RepList.addNew repList
+                        [ RepList.addNew repListOfWritables
                         , addCustomItemToRepList
                         ]
 
                 newKidsList =
-                    BiologicalKids RepList.empty
+                    SomeOfBoth RepList.new RepList.new
 
                 applied =
                     Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
@@ -515,7 +514,7 @@ modifiedNestedStressTestIntegrityCheck =
             "0+here"
 
         generatedRepListObjectID =
-            "102+here"
+            "111+here"
 
         eventListSize givenID givenNode =
             Dict.size (getObjectEventList givenID givenNode)
@@ -527,12 +526,12 @@ modifiedNestedStressTestIntegrityCheck =
         [ describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 4
+                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 6
             , test "the demo node should have one profile" <|
                 \_ ->
                     Expect.equal (List.length nodeWithModifiedNestedStressTest.profiles) 1
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
-                \_ -> Expect.equal 4 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
+                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
             ]

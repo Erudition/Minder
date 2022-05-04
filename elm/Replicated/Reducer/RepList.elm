@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, insertAfter, length, list, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, insertAfter, length, list, new, reducerID, remove)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
@@ -26,8 +26,8 @@ type RepList memberType
         }
 
 
-empty : RepList a
-empty =
+new : RepList a
+new =
     RepList
         { id = Op.PlaceholderPointer reducerID (Op.usePendingCounter 0 Op.unmatchableCounter).id identity
         , members = []
