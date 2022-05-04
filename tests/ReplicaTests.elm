@@ -479,7 +479,8 @@ nodeWithModifiedNestedStressTest =
                         , \obj -> obj.number.set 999
                         , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                         , \obj -> obj.minor.set True
-                        , \obj -> obj.kids.set newKidsList
+
+                        -- , \obj -> obj.kids.set newKidsList
                         ]
 
                 changes =
@@ -490,7 +491,7 @@ nodeWithModifiedNestedStressTest =
                         ]
 
                 newKidsList =
-                    BiologicalKids (RepList.fromList [])
+                    BiologicalKids RepList.empty
 
                 applied =
                     Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
