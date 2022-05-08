@@ -541,4 +541,22 @@ modifiedNestedStressTestIntegrityCheck =
                     [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "bologna street 2", "default address 2" ]
                     ]
                     decodedNST
+        , test "the new Custom Type repLists have been initialized" <|
+            \_ ->
+                expectOkAndEqualWhenMapped
+                    (\o ->
+                        RepList.head o.listOfNestedRecords
+                            |> Maybe.map (.value >> .kids >> .get)
+                            |> Maybe.map
+                                (\kidsValue ->
+                                    case kidsValue of
+                                        SomeOfBoth repList1 repList2 ->
+                                            Ok (RepList.list repList2)
+
+                                        _ ->
+                                            Err "not set to SomeOfBoth!"
+                                )
+                    )
+                    (Just (Ok []))
+                    decodedNST
         ]
