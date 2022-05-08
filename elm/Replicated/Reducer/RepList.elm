@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, insertAfter, length, list, new, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, head, insertAfter, length, list, new, reducerID, remove)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
@@ -43,6 +43,11 @@ type alias Item memberType =
     }
 
 
+head : RepList memberType -> Maybe (Item memberType)
+head (RepList repList) =
+    List.head repList.members
+
+
 getID : RepList memberType -> Op.Pointer
 getID (RepList repSet) =
     repSet.id
@@ -68,7 +73,7 @@ buildFromReplicaDb : Node -> Op.Pointer -> (JE.Value -> Maybe memberType) -> (me
 buildFromReplicaDb node targetObject payloadToMember memberChanger =
     let
         existingObjectMaybe =
-            case Debug.log "@@ creating replist from" targetObject of
+            case targetObject of
                 Op.ExistingObjectPointer objectID ->
                     Node.getObjectIfExists node [ objectID ]
 
