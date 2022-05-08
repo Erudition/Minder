@@ -29,7 +29,7 @@ Here's some advice when choosing:
 
 # Data Structures
 
-@docs maybe, list, array, dict, set, tuple, triple, result, enum
+@docs maybe, immutableList, array, dict, set, tuple, triple, result, enum
 
 
 # Records
@@ -827,8 +827,8 @@ repList memberCodec =
 
 {-| A list
 -}
-list : Codec e a -> Codec e (List a)
-list codec =
+immutableList : Codec e a -> Codec e (List a)
+immutableList codec =
     let
         normalJsonDecoder =
             JD.list (getJsonDecoder codec)
@@ -891,7 +891,7 @@ listStep decoder_ ( n, xs ) =
 -}
 array : Codec e a -> Codec e (Array a)
 array codec =
-    list codec |> mapHelper (Result.map Array.fromList) Array.toList
+    immutableList codec |> mapHelper (Result.map Array.fromList) Array.toList
 
 
 {-| Codec for serializing a `Dict`
@@ -908,7 +908,7 @@ array codec =
 -}
 dict : Codec e comparable -> Codec e a -> Codec e (Dict comparable a)
 dict keyCodec valueCodec =
-    list (tuple keyCodec valueCodec)
+    immutableList (tuple keyCodec valueCodec)
         |> mapHelper (Result.map Dict.fromList) Dict.toList
 
 
@@ -916,7 +916,7 @@ dict keyCodec valueCodec =
 -}
 set : Codec e comparable -> Codec e (Set comparable)
 set codec =
-    list codec |> mapHelper (Result.map Set.fromList) Set.toList
+    immutableList codec |> mapHelper (Result.map Set.fromList) Set.toList
 
 
 {-| Codec for serializing `()` (aka `Unit`).
