@@ -4,10 +4,11 @@ import Dict exposing (Dict)
 import Json.Encode as JE
 import List.Extra as List
 import Log
+import Replicated.Change as Change exposing (Change)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID, codec, fromString)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Change, Op, ReducerID, create)
+import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment exposing (Moment)
@@ -122,6 +123,17 @@ apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
     }
 
 
+{-| Testing: Drop-in replacement for `apply` which encodes the output Ops to string, and then decodes that string back to a node, to ensure it's the same
+-}
+applyAndReparseOps : Maybe Moment -> Node -> ChangeFrame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+applyAndReparseOps timeMaybe node changeFrame =
+    let
+        { ops, updatedNode } =
+            apply timeMaybe node changeFrame
+    in
+    Debug.todo "reparse ops"
+
+
 
 -- combineSameObjectChunks : List Change -> List Change
 -- combineSameObjectChunks changes =
@@ -161,7 +173,7 @@ apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
 oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
 oneChangeToOps node inCounter change =
     case change of
-        Op.Chunk chunkRecord ->
+        Change.Chunk chunkRecord ->
             let
                 ( ( outCounter, createdObjectMaybe ), chunkOps ) =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
@@ -176,7 +188,7 @@ oneChangeToOps node inCounter change =
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { target : Op.Pointer, objectChanges : List Op.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { target : Change.Pointer, objectChanges : List Change.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
 chunkToOps node ( inCounter, _ ) { target, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
@@ -233,19 +245,19 @@ type alias UnstampedChunkOp =
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
 -}
-objectChangeToUnstampedOp : Node -> InCounter -> Op.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+objectChangeToUnstampedOp : Node -> InCounter -> Change.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        perPiece : Op.ChangeAtom -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value }
+        perPiece : Change.Atom -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value }
         perPiece piece accumulated =
             case piece of
-                Op.ValueAtom value ->
+                Change.ValueAtom value ->
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ [ value ]
                     , prerequisiteOps = accumulated.prerequisiteOps
                     }
 
-                Op.QuoteNestedObject (Op.Chunk chunkDetails) ->
+                Change.QuoteNestedObject (Change.Chunk chunkDetails) ->
                     let
                         ( ( postPrereqCounter, subObjectIDMaybe ), newPrereqOps ) =
                             chunkToOps node ( accumulated.counter, Nothing ) chunkDetails
@@ -259,7 +271,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                     , piecesSoFar = accumulated.piecesSoFar ++ [ JE.string pointerPayload ]
                     }
 
-                Op.NestedAtoms nestedChangeAtoms ->
+                Change.NestedAtoms nestedChangeAtoms ->
                     let
                         outputAtoms =
                             List.foldl perPiece
@@ -293,13 +305,13 @@ objectChangeToUnstampedOp node inCounter objectChange =
             )
     in
     case objectChange of
-        Op.NewPayload pieceList ->
+        Change.NewPayload pieceList ->
             outputHelper pieceList Nothing
 
-        Op.NewPayloadWithRef { payload, ref } ->
+        Change.NewPayloadWithRef { payload, ref } ->
             outputHelper payload (Just ref)
 
-        Op.RevertOp opIDToRevert ->
+        Change.RevertOp opIDToRevert ->
             ( inCounter
             , { prerequisiteOps = []
               , thisObjectOp = { reference = Just opIDToRevert, payload = [], reversion = True }
@@ -314,7 +326,7 @@ newObjectIDToPayload opID =
 getOrInitObject :
     Node
     -> InCounter
-    -> Op.Pointer
+    -> Change.Pointer
     ->
         { reducerID : ReducerID
         , objectID : ObjectID
@@ -324,7 +336,7 @@ getOrInitObject :
         }
 getOrInitObject node inCounter targetObject =
     case targetObject of
-        Op.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID ->
             case Dict.get (OpID.toString objectID) node.objects of
                 Nothing ->
                     Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
@@ -337,7 +349,7 @@ getOrInitObject node inCounter targetObject =
                     , postInitCounter = inCounter
                     }
 
-        Op.PlaceholderPointer reducerID _ _ ->
+        Change.PlaceholderPointer reducerID _ _ ->
             let
                 ( newID, outCounter ) =
                     OpID.generate inCounter node.identity False
@@ -435,14 +447,14 @@ normalizeChanges : List Change -> List Change
 normalizeChanges changesToNormalize =
     let
         wrapInParent : Change -> Change
-        wrapInParent ((Op.Chunk chunkDetails) as originalChange) =
+        wrapInParent ((Change.Chunk chunkDetails) as originalChange) =
             case chunkDetails.target of
-                Op.ExistingObjectPointer _ ->
+                Change.ExistingObjectPointer _ ->
                     originalChange
 
-                Op.PlaceholderPointer reducerID pendingID parentNotifier ->
+                Change.PlaceholderPointer reducerID pendingID parentNotifier ->
                     -- TODO how to recurse upwards
                     parentNotifier originalChange
     in
-    Op.combineChangesOfSameTarget changesToNormalize
+    Change.combineChangesOfSameTarget changesToNormalize
         |> List.map wrapInParent

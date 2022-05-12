@@ -6,10 +6,11 @@ import Dict.Extra as Dict
 import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.Op as Op exposing (Change)
+import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -18,10 +19,10 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepList memberType
     = RepList
-        { id : Op.Pointer
+        { id : Change.Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
-        , memberChanger : memberType -> Maybe OpID -> Op.ObjectChange
+        , memberChanger : memberType -> Maybe OpID -> Change.ObjectChange
         , memberGenerator : () -> Maybe memberType
         }
 
@@ -29,10 +30,10 @@ type RepList memberType
 new : RepList a
 new =
     RepList
-        { id = Op.PlaceholderPointer reducerID (Op.usePendingCounter 0 Op.unmatchableCounter).id identity
+        { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
         , members = []
         , included = Object.All
-        , memberChanger = \memberType opIDMaybe -> Op.NewPayload []
+        , memberChanger = \memberType opIDMaybe -> Change.NewPayload []
         , memberGenerator = \() -> Nothing
         }
 
@@ -48,7 +49,7 @@ head (RepList repList) =
     List.head repList.members
 
 
-getID : RepList memberType -> Op.Pointer
+getID : RepList memberType -> Change.Pointer
 getID (RepList repSet) =
     repSet.id
 
@@ -69,12 +70,12 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Op.Pointer -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Op.ObjectChange) -> RepList memberType
+buildFromReplicaDb : Node -> Change.Pointer -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
 buildFromReplicaDb node targetObject payloadToMember memberChanger =
     let
         existingObjectMaybe =
             case targetObject of
-                Op.ExistingObjectPointer objectID ->
+                Change.ExistingObjectPointer objectID ->
                     Node.getObjectIfExists node [ objectID ]
 
                 _ ->
@@ -170,7 +171,7 @@ dict (RepList repSetRecord) =
 -}
 insertAfter : RepList memberType -> Handle -> memberType -> Change
 insertAfter (RepList repSetRecord) attachmentPoint newItem =
-    Op.Chunk
+    Change.Chunk
         { target = repSetRecord.id
         , objectChanges =
             [ repSetRecord.memberChanger newItem (Just (memberIDToOpID attachmentPoint)) ]
@@ -185,7 +186,7 @@ append (RepList record) newItems =
         newItemToObjectChange newItem =
             record.memberChanger newItem Nothing
     in
-    Op.Chunk
+    Change.Chunk
         { target = record.id
         , objectChanges = List.map newItemToObjectChange newItems
         }
@@ -193,10 +194,10 @@ append (RepList record) newItems =
 
 remove : RepList memberType -> Handle -> Change
 remove (RepList record) itemToRemove =
-    Op.Chunk
+    Change.Chunk
         { target = record.id
         , objectChanges =
-            [ Op.RevertOp (memberIDToOpID itemToRemove) ]
+            [ Change.RevertOp (memberIDToOpID itemToRemove) ]
         }
 
 
@@ -223,10 +224,10 @@ addNewWithChanges (RepList record) desiredChanges =
 
                 Just newItem ->
                     List.map (\modification -> modification newItem) desiredChanges
-                        |> Op.combineChangesOfSameTarget
+                        |> Change.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =
-            List.map (Op.NewPayload << Op.changeToChangePayload) newItemChanges
+            List.map (Change.NewPayload << Change.changeToChangePayload) newItemChanges
 
         finalChangeList =
             case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of
@@ -240,7 +241,7 @@ addNewWithChanges (RepList record) desiredChanges =
                 ( nonEmptyChangeList, _ ) ->
                     newItemChangesAsRepListObjectChanges
     in
-    Op.Chunk
+    Change.Chunk
         { target = record.id
         , objectChanges =
             Debug.log ">>> new replist member with changes" finalChangeList

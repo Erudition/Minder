@@ -8,10 +8,11 @@ import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
+import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (EventPayload, Object)
-import Replicated.Op.Op as Op exposing (Change, Op, ReducerID)
+import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -88,10 +89,10 @@ extractFieldEventFromObjectPayload payload =
             Nothing
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Op.ChangePayload -> Op.ChangePayload
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.Payload -> Change.Payload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    [ Op.ValueAtom (JE.int fieldSlot)
-    , Op.ValueAtom (JE.string fieldName)
+    [ Change.ValueAtom (JE.int fieldSlot)
+    , Change.ValueAtom (JE.string fieldName)
     ]
         ++ fieldPayload
 
@@ -159,14 +160,14 @@ type alias RW fieldVal =
     }
 
 
-buildRW : Op.Pointer -> FieldIdentifier -> (fieldVal -> Op.ChangePayload) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.Payload) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder head =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { target = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
+    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     }
 
 
@@ -177,13 +178,13 @@ type alias RWH fieldVal =
     }
 
 
-buildRWH : Op.Pointer -> FieldIdentifier -> (fieldVal -> Op.ChangePayload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.Payload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder head rest =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = head
-    , set = \new -> Op.Chunk { target = targetObject, objectChanges = [ Op.NewPayload (nestedChange new) ] }
+    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     , history = rest
     }

@@ -8,6 +8,7 @@ import List.Extra
 import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
+import Replicated.Change as Change
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
@@ -533,7 +534,7 @@ modifiedNestedStressTestIntegrityCheck =
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
             , test "the repList has been initialized and its ID is not a placeholder" <|
-                \_ -> expectOkAndEqualWhenMapped (\o -> Op.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
+                \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
             ]
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
