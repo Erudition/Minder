@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, testCounter, toString)
 
 import Json.Decode as JD
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -223,3 +223,8 @@ latest firstID secondID =
 importCounter : Int -> InCounter
 importCounter int =
     NewOpCounter int
+
+
+exportCounter : InCounter -> Int
+exportCounter (NewOpCounter int) =
+    int

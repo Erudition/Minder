@@ -6,7 +6,7 @@ import List.Extra as List
 import Log
 import Replicated.Change as Change exposing (Change)
 import Replicated.Identifier exposing (..)
-import Replicated.Node.NodeID as NodeID exposing (NodeID, codec, fromString)
+import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
@@ -31,7 +31,7 @@ initFromSaved : String -> Int -> OpID -> List Op -> Result InitError Node
 initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
-            fromString foundIdentity
+            NodeID.fromString foundIdentity
     in
     case lastIdentity of
         Just oldNodeID ->
@@ -70,7 +70,7 @@ startNewNode : Maybe Moment -> Change -> Node
 startNewNode nowMaybe rootChange =
     let
         firstChangeFrame =
-            saveChanges "Node initialized" [ rootChange ]
+            Change.saveChanges "Node initialized" [ rootChange ]
 
         { updatedNode, created } =
             apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } firstChangeFrame
@@ -91,8 +91,8 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node -> ChangeFrame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
-apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
+apply : Maybe Moment -> Node -> Change.Frame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
     let
         fallbackCounter =
             Maybe.withDefault node.lastUsedCounter (Maybe.map OpID.firstCounter timeMaybe)
@@ -125,13 +125,27 @@ apply timeMaybe node (ChangeFrame { normalizedChanges, description }) =
 
 {-| Testing: Drop-in replacement for `apply` which encodes the output Ops to string, and then decodes that string back to a node, to ensure it's the same
 -}
-applyAndReparseOps : Maybe Moment -> Node -> ChangeFrame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+applyAndReparseOps : Maybe Moment -> Node -> Change.Frame -> Result InitError Node
 applyAndReparseOps timeMaybe node changeFrame =
     let
         { ops, updatedNode } =
             apply timeMaybe node changeFrame
+
+        outputFrameString =
+            Op.toFrame ops
+
+        reparsedOpsResult =
+            Op.fromLog outputFrameString
+
+        rootMaybe =
+            List.head updatedNode.profiles
     in
-    Debug.todo "reparse ops"
+    case ( rootMaybe, reparsedOpsResult ) of
+        ( Just foundRoot, Ok reparsedOps ) ->
+            initFromSaved (NodeID.toString updatedNode.identity) (OpID.exportCounter updatedNode.lastUsedCounter) foundRoot reparsedOps
+
+        _ ->
+            Err DecodingOldIdentityProblem
 
 
 
@@ -179,7 +193,7 @@ oneChangeToOps node inCounter change =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
 
                 logOps =
-                    List.map (\op -> Op.toString op ++ "\n") chunkOps
+                    List.map (\op -> Op.closedOpToString op ++ "\n") chunkOps
                         |> String.concat
             in
             ( outCounter, chunkOps )
@@ -219,7 +233,7 @@ chunkToOps node ( inCounter, _ ) { target, objectChanges } =
             List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
 
         logOps prefix ops =
-            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.toString op ++ "\t") ops))
+            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString op ++ "\t") ops))
 
         prereqLogMsg =
             case List.length allPrereqOps of
@@ -418,43 +432,5 @@ type alias Peer =
 peerCodec : Codec String Peer
 peerCodec =
     RS.record Peer
-        |> RS.field .identity codec
+        |> RS.field .identity NodeID.codec
         |> RS.finishRecord
-
-
-
--- CHANGEFRAMES
-
-
-type ChangeFrame
-    = ChangeFrame
-        { normalizedChanges : List Change
-        , description : String
-        }
-
-
-saveChanges : String -> List Change -> ChangeFrame
-saveChanges description changes =
-    ChangeFrame { normalizedChanges = normalizeChanges changes, description = description }
-
-
-{-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
-
-We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
-
--}
-normalizeChanges : List Change -> List Change
-normalizeChanges changesToNormalize =
-    let
-        wrapInParent : Change -> Change
-        wrapInParent ((Change.Chunk chunkDetails) as originalChange) =
-            case chunkDetails.target of
-                Change.ExistingObjectPointer _ ->
-                    originalChange
-
-                Change.PlaceholderPointer reducerID pendingID parentNotifier ->
-                    -- TODO how to recurse upwards
-                    parentNotifier originalChange
-    in
-    Change.combineChangesOfSameTarget changesToNormalize
-        |> List.map wrapInParent

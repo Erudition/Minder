@@ -7,6 +7,9 @@ import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 
 
 {-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
+
+Outputs a Chunk - Chunks are same-object changes within a Frame.
+
 -}
 type Change
     = Chunk
@@ -165,3 +168,41 @@ mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =
         { target = change1Details.target
         , objectChanges = change1Details.objectChanges ++ change2Details.objectChanges
         }
+
+
+
+-- CHANGEFRAMES
+
+
+type Frame
+    = Frame
+        { normalizedChanges : List Change
+        , description : String
+        }
+
+
+saveChanges : String -> List Change -> Frame
+saveChanges description changes =
+    Frame { normalizedChanges = normalizeChanges changes, description = description }
+
+
+{-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
+
+We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
+
+-}
+normalizeChanges : List Change -> List Change
+normalizeChanges changesToNormalize =
+    let
+        wrapInParent : Change -> Change
+        wrapInParent ((Chunk chunkDetails) as originalChange) =
+            case chunkDetails.target of
+                ExistingObjectPointer _ ->
+                    originalChange
+
+                PlaceholderPointer reducerID pendingID parentNotifier ->
+                    -- TODO how to recurse upwards
+                    parentNotifier originalChange
+    in
+    combineChangesOfSameTarget changesToNormalize
+        |> List.map wrapInParent

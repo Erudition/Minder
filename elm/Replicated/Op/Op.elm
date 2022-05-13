@@ -1,4 +1,7 @@
-module Replicated.Op.Op exposing (Op, OpPattern(..), OpPayloadAtoms, ReducerID, Reference(..), create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toString)
+module Replicated.Op.Op exposing (Op, OpPattern(..), OpPayloadAtoms, ReducerID, Reference(..), closedOpToString, create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toFrame)
+
+{-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
+-}
 
 import Json.Decode as JD
 import Json.Encode as JE
@@ -12,16 +15,47 @@ import SmartTime.Moment as Moment
 
 
 type Op
-    = Op OpRecord
+    = Op ClosedOp
 
 
-type alias OpRecord =
+type alias ClosedOp =
     { reducerID : ReducerID
     , objectID : ObjectID
     , operationID : OpID
     , reference : Reference
     , payload : OpPayloadAtoms
     }
+
+
+
+-- OPEN Ops
+
+
+{-| RON: "Open notation is just a shorted version of closed one. Reducer id and object id are omitted in this case, as those could be deduced from full DB and reference id."
+
+The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (spans have incremental OpIDs).
+
+-}
+type alias OpenOpInSpan =
+    { payload : OpPayloadAtoms
+    }
+
+
+{-| Span (Chain Span)
+RON: "a chain where each op’s id is exactly an increment of the previous id (1gABC+origin, 1gABC00001+origin, 1gABC00002+origin...)."
+
+We just use single-op spans in the case of non-incremental ops.
+
+-}
+type ChainSpan
+    = ChainSpan { firstID : OpID, ops : List OpenOpInSpan }
+
+
+{-| RON: "Chain: a fragment of a yarn where each next op references the previous one."
+Where "yarn" means a list of Ops from the same origin.
+-}
+type Chain
+    = Chain { firstRef : Reference, spans : List ChainSpan }
 
 
 type Reference
@@ -163,8 +197,8 @@ object (Op op) =
     op.objectID
 
 
-toString : Op -> String
-toString (Op op) =
+closedOpToString : Op -> String
+closedOpToString (Op op) =
     let
         opID =
             "@" ++ OpID.toString op.operationID
@@ -339,6 +373,8 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-toLog : List Op -> String
-toLog opList =
-    Debug.todo "toLog"
+toFrame : List Op -> String
+toFrame opList =
+    List.map closedOpToString opList
+        |> String.join ""
+        |> (++) " ."

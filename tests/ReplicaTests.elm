@@ -36,7 +36,7 @@ nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error
 nodeFromCodec profileCodec =
     let
         logOps ops =
-            List.map (\op -> Op.toString op ++ "\n") ops
+            List.map (\op -> Op.closedOpToString op ++ "\n") ops
                 |> String.concat
 
         startedNode =
@@ -231,7 +231,7 @@ nodeModifications =
                             Node.apply Nothing beforeNode (Node.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
-                            List.map (\op -> Op.toString op ++ "\n") ops
+                            List.map (\op -> Op.closedOpToString op ++ "\n") ops
                                 |> String.concat
                     in
                     Log.logMessage ("\n Adding ops to afterNode: \n" ++ logOps) updatedNode
@@ -294,7 +294,7 @@ fakeNodeWithSimpleList =
                     Node.apply Nothing startNode (Node.saveChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
-                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
                         |> String.concat
             in
             applied.updatedNode
@@ -345,7 +345,7 @@ fakeNodeWithModifiedList =
                     Node.apply Nothing fakeNodeWithSimpleList (Node.saveChanges "making some changes to the replist" changes)
 
                 logOps =
-                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
                         |> String.concat
             in
             applied.updatedNode
@@ -497,7 +497,7 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
 
                 logOps =
-                    List.map (\op -> Op.toString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
                         |> String.concat
             in
             applied.updatedNode
