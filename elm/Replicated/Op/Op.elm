@@ -251,6 +251,9 @@ fromString inputString previousOpMaybe =
                 ( Just ":lww", _ ) ->
                     Just "lww"
 
+                ( Just ":replist", _ ) ->
+                    Just "replist"
+
                 ( _, Just previousOp ) ->
                     Just (reducer previousOp)
 
@@ -278,7 +281,7 @@ fromString inputString previousOpMaybe =
                     Err <| "This op has a nonempty payload (not a creation op) but I couldn't find the required *reference* atom (:) and got no prior op in the chain to deduce it from: " ++ inputString
 
                 ( Nothing, _, _ ) ->
-                    Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from: " ++ inputString
+                    Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from. Input String: “" ++ inputString ++ "”"
     in
     case reducerMaybe of
         Just foundReducer ->
@@ -296,8 +299,17 @@ Here we pass in the previously parsed Op (when available) to parsing of the next
 fromSpan : String -> Result String (List Op)
 fromSpan span =
     let
-        spanOpStrings =
+        spanOpLines =
             String.split ",\n" span
+                |> List.filterMap dropBlank
+
+        dropBlank line =
+            case String.trim line of
+                "" ->
+                    Nothing
+
+                notEmpty ->
+                    Just notEmpty
 
         addToOpList : List String -> Result String (List Op) -> Result String (List Op)
         addToOpList unparsedOpList parsedOpListResult =
@@ -331,7 +343,7 @@ fromSpan span =
         finalList =
             -- recursively move from one list to the other
             -- second list is backwards for performance (ostensibly)
-            addToOpList spanOpStrings (Ok [])
+            addToOpList spanOpLines (Ok [])
     in
     -- TODO does having it reversed defeat the point of building it backwards?
     Result.map List.reverse finalList
@@ -375,6 +387,7 @@ fromLog log =
 
 toFrame : List Op -> String
 toFrame opList =
-    List.map closedOpToString opList
-        |> String.join ""
-        |> (++) " ."
+    (List.map closedOpToString opList
+        |> String.join ",\n"
+    )
+        ++ " ."

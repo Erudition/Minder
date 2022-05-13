@@ -228,7 +228,7 @@ nodeModifications =
                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
 
                         { updatedNode, ops } =
-                            Node.apply Nothing beforeNode (Node.saveChanges "making some changes to the writable object" makeChanges)
+                            Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
                             List.map (\op -> Op.closedOpToString op ++ "\n") ops
@@ -291,7 +291,7 @@ fakeNodeWithSimpleList =
         Ok repList ->
             let
                 applied =
-                    Node.apply Nothing startNode (Node.saveChanges "adding replist changes" [ addChanges repList ])
+                    Node.apply Nothing startNode (Change.saveChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
                     List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
@@ -342,7 +342,7 @@ fakeNodeWithModifiedList =
                         ]
 
                 applied =
-                    Node.apply Nothing fakeNodeWithSimpleList (Node.saveChanges "making some changes to the replist" changes)
+                    Node.apply Nothing fakeNodeWithSimpleList (Change.saveChanges "making some changes to the replist" changes)
 
                 logOps =
                     List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
@@ -462,7 +462,7 @@ nestedStressTestIntegrityCheck =
 -- NOW MODIFY THE STRESSTEST
 
 
-nodeWithModifiedNestedStressTest : Node
+nodeWithModifiedNestedStressTest : { original : Node, serialized : Node }
 nodeWithModifiedNestedStressTest =
     let
         { startNode, result } =
@@ -494,13 +494,23 @@ nodeWithModifiedNestedStressTest =
                     SomeOfBoth RepList.new RepList.new
 
                 applied =
-                    Node.apply Nothing startNode (Node.saveChanges "modifying the nested stress test" changes)
+                    Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
+
+                serializedApplied =
+                    Node.applyAndReparseOps Nothing startNode (Change.saveChanges "serializing and modifying the nested stress test" changes)
 
                 logOps =
                     List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
                         |> String.concat
             in
-            applied.updatedNode
+            case serializedApplied of
+                Ok serialized ->
+                    { original = applied.updatedNode, serialized = serialized }
+
+                Err problem ->
+                    { original = applied.updatedNode
+                    , serialized = Debug.todo ("failed to serialize node " ++ Debug.toString problem)
+                    }
 
         Err _ ->
             Debug.todo "no start dummy object"
@@ -520,19 +530,25 @@ modifiedNestedStressTestIntegrityCheck =
         eventListSize givenID givenNode =
             Dict.size (getObjectEventList givenID givenNode)
 
+        subject =
+            nodeWithModifiedNestedStressTest.original
+
         decodedNST =
-            RC.decodeFromNode nestedStressTestCodec nodeWithModifiedNestedStressTest
+            RC.decodeFromNode nestedStressTestCodec subject
     in
     describe "checking the modified NST node and objects"
-        [ describe "Checking the node has changed in correct places"
+        [ test "Checking the Ops encode and decode into the same node" <|
+            \_ ->
+                Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
+        , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Expect.equal (Dict.size nodeWithModifiedNestedStressTest.objects) 6
+                    Expect.equal (Dict.size subject.objects) 6
             , test "the demo node should have one profile" <|
                 \_ ->
-                    Expect.equal (List.length nodeWithModifiedNestedStressTest.profiles) 1
+                    Expect.equal (List.length subject.profiles) 1
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
-                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID nodeWithModifiedNestedStressTest)
+                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID subject)
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
             ]

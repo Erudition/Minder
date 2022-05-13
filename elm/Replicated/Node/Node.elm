@@ -132,7 +132,7 @@ applyAndReparseOps timeMaybe node changeFrame =
             apply timeMaybe node changeFrame
 
         outputFrameString =
-            Op.toFrame ops
+            Debug.log "SERIALIZING OP FRAME: \n" (Op.toFrame ops)
 
         reparsedOpsResult =
             Op.fromLog outputFrameString
@@ -144,8 +144,9 @@ applyAndReparseOps timeMaybe node changeFrame =
         ( Just foundRoot, Ok reparsedOps ) ->
             initFromSaved (NodeID.toString updatedNode.identity) (OpID.exportCounter updatedNode.lastUsedCounter) foundRoot reparsedOps
 
-        _ ->
-            Err DecodingOldIdentityProblem
+        ( problemRoot, problemOpsResult ) ->
+            -- Err DecodingOldIdentityProblem
+            Debug.todo <| "Can't reparse node with root " ++ Debug.toString problemRoot ++ " and/or given reparsed ops " ++ Debug.toString problemOpsResult
 
 
 
