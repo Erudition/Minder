@@ -32,20 +32,20 @@ suite =
         ]
 
 
-nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile }
+nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, ops : List Op }
 nodeFromCodec profileCodec =
     let
         logOps ops =
             List.map (\op -> Op.closedOpToString op ++ "\n") ops
                 |> String.concat
 
-        startedNode =
+        { newNode, newOps } =
             Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
 
         tryDecoding =
-            RC.decodeFromNode profileCodec startedNode
+            RC.decodeFromNode profileCodec newNode
     in
-    { startNode = startedNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding }
+    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, ops = newOps }
 
 
 fakeOps : List Op
@@ -465,7 +465,7 @@ nestedStressTestIntegrityCheck =
 nodeWithModifiedNestedStressTest : { original : Node, serialized : Node }
 nodeWithModifiedNestedStressTest =
     let
-        { startNode, result } =
+        { startNode, result, ops } =
             nodeFromCodec nestedStressTestCodec
     in
     case result of
@@ -494,10 +494,10 @@ nodeWithModifiedNestedStressTest =
                     SomeOfBoth RepList.new RepList.new
 
                 applied =
-                    Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
+                    Node.apply Nothing (Debug.log "--------------------------START NODE 1 IS" startNode) (Change.saveChanges "modifying the nested stress test" changes)
 
                 serializedApplied =
-                    Node.applyAndReparseOps Nothing startNode (Change.saveChanges "serializing and modifying the nested stress test" changes)
+                    Node.applyAndReparseOps Nothing startNode ops (Change.saveChanges "serializing and modifying the nested stress test" changes)
 
                 logOps =
                     List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
@@ -514,6 +514,29 @@ nodeWithModifiedNestedStressTest =
 
         Err _ ->
             Debug.todo "no start dummy object"
+
+
+encodeThenDecodeOps ops =
+    let
+        logOps oplist =
+            List.map (\op -> Op.closedOpToString op ++ "\n") oplist
+                |> String.concat
+
+        output =
+            Op.fromLog (Debug.log "HERE IS THE FRAME" <| Op.toFrame ops)
+
+        outputOps =
+            Result.map logOps output
+
+        logThis =
+            case output of
+                Ok okops ->
+                    "\n\n decoded to: ----------------------------------------\n" ++ logOps okops ++ "\n\nBut the original was:\n" ++ logOps ops ++ "\n\n"
+
+                _ ->
+                    "No ops to log"
+    in
+    Debug.log logThis output
 
 
 modifiedNestedStressTestIntegrityCheck =
@@ -535,11 +558,19 @@ modifiedNestedStressTestIntegrityCheck =
 
         decodedNST =
             RC.decodeFromNode nestedStressTestCodec subject
+
+        opsToFlush =
+            (nodeFromCodec nestedStressTestCodec).ops
     in
     describe "checking the modified NST node and objects"
-        [ test "Checking the Ops encode and decode into the same node" <|
-            \_ ->
-                Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
+        [ only <|
+            test "Checking the Ops don't change when serialized and back" <|
+                \_ ->
+                    Expect.equal (Ok opsToFlush) (encodeThenDecodeOps opsToFlush)
+        , skip <|
+            test "Checking the Ops encode and decode into the same node" <|
+                \_ ->
+                    Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->

@@ -32,16 +32,21 @@ initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
     let
         lastIdentity =
             NodeID.fromString foundIdentity
+
+        backfilledNode oldNodeID =
+            List.foldl (\op n -> { n | objects = updateObject n.objects op }) (startNode oldNodeID) inputDatabase
+
+        startNode oldNodeID =
+            { identity = NodeID.bumpSessionID oldNodeID
+            , peers = []
+            , objects = Dict.empty
+            , profiles = [ foundRoot ]
+            , lastUsedCounter = OpID.importCounter foundCounter
+            }
     in
     case lastIdentity of
         Just oldNodeID ->
-            Ok
-                { identity = NodeID.bumpSessionID oldNodeID
-                , peers = []
-                , objects = Dict.empty
-                , profiles = [ foundRoot ]
-                , lastUsedCounter = OpID.importCounter foundCounter
-                }
+            Ok (backfilledNode oldNodeID)
 
         Nothing ->
             Err DecodingOldIdentityProblem
@@ -66,13 +71,13 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> Change -> Node
+startNewNode : Maybe Moment -> Change -> { newNode : Node, newOps : List Op }
 startNewNode nowMaybe rootChange =
     let
         firstChangeFrame =
             Change.saveChanges "Node initialized" [ rootChange ]
 
-        { updatedNode, created } =
+        { updatedNode, created, ops } =
             apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } firstChangeFrame
 
         newRoot =
@@ -82,8 +87,11 @@ startNewNode nowMaybe rootChange =
 
         nodeStartCounter =
             Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
+
+        newNode =
+            { updatedNode | profiles = newRoot }
     in
-    { updatedNode | profiles = newRoot }
+    { newNode = newNode, newOps = ops }
 
 
 {-| Save your changes!
@@ -125,8 +133,8 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
 
 {-| Testing: Drop-in replacement for `apply` which encodes the output Ops to string, and then decodes that string back to a node, to ensure it's the same
 -}
-applyAndReparseOps : Maybe Moment -> Node -> Change.Frame -> Result InitError Node
-applyAndReparseOps timeMaybe node changeFrame =
+applyAndReparseOps : Maybe Moment -> Node -> List Op -> Change.Frame -> Result InitError Node
+applyAndReparseOps timeMaybe node existingOps changeFrame =
     let
         { ops, updatedNode } =
             apply timeMaybe node changeFrame
@@ -142,7 +150,7 @@ applyAndReparseOps timeMaybe node changeFrame =
     in
     case ( rootMaybe, reparsedOpsResult ) of
         ( Just foundRoot, Ok reparsedOps ) ->
-            initFromSaved (NodeID.toString updatedNode.identity) (OpID.exportCounter updatedNode.lastUsedCounter) foundRoot reparsedOps
+            initFromSaved (NodeID.toString updatedNode.identity) (OpID.exportCounter updatedNode.lastUsedCounter) foundRoot (existingOps ++ reparsedOps)
 
         ( problemRoot, problemOpsResult ) ->
             -- Err DecodingOldIdentityProblem

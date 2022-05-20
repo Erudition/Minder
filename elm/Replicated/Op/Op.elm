@@ -7,6 +7,7 @@ import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty exposing (Nonempty)
+import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Replicated.Serialize as RS exposing (Codec)
 import Result.Extra
@@ -28,7 +29,95 @@ type alias ClosedOp =
 
 
 
--- OPEN Ops
+-- PARSERS
+
+
+ronParser : Parser (List OpenTextRonFrame)
+ronParser =
+    Parser.sequence
+        { start = ""
+        , separator = "."
+        , end = ""
+        , spaces = spaces
+        , item = frameParser
+        , trailing = Parser.Mandatory
+        }
+
+
+frameParser : Parser OpenTextRonFrame
+frameParser =
+    let
+        chunks : Parser (List FrameChunk)
+        chunks =
+            Parser.loop [] chainsInChunk
+
+        chainsInChunk : List Chain -> Parser (Parser.Step (List Chain) FrameChunk)
+        chainsInChunk chainsReversed =
+            Parser.oneOf
+                [ succeed (\thisChain -> Parser.Loop (thisChain :: chainsReversed))
+                    |= chainParser
+                    |. spaces
+                    |= frameChunkTerminator
+                , succeed ()
+                    |> Parser.map (\_ -> Parser.Done (List.reverse chainsReversed))
+                ]
+    in
+    succeed OpenTextRonFrame
+        |= chunks
+
+
+type alias FrameChunk =
+    { chains : List Chain, terminator : FrameChunkType }
+
+
+type FrameChunkType
+    = EventChunk -- 3.0: FACT
+    | AssertionChunk -- 3.0 CLAIM
+    | QueryChunk -- 3.0: QUERY
+
+
+frameChunkTerminator : Parser FrameChunkType
+frameChunkTerminator =
+    Parser.oneOf
+        [ Parser.map (\_ -> EventChunk) (symbol ";")
+        , Parser.map (\_ -> AssertionChunk) (symbol "!")
+        , Parser.map (\_ -> QueryChunk) (symbol "?")
+        ]
+
+
+type alias OpenTextRonFrame =
+    { ops : Nonempty FrameChunk
+    }
+
+
+{-| RON: "Chain: a fragment of a yarn where each next op references the previous one."
+Where "yarn" means a list of Ops from the same origin.
+-}
+type alias Chain =
+    { firstRef : Reference, firstID : OpID, spans : List ChainMember }
+
+
+chainParser : Parser Chain
+chainParser =
+    let
+        spans : Parser (List ChainMember)
+        spans =
+            Parser.loop [] spansInChain
+
+        spansInChain : List ChainMember -> Parser (Parser.Step (List spansInChain) Chain)
+        spansInChain spansReversed =
+            Parser.oneOf
+                [ succeed (\thisLine -> Parser.Loop (thisLine :: spansReversed))
+                    |= spanParser
+                    |. spaces
+                    |= frameChunkTerminator
+                , succeed ()
+                    |> Parser.map (\_ -> Parser.Done (List.reverse spansReversed))
+                ]
+    in
+    succeed Chain
+        firstSpanInChain
+        |= chunks
 
 
 {-| RON: "Open notation is just a shorted version of closed one. Reducer id and object id are omitted in this case, as those could be deduced from full DB and reference id."
@@ -36,26 +125,13 @@ type alias ClosedOp =
 The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (spans have incremental OpIDs).
 
 -}
-type alias OpenOpInSpan =
+type alias ChainMember =
     { payload : OpPayloadAtoms
     }
 
 
-{-| Span (Chain Span)
-RON: "a chain where each op’s id is exactly an increment of the previous id (1gABC+origin, 1gABC00001+origin, 1gABC00002+origin...)."
 
-We just use single-op spans in the case of non-incremental ops.
-
--}
-type ChainSpan
-    = ChainSpan { firstID : OpID, ops : List OpenOpInSpan }
-
-
-{-| RON: "Chain: a fragment of a yarn where each next op references the previous one."
-Where "yarn" means a list of Ops from the same origin.
--}
-type Chain
-    = Chain { firstRef : Reference, spans : List ChainSpan }
+-- CLOSED OP PARTS
 
 
 type Reference
@@ -215,8 +291,26 @@ closedOpToString (Op op) =
 fromString : String -> Maybe Op -> Result String Op
 fromString inputString previousOpMaybe =
     let
+        inputChunks =
+            inputString
+                |> String.split "\""
+
+        -- headerAtoms =
+        --     inputChunks
+        --         |> List.head
+        --         |> Maybe.map String.words
+        --         |> Maybe.withDefault []
         atoms =
-            String.words inputString
+            inputChunks
+                |> List.indexedMap
+                    (\i s ->
+                        if modBy (i + 1) 2 == 0 then
+                            [ s ]
+
+                        else
+                            String.words s
+                    )
+                |> List.concat
 
         opIDatom =
             List.head (List.filter (String.startsWith "@") atoms)
@@ -380,7 +474,7 @@ fromLog : String -> Result String (List Op)
 fromLog log =
     let
         frames =
-            String.split " ." log
+            String.split "." log
     in
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
