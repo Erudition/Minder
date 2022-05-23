@@ -34,40 +34,64 @@ type alias ClosedOp =
 
 ronParser : Parser (List OpenTextRonFrame)
 ronParser =
-    Parser.sequence
-        { start = ""
-        , separator = "."
-        , end = ""
-        , spaces = spaces
-        , item = frameParser
-        , trailing = Parser.Mandatory
-        }
+    let
+        frameHelp : List OpenTextRonFrame -> Parser (Parser.Step (List OpenTextRonFrame) (List OpenTextRonFrame))
+        frameHelp framesReversed =
+            Parser.oneOf
+                [ succeed (\frame -> Parser.Loop (frame :: framesReversed))
+                    |= frameParser
+                    |. spaces
+                    |. symbol "."
+                    |. spaces
+                , succeed ()
+                    |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
+                ]
+    in
+    Parser.loop [] frameHelp
 
 
 frameParser : Parser OpenTextRonFrame
 frameParser =
     let
-        chunks : Parser (List FrameChunk)
+        chunks : Parser FrameChunk
         chunks =
-            Parser.loop [] chainsInChunk
+            Parser.loop [] opsInChunk
 
-        chainsInChunk : List Chain -> Parser (Parser.Step (List Chain) FrameChunk)
-        chainsInChunk chainsReversed =
+        opsInChunk : List OpenTextOp -> Parser (Parser.Step (List OpenTextOp) FrameChunk)
+        opsInChunk opsReversed =
             Parser.oneOf
-                [ succeed (\thisChain -> Parser.Loop (thisChain :: chainsReversed))
-                    |= chainParser
-                    |. spaces
+                [ opLineParserChainLoop opsReversed
+                , succeed identity
                     |= frameChunkTerminator
+                    |> Parser.map (\term -> Parser.Done (FrameChunk (List.reverse opsReversed) term))
+                ]
+
+        opLineParserChainLoop opsReversed =
+            let
+                lastSeenOp =
+                    List.head opsReversed
+
+                parseLineWithContext =
+                    opLineParser (Maybe.map .opID lastSeenOp) (Maybe.map .reference lastSeenOp)
+            in
+            succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
+                |= parseLineWithContext
+
+        chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
+        chunksInFrame chunksReversed =
+            Parser.oneOf
+                [ succeed (\thisChunk -> Parser.Loop (thisChunk :: chunksReversed))
+                    |= chunks
                 , succeed ()
-                    |> Parser.map (\_ -> Parser.Done (List.reverse chainsReversed))
+                    |> Parser.map (\_ -> Parser.Done (List.reverse chunksReversed))
                 ]
     in
     succeed OpenTextRonFrame
-        |= chunks
+        |= Parser.loop [] chunksInFrame
 
 
 type alias FrameChunk =
-    { chains : List Chain, terminator : FrameChunkType }
+    { ops : List OpenTextOp, terminator : FrameChunkType }
 
 
 type FrameChunkType
@@ -86,38 +110,8 @@ frameChunkTerminator =
 
 
 type alias OpenTextRonFrame =
-    { ops : Nonempty FrameChunk
+    { chunks : List FrameChunk
     }
-
-
-{-| RON: "Chain: a fragment of a yarn where each next op references the previous one."
-Where "yarn" means a list of Ops from the same origin.
--}
-type alias Chain =
-    { firstRef : Reference, firstID : OpID, spans : List ChainMember }
-
-
-chainParser : Parser Chain
-chainParser =
-    let
-        spans : Parser (List ChainMember)
-        spans =
-            Parser.loop [] spansInChain
-
-        spansInChain : List ChainMember -> Parser (Parser.Step (List spansInChain) Chain)
-        spansInChain spansReversed =
-            Parser.oneOf
-                [ succeed (\thisLine -> Parser.Loop (thisLine :: spansReversed))
-                    |= spanParser
-                    |. spaces
-                    |= frameChunkTerminator
-                , succeed ()
-                    |> Parser.map (\_ -> Parser.Done (List.reverse spansReversed))
-                ]
-    in
-    succeed Chain
-        firstSpanInChain
-        |= chunks
 
 
 {-| RON: "Open notation is just a shorted version of closed one. Reducer id and object id are omitted in this case, as those could be deduced from full DB and reference id."
@@ -125,9 +119,92 @@ chainParser =
 The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (spans have incremental OpIDs).
 
 -}
-type alias ChainMember =
-    { payload : OpPayloadAtoms
+type alias OpenTextOp =
+    { opID : OpID
+    , reference : Reference
+    , payload : OpPayloadAtoms
     }
+
+
+opLineParser : Maybe OpID -> Maybe Reference -> Parser OpenTextOp
+opLineParser prevOpIDMaybe prevRefMaybe =
+    let
+        opIDparser =
+            succeed identity
+                |. symbol "@"
+                |= OpID.parser
+
+        opRefparser =
+            Parser.oneOf
+                [ succeed OpReference
+                    |. symbol ":"
+                    |= OpID.parser
+                , succeed ReducerReference
+                    |. symbol ":"
+                    |= reducerIDParser
+                ]
+
+        reducerIDParser : Parser ReducerID
+        reducerIDParser =
+            Parser.getChompedString (Parser.chompWhile Char.isAlpha)
+                |> Parser.andThen (\reducerID -> succeed reducerID)
+
+        optionalOpIDParser =
+            case prevOpIDMaybe of
+                Just prevOpID ->
+                    Parser.oneOf
+                        [ opIDparser
+                        , succeed (OpID.nextOpInChain prevOpID)
+                        ]
+
+                Nothing ->
+                    OpID.parser
+
+        optionalRefParser =
+            case prevRefMaybe of
+                Just (OpReference prevRef) ->
+                    Parser.oneOf
+                        [ opRefparser
+                        , Parser.map OpReference <| succeed (OpID.nextOpInChain prevRef)
+                        ]
+
+                _ ->
+                    opRefparser
+
+        opPayloadParser : OpPayloadAtoms -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
+        opPayloadParser atomsReversed =
+            Parser.oneOf
+                [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
+                    |= Parser.map JE.string nakedOrQuotedAtom
+                    |. spaces
+                , succeed ()
+                    |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
+                ]
+    in
+    succeed OpenTextOp
+        |= optionalOpIDParser
+        |. sameLineSpaces
+        |= optionalRefParser
+        |. sameLineSpaces
+        |= Parser.loop [] opPayloadParser
+
+
+nakedOrQuotedAtom : Parser String
+nakedOrQuotedAtom =
+    Parser.oneOf
+        [ succeed identity
+            |. symbol "\""
+            |= Parser.lazy (\_ -> nakedOrQuotedAtom)
+            -- in case there are further-quoted strings inside
+            |. symbol "\""
+        , Parser.getChompedString (Parser.chompUntilEndOr "\n")
+            |> Parser.andThen (\atomContents -> succeed atomContents)
+        ]
+
+
+sameLineSpaces : Parser ()
+sameLineSpaces =
+    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
 
 
 

@@ -1,6 +1,7 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toString)
 
 import Json.Decode as JD
+import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -69,6 +70,15 @@ generate (NewOpCounter counter) origin reversion =
 toString : OpID -> OpIDString
 toString (OpID string) =
     string
+
+
+parser : Parser OpID
+parser =
+    Parser.map OpID <|
+        Parser.getChompedString <|
+            succeed ()
+                -- |= Parser.chompWhile (\s -> s /= "+" && s /= "-")
+                |. Parser.chompWhile (\char -> char /= ' ')
 
 
 fromStamp : EventStamp -> OpID
