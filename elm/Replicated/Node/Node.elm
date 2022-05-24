@@ -4,6 +4,7 @@ import Dict exposing (Dict)
 import Json.Encode as JE
 import List.Extra as List
 import Log
+import Parser
 import Replicated.Change as Change exposing (Change)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -34,7 +35,7 @@ initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
             NodeID.fromString foundIdentity
 
         backfilledNode oldNodeID =
-            List.foldl (\op n -> { n | objects = updateObject n.objects op }) (startNode oldNodeID) inputDatabase
+            updateWithClosedOps (startNode oldNodeID) inputDatabase
 
         startNode oldNodeID =
             { identity = NodeID.bumpSessionID oldNodeID
@@ -94,6 +95,136 @@ startNewNode nowMaybe rootChange =
     { newNode = newNode, newOps = ops }
 
 
+{-| Update a node with some Ops.
+-}
+updateWithClosedOps : Node -> List Op -> Node
+updateWithClosedOps node newOps =
+    List.foldl (\op n -> { n | objects = updateObject n.objects op }) node newOps
+
+
+type OpImportWarning
+    = ParseFail (List Parser.DeadEnd)
+    | UnknownReference OpID
+    | EmptyChunk
+
+
+updateWithRon : ( List OpImportWarning, Node ) -> String -> ( List OpImportWarning, Node )
+updateWithRon ( prevWarns, oldNode ) inputRon =
+    case Parser.run Op.ronParser inputRon of
+        Ok parsedRon ->
+            updateWithMultipleFrames ( prevWarns, oldNode ) parsedRon
+
+        Err parseDeadEnds ->
+            ( prevWarns ++ [ ParseFail parseDeadEnds ], oldNode )
+
+
+{-| When we want to update with a bunch of frames at a time. Usually we only run through one at a time for responsive performance.
+-}
+updateWithMultipleFrames : ( List OpImportWarning, Node ) -> List Op.OpenTextRonFrame -> ( List OpImportWarning, Node )
+updateWithMultipleFrames ( beginWarns, beginNode ) newFrames =
+    let
+        singleFrameResult thisFrame acc =
+            update acc thisFrame
+    in
+    List.foldl singleFrameResult ( beginWarns, beginNode ) newFrames
+
+
+{-| Update a node with some Ops in a Frame.
+-}
+update : ( List OpImportWarning, Node ) -> Op.OpenTextRonFrame -> ( List OpImportWarning, Node )
+update ( beginWarns, beginNode ) newFrame =
+    List.foldl updateNodeWithChunk ( beginWarns, beginNode ) newFrame.chunks
+
+
+{-| Add a single object Chunk to the node.
+-}
+updateNodeWithChunk : Op.FrameChunk -> ( List OpImportWarning, Node ) -> ( List OpImportWarning, Node )
+updateNodeWithChunk chunk ( prevErrors, beginNode ) =
+    let
+        deduceChunkReducerAndObject =
+            case List.head chunk.ops of
+                Nothing ->
+                    Err EmptyChunk
+
+                Just firstOpenOp ->
+                    case ( firstOpenOp.objectMaybe, firstOpenOp.reducerMaybe, firstOpenOp.reference ) of
+                        ( Just explicitReducer, Just explicitObject, _ ) ->
+                            -- closed ops - reducer and objectID are explicit
+                            Ok ( explicitObject, explicitReducer )
+
+                        ( _, _, Op.ReducerReference reducerID ) ->
+                            -- It's a header / creation op, no need to lookup
+                            Ok ( reducerID, firstOpenOp.opID )
+
+                        _ ->
+                            lookupObject beginNode firstOpenOp.opID
+
+        closedOpListResult =
+            case deduceChunkReducerAndObject of
+                Ok ( foundReducerID, foundObjectID ) ->
+                    Ok <| List.map (closeOp foundReducerID foundObjectID) chunk.ops
+
+                Err newErrs ->
+                    Err newErrs
+    in
+    case closedOpListResult of
+        Ok closedOpList ->
+            ( prevErrors, List.foldl (\op n -> { n | objects = updateObject n.objects op }) beginNode closedOpList )
+
+        Err newErr ->
+            -- withhold the whole chunk
+            ( prevErrors ++ [ newErr ], beginNode )
+
+
+closeOp : ReducerID -> ObjectID -> Op.OpenTextOp -> Op
+closeOp deducedReducer deducedObject openOp =
+    Op.Op <|
+        { reducerID = openOp.reducerMaybe |> Maybe.withDefault deducedReducer
+        , objectID = openOp.objectMaybe |> Maybe.withDefault deducedObject
+        , operationID = openOp.opID
+        , reference = openOp.reference
+        , payload = openOp.payload
+        }
+
+
+{-| Find the opID referenced so we know what object an op belongs to.
+
+First we compare against object creation IDs, then the stored "last seen" IDs, since it will usually be that. Finally, we check all other op IDs.
+
+-}
+lookupObject : Node -> OpID -> Result OpImportWarning ( ReducerID, ObjectID )
+lookupObject node opIDToFind =
+    case Dict.get (OpID.toString opIDToFind) node.objects of
+        -- ^first, quickly check only the object IDs
+        Just foundObject ->
+            Ok ( foundObject.reducer, foundObject.creation )
+
+        Nothing ->
+            case List.head <| Dict.toList <| Dict.filter (\k v -> v.lastSeen == opIDToFind) node.objects of
+                -- ^next, check only the last seen opIDs of each object
+                Just ( _, foundObject ) ->
+                    Ok ( foundObject.reducer, foundObject.creation )
+
+                Nothing ->
+                    -- ^ last resort, check all other ops
+                    let
+                        allOtherOpIDsLookup =
+                            List.concatMap pairOpsWithObject (Dict.values node.objects)
+
+                        pairOpsWithObject givenObject =
+                            List.map (\opID -> ( opID, Object.getReducer givenObject, Object.getID givenObject )) (Object.allOtherOpIDs givenObject)
+
+                        matchMaybe =
+                            List.find (\( eachOpID, _, _ ) -> eachOpID == opIDToFind) allOtherOpIDsLookup
+                    in
+                    case matchMaybe of
+                        Just ( _, foundObjectReducer, foundObjectID ) ->
+                            Ok ( foundObjectReducer, foundObjectID )
+
+                        Nothing ->
+                            Err (UnknownReference opIDToFind)
+
+
 {-| Save your changes!
 Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
@@ -115,7 +246,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
             List.concat listOfFinishedOpsLists
 
         updatedNode =
-            List.foldl (\op n -> { n | objects = updateObject n.objects op }) node finishedOps
+            updateWithClosedOps node finishedOps
 
         creationOpsToObjectIDs op =
             case Op.pattern op of

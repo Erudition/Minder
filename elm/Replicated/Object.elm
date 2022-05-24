@@ -18,6 +18,25 @@ type alias Object =
     }
 
 
+getID : Object -> ObjectID
+getID object =
+    object.creation
+
+
+getReducer : Object -> Op.ReducerID
+getReducer object =
+    object.reducer
+
+
+{-| We assume creation op IDs were checked already, this is just post-init events
+-}
+allOtherOpIDs : Object -> List OpID
+allOtherOpIDs object =
+    -- TODO for performance, should we keep this list in memory?
+    -- TODO what about non-kept events?
+    List.map eventID (Dict.values object.events)
+
+
 type alias EventPayload =
     JE.Value
 

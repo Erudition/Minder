@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (Op, OpPattern(..), OpPayloadAtoms, ReducerID, Reference(..), closedOpToString, create, fromFrame, fromLog, fromString, id, initObject, object, pattern, payload, reducer, reference, toFrame)
+module Replicated.Op.Op exposing (FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser, toFrame)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -44,6 +44,8 @@ ronParser =
                     |. symbol "."
                     |. spaces
                 , succeed ()
+                    |. Parser.end
+                    -- make sure we've consumed all input
                     |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
                 ]
     in
@@ -76,6 +78,7 @@ frameParser =
             in
             succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
                 |= parseLineWithContext
+                |. symbol ","
 
         chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
         chunksInFrame chunksReversed =
@@ -120,7 +123,9 @@ The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (span
 
 -}
 type alias OpenTextOp =
-    { opID : OpID
+    { reducerMaybe : Maybe ReducerID
+    , objectMaybe : Maybe ObjectID
+    , opID : OpID
     , reference : Reference
     , payload : OpPayloadAtoms
     }
@@ -148,6 +153,24 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         reducerIDParser =
             Parser.getChompedString (Parser.chompWhile Char.isAlpha)
                 |> Parser.andThen (\reducerID -> succeed reducerID)
+
+        optionalReducerIDParser =
+            Parser.oneOf
+                [ Parser.map Just <|
+                    succeed identity
+                        |. symbol "*"
+                        |= reducerIDParser
+                , succeed Nothing
+                ]
+
+        optionalObjectIDParser =
+            Parser.oneOf
+                [ Parser.map Just <|
+                    succeed identity
+                        |. symbol "#"
+                        |= OpID.parser
+                , succeed Nothing
+                ]
 
         optionalOpIDParser =
             case prevOpIDMaybe of
@@ -182,6 +205,10 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                 ]
     in
     succeed OpenTextOp
+        |= optionalReducerIDParser
+        |. sameLineSpaces
+        |= optionalObjectIDParser
+        |. sameLineSpaces
         |= optionalOpIDParser
         |. sameLineSpaces
         |= optionalRefParser
@@ -365,8 +392,8 @@ closedOpToString (Op op) =
     opID ++ " " ++ ref ++ " " ++ String.join " " (List.map encodePayloadAtom op.payload)
 
 
-fromString : String -> Maybe Op -> Result String Op
-fromString inputString previousOpMaybe =
+closedOpFromString : String -> Maybe Op -> Result String Op
+closedOpFromString inputString previousOpMaybe =
     let
         inputChunks =
             inputString
@@ -496,20 +523,20 @@ fromSpan span =
 
                 ( [ unparsedOp ], Ok [] ) ->
                     -- not started yet, one item to parse
-                    Result.map List.singleton (fromString unparsedOp Nothing)
+                    Result.map List.singleton (closedOpFromString unparsedOp Nothing)
 
                 ( nextUnparsedOp :: remainingUnparsedOps, Ok [] ) ->
                     -- not started yet, multiple items to parse
-                    addToOpList remainingUnparsedOps (Result.map List.singleton (fromString nextUnparsedOp Nothing))
+                    addToOpList remainingUnparsedOps (Result.map List.singleton (closedOpFromString nextUnparsedOp Nothing))
 
                 ( [ unparsedOp ], Ok [ parsedOp ] ) ->
                     -- one down, one to go
-                    Result.map (\new -> new :: [ parsedOp ]) (fromString unparsedOp (Just parsedOp))
+                    Result.map (\new -> new :: [ parsedOp ]) (closedOpFromString unparsedOp (Just parsedOp))
 
                 ( nextUnparsedOp :: remainingUnparsedOps, Ok ((lastParsedOp :: _) as parsedOps) ) ->
                     -- multiple done, multiple remain
                     -- parsedOps is reversed, it's more efficient to grab a list head than the last item
-                    addToOpList remainingUnparsedOps <| Result.map (\new -> new :: parsedOps) (fromString nextUnparsedOp (Just lastParsedOp))
+                    addToOpList remainingUnparsedOps <| Result.map (\new -> new :: parsedOps) (closedOpFromString nextUnparsedOp (Just lastParsedOp))
 
         finalList =
             -- recursively move from one list to the other
