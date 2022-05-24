@@ -262,32 +262,6 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
     }
 
 
-{-| Testing: Drop-in replacement for `apply` which encodes the output Ops to string, and then decodes that string back to a node, to ensure it's the same
--}
-applyAndReparseOps : Maybe Moment -> Node -> List Op -> Change.Frame -> Result InitError Node
-applyAndReparseOps timeMaybe node existingOps changeFrame =
-    let
-        { ops, updatedNode } =
-            apply timeMaybe node changeFrame
-
-        outputFrameString =
-            Debug.log "SERIALIZING OP FRAME: \n" (Op.toFrame ops)
-
-        reparsedOpsResult =
-            Op.fromLog outputFrameString
-
-        rootMaybe =
-            List.head updatedNode.profiles
-    in
-    case ( rootMaybe, reparsedOpsResult ) of
-        ( Just foundRoot, Ok reparsedOps ) ->
-            initFromSaved (NodeID.toString updatedNode.identity) (OpID.exportCounter updatedNode.lastUsedCounter) foundRoot (existingOps ++ reparsedOps)
-
-        ( problemRoot, problemOpsResult ) ->
-            -- Err DecodingOldIdentityProblem
-            Debug.todo <| "Can't reparse node with root " ++ Debug.toString problemRoot ++ " and/or given reparsed ops " ++ Debug.toString problemOpsResult
-
-
 
 -- combineSameObjectChunks : List Change -> List Change
 -- combineSameObjectChunks changes =

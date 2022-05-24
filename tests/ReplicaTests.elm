@@ -22,13 +22,17 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , repListEncodeThenDecode
-        , repListInsertAndRemove
-        , nodeModifications
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        [ test "Checking there are no serialization warnings" <|
+            \_ ->
+                nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
+
+        -- readOnlyObjectEncodeThenDecode
+        -- , writableObjectEncodeThenDecode
+        -- , repListEncodeThenDecode
+        -- , repListInsertAndRemove
+        -- , nodeModifications
+        -- , nestedStressTestIntegrityCheck
+        -- , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -462,7 +466,7 @@ nestedStressTestIntegrityCheck =
 -- NOW MODIFY THE STRESSTEST
 
 
-nodeWithModifiedNestedStressTest : { original : Node, serialized : Node }
+nodeWithModifiedNestedStressTest : { original : Node, serialized : Node, warnings : List Node.OpImportWarning }
 nodeWithModifiedNestedStressTest =
     let
         { startNode, result, ops } =
@@ -484,59 +488,35 @@ nodeWithModifiedNestedStressTest =
                         ]
 
                 changes =
-                    Debug.log "\n\nREPLIST changes"
-                        -- TODO why is the order reversed
-                        [ RepList.addNew repListOfWritables
-                        , addCustomItemToRepList
-                        ]
+                    -- TODO why is the order reversed
+                    [ RepList.addNew repListOfWritables
+                    , addCustomItemToRepList
+                    ]
 
                 newKidsList =
                     SomeOfBoth RepList.new RepList.new
 
                 applied =
-                    Node.apply Nothing (Debug.log "--------------------------START NODE 1 IS" startNode) (Change.saveChanges "modifying the nested stress test" changes)
+                    Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
-                serializedApplied =
-                    Node.applyAndReparseOps Nothing startNode ops (Change.saveChanges "serializing and modifying the nested stress test" changes)
+                testRon =
+                    """@0+here :lww,;.
 
+
+                    """
+
+                ( warnings, ronUpdatedNode ) =
+                    Node.updateWithRon ( [], startNode ) testRon
+
+                -- (Op.toFrame applied.ops)
                 logOps =
                     List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
                         |> String.concat
             in
-            case serializedApplied of
-                Ok serialized ->
-                    { original = applied.updatedNode, serialized = serialized }
-
-                Err problem ->
-                    { original = applied.updatedNode
-                    , serialized = Debug.todo ("failed to serialize node " ++ Debug.toString problem)
-                    }
+            { original = applied.updatedNode, serialized = ronUpdatedNode, warnings = warnings }
 
         Err _ ->
             Debug.todo "no start dummy object"
-
-
-encodeThenDecodeOps ops =
-    let
-        logOps oplist =
-            List.map (\op -> Op.closedOpToString op ++ "\n") oplist
-                |> String.concat
-
-        output =
-            Op.fromLog (Debug.log "HERE IS THE FRAME" <| Op.toFrame ops)
-
-        outputOps =
-            Result.map logOps output
-
-        logThis =
-            case output of
-                Ok okops ->
-                    "\n\n decoded to: ----------------------------------------\n" ++ logOps okops ++ "\n\nBut the original was:\n" ++ logOps ops ++ "\n\n"
-
-                _ ->
-                    "No ops to log"
-    in
-    Debug.log logThis output
 
 
 modifiedNestedStressTestIntegrityCheck =
@@ -564,10 +544,10 @@ modifiedNestedStressTestIntegrityCheck =
     in
     describe "checking the modified NST node and objects"
         [ only <|
-            test "Checking the Ops don't change when serialized and back" <|
+            test "Checking there are no serialization warnings" <|
                 \_ ->
-                    Expect.equal (Ok opsToFlush) (encodeThenDecodeOps opsToFlush)
-        , skip <|
+                    nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
+        , only <|
             test "Checking the Ops encode and decode into the same node" <|
                 \_ ->
                     Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized

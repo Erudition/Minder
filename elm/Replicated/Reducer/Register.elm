@@ -56,7 +56,7 @@ build node object =
     let
         fieldsDict =
             -- for some reason foldL puts older events first, so foldR for now. TODO more efficient to have the list already reversed?
-            Dict.foldr addFieldEntry Dict.empty (Debug.log "\n\nobj events reg" object.events)
+            Dict.foldr addFieldEntry Dict.empty object.events
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
@@ -71,7 +71,7 @@ build node object =
         addUpdate newUpdate existingUpdatesMaybe =
             Just (newUpdate :: Maybe.withDefault [] existingUpdatesMaybe)
     in
-    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log "final fields dict" fieldsDict }
+    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Maybe ( FieldIdentifier, FieldPayload )
@@ -136,17 +136,15 @@ type alias FieldSlot =
 
 getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
-    Dict.get fieldSlot (Debug.log "* running getFieldLatestOnly on field list" <| register.fields)
+    Dict.get fieldSlot register.fields
         |> Maybe.andThen List.head
         |> Maybe.map Tuple.second
 
 
 getFieldHistory : Register -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
-    Debug.log ("getting field history for " ++ name) <|
-        (Dict.get desiredFieldSlot register.fields
-            |> Maybe.withDefault []
-        )
+    Dict.get desiredFieldSlot register.fields
+        |> Maybe.withDefault []
 
 
 getFieldHistoryValues : Register -> FieldIdentifier -> List FieldPayload

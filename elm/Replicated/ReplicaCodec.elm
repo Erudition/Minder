@@ -249,7 +249,7 @@ decodeFromNode profileCodec node =
                     value
 
                 Err jdError ->
-                    Log.logMessage ("failed to decode something within node: " ++ rootEncoded ++ " because:\n" ++ JD.errorToString jdError ++ "\n") (Err DataCorrupted)
+                    Err DataCorrupted
 
 
 endian : Bytes.Endianness
@@ -1510,7 +1510,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                 fieldUUIDHistoryList =
                     case inputs.parent of
                         ExistingRegister register ->
-                            Debug.log logMsg <| Register.getFieldHistoryValues (Debug.log "+++ the register was" register) ( fieldSlot, fieldName )
+                            Register.getFieldHistoryValues register ( fieldSlot, fieldName )
 
                         _ ->
                             -- decode an empty UUID list when there's no pre-existing objects

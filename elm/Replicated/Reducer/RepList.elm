@@ -244,5 +244,5 @@ addNewWithChanges (RepList record) desiredChanges =
     Change.Chunk
         { target = record.id
         , objectChanges =
-            Debug.log ">>> new replist member with changes" finalChangeList
+            finalChangeList
         }

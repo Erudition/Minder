@@ -42,9 +42,8 @@ ronParser =
                     |= frameParser
                     |. spaces
                     |. symbol "."
-                    |. spaces
+                    |. sameLineSpaces
                 , succeed ()
-                    |. Parser.end
                     -- make sure we've consumed all input
                     |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
                 ]
@@ -79,6 +78,7 @@ frameParser =
             succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
                 |= parseLineWithContext
                 |. symbol ","
+                |. sameLineSpaces
 
         chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
         chunksInFrame chunksReversed =
@@ -134,19 +134,16 @@ type alias OpenTextOp =
 opLineParser : Maybe OpID -> Maybe Reference -> Parser OpenTextOp
 opLineParser prevOpIDMaybe prevRefMaybe =
     let
-        opIDparser =
-            succeed identity
-                |. symbol "@"
-                |= OpID.parser
-
         opRefparser =
             Parser.oneOf
-                [ succeed OpReference
+                [ -- TODO use generic - but need backtrackable keywords for now
+                  succeed (ReducerReference "lww")
+                    |. Parser.keyword ":lww"
+                , succeed (ReducerReference "replist")
+                    |. Parser.keyword ":replist"
+                , succeed OpReference
                     |. symbol ":"
                     |= OpID.parser
-                , succeed ReducerReference
-                    |. symbol ":"
-                    |= reducerIDParser
                 ]
 
         reducerIDParser : Parser ReducerID
@@ -176,7 +173,9 @@ opLineParser prevOpIDMaybe prevRefMaybe =
             case prevOpIDMaybe of
                 Just prevOpID ->
                     Parser.oneOf
-                        [ opIDparser
+                        [ succeed identity
+                            |. symbol "@"
+                            |= OpID.parser
                         , succeed (OpID.nextOpInChain prevOpID)
                         ]
 
@@ -197,10 +196,11 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         opPayloadParser : OpPayloadAtoms -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
         opPayloadParser atomsReversed =
             Parser.oneOf
-                [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
-                    |= Parser.map JE.string nakedOrQuotedAtom
-                    |. spaces
-                , succeed ()
+                [ -- succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
+                  --     |= Parser.map JE.string nakedOrQuotedAtom
+                  --     |. sameLineSpaces
+                  -- ,
+                  succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
                 ]
     in
