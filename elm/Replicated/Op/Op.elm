@@ -41,8 +41,6 @@ ronParser =
                 [ succeed (\frame -> Parser.Loop (frame :: framesReversed))
                     |= frameParser
                     |. spaces
-                    |. symbol "."
-                    |. sameLineSpaces
                 , succeed ()
                     -- make sure we've consumed all input
                     |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
@@ -60,12 +58,13 @@ frameParser =
 
         opsInChunk : List OpenTextOp -> Parser (Parser.Step (List OpenTextOp) FrameChunk)
         opsInChunk opsReversed =
-            Parser.oneOf
-                [ opLineParserChainLoop opsReversed
-                , succeed identity
-                    |= frameChunkTerminator
-                    |> Parser.map (\term -> Parser.Done (FrameChunk (List.reverse opsReversed) term))
-                ]
+            case Maybe.andThen .endOfChunk (List.head opsReversed) of
+                Nothing ->
+                    opLineParserChainLoop opsReversed
+
+                Just chunkEndType ->
+                    succeed ()
+                        |> Parser.map (\_ -> Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
 
         opLineParserChainLoop opsReversed =
             let
@@ -76,8 +75,8 @@ frameParser =
                     opLineParser (Maybe.map .opID lastSeenOp) (Maybe.map .reference lastSeenOp)
             in
             succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
+                |. spaces
                 |= parseLineWithContext
-                |. symbol ","
                 |. sameLineSpaces
 
         chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
@@ -85,12 +84,14 @@ frameParser =
             Parser.oneOf
                 [ succeed (\thisChunk -> Parser.Loop (thisChunk :: chunksReversed))
                     |= chunks
+                    |. spaces
                 , succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse chunksReversed))
                 ]
     in
     succeed OpenTextRonFrame
         |= Parser.loop [] chunksInFrame
+        |. symbol "."
 
 
 type alias FrameChunk =
@@ -101,15 +102,6 @@ type FrameChunkType
     = EventChunk -- 3.0: FACT
     | AssertionChunk -- 3.0 CLAIM
     | QueryChunk -- 3.0: QUERY
-
-
-frameChunkTerminator : Parser FrameChunkType
-frameChunkTerminator =
-    Parser.oneOf
-        [ Parser.map (\_ -> EventChunk) (symbol ";")
-        , Parser.map (\_ -> AssertionChunk) (symbol "!")
-        , Parser.map (\_ -> QueryChunk) (symbol "?")
-        ]
 
 
 type alias OpenTextRonFrame =
@@ -128,6 +120,7 @@ type alias OpenTextOp =
     , opID : OpID
     , reference : Reference
     , payload : OpPayloadAtoms
+    , endOfChunk : Maybe FrameChunkType
     }
 
 
@@ -180,7 +173,9 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                         ]
 
                 Nothing ->
-                    OpID.parser
+                    succeed identity
+                        |. symbol "@"
+                        |= OpID.parser
 
         optionalRefParser =
             case prevRefMaybe of
@@ -195,13 +190,37 @@ opLineParser prevOpIDMaybe prevRefMaybe =
 
         opPayloadParser : OpPayloadAtoms -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
         opPayloadParser atomsReversed =
+            let
+                atomToValue inputString =
+                    case JD.decodeString JD.value inputString of
+                        Ok val ->
+                            val
+
+                        Err err ->
+                            Debug.todo <| "couldn't convert atom to JD.Value - " ++ Debug.toString err
+            in
             Parser.oneOf
-                [ -- succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
-                  --     |= Parser.map JE.string nakedOrQuotedAtom
-                  --     |. sameLineSpaces
-                  -- ,
-                  succeed ()
+                [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
+                    |. symbol " "
+                    -- ^ make sure there's at least one space to separate atoms
+                    |. sameLineSpaces
+                    |= Parser.map atomToValue nakedOrQuotedAtom
+
+                -- do not consume further space, need for next atom
+                , succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
+                ]
+
+        lineEndParser =
+            Parser.oneOf
+                [ succeed Nothing
+                    |. symbol ","
+                , succeed (Just EventChunk)
+                    |. symbol ";"
+                , succeed (Just AssertionChunk)
+                    |. symbol "!"
+                , succeed (Just QueryChunk)
+                    |. symbol "?"
                 ]
     in
     succeed OpenTextOp
@@ -214,19 +233,48 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         |= optionalRefParser
         |. sameLineSpaces
         |= Parser.loop [] opPayloadParser
+        |= lineEndParser
 
 
 nakedOrQuotedAtom : Parser String
 nakedOrQuotedAtom =
     Parser.oneOf
-        [ succeed identity
-            |. symbol "\""
-            |= Parser.lazy (\_ -> nakedOrQuotedAtom)
-            -- in case there are further-quoted strings inside
-            |. symbol "\""
-        , Parser.getChompedString (Parser.chompUntilEndOr "\n")
+        [ quotedAtom
+        , Parser.getChompedString sameNakedAtom
             |> Parser.andThen (\atomContents -> succeed atomContents)
         ]
+
+
+quotedAtom : Parser String
+quotedAtom =
+    succeed identity
+        |. Parser.token "\""
+        |= Parser.loop [] quotedAtomHelp
+
+
+quotedAtomHelp : List String -> Parser (Parser.Step (List String) String)
+quotedAtomHelp piecesReversed =
+    Parser.oneOf
+        [ succeed (\_ -> Parser.Loop ("\\\"" :: piecesReversed))
+            |= Parser.keyword "\\\""
+
+        -- ^When we detect an escaped quote, don't stop parsing this atom
+        , Parser.token "\""
+            |> Parser.map (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
+        , Parser.chompWhile isUninteresting
+            |> Parser.getChompedString
+            |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
+        ]
+
+
+isUninteresting : Char -> Bool
+isUninteresting char =
+    char /= '\\' && char /= '"'
+
+
+sameNakedAtom : Parser ()
+sameNakedAtom =
+    Parser.chompWhile Char.isAlphaNum
 
 
 sameLineSpaces : Parser ()

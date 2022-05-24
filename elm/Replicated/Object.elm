@@ -97,7 +97,6 @@ applyOp newOp oldObjectMaybe =
                 }
 
         ( Nothing, Op.ReducerReference reducerID ) ->
-            -- assume empty payload means object creation
             Just
                 { reducer = reducerID
                 , creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
@@ -106,8 +105,11 @@ applyOp newOp oldObjectMaybe =
                 , lastSeen = Op.id newOp
                 }
 
-        _ ->
-            Debug.todo "not initiating an object, but no existing one either"
+        ( Just oldObject, Op.ReducerReference reducerID ) ->
+            Debug.todo <| "this object exists: \n" ++ Debug.toString oldObject ++ "\n but the op I got to apply to it: \n" ++ Debug.toString newOp ++ "\n referenced a reducer, as if it's trying to initialize it again?"
+
+        ( Nothing, Op.OpReference ref ) ->
+            Debug.todo "this op referenced an opID, but it's object was not found"
 
 
 type InclusionInfo

@@ -500,9 +500,9 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
                 testRon =
-                    """@0+here :lww,;.
-
-
+                    """@42+there :lww ,
+                    @43+there :42+there 3 "number" 999;
+                    .
                     """
 
                 ( warnings, ronUpdatedNode ) =
