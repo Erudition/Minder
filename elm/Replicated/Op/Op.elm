@@ -245,13 +245,17 @@ opLineParser prevOpIDMaybe prevRefMaybe =
 
 nakedOrQuotedAtom : Parser String
 nakedOrQuotedAtom =
+    let
+        letterNumbersBrackets char =
+            Char.isAlphaNum char || char == '[' || char == ']'
+    in
     Parser.oneOf
         [ quotedAtom
         , Parser.getChompedString <|
             succeed ()
-                -- chompWhile always succeeds, wee need this to fail on empty
-                |. Parser.chompIf Char.isAlphaNum
-                |. Parser.chompWhile Char.isAlphaNum
+                -- chompWhile always succeeds, we need this to fail on empty
+                |. Parser.chompIf letterNumbersBrackets
+                |. Parser.chompWhile letterNumbersBrackets
         ]
 
 
@@ -359,29 +363,6 @@ pattern (Op opRecord) =
         _ ->
             -- "$", "+" or "$", "-"
             Annotation
-
-
-{-| A bunch of Ops that are all about the same object - consisting of, at a minimum, the object's creation Op.
--}
-type alias Group =
-    Nonempty Op
-
-
-
---{-| Groups Ops together by target object.
---For monolithic OpLogs; not needed for pre-separated logs.
----}
---groupByObject : OpLog -> List Group
---groupByObject opLog =
---    let
---        sameObject : Op -> SpecObject
---        sameObject op =
---            op.specifier.object
---
---        toNonempty ( head, tail ) =
---            Nonempty head tail
---    in
---    List.map toNonempty (List.Extra.gatherEqualsBy sameObject opLog)
 
 
 type alias Frame =
@@ -641,4 +622,4 @@ toFrame opList =
     (List.map closedOpToString opList
         |> String.join ",\n"
     )
-        ++ " ."
+        ++ "."

@@ -496,7 +496,7 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
                 ( warnings, ronUpdatedNode ) =
-                    Node.updateWithRon ( [], startNode ) testRon
+                    Node.updateWithRon ( [], startNode ) (Debug.log ("FRAME: " ++ Op.toFrame applied.ops) <| Op.toFrame applied.ops)
 
                 -- (Op.toFrame applied.ops)
                 logOps =
