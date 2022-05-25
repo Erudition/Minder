@@ -178,11 +178,18 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                         |= OpID.parser
 
         optionalRefParser =
-            case prevRefMaybe of
-                Just (OpReference prevRef) ->
+            case ( prevRefMaybe, prevOpIDMaybe ) of
+                ( Just (OpReference prevRef), _ ) ->
                     Parser.oneOf
                         [ opRefparser
                         , Parser.map OpReference <| succeed (OpID.nextOpInChain prevRef)
+                        ]
+
+                ( Just (ReducerReference _), Just prevOpID ) ->
+                    -- last one referenced a reducer so presumably a creation op, use that op's ID as our reference
+                    Parser.oneOf
+                        [ opRefparser
+                        , Parser.map OpReference <| succeed (OpID.nextOpInChain prevOpID)
                         ]
 
                 _ ->
@@ -197,16 +204,15 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                             val
 
                         Err err ->
-                            Debug.todo <| "couldn't convert atom to JD.Value - " ++ Debug.toString err
+                            Debug.todo <| "couldn't convert atom (" ++ inputString ++ ") to JD.Value - " ++ Debug.toString err
             in
             Parser.oneOf
-                [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
-                    |. symbol " "
-                    -- ^ make sure there's at least one space to separate atoms
-                    |. sameLineSpaces
-                    |= Parser.map atomToValue nakedOrQuotedAtom
-
-                -- do not consume further space, need for next atom
+                [ succeed (\thisAtom -> Parser.Loop (atomToValue thisAtom :: atomsReversed))
+                    -- This MUST fail if no alphaNumeric char or quote, to allow line to end
+                    |= nakedOrQuotedAtom
+                , succeed (\_ -> Parser.Loop atomsReversed)
+                    -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
+                    |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
                 , succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
                 ]
@@ -233,6 +239,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         |= optionalRefParser
         |. sameLineSpaces
         |= Parser.loop [] opPayloadParser
+        -- TODO don't parse payload on header ops?
         |= lineEndParser
 
 
@@ -240,14 +247,17 @@ nakedOrQuotedAtom : Parser String
 nakedOrQuotedAtom =
     Parser.oneOf
         [ quotedAtom
-        , Parser.getChompedString sameNakedAtom
-            |> Parser.andThen (\atomContents -> succeed atomContents)
+        , Parser.getChompedString <|
+            succeed ()
+                -- chompWhile always succeeds, wee need this to fail on empty
+                |. Parser.chompIf Char.isAlphaNum
+                |. Parser.chompWhile Char.isAlphaNum
         ]
 
 
 quotedAtom : Parser String
 quotedAtom =
-    succeed identity
+    succeed (\s -> "\"" ++ s ++ "\"")
         |. Parser.token "\""
         |= Parser.loop [] quotedAtomHelp
 
@@ -259,8 +269,8 @@ quotedAtomHelp piecesReversed =
             |= Parser.keyword "\\\""
 
         -- ^When we detect an escaped quote, don't stop parsing this atom
-        , Parser.token "\""
-            |> Parser.map (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
+        , succeed (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
+            |= Parser.token "\""
         , Parser.chompWhile isUninteresting
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
@@ -270,11 +280,6 @@ quotedAtomHelp piecesReversed =
 isUninteresting : Char -> Bool
 isUninteresting char =
     char /= '\\' && char /= '"'
-
-
-sameNakedAtom : Parser ()
-sameNakedAtom =
-    Parser.chompWhile Char.isAlphaNum
 
 
 sameLineSpaces : Parser ()

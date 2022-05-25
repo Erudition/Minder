@@ -500,8 +500,8 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
                 testRon =
-                    """@42+there :lww ,
-                    @43+there :42+there 3 "number" 999;
+                    """@42+there :lww,
+                    @43+there 3 "hello"  ;
                     .
                     """
 
