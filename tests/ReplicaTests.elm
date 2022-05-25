@@ -22,17 +22,13 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ test "Checking there are no serialization warnings" <|
-            \_ ->
-                nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
-
-        -- readOnlyObjectEncodeThenDecode
-        -- , writableObjectEncodeThenDecode
-        -- , repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , nodeModifications
-        -- , nestedStressTestIntegrityCheck
-        -- , modifiedNestedStressTestIntegrityCheck
+        [ readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -499,12 +495,6 @@ nodeWithModifiedNestedStressTest =
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
-                testRon =
-                    """@42+there :lww,
-                    @43+there 3 "hello"  ;
-                    .
-                    """
-
                 ( warnings, ronUpdatedNode ) =
                     Node.updateWithRon ( [], startNode ) testRon
 
@@ -517,6 +507,30 @@ nodeWithModifiedNestedStressTest =
 
         Err _ ->
             Debug.todo "no start dummy object"
+
+
+testRon =
+    """@42+there :lww,
+    @43+there :42+there 3 "hello" 46 asf DHid "sfd",
+    3 "hello" 46 asf DHid "sfd"  ;
+
+    *lww #45+there @45+there :lww,
+    "hello";
+    .
+
+@789+biQFvtGV :lww,
+     "id"        "20MF000CUS",
+     "type"      "laptop",
+     "cpu"       "i7-8850H",
+     "display"   "15.6” UHD IPS multi-touch, 400nits",
+     "RAM"       "16 GB DDR4 2666MHz",
+     "storage"   "512 GB SSD, PCIe-NVME M.2",
+     "graphics"  "NVIDIA GeForce GTX 1050Ti 4GB",
+ @1024+biQFvtGV
+     "wlan"      "Intel 9560 802.11AC vPro",
+     "camera"    "IR & 720p HD Camera with microphone";
+.
+    """
 
 
 modifiedNestedStressTestIntegrityCheck =
@@ -547,7 +561,7 @@ modifiedNestedStressTestIntegrityCheck =
             test "Checking there are no serialization warnings" <|
                 \_ ->
                     nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
-        , only <|
+        , skip <|
             test "Checking the Ops encode and decode into the same node" <|
                 \_ ->
                     Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized

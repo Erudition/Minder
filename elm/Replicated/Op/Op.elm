@@ -199,7 +199,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         opPayloadParser atomsReversed =
             let
                 atomToValue inputString =
-                    case JD.decodeString JD.value inputString of
+                    case JD.decodeString JD.value ("\"" ++ inputString ++ "\"") of
                         Ok val ->
                             val
 
@@ -257,7 +257,7 @@ nakedOrQuotedAtom =
 
 quotedAtom : Parser String
 quotedAtom =
-    succeed (\s -> "\"" ++ s ++ "\"")
+    succeed identity
         |. Parser.token "\""
         |= Parser.loop [] quotedAtomHelp
 
