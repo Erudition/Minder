@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser, toFrame)
+module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), closedChunksToFrameText, closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -96,6 +96,10 @@ frameParser =
 
 type alias FrameChunk =
     { ops : List OpenTextOp, terminator : FrameChunkType }
+
+
+type alias ClosedChunk =
+    List Op
 
 
 type FrameChunkType
@@ -414,6 +418,12 @@ object (Op op) =
 closedOpToString : Op -> String
 closedOpToString (Op op) =
     let
+        reducerID =
+            "*" ++ op.reducerID
+
+        objectID =
+            "#" ++ OpID.toString op.objectID
+
         opID =
             "@" ++ OpID.toString op.operationID
 
@@ -423,7 +433,7 @@ closedOpToString (Op op) =
         encodePayloadAtom atom =
             JE.encode 0 atom
     in
-    opID ++ " " ++ ref ++ " " ++ String.join " " (List.map encodePayloadAtom op.payload)
+    String.join " " ([ reducerID, objectID, opID, ref ] ++ List.map encodePayloadAtom op.payload)
 
 
 closedOpFromString : String -> Maybe Op -> Result String Op
@@ -617,9 +627,14 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-toFrame : List Op -> String
-toFrame opList =
-    (List.map closedOpToString opList
-        |> String.join ",\n"
-    )
-        ++ "."
+closedChunksToFrameText : List ClosedChunk -> String
+closedChunksToFrameText chunkList =
+    let
+        perChunk opList =
+            List.map closedOpToString opList
+                |> String.join " ,\n"
+                |> (\s -> s ++ " ;\n\n")
+    in
+    List.map perChunk chunkList
+        |> String.concat
+        |> (\s -> s ++ ".\n")

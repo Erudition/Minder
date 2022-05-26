@@ -72,13 +72,13 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> Change -> { newNode : Node, newOps : List Op }
+startNewNode : Maybe Moment -> Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
 startNewNode nowMaybe rootChange =
     let
         firstChangeFrame =
             Change.saveChanges "Node initialized" [ rootChange ]
 
-        { updatedNode, created, ops } =
+        { updatedNode, created, outputFrame } =
             apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } firstChangeFrame
 
         newRoot =
@@ -92,7 +92,7 @@ startNewNode nowMaybe rootChange =
         newNode =
             { updatedNode | profiles = newRoot }
     in
-    { newNode = newNode, newOps = ops }
+    { newNode = newNode, startFrame = outputFrame }
 
 
 {-| Update a node with some Ops.
@@ -156,8 +156,8 @@ updateNodeWithChunk chunk ( prevErrors, beginNode ) =
                             -- It's a header / creation op, no need to lookup
                             Ok ( reducerID, firstOpenOp.opID )
 
-                        _ ->
-                            lookupObject beginNode firstOpenOp.opID
+                        ( _, _, Op.OpReference referencedOpID ) ->
+                            lookupObject beginNode referencedOpID
 
         closedOpListResult =
             case deduceChunkReducerAndObject of
@@ -230,7 +230,7 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node -> Change.Frame -> { ops : List Op, updatedNode : Node, created : List ObjectID }
+apply : Maybe Moment -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
 apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
     let
         fallbackCounter =
@@ -239,11 +239,14 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
         frameStartCounter =
             OpID.highestCounter fallbackCounter node.lastUsedCounter
 
-        ( finalCounter, listOfFinishedOpsLists ) =
-            List.mapAccuml (oneChangeToOps node) frameStartCounter normalizedChanges
+        ( finalCounter, listOfFinishedOpChunks ) =
+            List.mapAccuml (oneChangeToOpChunks node) frameStartCounter normalizedChanges
+
+        finishedOpChunks =
+            List.concat listOfFinishedOpChunks
 
         finishedOps =
-            List.concat listOfFinishedOpsLists
+            List.concat finishedOpChunks
 
         updatedNode =
             updateWithClosedOps node finishedOps
@@ -256,7 +259,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
                 _ ->
                     Nothing
     in
-    { ops = finishedOps
+    { outputFrame = finishedOpChunks
     , updatedNode = { updatedNode | lastUsedCounter = OpID.nextGenCounter finalCounter }
     , created = List.filterMap creationOpsToObjectIDs finishedOps
     }
@@ -298,33 +301,33 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
-oneChangeToOps : Node -> InCounter -> Change -> ( OutCounter, List Op )
-oneChangeToOps node inCounter change =
+oneChangeToOpChunks : Node -> InCounter -> Change -> ( OutCounter, List Op.ClosedChunk )
+oneChangeToOpChunks node inCounter change =
     case change of
         Change.Chunk chunkRecord ->
             let
-                ( ( outCounter, createdObjectMaybe ), chunkOps ) =
+                ( ( outCounter, createdObjectMaybe ), generatedChunks ) =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") chunkOps
+                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat generatedChunks)
                         |> String.concat
             in
-            ( outCounter, chunkOps )
+            ( outCounter, generatedChunks )
 
 
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { target : Change.Pointer, objectChanges : List Change.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op )
+chunkToOps : Node -> ( InCounter, Maybe ObjectID ) -> { target : Change.Pointer, objectChanges : List Change.ObjectChange } -> ( ( OutCounter, Maybe ObjectID ), List Op.ClosedChunk )
 chunkToOps node ( inCounter, _ ) { target, objectChanges } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
         ( postPrereqCounter, processedChanges ) =
             List.mapAccuml (objectChangeToUnstampedOp node) inCounter objectChanges
 
-        allPrereqOps =
-            List.concatMap .prerequisiteOps processedChanges
+        allPrereqChunks =
+            List.concatMap .prerequisiteChunks processedChanges
 
         allUnstampedChunkOps =
             List.map .thisObjectOp processedChanges
@@ -350,17 +353,18 @@ chunkToOps node ( inCounter, _ ) { target, objectChanges } =
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString op ++ "\t") ops))
 
         prereqLogMsg =
-            case List.length allPrereqOps of
+            case List.length allPrereqChunks of
                 0 ->
                     "----\tchunk"
 
                 n ->
-                    "----\t^^last " ++ String.fromInt n ++ " are prereqs for chunk"
+                    "----\t^^last " ++ String.fromInt n ++ " chunks are prereqs for chunk"
 
         allOpsInDependencyOrder =
-            Log.logMessage prereqLogMsg allPrereqOps
-                ++ Log.logMessage (logOps "init" initOps) initOps
-                ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
+            Log.logMessage prereqLogMsg allPrereqChunks
+                ++ [ Log.logMessage (logOps "init" initOps) initOps
+                        ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
+                   ]
     in
     ( ( counterAfterObjectChanges, Just objectID )
     , allOpsInDependencyOrder
@@ -373,21 +377,21 @@ type alias UnstampedChunkOp =
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
 -}
-objectChangeToUnstampedOp : Node -> InCounter -> Change.ObjectChange -> ( OutCounter, { prerequisiteOps : List Op, thisObjectOp : UnstampedChunkOp } )
+objectChangeToUnstampedOp : Node -> InCounter -> Change.ObjectChange -> ( OutCounter, { prerequisiteChunks : List Op.ClosedChunk, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        perPiece : Change.Atom -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteOps : List Op, piecesSoFar : List JE.Value }
+        perPiece : Change.Atom -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List JE.Value }
         perPiece piece accumulated =
             case piece of
                 Change.ValueAtom value ->
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ [ value ]
-                    , prerequisiteOps = accumulated.prerequisiteOps
+                    , prerequisiteChunks = accumulated.prerequisiteChunks
                     }
 
                 Change.QuoteNestedObject (Change.Chunk chunkDetails) ->
                     let
-                        ( ( postPrereqCounter, subObjectIDMaybe ), newPrereqOps ) =
+                        ( ( postPrereqCounter, subObjectIDMaybe ), newPrereqChunks ) =
                             chunkToOps node ( accumulated.counter, Nothing ) chunkDetails
 
                         pointerPayload =
@@ -395,7 +399,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                                 |> Maybe.withDefault "ERROR no pointer, unreachable"
                     in
                     { counter = postPrereqCounter
-                    , prerequisiteOps = accumulated.prerequisiteOps ++ newPrereqOps
+                    , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
                     , piecesSoFar = accumulated.piecesSoFar ++ [ JE.string pointerPayload ]
                     }
 
@@ -405,7 +409,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                             List.foldl perPiece
                                 { counter = accumulated.counter
                                 , piecesSoFar = []
-                                , prerequisiteOps = []
+                                , prerequisiteChunks = []
                                 }
                                 nestedChangeAtoms
 
@@ -413,17 +417,17 @@ objectChangeToUnstampedOp node inCounter objectChange =
                             JE.list identity outputAtoms.piecesSoFar
                     in
                     { counter = outputAtoms.counter
-                    , prerequisiteOps = accumulated.prerequisiteOps ++ outputAtoms.prerequisiteOps
+                    , prerequisiteChunks = accumulated.prerequisiteChunks ++ outputAtoms.prerequisiteChunks
                     , piecesSoFar = accumulated.piecesSoFar ++ [ finalNestedPayloadAsString ]
                     }
 
         outputHelper pieceList reference =
             let
-                { counter, prerequisiteOps, piecesSoFar } =
-                    List.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteOps = [] } pieceList
+                { counter, prerequisiteChunks, piecesSoFar } =
+                    List.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteChunks = [] } pieceList
             in
             ( counter
-            , { prerequisiteOps = prerequisiteOps
+            , { prerequisiteChunks = prerequisiteChunks
               , thisObjectOp =
                     { reference = reference
                     , payload = piecesSoFar
@@ -441,7 +445,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
 
         Change.RevertOp opIDToRevert ->
             ( inCounter
-            , { prerequisiteOps = []
+            , { prerequisiteChunks = []
               , thisObjectOp = { reference = Just opIDToRevert, payload = [], reversion = True }
               }
             )

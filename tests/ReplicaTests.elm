@@ -32,20 +32,20 @@ suite =
         ]
 
 
-nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, ops : List Op }
+nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodec profileCodec =
     let
         logOps ops =
             List.map (\op -> Op.closedOpToString op ++ "\n") ops
                 |> String.concat
 
-        { newNode, newOps } =
+        { newNode, startFrame } =
             Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
 
         tryDecoding =
             RC.decodeFromNode profileCodec newNode
     in
-    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, ops = newOps }
+    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
 fakeOps : List Op
@@ -227,11 +227,11 @@ nodeModifications =
                         makeChanges =
                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
 
-                        { updatedNode, ops } =
+                        { updatedNode, outputFrame } =
                             Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
-                            List.map (\op -> Op.closedOpToString op ++ "\n") ops
+                            List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat outputFrame)
                                 |> String.concat
                     in
                     Log.logMessage ("\n Adding ops to afterNode: \n" ++ logOps) updatedNode
@@ -294,7 +294,7 @@ fakeNodeWithSimpleList =
                     Node.apply Nothing startNode (Change.saveChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
                         |> String.concat
             in
             applied.updatedNode
@@ -345,7 +345,7 @@ fakeNodeWithModifiedList =
                     Node.apply Nothing fakeNodeWithSimpleList (Change.saveChanges "making some changes to the replist" changes)
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
                         |> String.concat
             in
             applied.updatedNode
@@ -465,7 +465,7 @@ nestedStressTestIntegrityCheck =
 nodeWithModifiedNestedStressTest : { original : Node, serialized : Node, warnings : List Node.OpImportWarning }
 nodeWithModifiedNestedStressTest =
     let
-        { startNode, result, ops } =
+        { startNode, result, startFrame } =
             nodeFromCodec nestedStressTestCodec
     in
     case result of
@@ -496,11 +496,11 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
                 ( warnings, ronUpdatedNode ) =
-                    Node.updateWithRon ( [], startNode ) (Debug.log ("FRAME: " ++ Op.toFrame applied.ops) <| Op.toFrame applied.ops)
+                    Node.updateWithRon ( [], startNode ) (Op.closedChunksToFrameText (Debug.log ("FRAME: " ++ Op.closedChunksToFrameText applied.outputFrame) <| applied.outputFrame))
 
                 -- (Op.toFrame applied.ops)
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") applied.ops
+                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
                         |> String.concat
             in
             { original = applied.updatedNode, serialized = ronUpdatedNode, warnings = warnings }
@@ -554,7 +554,7 @@ modifiedNestedStressTestIntegrityCheck =
             RC.decodeFromNode nestedStressTestCodec subject
 
         opsToFlush =
-            (nodeFromCodec nestedStressTestCodec).ops
+            (nodeFromCodec nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
         [ only <|
