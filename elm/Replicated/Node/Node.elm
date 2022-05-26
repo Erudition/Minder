@@ -310,7 +310,7 @@ oneChangeToOpChunks node inCounter change =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat generatedChunks)
+                    List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
                         |> String.concat
             in
             ( outCounter, generatedChunks )
@@ -350,7 +350,7 @@ chunkToOps node ( inCounter, _ ) { target, objectChanges } =
             List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
 
         logOps prefix ops =
-            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString op ++ "\t") ops))
+            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
 
         prereqLogMsg =
             case List.length allPrereqChunks of

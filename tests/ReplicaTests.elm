@@ -35,9 +35,8 @@ suite =
 nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodec profileCodec =
     let
-        logOps ops =
-            List.map (\op -> Op.closedOpToString op ++ "\n") ops
-                |> String.concat
+        logOps chunks =
+            Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
             Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
@@ -231,8 +230,7 @@ nodeModifications =
                             Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
-                            List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat outputFrame)
-                                |> String.concat
+                            Op.closedChunksToFrameText outputFrame
                     in
                     Log.logMessage ("\n Adding ops to afterNode: \n" ++ logOps) updatedNode
 
@@ -294,8 +292,7 @@ fakeNodeWithSimpleList =
                     Node.apply Nothing startNode (Change.saveChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
-                        |> String.concat
+                    Op.closedChunksToFrameText applied.outputFrame
             in
             applied.updatedNode
 
@@ -345,8 +342,7 @@ fakeNodeWithModifiedList =
                     Node.apply Nothing fakeNodeWithSimpleList (Change.saveChanges "making some changes to the replist" changes)
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
-                        |> String.concat
+                    Op.closedChunksToFrameText applied.outputFrame
             in
             applied.updatedNode
 
@@ -495,13 +491,15 @@ nodeWithModifiedNestedStressTest =
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
+                ronData =
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
+
                 ( warnings, ronUpdatedNode ) =
-                    Node.updateWithRon ( [], startNode ) (Op.closedChunksToFrameText (Debug.log ("FRAME: " ++ Op.closedChunksToFrameText applied.outputFrame) <| applied.outputFrame))
+                    Node.updateWithRon ( [], startNode ) (Op.closedChunksToFrameText (Debug.log ("RON DATA: " ++ ronData) <| applied.outputFrame))
 
                 -- (Op.toFrame applied.ops)
                 logOps =
-                    List.map (\op -> Op.closedOpToString op ++ "\n") (List.concat applied.outputFrame)
-                        |> String.concat
+                    Op.closedChunksToFrameText applied.outputFrame
             in
             { original = applied.updatedNode, serialized = ronUpdatedNode, warnings = warnings }
 

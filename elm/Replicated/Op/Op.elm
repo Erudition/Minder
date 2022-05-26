@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), closedChunksToFrameText, closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), closedChunksToFrameText, closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -453,13 +453,13 @@ closedOpToString format (Op op) =
                 CompressedOps (Just (Op previousOp)) ->
                     case ( OpID.isIncremental previousOp.operationID op.operationID, op.reference == OpReference previousOp.operationID ) of
                         ( True, True ) ->
-                            []
+                            [ "    ", "    " ]
 
                         ( True, False ) ->
-                            [ ref ]
+                            [ "    ", ref ]
 
                         ( False, True ) ->
-                            [ opID ]
+                            [ opID, "    " ]
 
                         ( False, False ) ->
                             [ opID, ref ]
@@ -658,7 +658,11 @@ fromLog log =
     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
-closedChunksToFrameText : List ClosedChunk -> String
+type alias FrameString =
+    String
+
+
+closedChunksToFrameText : List ClosedChunk -> FrameString
 closedChunksToFrameText chunkList =
     let
         perChunk opsInChunk =
