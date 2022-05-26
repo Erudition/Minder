@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toString)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -27,8 +27,8 @@ type alias OpIDString =
     String
 
 
-type alias OpTimestamp =
-    Moment
+type alias OpClock =
+    Int
 
 
 type alias OpOrigin =
@@ -36,7 +36,7 @@ type alias OpOrigin =
 
 
 type alias EventStamp =
-    { time : Moment
+    { clock : OpClock
     , origin : NodeID
     , reversion : Bool
     }
@@ -64,7 +64,7 @@ testCounter =
 
 generate : InCounter -> NodeID -> Bool -> ( OpID, OutCounter )
 generate (NewOpCounter counter) origin reversion =
-    ( fromStamp { time = Moment.fromSmartInt counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
+    ( fromStamp { clock = counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
 
 
 toString : OpID -> OpIDString
@@ -87,8 +87,8 @@ fromStamp eventStamp =
         nodeString =
             NodeID.toString <| eventStamp.origin
 
-        timeString =
-            String.fromInt (Moment.toSmartInt eventStamp.time)
+        clockString =
+            String.fromInt eventStamp.clock
 
         separator =
             if eventStamp.reversion then
@@ -97,15 +97,15 @@ fromStamp eventStamp =
             else
                 "+"
     in
-    OpID (timeString ++ separator ++ nodeString)
+    OpID (clockString ++ separator ++ nodeString)
 
 
 fromString : String -> Maybe OpID
 fromString input =
     case ( String.split "+" input, String.split "-" input ) of
-        ( [ timeString, nodeIDString ], _ ) ->
-            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
-                ( Just nodeID, Just time ) ->
+        ( [ clockString, nodeIDString ], _ ) ->
+            case ( NodeID.fromString nodeIDString, String.toInt clockString ) of
+                ( Just nodeID, Just clock ) ->
                     Just (OpID input)
 
                 ( Just nodeID, Nothing ) ->
@@ -114,9 +114,9 @@ fromString input =
                 ( Nothing, _ ) ->
                     Debug.todo ("OpID from string failed to figure out a nodeID from input " ++ input)
 
-        ( _, [ timeString, nodeIDString ] ) ->
-            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
-                ( Just nodeID, Just time ) ->
+        ( _, [ clockString, nodeIDString ] ) ->
+            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt clockString) ) of
+                ( Just nodeID, Just clock ) ->
                     Just (OpID input)
 
                 _ ->
@@ -129,21 +129,21 @@ fromString input =
 toStamp : OpID -> EventStamp
 toStamp (OpID input) =
     case ( String.split "+" input, String.split "-" input ) of
-        ( [ timeString, nodeIDString ], _ ) ->
-            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
-                ( Just nodeID, Just time ) ->
-                    EventStamp time nodeID False
+        ( [ clockString, nodeIDString ], _ ) ->
+            case ( NodeID.fromString nodeIDString, String.toInt clockString ) of
+                ( Just nodeID, Just clock ) ->
+                    EventStamp clock nodeID False
 
                 _ ->
-                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found timeString+nodeIDString format though")
+                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found clockString+nodeIDString format though")
 
-        ( _, [ timeString, nodeIDString ] ) ->
-            case ( NodeID.fromString nodeIDString, Maybe.map Moment.fromSmartInt (String.toInt timeString) ) of
-                ( Just nodeID, Just time ) ->
-                    EventStamp time nodeID True
+        ( _, [ clockString, nodeIDString ] ) ->
+            case ( NodeID.fromString nodeIDString, String.toInt clockString ) of
+                ( Just nodeID, Just clock ) ->
+                    EventStamp clock nodeID True
 
                 _ ->
-                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found timeString-nodeIDString format though")
+                    Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! found clockString-nodeIDString format though")
 
         _ ->
             Debug.todo ("Something went wrong parsing OpID " ++ input ++ " into an event stamp! couldn't split based on plus or minus...")
@@ -183,9 +183,14 @@ nextOpInChain input =
             toStamp input
 
         outputStamp =
-            { inputStamp | time = Moment.fromSmartInt (Moment.toSmartInt inputStamp.time + 1) }
+            { inputStamp | clock = inputStamp.clock + 1 }
     in
     fromStamp outputStamp
+
+
+isIncremental : OpID -> OpID -> Bool
+isIncremental id1 id2 =
+    (toStamp id2).clock == ((toStamp id1).clock + 1)
 
 
 
@@ -222,8 +227,8 @@ nextGenCounter (NewOpCounter int) =
 -}
 latest : OpID -> OpID -> OpID
 latest firstID secondID =
-    case Moment.compare (toStamp firstID).time (toStamp secondID).time of
-        Moment.Later ->
+    case compare (toStamp firstID).clock (toStamp secondID).clock of
+        GT ->
             firstID
 
         _ ->

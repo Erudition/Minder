@@ -415,8 +415,14 @@ object (Op op) =
     op.objectID
 
 
-closedOpToString : Op -> String
-closedOpToString (Op op) =
+type RonFormat
+    = ClosedOps
+    | OpenOps
+    | CompressedOps (Maybe Op)
+
+
+closedOpToString : RonFormat -> Op -> String
+closedOpToString format (Op op) =
     let
         reducerID =
             "*" ++ op.reducerID
@@ -432,8 +438,33 @@ closedOpToString (Op op) =
 
         encodePayloadAtom atom =
             JE.encode 0 atom
+
+        inclusionList =
+            case format of
+                ClosedOps ->
+                    [ reducerID, objectID, opID, ref ]
+
+                OpenOps ->
+                    [ opID, ref ]
+
+                CompressedOps Nothing ->
+                    [ opID, ref ]
+
+                CompressedOps (Just (Op previousOp)) ->
+                    case ( OpID.isIncremental previousOp.operationID op.operationID, op.reference == OpReference previousOp.operationID ) of
+                        ( True, True ) ->
+                            []
+
+                        ( True, False ) ->
+                            [ ref ]
+
+                        ( False, True ) ->
+                            [ opID ]
+
+                        ( False, False ) ->
+                            [ opID, ref ]
     in
-    String.join " " ([ reducerID, objectID, opID, ref ] ++ List.map encodePayloadAtom op.payload)
+    String.join " " (inclusionList ++ List.map encodePayloadAtom op.payload)
 
 
 closedOpFromString : String -> Maybe Op -> Result String Op
@@ -630,10 +661,14 @@ fromLog log =
 closedChunksToFrameText : List ClosedChunk -> String
 closedChunksToFrameText chunkList =
     let
-        perChunk opList =
-            List.map closedOpToString opList
+        perChunk opsInChunk =
+            List.Extra.mapAccuml perOp Nothing opsInChunk
+                |> Tuple.second
                 |> String.join " ,\n"
                 |> (\s -> s ++ " ;\n\n")
+
+        perOp prevOpMaybe thisOp =
+            ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
     in
     List.map perChunk chunkList
         |> String.concat
