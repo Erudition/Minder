@@ -20,29 +20,43 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , objects : ObjectsByCreationDb
-    , profiles : List ObjectID
-    , lastUsedCounter : OutCounter
+    , root : Maybe ObjectID
+    , lastUsedClock : OutCounter
     , peers : List Peer
+    }
+
+
+type alias InitArgs =
+    { sameSession : Bool
+    , storedNodeID : String
     }
 
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : String -> Int -> OpID -> List Op -> Result InitError Node
-initFromSaved foundIdentity foundCounter foundRoot inputDatabase =
+initFromSaved : InitArgs -> OpID -> String -> Result InitError Node
+initFromSaved { sameSession, storedNodeID } foundRoot inputRon =
     let
         lastIdentity =
-            NodeID.fromString foundIdentity
+            NodeID.fromString storedNodeID
 
         backfilledNode oldNodeID =
-            updateWithClosedOps (startNode oldNodeID) inputDatabase
+            updateWithRon { node = startNode oldNodeID, warnings = [] } inputRon
+                |> .node
+
+        newIdentity oldNodeID =
+            if sameSession then
+                oldNodeID
+
+            else
+                NodeID.bumpSessionID oldNodeID
 
         startNode oldNodeID =
-            { identity = NodeID.bumpSessionID oldNodeID
+            { identity = newIdentity oldNodeID
             , peers = []
             , objects = Dict.empty
-            , profiles = [ foundRoot ]
-            , lastUsedCounter = OpID.importCounter foundCounter
+            , root = Nothing
+            , lastUsedClock = OpID.importCounter 0 -- will be overridden on importing ron
             }
     in
     case lastIdentity of
@@ -67,8 +81,8 @@ testNode =
     { identity = firstSessionEver
     , peers = []
     , objects = Dict.empty
-    , profiles = []
-    , lastUsedCounter = OpID.testCounter
+    , root = Nothing
+    , lastUsedClock = OpID.testCounter
     }
 
 
@@ -79,18 +93,16 @@ startNewNode nowMaybe rootChange =
             Change.saveChanges "Node initialized" [ rootChange ]
 
         { updatedNode, created, outputFrame } =
-            apply nowMaybe { testNode | lastUsedCounter = nodeStartCounter } firstChangeFrame
+            apply nowMaybe { testNode | lastUsedClock = nodeStartCounter } firstChangeFrame
 
         newRoot =
             List.last created
-                |> Maybe.map List.singleton
-                |> Maybe.withDefault []
 
         nodeStartCounter =
             Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
 
         newNode =
-            { updatedNode | profiles = newRoot }
+            { updatedNode | root = newRoot }
     in
     { newNode = newNode, startFrame = outputFrame }
 
@@ -99,7 +111,14 @@ startNewNode nowMaybe rootChange =
 -}
 updateWithClosedOps : Node -> List Op -> Node
 updateWithClosedOps node newOps =
-    List.foldl (\op n -> { n | objects = updateObject n.objects op }) node newOps
+    let
+        updatedNodeWithOp op n =
+            { node
+                | objects = updateObject n.objects op
+                , lastUsedClock = OpID.highestCounter n.lastUsedClock (OpID.importCounter (OpID.toStamp (Op.id op)).clock)
+            }
+    in
+    List.foldl updatedNodeWithOp node newOps
 
 
 type OpImportWarning
@@ -108,38 +127,40 @@ type OpImportWarning
     | EmptyChunk
 
 
-updateWithRon : ( List OpImportWarning, Node ) -> String -> ( List OpImportWarning, Node )
-updateWithRon ( prevWarns, oldNode ) inputRon =
+type alias RonProcessedInfo =
+    { node : Node
+    , warnings : List OpImportWarning
+    }
+
+
+updateWithRon : RonProcessedInfo -> String -> RonProcessedInfo
+updateWithRon old inputRon =
     case Parser.run Op.ronParser inputRon of
-        Ok parsedRon ->
-            updateWithMultipleFrames ( prevWarns, oldNode ) parsedRon
+        Ok parsedRonFrames ->
+            updateWithMultipleFrames parsedRonFrames old
 
         Err parseDeadEnds ->
-            ( prevWarns ++ [ ParseFail parseDeadEnds ], oldNode )
+            { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }
 
 
 {-| When we want to update with a bunch of frames at a time. Usually we only run through one at a time for responsive performance.
 -}
-updateWithMultipleFrames : ( List OpImportWarning, Node ) -> List Op.OpenTextRonFrame -> ( List OpImportWarning, Node )
-updateWithMultipleFrames ( beginWarns, beginNode ) newFrames =
-    let
-        singleFrameResult thisFrame acc =
-            update acc thisFrame
-    in
-    List.foldl singleFrameResult ( beginWarns, beginNode ) newFrames
+updateWithMultipleFrames : List Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
+updateWithMultipleFrames newFrames old =
+    List.foldl update old newFrames
 
 
 {-| Update a node with some Ops in a Frame.
 -}
-update : ( List OpImportWarning, Node ) -> Op.OpenTextRonFrame -> ( List OpImportWarning, Node )
-update ( beginWarns, beginNode ) newFrame =
-    List.foldl updateNodeWithChunk ( beginWarns, beginNode ) newFrame.chunks
+update : Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
+update newFrame old =
+    List.foldl updateNodeWithChunk old newFrame.chunks
 
 
 {-| Add a single object Chunk to the node.
 -}
-updateNodeWithChunk : Op.FrameChunk -> ( List OpImportWarning, Node ) -> ( List OpImportWarning, Node )
-updateNodeWithChunk chunk ( prevErrors, beginNode ) =
+updateNodeWithChunk : Op.FrameChunk -> RonProcessedInfo -> RonProcessedInfo
+updateNodeWithChunk chunk old =
     let
         deduceChunkReducerAndObject =
             case List.head chunk.ops of
@@ -157,7 +178,7 @@ updateNodeWithChunk chunk ( prevErrors, beginNode ) =
                             Ok ( reducerID, firstOpenOp.opID )
 
                         ( _, _, Op.OpReference referencedOpID ) ->
-                            lookupObject beginNode referencedOpID
+                            lookupObject old.node referencedOpID
 
         closedOpListResult =
             case deduceChunkReducerAndObject of
@@ -168,12 +189,24 @@ updateNodeWithChunk chunk ( prevErrors, beginNode ) =
                     Err newErrs
     in
     case closedOpListResult of
-        Ok closedOpList ->
-            ( prevErrors, List.foldl (\op n -> { n | objects = updateObject n.objects op }) beginNode closedOpList )
+        Ok closedOps ->
+            let
+                nodeWithRoot givenNode =
+                    -- deduce root object, if needed
+                    case givenNode.root of
+                        Just _ ->
+                            givenNode
+
+                        Nothing ->
+                            { givenNode | root = List.last <| creationOpsToObjectIDs closedOps }
+            in
+            { node = updateWithClosedOps (nodeWithRoot old.node) closedOps
+            , warnings = old.warnings
+            }
 
         Err newErr ->
             -- withhold the whole chunk
-            ( prevErrors ++ [ newErr ], beginNode )
+            { old | warnings = old.warnings ++ [ newErr ] }
 
 
 closeOp : ReducerID -> ObjectID -> Op.OpenTextOp -> Op
@@ -234,10 +267,10 @@ apply : Maybe Moment -> Node -> Change.Frame -> { outputFrame : List Op.ClosedCh
 apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
     let
         fallbackCounter =
-            Maybe.withDefault node.lastUsedCounter (Maybe.map OpID.firstCounter timeMaybe)
+            Maybe.withDefault node.lastUsedClock (Maybe.map OpID.firstCounter timeMaybe)
 
         frameStartCounter =
-            OpID.highestCounter fallbackCounter node.lastUsedCounter
+            OpID.highestCounter fallbackCounter node.lastUsedClock
 
         ( finalCounter, listOfFinishedOpChunks ) =
             List.mapAccuml (oneChangeToOpChunks node) frameStartCounter normalizedChanges
@@ -250,8 +283,17 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
 
         updatedNode =
             updateWithClosedOps node finishedOps
+    in
+    { outputFrame = finishedOpChunks
+    , updatedNode = updatedNode
+    , created = creationOpsToObjectIDs finishedOps
+    }
 
-        creationOpsToObjectIDs op =
+
+creationOpsToObjectIDs : List Op -> List OpID
+creationOpsToObjectIDs ops =
+    let
+        getCreationIDs op =
             case Op.pattern op of
                 Op.CreationOp ->
                     Just (Op.object op)
@@ -259,10 +301,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
                 _ ->
                     Nothing
     in
-    { outputFrame = finishedOpChunks
-    , updatedNode = { updatedNode | lastUsedCounter = OpID.nextGenCounter finalCounter }
-    , created = List.filterMap creationOpsToObjectIDs finishedOps
-    }
+    List.filterMap getCreationIDs ops
 
 
 

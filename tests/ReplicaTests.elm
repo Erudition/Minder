@@ -555,14 +555,15 @@ modifiedNestedStressTestIntegrityCheck =
             (nodeFromCodec nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
-        [ only <|
-            test "Checking there are no serialization warnings" <|
-                \_ ->
-                    nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
-        , skip <|
-            test "Checking the Ops encode and decode into the same node" <|
-                \_ ->
-                    Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
+        [ test "Checking there are no serialization warnings in the test node" <|
+            \_ ->
+                nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
+        , test "Checking there are no serialization warnings in the test RON string" <|
+            \_ ->
+                Tuple.first (Node.updateWithRon ( [], startNode ) testRon) |> Expect.equal []
+        , test "Checking the Ops encode and decode into the same node" <|
+            \_ ->
+                Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->

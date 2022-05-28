@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, getEventStamp, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toStamp, toString)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -170,10 +170,6 @@ jsonDecoder =
 
 momentCodec =
     RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
-
-
-getEventStamp (OpID stamp) =
-    stamp
 
 
 nextOpInChain : OpID -> OpID
