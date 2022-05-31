@@ -182,18 +182,11 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                         |= OpID.parser
 
         optionalRefParser =
-            case ( prevRefMaybe, prevOpIDMaybe ) of
-                ( Just (OpReference prevRef), _ ) ->
+            case prevOpIDMaybe of
+                Just prevOpID ->
                     Parser.oneOf
                         [ opRefparser
-                        , Parser.map OpReference <| succeed (OpID.nextOpInChain prevRef)
-                        ]
-
-                ( Just (ReducerReference _), Just prevOpID ) ->
-                    -- last one referenced a reducer so presumably a creation op, use that op's ID as our reference
-                    Parser.oneOf
-                        [ opRefparser
-                        , Parser.map OpReference <| succeed (OpID.nextOpInChain prevOpID)
+                        , Parser.map OpReference <| succeed prevOpID
                         ]
 
                 _ ->
@@ -375,11 +368,19 @@ type alias Frame =
 
 create : ReducerID -> OpID.ObjectID -> OpID -> Reference -> OpPayloadAtoms -> Op
 create givenReducer givenObject opID givenReference givenPayload =
+    let
+        finalReference =
+            if givenReference == OpReference opID then
+                Debug.log "giving op reference to its own ID!!!!" givenReference
+
+            else
+                givenReference
+    in
     Op
         { reducerID = givenReducer
         , objectID = givenObject
         , operationID = opID
-        , reference = givenReference
+        , reference = finalReference
         , payload = givenPayload
         }
 
@@ -669,7 +670,7 @@ closedChunksToFrameText chunkList =
             List.Extra.mapAccuml perOp Nothing opsInChunk
                 |> Tuple.second
                 |> String.join " ,\n"
-                |> (\s -> s ++ " ;\n\n")
+                |> (\s -> s ++ " ;\n")
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )

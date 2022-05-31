@@ -21,7 +21,7 @@ type alias Node =
     { identity : NodeID
     , objects : ObjectsByCreationDb
     , root : Maybe ObjectID
-    , lastUsedClock : OutCounter
+    , highestSeenClock : Int
     , peers : List Peer
     }
 
@@ -34,15 +34,14 @@ type alias InitArgs =
 
 {-| Start our program, persisting the identity we had last time.
 -}
-initFromSaved : InitArgs -> OpID -> String -> Result InitError Node
-initFromSaved { sameSession, storedNodeID } foundRoot inputRon =
+initFromSaved : InitArgs -> String -> Result InitError RonProcessedInfo
+initFromSaved { sameSession, storedNodeID } inputRon =
     let
         lastIdentity =
             NodeID.fromString storedNodeID
 
         backfilledNode oldNodeID =
             updateWithRon { node = startNode oldNodeID, warnings = [] } inputRon
-                |> .node
 
         newIdentity oldNodeID =
             if sameSession then
@@ -56,7 +55,7 @@ initFromSaved { sameSession, storedNodeID } foundRoot inputRon =
             , peers = []
             , objects = Dict.empty
             , root = Nothing
-            , lastUsedClock = OpID.importCounter 0 -- will be overridden on importing ron
+            , highestSeenClock = 0
             }
     in
     case lastIdentity of
@@ -82,7 +81,7 @@ testNode =
     , peers = []
     , objects = Dict.empty
     , root = Nothing
-    , lastUsedClock = OpID.testCounter
+    , highestSeenClock = 0
     }
 
 
@@ -93,13 +92,10 @@ startNewNode nowMaybe rootChange =
             Change.saveChanges "Node initialized" [ rootChange ]
 
         { updatedNode, created, outputFrame } =
-            apply nowMaybe { testNode | lastUsedClock = nodeStartCounter } firstChangeFrame
+            apply nowMaybe testNode firstChangeFrame
 
         newRoot =
             List.last created
-
-        nodeStartCounter =
-            Maybe.withDefault OpID.testCounter (Maybe.map OpID.firstCounter nowMaybe)
 
         newNode =
             { updatedNode | root = newRoot }
@@ -115,7 +111,7 @@ updateWithClosedOps node newOps =
         updatedNodeWithOp op n =
             { node
                 | objects = updateObject n.objects op
-                , lastUsedClock = OpID.highestCounter n.lastUsedClock (OpID.importCounter (OpID.toStamp (Op.id op)).clock)
+                , highestSeenClock = max n.highestSeenClock (OpID.toStamp (Op.id op)).clock
             }
     in
     List.foldl updatedNodeWithOp node newOps
@@ -137,7 +133,7 @@ updateWithRon : RonProcessedInfo -> String -> RonProcessedInfo
 updateWithRon old inputRon =
     case Parser.run Op.ronParser inputRon of
         Ok parsedRonFrames ->
-            updateWithMultipleFrames parsedRonFrames old
+            updateWithMultipleFrames (Debug.log "parsed RON frames" parsedRonFrames) old
 
         Err parseDeadEnds ->
             { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }
@@ -266,11 +262,14 @@ If the clock is set backwards or another node loses track of time, we will never
 apply : Maybe Moment -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
 apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
     let
+        nextUnseenCounter =
+            OpID.importCounter (node.highestSeenClock + 1)
+
         fallbackCounter =
-            Maybe.withDefault node.lastUsedClock (Maybe.map OpID.firstCounter timeMaybe)
+            Maybe.withDefault nextUnseenCounter (Maybe.map OpID.firstCounterOfFrame timeMaybe)
 
         frameStartCounter =
-            OpID.highestCounter fallbackCounter node.lastUsedClock
+            OpID.highestCounter fallbackCounter nextUnseenCounter
 
         ( finalCounter, listOfFinishedOpChunks ) =
             List.mapAccuml (oneChangeToOpChunks node) frameStartCounter normalizedChanges

@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounter, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, testCounter, toStamp, toString)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toStamp, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -52,13 +52,13 @@ highestCounter (NewOpCounter c1) (NewOpCounter c2) =
     NewOpCounter (max c1 c2)
 
 
-firstCounter : Moment -> NewOpCounter
-firstCounter time =
+firstCounterOfFrame : Moment -> NewOpCounter
+firstCounterOfFrame time =
     NewOpCounter (Moment.toSmartInt time)
 
 
-testCounter : NewOpCounter
-testCounter =
+unusedCounter : NewOpCounter
+unusedCounter =
     NewOpCounter 0
 
 

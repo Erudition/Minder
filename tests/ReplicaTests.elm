@@ -10,6 +10,7 @@ import Main exposing (Screen(..))
 import Maybe.Extra
 import Replicated.Change as Change
 import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register exposing (RW)
@@ -22,13 +23,14 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , repListEncodeThenDecode
-        , repListInsertAndRemove
-        , nodeModifications
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        [ -- readOnlyObjectEncodeThenDecode
+          -- , writableObjectEncodeThenDecode
+          -- , repListEncodeThenDecode
+          -- , repListInsertAndRemove
+          -- , nodeModifications
+          -- , nestedStressTestIntegrityCheck
+          -- ,
+          modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -232,13 +234,13 @@ nodeModifications =
                         logOps =
                             Op.closedChunksToFrameText outputFrame
                     in
-                    Log.logMessage ("\n Adding ops to afterNode: \n" ++ logOps) updatedNode
+                    updatedNode
 
                 Nothing ->
                     Debug.todo "should always be found"
 
         generatedRootObjectID =
-            "4+here"
+            "5+here"
 
         changedObjectDecoded =
             RC.decodeFromNode writableObjectCodec afterNode
@@ -248,9 +250,9 @@ nodeModifications =
             [ test "the node should the same number of objects in it." <|
                 \_ ->
                     Expect.equal (Dict.size beforeNode.objects) (Dict.size afterNode.objects)
-            , test "the demo node should have one profile" <|
+            , test "the demo node should have a root" <|
                 \_ ->
-                    Expect.equal (List.length afterNode.profiles) 1
+                    Expect.notEqual afterNode.root Nothing
             , test "the root object should have n more events, with n being the number of new changes to the root object" <|
                 \_ -> Expect.equal (Dict.size (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) (Dict.size (getObjectEventList generatedRootObjectID afterNode))
             ]
@@ -301,7 +303,7 @@ fakeNodeWithSimpleList =
 
 
 repListEncodeThenDecode =
-    test "Encoding a list to Ron, applying to a node, then decoding it from Ron." <|
+    test "Encoding a list to Changes, applying to a node, then decoding it from the node." <|
         \_ ->
             let
                 generatedRepList =
@@ -494,14 +496,22 @@ nodeWithModifiedNestedStressTest =
                 ronData =
                     Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
 
-                ( warnings, ronUpdatedNode ) =
-                    Node.updateWithRon ( [], startNode ) (Op.closedChunksToFrameText (Debug.log ("RON DATA: " ++ ronData) <| applied.outputFrame))
+                reInitialized =
+                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Op.closedChunksToFrameText (Debug.log ("RON DATA: " ++ ronData) <| startFrame ++ applied.outputFrame))
+
+                reInitializedNodeAndSuch =
+                    case reInitialized of
+                        Ok nodeAndSuch ->
+                            nodeAndSuch
+
+                        Err err ->
+                            Debug.todo "failed to init"
 
                 -- (Op.toFrame applied.ops)
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
             in
-            { original = applied.updatedNode, serialized = ronUpdatedNode, warnings = warnings }
+            { original = applied.updatedNode, serialized = reInitializedNodeAndSuch.node, warnings = reInitializedNodeAndSuch.warnings }
 
         Err _ ->
             Debug.todo "no start dummy object"
@@ -540,7 +550,7 @@ modifiedNestedStressTestIntegrityCheck =
             "0+here"
 
         generatedRepListObjectID =
-            "111+here"
+            "12+here"
 
         eventListSize givenID givenNode =
             Dict.size (getObjectEventList givenID givenNode)
@@ -560,7 +570,7 @@ modifiedNestedStressTestIntegrityCheck =
                 nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
         , test "Checking there are no serialization warnings in the test RON string" <|
             \_ ->
-                Tuple.first (Node.updateWithRon ( [], startNode ) testRon) |> Expect.equal []
+                (Node.updateWithRon { node = startNode, warnings = [] } testRon).warnings |> Expect.equal []
         , test "Checking the Ops encode and decode into the same node" <|
             \_ ->
                 Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
@@ -568,9 +578,6 @@ modifiedNestedStressTestIntegrityCheck =
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
                     Expect.equal (Dict.size subject.objects) 6
-            , test "the demo node should have one profile" <|
-                \_ ->
-                    Expect.equal (List.length subject.profiles) 1
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID subject)
             , test "the repList has been initialized and its ID is not a placeholder" <|

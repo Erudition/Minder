@@ -237,7 +237,7 @@ decodeFromNode profileCodec node =
         --                     Err SerializerOutOfDate |> JD.succeed
         --             )
         rootEncoded =
-            List.head node.profiles
+            node.root
                 -- TODO we need to get rid of those quotes, but JD.string expects them for now
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
@@ -509,7 +509,7 @@ encodeNodeToChanges : Node -> Codec e profile -> Change.Payload
 encodeNodeToChanges node profileCodec =
     getNodeEncoder profileCodec
         { node = node
-        , encodeRegisterInstead = Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ List.head node.profiles ]
+        , encodeRegisterInstead = Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ node.root ]
         , mode = defaultEncodeMode
         , thingToEncode = Nothing
         , parentNotifier = identity
