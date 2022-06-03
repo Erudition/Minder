@@ -64,7 +64,7 @@ frameParser =
 
                 Just chunkEndType ->
                     succeed ()
-                        |> Parser.map (\_ -> Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
+                        |> Parser.map (\_ -> Debug.log "FINISHED PARSING CHUNK\n" <| Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
 
         opLineParserChainLoop opsReversed =
             let
@@ -119,8 +119,8 @@ The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (span
 
 -}
 type alias OpenTextOp =
-    { reducerMaybe : Maybe ReducerID
-    , objectMaybe : Maybe ObjectID
+    { reducerSpecified : Maybe ReducerID
+    , objectSpecified : Maybe ObjectID
     , opID : OpID
     , reference : Reference
     , payload : OpPayloadAtoms
@@ -243,7 +243,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
 nakedOrQuotedAtom : Parser String
 nakedOrQuotedAtom =
     let
-        letterNumbersBrackets char =
+        letterNumbersBracketsCommas char =
             Char.isAlphaNum char || char == '[' || char == ']'
     in
     Parser.oneOf
@@ -251,8 +251,8 @@ nakedOrQuotedAtom =
         , Parser.getChompedString <|
             succeed ()
                 -- chompWhile always succeeds, we need this to fail on empty
-                |. Parser.chompIf letterNumbersBrackets
-                |. Parser.chompWhile letterNumbersBrackets
+                |. Parser.chompIf letterNumbersBracketsCommas
+                |. Parser.chompWhile letterNumbersBracketsCommas
         ]
 
 
@@ -519,7 +519,7 @@ closedOpFromString inputString previousOpMaybe =
             in
             List.filterMap atomAsJEValue otherAtoms
 
-        reducerMaybe =
+        reducerSpecified =
             case ( referenceAtom, previousOpMaybe ) of
                 -- TODO check an actual list of known reducers
                 ( Just ":lww", _ ) ->
@@ -557,7 +557,7 @@ closedOpFromString inputString previousOpMaybe =
                 ( Nothing, _, _ ) ->
                     Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from. Input String: “" ++ inputString ++ "”"
     in
-    case reducerMaybe of
+    case reducerSpecified of
         Just foundReducer ->
             resultWithReducer foundReducer
 
@@ -670,7 +670,7 @@ closedChunksToFrameText chunkList =
             List.Extra.mapAccuml perOp Nothing opsInChunk
                 |> Tuple.second
                 |> String.join " ,\n"
-                |> (\s -> s ++ " ;\n")
+                |> (\s -> s ++ " ;\n\n")
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )

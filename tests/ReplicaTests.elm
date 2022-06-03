@@ -568,12 +568,13 @@ modifiedNestedStressTestIntegrityCheck =
         [ test "Checking there are no serialization warnings in the test node" <|
             \_ ->
                 nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
-        , test "Checking there are no serialization warnings in the test RON string" <|
+        , skip <|
+            test "Checking there are no serialization warnings in the test RON string" <|
+                \_ ->
+                    (Node.updateWithRon { node = startNode, warnings = [] } testRon).warnings |> Expect.equal []
+        , test "Expecting the (1) original Ops to encode and decode into (2) the same node" <|
             \_ ->
-                (Node.updateWithRon { node = startNode, warnings = [] } testRon).warnings |> Expect.equal []
-        , test "Checking the Ops encode and decode into the same node" <|
-            \_ ->
-                Expect.equal nodeWithModifiedNestedStressTest.original nodeWithModifiedNestedStressTest.serialized
+                nodeWithModifiedNestedStressTest.original |> Expect.equal nodeWithModifiedNestedStressTest.serialized
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->

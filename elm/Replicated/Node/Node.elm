@@ -109,10 +109,18 @@ updateWithClosedOps : Node -> List Op -> Node
 updateWithClosedOps node newOps =
     let
         updatedNodeWithOp op n =
-            { node
-                | objects = updateObject n.objects op
-                , highestSeenClock = max n.highestSeenClock (OpID.toStamp (Op.id op)).clock
-            }
+            case alreadyHaveThisOp op of
+                Nothing ->
+                    { node
+                        | objects = updateObject n.objects op
+                        , highestSeenClock = max n.highestSeenClock (OpID.toStamp (Op.id op)).clock
+                    }
+
+                Just _ ->
+                    Debug.todo ("Already have op " ++ OpID.toString (Op.id op) ++ "as an object..")
+
+        alreadyHaveThisOp op =
+            Dict.get (OpID.toString (Op.id op)) node.objects
     in
     List.foldl updatedNodeWithOp node newOps
 
@@ -133,7 +141,7 @@ updateWithRon : RonProcessedInfo -> String -> RonProcessedInfo
 updateWithRon old inputRon =
     case Parser.run Op.ronParser inputRon of
         Ok parsedRonFrames ->
-            updateWithMultipleFrames (Debug.log "parsed RON frames" parsedRonFrames) old
+            updateWithMultipleFrames parsedRonFrames old
 
         Err parseDeadEnds ->
             { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }
@@ -164,7 +172,7 @@ updateNodeWithChunk chunk old =
                     Err EmptyChunk
 
                 Just firstOpenOp ->
-                    case ( firstOpenOp.objectMaybe, firstOpenOp.reducerMaybe, firstOpenOp.reference ) of
+                    case ( firstOpenOp.objectSpecified, firstOpenOp.reducerSpecified, firstOpenOp.reference ) of
                         ( Just explicitReducer, Just explicitObject, _ ) ->
                             -- closed ops - reducer and objectID are explicit
                             Ok ( explicitObject, explicitReducer )
@@ -208,8 +216,8 @@ updateNodeWithChunk chunk old =
 closeOp : ReducerID -> ObjectID -> Op.OpenTextOp -> Op
 closeOp deducedReducer deducedObject openOp =
     Op.Op <|
-        { reducerID = openOp.reducerMaybe |> Maybe.withDefault deducedReducer
-        , objectID = openOp.objectMaybe |> Maybe.withDefault deducedObject
+        { reducerID = openOp.reducerSpecified |> Maybe.withDefault deducedReducer
+        , objectID = openOp.objectSpecified |> Maybe.withDefault deducedObject
         , operationID = openOp.opID
         , reference = openOp.reference
         , payload = openOp.payload
@@ -344,7 +352,7 @@ oneChangeToOpChunks node inCounter change =
     case change of
         Change.Chunk chunkRecord ->
             let
-                ( ( outCounter, createdObjectMaybe ), generatedChunks ) =
+                ( ( outCounter, createdobjectSpecified ), generatedChunks ) =
                     chunkToOps node ( inCounter, Nothing ) chunkRecord
 
                 logOps =
