@@ -49,18 +49,6 @@ nodeFromCodec profileCodec =
     { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
-fakeOps : List Op
-fakeOps =
-    let
-        ops =
-            """
-            @1200+0.0.0.0 :lww,
-            @1244+0.0.0.0 :1200+0.0.0.0 [1,[[1,first],firstname]]
-            """
-    in
-    Maybe.withDefault [] <| Result.toMaybe <| Op.fromFrame ops
-
-
 type alias ReadOnlyObject =
     { name : ExampleSubObjectLegalName
     , address : String

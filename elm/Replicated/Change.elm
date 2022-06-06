@@ -55,7 +55,8 @@ isPlaceholder pointer =
 
 
 type Atom
-    = ValueAtom JE.Value
+    = JsonValueAtom JE.Value
+    | RonAtom Op.OpPayloadAtom
     | QuoteNestedObject Change
     | NestedAtoms Payload
 

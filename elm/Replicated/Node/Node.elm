@@ -426,12 +426,18 @@ type alias UnstampedChunkOp =
 objectChangeToUnstampedOp : Node -> InCounter -> Change.ObjectChange -> ( OutCounter, { prerequisiteChunks : List Op.ClosedChunk, thisObjectOp : UnstampedChunkOp } )
 objectChangeToUnstampedOp node inCounter objectChange =
     let
-        perPiece : Change.Atom -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List JE.Value } -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List JE.Value }
+        perPiece : Change.Atom -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom } -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom }
         perPiece piece accumulated =
             case piece of
-                Change.ValueAtom value ->
+                Change.JsonValueAtom value ->
                     { counter = accumulated.counter
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ value ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.StringAtom (JE.encode 0 value) ]
+                    , prerequisiteChunks = accumulated.prerequisiteChunks
+                    }
+
+                Change.RonAtom atom ->
+                    { counter = accumulated.counter
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ atom ]
                     , prerequisiteChunks = accumulated.prerequisiteChunks
                     }
 
@@ -446,7 +452,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ JE.string pointerPayload ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.StringAtom pointerPayload ]
                     }
 
                 Change.NestedAtoms nestedChangeAtoms ->
@@ -460,11 +466,13 @@ objectChangeToUnstampedOp node inCounter objectChange =
                                 nestedChangeAtoms
 
                         finalNestedPayloadAsString =
-                            JE.list identity outputAtoms.piecesSoFar
+                            outputAtoms.piecesSoFar
                     in
                     { counter = outputAtoms.counter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ outputAtoms.prerequisiteChunks
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ finalNestedPayloadAsString ]
+
+                    -- TODO below may get multi-atom values confused with multiple values
+                    , piecesSoFar = accumulated.piecesSoFar ++ finalNestedPayloadAsString
                     }
 
         outputHelper pieceList reference =

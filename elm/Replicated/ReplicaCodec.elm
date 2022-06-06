@@ -408,7 +408,7 @@ getNodeEncoder (Codec m) inputs =
         Nothing ->
             case inputs.thingToEncode of
                 Just thing ->
-                    [ Change.ValueAtom <| m.jsonEncoder thing ]
+                    [ Change.JsonValueAtom <| m.jsonEncoder thing ]
 
                 Nothing ->
                     []
@@ -606,7 +606,7 @@ string =
                     case inputs.thingToEncode of
                         Just thing ->
                             -- TODO eliminate quotes and decode without them
-                            [ Change.ValueAtom (JE.string thing) ]
+                            [ Change.JsonValueAtom (JE.string thing) ]
 
                         Nothing ->
                             []
@@ -1855,11 +1855,11 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
                 Just foundPreviousValue ->
                     -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
-                    if [ Change.ValueAtom foundPreviousValue ] == encodedDefault fieldDefault then
+                    if [ Change.JsonValueAtom foundPreviousValue ] == encodedDefault fieldDefault then
                         explicitDefaultIfNeeded fieldDefault
 
                     else
-                        Just <| Change.NewPayload [ Change.ValueAtom foundPreviousValue ]
+                        Just <| Change.NewPayload [ Change.JsonValueAtom foundPreviousValue ]
 
         ( Nothing, Just containingRegister ) ->
             case getValue containingRegister of
@@ -1867,7 +1867,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     Nothing
 
                 Just foundPreviousValue ->
-                    Just <| Change.NewPayload [ Change.ValueAtom foundPreviousValue ]
+                    Just <| Change.NewPayload [ Change.JsonValueAtom foundPreviousValue ]
 
         ( Nothing, Nothing ) ->
             Nothing
@@ -2170,7 +2170,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                         |> List.concat
 
                 tag =
-                    Change.ValueAtom <| JE.string <| String.fromInt tagNum ++ "_" ++ tagName
+                    Change.JsonValueAtom <| JE.string <| String.fromInt tagNum ++ "_" ++ tagName
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction

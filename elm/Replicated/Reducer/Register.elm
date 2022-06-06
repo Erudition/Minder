@@ -65,7 +65,7 @@ build node object =
                     Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
 
                 Nothing ->
-                    Log.logSeparate "warning - failed to extract field event" payload buildingDict
+                    Log.logSeparate ("warning - failed to extract field event " ++ JE.encode 0 payload) payload buildingDict
 
         addUpdate : ( OpID, FieldPayload ) -> Maybe (List ( OpID, FieldPayload )) -> Maybe (List ( OpID, FieldPayload ))
         addUpdate newUpdate existingUpdatesMaybe =
@@ -91,8 +91,8 @@ extractFieldEventFromObjectPayload payload =
 
 encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.Payload -> Change.Payload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    [ Change.ValueAtom (JE.int fieldSlot)
-    , Change.ValueAtom (JE.string fieldName)
+    [ Change.RonAtom (Op.IntegerAtom fieldSlot)
+    , Change.RonAtom (Op.StringAtom fieldName)
     ]
         ++ fieldPayload
 

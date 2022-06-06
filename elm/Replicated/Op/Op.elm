@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), closedChunksToFrameText, closedOpFromString, closedOpToString, create, fromFrame, fromLog, id, initObject, object, pattern, payload, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -192,21 +192,12 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                 _ ->
                     opRefparser
 
-        opPayloadParser : OpPayloadAtoms -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
+        opPayloadParser : List OpPayloadAtom -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
         opPayloadParser atomsReversed =
-            let
-                atomToValue inputString =
-                    case JD.decodeString JD.value ("\"" ++ inputString ++ "\"") of
-                        Ok val ->
-                            val
-
-                        Err err ->
-                            Debug.todo <| "couldn't convert atom (" ++ inputString ++ ") to JD.Value - " ++ Debug.toString err
-            in
             Parser.oneOf
-                [ succeed (\thisAtom -> Parser.Loop (atomToValue thisAtom :: atomsReversed))
+                [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
                     -- This MUST fail if no alphaNumeric char or quote, to allow line to end
-                    |= nakedOrQuotedAtom
+                    |= payloadAtomParser
                 , succeed (\_ -> Parser.Loop atomsReversed)
                     -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
                     |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
@@ -240,38 +231,78 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         |= lineEndParser
 
 
-nakedOrQuotedAtom : Parser String
-nakedOrQuotedAtom =
-    let
-        letterNumbersBracketsCommas char =
-            Char.isAlphaNum char || char == '[' || char == ']'
-    in
+payloadAtomParser : Parser OpPayloadAtom
+payloadAtomParser =
     Parser.oneOf
         [ quotedAtom
-        , Parser.getChompedString <|
-            succeed ()
-                -- chompWhile always succeeds, we need this to fail on empty
-                |. Parser.chompIf letterNumbersBracketsCommas
-                |. Parser.chompWhile letterNumbersBracketsCommas
+        , ronInt
+        , ronFloat
+        , nakedStringTag
         ]
 
 
-quotedAtom : Parser String
+{-| Parses RON atoms without quotes (like abc123) into strings, with the same restrictions as elm record field names. Only for letter-number "tags" such as field names -- all other strings must be quoted!
+-}
+nakedStringTag : Parser OpPayloadAtom
+nakedStringTag =
+    let
+        letterNumbers char =
+            Char.isAlphaNum char
+    in
+    Parser.map StringAtom <|
+        Parser.getChompedString <|
+            succeed ()
+                -- chompWhile always succeeds, we need this to fail on empty
+                |. Parser.chompIf letterNumbers
+                |. Parser.chompWhile letterNumbers
+
+
+{-| Ron Integers start with equal sign =1099
+When unambiguous, prefixes could be omitted
+-}
+ronInt : Parser OpPayloadAtom
+ronInt =
+    -- TODO include prefix
+    Parser.number
+        { int = Just IntegerAtom
+        , hex = Nothing
+        , octal = Nothing
+        , binary = Nothing
+        , float = Nothing
+        }
+
+
+{-| Ron Integers start ^: ^3.14159, ^2.9979E5.
+When unambiguous, prefixes could be omitted
+-}
+ronFloat : Parser OpPayloadAtom
+ronFloat =
+    -- TODO parse prefix
+    Parser.number
+        { int = Nothing
+        , hex = Nothing
+        , octal = Nothing
+        , binary = Nothing
+        , float = Just FloatAtom
+        }
+
+
+quotedAtom : Parser OpPayloadAtom
 quotedAtom =
-    succeed identity
-        |. Parser.token "\""
+    succeed StringAtom
+        |. Parser.token "'"
         |= Parser.loop [] quotedAtomHelp
 
 
 quotedAtomHelp : List String -> Parser (Parser.Step (List String) String)
 quotedAtomHelp piecesReversed =
     Parser.oneOf
-        [ succeed (\_ -> Parser.Loop ("\\\"" :: piecesReversed))
-            |= Parser.keyword "\\\""
+        [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
+            |= Parser.keyword "\\'"
 
         -- ^When we detect an escaped quote, don't stop parsing this atom
         , succeed (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
-            |= Parser.token "\""
+            |= Parser.token "'"
         , Parser.chompWhile isUninteresting
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
@@ -280,7 +311,7 @@ quotedAtomHelp piecesReversed =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '\\' && char /= '"'
+    char /= '\\' && char /= '\''
 
 
 sameLineSpaces : Parser ()
@@ -318,7 +349,61 @@ opIDFromReference givenRef =
 
 
 type alias OpPayloadAtoms =
-    List JE.Value
+    List OpPayloadAtom
+
+
+type OpPayloadAtom
+    = StringAtom String
+    | UUIDAtom String
+    | IntegerAtom Int
+    | FloatAtom Float
+
+
+atomToJsonValue : OpPayloadAtom -> JE.Value
+atomToJsonValue atom =
+    case atom of
+        StringAtom string ->
+            JE.string string
+
+        UUIDAtom uuid ->
+            JE.string uuid
+
+        IntegerAtom int ->
+            JE.int int
+
+        FloatAtom float ->
+            JE.float float
+
+
+{-| Convert an atom into the raw string to be put in a RON Op.
+TODO : generate naked atoms when unambiguous.
+-}
+atomToRonString : OpPayloadAtom -> String
+atomToRonString atom =
+    case atom of
+        StringAtom string ->
+            "'" ++ string ++ "'"
+
+        UUIDAtom string ->
+            string
+
+        IntegerAtom int ->
+            String.fromInt int
+
+        FloatAtom float ->
+            String.fromFloat float
+
+
+jsonValueToAtom : JE.Value -> OpPayloadAtom
+jsonValueToAtom valueJE =
+    -- --                atomToValue inputString =
+    --                     case JD.decodeString JD.value ("\"" ++ inputString ++ "\"") of
+    --                         Ok val ->
+    --                             val
+    --
+    --                         Err err ->
+    --                             Debug.todo <| "couldn't convert atom (" ++ inputString ++ ") to JD.Value - " ++ Debug.toString err
+    StringAtom (JE.encode 0 valueJE)
 
 
 type alias ReducerID =
@@ -465,198 +550,191 @@ closedOpToString format (Op op) =
                         ( False, False ) ->
                             [ opID, ref ]
     in
-    String.join " " (inclusionList ++ List.map encodePayloadAtom op.payload)
+    String.join " " (inclusionList ++ List.map atomToRonString op.payload)
 
 
-closedOpFromString : String -> Maybe Op -> Result String Op
-closedOpFromString inputString previousOpMaybe =
-    let
-        inputChunks =
-            inputString
-                |> String.split "\""
 
-        -- headerAtoms =
-        --     inputChunks
-        --         |> List.head
-        --         |> Maybe.map String.words
-        --         |> Maybe.withDefault []
-        atoms =
-            inputChunks
-                |> List.indexedMap
-                    (\i s ->
-                        if modBy (i + 1) 2 == 0 then
-                            [ s ]
-
-                        else
-                            String.words s
-                    )
-                |> List.concat
-
-        opIDatom =
-            List.head (List.filter (String.startsWith "@") atoms)
-
-        extractOpID atom =
-            OpID.fromString (String.dropLeft 1 atom)
-
-        opIDMaybe =
-            Maybe.withDefault (Maybe.map (id >> OpID.nextOpInChain) previousOpMaybe) (Maybe.map extractOpID opIDatom)
-
-        referenceAtom =
-            List.head (List.filter (String.startsWith ":") atoms)
-
-        referenceMaybe =
-            -- if reference is missing, it is assumed to be the previous Op's ID
-            Maybe.withDefault (Maybe.map id previousOpMaybe) (Maybe.map extractOpID referenceAtom)
-
-        otherAtoms =
-            List.Extra.filterNot (\atom -> String.startsWith ":" atom || String.startsWith "@" atom) atoms
-
-        remainderPayload =
-            let
-                atomAsJEValue atomString =
-                    JD.decodeString JD.value atomString
-                        |> Result.toMaybe
-            in
-            List.filterMap atomAsJEValue otherAtoms
-
-        reducerSpecified =
-            case ( referenceAtom, previousOpMaybe ) of
-                -- TODO check an actual list of known reducers
-                ( Just ":lww", _ ) ->
-                    Just "lww"
-
-                ( Just ":replist", _ ) ->
-                    Just "replist"
-
-                ( _, Just previousOp ) ->
-                    Just (reducer previousOp)
-
-                ( _, Nothing ) ->
-                    -- TODO Check the database. for now assume lww
-                    Just "lww"
-
-        resultWithReducer givenReducer =
-            case ( opIDMaybe, otherAtoms, referenceMaybe ) of
-                ( Just opID, [], _ ) ->
-                    -- no payload - must be a creation op
-                    Ok (create givenReducer opID opID (ReducerReference givenReducer) [])
-
-                ( Just opID, _, Just ref ) ->
-                    -- there's a payload - reference is required
-                    case Maybe.map object previousOpMaybe of
-                        Just objectLastTime ->
-                            Ok (create givenReducer objectLastTime opID (OpReference ref) remainderPayload)
-
-                        Nothing ->
-                            -- TODO locate object via tree somehow
-                            Err <| "Couldn't determine the object this op applies to: " ++ inputString
-
-                ( Just _, _, Nothing ) ->
-                    Err <| "This op has a nonempty payload (not a creation op) but I couldn't find the required *reference* atom (:) and got no prior op in the chain to deduce it from: " ++ inputString
-
-                ( Nothing, _, _ ) ->
-                    Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from. Input String: “" ++ inputString ++ "”"
-    in
-    case reducerSpecified of
-        Just foundReducer ->
-            resultWithReducer foundReducer
-
-        Nothing ->
-            Err <| "No reducer found for op: " ++ inputString
-
-
-{-| A span is [or is part of] a chain (sequential refs) with sequential IDs as well.
-
-Here we pass in the previously parsed Op (when available) to parsing of the next op, so we may derive its ID implicitly
-
--}
-fromSpan : String -> Result String (List Op)
-fromSpan span =
-    let
-        spanOpLines =
-            String.split ",\n" span
-                |> List.filterMap dropBlank
-
-        dropBlank line =
-            case String.trim line of
-                "" ->
-                    Nothing
-
-                notEmpty ->
-                    Just notEmpty
-
-        addToOpList : List String -> Result String (List Op) -> Result String (List Op)
-        addToOpList unparsedOpList parsedOpListResult =
-            -- Definitely a more efficient FP way to do this
-            case ( unparsedOpList, parsedOpListResult ) of
-                ( _, Err err ) ->
-                    -- we crashed somewhere.
-                    Err err
-
-                ( [], _ ) ->
-                    -- nothing to parse.
-                    Ok []
-
-                ( [ unparsedOp ], Ok [] ) ->
-                    -- not started yet, one item to parse
-                    Result.map List.singleton (closedOpFromString unparsedOp Nothing)
-
-                ( nextUnparsedOp :: remainingUnparsedOps, Ok [] ) ->
-                    -- not started yet, multiple items to parse
-                    addToOpList remainingUnparsedOps (Result.map List.singleton (closedOpFromString nextUnparsedOp Nothing))
-
-                ( [ unparsedOp ], Ok [ parsedOp ] ) ->
-                    -- one down, one to go
-                    Result.map (\new -> new :: [ parsedOp ]) (closedOpFromString unparsedOp (Just parsedOp))
-
-                ( nextUnparsedOp :: remainingUnparsedOps, Ok ((lastParsedOp :: _) as parsedOps) ) ->
-                    -- multiple done, multiple remain
-                    -- parsedOps is reversed, it's more efficient to grab a list head than the last item
-                    addToOpList remainingUnparsedOps <| Result.map (\new -> new :: parsedOps) (closedOpFromString nextUnparsedOp (Just lastParsedOp))
-
-        finalList =
-            -- recursively move from one list to the other
-            -- second list is backwards for performance (ostensibly)
-            addToOpList spanOpLines (Ok [])
-    in
-    -- TODO does having it reversed defeat the point of building it backwards?
-    Result.map List.reverse finalList
-
-
-{-| TODO determine when a chain is not a single span
--}
-fromChain : String -> Result String (List Op)
-fromChain chain =
-    fromSpan chain
-
-
-{-| TODO determine when a chunk is not a single chain
--}
-fromChunk : String -> Result String (List Op)
-fromChunk chunk =
-    fromChain chunk
-
-
-{-| A frame can have multiple chunks
--}
-fromFrame : String -> Result String (List Op)
-fromFrame frame =
-    let
-        chunks =
-            String.split " ;" frame
-    in
-    Result.map List.concat <| Result.Extra.combineMap fromChunk chunks
-
-
-{-| A log can have multiple frames
--}
-fromLog : String -> Result String (List Op)
-fromLog log =
-    let
-        frames =
-            String.split "." log
-    in
-    Result.map List.concat <| Result.Extra.combineMap fromChunk frames
+-- closedOpFromString : String -> Maybe Op -> Result String Op
+-- closedOpFromString inputString previousOpMaybe =
+--     let
+--         inputChunks =
+--             inputString
+--                 |> String.split "\""
+--
+--         -- headerAtoms =
+--         --     inputChunks
+--         --         |> List.head
+--         --         |> Maybe.map String.words
+--         --         |> Maybe.withDefault []
+--         atoms =
+--             inputChunks
+--                 |> List.indexedMap
+--                     (\i s ->
+--                         if modBy (i + 1) 2 == 0 then
+--                             [ s ]
+--
+--                         else
+--                             String.words s
+--                     )
+--                 |> List.concat
+--
+--         opIDatom =
+--             List.head (List.filter (String.startsWith "@") atoms)
+--
+--         extractOpID atom =
+--             OpID.fromString (String.dropLeft 1 atom)
+--
+--         opIDMaybe =
+--             Maybe.withDefault (Maybe.map (id >> OpID.nextOpInChain) previousOpMaybe) (Maybe.map extractOpID opIDatom)
+--
+--         referenceAtom =
+--             List.head (List.filter (String.startsWith ":") atoms)
+--
+--         referenceMaybe =
+--             -- if reference is missing, it is assumed to be the previous Op's ID
+--             Maybe.withDefault (Maybe.map id previousOpMaybe) (Maybe.map extractOpID referenceAtom)
+--
+--         otherAtoms =
+--             List.Extra.filterNot (\atom -> String.startsWith ":" atom || String.startsWith "@" atom) atoms
+--
+--         remainderPayload =
+--             let
+--                 atomAsJEValue atomString =
+--                     JD.decodeString JD.value atomString
+--                         |> Result.toMaybe
+--             in
+--             List.filterMap atomAsJEValue otherAtoms
+--
+--         reducerSpecified =
+--             case ( referenceAtom, previousOpMaybe ) of
+--                 -- TODO check an actual list of known reducers
+--                 ( Just ":lww", _ ) ->
+--                     Just "lww"
+--
+--                 ( Just ":replist", _ ) ->
+--                     Just "replist"
+--
+--                 ( _, Just previousOp ) ->
+--                     Just (reducer previousOp)
+--
+--                 ( _, Nothing ) ->
+--                     -- TODO Check the database. for now assume lww
+--                     Just "lww"
+--
+--         resultWithReducer givenReducer =
+--             case ( opIDMaybe, otherAtoms, referenceMaybe ) of
+--                 ( Just opID, [], _ ) ->
+--                     -- no payload - must be a creation op
+--                     Ok (create givenReducer opID opID (ReducerReference givenReducer) [])
+--
+--                 ( Just opID, _, Just ref ) ->
+--                     -- there's a payload - reference is required
+--                     case Maybe.map object previousOpMaybe of
+--                         Just objectLastTime ->
+--                             Ok (create givenReducer objectLastTime opID (OpReference ref) remainderPayload)
+--
+--                         Nothing ->
+--                             -- TODO locate object via tree somehow
+--                             Err <| "Couldn't determine the object this op applies to: " ++ inputString
+--
+--                 ( Just _, _, Nothing ) ->
+--                     Err <| "This op has a nonempty payload (not a creation op) but I couldn't find the required *reference* atom (:) and got no prior op in the chain to deduce it from: " ++ inputString
+--
+--                 ( Nothing, _, _ ) ->
+--                     Err <| "Couldn't find Op's ID (@) and got no prior op to deduce it from. Input String: “" ++ inputString ++ "”"
+--     in
+--     case reducerSpecified of
+--         Just foundReducer ->
+--             resultWithReducer foundReducer
+--
+--         Nothing ->
+--             Err <| "No reducer found for op: " ++ inputString
+-- {-| A span is [or is part of] a chain (sequential refs) with sequential IDs as well.
+--
+-- Here we pass in the previously parsed Op (when available) to parsing of the next op, so we may derive its ID implicitly
+--
+-- -}
+--
+--
+-- fromSpan : String -> Result String (List Op)
+-- fromSpan span =
+--     let
+--         spanOpLines =
+--             String.split ",\n" span
+--                 |> List.filterMap dropBlank
+--
+--         dropBlank line =
+--             case String.trim line of
+--                 "" ->
+--                     Nothing
+--
+--                 notEmpty ->
+--                     Just notEmpty
+--
+--         addToOpList : List String -> Result String (List Op) -> Result String (List Op)
+--         addToOpList unparsedOpList parsedOpListResult =
+--             -- Definitely a more efficient FP way to do this
+--             case ( unparsedOpList, parsedOpListResult ) of
+--                 ( _, Err err ) ->
+--                     -- we crashed somewhere.
+--                     Err err
+--
+--                 ( [], _ ) ->
+--                     -- nothing to parse.
+--                     Ok []
+--
+--                 ( [ unparsedOp ], Ok [] ) ->
+--                     -- not started yet, one item to parse
+--                     Result.map List.singleton (closedOpFromString unparsedOp Nothing)
+--
+--                 ( nextUnparsedOp :: remainingUnparsedOps, Ok [] ) ->
+--                     -- not started yet, multiple items to parse
+--                     addToOpList remainingUnparsedOps (Result.map List.singleton (closedOpFromString nextUnparsedOp Nothing))
+--
+--                 ( [ unparsedOp ], Ok [ parsedOp ] ) ->
+--                     -- one down, one to go
+--                     Result.map (\new -> new :: [ parsedOp ]) (closedOpFromString unparsedOp (Just parsedOp))
+--
+--                 ( nextUnparsedOp :: remainingUnparsedOps, Ok ((lastParsedOp :: _) as parsedOps) ) ->
+--                     -- multiple done, multiple remain
+--                     -- parsedOps is reversed, it's more efficient to grab a list head than the last item
+--                     addToOpList remainingUnparsedOps <| Result.map (\new -> new :: parsedOps) (closedOpFromString nextUnparsedOp (Just lastParsedOp))
+--
+--         finalList =
+--             -- recursively move from one list to the other
+--             -- second list is backwards for performance (ostensibly)
+--             addToOpList spanOpLines (Ok [])
+--     in
+--     -- TODO does having it reversed defeat the point of building it backwards?
+--     Result.map List.reverse finalList
+-- {-| TODO determine when a chain is not a single span
+-- -}
+-- fromChain : String -> Result String (List Op)
+-- fromChain chain =
+--     fromSpan chain
+-- {-| TODO determine when a chunk is not a single chain
+-- -}
+-- fromChunk : String -> Result String (List Op)
+-- fromChunk chunk =
+--     fromChain chunk
+-- {-| A frame can have multiple chunks
+-- -}
+-- fromFrame : String -> Result String (List Op)
+-- fromFrame frame =
+--     let
+--         chunks =
+--             String.split " ;" frame
+--     in
+--     Result.map List.concat <| Result.Extra.combineMap fromChunk chunks
+-- {-| A log can have multiple frames
+-- -}
+-- fromLog : String -> Result String (List Op)
+-- fromLog log =
+--     let
+--         frames =
+--             String.split "." log
+--     in
+--     Result.map List.concat <| Result.Extra.combineMap fromChunk frames
 
 
 type alias FrameString =

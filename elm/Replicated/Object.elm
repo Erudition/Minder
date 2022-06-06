@@ -72,11 +72,11 @@ applyOp newOp oldObjectMaybe =
     let
         opPayloadToEventPayload opPayload =
             case opPayload of
-                [ singleValue ] ->
-                    singleValue
+                [ singleAtom ] ->
+                    Op.atomToJsonValue singleAtom
 
-                multipleValues ->
-                    JE.list identity multipleValues
+                multipleAtoms ->
+                    JE.list Op.atomToJsonValue multipleAtoms
 
         newEvent givenRef =
             KeptEvent { id = Op.id newOp, reference = givenRef, payload = opPayloadToEventPayload (Op.payload newOp) }
