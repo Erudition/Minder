@@ -353,7 +353,8 @@ type alias OpPayloadAtoms =
 
 
 type OpPayloadAtom
-    = StringAtom String
+    = NakedStringAtom String
+    | StringAtom String
     | UUIDAtom String
     | IntegerAtom Int
     | FloatAtom Float
@@ -362,6 +363,9 @@ type OpPayloadAtom
 atomToJsonValue : OpPayloadAtom -> JE.Value
 atomToJsonValue atom =
     case atom of
+        NakedStringAtom string ->
+            JE.string string
+
         StringAtom string ->
             JE.string string
 
@@ -381,6 +385,9 @@ TODO : generate naked atoms when unambiguous.
 atomToRonString : OpPayloadAtom -> String
 atomToRonString atom =
     case atom of
+        NakedStringAtom string ->
+            string
+
         StringAtom string ->
             "'" ++ string ++ "'"
 

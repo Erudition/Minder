@@ -66,7 +66,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Atom(..), Change(..), Payload, Pointer(..), changeToChangePayload)
+import Replicated.Change as Change exposing (Change(..), Payload, Pointer(..), changeToChangePayload)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
@@ -207,6 +207,7 @@ type Error e
     | DataCorrupted
     | SerializerOutOfDate
     | ObjectNotFound OpID
+    | FailedToDecodeRoot String
 
 
 version : Int
@@ -249,7 +250,7 @@ decodeFromNode profileCodec node =
                     value
 
                 Err jdError ->
-                    Err DataCorrupted
+                    Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
 endian : Bytes.Endianness
@@ -1855,7 +1856,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
                 Just foundPreviousValue ->
                     -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
-                    if [ Change.JsonValueAtom foundPreviousValue ] == encodedDefault fieldDefault then
+                    if foundPreviousValue == encodedDefault fieldDefault then
                         explicitDefaultIfNeeded fieldDefault
 
                     else
@@ -2001,6 +2002,9 @@ mapErrorHelper mapFunc =
 
                 ObjectNotFound opID ->
                     ObjectNotFound opID
+
+                FailedToDecodeRoot reason ->
+                    FailedToDecodeRoot reason
         )
 
 

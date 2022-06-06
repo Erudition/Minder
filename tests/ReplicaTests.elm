@@ -23,14 +23,15 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ -- readOnlyObjectEncodeThenDecode
-          -- , writableObjectEncodeThenDecode
-          -- , repListEncodeThenDecode
-          -- , repListInsertAndRemove
-          -- , nodeModifications
-          -- , nestedStressTestIntegrityCheck
-          -- ,
-          modifiedNestedStressTestIntegrityCheck
+        [ readOnlyObjectEncodeThenDecode
+
+        -- , writableObjectEncodeThenDecode
+        -- , repListEncodeThenDecode
+        -- , repListInsertAndRemove
+        -- , nodeModifications
+        -- , nestedStressTestIntegrityCheck
+        -- ,
+        -- modifiedNestedStressTestIntegrityCheck
         ]
 
 

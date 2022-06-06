@@ -30,7 +30,7 @@ type Register
 
 
 type alias FieldPayload =
-    JE.Value
+    Nonempty Op.OpPayloadAtom
 
 
 reducerID : Op.ReducerID
@@ -61,11 +61,11 @@ build node object =
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
             case extractFieldEventFromObjectPayload payload of
-                Just ( ( fieldSlot, fieldName ), fieldPayload ) ->
+                Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
                     Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
 
-                Nothing ->
-                    Log.logSeparate ("warning - failed to extract field event " ++ JE.encode 0 payload) payload buildingDict
+                Err problem ->
+                    Log.logSeparate ("WARNING " ++ problem) payload buildingDict
 
         addUpdate : ( OpID, FieldPayload ) -> Maybe (List ( OpID, FieldPayload )) -> Maybe (List ( OpID, FieldPayload ))
         addUpdate newUpdate existingUpdatesMaybe =
@@ -74,25 +74,25 @@ build node object =
     Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
 
 
-extractFieldEventFromObjectPayload : EventPayload -> Maybe ( FieldIdentifier, FieldPayload )
+extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
 extractFieldEventFromObjectPayload payload =
-    case JD.decodeValue (JD.list JD.value) payload of
-        Ok (fieldSlotValue :: fieldNameEncoded :: [ rest ]) ->
-            case ( JD.decodeValue JD.int fieldSlotValue, JD.decodeValue JD.string fieldNameEncoded ) of
-                ( Ok fieldSlot, Ok fieldName ) ->
-                    Just ( ( fieldSlot, fieldName ), rest )
+    case payload of
+        (Op.IntegerAtom fieldSlot) :: (Op.NakedStringAtom fieldName) :: rest ->
+            case rest of
+                [] ->
+                    Err <| "Register: Missing payload for field " ++ fieldName
 
-                _ ->
-                    Nothing
+                head :: tail ->
+                    Ok ( ( fieldSlot, fieldName ), Nonempty head tail )
 
-        _ ->
-            Nothing
+        badList ->
+            Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
 
 
 encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.Payload -> Change.Payload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     [ Change.RonAtom (Op.IntegerAtom fieldSlot)
-    , Change.RonAtom (Op.StringAtom fieldName)
+    , Change.RonAtom (Op.NakedStringAtom fieldName)
     ]
         ++ fieldPayload
 

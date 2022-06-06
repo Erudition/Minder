@@ -116,7 +116,7 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                     []
 
         eventToItem event =
-            case payloadToMember (Object.eventPayload event) of
+            case payloadToMember (Object.eventPayloadAsJson event) of
                 Nothing ->
                     Nothing
 

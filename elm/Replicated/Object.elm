@@ -38,7 +38,7 @@ allOtherOpIDs object =
 
 
 type alias EventPayload =
-    JE.Value
+    Op.OpPayloadAtoms
 
 
 {-| An event that has not been undone/deleted.
@@ -64,6 +64,19 @@ eventPayload (KeptEvent event) =
     event.payload
 
 
+eventPayloadAsJson : KeptEvent -> JE.Value
+eventPayloadAsJson (KeptEvent event) =
+    case List.map Op.atomToJsonValue event.payload of
+        [] ->
+            JE.null
+
+        [ single ] ->
+            single
+
+        multiple ->
+            JE.list identity multiple
+
+
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
@@ -79,7 +92,7 @@ applyOp newOp oldObjectMaybe =
                     JE.list Op.atomToJsonValue multipleAtoms
 
         newEvent givenRef =
-            KeptEvent { id = Op.id newOp, reference = givenRef, payload = opPayloadToEventPayload (Op.payload newOp) }
+            KeptEvent { id = Op.id newOp, reference = givenRef, payload = Op.payload newOp }
     in
     case ( oldObjectMaybe, Op.reference newOp ) of
         ( Just oldObject, Op.OpReference ref ) ->
