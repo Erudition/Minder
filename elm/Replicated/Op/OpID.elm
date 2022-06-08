@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toStamp, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toPointerString, toStamp, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -70,6 +70,11 @@ generate (NewOpCounter counter) origin reversion =
 toString : OpID -> OpIDString
 toString (OpID string) =
     string
+
+
+toPointerString : OpID -> String
+toPointerString (OpID string) =
+    "{" ++ string ++ "}"
 
 
 parser : Parser OpID

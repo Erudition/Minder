@@ -66,7 +66,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change(..), Payload, Pointer(..), changeToChangePayload)
+import Replicated.Change as Change exposing (Change(..), Pointer(..), changeToChangePayload)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
@@ -131,7 +131,7 @@ defaultEncodeMode =
 
 
 type alias NodeEncoder a =
-    NodeEncoderInputs a -> Change.Payload
+    NodeEncoderInputs a -> Change.PotentialPayload
 
 
 type alias NodeDecoder e a =
@@ -160,7 +160,7 @@ type alias RegisterFieldEncoderInputs =
     { node : Node
     , registerMaybe : Maybe Register
     , mode : ChangesToGenerate
-    , updateRegisterAfterChildInit : Change.Payload -> Change
+    , updateRegisterAfterChildInit : Change.PotentialPayload -> Change
     , pendingCounter : Change.PendingCounter
     }
 
@@ -415,7 +415,7 @@ getNodeEncoder (Codec m) inputs =
                     []
 
 
-getNodeEncoderSplit : Codec e a -> Maybe a -> (NodeEncoderInputsNoVariable -> Change.Payload)
+getNodeEncoderSplit : Codec e a -> Maybe a -> (NodeEncoderInputsNoVariable -> Change.PotentialPayload)
 getNodeEncoderSplit codec thingToEncodeMaybe =
     let
         finishInputs alt =
@@ -506,7 +506,7 @@ replaceForUrl =
 {-| Get values from the Node into a Change.
 Pass the codec of the root object.
 -}
-encodeNodeToChanges : Node -> Codec e profile -> Change.Payload
+encodeNodeToChanges : Node -> Codec e profile -> Change.PotentialPayload
 encodeNodeToChanges node profileCodec =
     getNodeEncoder profileCodec
         { node = node
@@ -752,7 +752,7 @@ repList memberCodec =
         bytesEncoder input =
             listEncode (getBytesEncoder memberCodec) (RepList.list input)
 
-        memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.Payload
+        memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.PotentialPayload
         memberRonEncoder node encodeModeMaybe parentNotifier newValue =
             getNodeEncoder memberCodec
                 { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
@@ -1492,7 +1492,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
 
                 Just foundField ->
                     -- field was set - decode value and use it
-                    case runFieldDecoder foundField of
+                    case runFieldDecoder (Op.payloadToJsonValue foundField) of
                         Ok something ->
                             JD.succeed something
 
@@ -1512,13 +1512,14 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     case inputs.parent of
                         ExistingRegister register ->
                             Register.getFieldHistoryValues register ( fieldSlot, fieldName )
+                                |> List.concatMap Nonempty.toList
 
                         _ ->
                             -- decode an empty UUID list when there's no pre-existing objects
                             []
 
                 allNestedObjects =
-                    runFieldDecoder (JE.list identity fieldUUIDHistoryList)
+                    runFieldDecoder (JE.list Op.atomToJsonValue fieldUUIDHistoryList)
             in
             case allNestedObjects of
                 Ok something ->
@@ -1572,6 +1573,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
             let
                 desiredFieldEncodedMaybe =
                     Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
+                        |> Maybe.map Op.payloadToJsonValue
 
                 desiredFieldDecodedMaybe =
                     Maybe.map runDecoderOnFoundField desiredFieldEncodedMaybe
@@ -1714,7 +1716,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerRonEncoder : List RegisterFieldEncoder -> NodeEncoderInputs Register -> Change.Payload
+registerRonEncoder : List RegisterFieldEncoder -> NodeEncoderInputs Register -> Change.PotentialPayload
 registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
     let
         existingRegisterMaybe : Maybe Register
@@ -1756,13 +1758,15 @@ registerRonEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter
                 |> List.indexedMap runSubEncoder
                 |> List.filterMap identity
     in
-    [ Change.QuoteNestedObject
-        (Chunk
-            { target = target
-            , objectChanges = subChanges
-            }
+    Nonempty
+        (Change.QuoteNestedObject
+            (Chunk
+                { target = target
+                , objectChanges = subChanges
+                }
+            )
         )
-    ]
+        []
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -1796,7 +1800,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                 , pendingCounter = pendingCounter -- Already "used" by register encoder
                 }
 
-        createNewPayload : fieldType -> Change.Payload
+        createNewPayload : fieldType -> Change.PotentialPayload
         createNewPayload value =
             Register.encodeFieldPayloadAsObjectPayload
                 ( fieldSlot, fieldName )
@@ -1814,17 +1818,18 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                 encodedSubRegisterPotentially =
                     Maybe.andThen (\register -> Register.getFieldLatestOnly register ( fieldSlot, fieldName )) registerMaybe
 
-                subRegisterObjectIDsMaybe : Maybe (List ObjectID)
+                subRegisterObjectIDsMaybe : List ObjectID
                 subRegisterObjectIDsMaybe =
-                    Maybe.andThen (\input -> Result.toMaybe (JD.decodeValue concurrentObjectIDsDecoder input)) encodedSubRegisterPotentially
+                    Maybe.withDefault [] (Maybe.map Nonempty.toList encodedSubRegisterPotentially)
+                        |> extractQuotedObjects
 
                 subRegisterMaybe =
                     case subRegisterObjectIDsMaybe of
-                        Just objectIDs ->
-                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectIDs)
-
-                        _ ->
+                        [] ->
                             Nothing
+
+                        objectIDs ->
+                            Maybe.map (Register.build node) (Node.getObjectIfExists node objectIDs)
             in
             if hasNestedWritableObject then
                 subRegisterMaybe
@@ -1856,11 +1861,11 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
                 Just foundPreviousValue ->
                     -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
-                    if foundPreviousValue == encodedDefault fieldDefault then
+                    if Change.compareToRonPayload (encodedDefault fieldDefault) (Nonempty.toList foundPreviousValue) then
                         explicitDefaultIfNeeded fieldDefault
 
                     else
-                        Just <| Change.NewPayload [ Change.JsonValueAtom foundPreviousValue ]
+                        Just <| Change.NewPayload <| Nonempty.map Change.RonAtom foundPreviousValue
 
         ( Nothing, Just containingRegister ) ->
             case getValue containingRegister of
@@ -1868,10 +1873,26 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     Nothing
 
                 Just foundPreviousValue ->
-                    Just <| Change.NewPayload [ Change.JsonValueAtom foundPreviousValue ]
+                    Just <| Change.NewPayload <| Nonempty.map Change.RonAtom foundPreviousValue
 
         ( Nothing, Nothing ) ->
             Nothing
+
+
+{-| For getting the list of pointers out of the stored ops - perhaps even a bunch of ops, whose atoms can be concatenated (to merge all concurrent inits)
+-}
+extractQuotedObjects : List Op.OpPayloadAtom -> List ObjectID
+extractQuotedObjects atomList =
+    let
+        keepUUIDs atom =
+            case atom of
+                Op.IDPointerAtom opID ->
+                    Just opID
+
+                _ ->
+                    Nothing
+    in
+    List.filterMap keepUUIDs atomList
 
 
 
@@ -2128,12 +2149,12 @@ type VariantEncoder
     = VariantEncoder
         { bytes : BE.Encoder
         , json : JE.Value
-        , node : NodeEncoderInputsNoVariable -> Change.Payload
+        , node : NodeEncoderInputsNoVariable -> List Change.Atom
         }
 
 
 type alias VariantNodeEncoder =
-    NodeEncoderInputsNoVariable -> Change.Payload
+    NodeEncoderInputsNoVariable -> Change.PotentialPayload
 
 
 variantBuilder :
@@ -2174,16 +2195,17 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                         |> List.concat
 
                 tag =
-                    Change.JsonValueAtom <| JE.string <| String.fromInt tagNum ++ "_" ++ tagName
+                    Change.RonAtom <| Op.NakedStringAtom <| String.fromInt tagNum ++ "_" ++ tagName
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
                         { inputs | pendingCounter = (Change.usePendingCounter index inputs.pendingCounter).passToChild }
+                        |> Nonempty.toList
             in
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = \inputs -> [ Change.NestedAtoms (tag :: piecesApplied inputs) ]
+                , node = \inputs -> List.singleton (Change.NestedAtoms (Nonempty tag (piecesApplied inputs)))
                 }
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -3028,7 +3050,13 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 getNodeVariantEncoder (VariantEncoder encoders) =
                     encoders.node newInputs
             in
-            getNodeVariantEncoder nodeMatcher
+            case getNodeVariantEncoder nodeMatcher of
+                headAtom :: tailAtoms ->
+                    -- last mile convert to Nonempty
+                    Nonempty headAtom tailAtoms
+
+                [] ->
+                    Debug.todo "variant encoder tried to spit out empty payload?"
 
         nodeDecoder : NodeDecoder e a
         nodeDecoder inputs =

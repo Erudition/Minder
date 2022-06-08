@@ -3,6 +3,7 @@ module Replicated.Node.Node exposing (..)
 import Dict exposing (Dict)
 import Json.Encode as JE
 import List.Extra as List
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Parser
 import Replicated.Change as Change exposing (Change)
@@ -463,7 +464,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                                 , piecesSoFar = []
                                 , prerequisiteChunks = []
                                 }
-                                nestedChangeAtoms
+                                (Nonempty.toList nestedChangeAtoms)
 
                         finalNestedPayloadAsString =
                             outputAtoms.piecesSoFar
@@ -492,10 +493,10 @@ objectChangeToUnstampedOp node inCounter objectChange =
     in
     case objectChange of
         Change.NewPayload pieceList ->
-            outputHelper pieceList Nothing
+            outputHelper (Nonempty.toList pieceList) Nothing
 
         Change.NewPayloadWithRef { payload, ref } ->
-            outputHelper payload (Just ref)
+            outputHelper (Nonempty.toList payload) (Just ref)
 
         Change.RevertOp opIDToRevert ->
             ( inCounter

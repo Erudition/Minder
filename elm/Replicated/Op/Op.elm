@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -6,7 +6,7 @@ module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..)
 import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
-import List.Nonempty exposing (Nonempty)
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Replicated.Serialize as RS exposing (Codec)
@@ -349,15 +349,27 @@ opIDFromReference givenRef =
 
 
 type alias OpPayloadAtoms =
+    -- TODO make Nonempty?
     List OpPayloadAtom
 
 
 type OpPayloadAtom
     = NakedStringAtom String
     | StringAtom String
-    | UUIDAtom String
+    | IDPointerAtom OpID
+    | OtherUUIDAtom String
     | IntegerAtom Int
     | FloatAtom Float
+
+
+payloadToJsonValue : Nonempty OpPayloadAtom -> JE.Value
+payloadToJsonValue (Nonempty head tail) =
+    case tail of
+        [] ->
+            atomToJsonValue head
+
+        multiple ->
+            JE.list identity (List.map atomToJsonValue (head :: multiple))
 
 
 atomToJsonValue : OpPayloadAtom -> JE.Value
@@ -369,7 +381,10 @@ atomToJsonValue atom =
         StringAtom string ->
             JE.string string
 
-        UUIDAtom uuid ->
+        IDPointerAtom opID ->
+            JE.string (OpID.toPointerString opID)
+
+        OtherUUIDAtom uuid ->
             JE.string uuid
 
         IntegerAtom int ->
@@ -391,8 +406,11 @@ atomToRonString atom =
         StringAtom string ->
             "'" ++ string ++ "'"
 
-        UUIDAtom string ->
+        OtherUUIDAtom string ->
             string
+
+        IDPointerAtom opID ->
+            OpID.toPointerString opID
 
         IntegerAtom int ->
             String.fromInt int

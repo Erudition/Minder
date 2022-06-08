@@ -89,12 +89,13 @@ extractFieldEventFromObjectPayload payload =
             Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.Payload -> Change.Payload
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.PotentialPayload -> Change.PotentialPayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    [ Change.RonAtom (Op.IntegerAtom fieldSlot)
-    , Change.RonAtom (Op.NakedStringAtom fieldName)
-    ]
-        ++ fieldPayload
+    Nonempty.append
+        (Nonempty (Change.RonAtom (Op.IntegerAtom fieldSlot))
+            [ Change.RonAtom (Op.NakedStringAtom fieldName) ]
+        )
+        fieldPayload
 
 
 merge : Nonempty Register -> Register
@@ -158,7 +159,7 @@ type alias RW fieldVal =
     }
 
 
-buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.Payload) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.PotentialPayload) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder head =
     let
         nestedChange newValue =
@@ -176,7 +177,7 @@ type alias RWH fieldVal =
     }
 
 
-buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.Payload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.PotentialPayload) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder head rest =
     let
         nestedChange newValue =

@@ -33,7 +33,8 @@ new =
         { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
         , members = []
         , included = Object.All
-        , memberChanger = \memberType opIDMaybe -> Change.NewPayload []
+        , memberChanger =
+            \memberType opIDMaybe -> Change.NewPayload <| Nonempty (Change.RonAtom (Op.NakedStringAtom "uninitialized")) []
         , memberGenerator = \() -> Nothing
         }
 

@@ -2,6 +2,7 @@ module Replicated.Change exposing (..)
 
 import Json.Encode as JE
 import List.Extra
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 
@@ -18,13 +19,13 @@ type Change
         }
 
 
-type alias Payload =
-    List Atom
+type alias PotentialPayload =
+    Nonempty Atom
 
 
 type ObjectChange
-    = NewPayload Payload
-    | NewPayloadWithRef { payload : Payload, ref : OpID }
+    = NewPayload PotentialPayload
+    | NewPayloadWithRef { payload : PotentialPayload, ref : OpID }
     | RevertOp OpID
 
 
@@ -58,28 +59,39 @@ type Atom
     = JsonValueAtom JE.Value
     | RonAtom Op.OpPayloadAtom
     | QuoteNestedObject Change
-    | NestedAtoms Payload
+    | NestedAtoms PotentialPayload
 
 
+compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
+compareToRonPayload changePayload ronPayload =
+    case ( changePayload, ronPayload ) of
+        ( Nonempty (JsonValueAtom valueJE) [], [ ronAtom ] ) ->
+            Op.atomToJsonValue ronAtom == valueJE
 
--- wrapNestedPayload : List Atom -> Atom
--- wrapNestedPayload changeAtomList =
---     let
---         encodedAtoms =
---             case changeAtomList of
---                 [] ->
---                     JE.list JE.string []
---
---                 [(singleton)] ->
---                     JE
---     in
---
---     NestedAtoms (JE.encode 0 encodedAtoms)
+        ( Nonempty (RonAtom ronAtom1) [], [ ronAtom2 ] ) ->
+            ronAtom1 == ronAtom2
+
+        ( Nonempty (QuoteNestedObject (Chunk { target, objectChanges })) [], [ ronAtom ] ) ->
+            case ( target, objectChanges ) of
+                ( ExistingObjectPointer objectID, [] ) ->
+                    -- see if it's just a ref to the same object. TODO: necessary?
+                    String.contains (OpID.toString objectID) (Op.atomToRonString ronAtom)
+
+                _ ->
+                    -- can't match if object does not exist yet, or there are changes to make.
+                    False
+
+        ( Nonempty (NestedAtoms payload) [], _ ) ->
+            False
+
+        -- TODO
+        ( unhandledChange, unhandledOpPayload ) ->
+            Debug.todo <| "When updating a register I needed to check if " ++ Debug.toString unhandledChange ++ " was equivalent to " ++ Debug.toString unhandledOpPayload ++ " to see if the change is the default value - but you unimaginatively did not handle that case, go add it..."
 
 
-changeToChangePayload : Change -> Payload
+changeToChangePayload : Change -> PotentialPayload
 changeToChangePayload change =
-    [ QuoteNestedObject change ]
+    Nonempty (QuoteNestedObject change) []
 
 
 type alias ParentNotifier =
