@@ -108,8 +108,8 @@ type alias NodeEncoderInputs a =
 
 
 type ThingToEncode a
-    = EncodeThis a
-    | EncodeRegisterInstead Register
+    = EncodeThisFlat a
+    | EncodeRegisterFieldLookupInstead Register
     | JustEncodeDefaultsIfNeeded
 
 
@@ -135,12 +135,7 @@ defaultEncodeMode =
 
 
 type alias NodeEncoder a =
-    NodeEncoderInputs a -> NodeEncoderOutput
-
-
-type NodeEncoderOutput
-    = SkipBecauseDefault
-    | OutputAtoms Change.PotentialPayload
+    NodeEncoderInputs a -> Change.PotentialPayload
 
 
 type alias NodeDecoder e a =
@@ -156,7 +151,7 @@ type alias NodeDecoderInputs =
 
 
 type alias RegisterFieldEncoder =
-    RegisterFieldEncoderInputs -> NodeFieldEncoderOutput
+    RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput
 
 
 {-| Inputs to a node Field decoder.
@@ -417,13 +412,14 @@ getNodeEncoder (Codec m) inputs =
 
         Nothing ->
             case inputs.thingToEncode of
-                EncodeThis thing ->
-                    OutputAtoms <| Nonempty.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
+                EncodeThisFlat thing ->
+                    List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
 
                 JustEncodeDefaultsIfNeeded ->
-                    SkipBecauseDefault
+                    -- no need to encode defaults for primitive encoders
+                    []
 
-                EncodeRegisterInstead _ ->
+                EncodeRegisterFieldLookupInstead _ ->
                     Debug.todo "getNodeEncoder: wanted me to encode a register, but this codec has no node encoder?"
 
 
@@ -503,13 +499,13 @@ replaceForUrl =
 {-| Get values from the Node into a Change.
 Pass the codec of the root object.
 -}
-encodeNodeToChanges : Node -> Codec e profile -> NodeEncoderOutput
+encodeNodeToChanges : Node -> Codec e profile -> Change.PotentialPayload
 encodeNodeToChanges node profileCodec =
     let
         thingToEncode =
             case Maybe.map (Register.build node) <| Node.getObjectIfExists node <| List.filterMap identity [ node.root ] of
                 Just foundRootObject ->
-                    EncodeRegisterInstead foundRootObject
+                    EncodeRegisterFieldLookupInstead foundRootObject
 
                 Nothing ->
                     JustEncodeDefaultsIfNeeded
@@ -541,7 +537,7 @@ encodeDefaults rootCodec =
             Change.Chunk { target = Change.PlaceholderPointer "dummy" (Change.usePendingCounter 0 Change.firstPendingCounter).id identity, objectChanges = [] }
     in
     case ronPayload of
-        OutputAtoms (Nonempty (Change.QuoteNestedObject change) []) ->
+        [ Change.QuoteNestedObject change ] ->
             change
 
         _ ->
@@ -609,12 +605,12 @@ string =
             Just <|
                 \inputs ->
                     case inputs.thingToEncode of
-                        EncodeThis stringToEncode ->
+                        EncodeThisFlat stringToEncode ->
                             -- TODO eliminate quotes and decode without them
-                            OutputAtoms <| Nonempty.singleton <| Change.JsonValueAtom (JE.string stringToEncode)
+                            List.singleton <| Change.JsonValueAtom (JE.string stringToEncode)
 
                         _ ->
-                            Log.crashInDev "Tried to use string codec to node-encode but was not passed a string - should be impossible" SkipBecauseDefault
+                            Log.crashInDev "tried to node-encode with string encoder but not passed a flat string value" []
         , nodeDecoder = Nothing
         }
 
@@ -761,7 +757,7 @@ repList memberCodec =
             getNodeEncoder memberCodec
                 { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
                 , node = node
-                , thingToEncode = EncodeThis newValue
+                , thingToEncode = EncodeThisFlat newValue
                 , parentNotifier = parentNotifier
                 , pendingCounter = Change.unmatchableCounter
                 }
@@ -805,21 +801,19 @@ repList memberCodec =
         repListRonEncoder : NodeEncoder (RepList memberType)
         repListRonEncoder ({ node, thingToEncode, mode, parentNotifier, pendingCounter } as details) =
             case thingToEncode of
-                EncodeThis existingRepList ->
-                    OutputAtoms <|
-                        changeToChangePayload <|
-                            Chunk
-                                { target = RepList.getID existingRepList
-                                , objectChanges = [] -- TODO should this be blank
-                                }
+                EncodeThisFlat existingRepList ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = RepList.getID existingRepList
+                            , objectChanges = [] -- TODO should this be blank
+                            }
 
                 _ ->
-                    OutputAtoms <|
-                        changeToChangePayload <|
-                            Chunk
-                                { target = Change.PlaceholderPointer RepList.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
-                                , objectChanges = []
-                                }
+                    changeToChangePayload <|
+                        Chunk
+                            { target = Change.PlaceholderPointer RepList.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
+                            , objectChanges = []
+                            }
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -1307,7 +1301,7 @@ fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Parti
 
         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
         nodeDecoder inputs =
-            ronWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
+            registerWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
     in
     PartialRecord
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1344,7 +1338,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
 
         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         nodeDecoder inputs =
-            ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
+            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
     in
     PartialRecord
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1390,7 +1384,7 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
 
         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         nodeDecoder inputs =
-            ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
+            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
     in
     PartialRecord
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1457,8 +1451,8 @@ nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 {-| RON what to do when decoding a (potentially nested!) object field.
 -}
-ronReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
-ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
+registerReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
+registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
     let
         fieldLatestValueMaybe =
             case inputs.parent of
@@ -1511,7 +1505,7 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
             -- for nested objects ONLY (fieldN)
             let
                 logMsg =
-                    "++++ ronReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
+                    "++++ registerReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
 
                 fieldUUIDHistoryList =
                     case inputs.parent of
@@ -1536,8 +1530,8 @@ ronReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec in
                     Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
 
 
-ronWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
-ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs =
+registerWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
+registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs =
     let
         sameInputs =
             { node = inputs.node, pendingCounter = inputs.pendingCounter }
@@ -1550,7 +1544,7 @@ ronWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs 
             getNodeEncoder fieldValueCodec
                 { node = inputs.node
                 , mode = defaultEncodeMode
-                , thingToEncode = EncodeThis newValue
+                , thingToEncode = EncodeThisFlat newValue
                 , parentNotifier = updateMePostChildInit
                 , pendingCounter = inputs.pendingCounter -- TODO increment?
                 }
@@ -1719,17 +1713,17 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : List RegisterFieldEncoder -> NodeEncoderInputs Register -> NodeEncoderOutput
+registerNodeEncoder : List RegisterFieldEncoder -> NodeEncoderInputs Register -> Change.PotentialPayload
 registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
     let
         existingRegisterMaybe : Maybe Register
         existingRegisterMaybe =
             case thingToEncode of
-                EncodeThis a ->
+                EncodeThisFlat a ->
                     -- TODO not possible, right?
                     Nothing
 
-                EncodeRegisterInstead register ->
+                EncodeRegisterFieldLookupInstead register ->
                     Just register
 
                 JustEncodeDefaultsIfNeeded ->
@@ -1755,7 +1749,7 @@ registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounte
         subChanges : List Change.ObjectChange
         subChanges =
             let
-                runSubEncoder : Int -> (RegisterFieldEncoderInputs -> NodeFieldEncoderOutput) -> Maybe Change.ObjectChange
+                runSubEncoder : Int -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
                 runSubEncoder index subEncoderFunction =
                     subEncoderFunction
                         { node = node
@@ -1766,7 +1760,7 @@ registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounte
                         }
                         |> asObjectChanges
 
-                asObjectChanges : NodeFieldEncoderOutput -> Maybe Change.ObjectChange
+                asObjectChanges : RegisterFieldEncoderOutput -> Maybe Change.ObjectChange
                 asObjectChanges subEncoderOutput =
                     case subEncoderOutput of
                         EncodeThisField objChange ->
@@ -1779,16 +1773,14 @@ registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounte
                 |> List.indexedMap runSubEncoder
                 |> List.filterMap identity
     in
-    OutputAtoms <|
-        Nonempty
-            (Change.QuoteNestedObject
-                (Chunk
-                    { target = target
-                    , objectChanges = subChanges
-                    }
-                )
+    List.singleton
+        (Change.QuoteNestedObject
+            (Chunk
+                { target = target
+                , objectChanges = subChanges
+                }
             )
-            []
+        )
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -1798,19 +1790,11 @@ obsolete reservedList input =
     input
 
 
-type NodeFieldEncoderOutput
+{-| Whether we will be encoding this field, or skipping it. specific to registers. Used to do this for all encoder output, but it made everything harder.
+-}
+type RegisterFieldEncoderOutput
     = EncodeThisField Change.ObjectChange
     | SkipThisField
-
-
-mapEncoderOutput : (Change.PotentialPayload -> Change.PotentialPayload) -> NodeEncoderOutput -> NodeEncoderOutput
-mapEncoderOutput mapper oldOutput =
-    case oldOutput of
-        SkipBecauseDefault ->
-            SkipBecauseDefault
-
-        OutputAtoms nePayload ->
-            OutputAtoms <| mapper nePayload
 
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
@@ -1818,7 +1802,7 @@ mapEncoderOutput mapper oldOutput =
 Updated to separate cases where the object needs to be created.
 
 -}
-newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs -> NodeFieldEncoderOutput)
+newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput)
 newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, registerMaybe, node, updateRegisterAfterChildInit, pendingCounter } =
     let
         runFieldRonEncoder value =
@@ -1836,14 +1820,14 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                 , pendingCounter = pendingCounter -- Already "used" by register encoder
                 }
 
-        wrapFieldEncoderOutput : fieldType -> NodeEncoderOutput
+        wrapFieldEncoderOutput : fieldType -> Change.PotentialPayload
         wrapFieldEncoderOutput value =
             let
                 wrapper =
                     Register.encodeFieldPayloadAsObjectPayload
                         ( fieldSlot, fieldName )
             in
-            mapEncoderOutput wrapper (runFieldRonEncoder value)
+            wrapper (runFieldRonEncoder value)
 
         attemptRegisterOverride : a -> ThingToEncode a
         attemptRegisterOverride fallbackValue =
@@ -1864,10 +1848,10 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
             in
             case ( hasNestedWritableObject, Maybe.map (Register.build node) (Node.getObjectIfExists node subRegisterObjectIDsMaybe) ) of
                 ( True, Just subRegister ) ->
-                    EncodeRegisterInstead subRegister
+                    EncodeRegisterFieldLookupInstead subRegister
 
                 _ ->
-                    EncodeThis fallbackValue
+                    EncodeThisFlat fallbackValue
 
         getValue register =
             Register.getFieldLatestOnly register ( fieldSlot, fieldName )
@@ -1877,8 +1861,9 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
 
         explicitDefaultIfNeeded fieldDefault =
             case ( mode.setDefaultsExplicitly, wrapFieldEncoderOutput fieldDefault ) of
-                ( True, OutputAtoms changePayload ) ->
-                    EncodeThisField <| Change.NewPayload changePayload
+                ( True, changePayloadHead :: changePayloadTail ) ->
+                    -- only if we got something back from the encoder
+                    EncodeThisField <| Change.NewPayload (changePayloadHead :: changePayloadTail)
 
                 _ ->
                     SkipThisField
@@ -1888,17 +1873,17 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
             explicitDefaultIfNeeded fieldDefault
 
         ( Just fieldDefault, Just containingRegister ) ->
-            case ( getValue containingRegister, encodedDefault fieldDefault ) of
-                ( Nothing, _ ) ->
+            case getValue containingRegister of
+                Nothing ->
                     explicitDefaultIfNeeded fieldDefault
 
-                ( Just foundPreviousValue, OutputAtoms defaultOutput ) ->
+                Just foundPreviousValue ->
                     -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
-                    if Change.compareToRonPayload defaultOutput (Nonempty.toList foundPreviousValue) then
+                    if Change.compareToRonPayload (encodedDefault fieldDefault) (Nonempty.toList foundPreviousValue) then
                         explicitDefaultIfNeeded fieldDefault
 
                     else
-                        EncodeThisField <| Change.NewPayload <| Nonempty.map Change.RonAtom foundPreviousValue
+                        EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
 
         ( Nothing, Just containingRegister ) ->
             case getValue containingRegister of
@@ -1906,7 +1891,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
                     SkipThisField
 
                 Just foundPreviousValue ->
-                    EncodeThisField <| Change.NewPayload <| Nonempty.map Change.RonAtom foundPreviousValue
+                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
 
         ( Nothing, Nothing ) ->
             SkipThisField
@@ -2239,7 +2224,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = \inputs -> List.singleton (Change.NestedAtoms (Nonempty tag (piecesApplied inputs)))
+                , node = \inputs -> List.singleton (Change.NestedAtoms (tag :: piecesApplied inputs))
                 }
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
@@ -3074,19 +3059,14 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 nodeMatcher : VariantEncoder
                 nodeMatcher =
                     case nodeEncoderInputs.thingToEncode of
-                        EncodeThis encodeThing ->
+                        EncodeThisFlat encodeThing ->
                             priorVariants.nodeMatcher encodeThing
 
                         _ ->
                             Debug.todo "there was nothing to encode, should never happen"
 
                 getNodeVariantEncoder (VariantEncoder encoders) =
-                    case encoders.node newInputs of
-                        [] ->
-                            SkipBecauseDefault
-
-                        head :: tail ->
-                            OutputAtoms (Nonempty head tail)
+                    encoders.node newInputs
             in
             getNodeVariantEncoder nodeMatcher
 
@@ -3139,18 +3119,9 @@ getNodeEncoderModifiedForVariants codec thingToEncode =
         finishInputs modifiedEncoder =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
-            , thingToEncode = EncodeThis thingToEncode -- TODO would register instead be needed?
+            , thingToEncode = EncodeThisFlat thingToEncode -- TODO would register instead be needed?
             , pendingCounter = modifiedEncoder.pendingCounter
             , parentNotifier = modifiedEncoder.parentNotifier
             }
-
-        getNestedEncoderOutputAsList : NodeEncoderOutput -> List Change.Atom
-        getNestedEncoderOutputAsList nestedOutput =
-            case nestedOutput of
-                SkipBecauseDefault ->
-                    []
-
-                OutputAtoms atomNonempty ->
-                    Nonempty.toList atomNonempty
     in
-    \altInputs -> getNestedEncoderOutputAsList <| getNodeEncoder codec (finishInputs altInputs)
+    \altInputs -> getNodeEncoder codec (finishInputs altInputs)

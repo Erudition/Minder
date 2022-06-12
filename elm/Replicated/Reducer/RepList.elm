@@ -34,7 +34,7 @@ new =
         , members = []
         , included = Object.All
         , memberChanger =
-            \memberType opIDMaybe -> Change.NewPayload <| Nonempty (Change.RonAtom (Op.NakedStringAtom "uninitialized")) []
+            \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
         , memberGenerator = \() -> Nothing
         }
 

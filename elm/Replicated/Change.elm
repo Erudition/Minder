@@ -19,8 +19,10 @@ type Change
         }
 
 
+{-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
+-}
 type alias PotentialPayload =
-    Nonempty Atom
+    List Atom
 
 
 type ObjectChange
@@ -65,13 +67,13 @@ type Atom
 compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
 compareToRonPayload changePayload ronPayload =
     case ( changePayload, ronPayload ) of
-        ( Nonempty (JsonValueAtom valueJE) [], [ ronAtom ] ) ->
+        ( [ JsonValueAtom valueJE ], [ ronAtom ] ) ->
             Op.atomToJsonValue ronAtom == valueJE
 
-        ( Nonempty (RonAtom ronAtom1) [], [ ronAtom2 ] ) ->
+        ( [ RonAtom ronAtom1 ], [ ronAtom2 ] ) ->
             ronAtom1 == ronAtom2
 
-        ( Nonempty (QuoteNestedObject (Chunk { target, objectChanges })) [], [ ronAtom ] ) ->
+        ( [ QuoteNestedObject (Chunk { target, objectChanges }) ], [ ronAtom ] ) ->
             case ( target, objectChanges ) of
                 ( ExistingObjectPointer objectID, [] ) ->
                     -- see if it's just a ref to the same object. TODO: necessary?
@@ -81,7 +83,7 @@ compareToRonPayload changePayload ronPayload =
                     -- can't match if object does not exist yet, or there are changes to make.
                     False
 
-        ( Nonempty (NestedAtoms payload) [], _ ) ->
+        ( [ NestedAtoms payload ], _ ) ->
             False
 
         -- TODO
@@ -91,7 +93,7 @@ compareToRonPayload changePayload ronPayload =
 
 changeToChangePayload : Change -> PotentialPayload
 changeToChangePayload change =
-    Nonempty (QuoteNestedObject change) []
+    [ QuoteNestedObject change ]
 
 
 type alias ParentNotifier =

@@ -464,7 +464,7 @@ objectChangeToUnstampedOp node inCounter objectChange =
                                 , piecesSoFar = []
                                 , prerequisiteChunks = []
                                 }
-                                (Nonempty.toList nestedChangeAtoms)
+                                nestedChangeAtoms
 
                         finalNestedPayloadAsString =
                             outputAtoms.piecesSoFar
@@ -493,10 +493,10 @@ objectChangeToUnstampedOp node inCounter objectChange =
     in
     case objectChange of
         Change.NewPayload pieceList ->
-            outputHelper (Nonempty.toList pieceList) Nothing
+            outputHelper pieceList Nothing
 
         Change.NewPayloadWithRef { payload, ref } ->
-            outputHelper (Nonempty.toList payload) (Just ref)
+            outputHelper payload (Just ref)
 
         Change.RevertOp opIDToRevert ->
             ( inCounter
