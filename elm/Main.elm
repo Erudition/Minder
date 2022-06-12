@@ -439,7 +439,7 @@ trackingDisplay profile env =
             Timeline.currentActivity profile.activities profile.timeline
 
         latestSwitch =
-            -- Log.logMessage ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch profile.timeline)))
+            -- Log.logMessageOnly ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch profile.timeline)))
             Timeline.latestSwitch profile.timeline
 
         currentInstanceIDMaybe =

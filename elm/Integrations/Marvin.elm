@@ -929,7 +929,7 @@ trackTruthToTimelineSessions profile env truthItem =
     in
     case matchingInstance of
         Nothing ->
-            Log.logMessage "no matching instance when constructing timeline sessions from marvin data!" []
+            Log.logMessageOnly "no matching instance when constructing timeline sessions from marvin data!" []
 
         Just instance ->
             case Task.AssignedAction.getActivityID instance of

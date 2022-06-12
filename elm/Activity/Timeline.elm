@@ -70,7 +70,7 @@ backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> Ti
 backfill timeline periodsToAdd =
     case periodsToAdd of
         [] ->
-            Log.logMessage "nothing to backfill!" timeline
+            Log.logMessageOnly "nothing to backfill!" timeline
 
         [ singlePeriod ] ->
             placeNewSession timeline singlePeriod
@@ -184,7 +184,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                             "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " with a matching end switch, marking with taskID. " ++ logDeets
                     in
                     -- we have a winner. we'll update that switch!
-                    Log.logMessage messageToLog <| List.setAt indexOfConcern candidateAsSwitch switchList
+                    Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch switchList
 
                 ( False, True, False ) ->
                     let
@@ -193,7 +193,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                     in
                     -- found the start switch, but period ends before next
                     -- switch. We'll have to add in our own stop switch.
-                    Log.logMessage messageToLog <| List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
+                    Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
 
                 ( False, False, True ) ->
                     let
@@ -203,7 +203,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                         messageToLog =
                             "Found matching end switch at timeline index " ++ String.fromInt (indexOfConcern - 1) ++ " but the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is off by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
                     in
-                    Log.logMessage messageToLog switchList
+                    Log.logMessageOnly messageToLog switchList
 
                 ( False, False, False ) ->
                     let
@@ -220,17 +220,17 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
                         messageToLog =
                             "Found NO matching end switch, AND the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is " ++ earlierOrLater ++ " by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
                     in
-                    Log.logMessage messageToLog switchList
+                    Log.logMessageOnly messageToLog switchList
 
                 ( True, _, _ ) ->
                     case isConflict switchOfConcern of
                         True ->
                             -- uh oh, that switch already has an instanceID set, and it
                             -- is not the same as our candidate... abort!
-                            Log.logMessage ("Conflict when backfilling! Investigate! " ++ logDeets ++ "concerning switch:" ++ Debug.toString switchOfConcern) switchList
+                            Log.logMessageOnly ("Conflict when backfilling! Investigate! " ++ logDeets ++ "concerning switch:" ++ Debug.toString switchOfConcern) switchList
 
                         False ->
-                            Log.logMessage ("Already have this one, moving on. " ++ logDeets) switchList
+                            Log.logMessageOnly ("Already have this one, moving on. " ++ logDeets) switchList
 
         biggerList ->
             let
@@ -248,7 +248,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             in
             -- oops, we already have multiple changes going on within that
             -- period, abort
-            Log.logMessage ("Found multiple events within backfill period, won't backfill this!\n" ++ logDeets ++ String.concat (List.map sayDifference biggerList)) switchList
+            Log.logMessageOnly ("Found multiple events within backfill period, won't backfill this!\n" ++ logDeets ++ String.concat (List.map sayDifference biggerList)) switchList
 
 
 

@@ -36,7 +36,7 @@
             "kuon/elm-hsluv": "3.0.2",
             "kuon/elm-string-normalize": "1.0.1",
             "mdgriffith/elm-ui": "1.1.8",
-            "mgold/elm-nonempty-list": "4.0.1",
+            "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-css": "16.1.0",
             "sporto/time-distance": "1.0.0",
             "turboMaCk/any-dict": "2.6.0",

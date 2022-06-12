@@ -408,9 +408,9 @@ chunkToOps node ( inCounter, _ ) { target, objectChanges } =
                     "----\t^^last " ++ String.fromInt n ++ " chunks are prereqs for chunk"
 
         allOpsInDependencyOrder =
-            Log.logMessage prereqLogMsg allPrereqChunks
-                ++ [ Log.logMessage (logOps "init" initOps) initOps
-                        ++ Log.logMessage (logOps "change" objectChangeOps) objectChangeOps
+            Log.logMessageOnly prereqLogMsg allPrereqChunks
+                ++ [ Log.logMessageOnly (logOps "init" initOps) initOps
+                        ++ Log.logMessageOnly (logOps "change" objectChangeOps) objectChangeOps
                    ]
     in
     ( ( counterAfterObjectChanges, Just objectID )
