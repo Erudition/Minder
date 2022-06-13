@@ -202,15 +202,15 @@ changeList =
 
 nodeModifications =
     let
-        { startNode, outputMaybe } =
+        { startNode, outputMaybe, result } =
             nodeFromCodec writableObjectCodec
 
         beforeNode =
             startNode
 
         afterNode =
-            case outputMaybe of
-                Just exampleObjectFound ->
+            case result of
+                Ok exampleObjectFound ->
                     let
                         makeChanges =
                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
@@ -223,8 +223,8 @@ nodeModifications =
                     in
                     updatedNode
 
-                Nothing ->
-                    Debug.todo "should always be found"
+                Err problem ->
+                    Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         generatedRootObjectID =
             "5+here"

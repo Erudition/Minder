@@ -295,9 +295,9 @@ getNodeDecoder (Codec m) =
     in
     case m.nodeDecoder of
         Nothing ->
-            \_ -> JD.oneOf [ JD.string |> JD.andThen unwrapString, m.jsonDecoder ]
+            -- formerly JD.oneOf [ m.jsonDecoder, JD.string |> JD.andThen unwrapString ]
+            \_ -> m.jsonDecoder
 
-        -- add JD.string |> JD.andThen unwrapString
         Just nodeDecoder ->
             nodeDecoder
 
@@ -1162,12 +1162,23 @@ fragileEnum defaultItem items =
 
             else
                 getAt (index - 1) items |> Maybe.withDefault defaultItem |> Ok
+
+        intNodeEncoder : NodeEncoder a
+        intNodeEncoder { thingToEncode } =
+            case thingToEncode of
+                EncodeThisFlat givenInt ->
+                    [ Change.RonAtom <| Op.IntegerAtom (getIndex givenInt) ]
+
+                _ ->
+                    []
     in
-    buildUnnestableCodec
+    buildNestableCodec
         (getIndex >> BE.unsignedInt32 endian)
         (BD.unsignedInt32 endian |> BD.map getItem)
         (getIndex >> JE.int)
         (JD.int |> JD.map getItem)
+        (Just intNodeEncoder)
+        Nothing
 
 
 getAt : Int -> List a -> Maybe a
