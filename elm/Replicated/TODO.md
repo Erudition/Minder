@@ -1,1 +1,2 @@
-- remove unwrapString from getNodeDecoder by making sure all 
+- get all node decoders working with new unwrapped skins
+- do single quotes get properly escaped on output?

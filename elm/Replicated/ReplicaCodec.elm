@@ -295,7 +295,7 @@ getNodeDecoder (Codec m) =
     in
     case m.nodeDecoder of
         Nothing ->
-            \_ -> JD.oneOf [ m.jsonDecoder ]
+            \_ -> JD.oneOf [ JD.string |> JD.andThen unwrapString, m.jsonDecoder ]
 
         -- add JD.string |> JD.andThen unwrapString
         Just nodeDecoder ->
@@ -1663,7 +1663,8 @@ registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec in
                 Just (Err e) ->
                     -- better than failing silently? should be unreachable
                     --JD.succeed <| Err DataCorrupted
-                    Debug.todo "should be unreachable, error!"
+                    Log.crashInDev ("should be unreachable, decoder did not return Result-wrapped value! and ran into problem: " ++ JD.errorToString e)
+                        (JD.succeed <| Err DataCorrupted)
 
 
 prepDecoder : String -> String
@@ -3146,12 +3147,12 @@ finishCustomType (CustomTypeCodec priorVariants) =
                         |> List.head
                         |> Maybe.andThen String.toInt
                         |> Maybe.withDefault -1
+
+                checkTag tag =
+                    priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
             in
-            JD.index 0 JD.string
-                |> JD.andThen
-                    (\tag ->
-                        priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
-                    )
+            -- allow non-array input for variant0s
+            JD.oneOf [ JD.index 0 JD.string |> JD.andThen checkTag, JD.string |> JD.andThen checkTag ]
     in
     buildNestableCodec
         (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))

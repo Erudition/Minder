@@ -25,13 +25,11 @@ suite =
     describe "RON Encode-Decode"
         [ readOnlyObjectEncodeThenDecode
         , writableObjectEncodeThenDecode
-
-        -- , repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , nodeModifications
-        -- , nestedStressTestIntegrityCheck
-        -- ,
-        -- modifiedNestedStressTestIntegrityCheck
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
