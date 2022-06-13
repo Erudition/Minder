@@ -24,8 +24,8 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
 
-        -- , writableObjectEncodeThenDecode
         -- , repListEncodeThenDecode
         -- , repListInsertAndRemove
         -- , nodeModifications

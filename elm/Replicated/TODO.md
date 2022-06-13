@@ -1,0 +1,1 @@
+- remove unwrapString from getNodeDecoder by making sure all 

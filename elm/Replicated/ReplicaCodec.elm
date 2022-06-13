@@ -280,10 +280,24 @@ getJsonDecoder (Codec m) =
 -}
 getNodeDecoder : Codec e a -> NodeDecoder e a
 getNodeDecoder (Codec m) =
+    let
+        -- TODO this is only because we still sometimes wrap values in double quotes
+        unwrapString : String -> JD.Decoder (Result (Error e) a)
+        unwrapString givenJson =
+            case JD.decodeString m.jsonDecoder givenJson of
+                Ok good ->
+                    JD.succeed good
+
+                Err bad ->
+                    JD.fail "nope"
+
+        --JD.succeed (Err DataCorrupted)
+    in
     case m.nodeDecoder of
         Nothing ->
-            \_ -> m.jsonDecoder
+            \_ -> JD.oneOf [ m.jsonDecoder ]
 
+        -- add JD.string |> JD.andThen unwrapString
         Just nodeDecoder ->
             nodeDecoder
 
@@ -607,7 +621,7 @@ string =
                     case inputs.thingToEncode of
                         EncodeThisFlat stringToEncode ->
                             -- TODO eliminate quotes and decode without them
-                            List.singleton <| Change.JsonValueAtom (JE.string stringToEncode)
+                            List.singleton <| Change.RonAtom <| Op.StringAtom stringToEncode
 
                         _ ->
                             Log.crashInDev "tried to node-encode with string encoder but not passed a flat string value" []
@@ -619,7 +633,44 @@ string =
 -}
 bool : Codec e Bool
 bool =
-    buildUnnestableCodec
+    let
+        boolNodeEncoder : NodeEncoder Bool
+        boolNodeEncoder { thingToEncode } =
+            case thingToEncode of
+                EncodeThisFlat True ->
+                    [ Change.RonAtom <| Op.NakedStringAtom "true" ]
+
+                EncodeThisFlat False ->
+                    [ Change.RonAtom <| Op.NakedStringAtom "false" ]
+
+                EncodeRegisterFieldLookupInstead register ->
+                    []
+
+                JustEncodeDefaultsIfNeeded ->
+                    []
+
+        boolNodeDecoder : NodeDecoder e Bool
+        boolNodeDecoder _ =
+            JD.oneOf [ JD.bool |> JD.map Ok, JD.string |> JD.andThen stringToBool ]
+
+        stringToBool givenString =
+            case givenString of
+                "true" ->
+                    JD.succeed (Ok True)
+
+                "false" ->
+                    JD.succeed (Ok False)
+
+                "True" ->
+                    JD.succeed (Ok True)
+
+                "False" ->
+                    JD.succeed (Ok False)
+
+                _ ->
+                    JD.succeed (Err DataCorrupted)
+    in
+    buildNestableCodec
         (\value ->
             case value of
                 True ->
@@ -644,17 +695,34 @@ bool =
         )
         JE.bool
         (JD.bool |> JD.map Ok)
+        (Just boolNodeEncoder)
+        (Just boolNodeDecoder)
 
 
 {-| Codec for serializing an `Int`
 -}
 int : Codec e Int
 int =
-    buildUnnestableCodec
+    let
+        intNodeEncoder : NodeEncoder Int
+        intNodeEncoder { thingToEncode } =
+            case thingToEncode of
+                EncodeThisFlat givenInt ->
+                    [ Change.RonAtom <| Op.IntegerAtom givenInt ]
+
+                EncodeRegisterFieldLookupInstead register ->
+                    []
+
+                JustEncodeDefaultsIfNeeded ->
+                    []
+    in
+    buildNestableCodec
         (toFloat >> BE.float64 endian)
         (BD.float64 endian |> BD.map (round >> Ok))
         JE.int
         (JD.int |> JD.map Ok)
+        (Just intNodeEncoder)
+        Nothing
 
 
 {-| Codec for serializing a `Float`
