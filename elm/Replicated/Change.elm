@@ -1,8 +1,10 @@
 module Replicated.Change exposing (..)
 
+import Console
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Log
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 
@@ -159,9 +161,12 @@ pendingIDToString (PendingID intList) =
     String.concat <| List.intersperse "." (List.map String.fromInt intList)
 
 
+{-| This only needs to be called once, when changes are saved. calling any other place is redundant
+-}
 combineChangesOfSameTarget changeList =
     -- bundle together changes that have the same target object
-    List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
+    List.map (\change -> Log.log (Console.green "after combining") change) <|
+        List.map groupCombiner (List.map (\change -> Log.log (Console.yellow "after grouping") change) <| List.Extra.groupWhile sameTarget (List.map (\change -> Log.log (Console.cyan "original") change) <| changeList))
 
 
 sameTarget (Chunk a) (Chunk b) =
@@ -175,13 +180,16 @@ groupCombiner ( firstChange, moreChanges ) =
             firstChange
 
         rest ->
-            List.foldr mergeSameTargetChanges firstChange rest
+            -- can't use foldR because it reverses the whole list EXCEPT the head, shuffling the change order. instead we preserve the backwards order and reverse subchanges in mergeSameTargetChanges if need be.
+            List.foldl mergeSameTargetChanges firstChange rest
 
 
+{-| Combine chunks known to be changing the same object.
+-}
 mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =
     Chunk
         { target = change1Details.target
-        , objectChanges = change1Details.objectChanges ++ change2Details.objectChanges
+        , objectChanges = change2Details.objectChanges ++ change1Details.objectChanges -- reverses subchanges again.
         }
 
 

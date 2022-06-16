@@ -462,9 +462,9 @@ nodeWithModifiedNestedStressTest =
                 addCustomItemToRepList =
                     RepList.addNewWithChanges repListOfWritables <|
                         \obj ->
-                            [ obj.minor.set False
+                            [ obj.kids.set newKidsList
                             , obj.number.set 999
-                            , obj.kids.set newKidsList
+                            , obj.minor.set False
                             , obj.address.set "bologna street"
                             , obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                             ]

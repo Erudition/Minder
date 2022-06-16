@@ -1,11 +1,13 @@
 module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, head, insertAfter, length, list, new, reducerID, remove)
 
 import Array exposing (Array)
+import Console
 import Dict exposing (Dict)
 import Dict.Extra as Dict
 import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Log
 import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -225,6 +227,7 @@ addNewWithChanges (RepList record) changer =
 
                 Just newItem ->
                     changer newItem
+                        -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
                         |> Change.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =
@@ -237,7 +240,7 @@ addNewWithChanges (RepList record) changer =
                     [ record.memberChanger newItem Nothing ]
 
                 ( [], Nothing ) ->
-                    Debug.todo "Should never happen, no item generated to add to list"
+                    Log.crashInDev "Should never happen, no item generated to add to list" []
 
                 ( nonEmptyChangeList, _ ) ->
                     newItemChangesAsRepListObjectChanges
