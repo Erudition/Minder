@@ -224,7 +224,7 @@ addNewWithChanges (RepList record) desiredChanges =
                     []
 
                 Just newItem ->
-                    List.map (\modification -> modification newItem) desiredChanges
+                    List.map (\modification -> modification newItem) (Debug.log "DESIRED" desiredChanges)
                         |> Change.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =

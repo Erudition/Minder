@@ -196,7 +196,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         opPayloadParser atomsReversed =
             Parser.oneOf
                 [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
-                    -- This MUST fail if no alphaNumeric char or quote, to allow line to end
+                    -- This MUST fail if no alphaNumeric char (or _) or quote, to allow line to end
                     |= payloadAtomParser
                 , succeed (\_ -> Parser.Loop atomsReversed)
                     -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
@@ -234,27 +234,28 @@ opLineParser prevOpIDMaybe prevRefMaybe =
 payloadAtomParser : Parser OpPayloadAtom
 payloadAtomParser =
     Parser.oneOf
-        [ quotedAtom
-        , ronInt
+        [ ronInt
         , ronFloat
-        , nakedStringTag
+        , nakedStringTag -- can interpret nums
+        , quotedAtom
         ]
 
 
 {-| Parses RON atoms without quotes (like abc123) into strings, with the same restrictions as elm record field names. Only for letter-number "tags" such as field names -- all other strings must be quoted!
+May NOT start with a digit.
 -}
 nakedStringTag : Parser OpPayloadAtom
 nakedStringTag =
     let
-        letterNumbers char =
-            Char.isAlphaNum char
+        letterNumbersUnderscore char =
+            Char.isAlphaNum char || char == '_'
     in
-    Parser.map StringAtom <|
+    Parser.map NakedStringAtom <|
         Parser.getChompedString <|
             succeed ()
                 -- chompWhile always succeeds, we need this to fail on empty
-                |. Parser.chompIf letterNumbers
-                |. Parser.chompWhile letterNumbers
+                |. Parser.chompIf letterNumbersUnderscore
+                |. Parser.chompWhile letterNumbersUnderscore
 
 
 {-| Ron Integers start with equal sign =1099
@@ -262,7 +263,6 @@ When unambiguous, prefixes could be omitted
 -}
 ronInt : Parser OpPayloadAtom
 ronInt =
-    -- TODO include prefix
     Parser.number
         { int = Just IntegerAtom
         , hex = Nothing

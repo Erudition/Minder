@@ -23,13 +23,13 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , repListEncodeThenDecode
-        , repListInsertAndRemove
-        , nodeModifications
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        [ -- readOnlyObjectEncodeThenDecode
+          -- , writableObjectEncodeThenDecode
+          -- , repListEncodeThenDecode
+          -- , repListInsertAndRemove
+          -- , nodeModifications
+          -- , nestedStressTestIntegrityCheck
+          modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -461,11 +461,11 @@ nodeWithModifiedNestedStressTest =
 
                 addCustomItemToRepList =
                     RepList.addNewWithChanges repListOfWritables
-                        [ \obj -> obj.address.set "bologna street"
+                        [ \obj -> obj.minor.set False
                         , \obj -> obj.number.set 999
-                        , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
-                        , \obj -> obj.minor.set False
                         , \obj -> obj.kids.set newKidsList
+                        , \obj -> obj.address.set "bologna street"
+                        , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                         ]
 
                 changes =

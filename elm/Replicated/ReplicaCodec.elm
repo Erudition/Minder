@@ -2295,7 +2295,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                         |> List.concat
 
                 tag =
-                    Change.RonAtom <| Op.NakedStringAtom <| String.fromInt tagNum ++ "_" ++ tagName
+                    Change.RonAtom <| Op.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
@@ -3155,7 +3155,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
             let
                 getTagNum tag =
                     String.split "_" tag
-                        |> List.head
+                        |> List.Extra.last
                         |> Maybe.andThen String.toInt
                         |> Maybe.withDefault -1
 
