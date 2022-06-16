@@ -460,13 +460,14 @@ nodeWithModifiedNestedStressTest =
                     nestedStressTest.listOfNestedRecords
 
                 addCustomItemToRepList =
-                    RepList.addNewWithChanges repListOfWritables
-                        [ \obj -> obj.minor.set False
-                        , \obj -> obj.number.set 999
-                        , \obj -> obj.kids.set newKidsList
-                        , \obj -> obj.address.set "bologna street"
-                        , \obj -> obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
-                        ]
+                    RepList.addNewWithChanges repListOfWritables <|
+                        \obj ->
+                            [ obj.minor.set False
+                            , obj.number.set 999
+                            , obj.kids.set newKidsList
+                            , obj.address.set "bologna street"
+                            , obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
+                            ]
 
                 changes =
                     -- TODO why is the order reversed

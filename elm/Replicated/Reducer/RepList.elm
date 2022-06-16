@@ -209,11 +209,11 @@ length (RepList record) =
 
 addNew : RepList memberType -> Change
 addNew repList =
-    addNewWithChanges repList []
+    addNewWithChanges repList (\_ -> [])
 
 
-addNewWithChanges : RepList memberType -> List (memberType -> Change) -> Change
-addNewWithChanges (RepList record) desiredChanges =
+addNewWithChanges : RepList memberType -> (memberType -> List Change) -> Change
+addNewWithChanges (RepList record) changer =
     let
         newItemMaybe =
             record.memberGenerator ()
@@ -224,7 +224,7 @@ addNewWithChanges (RepList record) desiredChanges =
                     []
 
                 Just newItem ->
-                    List.map (\modification -> modification newItem) (Debug.log "DESIRED" desiredChanges)
+                    changer newItem
                         |> Change.combineChangesOfSameTarget
 
         newItemChangesAsRepListObjectChanges =
