@@ -475,7 +475,7 @@ nodeWithModifiedNestedStressTest =
                     ]
 
                 newKidsList =
-                    SomeOfBoth RepList.new RepList.new
+                    SomeOfBoth RepList.empty RepList.empty
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
@@ -581,7 +581,7 @@ modifiedNestedStressTestIntegrityCheck =
             \_ ->
                 expectOkAndEqualWhenMapped
                     (\o ->
-                        RepList.head o.listOfNestedRecords
+                        RepList.last o.listOfNestedRecords
                             |> Maybe.map (.value >> .kids >> .get)
                             |> Maybe.map
                                 (\kidsValue ->

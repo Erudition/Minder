@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, getID, head, insertAfter, length, list, new, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, insertAfter, last, length, list, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -29,8 +29,8 @@ type RepList memberType
         }
 
 
-new : RepList a
-new =
+empty : RepList a
+empty =
     RepList
         { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
         , members = []
@@ -50,6 +50,11 @@ type alias Item memberType =
 head : RepList memberType -> Maybe (Item memberType)
 head (RepList repList) =
     List.head repList.members
+
+
+last : RepList memberType -> Maybe (Item memberType)
+last (RepList repList) =
+    List.last repList.members
 
 
 getID : RepList memberType -> Change.Pointer
@@ -153,7 +158,7 @@ list (RepList repSetRecord) =
 {-| Get your RepList as a standard Dict, where the provided keys are unique identifiers that can be used for mutating the collection:
 
   - removing an item
-  - inserting new items after a known existing item
+  - inserting empty items after a known existing item
   - using it as your item's unique ID in a record type
 
 -}
