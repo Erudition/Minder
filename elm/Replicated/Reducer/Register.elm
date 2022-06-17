@@ -25,13 +25,17 @@ type Register
     = Register
         { id : OpID.ObjectID
         , version : OpID.ObjectVersion
-        , fields : Dict FieldSlot (List ( OpID, FieldPayload )) -- backwards history
+        , fields : Dict FieldSlot FieldHistoryBackwards -- backwards history
         , included : Object.InclusionInfo
         }
 
 
 type alias FieldPayload =
     Nonempty Op.OpPayloadAtom
+
+
+type alias FieldHistoryBackwards =
+    Nonempty ( OpID, FieldPayload )
 
 
 reducerID : Op.ReducerID
@@ -58,20 +62,29 @@ build node object =
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
             -- but we want newest to oldest list, so foldR
-            Dict.foldr addFieldEntry Dict.empty object.events
+            Dict.foldr addFieldEntry Dict.empty (Debug.log (Console.bgBlue "importing object events") object.events)
 
-        addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
+        addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
             case extractFieldEventFromObjectPayload payload of
                 Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
-                    Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
+                    let
+                        logMsg =
+                            "Adding to " ++ Console.underline fieldName ++ " field history"
+                    in
+                    Dict.update fieldSlot (addUpdate ( id, Log.log logMsg fieldPayload )) buildingDict
 
                 Err problem ->
                     Log.logSeparate ("WARNING " ++ problem) payload buildingDict
 
-        addUpdate : ( OpID, FieldPayload ) -> Maybe (List ( OpID, FieldPayload )) -> Maybe (List ( OpID, FieldPayload ))
+        addUpdate : ( OpID, FieldPayload ) -> Maybe FieldHistoryBackwards -> Maybe FieldHistoryBackwards
         addUpdate newUpdate existingUpdatesMaybe =
-            Just (newUpdate :: Maybe.withDefault [] existingUpdatesMaybe)
+            Just
+                (Nonempty newUpdate
+                    (Maybe.withDefault []
+                        (Maybe.map Nonempty.toList existingUpdatesMaybe)
+                    )
+                )
     in
     Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log (Console.yellow "fields dict") fieldsDict }
 
@@ -139,13 +152,14 @@ type alias FieldSlot =
 getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
-        |> Maybe.andThen List.head
+        |> Maybe.map Nonempty.head
         |> Maybe.map Tuple.second
 
 
 getFieldHistory : Register -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
     Dict.get desiredFieldSlot register.fields
+        |> Maybe.map Nonempty.toList
         |> Maybe.withDefault []
 
 
