@@ -3,7 +3,7 @@ module Replicated.Object exposing (..)
 import Dict exposing (Dict)
 import Json.Encode as JE
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
-import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
+import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -12,7 +12,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 type alias Object =
     { reducer : Op.ReducerID
     , creation : ObjectID
-    , events : Dict OpIDString KeptEvent
+    , events : Dict OpIDSortable KeptEvent
     , included : InclusionInfo
     , lastSeen : OpID
     }
@@ -101,10 +101,10 @@ applyOp newOp oldObjectMaybe =
                 , creation = oldObject.creation
                 , events =
                     if Op.pattern newOp == Op.DeletionOp then
-                        Dict.remove (OpID.toString ref) oldObject.events
+                        Dict.remove (OpID.toSortablePrimitives ref) oldObject.events
 
                     else
-                        Dict.insert (OpID.toString <| Op.id newOp) (newEvent ref) oldObject.events
+                        Dict.insert (OpID.toSortablePrimitives <| Op.id newOp) (newEvent ref) oldObject.events
                 , included = oldObject.included
                 , lastSeen = OpID.latest oldObject.lastSeen (Op.id newOp)
                 }

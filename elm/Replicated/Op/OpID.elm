@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toPointerString, toStamp, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toPointerString, toSortablePrimitives, toStamp, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -25,6 +25,10 @@ type alias ObjectIDString =
 
 type alias OpIDString =
     String
+
+
+type alias OpIDSortable =
+    ( Int, String )
 
 
 type alias OpClock =
@@ -70,6 +74,22 @@ generate (NewOpCounter counter) origin reversion =
 toString : OpID -> OpIDString
 toString (OpID string) =
     string
+
+
+toSortablePrimitives : OpID -> OpIDSortable
+toSortablePrimitives opID =
+    let
+        { clock, origin, reversion } =
+            toStamp opID
+
+        tieBreaker =
+            if reversion then
+                "-" ++ NodeID.toString origin
+
+            else
+                "+" ++ NodeID.toString origin
+    in
+    ( clock, tieBreaker )
 
 
 toPointerString : OpID -> String

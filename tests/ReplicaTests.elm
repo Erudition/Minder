@@ -231,7 +231,7 @@ nodeModifications =
             "5+here"
 
         changedObjectDecoded =
-            RC.decodeFromNode writableObjectCodec (Debug.log (Console.red "supposedly changed") afterNode)
+            RC.decodeFromNode writableObjectCodec afterNode
     in
     describe "Modifying a simple node with a writable root object."
         [ describe "Checking the node has changed in correct places"

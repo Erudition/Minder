@@ -14,7 +14,7 @@ import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (EventPayload, Object)
 import Replicated.Op.Op as Op exposing (Op)
-import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -61,10 +61,11 @@ build node object =
     let
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
-            -- but we want newest to oldest list, so foldR
-            Dict.foldr addFieldEntry Dict.empty (Debug.log (Console.bgBlue "importing object events") object.events)
+            -- we want newest to oldest list, but folding reverses the list, so stick with foldL
+            -- (warn: foldL/foldR applies the arguments in opposite order to the folding function)
+            Dict.foldl addFieldEntry Dict.empty object.events
 
-        addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
+        addFieldEntry : OpIDSortable -> Object.KeptEvent -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
             case extractFieldEventFromObjectPayload payload of
                 Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
@@ -72,7 +73,7 @@ build node object =
                         logMsg =
                             "Adding to " ++ Console.underline fieldName ++ " field history"
                     in
-                    Dict.update fieldSlot (addUpdate ( id, Log.log logMsg fieldPayload )) buildingDict
+                    Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
 
                 Err problem ->
                     Log.logSeparate ("WARNING " ++ problem) payload buildingDict
@@ -86,7 +87,7 @@ build node object =
                     )
                 )
     in
-    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log (Console.yellow "fields dict") fieldsDict }
+    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
