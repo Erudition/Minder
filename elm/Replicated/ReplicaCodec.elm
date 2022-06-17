@@ -1680,7 +1680,7 @@ registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec in
 
 prepDecoder : String -> String
 prepDecoder inputString =
-    case String.startsWith "❰" inputString of
+    case String.startsWith ">" inputString of
         True ->
             "\"" ++ String.dropLeft 1 (String.dropRight 1 inputString) ++ "\""
 
@@ -1700,9 +1700,9 @@ concurrentObjectIDsDecoder =
                     JD.fail (givenString ++ " is not a valid OpID...")
 
         unquoteObjectID quoted =
-            case String.startsWith "❰" quoted of
+            case String.startsWith ">" quoted of
                 True ->
-                    String.dropLeft 1 (String.dropRight 1 quoted)
+                    String.dropLeft 1 quoted
 
                 False ->
                     quoted

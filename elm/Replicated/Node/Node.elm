@@ -449,12 +449,14 @@ objectChangeToUnstampedOp node inCounter objectChange =
                             chunkToOps node ( accumulated.counter, Nothing ) chunkDetails
 
                         pointerPayload =
-                            Maybe.map newObjectIDToPayload subObjectIDMaybe
-                                |> Maybe.withDefault "ERROR no pointer, unreachable"
+                            Maybe.map Op.IDPointerAtom subObjectIDMaybe
+
+                        pointerPayloadAsList =
+                            List.filterMap identity [ pointerPayload ]
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.StringAtom pointerPayload ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ pointerPayloadAsList
                     }
 
                 Change.NestedAtoms nestedChangeAtoms ->
@@ -505,10 +507,6 @@ objectChangeToUnstampedOp node inCounter objectChange =
               , thisObjectOp = { reference = Just opIDToRevert, payload = [], reversion = True }
               }
             )
-
-
-newObjectIDToPayload opID =
-    "❰" ++ OpID.toString opID ++ "❱"
 
 
 getOrInitObject :
