@@ -1,5 +1,6 @@
 module Replicated.Node.Node exposing (..)
 
+import Console
 import Dict exposing (Dict)
 import Json.Encode as JE
 import List.Extra as List
@@ -566,7 +567,7 @@ updateObject oBCDict newOp =
             OpID.toString (Op.object newOp)
     in
     -- we have an object objects. Do work inside it, and return it
-    Dict.update opIDStringToUpdate (Object.applyOp newOp) oBCDict
+    Dict.update opIDStringToUpdate (Object.applyOp (Debug.log (Console.green "Applying Op") newOp)) oBCDict
 
 
 type alias ObjectsByCreationDb =

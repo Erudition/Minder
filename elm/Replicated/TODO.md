@@ -1,7 +1,7 @@
 # Now
 - get all node decoders working with new unwrapped skins
 - do single quotes get properly escaped on output?
-- changes out of order: even pre-normalized, the first is moved to the end. all other changes stay in correct order DONE
+
 
 
 

@@ -1,5 +1,6 @@
 module ReplicaTests exposing (suite)
 
+import Console
 import Dict
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
@@ -459,20 +460,18 @@ nodeWithModifiedNestedStressTest =
                 repListOfWritables =
                     nestedStressTest.listOfNestedRecords
 
-                addCustomItemToRepList =
-                    RepList.addNewWithChanges repListOfWritables <|
-                        \obj ->
-                            [ obj.kids.set newKidsList
-                            , obj.number.set 999
-                            , obj.minor.set False
-                            , obj.address.set "bologna street"
-                            , obj.address.set "bologna street 2" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
-                            ]
-
                 changes =
                     -- TODO why is the order reversed
                     [ RepList.addNew repListOfWritables
-                    , addCustomItemToRepList
+                    , RepList.addNewWithChanges repListOfWritables <|
+                        \obj ->
+                            [ obj.address.set "bologna street"
+                            , obj.address.set "bologna street 2"
+                            , obj.address.set "bologna street 3" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
+                            , obj.number.set 999
+                            , obj.minor.set False
+                            , obj.kids.set newKidsList
+                            ]
                     ]
 
                 newKidsList =
@@ -538,7 +537,7 @@ modifiedNestedStressTestIntegrityCheck =
             "0+here"
 
         generatedRepListObjectID =
-            "12+here"
+            "13+here"
 
         eventListSize givenID givenNode =
             Dict.size (getObjectEventList givenID givenNode)
@@ -575,7 +574,7 @@ modifiedNestedStressTestIntegrityCheck =
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
                 Expect.all
-                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "bologna street 2", "default address 2" ]
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "default address 2", "bologna street 3" ] -- default object is first
                     ]
                     decodedNST
         , test "the new Custom Type repLists have been initialized" <|
@@ -590,8 +589,8 @@ modifiedNestedStressTestIntegrityCheck =
                                         SomeOfBoth repList1 repList2 ->
                                             Ok (RepList.list repList2)
 
-                                        _ ->
-                                            Err "not set to SomeOfBoth!"
+                                        other ->
+                                            Err ("not set to SomeOfBoth! found: " ++ Debug.toString other)
                                 )
                     )
                     (Just (Ok []))

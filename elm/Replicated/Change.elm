@@ -165,8 +165,7 @@ pendingIDToString (PendingID intList) =
 -}
 combineChangesOfSameTarget changeList =
     -- bundle together changes that have the same target object
-    List.map (\change -> Log.log (Console.green "after combining") change) <|
-        List.map groupCombiner (List.map (\change -> Log.log (Console.yellow "after grouping") change) <| List.Extra.groupWhile sameTarget (List.map (\change -> Log.log (Console.cyan "original") change) <| changeList))
+    List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
 
 
 sameTarget (Chunk a) (Chunk b) =

@@ -2,6 +2,7 @@ module Replicated.Reducer.Register exposing (..)
 
 import Bytes.Decode
 import Bytes.Encode
+import Console
 import Dict exposing (Dict)
 import Helpers
 import Json.Decode as JD
@@ -24,7 +25,7 @@ type Register
     = Register
         { id : OpID.ObjectID
         , version : OpID.ObjectVersion
-        , fields : Dict FieldSlot (List ( OpID, FieldPayload ))
+        , fields : Dict FieldSlot (List ( OpID, FieldPayload )) -- backwards history
         , included : Object.InclusionInfo
         }
 
@@ -55,8 +56,8 @@ build : Node -> Object -> Register
 build node object =
     let
         fieldsDict =
-            -- for some reason foldL puts older events first, so foldR for now. TODO more efficient to have the list already reversed?
-            Dict.foldr addFieldEntry Dict.empty object.events
+            -- newest events FIRST because head of list is most efficient to access, and most recent
+            Dict.foldl addFieldEntry Dict.empty object.events
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
