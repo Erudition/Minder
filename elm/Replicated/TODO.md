@@ -1,10 +1,11 @@
 # Now
-- get all node decoders working with new unwrapped skins
-- do single quotes get properly escaped on output?
-- kept events not always loaded backwards into register field history dict?
+
+
 
 
 # Soon
+- change register to use label_3 naked string format (like variants) rather than separate Int
+- do single quotes get properly escaped on output?
 - Parse OpIDs upfront and store in proper record form
 
 
