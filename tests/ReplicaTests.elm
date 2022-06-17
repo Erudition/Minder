@@ -24,13 +24,13 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ -- readOnlyObjectEncodeThenDecode
-          -- , writableObjectEncodeThenDecode
-          -- , repListEncodeThenDecode
-          -- , repListInsertAndRemove
-          -- , nodeModifications
-          -- , nestedStressTestIntegrityCheck
-          modifiedNestedStressTestIntegrityCheck
+        [ readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -195,9 +195,9 @@ writableObjectEncodeThenDecode =
 
 changeList =
     -- designed to allow changes in place
-    [ ( \obj -> obj.minor.set True, expectOkAndEqualWhenMapped (\obj -> obj.minor.get) True )
-    , ( \obj -> obj.number.set 7, expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7 )
+    [ ( \obj -> obj.number.set 7, expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7 )
     , ( \obj -> obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
+    , ( \obj -> obj.minor.set True, expectOkAndEqualWhenMapped (\obj -> obj.minor.get) True )
     ]
 
 
@@ -220,7 +220,7 @@ nodeModifications =
                             Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
-                            Op.closedChunksToFrameText outputFrame
+                            Log.logMessageOnly (Console.green <| Op.closedChunksToFrameText outputFrame) ()
                     in
                     updatedNode
 
@@ -231,7 +231,7 @@ nodeModifications =
             "5+here"
 
         changedObjectDecoded =
-            RC.decodeFromNode writableObjectCodec afterNode
+            RC.decodeFromNode writableObjectCodec (Debug.log (Console.red "supposedly changed") afterNode)
     in
     describe "Modifying a simple node with a writable root object."
         [ describe "Checking the node has changed in correct places"
@@ -465,9 +465,9 @@ nodeWithModifiedNestedStressTest =
                     [ RepList.addNew repListOfWritables
                     , RepList.addNewWithChanges repListOfWritables <|
                         \obj ->
-                            [ obj.address.set "bologna street"
-                            , obj.address.set "bologna street 2"
-                            , obj.address.set "bologna street 3" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
+                            [ obj.address.set "1 bologna street"
+                            , obj.address.set "2 bologna street"
+                            , obj.address.set "3 bologna street" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                             , obj.number.set 999
                             , obj.minor.set False
                             , obj.kids.set newKidsList
@@ -573,7 +573,7 @@ modifiedNestedStressTestIntegrityCheck =
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
                 Expect.all
-                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "default address 2", "bologna street 3" ] -- default object is first
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first
                     ]
                     decodedNST
         , test "the new Custom Type repLists have been initialized" <|

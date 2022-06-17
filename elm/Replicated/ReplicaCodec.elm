@@ -14,7 +14,7 @@ Here's some advice when choosing:
 
 \*`encodeToJson` is more compact when encoding integers with 6 or fewer digits. You may want to try both `encodeToBytes` and `encodeToJson` and see which is better for your use case.
 
-@docs encodeToJson, decodeFromJson, encodeToBytes, decodeFromBytes, encodeToString, decodeFromCompactString
+@docs encodeToJson, decodeFromJson, encodeToBytes, decodeFromBytes, encodeToString, decodeFromURLSafeByteString
 
 
 # Definition
@@ -331,9 +331,9 @@ decodeFromBytes codec bytes_ =
 
 {-| Run a `Codec` to turn a String encoded with `encodeToString` into an Elm value.
 -}
-decodeFromCompactString : Codec e a -> String -> Result (Error e) a
-decodeFromCompactString codec base64 =
-    case decode base64 of
+decodeFromURLSafeByteString : Codec e a -> String -> Result (Error e) a
+decodeFromURLSafeByteString codec base64 =
+    case decodeStringToBytes base64 of
         Just bytes_ ->
             decodeFromBytes codec bytes_
 
@@ -368,8 +368,8 @@ decodeFromJson codec json =
             Err DataCorrupted
 
 
-decode : String -> Maybe Bytes.Bytes
-decode base64text =
+decodeStringToBytes : String -> Maybe Bytes.Bytes
+decodeStringToBytes base64text =
     let
         replaceChar rematch =
             case rematch.match of
@@ -465,8 +465,8 @@ encodeToBytes codec value =
 and not risk generating an invalid url.
 
 -}
-encodeToCompactString : Codec e a -> a -> String
-encodeToCompactString codec =
+encodeToURLSafeByteString : Codec e a -> a -> String
+encodeToURLSafeByteString codec =
     encodeToBytes codec >> replaceBase64Chars
 
 
@@ -1080,7 +1080,7 @@ bytes =
         (JD.string
             |> JD.map
                 (\text ->
-                    case decode text of
+                    case decodeStringToBytes text of
                         Just bytes_ ->
                             Ok bytes_
 

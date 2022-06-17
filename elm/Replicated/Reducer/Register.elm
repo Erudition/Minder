@@ -56,8 +56,9 @@ build : Node -> Object -> Register
 build node object =
     let
         fieldsDict =
-            -- newest events FIRST because head of list is most efficient to access, and most recent
-            Dict.foldl addFieldEntry Dict.empty object.events
+            -- object.events is a dict, so always ID order, so always oldest to newest.
+            -- but we want newest to oldest list, so foldR
+            Dict.foldr addFieldEntry Dict.empty object.events
 
         addFieldEntry : OpID.OpIDString -> Object.KeptEvent -> Dict FieldSlot (List ( OpID, FieldPayload )) -> Dict FieldSlot (List ( OpID, FieldPayload ))
         addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
@@ -72,7 +73,7 @@ build node object =
         addUpdate newUpdate existingUpdatesMaybe =
             Just (newUpdate :: Maybe.withDefault [] existingUpdatesMaybe)
     in
-    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
+    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = Debug.log (Console.yellow "fields dict") fieldsDict }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
@@ -160,12 +161,12 @@ type alias RW fieldVal =
 
 
 buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> RW fieldVal
-buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder head =
+buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
-    { get = head
+    { get = latestValue
     , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     }
 
@@ -178,12 +179,12 @@ type alias RWH fieldVal =
 
 
 buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
-buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder head rest =
+buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
-    { get = head
+    { get = latestValue
     , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     , history = rest
     }
