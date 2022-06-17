@@ -86,12 +86,12 @@ frameParser =
                     |= chunks
                     |. spaces
                 , succeed ()
+                    |. symbol "."
                     |> Parser.map (\_ -> Parser.Done (List.reverse chunksReversed))
                 ]
     in
     succeed OpenTextRonFrame
         |= Parser.loop [] chunksInFrame
-        |. symbol "."
 
 
 type alias FrameChunk =
@@ -132,16 +132,16 @@ opLineParser : Maybe OpID -> Maybe Reference -> Parser OpenTextOp
 opLineParser prevOpIDMaybe prevRefMaybe =
     let
         opRefparser =
-            Parser.oneOf
-                [ -- TODO use generic - but need backtrackable keywords for now
-                  succeed (ReducerReference "lww")
-                    |. Parser.keyword ":lww"
-                , succeed (ReducerReference "replist")
-                    |. Parser.keyword ":replist"
-                , succeed OpReference
-                    |. symbol ":"
-                    |= OpID.parser
-                ]
+            succeed identity
+                |. symbol ":"
+                |= Parser.oneOf
+                    [ succeed (ReducerReference "lww")
+                        |. Parser.keyword "lww"
+                    , succeed (ReducerReference "replist")
+                        |. Parser.keyword "replist"
+                    , succeed OpReference
+                        |= OpID.parser
+                    ]
 
         reducerIDParser : Parser ReducerID
         reducerIDParser =
@@ -234,10 +234,11 @@ opLineParser prevOpIDMaybe prevRefMaybe =
 payloadAtomParser : Parser OpPayloadAtom
 payloadAtomParser =
     Parser.oneOf
-        [ ronInt
+        [ explicitRonPointer
+        , ronInt
         , ronFloat
         , nakedStringTag -- can interpret nums
-        , quotedAtom
+        , quotedString
         ]
 
 
@@ -287,15 +288,25 @@ ronFloat =
         }
 
 
-quotedAtom : Parser OpPayloadAtom
-quotedAtom =
+{-| Ron Integers start ^: ^3.14159, ^2.9979E5.
+When unambiguous, prefixes could be omitted
+-}
+explicitRonPointer : Parser OpPayloadAtom
+explicitRonPointer =
+    succeed IDPointerAtom
+        |. Parser.token ">"
+        |= OpID.parser
+
+
+quotedString : Parser OpPayloadAtom
+quotedString =
     succeed StringAtom
         |. Parser.token "'"
-        |= Parser.loop [] quotedAtomHelp
+        |= Parser.loop [] quotedStringHelp
 
 
-quotedAtomHelp : List String -> Parser (Parser.Step (List String) String)
-quotedAtomHelp piecesReversed =
+quotedStringHelp : List String -> Parser (Parser.Step (List String) String)
+quotedStringHelp piecesReversed =
     Parser.oneOf
         [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
             |= Parser.keyword "\\'"

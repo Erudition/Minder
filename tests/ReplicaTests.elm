@@ -506,26 +506,26 @@ nodeWithModifiedNestedStressTest =
 
 testRon =
     """@42+there :lww,
-    @43+there :42+there 3 "hello" 46 asf DHid "sfd",
-    3 "hello" 46 asf DHid "sfd"  ;
+    @43+there :42+there 3 'hello' 46 asf DHid 'sfd',
+      3 'hello' 46 asf DHid 'sfd'  ;
 
-    *lww #45+there @45+there :lww,
-    "hello";
+      *lww #45+there @45+there :lww,
+      'hello';
+      .
+
+    @789+biQFvtGV :lww,
+       'id'        '20MF000CUS',
+       'type'      'laptop',
+       'cpu'       'i7-8850H',
+       'display'   '15.6” UHD IPS multi-touch, 400nits',
+       'RAM'       '16 GB DDR4 2666MHz',
+       'storage'   '512 GB SSD, PCIe-NVME M.2',
+       'graphics'  'NVIDIA GeForce GTX 1050Ti 4GB',
+    @1024+biQFvtGV
+       'wlan'      'Intel 9560 802.11AC vPro',
+       'camera'    'IR & 720p HD Camera with microphone';
     .
-
-@789+biQFvtGV :lww,
-     "id"        "20MF000CUS",
-     "type"      "laptop",
-     "cpu"       "i7-8850H",
-     "display"   "15.6” UHD IPS multi-touch, 400nits",
-     "RAM"       "16 GB DDR4 2666MHz",
-     "storage"   "512 GB SSD, PCIe-NVME M.2",
-     "graphics"  "NVIDIA GeForce GTX 1050Ti 4GB",
- @1024+biQFvtGV
-     "wlan"      "Intel 9560 802.11AC vPro",
-     "camera"    "IR & 720p HD Camera with microphone";
-.
-    """
+      """
 
 
 modifiedNestedStressTestIntegrityCheck =
@@ -555,10 +555,9 @@ modifiedNestedStressTestIntegrityCheck =
         [ test "Checking there are no serialization warnings in the test node" <|
             \_ ->
                 nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
-        , skip <|
-            test "Checking there are no serialization warnings in the test RON string" <|
-                \_ ->
-                    (Node.updateWithRon { node = startNode, warnings = [] } testRon).warnings |> Expect.equal []
+        , test "Checking there are no serialization warnings in the test RON string" <|
+            \_ ->
+                (Node.updateWithRon { node = startNode, warnings = [] } testRon).warnings |> Expect.equal []
         , test "Expecting the (1) original Ops to encode and decode into (2) the same node" <|
             \_ ->
                 nodeWithModifiedNestedStressTest.original |> Expect.equal nodeWithModifiedNestedStressTest.serialized

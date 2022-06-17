@@ -74,7 +74,7 @@ toString (OpID string) =
 
 toPointerString : OpID -> String
 toPointerString (OpID string) =
-    "{" ++ string ++ "}"
+    ">" ++ string
 
 
 parser : Parser OpID
@@ -83,7 +83,7 @@ parser =
         Parser.getChompedString <|
             succeed ()
                 -- |= Parser.chompWhile (\s -> s /= "+" && s /= "-")
-                |. Parser.chompWhile (\char -> char /= ' ')
+                |. Parser.chompWhile (\char -> char /= ' ' && char /= '\t' && char /= '\u{000D}')
 
 
 fromStamp : EventStamp -> OpID
