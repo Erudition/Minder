@@ -9,7 +9,6 @@ import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
-import Replicated.Serialize as RS exposing (Codec)
 import Result.Extra
 import Set exposing (Set)
 import SmartTime.Moment as Moment

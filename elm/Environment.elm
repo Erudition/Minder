@@ -6,7 +6,7 @@ import Browser.Navigation as Nav exposing (..)
 import Dict
 import Replicated.Node.Node as Node exposing (Node, startNewNode)
 import Replicated.Op.Op exposing (Op)
-import Replicated.ReplicaCodec
+import Replicated.Codec
 import SmartTime.Human.Clock
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)

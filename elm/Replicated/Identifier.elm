@@ -1,6 +1,5 @@
 module Replicated.Identifier exposing (..)
 
-import Replicated.Serialize as RS
 import SmartTime.Moment as Moment exposing (Moment)
 
 

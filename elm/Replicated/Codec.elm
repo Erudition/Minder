@@ -1,4 +1,4 @@
-module Replicated.ReplicaCodec exposing (..)
+module Replicated.Codec exposing (..)
 
 {-|
 

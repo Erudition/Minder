@@ -1,6 +1,5 @@
 module Replicated.Node.NodeID exposing (..)
 
-import Replicated.Serialize as RS
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -36,8 +35,3 @@ fromString input =
     --     _ ->
     --         Nothing
     Just (NodeID input)
-
-
-codec : RS.Codec String NodeID
-codec =
-    RS.mapValid (Result.fromMaybe "" << fromString) toString RS.string

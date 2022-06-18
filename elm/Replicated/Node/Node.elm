@@ -13,7 +13,6 @@ import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
-import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment exposing (Moment)
 
 
@@ -599,10 +598,3 @@ getObjectIfExists node objectIDs =
 
 type alias Peer =
     { identity : NodeID }
-
-
-peerCodec : Codec String Peer
-peerCodec =
-    RS.record Peer
-        |> RS.field .identity NodeID.codec
-        |> RS.finishRecord

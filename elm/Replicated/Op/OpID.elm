@@ -3,7 +3,6 @@ module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDStr
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.Serialize as RS exposing (Codec)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -191,10 +190,6 @@ jsonDecoder =
                     JD.fail (string ++ " is not a valid OpID...")
     in
     JD.andThen try JD.string
-
-
-momentCodec =
-    RS.int |> RS.map Moment.fromSmartInt Moment.toSmartInt
 
 
 nextOpInChain : OpID -> OpID
