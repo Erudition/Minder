@@ -10,7 +10,8 @@ import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Serialize as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
@@ -124,14 +125,14 @@ encodeActionClassID taskClassID =
 
 
 type alias ParentProperties =
-    { title : Maybe String -- Can have no title if it's just a singleton task
+    { title : RW (Maybe String) -- Can have no title if it's just a singleton task
     }
 
 
 parentPropertiesCodec : Codec String ParentProperties
 parentPropertiesCodec =
     Codec.record ParentProperties
-        |> Codec.field .title (Codec.maybe Codec.string)
+        |> Codec.fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
         |> Codec.finishRecord
 
 

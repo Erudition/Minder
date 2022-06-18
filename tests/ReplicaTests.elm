@@ -10,13 +10,13 @@ import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
 import Replicated.Change as Change
+import Replicated.Codec as RC exposing (Codec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Replicated.ReplicaCodec as RC exposing (Codec, decodeFromNode)
 import SmartTime.Moment as Moment
 import Test exposing (..)
 

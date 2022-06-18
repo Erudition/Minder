@@ -1,12 +1,13 @@
 module TimeBlock.TimeBlock exposing (..)
 
 import Activity.Activity exposing (ActivityID)
+import Helpers exposing (customDecoder)
 import ID
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (decode)
 import Json.Encode as Encode
-import Helpers exposing (customDecoder)
-import Replicated.Serialize as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (TimeOfDay)
@@ -17,10 +18,10 @@ import Tag exposing (Tag, TagID)
 
 
 type alias TimeBlock =
-    { focus : Focus
-    , date : CalendarDate
-    , startTime : TimeOfDay
-    , duration : Duration
+    { focus : RW Focus
+    , date : RW CalendarDate
+    , startTime : RW TimeOfDay
+    , duration : RW Duration
     }
 
 
@@ -42,10 +43,10 @@ encodeTimeBlock timeBlock =
 codec : Codec String TimeBlock
 codec =
     Codec.record TimeBlock
-        |> Codec.field .focus focusCodec
-        |> Codec.field .date dateCodec
-        |> Codec.field .startTime timeCodec
-        |> Codec.field .duration durationCodec
+        |> Codec.fieldRW ( 1, "focus" ) .focus focusCodec (Activity (ID.ID 0))
+        |> Codec.fieldRW ( 2, "date" ) .date dateCodec (Debug.todo "date")
+        |> Codec.fieldRW ( 3, "startTime" ) .startTime timeCodec (Debug.todo "date")
+        |> Codec.fieldRW ( 4, "duration" ) .duration durationCodec (Debug.todo "duration")
         |> Codec.finishRecord
 
 
@@ -61,8 +62,8 @@ focusCodec =
                     tagEncoder tagID
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 Activity (Codec.map ID.tag ID.read Codec.int)
-        |> Codec.variant1 Tag Codec.string
+        |> Codec.variant1 ( 0, "Activity" ) Activity (Codec.map ID.tag ID.read Codec.int)
+        |> Codec.variant1 ( 1, "Tag" ) Tag Codec.string
         |> Codec.finishCustomType
 
 
@@ -85,9 +86,9 @@ getPeriod : Zone -> TimeBlock -> Period
 getPeriod zone timeBlock =
     let
         start =
-            Moment.fromDateAndTime zone timeBlock.date timeBlock.startTime
+            Moment.fromDateAndTime zone timeBlock.date.get timeBlock.startTime.get
     in
-    Period.fromStart start timeBlock.duration
+    Period.fromStart start timeBlock.duration.get
 
 
 {-| Returns what activities are supposed to be worked on now, as well as the time when this information goes out of date
@@ -107,4 +108,4 @@ relevantNow now zone timeBlocks =
         endingSoonestFirst =
             List.sortWith Moment.compareLateness <| List.map endTime nowBlocks
     in
-    ( List.map .focus nowBlocks, List.head endingSoonestFirst )
+    ( List.map (.focus >> .get) nowBlocks, List.head endingSoonestFirst )

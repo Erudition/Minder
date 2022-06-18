@@ -1,5 +1,5 @@
 # Now
-
+- A change setting a field's value to the default should still be emitted to RON if the field has been set to something non-default before. Do I currently do that? What if some unknown peer has set something non-default but the local replica doesn't know yet - the local one would be unable to LWW-override it with the default...
 
 
 

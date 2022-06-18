@@ -7,7 +7,7 @@ import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
-import Replicated.Serialize as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (Codec)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
