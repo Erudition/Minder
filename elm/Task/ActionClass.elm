@@ -132,7 +132,7 @@ type alias ParentProperties =
 parentPropertiesCodec : Codec String ParentProperties
 parentPropertiesCodec =
     Codec.record ParentProperties
-        |> Codec.fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
+        |> Codec.writableField ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
         |> Codec.finishRecord
 
 

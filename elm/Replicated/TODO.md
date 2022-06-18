@@ -7,10 +7,12 @@
 - change register to use label_3 naked string format (like variants) rather than separate Int
 - do single quotes get properly escaped on output?
 - Parse OpIDs upfront and store in proper record form
+- Constrain the exposing(..) of Codec
 
 
 
 # Later
+- spit out warnings for nested errors
 - tolerate double-quote strings as well
 - if object changes are nested in a parent object change, they cannot be grouped together properly (thus each creating their own object) because it would be difficult and inefficient to recurse the whole nest change list every time we saveChanges (every frame). So we regroup at every level we can, such as in the replist adder. But we could move away from needing to use a function wrapper from the parent frame, and instead just have a change include a list of parent notifiers (as a flat custom type that indicated how to wrap it) and it would be easy to group them by same values in same places in that list.
 

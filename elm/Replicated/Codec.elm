@@ -930,6 +930,15 @@ immutableList codec =
         }
 
 
+immutableNonempty : Codec String userType -> Codec String (Nonempty userType)
+immutableNonempty wrappedCodec =
+    let
+        nonEmptyFromList list =
+            Result.fromMaybe "the list was not supposed to be empty" <| Nonempty.fromList list
+    in
+    mapValid nonEmptyFromList Nonempty.toList (immutableList wrappedCodec)
+
+
 listEncode : (a -> BE.Encoder) -> List a -> BE.Encoder
 listEncode encoder_ list_ =
     list_
@@ -1122,30 +1131,34 @@ byte =
         (JD.int |> JD.map Ok)
 
 
-{-| A codec for serializing an item from a list of possible items.
-If you try to encode an item that isn't in the list then the first item is defaulted to.
+{-| A fragile^ codec for serializing an item from a list of possible items.
+Great for Custom Types where each variant has no arguments.
 
-    import Serialize as S
+  - If you try to encode an item that isn't in the list then the first item is defaulted to.
+  - The "quick" version will not serialize with human-readable tags
+  - Only add new items to the end of the list.
+  - ^Inserting new items in the middle of the list will corrupt old data.
+  - ^Removing items will corrupt old data.
+  - Prefer `enum` for a codec without these limitations.
 
-    type DaysOfWeek
-        = Monday
-        | Tuesday
-        | Wednesday
-        | Thursday
-        | Friday
-        | Saturday
-        | Sunday
+```
+type DaysOfWeek
+    = Monday
+    | Tuesday
+    | Wednesday
+    | Thursday
+    | Friday
+    | Saturday
+    | Sunday
 
-    daysOfWeekCodec : S.Codec e DaysOfWeek
-    daysOfWeekCodec =
-        S.enum Monday [ Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday ]
-
-Note that inserting new items in the middle of the list or removing items is a breaking change.
-It's safe to add items to the end of the list though.
+daysOfWeekCodec : S.Codec e DaysOfWeek
+daysOfWeekCodec =
+    Codec.quickEnum Monday [ Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday ]
+```
 
 -}
-fragileEnum : a -> List a -> Codec e a
-fragileEnum defaultItem items =
+quickEnum : a -> List a -> Codec e a
+quickEnum defaultItem items =
     let
         getIndex value =
             items
@@ -1363,44 +1376,10 @@ record remainingConstructor =
         }
 
 
-fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
-fieldRW ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
-    let
-        jsonObjectFieldKey =
-            -- For now, just stick number and name together.
-            String.fromInt fieldSlot ++ fieldName
-
-        addToPartialBytesEncoderList existingRecord =
-            -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
-
-        addToPartialJsonEncoderList =
-            -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
-
-        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
-        nodeDecoder inputs =
-            registerWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefault fieldValueCodec inputs
-    in
-    PartialRecord
-        { bytesEncoder = addToPartialBytesEncoderList
-        , bytesDecoder = BD.fail
-        , jsonEncoders = addToPartialJsonEncoderList
-        , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
-        , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , nodeDecoder =
-            nestableJDmap2
-                combineIfBothSucceed
-                -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.nodeDecoder
-                -- and now we're wrapping it in yet another layer, this field's decoder
-                nodeDecoder
-        }
-
-
-fieldR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
-fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (PartialRecord recordCodecSoFar) =
+{-| Not exposed - for all `readable` functions
+-}
+readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefaultMaybe (PartialRecord recordCodecSoFar) =
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
@@ -1417,7 +1396,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
 
         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
         nodeDecoder inputs =
-            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec inputs
+            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec inputs
     in
     PartialRecord
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1435,7 +1414,7 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (Just fieldDefault) fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
         , nodeDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1446,8 +1425,10 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault (Partia
         }
 
 
-fieldN : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
-fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recordCodecSoFar) =
+{-| Not exposed - for all `writable` functions
+-}
+writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+writableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefaultMaybe (PartialRecord recordCodecSoFar) =
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
@@ -1455,33 +1436,23 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
+            (getBytesEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
-        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
         nodeDecoder inputs =
-            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
+            registerWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec inputs
     in
     PartialRecord
         { bytesEncoder = addToPartialBytesEncoderList
-        , bytesDecoder =
-            BD.map2
-                combineIfBothSucceed
-                recordCodecSoFar.bytesDecoder
-                (getBytesDecoder fieldValueCodec)
+        , bytesDecoder = BD.fail
         , jsonEncoders = addToPartialJsonEncoderList
-        , jsonArrayDecoder =
-            JD.map2
-                combineIfBothSucceed
-                -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.jsonArrayDecoder
-                -- and now we're wrapping it in yet another layer, this field's decoder
-                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
+        , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
+        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
         , nodeDecoder =
             nestableJDmap2
                 combineIfBothSucceed
@@ -1490,6 +1461,136 @@ fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recor
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 nodeDecoder
         }
+
+
+{-| Read a record field.
+The last argument specifies a default value, which is used when initializing the record for the first time.
+
+  - Your code will not be able to make changes to this field, only read the value set by other sources. Consider "writable" if you want a read+write field. You will need to prefix your field's type with `RW`.
+  - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
+  - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
+  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the field in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
+  - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
+
+-}
+field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+field ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault soFar =
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (Just fieldDefault) soFar
+
+
+{-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
+
+  - If your field will more often be set to something else (e.g. `Just 0`), consider using `readable` with your `maybe`-wrapped codec instead and using the common value as the default. This will save space and bandwidth.
+
+-}
+maybeField : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs justFieldType -> PartialRecord errs full (Maybe justFieldType -> remaining) -> PartialRecord errs full remaining
+maybeField fieldID fieldGetter fieldValueCodec recordBuilt =
+    readableHelper fieldID fieldGetter (maybe fieldValueCodec) Nothing recordBuilt
+
+
+{-| Read a `RepList` field without adding the `repList` codec. Default is an empty `RepList`.
+
+  - Will not work with primitive `List` fields. For that, use the `immutableList` codec with `field`.
+  - Default is an empty RepList. Want a different default? Use `field` with the `repList` codec.
+  - If any items in the RepList are corrupted, they will be silently excluded.
+  - If your field is not a `RepList` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repList` codec instead.
+
+-}
+listField : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberType -> PartialRecord errs full (RepList memberType -> remaining) -> PartialRecord errs full remaining
+listField fieldID fieldGetter fieldValueCodec recordBuilt =
+    readableHelper fieldID fieldGetter (repList fieldValueCodec) Nothing recordBuilt
+
+
+{-| Read a record field wrapped with `RW`. This makes the field writable.
+The last argument specifies a default value, which is used when initializing the record for the first time.
+
+  - Due to the RW wrapper, you will need to add `.get` to the output whenever you want to access the field's latest value as usual. Read-only fields do not require this.
+  - Thanks to the RW wrapper, you can add `.set` to the output anywhere in your program to produce a `Change`. These changes can then be saved, updating the stored value.
+  - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
+  - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
+  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the field in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
+  - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
+
+-}
+writableField : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+writableField fieldIdentifier fieldGetter fieldValueCodec fieldDefault soFar =
+    writableHelper fieldIdentifier fieldGetter fieldValueCodec (Just fieldDefault) soFar
+
+
+{-| Read a forever-essential field. Avoid whenever sensible defaults are possible.
+
+  - Only add required fields BEFORE using in production for the first time.
+  - NEVER add required fields after that, or old data may be seen as corrupt.
+  - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
+  - Will it be essential forever? Once you require a field, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
+  - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
+
+-}
+essentialField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+essentialField fieldID fieldGetter fieldValueCodec recordBuilt =
+    readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
+
+
+{-| Read a forever-essential field. Avoid whenever sensible defaults are possible.
+
+  - Only add required fields BEFORE using in production for the first time.
+  - NEVER add required fields after that, or old data may be seen as corrupt.
+  - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
+  - Will it be essential forever? Once you require a field, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
+  - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
+
+-}
+essentialWritable : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+essentialWritable fieldIdentifier fieldGetter fieldValueCodec soFar =
+    writableHelper fieldIdentifier fieldGetter fieldValueCodec Nothing soFar
+
+
+
+--
+-- fieldN : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+-- fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRecord recordCodecSoFar) =
+--     let
+--         jsonObjectFieldKey =
+--             -- For now, just stick number and name together.
+--             String.fromInt fieldSlot ++ fieldName
+--
+--         addToPartialBytesEncoderList existingRecord =
+--             -- Tack on the new encoder to the big list of all the encoders
+--             (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
+--
+--         addToPartialJsonEncoderList =
+--             -- Tack on the new encoder to the big list of all the encoders
+--             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+--
+--         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
+--         nodeDecoder inputs =
+--             registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
+--     in
+--     PartialRecord
+--         { bytesEncoder = addToPartialBytesEncoderList
+--         , bytesDecoder =
+--             BD.map2
+--                 combineIfBothSucceed
+--                 recordCodecSoFar.bytesDecoder
+--                 (getBytesDecoder fieldValueCodec)
+--         , jsonEncoders = addToPartialJsonEncoderList
+--         , jsonArrayDecoder =
+--             JD.map2
+--                 combineIfBothSucceed
+--                 -- the previous decoder layers, functions stacked on top of each other
+--                 recordCodecSoFar.jsonArrayDecoder
+--                 -- and now we're wrapping it in yet another layer, this field's decoder
+--                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
+--         , fieldIndex = recordCodecSoFar.fieldIndex + 1
+--         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
+--         , nodeDecoder =
+--             nestableJDmap2
+--                 combineIfBothSucceed
+--                 -- the previous decoder layers, functions stacked on top of each other
+--                 recordCodecSoFar.nodeDecoder
+--                 -- and now we're wrapping it in yet another layer, this field's decoder
+--                 nodeDecoder
+--         }
 
 
 combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Error e) fieldType -> Result (Error e) remaining
@@ -1609,8 +1710,8 @@ registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCod
                     Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
 
 
-registerWritableFieldDecoder : ( FieldSlot, FieldName ) -> fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
-registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec inputs =
+registerWritableFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
+registerWritableFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCodec inputs =
     let
         sameInputs =
             { node = inputs.node, pendingCounter = inputs.pendingCounter }
@@ -1643,7 +1744,12 @@ registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec in
     in
     case inputs.parent of
         PendingRegister pendingID ->
-            JD.succeed <| Ok <| wrapRW (PlaceholderPointer Register.reducerID pendingID updateMePostChildInit) default
+            case defaultMaybe of
+                Just default ->
+                    JD.succeed <| Ok <| wrapRW (PlaceholderPointer Register.reducerID pendingID updateMePostChildInit) default
+
+                Nothing ->
+                    JD.fail <| "Missing required field " ++ fieldName
 
         -- We are working with an Register
         ExistingRegister registerObject ->
@@ -1661,17 +1767,21 @@ registerWritableFieldDecoder ( fieldSlot, fieldName ) default fieldValueCodec in
 
                 -- TODO if nested codec is another register, decode with getFieldHistoryValues instead, using that as the list of objects
             in
-            case desiredFieldDecodedMaybe of
-                Nothing ->
+            case ( desiredFieldDecodedMaybe, defaultMaybe ) of
+                ( Nothing, Just default ) ->
                     JD.succeed <| Ok <| wrapRW (Change.ExistingObjectPointer (Register.getID registerObject)) default
 
-                Just (Ok (Ok foundVal)) ->
+                ( Nothing, Nothing ) ->
+                    Log.crashInDev ("Missing an essential field: " ++ fieldName)
+                        (JD.succeed <| Err DataCorrupted)
+
+                ( Just (Ok (Ok foundVal)), _ ) ->
                     JD.succeed <| Ok <| wrapRW (Change.ExistingObjectPointer (Register.getID registerObject)) foundVal
 
-                Just (Ok (Err e)) ->
+                ( Just (Ok (Err e)), _ ) ->
                     JD.succeed <| Err e
 
-                Just (Err e) ->
+                ( Just (Err e), _ ) ->
                     -- better than failing silently? should be unreachable
                     --JD.succeed <| Err DataCorrupted
                     Log.crashInDev ("should be unreachable, decoder did not return Result-wrapped value! and ran into problem: " ++ JD.errorToString e)

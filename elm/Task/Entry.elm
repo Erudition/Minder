@@ -92,9 +92,9 @@ type alias ProjectClass =
 projectCodec : Codec String ProjectClass
 projectCodec =
     Codec.record ProjectClass
-        |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .recurrenceRules (Codec.maybe (Codec.enum Series []))
-        |> Codec.field .children (nonEmptyCodec taskClassCodec)
+        |> Codec.field ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.writableField ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
+        |> Codec.field ( 3, "children" ) .children (Codec.immutableNonempty taskClassCodec)
         |> Codec.finishRecord
 
 
@@ -110,17 +110,8 @@ superProjectCodec : Codec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
         |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (nonEmptyCodec superProjectChildCodec)
+        |> Codec.field .children (Codec.immutableNonempty superProjectChildCodec)
         |> Codec.finishRecord
-
-
-nonEmptyCodec : Codec String userType -> Codec String (Nonempty userType)
-nonEmptyCodec wrappedCodec =
-    let
-        nonEmptyFromList list =
-            Result.fromMaybe "the list was not supposed to be empty" <| Nonempty.fromList list
-    in
-    Codec.mapValid nonEmptyFromList Nonempty.toList (Codec.list wrappedCodec)
 
 
 type SuperProjectChild
@@ -160,7 +151,7 @@ taskClassCodec : Codec String TaskClass
 taskClassCodec =
     Codec.record TaskClass
         |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (nonEmptyCodec taskClassChildCodec)
+        |> Codec.field .children (Codec.immutableNonempty taskClassChildCodec)
         |> Codec.finishRecord
 
 

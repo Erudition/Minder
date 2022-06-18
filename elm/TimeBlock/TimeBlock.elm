@@ -43,10 +43,10 @@ encodeTimeBlock timeBlock =
 codec : Codec String TimeBlock
 codec =
     Codec.record TimeBlock
-        |> Codec.fieldRW ( 1, "focus" ) .focus focusCodec (Activity (ID.ID 0))
-        |> Codec.fieldRW ( 2, "date" ) .date dateCodec (Debug.todo "date")
-        |> Codec.fieldRW ( 3, "startTime" ) .startTime timeCodec (Debug.todo "date")
-        |> Codec.fieldRW ( 4, "duration" ) .duration durationCodec (Debug.todo "duration")
+        |> Codec.essentialWritable ( 1, "focus" ) .focus focusCodec
+        |> Codec.essentialWritable ( 2, "date" ) .date dateCodec
+        |> Codec.essentialWritable ( 3, "startTime" ) .startTime timeCodec
+        |> Codec.writableField ( 4, "duration" ) .duration durationCodec Duration.anHour
         |> Codec.finishRecord
 
 
