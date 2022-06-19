@@ -1501,6 +1501,13 @@ listField fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter (repList fieldValueCodec) Nothing recordBuilt
 
 
+{-| Read a field containing a nested Register.
+-}
+nestedField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+nestedField fieldID fieldGetter fieldValueCodec recordBuilt =
+    readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
+
+
 {-| Read a record field wrapped with `RW`. This makes the field writable.
 The last argument specifies a default value, which is used when initializing the record for the first time.
 

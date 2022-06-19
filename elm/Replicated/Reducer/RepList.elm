@@ -255,3 +255,15 @@ addNewWithChanges (RepList record) changer =
         , objectChanges =
             finalChangeList
         }
+
+
+
+-- Normal list functions
+-- map : (memberTypeA -> memberTypeB) -> RepList memberTypeA -> RepList memberTypeB
+-- map mapper (RepList repSetRecord) =
+--     let
+--         mappedMembers : List (Item memberTypeB)
+--         mappedMembers =
+--             List.map (\item -> { handle = item.handle, value = mapper item.value }) repSetRecord.members
+--     in
+--     { repSetRecord | members = mappedMembers }

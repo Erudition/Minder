@@ -7,7 +7,10 @@ import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
+import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
@@ -27,24 +30,6 @@ We could eliminate all the redundant wrapper containers, but for now it's easier
 -}
 type alias Entry =
     SuperProject
-
-
-newRootEntry : ActionClassID -> Entry
-newRootEntry classID =
-    let
-        parentProps =
-            ParentProperties <| Just "none"
-
-        outsideWrap =
-            SuperProject parentProps (Nonempty.fromElement (ProjectIsHere leader))
-
-        leader =
-            ProjectClass parentProps Nothing (Nonempty.fromElement follower)
-
-        follower =
-            TaskClass parentProps (Nonempty.fromElement (Singleton classID))
-    in
-    outsideWrap
 
 
 decodeEntry : Decoder Entry
@@ -84,17 +69,17 @@ Parents that contain only a single task are transparently unwrapped to appear li
 -}
 type alias ProjectClass =
     { properties : ParentProperties
-    , recurrenceRules : Maybe Series
-    , children : Nonempty TaskClass
+    , recurrenceRules : RW (Maybe Series)
+    , children : RepList TaskClass
     }
 
 
 projectCodec : Codec String ProjectClass
 projectCodec =
     Codec.record ProjectClass
-        |> Codec.field ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.writableField ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
-        |> Codec.field ( 3, "children" ) .children (Codec.immutableNonempty taskClassCodec)
+        |> Codec.listField ( 3, "children" ) .children taskClassCodec
         |> Codec.finishRecord
 
 
@@ -102,15 +87,15 @@ projectCodec =
 -}
 type alias SuperProject =
     { properties : ParentProperties
-    , children : Nonempty SuperProjectChild
+    , children : RepList SuperProjectChild
     }
 
 
 superProjectCodec : Codec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
-        |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (Codec.immutableNonempty superProjectChildCodec)
+        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.listField ( 2, "children" ) .children superProjectChildCodec
         |> Codec.finishRecord
 
 
@@ -131,8 +116,8 @@ superProjectChildCodec =
                     leaderIsHere leaderParent
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 ProjectIsDeeper (Codec.lazy (\_ -> superProjectCodec))
-        |> Codec.variant1 ProjectIsHere projectCodec
+        |> Codec.variant1 ( 1, "ProjectIsDeeper" ) ProjectIsDeeper (Codec.lazy (\_ -> superProjectCodec))
+        |> Codec.variant1 ( 2, "ProjectIsHere" ) ProjectIsHere projectCodec
         |> Codec.finishCustomType
 
 
@@ -143,15 +128,15 @@ Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedP
 -}
 type alias TaskClass =
     { properties : ParentProperties
-    , children : Nonempty TaskClassChild
+    , children : RepList TaskClassChild
     }
 
 
 taskClassCodec : Codec String TaskClass
 taskClassCodec =
     Codec.record TaskClass
-        |> Codec.field .properties parentPropertiesCodec
-        |> Codec.field .children (Codec.immutableNonempty taskClassChildCodec)
+        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.listField ( 2, "children" ) .children taskClassChildCodec
         |> Codec.finishRecord
 
 
@@ -187,8 +172,8 @@ taskClassChildCodec =
                     nested followerParent
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 Singleton Codec.int
-        |> Codec.variant1 Nested (Codec.lazy (\_ -> taskClassCodec))
+        |> Codec.variant1 ( 1, "Singleton" ) Singleton Codec.int
+        |> Codec.variant1 ( 2, "Nested" ) Nested (Codec.lazy (\_ -> taskClassCodec))
         |> Codec.finishCustomType
 
 
@@ -198,35 +183,35 @@ getClassesFromEntries : ( List Entry, IntDict.IntDict ActionClassSkel ) -> ( Lis
 getClassesFromEntries ( entries, classes ) =
     let
         traverseRootWrappers entry =
-            Nonempty.toList <| traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
+            traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
 
         -- flatten the hierarchy if a container serves no purpose
         appendPropsIfMeaningful oldList newParentProps =
-            if newParentProps.title /= Nothing then
+            if newParentProps.title.get /= Nothing then
                 newParentProps :: oldList
 
             else
                 oldList
 
         traverseWrapperParent accumulator parent =
-            Nonempty.concatMap (traverseWrapperChild accumulator) parent.children
+            List.concatMap (traverseWrapperChild accumulator) (RepList.list parent.children)
 
         traverseLeaderParent accumulator parent =
-            Nonempty.concatMap (traverseFollowerParent accumulator parent.recurrenceRules) parent.children
+            List.concatMap (traverseFollowerParent accumulator parent.recurrenceRules.get) (RepList.list parent.children)
 
         traverseFollowerParent accumulator recurrenceRules parent =
             -- TODO do we need to collect props here
-            Nonempty.concatMap (traverseFollowerChild accumulator recurrenceRules) parent.children
+            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.list parent.children)
 
         traverseFollowerChild accumulator recurrenceRules child =
             case child of
                 Singleton classID ->
                     case IntDict.get classID classes of
                         Just classSkel ->
-                            Nonempty.fromElement <| Ok <| makeFullActionClass accumulator recurrenceRules classSkel
+                            List.singleton <| Ok <| makeFullActionClass accumulator recurrenceRules classSkel
 
                         Nothing ->
-                            Nonempty.fromElement <| Err <| LookupFailure classID
+                            List.singleton <| Err <| LookupFailure classID
 
                 Nested followerParent ->
                     traverseFollowerParent (appendPropsIfMeaningful accumulator followerParent.properties) recurrenceRules followerParent
