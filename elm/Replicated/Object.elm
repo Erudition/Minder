@@ -2,6 +2,7 @@ module Replicated.Object exposing (..)
 
 import Dict exposing (Dict)
 import Json.Encode as JE
+import Log
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -75,6 +76,16 @@ eventPayloadAsJson (KeptEvent event) =
 
         multiple ->
             JE.list identity multiple
+
+
+extractOpIDFromEventPayload : KeptEvent -> Maybe OpID
+extractOpIDFromEventPayload (KeptEvent event) =
+    case event.payload of
+        [ Op.IDPointerAtom opID ] ->
+            Just opID
+
+        other ->
+            Log.crashInDev ("item was supposed to be a single OpID pointer, but instead found " ++ Debug.toString other) Nothing
 
 
 {-| Apply an incoming Op to an object if we have it.
