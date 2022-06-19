@@ -62,18 +62,19 @@ fromScratch =
     }
 
 
-codec : Codec e Profile
-codec =
-    RC.record Profile
-        |> RC.fieldR ( 1, "uid" ) .uid RC.int 0
-        |> RC.fieldR ( 2, "errors" ) .errors (RC.immutableList RC.string) []
-        |> RC.fieldR ( 3, "taskEntries" ) .taskEntries (RC.immutableList (Debug.todo "Task.Entry.codec")) []
-        |> RC.fieldR ( 4, "taskClasses" ) .taskClasses (Debug.todo "Task.Class.codec") IntDict.empty
-        |> RC.fieldR ( 5, "taskInstances" ) .taskInstances (Debug.todo "Task.Instance.codec") IntDict.empty
-        |> RC.fieldR ( 6, "activities" ) .activities (Debug.todo "Activity.codec") IntDict.empty
-        |> RC.fieldR ( 7, "timeline" ) .timeline (RC.immutableList (Debug.todo "Activity.Activity.switchCodec")) []
-        |> RC.fieldR ( 7, "todoist" ) .todoist (Debug.todo "Activity.codec")
-        |> RC.finishRecord
+
+-- codec : Codec e Profile
+-- codec =
+--     Codec.record Profile
+--         |> Codec.field ( 1, "uid" ) .uid RC.int 0
+--         |> Codec.listField  ( 2, "errors" ) .errors (RC.immutableList RC.string)
+--         |> RC.fieldR ( 3, "taskEntries" ) .taskEntries (RC.immutableList (Debug.todo "Task.Entry.codec")) []
+--         |> RC.fieldR ( 4, "taskClasses" ) .taskClasses (Debug.todo "Task.Class.codec") IntDict.empty
+--         |> RC.fieldR ( 5, "taskInstances" ) .taskInstances (Debug.todo "Task.Instance.codec") IntDict.empty
+--         |> RC.fieldR ( 6, "activities" ) .activities (Debug.todo "Activity.codec") IntDict.empty
+--         |> RC.fieldR ( 7, "timeline" ) .timeline (RC.immutableList (Debug.todo "Activity.Activity.switchCodec")) []
+--         |> RC.fieldR ( 7, "todoist" ) .todoist (Debug.todo "Activity.codec")
+--         |> Codec.finishRecord
 
 
 decodeProfile : Decoder Profile

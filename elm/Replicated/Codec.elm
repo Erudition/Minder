@@ -1416,7 +1416,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
         , nodeDecoder =
-            nestableJDmap2
+            mapRegisterNodeDecoder
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.nodeDecoder
@@ -1454,7 +1454,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
         , nodeDecoder =
-            nestableJDmap2
+            mapRegisterNodeDecoder
                 combineIfBothSucceed
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.nodeDecoder
@@ -1552,6 +1552,48 @@ essentialWritable fieldIdentifier fieldGetter fieldValueCodec soFar =
     writableHelper fieldIdentifier fieldGetter fieldValueCodec Nothing soFar
 
 
+idField : FieldIdentifier -> (full -> Change.Pointer) -> PartialRecord errs full (Change.Pointer -> remaining) -> PartialRecord errs full remaining
+idField fieldIdentifier fieldGetter (PartialRecord soFar) =
+    let
+        nodeDecoder : RegisterFieldDecoder errs Change.Pointer
+        nodeDecoder inputs =
+            JD.succeed (Ok (parentPointer inputs))
+
+        parentPointer inputs =
+            case inputs.parent of
+                ExistingRegister registerObject ->
+                    Change.ExistingObjectPointer (Register.getID registerObject)
+
+                PendingRegister pendingID ->
+                    Change.PlaceholderPointer Register.reducerID pendingID identity
+    in
+    PartialRecord
+        { bytesEncoder = soFar.bytesEncoder
+        , bytesDecoder =
+            BD.map2
+                combineIfBothSucceed
+                soFar.bytesDecoder
+                (BD.succeed (Err DataCorrupted))
+        , jsonEncoders = soFar.jsonEncoders
+        , jsonArrayDecoder =
+            JD.map2
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                soFar.jsonArrayDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                (JD.succeed (Err DataCorrupted))
+        , fieldIndex = soFar.fieldIndex + 1
+        , ronEncoders = soFar.ronEncoders
+        , nodeDecoder =
+            mapRegisterNodeDecoder
+                combineIfBothSucceed
+                -- the previous decoder layers, functions stacked on top of each other
+                soFar.nodeDecoder
+                -- and now we're wrapping it in yet another layer, this field's decoder
+                nodeDecoder
+        }
+
+
 
 --
 -- fieldN : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
@@ -1591,7 +1633,7 @@ essentialWritable fieldIdentifier fieldGetter fieldValueCodec soFar =
 --         , fieldIndex = recordCodecSoFar.fieldIndex + 1
 --         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
 --         , nodeDecoder =
---             nestableJDmap2
+--             mapRegisterNodeDecoder
 --                 combineIfBothSucceed
 --                 -- the previous decoder layers, functions stacked on top of each other
 --                 recordCodecSoFar.nodeDecoder
@@ -1616,13 +1658,13 @@ combineIfBothSucceed decoderA decoderB =
 
 {-| Same as JD.map2, but with RegisterFieldDecoderInputs argument built in
 -}
-nestableJDmap2 :
+mapRegisterNodeDecoder :
     (a -> b -> value)
     -> (RegisterFieldDecoderInputs -> JD.Decoder a)
     -> (RegisterFieldDecoderInputs -> JD.Decoder b)
     -> RegisterFieldDecoderInputs
     -> JD.Decoder value
-nestableJDmap2 twoArgFunction nestableDecoderA nestableDecoderB inputs =
+mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
     let
         -- typevars a and b contain the Result blob
         decoderA : JD.Decoder a

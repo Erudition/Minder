@@ -8,6 +8,7 @@
 - do single quotes get properly escaped on output?
 - Parse OpIDs upfront and store in proper record form
 - Constrain the exposing(..) of Codec
+- replace FieldParent and PendingRegister stuff with a real Register and a Pointer
 
 
 
