@@ -106,6 +106,26 @@ newActionClassSkel givenTitle newID =
     }
 
 
+actionClassSkelCodec : Codec e ActionClassSkel
+actionClassSkelCodec =
+    object <|
+        [ ( "title", Encode.string taskClass.title )
+        , ( "id", Encode.int taskClass.id )
+        , ( "activity", Encode2.maybe ID.encode taskClass.activity )
+        , ( "completionUnits", Progress.encodeUnit taskClass.completionUnits )
+        , ( "minEffort", encodeDuration taskClass.minEffort )
+        , ( "predictedEffort", encodeDuration taskClass.predictedEffort )
+        , ( "maxEffort", encodeDuration taskClass.maxEffort )
+        , ( "defaultExternalDeadline", Encode.list encodeRelativeTiming taskClass.defaultExternalDeadline )
+        , ( "defaultStartBy", Encode.list encodeRelativeTiming taskClass.defaultStartBy )
+        , ( "defaultFinishBy", Encode.list encodeRelativeTiming taskClass.defaultFinishBy )
+        , ( "defaultRelevanceStarts", Encode.list encodeRelativeTiming taskClass.defaultRelevanceStarts )
+        , ( "defaultRelevanceEnds", Encode.list encodeRelativeTiming taskClass.defaultRelevanceEnds )
+        , ( "importance", Encode.float taskClass.importance )
+        , ( "extra", Encode.dict identity Encode.string taskClass.extra )
+        ]
+
+
 type alias ActionClassID =
     Int
 

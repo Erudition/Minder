@@ -1,6 +1,7 @@
 module TimeBlock.TimeBlock exposing (..)
 
 import Activity.Activity exposing (ActivityID)
+import ExtraCodecs as Codec
 import Helpers exposing (customDecoder)
 import ID
 import Json.Decode.Exploration as Decode
@@ -44,9 +45,9 @@ codec : Codec String TimeBlock
 codec =
     Codec.record TimeBlock
         |> Codec.essentialWritable ( 1, "focus" ) .focus focusCodec
-        |> Codec.essentialWritable ( 2, "date" ) .date dateCodec
-        |> Codec.essentialWritable ( 3, "startTime" ) .startTime timeCodec
-        |> Codec.writableField ( 4, "duration" ) .duration durationCodec Duration.anHour
+        |> Codec.essentialWritable ( 2, "date" ) .date Codec.calendarDate
+        |> Codec.essentialWritable ( 3, "startTime" ) .startTime Codec.timeOfDay
+        |> Codec.writableField ( 4, "duration" ) .duration Codec.duration Duration.anHour
         |> Codec.finishRecord
 
 
@@ -61,25 +62,9 @@ focusCodec =
                 Tag tagID ->
                     tagEncoder tagID
         )
-        -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
         |> Codec.variant1 ( 0, "Activity" ) Activity (Codec.map ID.tag ID.read Codec.int)
         |> Codec.variant1 ( 1, "Tag" ) Tag Codec.string
         |> Codec.finishCustomType
-
-
-dateCodec : Codec e CalendarDate
-dateCodec =
-    Codec.int |> Codec.map SmartTime.Human.Calendar.fromRataDie SmartTime.Human.Calendar.toRataDie
-
-
-timeCodec : Codec String TimeOfDay
-timeCodec =
-    Codec.string |> Codec.mapValid SmartTime.Human.Clock.fromStandardString SmartTime.Human.Clock.toStandardString
-
-
-durationCodec : Codec String TimeOfDay
-durationCodec =
-    Codec.int |> Codec.map Duration.fromInt Duration.inMs
 
 
 getPeriod : Zone -> TimeBlock -> Period
