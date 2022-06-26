@@ -72,6 +72,7 @@ import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..))
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Set exposing (Set)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -972,6 +973,131 @@ array codec =
     immutableList codec |> mapHelper (Result.map Array.fromList) Array.toList
 
 
+{-| A replicated dict
+-}
+repDict : Codec e k -> Codec e v -> Codec e (RepDict k v)
+repDict keyCodec valueCodec =
+    let
+        flatDictListCodec =
+            immutableList (tuple keyCodec valueCodec)
+
+        jsonEncoder : RepDict k v -> JE.Value
+        jsonEncoder input =
+            getJsonEncoder flatDictListCodec (RepDict.list input)
+
+        bytesEncoder : RepDict k v -> BE.Encoder
+        bytesEncoder input =
+            getBytesEncoder flatDictListCodec (RepDict.list input)
+
+        entryRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> RepDict.RepDictEntry k v -> Change.PotentialPayload
+        entryRonEncoder node encodeModeMaybe parentNotifier newEntry =
+            let
+                keyEncoder givenKey =
+                    getNodeEncoder keyCodec
+                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                        , node = node
+                        , thingToEncode = EncodeThisFlat givenKey
+                        , parentNotifier = parentNotifier
+                        , pendingCounter = Change.unmatchableCounter
+                        }
+
+                valueEncoder givenValue =
+                    getNodeEncoder valueCodec
+                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                        , node = node
+                        , thingToEncode = EncodeThisFlat givenValue
+                        , parentNotifier = parentNotifier
+                        , pendingCounter = Change.unmatchableCounter
+                        }
+            in
+            case newEntry of
+                RepDict.Cleared key ->
+                    keyEncoder key
+
+                RepDict.Present key value ->
+                    keyEncoder key ++ valueEncoder value
+
+        entryChanger node encodeModeMaybe parentNotifier newEntry =
+            Change.NewPayload (entryRonEncoder node encodeModeMaybe parentNotifier newEntry)
+
+        entryRonDecoder : Node -> Change.PendingCounter -> JE.Value -> Maybe (RepDictEntry k v)
+        entryRonDecoder node childPendingCounter encodedEntry =
+            let
+                decodeKey encodedKey =
+                    JD.decodeValue (getNodeDecoder keyCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) encodedKey
+
+                decodeValue encodedValue =
+                    JD.decodeValue (getNodeDecoder valueCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) encodedValue
+            in
+            case JD.decodeValue (JD.list JD.value) encodedEntry of
+                Ok (keyEncoded :: [ valueEncoded ]) ->
+                    case ( decodeKey keyEncoded, decodeValue valueEncoded ) of
+                        ( Ok (Ok key), Ok (Ok value) ) ->
+                            Just (Present key value)
+
+                        _ ->
+                            Debug.todo "found key and value but not able to decode them"
+
+                Ok [ keyEncoded ] ->
+                    case decodeKey keyEncoded of
+                        Ok (Ok key) ->
+                            Just (Cleared key)
+
+                        _ ->
+                            Debug.todo "found just key alone but not able to decode it"
+
+                other ->
+                    Debug.todo "the dict entry wasn't in the expected shape"
+
+        repDictRonDecoder : NodeDecoder e (RepDict k v)
+        repDictRonDecoder ({ node, pendingCounter, parentNotifier } as details) =
+            let
+                pending =
+                    Change.usePendingCounter 0 pendingCounter
+
+                target foundObjects =
+                    case Node.getObjectIfExists node foundObjects of
+                        Just objectFound ->
+                            Change.ExistingObjectPointer objectFound.creation
+
+                        Nothing ->
+                            Change.PlaceholderPointer RepList.reducerID pending.id parentNotifier
+
+                keyToString key =
+                    JE.encode 0 (getJsonEncoder keyCodec key)
+
+                foundOrGeneratedRepDict foundObjects =
+                    Ok <| RepDict.buildFromReplicaDb node (target foundObjects) (entryRonDecoder node pending.passToChild) (entryChanger node Nothing parentNotifier) keyToString
+            in
+            JD.map foundOrGeneratedRepDict concurrentObjectIDsDecoder
+
+        repDictRonEncoder : NodeEncoder (RepDict k v)
+        repDictRonEncoder ({ node, thingToEncode, mode, parentNotifier, pendingCounter } as details) =
+            case thingToEncode of
+                EncodeThisFlat existingRepDict ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = RepDict.getID existingRepDict
+                            , objectChanges = [] -- TODO should this be blank
+                            }
+
+                _ ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = Change.PlaceholderPointer RepList.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
+                            , objectChanges = []
+                            }
+    in
+    Codec
+        { bytesEncoder = bytesEncoder
+        , bytesDecoder = BD.fail
+        , jsonEncoder = jsonEncoder
+        , jsonDecoder = JD.fail "no repdict"
+        , nodeEncoder = Just repDictRonEncoder
+        , nodeDecoder = Just repDictRonDecoder
+        }
+
+
 {-| Codec for serializing a `Dict`
 
     import Serialize as S
@@ -984,16 +1110,16 @@ array codec =
         S.dict S.string S.int
 
 -}
-dict : Codec e comparable -> Codec e a -> Codec e (Dict comparable a)
-dict keyCodec valueCodec =
+immutableDict : Codec e comparable -> Codec e a -> Codec e (Dict comparable a)
+immutableDict keyCodec valueCodec =
     immutableList (tuple keyCodec valueCodec)
         |> mapHelper (Result.map Dict.fromList) Dict.toList
 
 
 {-| Codec for serializing a `Set`
 -}
-set : Codec e comparable -> Codec e (Set comparable)
-set codec =
+immutableSet : Codec e comparable -> Codec e (Set comparable)
+immutableSet codec =
     immutableList codec |> mapHelper (Result.map Set.fromList) Set.toList
 
 
