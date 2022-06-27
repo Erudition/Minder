@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, insertAfter, last, length, list, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -50,6 +50,12 @@ type alias Item memberType =
 head : RepList memberType -> Maybe (Item memberType)
 head (RepList repList) =
     List.head repList.members
+
+
+headValue : RepList memberType -> Maybe memberType
+headValue (RepList repList) =
+    List.head repList.members
+        |> Maybe.map .value
 
 
 last : RepList memberType -> Maybe (Item memberType)
