@@ -1,15 +1,32 @@
-module Activity.Evidence exposing (AppDescriptor, Device, Evidence(..), StepsPerMinute, decodeEvidence, encodeEvidence)
+module Activity.Evidence exposing (AppDescriptor, Device, Evidence(..), StepsPerMinute, codec)
 
+import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Helpers exposing (..)
+import Replicated.Codec as Codec exposing (Codec, essentialWritable, listField, writableField)
 
 
 type Evidence
     = UsingApp AppDescriptor (Maybe Device)
     | StepCountPace StepsPerMinute
+
+
+codec : Codec e Evidence
+codec =
+    Codec.customType
+        (\usingApp stepCountPace value ->
+            case value of
+                UsingApp appDescriptor deviceMaybe ->
+                    usingApp appDescriptor deviceMaybe
+
+                StepCountPace stepsPerMinute ->
+                    stepCountPace stepsPerMinute
+        )
+        |> Codec.variant2 ( 1, "UsingApp" ) UsingApp appDescriptorCodec (Codec.maybe Codec.string)
+        |> Codec.variant1 ( 2, "StepCountPace" ) StepCountPace Codec.int
+        |> Codec.finishCustomType
 
 
 type alias AppDescriptor =
@@ -18,36 +35,17 @@ type alias AppDescriptor =
     }
 
 
+appDescriptorCodec : Codec e AppDescriptor
+appDescriptorCodec =
+    Codec.record AppDescriptor
+        |> Codec.essentialField ( 1, "package" ) .package Codec.string
+        |> Codec.essentialField ( 2, "name" ) .name Codec.string
+        |> Codec.finishRecord
+
+
 type alias StepsPerMinute =
     Int
 
 
 type alias Device =
     String
-
-
-decodeEvidence : Decoder Evidence
-decodeEvidence =
-    Decode.string
-        |> Decode.andThen
-            (\string ->
-                case string of
-                    "UsingApp" ->
-                        Decode.succeed (UsingApp (AppDescriptor "" "") Nothing)
-
-                    "StepCountPace" ->
-                        Decode.succeed (StepCountPace 0)
-
-                    _ ->
-                        Decode.fail "Invalid Evidence"
-            )
-
-
-encodeEvidence : Evidence -> Encode.Value
-encodeEvidence v =
-    case v of
-        UsingApp _ _ ->
-            Encode.string "UsingApp"
-
-        StepCountPace pace ->
-            Encode.string "StepCountPace"

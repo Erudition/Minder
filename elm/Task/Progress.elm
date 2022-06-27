@@ -1,7 +1,8 @@
-module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, toString, unitMax, zero)
+module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, decodeUnit, encodeProgress, encodeUnit, getNormalizedPortion, getPortion, getUnits, getWhole, isDiscrete, isMax, maximize, progressFromFloat, setPortion, toString, unitCodec, unitMax, zero)
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
+import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
 
 
 {-| Proper Fractions, but with named units
@@ -29,11 +30,39 @@ type alias Portion =
 
 
 type Unit
-    = Permille
-    | Percent
+    = Percent
+    | Permille
     | Word Int
     | Minute Int
     | CustomUnit ( String, String ) Int
+
+
+unitCodec : Codec String Unit
+unitCodec =
+    Codec.customType
+        (\percent permille word minute customUnit value ->
+            case value of
+                Percent ->
+                    percent
+
+                Permille ->
+                    permille
+
+                Word int ->
+                    word int
+
+                Minute int ->
+                    minute int
+
+                CustomUnit ( string1, string2 ) int ->
+                    customUnit ( string1, string2 ) int
+        )
+        |> Codec.variant0 ( 1, "Percent" ) Percent
+        |> Codec.variant0 ( 2, "Permille" ) Permille
+        |> Codec.variant1 ( 3, "Word" ) Word Codec.int
+        |> Codec.variant1 ( 3, "Minute" ) Minute Codec.int
+        |> Codec.variant2 ( 3, "CustomUnit" ) CustomUnit (Codec.tuple Codec.string Codec.string) Codec.int
+        |> Codec.finishCustomType
 
 
 toString : Progress -> String

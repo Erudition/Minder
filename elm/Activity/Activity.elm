@@ -1,10 +1,11 @@
 module Activity.Activity exposing (..)
 
-import Activity.Evidence exposing (..)
-import Activity.Template exposing (..)
+import Activity.Evidence as Evidence exposing (..)
+import Activity.Template as Template exposing (..)
 import Date
 import Dict exposing (..)
 import External.Commands as Commands exposing (..)
+import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID exposing (ID)
 import IntDict exposing (IntDict)
@@ -15,6 +16,11 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
+import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
+import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
@@ -23,21 +29,8 @@ import Time
 import Time.Extra exposing (..)
 
 
-{-| Definition of an activity.
--}
-type alias Activity =
-    { names : List String -- TODO should be Translations
-    , icon : Icon -- TODO figure out best way to do this. svg file path?
-    , excusable : Excusable
-    , taskOptional : Bool -- technically they can all be "unplanned"
-    , evidence : List Evidence
-    , category : Category
-    , backgroundable : Bool
-    , maxTime : DurationPerPeriod
-    , hidden : Bool -- The user can hide any of the "stock" activities they don't use
-    , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
-    , externalIDs : Dict String String
-    }
+type Activity
+    = Activity ActivitySkel
 
 
 {-| What's going on here?
@@ -52,71 +45,39 @@ Originally this was going to be done with duck typing - the stored record has on
 It seems the next best thing is to have an exact replica of the Activity record, where every value is wrapped in a maybe. Then at least blank activities can be represented by a type holding a bunch of nothings. Not as lightweight as I'd prefer, but it seems that other options (like using Dicts) sacrifice more. Also, we can make the default way of getting activities (allActivities) mix the defaults with the customizations and then the rest of the app doesn't have to worry about where it came from.
 
 -}
-type alias Customizations =
-    { names : Maybe (List String)
-    , icon : Maybe Icon
-    , excusable : Maybe Excusable
-    , taskOptional : Maybe Bool
-    , evidence : List Evidence
-    , category : Maybe Category
-    , backgroundable : Maybe Bool
-    , maxTime : Maybe DurationPerPeriod
-    , hidden : Maybe Bool
-    , template : Template
-    , id : ActivityID
-    , externalIDs : Dict String String
+type alias ActivitySkel =
+    { names : RepList String
+    , icon : RW (Maybe Icon)
+    , excusable : RW (Maybe Excusable)
+    , taskOptional : RW (Maybe Bool)
+    , evidence : RepList Evidence
+    , backgroundable : RW (Maybe Bool)
+    , maxTime : RW (Maybe DurationPerPeriod)
+    , hidden : RW (Maybe Bool)
+    , template : RW Template
+    , externalIDs : RepDict String String
     }
 
 
-decodeCustomizations : Decode.Decoder Customizations
-decodeCustomizations =
-    decode Customizations
-        |> withPresence "names" (Decode.list Decode.string)
-        |> withPresence "icon" decodeIcon
-        |> withPresence "excusable" decodeExcusable
-        |> withPresence "taskOptional" Decode.bool
-        |> withPresenceList "evidence" decodeEvidence
-        |> withPresence "category" decodeCategory
-        |> withPresence "backgroundable" Decode.bool
-        |> withPresence "maxTime" decodeDurationPerPeriod
-        |> withPresence "hidden" Decode.bool
-        |> Pipeline.required "template" decodeTemplate
-        |> Pipeline.required "id" ID.decode
-        |> Pipeline.optional "externalIDs" (Decode.dict Decode.string) Dict.empty
-
-
-encodeCustomizations : Customizations -> Encode.Value
-encodeCustomizations record =
-    encodeObjectWithoutNothings
-        [ normal ( "template", encodeTemplate record.template )
-        , normal ( "id", ID.encode record.id )
-        , omittable ( "names", Encode.list Encode.string, record.names )
-        , omittable ( "icon", encodeIcon, record.icon )
-        , omittable ( "excusable", encodeExcusable, record.excusable )
-        , omittable ( "taskOptional", Encode.bool, record.taskOptional )
-        , omittableList ( "evidence", encodeEvidence, record.evidence )
-        , omittable ( "category", encodeCategory, record.category )
-        , omittable ( "backgroundable", Encode.bool, record.backgroundable )
-        , omittable ( "maxTime", encodeDurationPerPeriod, record.maxTime )
-        , omittable ( "hidden", Encode.bool, record.hidden )
-        , normal ( "externalIDs", Encode.dict identity Encode.string record.externalIDs )
-        ]
-
-
-
--- encodeTask : Activity -> Encode.Value
--- encodeTask record =
---     Encode.object
---         [ ( "names" , Encode.list Encode.string record.names )
---         , ( "icon" , encodeIcon <| record.icon )
---         , ( "taskOptional" , Encode.bool <| record.taskOptional )
---         , ( "evidence" , Encode.list encodeEvidence record.evidence )
---         , ( "category" , encodeCategory <| record.category )
---         , ( "backgroundable" , Encode.bool record.history )
---         , ( "maxTime" , encodeDurationPerParent <| record.maxTime )
---         , ( "hidden" , Encode.bool <| record.hidden )
---         , ( "template" , encodeTemplate <| record.template )
---         ]
+codec : Codec String Activity
+codec =
+    let
+        activitySkelCodec : Codec String ActivitySkel
+        activitySkelCodec =
+            Codec.record ActivitySkel
+                |> listField ( 1, "names" ) .names Codec.string
+                |> writableField ( 2, "icon" ) .icon (Codec.maybe iconCodec) Nothing
+                |> writableField ( 3, "excusable" ) .excusable (Codec.maybe excusableCodec) Nothing
+                |> writableField ( 4, "taskOptional" ) .taskOptional (Codec.maybe Codec.bool) Nothing
+                |> listField ( 5, "evidence" ) .evidence Evidence.codec
+                |> writableField ( 7, "backgroundable" ) .backgroundable (Codec.maybe Codec.bool) Nothing
+                |> writableField ( 8, "maxTime" ) .maxTime (Codec.maybe durationPerPeriodCodec) Nothing
+                |> writableField ( 9, "hidden" ) .hidden (Codec.maybe Codec.bool) Nothing
+                |> essentialWritable ( 10, "template" ) .template Template.codec
+                |> dictField ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
+                |> Codec.finishRecord
+    in
+    activitySkelCodec |> Codec.map Activity (\(Activity skel) -> skel)
 
 
 type alias ActivityID =
@@ -124,24 +85,13 @@ type alias ActivityID =
 
 
 
--- isStock : Activity -> Bool
--- isStock activity =
---     case activity.id of
---         Stock template ->
---             True
+-- dummy : ActivityID
+-- dummy =
+--     ID.tag 0
 --
---         Custom int ->
---             False
-
-
-dummy : ActivityID
-dummy =
-    ID.tag 0
-
-
-dummyActivity : Activity
-dummyActivity =
-    defaults DillyDally
+-- dummyActivity : Activity
+-- dummyActivity =
+--     defaults DillyDally
 
 
 type Excusable
@@ -150,31 +100,29 @@ type Excusable
     | IndefinitelyExcused
 
 
-decodeExcusable : Decoder Excusable
-decodeExcusable =
-    decodeCustom
-        [ ( "NeverExcused", succeed NeverExcused )
-        , ( "TemporarilyExcused", Decode.map TemporarilyExcused decodeDurationPerPeriod )
-        , ( "IndefinitelyExcused", succeed IndefinitelyExcused )
-        ]
+excusableCodec : Codec String Excusable
+excusableCodec =
+    Codec.customType
+        (\neverExcused temporarilyExcused indefinitelyExcused value ->
+            case value of
+                NeverExcused ->
+                    neverExcused
 
+                TemporarilyExcused dpp ->
+                    temporarilyExcused dpp
 
-encodeExcusable : Excusable -> Encode.Value
-encodeExcusable v =
-    case v of
-        NeverExcused ->
-            Encode.string "NeverExcused"
-
-        TemporarilyExcused dpp ->
-            Encode.string "TemporarilyExcused"
-
-        IndefinitelyExcused ->
-            Encode.string "IndefinitelyExcused"
+                IndefinitelyExcused ->
+                    indefinitelyExcused
+        )
+        |> Codec.variant0 ( 1, "NeverExcused" ) NeverExcused
+        |> Codec.variant1 ( 2, "TemporarilyExcused" ) TemporarilyExcused durationPerPeriodCodec
+        |> Codec.variant0 ( 3, "IndefinitelyExcused" ) IndefinitelyExcused
+        |> Codec.finishCustomType
 
 
 excusableFor : Activity -> DurationPerPeriod
-excusableFor activity =
-    case activity.excusable of
+excusableFor (Activity skel) =
+    case Maybe.withDefault (defaults skel.template.get).excusable skel.excusable.get of
         NeverExcused ->
             ( Minutes 0, Minutes 0 )
 
@@ -196,32 +144,9 @@ type alias DurationPerPeriod =
     ( HumanDuration, HumanDuration )
 
 
-encodeDurationPerPeriod : DurationPerPeriod -> Encode.Value
-encodeDurationPerPeriod tuple =
-    homogeneousTuple2AsArray encodeHumanDuration tuple
-
-
-decodeDurationPerPeriod : Decode.Decoder DurationPerPeriod
-decodeDurationPerPeriod =
-    arrayAsTuple2 decodeHumanDuration decodeHumanDuration
-
-
-encodeHumanDuration : HumanDuration -> Encode.Value
-encodeHumanDuration humanDuration =
-    Encode.int <| Duration.inMs (dur humanDuration)
-
-
-decodeHumanDuration : Decode.Decoder HumanDuration
-decodeHumanDuration =
-    let
-        convertAndNormalize durationAsInt =
-            inLargestExactUnits (fromInt durationAsInt)
-    in
-    Decode.map convertAndNormalize Decode.int
-
-
-
--- interpretDuration : HumanDuration ->
+durationPerPeriodCodec : Codec String DurationPerPeriod
+durationPerPeriodCodec =
+    Codec.tuple Codec.humanDuration Codec.humanDuration
 
 
 {-| Icons. For activities, at least.
@@ -234,35 +159,28 @@ type Icon
     | Emoji String
 
 
-decodeIcon : Decoder Icon
-decodeIcon =
-    decodeCustom
-        [ ( "File", decodeFile )
-        , ( "Ion", succeed Ion )
-        , ( "Other", succeed Other )
-        , ( "Emoji", Decode.map Emoji Decode.string )
-        ]
+iconCodec : Codec e Icon
+iconCodec =
+    Codec.customType
+        (\file ion other emoji value ->
+            case value of
+                File svgpath ->
+                    file svgpath
 
+                Ion ->
+                    ion
 
-decodeFile : Decoder Icon
-decodeFile =
-    Decode.map File Decode.string
+                Other ->
+                    other
 
-
-encodeIcon : Icon -> Encode.Value
-encodeIcon v =
-    case v of
-        File path ->
-            Encode.string "File"
-
-        Ion ->
-            Encode.string "Ion"
-
-        Other ->
-            Encode.string "Other"
-
-        Emoji singleEmoji ->
-            Encode.string singleEmoji
+                Emoji emojiString ->
+                    emoji emojiString
+        )
+        |> Codec.variant1 ( 1, "File" ) File Codec.string
+        |> Codec.variant0 ( 2, "Ion" ) Ion
+        |> Codec.variant0 ( 3, "Other" ) Other
+        |> Codec.variant1 ( 4, "Emoji" ) Emoji Codec.string
+        |> Codec.finishCustomType
 
 
 {-| Icon files (scalable vector graphics, please!) location
@@ -279,104 +197,26 @@ type Category
     | Communication
 
 
-encodeCategory : Category -> Decode.Value
-encodeCategory v =
-    case v of
-        Transit ->
-            Encode.string "Transit"
-
-        Entertainment ->
-            Encode.string "Entertainment"
-
-        Hygiene ->
-            Encode.string "Hygiene"
-
-        Slacking ->
-            Encode.string "Slacking"
-
-        Communication ->
-            Encode.string "Communication"
-
-
-decodeCategory : Decoder Category
-decodeCategory =
-    Decode.string
-        |> Decode.andThen
-            (\string ->
-                case string of
-                    "Transit" ->
-                        Decode.succeed Transit
-
-                    "Entertainment" ->
-                        Decode.succeed Entertainment
-
-                    "Hygiene" ->
-                        Decode.succeed Hygiene
-
-                    "Slacking" ->
-                        Decode.succeed Slacking
-
-                    "Communication" ->
-                        Decode.succeed Communication
-
-                    _ ->
-                        Decode.fail "Invalid Category"
-            )
-
-
 type alias StoredActivities =
-    IntDict Customizations
+    RepDb Activity
 
 
-decodeStoredActivities : Decoder StoredActivities
-decodeStoredActivities =
-    Decode.map IntDict.fromList <| Decode.list (decodeTuple2 Decode.int decodeCustomizations)
-
-
-encodeStoredActivities : StoredActivities -> Encode.Value
-encodeStoredActivities value =
-    Encode.list (encodeTuple2 Encode.int encodeCustomizations) (IntDict.toList value)
-
-
-allActivities : StoredActivities -> IntDict Activity
-allActivities stored =
-    let
-        stock =
-            IntDict.fromList <| List.indexedMap Tuple.pair <| List.map defaults stockActivities
-
-        customized =
-            IntDict.map (\_ v -> withTemplate v) stored
-    in
-    IntDict.union customized stock
-
-
-{-| Get a full activity from the saved version (which only contains the user's modifications to the default template).
-It would be so much easier if i could just do { base | skel } like I originally wanted, when Customizations was just { template } with whatever extra fields the user overrode. Had to make it a maybe-ified carbon copy because updating a record with another (sub)record like { base | skel } isn't allowed...
--}
-withTemplate : Customizations -> Activity
-withTemplate delta =
-    let
-        base =
-            defaults delta.template
-
-        over b s =
-            Maybe.withDefault b s
-    in
-    { names = over base.names delta.names
-    , icon = over base.icon delta.icon
-    , excusable = over base.excusable delta.excusable
-    , taskOptional = over base.taskOptional delta.taskOptional
-    , evidence = List.append base.evidence delta.evidence
-    , category = over base.category delta.category
-    , backgroundable = over base.backgroundable delta.backgroundable
-    , maxTime = over base.maxTime delta.maxTime
-    , hidden = over base.hidden delta.hidden
-    , template = delta.template
-    , externalIDs = delta.externalIDs
+type alias ActivityDefaults =
+    { names : List String -- TODO should be Translations
+    , icon : Icon -- TODO figure out best way to do this. svg file path?
+    , excusable : Excusable
+    , taskOptional : Bool -- technically they can all be "unplanned"
+    , evidence : List Evidence
+    , category : Category
+    , backgroundable : Bool
+    , maxTime : DurationPerPeriod
+    , hidden : Bool -- The user can hide any of the "stock" activities they don't use
+    , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
+    , externalIDs : Dict String String
     }
 
 
-defaults : Template -> Activity
+defaults : Template -> ActivityDefaults
 defaults startWith =
     case startWith of
         DillyDally ->
@@ -1179,20 +1019,12 @@ defaults startWith =
 
 
 showing : Activity -> Bool
-showing activity =
-    not activity.hidden
+showing (Activity skel) =
+    skel.hidden.get
+        |> Maybe.withDefault False
+        |> not
 
 
 getName : Activity -> String
-getName activity =
-    Maybe.withDefault "?" (List.head activity.names)
-
-
-getActivity : ActivityID -> IntDict Activity -> Activity
-getActivity activityId activities =
-    case IntDict.get (ID.read activityId) activities of
-        Just activity ->
-            activity
-
-        Nothing ->
-            defaults DillyDally
+getName (Activity skel) =
+    Maybe.withDefault "?" (RepList.headValue skel.names)
