@@ -1,6 +1,6 @@
 module ID exposing
-    ( ID(..), encode, decode
-    , read, tag
+    ( ID(..)
+    , codec, read, tag
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -75,43 +75,30 @@ type User
 
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
+import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Op.OpID as OpID exposing (OpID)
 
 
 type ID userType
-    = ID Int
+    = ID OpID
 
 
 {-| Tag something with an ID!
 -}
-tag : Int -> ID userType
-tag int =
-    ID int
+tag : OpID -> ID userType
+tag opID =
+    ID opID
 
 
 {-| Read an ID!
 -}
-read : ID userType -> Int
-read (ID int) =
-    int
+read : ID userType -> OpID
+read (ID opID) =
+    opID
 
 
-{-| Encode an `ID`
-Encode.encode 0 (ID.encode id)
--- ""hDFL0Cs2EqWJ4jc3kMtOrKdEUTWh"" : String
-[ ("id", ID.encode id) ]
-|> Encode.object
-|> Encode.encode 0
--- {"id":"hDFL0Cs2EqWJ4jc3kMtOrKdEUTWh"} : String
--}
-encode : ID x -> Encode.Value
-encode (ID int) =
-    Encode.int int
-
-
-{-| Decode an `ID`
-Decode.decodeString (Decode.field "id" ID.decoder) "{"id":"19"}"
--- Ok (ID "19") : Result String ID
--}
-decode : Decoder (ID x)
-decode =
-    Decode.map ID Decode.int
+codec : Codec e (ID userType)
+codec =
+    Codec.string
+        |> Codec.map OpID.fromStringForced OpID.toString
+        |> Codec.map tag read
