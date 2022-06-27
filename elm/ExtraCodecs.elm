@@ -1,9 +1,11 @@
 module ExtraCodecs exposing (..)
 
+import ID exposing (ID)
 import Replicated.Codec as Codec exposing (Codec)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (TimeOfDay)
+import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as Moment exposing (Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period(..))
@@ -22,3 +24,12 @@ timeOfDay =
 duration : Codec String TimeOfDay
 duration =
     Codec.int |> Codec.map Duration.fromInt Duration.inMs
+
+
+humanDuration : Codec String HumanDuration
+humanDuration =
+    let
+        convertAndNormalize durationAsInt =
+            HumanDuration.inLargestExactUnits (Duration.fromInt durationAsInt)
+    in
+    Codec.int |> Codec.map convertAndNormalize (\hd -> Duration.inMs (HumanDuration.dur hd))
