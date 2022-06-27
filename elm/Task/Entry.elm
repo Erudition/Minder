@@ -115,7 +115,6 @@ superProjectChildCodec =
                 ProjectIsHere leaderParent ->
                     leaderIsHere leaderParent
         )
-        -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
         |> Codec.variant1 ( 1, "ProjectIsDeeper" ) ProjectIsDeeper (Codec.lazy (\_ -> superProjectCodec))
         |> Codec.variant1 ( 2, "ProjectIsHere" ) ProjectIsHere projectCodec
         |> Codec.finishCustomType

@@ -1627,6 +1627,19 @@ listField fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter (repList fieldValueCodec) Nothing recordBuilt
 
 
+{-| Read a `RepDict` field without adding the `repDict` codec. Default is an empty `RepDict`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
+
+  - Will not yet work with primitive `Dict` fields. For that, use the `immutableList` codec with `field`.
+  - Default is an empty RepDict. Want a different default? Use `field` with the `repDict` codec.
+  - If any items in the RepDict are corrupted, they will be silently excluded.
+  - If your field is not a `RepDict` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDict` codec instead.
+
+-}
+dictField : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyType, Codec errs valueType ) -> PartialRecord errs full (RepDict keyType valueType -> remaining) -> PartialRecord errs full remaining
+dictField fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
+    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) Nothing recordBuilt
+
+
 {-| Read a field containing a nested Register.
 -}
 nestedField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
