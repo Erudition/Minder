@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, empty, getID, insertNew, insertNewWithChanges, list, reducerID, remove, update)
+module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, empty, get, getID, insertNew, insertNewWithChanges, list, reducerID, remove, update)
 
 import Array exposing (Array)
 import Console

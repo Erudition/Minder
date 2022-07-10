@@ -1,9 +1,11 @@
 module Task.SessionSkel exposing (..)
 
+import ExtraCodecs as Codec
+import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
-import Helpers exposing (..)
+import Replicated.Codec as Codec exposing (Codec, dictField, essentialField, essentialWritable, field, listField, writableField)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
@@ -20,6 +22,11 @@ import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
 -}
 type alias UserPlannedSession =
     ( FuzzyMoment, Duration )
+
+
+codec : Codec String UserPlannedSession
+codec =
+    Codec.tuple Codec.fuzzyMoment Codec.duration
 
 
 decodeSession : Decoder UserPlannedSession

@@ -4,15 +4,17 @@ import Activity.Activity exposing (ActivityID)
 import Dict exposing (Dict)
 import ExtraCodecs as Codec
 import Helpers exposing (..)
-import ID
+import ID exposing (ID)
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
 import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -70,17 +72,7 @@ actionClassSkelCodec =
 
 
 type alias ActionClassID =
-    Int
-
-
-decodeActionClassID : Decode.Decoder ActionClassID
-decodeActionClassID =
-    Decode.int
-
-
-encodeActionClassID : ActionClassID -> Encode.Value
-encodeActionClassID taskClassID =
-    Encode.int taskClassID
+    ID ActionClassSkel
 
 
 
@@ -105,14 +97,18 @@ type alias ActionClass =
     { parents : List ParentProperties
     , recurrence : Maybe Task.Series.Series
     , class : ActionClassSkel
+    , classID : ID ActionClassSkel
+    , remove : Change
     }
 
 
-makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> ActionClassSkel -> ActionClass
-makeFullActionClass parentList recurrenceRules class =
+makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> RepDb.Member ActionClassSkel -> ActionClass
+makeFullActionClass parentList recurrenceRules classSkelMember =
     { parents = parentList
     , recurrence = recurrenceRules
-    , class = class
+    , class = classSkelMember.value
+    , classID = classSkelMember.id
+    , remove = classSkelMember.remove
     }
 
 

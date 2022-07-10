@@ -6,7 +6,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
-import SmartTime.Human.Moment as Moment exposing (Zone)
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period(..))
 
@@ -33,3 +33,8 @@ humanDuration =
             HumanDuration.inLargestExactUnits (Duration.fromInt durationAsInt)
     in
     Codec.int |> Codec.map convertAndNormalize (\hd -> Duration.inMs (HumanDuration.dur hd))
+
+
+fuzzyMoment : Codec String FuzzyMoment
+fuzzyMoment =
+    Codec.string |> Codec.mapValid HumanMoment.fuzzyFromString HumanMoment.fuzzyToString

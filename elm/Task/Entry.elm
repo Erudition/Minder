@@ -2,6 +2,7 @@ module Task.Entry exposing (..)
 
 import Date exposing (Date)
 import Helpers exposing (..)
+import ID exposing (ID)
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -10,6 +11,7 @@ import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
@@ -171,15 +173,15 @@ taskClassChildCodec =
                     nested followerParent
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 ( 1, "Singleton" ) Singleton Codec.int
+        |> Codec.variant1 ( 1, "Singleton" ) Singleton ID.codec
         |> Codec.variant1 ( 2, "Nested" ) Nested (Codec.lazy (\_ -> taskClassCodec))
         |> Codec.finishCustomType
 
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( List Entry, IntDict.IntDict ActionClassSkel ) -> ( List ActionClass, List Warning )
-getClassesFromEntries ( entries, classes ) =
+getClassesFromEntries : ( List Entry, RepDb ActionClassSkel ) -> ( List ActionClass, List Warning )
+getClassesFromEntries ( entries, classDb ) =
     let
         traverseRootWrappers entry =
             traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
@@ -205,7 +207,7 @@ getClassesFromEntries ( entries, classes ) =
         traverseFollowerChild accumulator recurrenceRules child =
             case child of
                 Singleton classID ->
-                    case IntDict.get classID classes of
+                    case RepDb.getMember classID classDb of
                         Just classSkel ->
                             List.singleton <| Ok <| makeFullActionClass accumulator recurrenceRules classSkel
 
