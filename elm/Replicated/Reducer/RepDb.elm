@@ -1,9 +1,10 @@
-module Replicated.Reducer.RepDb exposing (RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, getID, reducerID, remove, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, members, reducerID, size)
 
 import Array exposing (Array)
 import Console
 import Dict exposing (Dict)
 import Dict.Extra as Dict
+import ID exposing (ID)
 import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
@@ -30,8 +31,9 @@ type RepDb memberType
 
 
 type alias Member memberType =
-    { included : OpID -- the operation where this object was included - needed for removal
+    { id : ID memberType
     , value : memberType
+    , remove : Change
     }
 
 
@@ -52,15 +54,6 @@ getID (RepDb repSet) =
     repSet.id
 
 
-type ID a
-    = ID OpID.OpIDSortable
-
-
-memberIDToOpID : ID a -> OpID
-memberIDToOpID (ID opIDSortable) =
-    OpID.fromSortable opIDSortable
-
-
 reducerID : Op.ReducerID
 reducerID =
     "replist"
@@ -79,16 +72,17 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                 _ ->
                     Nothing
 
-        memberList : List ( OpID.OpIDSortable, Member memberType )
-        memberList =
+        keyValueList : List ( OpID.OpIDSortable, Member memberType )
+        keyValueList =
             case existingObjectMaybe of
                 Just foundObject ->
-                    List.filterMap eventToMemberPair (Dict.values foundObject.events)
+                    List.filterMap (eventToKeyMemberPairMaybe (Object.getID foundObject)) (Dict.values foundObject.events)
 
                 Nothing ->
                     []
 
-        eventToMemberPair event =
+        eventToKeyMemberPairMaybe : ObjectID -> Object.KeptEvent -> Maybe ( OpID.OpIDSortable, Member memberType )
+        eventToKeyMemberPairMaybe containerObjectID event =
             case
                 ( Object.extractOpIDFromEventPayload event
                 , payloadToMember (Object.eventPayloadAsJson event)
@@ -97,15 +91,24 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                 ( Just memberObjectID, Just memberValue ) ->
                     Just
                         ( OpID.toSortablePrimitives memberObjectID
-                        , Member (Object.eventID event) memberValue
+                        , { id = ID.tag memberObjectID
+                          , value = memberValue
+                          , remove = remover containerObjectID (Object.eventID event)
+                          }
                         )
 
                 _ ->
                     Nothing
+
+        remover containerObjectID inclusionEventID =
+            Change.Chunk
+                { target = Change.ExistingObjectPointer containerObjectID
+                , objectChanges = [ Change.RevertOp inclusionEventID ]
+                }
     in
     RepDb
         { id = targetObject
-        , members = Dict.fromList memberList
+        , members = Dict.fromList keyValueList
         , memberChanger = memberChanger
         , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
         , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
@@ -117,9 +120,14 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
 
 
 get : ID memberType -> RepDb memberType -> Maybe memberType
-get (ID memberIDSortable) (RepDb repDbRecord) =
-    Dict.get memberIDSortable repDbRecord.members
+get givenID (RepDb repDbRecord) =
+    Dict.get (OpID.toSortablePrimitives (ID.read givenID)) repDbRecord.members
         |> Maybe.map .value
+
+
+getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
+getMember givenID (RepDb repDbRecord) =
+    Dict.get (OpID.toSortablePrimitives (ID.read givenID)) repDbRecord.members
 
 
 {-| Get your RepDb as a read-only List.
@@ -130,24 +138,11 @@ list (RepDb repSetRecord) =
         |> List.map .value
 
 
-remove : RepDb memberType -> ID memberType -> Change
-remove (RepDb db) (ID memberIDSortable) =
-    let
-        lookupInclusionOp =
-            Dict.get memberIDSortable db.members
-
-        reversionChange =
-            case lookupInclusionOp of
-                Just member ->
-                    [ Change.RevertOp member.included ]
-
-                Nothing ->
-                    []
-    in
-    Change.Chunk
-        { target = db.id
-        , objectChanges = reversionChange
-        }
+{-| Get your RepDb as a list of `Member`s, providing you access to the Db-removal changer and the item's ID.
+-}
+members : RepDb memberType -> List (Member memberType)
+members (RepDb repSetRecord) =
+    Dict.values repSetRecord.members
 
 
 size : RepDb memberType -> Int
