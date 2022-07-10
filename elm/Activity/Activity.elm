@@ -81,7 +81,7 @@ codec =
 
 
 type alias ActivityID =
-    ID Activity
+    ID ActivitySkel
 
 
 

@@ -62,7 +62,7 @@ focusCodec =
                 Tag tagID ->
                     tagEncoder tagID
         )
-        |> Codec.variant1 ( 0, "Activity" ) Activity (Codec.map ID.tag ID.read Codec.int)
+        |> Codec.variant1 ( 0, "Activity" ) Activity ID.codec
         |> Codec.variant1 ( 1, "Tag" ) Tag Codec.string
         |> Codec.finishCustomType
 

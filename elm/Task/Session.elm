@@ -4,6 +4,7 @@ import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
@@ -47,16 +48,16 @@ getFullSessions fullInstance =
             fullInstance.instance
 
         providedSessions =
-            ins.plannedSessions
+            RepList.list ins.plannedSessions
 
         generatedSessions =
             let
                 sessionStart =
                     -- TODO these are end, not start
-                    Maybe.Extra.or ins.finishBy ins.externalDeadline
+                    Maybe.Extra.or ins.finishBy.get ins.externalDeadline.get
 
                 taskDuration =
-                    fullInstance.class.maxEffort
+                    fullInstance.class.maxEffort.get
             in
             case sessionStart of
                 Just foundStart ->

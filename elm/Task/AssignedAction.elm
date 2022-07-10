@@ -10,6 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, dictField, essentialField, essentialWritable, field, listField, writableField)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -21,7 +22,7 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
-import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, decodeActionClassID, decodeTaskMoment, encodeTaskMoment)
+import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, decodeTaskMoment, encodeTaskMoment)
 import Task.Entry exposing (Entry, getClassesFromEntries)
 import Task.Progress as Progress exposing (..)
 import Task.Series exposing (Series, SeriesID)
@@ -36,7 +37,7 @@ import ZoneHistory exposing (ZoneHistory)
 {-| Definition of a single instance of a single task - one particular time that the specific thing will be done, that can be scheduled. Can be thought of as an "assignment" of a task (class). There may be zero (an unassigned task), and there may be many (a repeated task) for a given class.
 -}
 type alias AssignedActionSkel =
-    { class : ActionClassID
+    { classID : ActionClassID
     , memberOfSeries : Maybe SeriesID
     , completion : RW Progress.Portion
     , externalDeadline : RW (Maybe FuzzyMoment) -- *
@@ -52,7 +53,7 @@ type alias AssignedActionSkel =
 assignedActionSkelCodec : Codec String AssignedActionSkel
 assignedActionSkelCodec =
     Codec.record AssignedActionSkel
-        |> essentialField ( 1, "class" ) .class Codec.int
+        |> essentialField ( 1, "classID" ) .classID ID.codec
         |> Codec.field ( 2, "memberOfSeries" ) .memberOfSeries (Codec.maybe Codec.int) Nothing
         |> writableField ( 3, "completion" ) .completion Codec.int 0
         |> writableField ( 4, "externalDeadline" ) .externalDeadline (Codec.maybe Codec.fuzzyMoment) Nothing
@@ -92,9 +93,9 @@ Take the skeleton data and get all relevant(within given time period) instances 
 TODO organize with IDs somehow
 
 -}
-listAllAssignedActions : List ActionClass -> IntDict.IntDict AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
-listAllAssignedActions fullClasses savedInstanceSkeletons timeData =
-    List.concatMap (assignedActionsOfClass timeData savedInstanceSkeletons) fullClasses
+listAllAssignedActions : List ActionClass -> RepDb AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
+listAllAssignedActions fullClasses instanceSkeletonDb timeData =
+    List.concatMap (assignedActionsOfClass timeData instanceSkeletonDb) fullClasses
 
 
 {-| Take a class and return all of the instances relevant within the given period - saved or generated.
@@ -108,7 +109,7 @@ assignedActionsOfClass : ( ZoneHistory, Period ) -> RepDb AssignedActionSkel -> 
 assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
     let
         savedInstancesWithMatchingClass =
-            List.filter (\member -> member.value.class == fullClass.classID) (RepDb.members allSavedInstances)
+            List.filter (\member -> member.value.classID == fullClass.classID) (RepDb.members allSavedInstances)
 
         savedInstancesFull =
             List.indexedMap toFull savedInstancesWithMatchingClass

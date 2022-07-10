@@ -38,3 +38,8 @@ humanDuration =
 fuzzyMoment : Codec String FuzzyMoment
 fuzzyMoment =
     Codec.string |> Codec.mapValid HumanMoment.fuzzyFromString HumanMoment.fuzzyToString
+
+
+moment : Codec String Moment
+moment =
+    Codec.int |> Codec.map Moment.fromSmartInt Moment.toSmartInt
