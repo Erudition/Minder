@@ -128,7 +128,7 @@ type alias ActionClassSkel =
     actionClassSkelCodec =
         Codec.record ActionClassSkel
             |> essentialWritable ( 1, "title" ) .title Codec.string
-            |> writableField ( 2, "activity" ) .activity (Codec.maybe ID.codec) Nothing
+            |> writableField ( 2, "activity" ) .activity (Codec.maybe Codec.id) Nothing
             |> writableField ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
             |> writableField ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
             |> writableField ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero

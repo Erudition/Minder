@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, members, reducerID, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, list, members, reducerID, size)
 
 import Array exposing (Array)
 import Console

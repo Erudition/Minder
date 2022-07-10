@@ -2,7 +2,7 @@ module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, deco
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
-import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec, fieldDict, coreRW, fieldList, fieldRW)
 
 
 {-| Proper Fractions, but with named units

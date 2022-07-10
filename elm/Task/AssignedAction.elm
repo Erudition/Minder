@@ -11,7 +11,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, dictField, essentialField, essentialWritable, field, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -53,16 +53,16 @@ type alias AssignedActionSkel =
 assignedActionSkelCodec : Codec String AssignedActionSkel
 assignedActionSkelCodec =
     Codec.record AssignedActionSkel
-        |> essentialField ( 1, "classID" ) .classID ID.codec
-        |> Codec.field ( 2, "memberOfSeries" ) .memberOfSeries (Codec.maybe Codec.int) Nothing
-        |> writableField ( 3, "completion" ) .completion Codec.int 0
-        |> writableField ( 4, "externalDeadline" ) .externalDeadline (Codec.maybe Codec.fuzzyMoment) Nothing
-        |> writableField ( 5, "startBy" ) .startBy (Codec.maybe Codec.fuzzyMoment) Nothing
-        |> writableField ( 6, "finishBy" ) .finishBy (Codec.maybe Codec.fuzzyMoment) Nothing
-        |> listField ( 7, "plannedSessions" ) .plannedSessions Session.codec
-        |> writableField ( 8, "relevanceStarts" ) .relevanceStarts (Codec.maybe Codec.fuzzyMoment) Nothing
-        |> writableField ( 9, "relevanceEnds" ) .relevanceEnds (Codec.maybe Codec.fuzzyMoment) Nothing
-        |> dictField ( 10, "extra" ) .extra ( Codec.string, Codec.string )
+        |> Codec.coreR ( 1, "classID" ) .classID Codec.id
+        |> Codec.maybeR ( 2, "memberOfSeries" ) .memberOfSeries Codec.int
+        |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0
+        |> Codec.maybeRW ( 4, "externalDeadline" ) .externalDeadline Codec.fuzzyMoment
+        |> Codec.maybeRW ( 5, "startBy" ) .startBy Codec.fuzzyMoment
+        |> Codec.maybeRW ( 6, "finishBy" ) .finishBy Codec.fuzzyMoment
+        |> Codec.fieldList ( 7, "plannedSessions" ) .plannedSessions Session.codec
+        |> Codec.maybeRW ( 8, "relevanceStarts" ) .relevanceStarts Codec.fuzzyMoment
+        |> Codec.maybeRW ( 9, "relevanceEnds" ) .relevanceEnds Codec.fuzzyMoment
+        |> Codec.fieldDict ( 10, "extra" ) .extra ( Codec.string, Codec.string )
         |> Codec.finishRecord
 
 

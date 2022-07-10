@@ -13,7 +13,7 @@ import IntDict exposing (IntDict)
 import Ionicon
 import Ionicon.Android as Android
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (Codec, dictField, essentialField, essentialWritable, field, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, fieldDict, fieldList, fieldR, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -38,9 +38,9 @@ codec =
         skelCodec : Codec String SwitchSkel
         skelCodec =
             Codec.record SwitchSkel
-                |> essentialField ( 1, "moment" ) .moment Codec.moment
-                |> essentialField ( 2, "newActivity" ) .newActivity ID.codec
-                |> field ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe ID.codec) Nothing
+                |> coreR ( 1, "moment" ) .moment Codec.moment
+                |> coreR ( 2, "newActivity" ) .newActivity Codec.id
+                |> fieldR ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing
                 |> Codec.finishRecord
     in
     Codec.map Switch (\(Switch skel) -> skel) skelCodec

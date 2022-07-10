@@ -44,10 +44,10 @@ encodeTimeBlock timeBlock =
 codec : Codec String TimeBlock
 codec =
     Codec.record TimeBlock
-        |> Codec.essentialWritable ( 1, "focus" ) .focus focusCodec
-        |> Codec.essentialWritable ( 2, "date" ) .date Codec.calendarDate
-        |> Codec.essentialWritable ( 3, "startTime" ) .startTime Codec.timeOfDay
-        |> Codec.writableField ( 4, "duration" ) .duration Codec.duration Duration.anHour
+        |> Codec.coreRW ( 1, "focus" ) .focus focusCodec
+        |> Codec.coreRW ( 2, "date" ) .date Codec.calendarDate
+        |> Codec.coreRW ( 3, "startTime" ) .startTime Codec.timeOfDay
+        |> Codec.fieldRW ( 4, "duration" ) .duration Codec.duration Duration.anHour
         |> Codec.finishRecord
 
 
@@ -62,7 +62,7 @@ focusCodec =
                 Tag tagID ->
                     tagEncoder tagID
         )
-        |> Codec.variant1 ( 0, "Activity" ) Activity ID.codec
+        |> Codec.variant1 ( 0, "Activity" ) Activity Codec.id
         |> Codec.variant1 ( 1, "Tag" ) Tag Codec.string
         |> Codec.finishCustomType
 

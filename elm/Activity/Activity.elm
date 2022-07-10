@@ -16,7 +16,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -29,8 +29,9 @@ import Time
 import Time.Extra exposing (..)
 
 
-type Activity
-    = Activity ActivitySkel
+type ActivityID
+    = BuiltInActivity Template
+    | CustomActivity Template (ID CustomActivitySkel)
 
 
 {-| What's going on here?
@@ -45,7 +46,7 @@ Originally this was going to be done with duck typing - the stored record has on
 It seems the next best thing is to have an exact replica of the Activity record, where every value is wrapped in a maybe. Then at least blank activities can be represented by a type holding a bunch of nothings. Not as lightweight as I'd prefer, but it seems that other options (like using Dicts) sacrifice more. Also, we can make the default way of getting activities (allActivities) mix the defaults with the customizations and then the rest of the app doesn't have to worry about where it came from.
 
 -}
-type alias ActivitySkel =
+type alias BuiltInActivitySkel =
     { names : RepList String
     , icon : RW (Maybe Icon)
     , excusable : RW (Maybe Excusable)
@@ -54,44 +55,62 @@ type alias ActivitySkel =
     , backgroundable : RW (Maybe Bool)
     , maxTime : RW (Maybe DurationPerPeriod)
     , hidden : RW (Maybe Bool)
-    , template : RW Template
     , externalIDs : RepDict String String
     }
 
 
-codec : Codec String Activity
-codec =
-    let
-        activitySkelCodec : Codec String ActivitySkel
-        activitySkelCodec =
-            Codec.record ActivitySkel
-                |> listField ( 1, "names" ) .names Codec.string
-                |> writableField ( 2, "icon" ) .icon (Codec.maybe iconCodec) Nothing
-                |> writableField ( 3, "excusable" ) .excusable (Codec.maybe excusableCodec) Nothing
-                |> writableField ( 4, "taskOptional" ) .taskOptional (Codec.maybe Codec.bool) Nothing
-                |> listField ( 5, "evidence" ) .evidence Evidence.codec
-                |> writableField ( 7, "backgroundable" ) .backgroundable (Codec.maybe Codec.bool) Nothing
-                |> writableField ( 8, "maxTime" ) .maxTime (Codec.maybe durationPerPeriodCodec) Nothing
-                |> writableField ( 9, "hidden" ) .hidden (Codec.maybe Codec.bool) Nothing
-                |> essentialWritable ( 10, "template" ) .template Template.codec
-                |> dictField ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
-                |> Codec.finishRecord
-    in
-    activitySkelCodec |> Codec.map Activity (\(Activity skel) -> skel)
+builtInActivitySkelCodec : Codec String BuiltInActivitySkel
+builtInActivitySkelCodec =
+    Codec.record BuiltInActivitySkel
+        |> fieldList ( 1, "names" ) .names Codec.string
+        |> maybeRW ( 2, "icon" ) .icon iconCodec
+        |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
+        |> maybeRW ( 4, "taskOptional" ) .taskOptional Codec.bool
+        |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
+        |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
+        |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
+        |> maybeRW ( 9, "hidden" ) .hidden Codec.bool
+        |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
+        |> Codec.finishRecord
 
 
-type alias ActivityID =
-    ID ActivitySkel
+type alias CustomActivitySkel =
+    { names : RepList String
+    , icon : RW (Maybe Icon)
+    , excusable : RW (Maybe Excusable)
+    , taskOptional : RW (Maybe Bool)
+    , evidence : RepList Evidence
+    , backgroundable : RW (Maybe Bool)
+    , maxTime : RW (Maybe DurationPerPeriod)
+    , hidden : RW (Maybe Bool)
+    , externalIDs : RepDict String String
+    }
 
 
+customActivitySkelCodec : Codec String CustomActivitySkel
+customActivitySkelCodec =
+    Codec.record CustomActivitySkel
+        |> fieldList ( 1, "names" ) .names Codec.string
+        |> maybeRW ( 2, "icon" ) .icon iconCodec
+        |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
+        |> maybeRW ( 4, "taskOptional" ) .taskOptional Codec.bool
+        |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
+        |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
+        |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
+        |> maybeRW ( 9, "hidden" ) .hidden Codec.bool
+        |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
+        |> Codec.finishRecord
 
--- dummy : ActivityID
--- dummy =
---     ID.tag 0
---
--- dummyActivity : Activity
--- dummyActivity =
---     defaults DillyDally
+
+type alias StoredActivities =
+    ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
+
+
+storedActivitiesCodec : Codec String StoredActivities
+storedActivitiesCodec =
+    Codec.tuple
+        (Codec.repDict Template.codec builtInActivitySkelCodec)
+        (Codec.repDb customActivitySkelCodec)
 
 
 type Excusable
@@ -121,8 +140,8 @@ excusableCodec =
 
 
 excusableFor : Activity -> DurationPerPeriod
-excusableFor (Activity skel) =
-    case Maybe.withDefault (defaults skel.template.get).excusable skel.excusable.get of
+excusableFor skel =
+    case skel.excusable of
         NeverExcused ->
             ( Minutes 0, Minutes 0 )
 
@@ -197,11 +216,7 @@ type Category
     | Communication
 
 
-type alias StoredActivities =
-    RepDb Activity
-
-
-type alias ActivityDefaults =
+type alias Activity =
     { names : List String -- TODO should be Translations
     , icon : Icon -- TODO figure out best way to do this. svg file path?
     , excusable : Excusable
@@ -216,7 +231,7 @@ type alias ActivityDefaults =
     }
 
 
-defaults : Template -> ActivityDefaults
+defaults : Template -> Activity
 defaults startWith =
     case startWith of
         DillyDally ->
@@ -1019,12 +1034,10 @@ defaults startWith =
 
 
 showing : Activity -> Bool
-showing (Activity skel) =
-    skel.hidden.get
-        |> Maybe.withDefault False
-        |> not
+showing act =
+    not act.hidden
 
 
 getName : Activity -> String
-getName (Activity skel) =
-    Maybe.withDefault "?" (RepList.headValue skel.names)
+getName act =
+    Maybe.withDefault "?" (List.head act.names)

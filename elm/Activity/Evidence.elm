@@ -5,7 +5,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Codec as Codec exposing (Codec, essentialWritable, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec, coreRW, fieldList, fieldRW)
 
 
 type Evidence
@@ -38,8 +38,8 @@ type alias AppDescriptor =
 appDescriptorCodec : Codec e AppDescriptor
 appDescriptorCodec =
     Codec.record AppDescriptor
-        |> Codec.essentialField ( 1, "package" ) .package Codec.string
-        |> Codec.essentialField ( 2, "name" ) .name Codec.string
+        |> Codec.coreR ( 1, "package" ) .package Codec.string
+        |> Codec.coreR ( 2, "name" ) .name Codec.string
         |> Codec.finishRecord
 
 

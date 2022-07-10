@@ -12,7 +12,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, dictField, essentialWritable, listField, writableField)
+import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -55,19 +55,19 @@ type alias ActionClassSkel =
 actionClassSkelCodec : Codec String ActionClassSkel
 actionClassSkelCodec =
     Codec.record ActionClassSkel
-        |> essentialWritable ( 1, "title" ) .title Codec.string
-        |> writableField ( 2, "activity" ) .activity (Codec.maybe ID.codec) Nothing
-        |> writableField ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
-        |> writableField ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
-        |> writableField ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero
-        |> writableField ( 6, "maxEffort" ) .maxEffort Codec.duration Duration.zero
-        |> listField ( 7, "defaultExternalDeadline" ) .defaultExternalDeadline relativeTimingCodec
-        |> listField ( 8, "defaultStartBy" ) .defaultStartBy relativeTimingCodec
-        |> listField ( 9, "defaultFinishBy" ) .defaultFinishBy relativeTimingCodec
-        |> listField ( 10, "defaultRelevanceStarts" ) .defaultRelevanceStarts relativeTimingCodec
-        |> listField ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
-        |> writableField ( 12, "importance" ) .importance Codec.float 1
-        |> dictField ( 13, "extra" ) .extra ( Codec.string, Codec.string )
+        |> coreRW ( 1, "title" ) .title Codec.string
+        |> maybeRW ( 2, "activity" ) .activity Codec.id
+        |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
+        |> fieldRW ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
+        |> fieldRW ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero
+        |> fieldRW ( 6, "maxEffort" ) .maxEffort Codec.duration Duration.zero
+        |> fieldList ( 7, "defaultExternalDeadline" ) .defaultExternalDeadline relativeTimingCodec
+        |> fieldList ( 8, "defaultStartBy" ) .defaultStartBy relativeTimingCodec
+        |> fieldList ( 9, "defaultFinishBy" ) .defaultFinishBy relativeTimingCodec
+        |> fieldList ( 10, "defaultRelevanceStarts" ) .defaultRelevanceStarts relativeTimingCodec
+        |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
+        |> fieldRW ( 12, "importance" ) .importance Codec.float 1
+        |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
         |> Codec.finishRecord
 
 
@@ -87,7 +87,7 @@ type alias ParentProperties =
 parentPropertiesCodec : Codec String ParentProperties
 parentPropertiesCodec =
     Codec.record ParentProperties
-        |> writableField ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
+        |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
         |> Codec.finishRecord
 
 

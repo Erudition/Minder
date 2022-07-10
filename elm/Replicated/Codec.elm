@@ -34,7 +34,7 @@ Here's some advice when choosing:
 
 # Records
 
-@docs RecordCodec, record, field, finishRecord
+@docs RecordCodec, record, fieldR, finishRecord
 
 
 # Custom Types
@@ -72,6 +72,7 @@ import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Reducer.Register as Register exposing (RW, Register(..))
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Set exposing (Set)
@@ -158,7 +159,7 @@ type alias RegisterFieldEncoder =
 {-| Inputs to a node Field decoder.
 
 Why is Register a Maybe?
-First launch ever, Register would not exist, can't create it during decode phase either. Yet we need the record to be filled, which is why we have field defaults. It would be created as soon as the first field is set to a non-default value.
+First launch ever, Register would not exist, can't create it during decode phase either. Yet we need the record to be filled, which is why we have fieldR defaults. It would be created as soon as the first fieldR is set to a non-default value.
 
 -}
 type alias RegisterFieldEncoderInputs =
@@ -973,6 +974,84 @@ array codec =
     immutableList codec |> mapHelper (Result.map Array.fromList) Array.toList
 
 
+{-| A replicated list
+-}
+repDb : Codec e memberType -> Codec e (RepDb memberType)
+repDb memberCodec =
+    let
+        memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.PotentialPayload
+        memberRonEncoder node encodeModeMaybe parentNotifier newValue =
+            getNodeEncoder memberCodec
+                { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                , node = node
+                , thingToEncode = EncodeThisFlat newValue
+                , parentNotifier = parentNotifier
+                , pendingCounter = Change.unmatchableCounter
+                }
+
+        memberChanger node encodeModeMaybe parentNotifier newMemberValue newRefMaybe =
+            case newRefMaybe of
+                Just givenRef ->
+                    Change.NewPayloadWithRef { payload = memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue, ref = givenRef }
+
+                Nothing ->
+                    Change.NewPayload (memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue)
+
+        memberRonDecoder : Node -> Change.PendingCounter -> JE.Value -> Maybe memberType
+        memberRonDecoder node childPendingCounter encodedMember =
+            case JD.decodeValue (getNodeDecoder memberCodec { node = node, pendingCounter = childPendingCounter, parentNotifier = identity }) encodedMember of
+                Ok (Ok member) ->
+                    Just member
+
+                _ ->
+                    Nothing
+
+        repDbNodeDecoder : NodeDecoder e (RepDb memberType)
+        repDbNodeDecoder ({ node, pendingCounter, parentNotifier } as details) =
+            let
+                pending =
+                    Change.usePendingCounter 0 pendingCounter
+
+                target foundObjects =
+                    case Node.getObjectIfExists node foundObjects of
+                        Just objectFound ->
+                            Change.ExistingObjectPointer objectFound.creation
+
+                        Nothing ->
+                            Change.PlaceholderPointer RepDb.reducerID pending.id parentNotifier
+
+                foundOrGeneratedRepDb foundObjects =
+                    Ok <| RepDb.buildFromReplicaDb node (target foundObjects) (memberRonDecoder node pending.passToChild) (memberChanger node Nothing parentNotifier)
+            in
+            JD.map foundOrGeneratedRepDb concurrentObjectIDsDecoder
+
+        repDbNodeEncoder : NodeEncoder (RepDb memberType)
+        repDbNodeEncoder ({ node, thingToEncode, mode, parentNotifier, pendingCounter } as details) =
+            case thingToEncode of
+                EncodeThisFlat existingRepDb ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = RepDb.getID existingRepDb
+                            , objectChanges = [] -- TODO should this be blank
+                            }
+
+                _ ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = Change.PlaceholderPointer RepDb.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
+                            , objectChanges = []
+                            }
+    in
+    Codec
+        { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.list input)
+        , bytesDecoder = BD.fail
+        , jsonEncoder = \input -> JE.list (getJsonEncoder memberCodec) (RepDb.list input)
+        , jsonDecoder = JD.fail "no repdb"
+        , nodeEncoder = Just repDbNodeEncoder
+        , nodeDecoder = Just repDbNodeDecoder
+        }
+
+
 {-| A replicated dict
 -}
 repDict : Codec e k -> Codec e v -> Codec e (RepDict k v)
@@ -1397,7 +1476,7 @@ fragileRecord ctor =
         }
 
 
-{-| Add an un-reorderable field to the record we are creating a codec for.
+{-| Add an un-reorderable fieldR to the record we are creating a codec for.
 -}
 fixedField : (a -> f) -> Codec e f -> FragileRecordCodec e a (f -> b) -> FragileRecordCodec e a b
 fixedField getter codec (FragileRecordCodec recordCodec) =
@@ -1509,7 +1588,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
-            -- TODO initial numbers  allowed in JSON field names?
+            -- TODO initial numbers  allowed in JSON fieldR names?
             String.fromInt fieldSlot ++ fieldName
 
         addToPartialBytesEncoderList existingRecord =
@@ -1592,25 +1671,25 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
 {-| Read a record field.
 The last argument specifies a default value, which is used when initializing the record for the first time.
 
-  - Your code will not be able to make changes to this field, only read the value set by other sources. Consider "writable" if you want a read+write field. You will need to prefix your field's type with `RW`.
+  - Your code will not be able to make changes to this fieldR, only read the value set by other sources. Consider "writable" if you want a read+write field. You will need to prefix your field's type with `RW`.
   - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
   - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
-  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the field in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
+  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the fieldR in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
-field ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault soFar =
+fieldR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault soFar =
     readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (Just fieldDefault) soFar
 
 
 {-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
 
-  - If your field will more often be set to something else (e.g. `Just 0`), consider using `readable` with your `maybe`-wrapped codec instead and using the common value as the default. This will save space and bandwidth.
+  - If your fieldR will more often be set to something else (e.g. `Just 0`), consider using `readable` with your `maybe`-wrapped codec instead and using the common value as the default. This will save space and bandwidth.
 
 -}
-maybeField : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs justFieldType -> PartialRecord errs full (Maybe justFieldType -> remaining) -> PartialRecord errs full remaining
-maybeField fieldID fieldGetter fieldValueCodec recordBuilt =
+maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs justFieldType -> PartialRecord errs full (Maybe justFieldType -> remaining) -> PartialRecord errs full remaining
+maybeR fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter (maybe fieldValueCodec) Nothing recordBuilt
 
 
@@ -1619,11 +1698,11 @@ maybeField fieldID fieldGetter fieldValueCodec recordBuilt =
   - Will not work with primitive `List` fields. For that, use the `immutableList` codec with `field`.
   - Default is an empty RepList. Want a different default? Use `field` with the `repList` codec.
   - If any items in the RepList are corrupted, they will be silently excluded.
-  - If your field is not a `RepList` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repList` codec instead.
+  - If your fieldR is not a `RepList` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repList` codec instead.
 
 -}
-listField : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberType -> PartialRecord errs full (RepList memberType -> remaining) -> PartialRecord errs full remaining
-listField fieldID fieldGetter fieldValueCodec recordBuilt =
+fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberType -> PartialRecord errs full (RepList memberType -> remaining) -> PartialRecord errs full remaining
+fieldList fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter (repList fieldValueCodec) Nothing recordBuilt
 
 
@@ -1632,34 +1711,50 @@ listField fieldID fieldGetter fieldValueCodec recordBuilt =
   - Will not yet work with primitive `Dict` fields. For that, use the `immutableList` codec with `field`.
   - Default is an empty RepDict. Want a different default? Use `field` with the `repDict` codec.
   - If any items in the RepDict are corrupted, they will be silently excluded.
-  - If your field is not a `RepDict` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDict` codec instead.
+  - If your fieldR is not a `RepDict` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDict` codec instead.
 
 -}
-dictField : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyType, Codec errs valueType ) -> PartialRecord errs full (RepDict keyType valueType -> remaining) -> PartialRecord errs full remaining
-dictField fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
+fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyType, Codec errs valueType ) -> PartialRecord errs full (RepDict keyType valueType -> remaining) -> PartialRecord errs full remaining
+fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
     readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) Nothing recordBuilt
 
 
-{-| Read a field containing a nested Register.
+{-| Read a fieldR containing a nested Register.
 -}
 nestedField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
 nestedField fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
 
 
-{-| Read a record field wrapped with `RW`. This makes the field writable.
+{-| Read a record field wrapped with `RW`. This makes the fieldR writable.
 The last argument specifies a default value, which is used when initializing the record for the first time.
 
   - Due to the RW wrapper, you will need to add `.get` to the output whenever you want to access the field's latest value as usual. Read-only fields do not require this.
   - Thanks to the RW wrapper, you can add `.set` to the output anywhere in your program to produce a `Change`. These changes can then be saved, updating the stored value.
   - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
   - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
-  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the field in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
+  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the fieldR in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-writableField : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
-writableField fieldIdentifier fieldGetter fieldValueCodec fieldDefault soFar =
+maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldType -> PartialRecord errs full (RW (Maybe fieldType) -> remaining) -> PartialRecord errs full remaining
+maybeRW fieldIdentifier fieldGetter fieldValueCodec soFar =
+    writableHelper fieldIdentifier fieldGetter (maybe fieldValueCodec) (Just Nothing) soFar
+
+
+{-| Read a `Maybe` record field wrapped with `RW`. This makes the fieldR writable.
+The last argument specifies a default value, which is used when initializing the record for the first time.
+
+  - Due to the RW wrapper, you will need to add `.get` to the output whenever you want to access the field's latest value as usual. Read-only fields do not require this.
+  - Thanks to the RW wrapper, you can add `.set` to the output anywhere in your program to produce a `Change`. These changes can then be saved, updating the stored value.
+  - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
+  - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
+  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the fieldR in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
+  - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
+
+-}
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+fieldRW fieldIdentifier fieldGetter fieldValueCodec fieldDefault soFar =
     writableHelper fieldIdentifier fieldGetter fieldValueCodec (Just fieldDefault) soFar
 
 
@@ -1668,12 +1763,12 @@ writableField fieldIdentifier fieldGetter fieldValueCodec fieldDefault soFar =
   - Only add required fields BEFORE using in production for the first time.
   - NEVER add required fields after that, or old data may be seen as corrupt.
   - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
-  - Will it be essential forever? Once you require a field, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
-  - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
+  - Will it be essential forever? Once you require a fieldR, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
+  - Consider if this fieldR being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the fieldR is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this fieldR were truly essential.)
 
 -}
-essentialField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
-essentialField fieldID fieldGetter fieldValueCodec recordBuilt =
+coreR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining
+coreR fieldID fieldGetter fieldValueCodec recordBuilt =
     readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
 
 
@@ -1682,12 +1777,12 @@ essentialField fieldID fieldGetter fieldValueCodec recordBuilt =
   - Only add required fields BEFORE using in production for the first time.
   - NEVER add required fields after that, or old data may be seen as corrupt.
   - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
-  - Will it be essential forever? Once you require a field, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
-  - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
+  - Will it be essential forever? Once you require a fieldR, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
+  - Consider if this fieldR being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the fieldR is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this fieldR were truly essential.)
 
 -}
-essentialWritable : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
-essentialWritable fieldIdentifier fieldGetter fieldValueCodec soFar =
+coreRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> PartialRecord errs full (RW fieldType -> remaining) -> PartialRecord errs full remaining
+coreRW fieldIdentifier fieldGetter fieldValueCodec soFar =
     writableHelper fieldIdentifier fieldGetter fieldValueCodec Nothing soFar
 
 
@@ -1854,11 +1949,11 @@ registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCod
         Just default ->
             case fieldLatestValueMaybe of
                 Nothing ->
-                    -- field was never set - fall back to default
+                    -- fieldR was never set - fall back to default
                     JD.succeed (Ok default)
 
                 Just foundField ->
-                    -- field was set - decode value and use it
+                    -- fieldR was set - decode value and use it
                     case runFieldDecoder (Op.payloadToJsonValue foundField) of
                         Ok something ->
                             JD.succeed something
@@ -1873,7 +1968,7 @@ registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCod
             -- for nested objects ONLY (fieldN)
             let
                 logMsg =
-                    "++++ registerReadOnlyFieldDecoder (fieldN): in parent register found field '" ++ fieldName ++ "' with history "
+                    "++++ registerReadOnlyFieldDecoder (fieldN): in parent register found fieldR '" ++ fieldName ++ "' with history "
 
                 fieldUUIDHistoryList =
                     case inputs.parent of
@@ -1937,7 +2032,7 @@ registerWritableFieldDecoder ( fieldSlot, fieldName ) defaultMaybe fieldValueCod
                     JD.succeed <| Ok <| wrapRW (PlaceholderPointer Register.reducerID pendingID updateMePostChildInit) default
 
                 Nothing ->
-                    JD.fail <| "Missing required field " ++ fieldName
+                    JD.fail <| "Missing required fieldR " ++ fieldName
 
         -- We are working with an Register
         ExistingRegister registerObject ->
@@ -2168,14 +2263,14 @@ obsolete reservedList input =
     input
 
 
-{-| Whether we will be encoding this field, or skipping it. specific to registers. Used to do this for all encoder output, but it made everything harder.
+{-| Whether we will be encoding this fieldR, or skipping it. specific to registers. Used to do this for all encoder output, but it made everything harder.
 -}
 type RegisterFieldEncoderOutput
     = EncodeThisField Change.ObjectChange
     | SkipThisField
 
 
-{-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded, so the return result is a big list of Ops.
+{-| Adds an item to the list of replica encoders, for encoding a single Register fieldR into an Op, if applicable. This fieldR may contain further nested fields which also are encoded, so the return result is a big list of Ops.
 
 Updated to separate cases where the object needs to be created.
 

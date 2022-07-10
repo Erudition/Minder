@@ -2,6 +2,7 @@ module ExtraCodecs exposing (..)
 
 import ID exposing (ID)
 import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Op.OpID as OpID
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (TimeOfDay)
@@ -9,6 +10,13 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period(..))
+
+
+id : Codec e (ID userType)
+id =
+    Codec.string
+        |> Codec.map OpID.fromStringForced OpID.toString
+        |> Codec.map ID.tag ID.read
 
 
 calendarDate : Codec e CalendarDate

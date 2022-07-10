@@ -80,8 +80,8 @@ projectCodec : Codec String ProjectClass
 projectCodec =
     Codec.record ProjectClass
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
-        |> Codec.writableField ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
-        |> Codec.listField ( 3, "children" ) .children taskClassCodec
+        |> Codec.fieldRW ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
+        |> Codec.fieldList ( 3, "children" ) .children taskClassCodec
         |> Codec.finishRecord
 
 
@@ -97,7 +97,7 @@ superProjectCodec : Codec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
-        |> Codec.listField ( 2, "children" ) .children superProjectChildCodec
+        |> Codec.fieldList ( 2, "children" ) .children superProjectChildCodec
         |> Codec.finishRecord
 
 
@@ -137,7 +137,7 @@ taskClassCodec : Codec String TaskClass
 taskClassCodec =
     Codec.record TaskClass
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
-        |> Codec.listField ( 2, "children" ) .children taskClassChildCodec
+        |> Codec.fieldList ( 2, "children" ) .children taskClassChildCodec
         |> Codec.finishRecord
 
 
@@ -173,7 +173,7 @@ taskClassChildCodec =
                     nested followerParent
         )
         -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 ( 1, "Singleton" ) Singleton ID.codec
+        |> Codec.variant1 ( 1, "Singleton" ) Singleton Codec.id
         |> Codec.variant1 ( 2, "Nested" ) Nested (Codec.lazy (\_ -> taskClassCodec))
         |> Codec.finishCustomType
 

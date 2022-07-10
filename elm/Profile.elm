@@ -66,8 +66,8 @@ fromScratch =
 -- codec : Codec e Profile
 -- codec =
 --     Codec.record Profile
---         |> Codec.field ( 1, "uid" ) .uid RC.int 0
---         |> Codec.listField  ( 2, "errors" ) .errors (RC.immutableList RC.string)
+--         |> Codec.fieldR ( 1, "uid" ) .uid RC.int 0
+--         |> Codec.fieldList  ( 2, "errors" ) .errors (RC.immutableList RC.string)
 --         |> RC.fieldR ( 3, "taskEntries" ) .taskEntries (RC.immutableList (Debug.todo "Task.Entry.codec")) []
 --         |> RC.fieldR ( 4, "taskClasses" ) .taskClasses (Debug.todo "Task.Class.codec") IntDict.empty
 --         |> RC.fieldR ( 5, "taskInstances" ) .taskInstances (Debug.todo "Task.Instance.codec") IntDict.empty

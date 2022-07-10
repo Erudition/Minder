@@ -1,6 +1,6 @@
 module ID exposing
     ( ID(..)
-    , codec, read, tag
+    , read, tag
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -75,7 +75,6 @@ type User
 
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Op.OpID as OpID exposing (OpID)
 
 
@@ -95,10 +94,3 @@ tag opID =
 read : ID userType -> OpID
 read (ID opID) =
     opID
-
-
-codec : Codec e (ID userType)
-codec =
-    Codec.string
-        |> Codec.map OpID.fromStringForced OpID.toString
-        |> Codec.map tag read
