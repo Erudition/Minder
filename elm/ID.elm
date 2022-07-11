@@ -1,6 +1,6 @@
 module ID exposing
     ( ID(..)
-    , read, tag
+    , read, tag, toString
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -94,3 +94,8 @@ tag opID =
 read : ID userType -> OpID
 read (ID opID) =
     opID
+
+
+toString : ID userType -> String
+toString (ID opID) =
+    OpID.toString opID

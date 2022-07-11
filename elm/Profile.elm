@@ -1,9 +1,10 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, currentActivityID, decodeProfile, encodeProfile, fromScratch, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, currentActivityID, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Switch exposing (decodeSwitch, encodeSwitch)
+import Activity.Switch
 import Activity.Timeline exposing (Timeline)
 import Environment exposing (Environment)
+import ExtraCodecs as Codec
 import Helpers exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import ID
 import Incubator.Todoist as Todoist
@@ -13,7 +14,12 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Change as Change exposing (Change)
+import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -34,31 +40,16 @@ type alias AppInstance =
 
 
 type alias Profile =
-    { uid : AppInstance
-    , errors : List String
-    , taskEntries : List Task.Entry.Entry
-    , taskClasses : IntDict Task.ActionClass.ActionClassSkel
-    , taskInstances : IntDict Task.AssignedAction.AssignedActionSkel
+    { errors : RepList String
+    , taskEntries : RepList Task.Entry.Entry
+    , taskClasses : RepDb Task.ActionClass.ActionClassSkel
+    , taskInstances : RepDb Task.AssignedAction.AssignedActionSkel
     , activities : StoredActivities
     , timeline : Timeline
 
     --, locationHistory : IntDict LocationUpdate
     , todoist : TodoistIntegrationData
-    , timeBlocks : List TimeBlock
-    }
-
-
-fromScratch : Profile
-fromScratch =
-    { uid = 0
-    , errors = []
-    , taskEntries = []
-    , taskClasses = IntDict.empty
-    , taskInstances = IntDict.empty
-    , activities = IntDict.empty
-    , timeline = []
-    , todoist = emptyTodoistIntegrationData
-    , timeBlocks = []
+    , timeBlocks : RepList TimeBlock
     }
 
 
@@ -77,33 +68,18 @@ fromScratch =
 --         |> Codec.finishRecord
 
 
-decodeProfile : Decoder Profile
-decodeProfile =
-    Pipeline.decode Profile
-        |> required "uid" Decode.int
-        |> optional "errors" (Decode.list Decode.string) []
-        |> optional "taskEntries" (Decode.list Task.Entry.decodeEntry) []
-        |> optional "taskClasses" (Helpers.decodeIntDict Task.ActionClass.decodeActionClassSkel) IntDict.empty
-        |> optional "taskInstances" (Helpers.decodeIntDict Task.AssignedAction.decodeAssignedActionSkel) IntDict.empty
-        |> optional "activities" Activity.decodeStoredActivities IntDict.empty
-        |> optional "timeline" (Decode.list decodeSwitch) []
-        |> optional "todoist" decodeTodoistIntegrationData emptyTodoistIntegrationData
-        |> optional "timeBlocks" (Decode.list TimeBlock.decodeTimeBlock) []
-
-
-encodeProfile : Profile -> Encode.Value
-encodeProfile record =
-    Encode.object
-        [ ( "taskClasses", Helpers.encodeIntDict Task.ActionClass.encodeActionClassSkell record.taskClasses )
-        , ( "taskInstances", Helpers.encodeIntDict Task.AssignedAction.encodeAssignedActionSkel record.taskInstances )
-        , ( "taskEntries", Encode.list Task.Entry.encodeEntry record.taskEntries )
-        , ( "activities", encodeStoredActivities record.activities )
-        , ( "uid", Encode.int record.uid )
-        , ( "errors", Encode.list Encode.string (List.take 100 record.errors) )
-        , ( "timeline", Encode.list encodeSwitch record.timeline )
-        , ( "todoist", encodeTodoistIntegrationData record.todoist )
-        , ( "timeBlocks", Encode.list TimeBlock.encodeTimeBlock record.timeBlocks )
-        ]
+codec : Codec String Profile
+codec =
+    Codec.record Profile
+        |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
+        |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
+        |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
+        |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
+        |> Codec.nestedField ( 5, "activities" ) .activities Activity.storedActivitiesCodec
+        |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
+        |> Codec.fieldR ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
+        |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
+        |> Codec.finishRecord
 
 
 type alias TodoistIntegrationData =
@@ -113,21 +89,14 @@ type alias TodoistIntegrationData =
     }
 
 
-encodeTodoistIntegrationData : TodoistIntegrationData -> Encode.Value
-encodeTodoistIntegrationData data =
-    encodeObjectWithoutNothings
-        [ normal ( "cache", Todoist.encodeCache data.cache )
-        , omittable ( "parentProjectID", Encode.int, data.parentProjectID )
-        , normal ( "activityProjectIDs", encodeIntDict ID.encode data.activityProjectIDs )
-        ]
-
-
-decodeTodoistIntegrationData : Decoder TodoistIntegrationData
-decodeTodoistIntegrationData =
-    decode TodoistIntegrationData
-        |> required "cache" Todoist.decodeCache
-        |> withPresence "parentProjectID" Decode.int
-        |> required "activityProjectIDs" (decodeIntDict ID.decode)
+todoistIntegrationDataCodec : Codec String TodoistIntegrationData
+todoistIntegrationDataCodec =
+    -- Codec.record TodoistIntegrationData
+    --     |> Codec.fieldR ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache
+    --     |> Codec.maybeR ( 2, "parentProjectID" ) Decode.int
+    --     |> Codec.fieldR ( 3, "activityProjectIDs" ) (Codec.intDict Activity.activityIDCodec)
+    --     |> Codec.finishRecord
+    Debug.todo "todoist codec"
 
 
 emptyTodoistIntegrationData : TodoistIntegrationData
@@ -139,19 +108,19 @@ emptyTodoistIntegrationData =
 -- TODO save time of occurence along with errors?
 
 
-saveWarnings : Profile -> Decode.Warnings -> Profile
+saveWarnings : Profile -> Decode.Warnings -> Change
 saveWarnings appData warnings =
-    { appData | errors = [ Decode.warningsToString warnings ] ++ appData.errors }
+    RepList.append appData.errors [ Decode.warningsToString warnings ]
 
 
-saveDecodeErrors : Profile -> Decode.Errors -> Profile
+saveDecodeErrors : Profile -> Decode.Errors -> Change
 saveDecodeErrors appData errors =
     saveError appData (Decode.errorsToString errors)
 
 
-saveError : Profile -> String -> Profile
+saveError : Profile -> String -> Change
 saveError appData error =
-    { appData | errors = error :: appData.errors }
+    RepList.append appData.errors [ error ]
 
 
 
@@ -190,7 +159,7 @@ getInstanceByID profile env instanceID =
 getActivityByID : Profile -> ActivityID -> Activity
 getActivityByID profile activityID =
     -- TODO optimize
-    Activity.getActivity activityID (allActivities profile.activities)
+    Activity.get activityID profile.activities
 
 
 exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String

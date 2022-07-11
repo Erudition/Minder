@@ -39,7 +39,7 @@ codec =
         skelCodec =
             Codec.record SwitchSkel
                 |> coreR ( 1, "moment" ) .moment Codec.moment
-                |> coreR ( 2, "newActivity" ) .newActivity Codec.id
+                |> coreR ( 2, "newActivity" ) .newActivity Activity.Activity.activityIDCodec
                 |> fieldR ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing
                 |> Codec.finishRecord
     in

@@ -20,6 +20,8 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import List.Nonempty exposing (..)
 import Log
+import Replicated.Change as Change exposing (Change)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
@@ -33,12 +35,12 @@ import Time.Extra exposing (..)
 
 
 type alias Timeline =
-    List Switch
+    RepList Switch
 
 
 latestSwitch : Timeline -> Switch
 latestSwitch timeline =
-    Maybe.withDefault (switchToActivity Moment.zero (ID.tag 0)) (List.head timeline)
+    Maybe.withDefault (switchToActivity Moment.zero Activity.unknown) (RepList.headValue timeline)
 
 
 currentActivityID : Timeline -> ActivityID
@@ -53,17 +55,17 @@ currentInstanceID switchList =
 
 currentActivity : StoredActivities -> Timeline -> Activity
 currentActivity storedActivities switchList =
-    getActivity (currentActivityID switchList) (Activity.allActivities storedActivities)
+    Activity.get (currentActivityID switchList) storedActivities
 
 
-startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Timeline
+startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Change
 startTask time newActivityID instanceID timeline =
-    Switch.newSwitch time newActivityID (Just instanceID) :: timeline
+    RepList.append timeline [ Switch.newSwitch time newActivityID (Just instanceID) ]
 
 
-startActivity : Moment -> ActivityID -> Timeline -> Timeline
+startActivity : Moment -> ActivityID -> Timeline -> Change
 startActivity time newActivityID timeline =
-    Switch.newSwitch time newActivityID Nothing :: timeline
+    RepList.append timeline [ Switch.newSwitch time newActivityID Nothing ]
 
 
 backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline
@@ -164,7 +166,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
             insertAt (startIndex - 1) candidateEndAsSwitch switchList
 
         logDeets =
-            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map String.fromInt candidateInstanceIDMaybe) ++ ") from \t" ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> \t" ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ " \t(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
+            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map ID.toString candidateInstanceIDMaybe) ++ ") from \t" ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> \t" ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ " \t(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
     in
     case areaToSearch of
         -- dealing with the list of all switches that intersect with candidate.
@@ -235,7 +237,7 @@ placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, cand
         biggerList ->
             let
                 switchIDtext switch =
-                    Maybe.map String.fromInt (Switch.getInstanceID switch) |> Maybe.withDefault "none"
+                    Maybe.map ID.toString (Switch.getInstanceID switch) |> Maybe.withDefault "none"
 
                 timeDiff1 switch =
                     Moment.difference (Switch.getMoment switch) (Period.start candidatePeriod) |> HumanDuration.say
@@ -322,10 +324,10 @@ timelineLimit timeline now pastLimit =
             Moment.compare (Switch.getMoment switch) pastLimit == Later
 
         ( pass, fail ) =
-            List.partition recentEnough timeline
+            List.partition recentEnough (RepList.list timeline)
 
         justMissedId =
-            Maybe.withDefault Activity.dummy <| Maybe.map switchActivityID (List.head fail)
+            Maybe.withDefault Activity.unknown <| Maybe.map switchActivityID (List.head fail)
 
         fakeEndSwitch =
             switchToActivity pastLimit justMissedId
@@ -367,7 +369,7 @@ justTodayTotal timeline env activityID =
         lastPeriod =
             justToday timeline ( env.time, env.timeZone )
     in
-    totalLive env.time lastPeriod activityID
+    totalLive env.time (RepList.list lastPeriod) activityID
 
 
 inHoursMinutes : Duration -> String
@@ -413,7 +415,7 @@ excusedUsage timeline now ( activityID, activity ) =
         lastPeriod =
             relevantTimeline timeline now (Tuple.first (Activity.excusableFor activity))
     in
-    totalLive now lastPeriod activityID
+    totalLive now (RepList.list lastPeriod) activityID
 
 
 {-| Amount of time allowed to be Excused (within window)
@@ -439,7 +441,7 @@ excusedLeft timeline now ( activityID, activity ) =
 
 lastSession : Timeline -> ActivityID -> Maybe Duration
 lastSession timeline old =
-    List.head (sessions timeline old)
+    List.head (sessions (RepList.list timeline) old)
 
 
 
@@ -451,7 +453,7 @@ switchListLiveToPeriods : Moment -> List Switch -> List ( ActivityID, Maybe Assi
 switchListLiveToPeriods now switchList =
     let
         fakeSwitch =
-            switchToActivity now (Maybe.withDefault dummy latestActivityID)
+            switchToActivity now (Maybe.withDefault Activity.unknown latestActivityID)
 
         latestActivityID =
             Maybe.map Switch.getActivityID (List.head switchList)
@@ -528,7 +530,7 @@ switchListToInstancePeriods switchList =
 
 getInstancePeriods : Timeline -> AssignedActionID -> List Period
 getInstancePeriods timeline instanceID =
-    List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods timeline)
+    List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods (RepList.list timeline))
 
 
 getInstanceTimes : Timeline -> AssignedActionID -> List Moment

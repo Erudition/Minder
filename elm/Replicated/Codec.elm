@@ -1719,6 +1719,17 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
     readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) Nothing recordBuilt
 
 
+{-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
+
+  - If any items in the RepDb are corrupted, they will be silently excluded.
+  - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
+
+-}
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberType -> PartialRecord errs full (RepDb memberType -> remaining) -> PartialRecord errs full remaining
+fieldDb fieldID fieldGetter fieldValueCodec recordBuilt =
+    readableHelper fieldID fieldGetter (repDb fieldValueCodec) Nothing recordBuilt
+
+
 {-| Read a fieldR containing a nested Register.
 -}
 nestedField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRecord errs full (fieldType -> remaining) -> PartialRecord errs full remaining

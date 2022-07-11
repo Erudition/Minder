@@ -1,6 +1,7 @@
 module ExtraCodecs exposing (..)
 
 import ID exposing (ID)
+import IntDict exposing (IntDict)
 import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Op.OpID as OpID
 import SmartTime.Duration as Duration exposing (Duration)
@@ -51,3 +52,12 @@ fuzzyMoment =
 moment : Codec String Moment
 moment =
     Codec.int |> Codec.map Moment.fromSmartInt Moment.toSmartInt
+
+
+intDict : Codec String v -> Codec String (IntDict v)
+intDict valueCodec =
+    let
+        keyValuePairCodec =
+            Codec.tuple Codec.int valueCodec
+    in
+    Codec.immutableList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList

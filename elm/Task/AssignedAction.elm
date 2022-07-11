@@ -50,8 +50,8 @@ type alias AssignedActionSkel =
     }
 
 
-assignedActionSkelCodec : Codec String AssignedActionSkel
-assignedActionSkelCodec =
+codec : Codec String AssignedActionSkel
+codec =
     Codec.record AssignedActionSkel
         |> Codec.coreR ( 1, "classID" ) .classID Codec.id
         |> Codec.maybeR ( 2, "memberOfSeries" ) .memberOfSeries Codec.int

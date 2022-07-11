@@ -1,6 +1,6 @@
 module TimeBlock.TimeBlock exposing (..)
 
-import Activity.Activity exposing (ActivityID)
+import Activity.Activity as Activity exposing (ActivityID)
 import ExtraCodecs as Codec
 import Helpers exposing (customDecoder)
 import ID
@@ -51,7 +51,7 @@ codec =
         |> Codec.finishRecord
 
 
-focusCodec : Codec e Focus
+focusCodec : Codec String Focus
 focusCodec =
     Codec.customType
         (\activityEncoder tagEncoder value ->
@@ -62,7 +62,7 @@ focusCodec =
                 Tag tagID ->
                     tagEncoder tagID
         )
-        |> Codec.variant1 ( 0, "Activity" ) Activity Codec.id
+        |> Codec.variant1 ( 0, "Activity" ) Activity Activity.activityIDCodec
         |> Codec.variant1 ( 1, "Tag" ) Tag Codec.string
         |> Codec.finishCustomType
 

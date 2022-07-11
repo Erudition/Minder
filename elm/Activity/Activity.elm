@@ -34,6 +34,22 @@ type ActivityID
     | CustomActivity Template (ID CustomActivitySkel)
 
 
+activityIDCodec : Codec String ActivityID
+activityIDCodec =
+    Codec.customType
+        (\builtInActivity customActivity value ->
+            case value of
+                BuiltInActivity template ->
+                    builtInActivity template
+
+                CustomActivity template customActivityID ->
+                    customActivity template customActivityID
+        )
+        |> Codec.variant1 ( 1, "BuiltInActivity" ) BuiltInActivity Template.codec
+        |> Codec.variant2 ( 2, "CustomActivity" ) CustomActivity Template.codec Codec.id
+        |> Codec.finishCustomType
+
+
 {-| What's going on here?
 Well, at first you might think this file should be like any other type, like Task for example. You define the type, its decoders, and helper functions, and that's it. This file started out that way too, and it's all here.
 
@@ -111,6 +127,22 @@ storedActivitiesCodec =
     Codec.tuple
         (Codec.repDict Template.codec builtInActivitySkelCodec)
         (Codec.repDb customActivitySkelCodec)
+
+
+unknown =
+    BuiltInActivity DillyDally
+
+
+get : ActivityID -> StoredActivities -> Activity
+get activityID storedActivities =
+    case activityID of
+        BuiltInActivity template ->
+            --TODO use dict
+            defaults template
+
+        CustomActivity template customActivitySkelID ->
+            -- todo use db
+            defaults template
 
 
 type Excusable

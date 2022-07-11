@@ -1,6 +1,7 @@
 module Task.Entry exposing (..)
 
 import Date exposing (Date)
+import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID exposing (ID)
 import Incubator.IntDict.Extra as IntDict
@@ -32,6 +33,10 @@ We could eliminate all the redundant wrapper containers, but for now it's easier
 -}
 type alias Entry =
     SuperProject
+
+
+codec =
+    superProjectCodec
 
 
 decodeEntry : Decoder Entry
@@ -180,7 +185,7 @@ taskClassChildCodec =
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( List Entry, RepDb ActionClassSkel ) -> ( List ActionClass, List Warning )
+getClassesFromEntries : ( RepList Entry, RepDb ActionClassSkel ) -> ( List ActionClass, List Warning )
 getClassesFromEntries ( entries, classDb ) =
     let
         traverseRootWrappers entry =
@@ -225,7 +230,7 @@ getClassesFromEntries ( entries, classDb ) =
                 ProjectIsHere parent ->
                     traverseLeaderParent (appendPropsIfMeaningful accumulator parent.properties) parent
     in
-    Result.partition <| List.concatMap traverseRootWrappers entries
+    Result.partition <| List.concatMap traverseRootWrappers (RepList.list entries)
 
 
 type Warning
