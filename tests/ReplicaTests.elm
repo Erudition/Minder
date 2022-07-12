@@ -273,7 +273,7 @@ fakeNodeWithSimpleList =
             nodeFromCodec simpleListCodec
 
         addChanges repList =
-            RepList.append repList simpleList
+            RepList.append simpleList repList
     in
     case result of
         Ok repList ->
@@ -317,10 +317,10 @@ fakeNodeWithModifiedList =
                         |> Maybe.map Tuple.first
 
                 addItemInPosition3 handle =
-                    RepList.insertAfter repList handle "Inserted after 1"
+                    RepList.insertAfter handle "Inserted after 1" repList
 
                 removeItemPosition0 handle =
-                    RepList.remove repList handle
+                    RepList.remove handle repList
 
                 changes =
                     List.filterMap identity

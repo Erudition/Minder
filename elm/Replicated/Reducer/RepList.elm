@@ -190,8 +190,8 @@ dict (RepList repSetRecord) =
 
 {-| Insert an item, right after the member with the given ID.
 -}
-insertAfter : RepList memberType -> Handle -> memberType -> Change
-insertAfter (RepList repSetRecord) attachmentPoint newItem =
+insertAfter : Handle -> memberType -> RepList memberType -> Change
+insertAfter attachmentPoint newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.id
         , objectChanges =
@@ -201,8 +201,8 @@ insertAfter (RepList repSetRecord) attachmentPoint newItem =
 
 {-| Add items to the collection.
 -}
-append : RepList memberType -> List memberType -> Change
-append (RepList record) newItems =
+append : List memberType -> RepList memberType -> Change
+append newItems (RepList record) =
     let
         newItemToObjectChange newItem =
             record.memberChanger newItem Nothing
@@ -213,8 +213,8 @@ append (RepList record) newItems =
         }
 
 
-remove : RepList memberType -> Handle -> Change
-remove (RepList record) itemToRemove =
+remove : Handle -> RepList memberType -> Change
+remove itemToRemove (RepList record) =
     Change.Chunk
         { target = record.id
         , objectChanges =
