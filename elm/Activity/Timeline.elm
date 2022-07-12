@@ -83,174 +83,179 @@ backfill timeline periodsToAdd =
 
 placeNewSession : Timeline -> ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline
 placeNewSession switchList ( candidateActivityID, candidateInstanceIDMaybe, candidatePeriod ) =
-    -- NOTE: don't forget the timeline is always backwards. Later switches come
-    -- first!
-    let
-        indexedSwitchList =
-            -- add an index so we know where to insert it back later
-            List.indexedMap Tuple.pair switchList
-
-        withinBounds ( _, switch ) =
-            let
-                windowStart =
-                    Moment.past (Period.start candidatePeriod) tolerance
-
-                windowEnd =
-                    -- negative tolerance because we only want start switch to be within
-                    -- search area I guess
-                    Moment.past (Period.end candidatePeriod) tolerance
-            in
-            -- we're only interested in moments that are within the candidate
-            -- we also don't care if the moment is the very end of our period
-            -- (because switches are start times and the next switch auto
-            -- becomes the end time )
-            -- thus, a switch of interest is same/later than period start
-            -- but earlier than period end.
-            (Moment.compare (Switch.getMoment switch) windowStart /= Moment.Earlier)
-                && (Moment.compare (Switch.getMoment switch) windowEnd == Moment.Earlier)
-
-        areaToSearch =
-            List.filter withinBounds indexedSwitchList
-
-        tolerance =
-            Duration.aSecond
-
-        isSameMoment moment1 moment2 =
-            -- instead of Moment.isSame moment1 moment2, we want some tolerance
-            Duration.compare (Moment.difference moment1 moment2) tolerance == LT
-
-        alignsWithStart switch =
-            isSameMoment (Period.start candidatePeriod) (Switch.getMoment switch)
-
-        alignsWithEnd switch =
-            isSameMoment (Period.end candidatePeriod) (Switch.getMoment switch)
-
-        foundEndSwitchAt index =
-            if index == -1 then
-                -- index will be -1 if the start switch is index zero
-                -- in which case we want to pretend there's an end switch
-                -- so that we don't add one and cut off current tracking
-                True
-
-            else
-                -- do we see a switch at the candidate end moment at the index
-                Maybe.map alignsWithEnd (List.getAt index switchList) == Just True
-
-        candidateAsSwitch =
-            newSwitch (Period.start candidatePeriod) candidateActivityID candidateInstanceIDMaybe
-
-        candidateEndAsSwitch =
-            newSwitch (Period.end candidatePeriod) candidateActivityID Nothing
-
-        isConflict switch =
-            -- if tested switch has no instanceID, not a conflict. If same, not a conflict. If different, conflict!
-            Switch.getInstanceID switch /= candidateInstanceIDMaybe
-
-        isCorrectAlready switch =
-            Switch.getInstanceID switch == candidateInstanceIDMaybe
-
-        reSort timeline =
-            -- put a timeline back in order. TODO "stable" sort relevance?
-            List.sortWith (\a b -> Moment.compareEarliness (Switch.getMoment a) (Switch.getMoment b)) timeline
-
-        insertAt index item items =
-            -- because List.Extra.insertAt PR is still not merged
-            let
-                ( start, end ) =
-                    List.splitAt index items
-            in
-            start ++ [ item ] ++ end
-
-        addEndingSwitch startIndex =
-            -- same timeline with stopper added
-            insertAt (startIndex - 1) candidateEndAsSwitch switchList
-
-        logDeets =
-            "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map ID.toString candidateInstanceIDMaybe) ++ ") from \t" ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> \t" ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ " \t(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
-    in
-    case areaToSearch of
-        -- dealing with the list of all switches that intersect with candidate.
-        [] ->
-            -- Candidate period either before everything, after everything
-            -- or takes up partial space in between some two. Safe to insert.
-            -- TODO better way to insert?
-            -- currently appending and then re-sorting the whole list
-            reSort (candidateAsSwitch :: switchList)
-
-        [ ( indexOfConcern, switchOfConcern ) ] ->
-            -- only one switch during that time. was it at the same time?
-            case ( isCorrectAlready switchOfConcern, alignsWithStart switchOfConcern, foundEndSwitchAt (indexOfConcern - 1) ) of
-                ( False, True, True ) ->
-                    let
-                        messageToLog =
-                            "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " with a matching end switch, marking with taskID. " ++ logDeets
-                    in
-                    -- we have a winner. we'll update that switch!
-                    Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch switchList
-
-                ( False, True, False ) ->
-                    let
-                        messageToLog =
-                            "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " (no matching end switch), marking with taskID. " ++ logDeets
-                    in
-                    -- found the start switch, but period ends before next
-                    -- switch. We'll have to add in our own stop switch.
-                    Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
-
-                ( False, False, True ) ->
-                    let
-                        offBy =
-                            Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
-
-                        messageToLog =
-                            "Found matching end switch at timeline index " ++ String.fromInt (indexOfConcern - 1) ++ " but the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is off by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
-                    in
-                    Log.logMessageOnly messageToLog switchList
-
-                ( False, False, False ) ->
-                    let
-                        offBy =
-                            Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
-
-                        earlierOrLater =
-                            if Moment.isEarlier (Switch.getMoment switchOfConcern) (Period.start candidatePeriod) then
-                                "earlier"
-
-                            else
-                                "later"
-
-                        messageToLog =
-                            "Found NO matching end switch, AND the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is " ++ earlierOrLater ++ " by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
-                    in
-                    Log.logMessageOnly messageToLog switchList
-
-                ( True, _, _ ) ->
-                    case isConflict switchOfConcern of
-                        True ->
-                            -- uh oh, that switch already has an instanceID set, and it
-                            -- is not the same as our candidate... abort!
-                            Log.logMessageOnly ("Conflict when backfilling! Investigate! " ++ logDeets ++ "concerning switch:" ++ Debug.toString switchOfConcern) switchList
-
-                        False ->
-                            Log.logMessageOnly ("Already have this one, moving on. " ++ logDeets) switchList
-
-        biggerList ->
-            let
-                switchIDtext switch =
-                    Maybe.map ID.toString (Switch.getInstanceID switch) |> Maybe.withDefault "none"
-
-                timeDiff1 switch =
-                    Moment.difference (Switch.getMoment switch) (Period.start candidatePeriod) |> HumanDuration.say
-
-                timeDiff2 switch =
-                    Moment.difference (Switch.getMoment switch) (Period.end candidatePeriod) |> HumanDuration.say
-
-                sayDifference ( index, switch ) =
-                    "\nAt " ++ String.fromInt index ++ ": Switch Ins:" ++ switchIDtext switch ++ " at start +" ++ timeDiff1 switch ++ ", end -" ++ timeDiff2 switch
-            in
-            -- oops, we already have multiple changes going on within that
-            -- period, abort
-            Log.logMessageOnly ("Found multiple events within backfill period, won't backfill this!\n" ++ logDeets ++ String.concat (List.map sayDifference biggerList)) switchList
+    -- -- NOTE: don't forget the timeline is always backwards. Later switches come
+    -- -- first!
+    -- let
+    --     switchItems =
+    --         -- add an index so we know where to insert it back later
+    --         -- List.indexedMap Tuple.pair switchList
+    --         RepList.list switchList
+    --
+    --     withinBounds switchItem =
+    --         let
+    --             switch =
+    --                 switchItem.value
+    --
+    --             windowStart =
+    --                 Moment.past (Period.start candidatePeriod) tolerance
+    --
+    --             windowEnd =
+    --                 -- negative tolerance because we only want start switch to be within
+    --                 -- search area I guess
+    --                 Moment.past (Period.end candidatePeriod) tolerance
+    --         in
+    --         -- we're only interested in moments that are within the candidate
+    --         -- we also don't care if the moment is the very end of our period
+    --         -- (because switches are start times and the next switch auto
+    --         -- becomes the end time )
+    --         -- thus, a switch of interest is same/later than period start
+    --         -- but earlier than period end.
+    --         (Moment.compare (Switch.getMoment switch) windowStart /= Moment.Earlier)
+    --             && (Moment.compare (Switch.getMoment switch) windowEnd == Moment.Earlier)
+    --
+    --     areaToSearch =
+    --         List.filter withinBounds switchItems
+    --
+    --     tolerance =
+    --         Duration.aSecond
+    --
+    --     isSameMoment moment1 moment2 =
+    --         -- instead of Moment.isSame moment1 moment2, we want some tolerance
+    --         Duration.compare (Moment.difference moment1 moment2) tolerance == LT
+    --
+    --     alignsWithStart switch =
+    --         isSameMoment (Period.start candidatePeriod) (Switch.getMoment switch)
+    --
+    --     alignsWithEnd switch =
+    --         isSameMoment (Period.end candidatePeriod) (Switch.getMoment switch)
+    --
+    --     foundEndSwitchAt index =
+    --         if index == -1 then
+    --             -- index will be -1 if the start switch is index zero
+    --             -- in which case we want to pretend there's an end switch
+    --             -- so that we don't add one and cut off current tracking
+    --             True
+    --
+    --         else
+    --             -- do we see a switch at the candidate end moment at the index
+    --             Maybe.map alignsWithEnd (List.getAt index switchList) == Just True
+    --
+    --     candidateAsSwitch =
+    --         newSwitch (Period.start candidatePeriod) candidateActivityID candidateInstanceIDMaybe
+    --
+    --     candidateEndAsSwitch =
+    --         newSwitch (Period.end candidatePeriod) candidateActivityID Nothing
+    --
+    --     isConflict switch =
+    --         -- if tested switch has no instanceID, not a conflict. If same, not a conflict. If different, conflict!
+    --         Switch.getInstanceID switch /= candidateInstanceIDMaybe
+    --
+    --     isCorrectAlready switch =
+    --         Switch.getInstanceID switch == candidateInstanceIDMaybe
+    --
+    --     reSort timeline =
+    --         -- put a timeline back in order. TODO "stable" sort relevance?
+    --         List.sortWith (\a b -> Moment.compareEarliness (Switch.getMoment a) (Switch.getMoment b)) timeline
+    --
+    --     insertAt index item items =
+    --         -- because List.Extra.insertAt PR is still not merged
+    --         let
+    --             ( start, end ) =
+    --                 List.splitAt index items
+    --         in
+    --         start ++ [ item ] ++ end
+    --
+    --     addEndingSwitch startIndex =
+    --         -- same timeline with stopper added
+    --         insertAt (startIndex - 1) candidateEndAsSwitch switchList
+    --
+    --     logDeets =
+    --         "candidate (instanceID:" ++ Maybe.withDefault "none" (Maybe.map ID.toString candidateInstanceIDMaybe) ++ ") from \t" ++ HumanMoment.toStandardString (Period.start candidatePeriod) ++ " -> \t" ++ HumanMoment.toStandardString (Period.end candidatePeriod) ++ " \t(" ++ HumanDuration.say (Period.length candidatePeriod) ++ ")"
+    -- in
+    -- case areaToSearch of
+    --     -- dealing with the list of all switches that intersect with candidate.
+    --     [] ->
+    --         -- Candidate period either before everything, after everything
+    --         -- or takes up partial space in between some two. Safe to insert.
+    --         -- TODO better way to insert?
+    --         -- currently appending and then re-sorting the whole list
+    --         reSort (candidateAsSwitch :: switchList)
+    --
+    --     [ ( indexOfConcern, switchOfConcern ) ] ->
+    --         -- only one switch during that time. was it at the same time?
+    --         case ( isCorrectAlready switchOfConcern, alignsWithStart switchOfConcern, foundEndSwitchAt (indexOfConcern - 1) ) of
+    --             ( False, True, True ) ->
+    --                 let
+    --                     messageToLog =
+    --                         "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " with a matching end switch, marking with taskID. " ++ logDeets
+    --                 in
+    --                 -- we have a winner. we'll update that switch!
+    --                 Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch switchList
+    --
+    --             ( False, True, False ) ->
+    --                 let
+    --                     messageToLog =
+    --                         "Found matching start switch at timeline index " ++ String.fromInt indexOfConcern ++ " (no matching end switch), marking with taskID. " ++ logDeets
+    --                 in
+    --                 -- found the start switch, but period ends before next
+    --                 -- switch. We'll have to add in our own stop switch.
+    --                 Log.logMessageOnly messageToLog <| List.setAt indexOfConcern candidateAsSwitch (addEndingSwitch indexOfConcern)
+    --
+    --             ( False, False, True ) ->
+    --                 let
+    --                     offBy =
+    --                         Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+    --
+    --                     messageToLog =
+    --                         "Found matching end switch at timeline index " ++ String.fromInt (indexOfConcern - 1) ++ " but the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is off by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
+    --                 in
+    --                 Log.logMessageOnly messageToLog switchList
+    --
+    --             ( False, False, False ) ->
+    --                 let
+    --                     offBy =
+    --                         Duration.inSeconds (Moment.difference (Switch.getMoment switchOfConcern) (Period.start candidatePeriod))
+    --
+    --                     earlierOrLater =
+    --                         if Moment.isEarlier (Switch.getMoment switchOfConcern) (Period.start candidatePeriod) then
+    --                             "earlier"
+    --
+    --                         else
+    --                             "later"
+    --
+    --                     messageToLog =
+    --                         "Found NO matching end switch, AND the start switch at timeline index " ++ String.fromInt indexOfConcern ++ " is " ++ earlierOrLater ++ " by " ++ String.fromFloat offBy ++ "sec so aborting merge! " ++ logDeets
+    --                 in
+    --                 Log.logMessageOnly messageToLog switchList
+    --
+    --             ( True, _, _ ) ->
+    --                 case isConflict switchOfConcern of
+    --                     True ->
+    --                         -- uh oh, that switch already has an instanceID set, and it
+    --                         -- is not the same as our candidate... abort!
+    --                         Log.logMessageOnly ("Conflict when backfilling! Investigate! " ++ logDeets ++ "concerning switch:" ++ Debug.toString switchOfConcern) switchList
+    --
+    --                     False ->
+    --                         Log.logMessageOnly ("Already have this one, moving on. " ++ logDeets) switchList
+    --
+    --     biggerList ->
+    --         let
+    --             switchIDtext switch =
+    --                 Maybe.map ID.toString (Switch.getInstanceID switch) |> Maybe.withDefault "none"
+    --
+    --             timeDiff1 switch =
+    --                 Moment.difference (Switch.getMoment switch) (Period.start candidatePeriod) |> HumanDuration.say
+    --
+    --             timeDiff2 switch =
+    --                 Moment.difference (Switch.getMoment switch) (Period.end candidatePeriod) |> HumanDuration.say
+    --
+    --             sayDifference ( index, switch ) =
+    --                 "\nAt " ++ String.fromInt index ++ ": Switch Ins:" ++ switchIDtext switch ++ " at start +" ++ timeDiff1 switch ++ ", end -" ++ timeDiff2 switch
+    --         in
+    --         -- oops, we already have multiple changes going on within that
+    --         -- period, abort
+    --         Log.logMessageOnly ("Found multiple events within backfill period, won't backfill this!\n" ++ logDeets ++ String.concat (List.map sayDifference biggerList)) switchList
+    Debug.todo "fix backfill of timeline"
 
 
 
@@ -316,23 +321,24 @@ This function takes two Moments (now and the point in history up to which we wan
 -}
 timelineLimit : Timeline -> Moment -> Moment -> Timeline
 timelineLimit timeline now pastLimit =
-    let
-        switchActivityID switch =
-            Switch.getActivityID switch
-
-        recentEnough switch =
-            Moment.compare (Switch.getMoment switch) pastLimit == Later
-
-        ( pass, fail ) =
-            List.partition recentEnough (RepList.list timeline)
-
-        justMissedId =
-            Maybe.withDefault Activity.unknown <| Maybe.map switchActivityID (List.head fail)
-
-        fakeEndSwitch =
-            switchToActivity pastLimit justMissedId
-    in
-    pass ++ [ fakeEndSwitch ]
+    -- let
+    --     switchActivityID switch =
+    --         Switch.getActivityID switch
+    --
+    --     recentEnough switch =
+    --         Moment.compare (Switch.getMoment switch) pastLimit == Later
+    --
+    --     ( pass, fail ) =
+    --         List.partition recentEnough timeline
+    --
+    --     justMissedId =
+    --         Maybe.withDefault Activity.unknown <| Maybe.map switchActivityID (List.head fail)
+    --
+    --     fakeEndSwitch =
+    --         switchToActivity pastLimit justMissedId
+    -- in
+    -- pass ++ [ fakeEndSwitch ]
+    Debug.todo "timeline limit"
 
 
 {-| Given a HumanDuration, how far back in time would it reach?
@@ -369,7 +375,7 @@ justTodayTotal timeline env activityID =
         lastPeriod =
             justToday timeline ( env.time, env.timeZone )
     in
-    totalLive env.time (RepList.list lastPeriod) activityID
+    totalLive env.time (RepList.listValues lastPeriod) activityID
 
 
 inHoursMinutes : Duration -> String
@@ -415,7 +421,7 @@ excusedUsage timeline now ( activityID, activity ) =
         lastPeriod =
             relevantTimeline timeline now (Tuple.first (Activity.excusableFor activity))
     in
-    totalLive now (RepList.list lastPeriod) activityID
+    totalLive now (RepList.listValues lastPeriod) activityID
 
 
 {-| Amount of time allowed to be Excused (within window)
@@ -441,7 +447,7 @@ excusedLeft timeline now ( activityID, activity ) =
 
 lastSession : Timeline -> ActivityID -> Maybe Duration
 lastSession timeline old =
-    List.head (sessions (RepList.list timeline) old)
+    List.head (sessions (RepList.listValues timeline) old)
 
 
 
@@ -530,7 +536,7 @@ switchListToInstancePeriods switchList =
 
 getInstancePeriods : Timeline -> AssignedActionID -> List Period
 getInstancePeriods timeline instanceID =
-    List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods (RepList.list timeline))
+    List.map (\( _, _, p ) -> p) <| List.filter (\( a, i, p ) -> i == instanceID) (switchListToInstancePeriods (RepList.listValues timeline))
 
 
 getInstanceTimes : Timeline -> AssignedActionID -> List Moment
