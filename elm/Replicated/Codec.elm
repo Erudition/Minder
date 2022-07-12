@@ -816,11 +816,11 @@ repList memberCodec =
 
         jsonEncoder : RepList memberType -> JE.Value
         jsonEncoder input =
-            JE.list (getJsonEncoder memberCodec) (RepList.list input)
+            JE.list (getJsonEncoder memberCodec) (RepList.listValues input)
 
         bytesEncoder : RepList memberType -> BE.Encoder
         bytesEncoder input =
-            listEncode (getBytesEncoder memberCodec) (RepList.list input)
+            listEncode (getBytesEncoder memberCodec) (RepList.listValues input)
 
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.PotentialPayload
         memberRonEncoder node encodeModeMaybe parentNotifier newValue =

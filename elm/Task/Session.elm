@@ -48,7 +48,7 @@ getFullSessions fullInstance =
             fullInstance.instance
 
         providedSessions =
-            RepList.list ins.plannedSessions
+            RepList.listValues ins.plannedSessions
 
         generatedSessions =
             let

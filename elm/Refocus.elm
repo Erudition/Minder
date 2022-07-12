@@ -6,6 +6,7 @@ import Activity.Timeline as Timeline exposing (Timeline)
 import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (multiline)
+import ID
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
@@ -208,10 +209,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
         statusDetails =
             { now = env.time
             , zone = env.timeZone
-            , oldActivity = Activity.getActivity oldActivityID (allActivities newProfile.activities)
+            , oldActivity = Activity.get oldActivityID newProfile.activities
             , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession newProfile.timeline oldActivityID
             , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
-            , newActivity = Activity.getActivity newActivityID (allActivities newProfile.activities)
+            , newActivity = Activity.get newActivityID newProfile.activities
             , newActivityTodayTotal =
                 Timeline.totalLive env.time newProfile.timeline newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks) newInstanceIDMaybe
@@ -233,7 +234,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     Timeline.excusedUsage newProfile.timeline env.time ( newActivityID, newActivity )
 
                 excusedLeft =
-                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.getActivity newActivityID (allActivities newProfile.activities) )
+                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.get newActivityID newProfile.activities )
 
                 isThisTheRightNextTask =
                     case ( newInstanceIDMaybe, Maybe.map Task.AssignedAction.getID nextInstanceMaybe ) of
@@ -254,10 +255,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                             Timeline.totalLive env.time newProfile.timeline newActivityID
 
                         maxTimeRemaining =
-                            Duration.subtract newInstance.class.maxEffort timeSpent
+                            Duration.subtract newInstance.class.maxEffort.get timeSpent
 
                         remainingToTarget =
-                            Duration.subtract newInstance.class.predictedEffort timeSpent
+                            Duration.subtract newInstance.class.predictedEffort.get timeSpent
 
                         intendToFinishDuringThisSession =
                             -- TODO false if less time available than needed
@@ -550,8 +551,8 @@ freeSticky : StatusDetails -> List Notification
 freeSticky status =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
@@ -563,7 +564,7 @@ freeSticky status =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title) status.newInstanceMaybe
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title.get) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -589,8 +590,8 @@ tractionSticky : StatusDetails -> TractionDetails -> Duration -> List Notificati
 tractionSticky status traction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
@@ -648,8 +649,8 @@ excusedSticky : StatusDetails -> ExcusedDetails -> Duration -> List Notification
 excusedSticky status excused elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
@@ -730,8 +731,8 @@ distractionSticky : StatusDetails -> DistractionDetails -> Duration -> List Noti
 distractionSticky status distraction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ String.fromInt (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ ID.toString (Task.AssignedAction.getID instance), button = Notif.Button "Complete", launch = False }
             ]
 
         title =
@@ -1095,7 +1096,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
             Notif.build suggestedTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ String.fromInt (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ ID.toString (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
             ]
     in
     { base
@@ -1103,7 +1104,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , group = Just suggestedTasksGroup
         , subtitle = Just "Suggested"
         , at = Just now
-        , title = Just <| taskInstance.class.title
+        , title = Just <| taskInstance.class.title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1168,7 +1169,7 @@ cleanupTaskNotif now ( taskInstance, needs ) =
             Notif.build cleanupTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ String.fromInt (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ ID.toString (Task.AssignedAction.getID taskInstance), button = Notif.Button "Start", launch = False }
             ]
     in
     { base
@@ -1219,13 +1220,13 @@ currentTaskNotif now task =
 
         actions =
             [ { id = "updateProgress=+20%", button = Notif.Button "+20%", launch = False }
-            , { id = "stopTask=" ++ String.fromInt currentID, button = Notif.Button "Stop", launch = False }
+            , { id = "stopTask=" ++ ID.toString currentID, button = Notif.Button "Stop", launch = False }
             ]
     in
     { blank
         | id = Just <| taskClassNotifID task.class.id
         , autoCancel = Just False
-        , title = Just task.class.title
+        , title = Just task.class.title.get
         , chronometer = Just True
         , when = Just now
         , subtitle = Nothing

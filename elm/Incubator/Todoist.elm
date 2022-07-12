@@ -7,6 +7,7 @@ Allows efficient batch processing and incremental sync.
 -}
 
 import Dict exposing (Dict)
+import Helpers exposing (..)
 import Http
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist.Command exposing (..)
@@ -20,7 +21,6 @@ import Json.Encode.Extra as Encode
 import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
-import Helpers exposing (..)
 import Set exposing (Set)
 import SmartTime.Human.Moment as HumanMoment
 import Url

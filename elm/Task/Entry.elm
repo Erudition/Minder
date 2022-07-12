@@ -200,14 +200,14 @@ getClassesFromEntries ( entries, classDb ) =
                 oldList
 
         traverseWrapperParent accumulator parent =
-            List.concatMap (traverseWrapperChild accumulator) (RepList.list parent.children)
+            List.concatMap (traverseWrapperChild accumulator) (RepList.listValues parent.children)
 
         traverseLeaderParent accumulator parent =
-            List.concatMap (traverseFollowerParent accumulator parent.recurrenceRules.get) (RepList.list parent.children)
+            List.concatMap (traverseFollowerParent accumulator parent.recurrenceRules.get) (RepList.listValues parent.children)
 
         traverseFollowerParent accumulator recurrenceRules parent =
             -- TODO do we need to collect props here
-            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.list parent.children)
+            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.listValues parent.children)
 
         traverseFollowerChild accumulator recurrenceRules child =
             case child of
@@ -230,7 +230,7 @@ getClassesFromEntries ( entries, classDb ) =
                 ProjectIsHere parent ->
                     traverseLeaderParent (appendPropsIfMeaningful accumulator parent.properties) parent
     in
-    Result.partition <| List.concatMap traverseRootWrappers (RepList.list entries)
+    Result.partition <| List.concatMap traverseRootWrappers (RepList.listValues entries)
 
 
 type Warning

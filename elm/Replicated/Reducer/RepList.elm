@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -156,9 +156,16 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
 {-| Get your RepList as a read-only List.
 The List will always be in chronological order, with the newest addition at the top (accessing the head is the most performant way to use Lists anyway) but you can always List.reverse or List.sort it.
 -}
-list : RepList memberType -> List memberType
-list (RepList repSetRecord) =
+listValues : RepList memberType -> List memberType
+listValues (RepList repSetRecord) =
     List.map .value repSetRecord.members
+
+
+{-| Get your RepList as a List of `Item`s.
+-}
+list : RepList memberType -> List (Item memberType)
+list (RepList repSetRecord) =
+    repSetRecord.members
 
 
 {-| Get your RepList as a standard Dict, where the provided keys are unique identifiers that can be used for mutating the collection:
@@ -264,7 +271,7 @@ addNewWithChanges (RepList record) changer =
 
 
 
--- Normal list functions
+-- Normal listValues functions
 -- map : (memberTypeA -> memberTypeB) -> RepList memberTypeA -> RepList memberTypeB
 -- map mapper (RepList repSetRecord) =
 --     let
