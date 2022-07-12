@@ -114,7 +114,7 @@ updateWithClosedOps node newOps =
                 Nothing ->
                     { node
                         | objects = updateObject n.objects op
-                        , highestSeenClock = max n.highestSeenClock (OpID.toStamp (Op.id op)).clock
+                        , highestSeenClock = max n.highestSeenClock (OpID.getClock (Op.id op))
                     }
 
                 Just _ ->

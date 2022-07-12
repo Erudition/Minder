@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromSortable, fromString, fromStringForced, generate, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toPointerString, toSortablePrimitives, toStamp, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toPointerString, toSortablePrimitives, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -89,6 +89,33 @@ toSortablePrimitives opID =
                 "+" ++ NodeID.toString origin
     in
     ( clock, tieBreaker )
+
+
+{-| Get an integer for a given OpID, that is almost certainly unique to that OpID.
+This is derived from the timestamp, so the only way to run into the same Integer from different OpIDs is if different clients created those Ops in the same exact millisecond globally AND for the same type of object.
+
+The origin could be used as a tie-breaker, modulating the clock number by some amount, but since a user doesn't typically do an operation on two different devices in the same instant, two OpIDs with the same timestamp is less likely than an origin-modulated stamp conflicting with another real Op that happened around the same time.
+
+-}
+toInt : OpID -> Int
+toInt opID =
+    let
+        { clock, origin, reversion } =
+            toStamp opID
+    in
+    clock
+
+
+{-| Get the OpID's clock value.
+In production environments this number will be relatively close to the actual time the Op was made.
+-}
+getClock : OpID -> OpClock
+getClock opID =
+    let
+        { clock, origin, reversion } =
+            toStamp opID
+    in
+    clock
 
 
 fromSortable : OpIDSortable -> OpID
