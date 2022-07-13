@@ -16,7 +16,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -91,7 +91,8 @@ builtInActivitySkelCodec =
 
 
 type alias CustomActivitySkel =
-    { names : RepList String
+    { template : Template
+    , names : RepList String
     , icon : RW (Maybe Icon)
     , excusable : RW (Maybe Excusable)
     , taskOptional : RW (Maybe Bool)
@@ -106,6 +107,7 @@ type alias CustomActivitySkel =
 customActivitySkelCodec : Codec String CustomActivitySkel
 customActivitySkelCodec =
     Codec.record CustomActivitySkel
+        |> coreR ( 0, "template" ) .template Template.codec
         |> fieldList ( 1, "names" ) .names Codec.string
         |> maybeRW ( 2, "icon" ) .icon iconCodec
         |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
@@ -143,6 +145,17 @@ get activityID storedActivities =
         CustomActivity template customActivitySkelID ->
             -- todo use db
             defaults template
+
+
+fromCustom : CustomActivitySkel -> Activity
+fromCustom skel =
+    let
+        base =
+            defaults skel.template
+    in
+    { base
+        | names = RepList.listValues skel.names
+    }
 
 
 type Excusable
@@ -1073,3 +1086,16 @@ showing act =
 getName : Activity -> String
 getName act =
     Maybe.withDefault "?" (List.head act.names)
+
+
+all : StoredActivities -> List Activity
+all storedActivities =
+    let
+        builtIns =
+            List.map BuiltInActivity Template.all
+
+        customs =
+            -- TODO
+            []
+    in
+    List.map (\a -> get a storedActivities) (builtIns ++ customs)

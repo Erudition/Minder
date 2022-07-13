@@ -60,12 +60,12 @@ currentActivity storedActivities switchList =
 
 startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Change
 startTask time newActivityID instanceID timeline =
-    RepList.append timeline [ Switch.newSwitch time newActivityID (Just instanceID) ]
+    RepList.append [ Switch.newSwitch time newActivityID (Just instanceID) ] timeline
 
 
 startActivity : Moment -> ActivityID -> Timeline -> Change
 startActivity time newActivityID timeline =
-    RepList.append timeline [ Switch.newSwitch time newActivityID Nothing ]
+    RepList.append [ Switch.newSwitch time newActivityID Nothing ] timeline
 
 
 backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline

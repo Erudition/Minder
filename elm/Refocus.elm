@@ -15,6 +15,9 @@ import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (Profile)
 import Random
+import Replicated.Change as Change exposing (Change)
+import Replicated.Op.OpID as OpID
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Human.Moment as HumanMoment
@@ -107,7 +110,7 @@ whatsImportantNow profile env =
     let
         prioritized =
             -- Must have an activity to tell
-            List.filter (\i -> i.class.activity /= Nothing)
+            List.filter (\i -> i.class.activity.get /= Nothing)
                 (prioritizeTasks profile env)
 
         -- TODO allow activities to be WIN
@@ -126,21 +129,21 @@ whatsImportantNow profile env =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : ActivityID -> Profile -> Environment -> ( Profile, Cmd msg )
+switchActivity : ActivityID -> Profile -> Environment -> ( List Change, Cmd msg )
 switchActivity newActivityID profile env =
     switchTracking newActivityID Nothing profile env
 
 
-refreshTracking : Profile -> Environment -> ( Profile, Cmd msg )
+refreshTracking : Profile -> Environment -> ( List Change, Cmd msg )
 refreshTracking profile env =
     switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile env
 
 
-switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment -> ( Profile, Cmd msg )
+switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment -> ( List Change, Cmd msg )
 switchTracking newActivityID newInstanceIDMaybe oldProfile env =
     let
-        updatedProfile =
-            { oldProfile | timeline = newSwitch env.time newActivityID newInstanceIDMaybe :: oldProfile.timeline }
+        addNewSwitch =
+            RepList.append [ newSwitch env.time newActivityID newInstanceIDMaybe ] oldProfile.timeline
 
         oldInstanceIDMaybe =
             Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
@@ -150,34 +153,39 @@ switchTracking newActivityID newInstanceIDMaybe oldProfile env =
             && (newInstanceIDMaybe == oldInstanceIDMaybe)
     then
         -- we didn't change what we were tracking
-        ( oldProfile, Cmd.none )
+        ( [], Cmd.none )
 
     else
         -- we actually changed tracking, add switch to timeline
-        let
-            ( newStatusDetails, newFocusStatus ) =
-                determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile env
+        -- TODO RUN reactToNewSwitch AFTER CHANGE
+        ( [ addNewSwitch ], Cmd.none )
 
-            ( reactionNow, checkbackTimeMaybe ) =
-                reactToStatusChange False newStatusDetails newFocusStatus updatedProfile
 
-            reactionWhenExpired =
-                case checkbackTimeMaybe of
-                    Nothing ->
-                        Cmd.none
+reactToNewSwitch newActivityID newInstanceIDMaybe updatedProfile env oldProfile =
+    let
+        ( newStatusDetails, newFocusStatus ) =
+            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile env
 
-                    Just checkbackTime ->
-                        let
-                            -- everything stays the same, just in the future
-                            ( futureStatusDetails, futureFocusStatus ) =
-                                determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile { env | time = checkbackTime }
-                        in
-                        Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus updatedProfile)
+        ( reactionNow, checkbackTimeMaybe ) =
+            reactToStatusChange False newStatusDetails newFocusStatus updatedProfile
 
-            suggestions =
-                suggestedTasks updatedProfile env
-        in
-        ( updatedProfile, Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
+        reactionWhenExpired =
+            case checkbackTimeMaybe of
+                Nothing ->
+                    Cmd.none
+
+                Just checkbackTime ->
+                    let
+                        -- everything stays the same, just in the future
+                        ( futureStatusDetails, futureFocusStatus ) =
+                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile { env | time = checkbackTime }
+                    in
+                    Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus updatedProfile)
+
+        suggestions =
+            suggestedTasks oldProfile env
+    in
+    ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
 determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
@@ -204,7 +212,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     Nothing
 
                 Just instanceID ->
-                    List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks
+                    List.head <| List.filter (.instanceID >> (==) instanceID) allTasks
 
         statusDetails =
             { now = env.time
@@ -214,8 +222,8 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
             , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
             , newActivity = Activity.get newActivityID newProfile.activities
             , newActivityTodayTotal =
-                Timeline.totalLive env.time newProfile.timeline newActivityID
-            , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instance >> .id >> (==) instanceID) allTasks) newInstanceIDMaybe
+                Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
+            , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
             }
     in
     case whatsImportantNow newProfile env of
@@ -252,7 +260,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     let
                         timeSpent =
                             -- TODO is this the time spent on the task?
-                            Timeline.totalLive env.time newProfile.timeline newActivityID
+                            Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
 
                         maxTimeRemaining =
                             Duration.subtract newInstance.class.maxEffort.get timeSpent
@@ -1100,7 +1108,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
             ]
     in
     { base
-        | id = Just <| taskClassNotifID taskInstance.class.id
+        | id = Just <| taskClassNotifID taskInstance.classID
         , group = Just suggestedTasksGroup
         , subtitle = Just "Suggested"
         , at = Just now
@@ -1139,8 +1147,8 @@ suggestedTasks profile env =
 
 
 taskClassNotifID : ActionClassID -> Int
-taskClassNotifID instanceID =
-    9000 + instanceID
+taskClassNotifID classID =
+    OpID.toInt (ID.read classID)
 
 
 
@@ -1173,11 +1181,11 @@ cleanupTaskNotif now ( taskInstance, needs ) =
             ]
     in
     { base
-        | id = Just <| taskClassNotifID taskInstance.class.id
+        | id = Just <| taskClassNotifID taskInstance.classID
         , group = Just cleanupTasksGroup
         , subtitle = Just "Missing Duration/Activity"
         , at = Just now
-        , title = Just <| taskInstance.class.title
+        , title = Just <| taskInstance.class.title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1224,7 +1232,7 @@ currentTaskNotif now task =
             ]
     in
     { blank
-        | id = Just <| taskClassNotifID task.class.id
+        | id = Just <| taskClassNotifID task.classID
         , autoCancel = Just False
         , title = Just task.class.title.get
         , chronometer = Just True

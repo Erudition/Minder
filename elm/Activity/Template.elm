@@ -1,4 +1,4 @@
-module Activity.Template exposing (Template(..), codec)
+module Activity.Template exposing (Template(..), all, codec)
 
 import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
@@ -73,4 +73,14 @@ type Template
 
 codec : Codec e Template
 codec =
-    Codec.quickEnum DillyDally [ Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation, Projects, Research ]
+    Codec.quickEnum DillyDally allExceptDillyDally
+
+
+allExceptDillyDally : List Template
+allExceptDillyDally =
+    [ Apparel, Messaging, Restroom, Grooming, Meal, Supplements, Workout, Shower, Toothbrush, Floss, Wakeup, Sleep, Plan, Configure, Email, Work, Call, Chores, Parents, Prepare, Lover, Driving, Riding, SocialMedia, Pacing, Sport, Finance, Laundry, Bedward, Browse, Fiction, Learning, BrainTrain, Music, Create, Children, Meeting, Cinema, FilmWatching, Series, Broadcast, Theatre, Shopping, VideoGaming, Housekeeping, MealPrep, Networking, Meditate, Homework, Flight, Course, Pet, Presentation, Projects, Research ]
+
+
+all : List Template
+all =
+    DillyDally :: allExceptDillyDally

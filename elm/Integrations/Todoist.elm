@@ -2,6 +2,7 @@ module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Dict exposing (Dict)
+import Helpers exposing (..)
 import Http
 import ID
 import Incubator.IntDict.Extra as IntDict
@@ -18,14 +19,13 @@ import List.Extra as List
 import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
-import Helpers exposing (..)
 import Profile exposing (Profile, TodoistIntegrationData, saveError)
 import Set
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.ActionClass as Task exposing (ActionClassSkel, newActionClassSkel)
+import Task.ActionClass as Task exposing (ActionClassSkel)
 import Task.AssignedAction as Task exposing (AssignedActionSkel)
 import Task.Progress
 import Url
@@ -171,7 +171,7 @@ detectActivityProjects maybeParent app cache =
                     app.todoist.activityProjectIDs
 
                 activities =
-                    Activity.allActivities app.activities
+                    Activity.all app.activities
             in
             -- add it to what we already know! TODO what if one is deleted?
             IntDict.union newActivityLookupTable oldActivityLookupTable
@@ -238,39 +238,46 @@ timetrackItemToTask lookup item =
 
 itemToTask : Activity.ActivityID -> Item -> ( ActionClassSkel, AssignedActionSkel )
 itemToTask activityID item =
-    let
-        base =
-            newActionClassSkel (Task.normalizeTitle newName) item.id
-
-        ( newName, ( minDur, maxDur ) ) =
-            extractTiming2 item.content
-
-        getDueDate due =
-            Item.fromRFC3339Date due.date
-
-        class =
-            { base
-                | activity = Just activityID
-                , minEffort = Maybe.withDefault base.minEffort minDur
-                , maxEffort = Maybe.withDefault (HumanDuration.toDuration (HumanDuration.Minutes 4)) maxDur
-                , importance = calcImportance item
-            }
-
-        instance =
-            { newTaskInstance
-                | completion =
-                    if item.checked then
-                        Task.Progress.unitMax class.completionUnits
-
-                    else
-                        newTaskInstance.completion
-                , externalDeadline = Maybe.andThen getDueDate item.due
-            }
-
-        newTaskInstance =
-            Task.newAssignedActionSkel item.id class
-    in
-    ( class, instance )
+    -- let
+    --     newActionClassSkel =
+    --         Debug.todo "todoist items need to use changers"
+    --
+    --     base =
+    --         newActionClassSkel (Task.normalizeTitle newName) item.id
+    --
+    --     ( newName, ( minDur, maxDur ) ) =
+    --         extractTiming2 item.content
+    --
+    --     getDueDate due =
+    --         Item.fromRFC3339Date due.date
+    --
+    --     class =
+    --         { base
+    --             | activity = Just activityID
+    --             , minEffort = Maybe.withDefault base.minEffort minDur
+    --             , maxEffort = Maybe.withDefault (HumanDuration.toDuration (HumanDuration.Minutes 4)) maxDur
+    --             , importance = calcImportance item
+    --         }
+    --
+    --     instance =
+    --         { newTaskInstance
+    --             | completion =
+    --                 if item.checked then
+    --                     Task.Progress.unitMax class.completionUnits
+    --
+    --                 else
+    --                     newTaskInstance.completion
+    --             , externalDeadline = Maybe.andThen getDueDate item.due
+    --         }
+    --
+    --     newAssignedActionSkel =
+    --         Debug.todo "todoist items need to use changers"
+    --
+    --     newTaskInstance =
+    --         newAssignedActionSkel item.id class
+    -- in
+    -- ( class, instance )
+    Debug.todo "todoist items need to use changers"
 
 
 calcImportance : Item -> Float

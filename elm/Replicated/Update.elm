@@ -47,6 +47,14 @@ import Replicated.Change as Change exposing (Change)
 import Tuple
 
 
+type alias Environment e =
+    { e | time : Bool }
+
+
+type SuperModel state profile env
+    = SuperModel state profile (Environment env)
+
+
 {-| -}
 type alias Update msg model =
     ( model, Cmd msg )

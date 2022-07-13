@@ -110,7 +110,7 @@ emptyTodoistIntegrationData =
 
 saveWarnings : Profile -> Decode.Warnings -> Change
 saveWarnings appData warnings =
-    RepList.append appData.errors [ Decode.warningsToString warnings ]
+    RepList.append [ Decode.warningsToString warnings ] appData.errors
 
 
 saveDecodeErrors : Profile -> Decode.Errors -> Change
@@ -120,7 +120,7 @@ saveDecodeErrors appData errors =
 
 saveError : Profile -> String -> Change
 saveError appData error =
-    RepList.append appData.errors [ error ]
+    RepList.append [ error ] appData.errors
 
 
 

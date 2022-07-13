@@ -82,6 +82,7 @@ type alias AssignedAction =
     , instance : AssignedActionSkel
     , index : Int
     , instanceID : AssignedActionID
+    , classID : ActionClassID
     , remove : Change
     }
 
@@ -121,6 +122,7 @@ assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullCla
             , instance = instanceSkelMember.value
             , index = indexFromZero + 1
             , instanceID = instanceSkelMember.id
+            , classID = fullClass.classID
             , remove = instanceSkelMember.remove
             }
 
