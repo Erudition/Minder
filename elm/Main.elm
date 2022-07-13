@@ -361,10 +361,10 @@ view { viewState, profile, environment } =
 
 {-|
 
-    selectedTab takes an element and wraps it in a stylied container
+    selectedTab takes an element and wraps it in a styled container
     to indicate which page is currently active.
 
-    Todo: Consider adding costumisable styling for this.
+    Todo: Consider adding customizable styling for this.
 
 -}
 selectedTab : List (Element msg) -> Element msg -> List (Element msg) -> Element msg
