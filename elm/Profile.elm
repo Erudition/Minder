@@ -44,7 +44,7 @@ type alias Profile =
     , taskEntries : RepList Task.Entry.Entry
     , taskClasses : RepDb Task.ActionClass.ActionClassSkel
     , taskInstances : RepDb Task.AssignedAction.AssignedActionSkel
-    , activities : StoredActivities
+    , activities : Activity.Store
     , timeline : Timeline
 
     --, locationHistory : IntDict LocationUpdate
@@ -75,7 +75,7 @@ codec =
         |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
         |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
-        |> Codec.nestedField ( 5, "activities" ) .activities Activity.storedActivitiesCodec
+        |> Codec.nestedField ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
         |> Codec.fieldR ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
@@ -94,7 +94,7 @@ todoistIntegrationDataCodec =
     -- Codec.record TodoistIntegrationData
     --     |> Codec.fieldR ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache
     --     |> Codec.maybeR ( 2, "parentProjectID" ) Decode.int
-    --     |> Codec.fieldR ( 3, "activityProjectIDs" ) (Codec.intDict Activity.activityIDCodec)
+    --     |> Codec.fieldR ( 3, "activityProjectIDs" ) (Codec.intDict Activity.idCodec)
     --     |> Codec.finishRecord
     Debug.todo "todoist codec"
 
@@ -159,7 +159,7 @@ getInstanceByID profile env instanceID =
 getActivityByID : Profile -> ActivityID -> Activity
 getActivityByID profile activityID =
     -- TODO optimize
-    Activity.get activityID profile.activities
+    Activity.getByID activityID profile.activities
 
 
 exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String

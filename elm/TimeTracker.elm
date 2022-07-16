@@ -91,7 +91,7 @@ viewActivities env app =
     section
         [ class "main" ]
         [ ul [ class "activity-list" ] <|
-            List.filterMap (viewActivity app env) (Activity.allUnhidden app.activities)
+            List.map (viewActivity app env) (Activity.allUnhidden app.activities)
         ]
 
 
@@ -124,15 +124,15 @@ viewActivity app env activity =
         [ button
             [ class "activity-button"
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
-            , onClick (StartTracking activityID)
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline activityID))
+            , onClick (StartTracking (Activity.getID activity))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline (Activity.getID activity)))
             ]
-            [ viewIcon activity.icon
+            [ viewIcon (Activity.getIcon activity)
             , div []
                 [ text (writeActivityUsage app env activity)
                 ]
             , div []
-                [ text (writeActivityToday app env activityID)
+                [ text (writeActivityToday app env activity)
                 ]
             , label
                 []
@@ -195,24 +195,23 @@ writeActivityUsage app env activity =
 
 
 writeActivityToday : Profile -> Environment -> Activity -> String
-writeActivityToday app env activityID =
+writeActivityToday app env activity =
     Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline env (Activity.getID activity))
 
 
 exportActivityViewModel : Profile -> Environment -> Encode.Value
 exportActivityViewModel appData environment =
     let
-        encodeActivityVM ( activityID, activity ) =
+        encodeActivityVM activity =
             Encode.object
                 [ ( "name", Encode.string <| Activity.getName activity )
-                , ( "excusedUsage", Encode.string <| writeActivityUsage appData environment ( ID.tag activityID, activity ) )
-                , ( "totalToday", Encode.string <| writeActivityUsage appData environment ( ID.tag activityID, activity ) )
+                , ( "excusedUsage", Encode.string <| writeActivityUsage appData environment activity )
+                , ( "totalToday", Encode.string <| writeActivityUsage appData environment activity )
                 ]
     in
     Encode.list encodeActivityVM <|
-        IntDict.toList <|
-            IntDict.filterValues Activity.isShowing <|
-                Activity.all appData.activities
+        List.filter Activity.isShowing <|
+            Activity.allUnhidden appData.activities
 
 
 
@@ -263,11 +262,11 @@ urlTriggers : Profile -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
     let
         activitiesWithNames =
-            List.concat <| List.map entriesPerActivity (IntDict.toList (Activity.all app.activities))
+            List.concat <| List.map entriesPerActivity (Activity.allUnhidden app.activities)
 
-        entriesPerActivity ( id, activity ) =
-            List.map (\nm -> ( nm, StartTracking (ID.tag id) )) activity.names
-                ++ List.map (\nm -> ( String.toLower nm, StartTracking (ID.tag id) )) activity.names
+        entriesPerActivity activity =
+            List.map (\nm -> ( nm, StartTracking (Activity.getID activity) )) (Activity.getNames activity)
+                ++ List.map (\nm -> ( String.toLower nm, StartTracking (Activity.getID activity) )) (Activity.getNames activity)
     in
     [ ( "start", Dict.fromList activitiesWithNames )
     , ( "stop", Dict.fromList [ ( "stop", StartTracking Activity.unknown ) ] )

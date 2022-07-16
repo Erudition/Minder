@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Store, excusableRatio, getByID, getID, getIcon, getMaxTime, getName, getTemplate, idCodec, storeCodec, unknown)
+module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getByID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, isShowing, storeCodec, unknown)
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
@@ -1120,6 +1120,19 @@ getName act =
                 |> Maybe.or (List.head (defaults template).names)
                 -- TODO template should have nonempty list
                 |> Maybe.withDefault "untitled custom activity"
+
+
+getNames : Activity -> List String
+getNames act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            RepList.listValues builtInSkel.names ++ (defaults template).names
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).names
+
+        Custom template customSkel customSkelID ->
+            RepList.listValues customSkel.names ++ (defaults template).names
 
 
 getIcon : Activity -> Icon

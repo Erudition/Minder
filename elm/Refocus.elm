@@ -217,10 +217,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
         statusDetails =
             { now = env.time
             , zone = env.timeZone
-            , oldActivity = Activity.get oldActivityID newProfile.activities
+            , oldActivity = Activity.getByID oldActivityID newProfile.activities
             , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession newProfile.timeline oldActivityID
             , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
-            , newActivity = Activity.get newActivityID newProfile.activities
+            , newActivity = Activity.getByID newActivityID newProfile.activities
             , newActivityTodayTotal =
                 Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
@@ -242,7 +242,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     Timeline.excusedUsage newProfile.timeline env.time ( newActivityID, newActivity )
 
                 excusedLeft =
-                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.get newActivityID newProfile.activities )
+                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.getByID newActivityID newProfile.activities )
 
                 isThisTheRightNextTask =
                     case ( newInstanceIDMaybe, Maybe.map Task.AssignedAction.getID nextInstanceMaybe ) of
@@ -1026,7 +1026,7 @@ scheduleExcusedReminders status excused =
             past excused.until timeBefore
 
         halfLeftThisSession =
-            -- It would be annoying to immediately get warned "5 minutes left" when the period is only 7 minutes, so we make sure at least half the time is used before showing warnings
+            -- It would be annoying to immediately get warned "5 minutes left" when the period is only 7 minutes, so we make sure at least half the time is used before isShowing warnings
             Duration.scale excused.remaining (1 / 2)
 
         gettingCloseList =
