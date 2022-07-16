@@ -120,31 +120,8 @@ customActivitySkelCodec =
         |> Codec.finishRecord
 
 
-type alias StoredActivities =
-    ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
-
-
-storedActivitiesCodec : Codec String StoredActivities
-storedActivitiesCodec =
-    Codec.tuple
-        (Codec.repDict Template.codec builtInActivitySkelCodec)
-        (Codec.repDb customActivitySkelCodec)
-
-
 unknown =
     BuiltInActivity DillyDally
-
-
-get : ActivityID -> StoredActivities -> Activity
-get activityID storedActivities =
-    case activityID of
-        BuiltInActivity template ->
-            --TODO use dict
-            defaults template
-
-        CustomActivity template customActivitySkelID ->
-            -- todo use db
-            defaults template
 
 
 fromCustom : CustomActivitySkel -> Activity
@@ -1086,16 +1063,3 @@ showing act =
 getName : Activity -> String
 getName act =
     Maybe.withDefault "?" (List.head act.names)
-
-
-all : StoredActivities -> List Activity
-all storedActivities =
-    let
-        builtIns =
-            List.map BuiltInActivity Template.all
-
-        customs =
-            -- TODO
-            []
-    in
-    List.map (\a -> get a storedActivities) (builtIns ++ customs)
