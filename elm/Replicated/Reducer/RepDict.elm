@@ -47,7 +47,7 @@ type RepDictEntry k v
 
 
 type alias Member v =
-    { handle : Handle
+    { remove : Change
     , value : v
     }
 
@@ -88,24 +88,30 @@ buildFromReplicaDb node targetObject payloadToEntry memberChanger keyToString =
         eventsAsMemberPairs =
             case existingObjectMaybe of
                 Just foundObject ->
-                    List.filterMap eventToMemberPair (Dict.values foundObject.events)
+                    List.filterMap (eventToMemberPair (Object.getID foundObject)) (Dict.values foundObject.events)
 
                 Nothing ->
                     []
 
-        eventToMemberPair : Object.KeptEvent -> Maybe ( k, Member v )
-        eventToMemberPair event =
+        eventToMemberPair : ObjectID -> Object.KeptEvent -> Maybe ( k, Member v )
+        eventToMemberPair containerObjectID event =
             case payloadToEntry (Object.eventPayloadAsJson event) of
                 Just (Present key val) ->
                     Just
                         ( key
-                        , { handle = OpID.toString (Object.eventID event)
-                          , value = val
+                        , { value = val
+                          , remove = remover containerObjectID (Object.eventID event)
                           }
                         )
 
                 _ ->
                     Nothing
+
+        remover containerObjectID inclusionEventID =
+            Change.Chunk
+                { target = Change.ExistingObjectPointer containerObjectID
+                , objectChanges = [ Change.RevertOp inclusionEventID ]
+                }
 
         generateMemberValue _ =
             case payloadToEntry (JE.string "{}") of
