@@ -1,10 +1,10 @@
 module Replicated.Update exposing
     ( Update, UpdateF
-    , map, map2, map3, map4, map5, andMap, mapWith, mapCmd, mapBoth, dropCmd
+    , map, map2, andMap, mapWith, mapCmd, mapBoth, dropCmd
     , piper, pipel, zero, piperK, pipelK
     , singleton, andThen, andThenK
-    , command, effect_
     , sequence, flatten
+    , addCmd, conditionalCmd
     )
 
 {-|
@@ -44,11 +44,13 @@ Modeling the `update` tuple as a Monad similar to `Writer`
 -}
 
 import Replicated.Change as Change exposing (Change)
+import Replicated.Node.Node exposing (Node)
+import SmartTime.Moment exposing (Moment, zero)
 import Tuple
 
 
 type alias Environment e =
-    { e | time : Bool }
+    { e | time : Moment }
 
 
 type SuperModel state profile env
@@ -57,7 +59,7 @@ type SuperModel state profile env
 
 {-| -}
 type alias Update msg model =
-    ( model, Cmd msg )
+    ( model, List Change, Cmd msg )
 
 
 {-| -}
@@ -86,22 +88,22 @@ zero =
 {-| Transform the `Model`, the `Cmd` will be left untouched
 -}
 map : (a -> b) -> Update msg a -> Update msg b
-map f ( model, cmd ) =
-    ( f model, cmd )
+map f ( model, changes, cmd ) =
+    ( f model, changes, cmd )
 
 
 {-| Transform the `Model` of and add a new `Cmd` to the queue
 -}
 mapWith : (a -> b) -> Cmd msg -> Update msg a -> Update msg b
 mapWith f cmd ret =
-    andMap ret ( f, cmd )
+    andMap ret ( f, [], cmd )
 
 
 {-| Map an `Update` into a `Update` containing a `Model` function
 -}
 andMap : Update msg a -> Update msg (a -> b) -> Update msg b
-andMap ( model, cmd_ ) ( f, cmd ) =
-    ( f model, Cmd.batch [ cmd, cmd_ ] )
+andMap ( model, changes1, cmd1 ) ( f, changes2, cmd2 ) =
+    ( f model, changes1 ++ changes2, Cmd.batch [ cmd2, cmd1 ] )
 
 
 {-| Map over both the model and the msg type of the `Update`.
@@ -118,8 +120,8 @@ Foo foo -> Foo.update foo model.foo
 |> mapBoth Foo FooModel
 -}
 mapBoth : (a -> b) -> (c -> d) -> Update a c -> Update b d
-mapBoth f f_ ( model, cmd ) =
-    ( f_ model, Cmd.map f cmd )
+mapBoth f f_ ( model, changes, cmd ) =
+    ( f_ model, changes, Cmd.map f cmd )
 
 
 {-| Combine 2 `Update`s with a function
@@ -133,51 +135,53 @@ map2 :
     -> Update msg a
     -> Update msg b
     -> Update msg c
-map2 f ( x, cmda ) ( y, cmdb ) =
-    ( f x y, Cmd.batch [ cmda, cmdb ] )
+map2 f ( x, changesA, cmda ) ( y, changesB, cmdb ) =
+    ( f x y, changesA ++ changesB, Cmd.batch [ cmda, cmdb ] )
 
 
-{-| -}
-map3 :
-    (a -> b -> c -> d)
-    -> Update msg a
-    -> Update msg b
-    -> Update msg c
-    -> Update msg d
-map3 f ( x, cmda ) ( y, cmdb ) ( z, cmdc ) =
-    ( f x y z, Cmd.batch [ cmda, cmdb, cmdc ] )
 
-
-{-| -}
-map4 :
-    (a -> b -> c -> d -> e)
-    -> Update msg a
-    -> Update msg b
-    -> Update msg c
-    -> Update msg d
-    -> Update msg e
-map4 f ( w, cmda ) ( x, cmdb ) ( y, cmdc ) ( z, cmdd ) =
-    ( f w x y z, Cmd.batch [ cmda, cmdb, cmdc, cmdd ] )
-
-
-{-| -}
-map5 :
-    (a -> b -> c -> d -> e -> f)
-    -> Update msg a
-    -> Update msg b
-    -> Update msg c
-    -> Update msg d
-    -> Update msg e
-    -> Update msg f
-map5 f ( v, cmda ) ( w, cmdb ) ( x, cmdc ) ( y, cmdd ) ( z, cmde ) =
-    ( f v w x y z, Cmd.batch [ cmda, cmdb, cmdc, cmdd, cmde ] )
+--
+-- {-| -}
+-- map3 :
+--     (a -> b -> c -> d)
+--     -> Update msg a
+--     -> Update msg b
+--     -> Update msg c
+--     -> Update msg d
+-- map3 f ( x, cmda ) ( y, cmdb ) ( z, cmdc ) =
+--     ( f x y z, Cmd.batch [ cmda, cmdb, cmdc ] )
+--
+--
+-- {-| -}
+-- map4 :
+--     (a -> b -> c -> d -> e)
+--     -> Update msg a
+--     -> Update msg b
+--     -> Update msg c
+--     -> Update msg d
+--     -> Update msg e
+-- map4 f ( w, cmda ) ( x, cmdb ) ( y, cmdc ) ( z, cmdd ) =
+--     ( f w x y z, Cmd.batch [ cmda, cmdb, cmdc, cmdd ] )
+--
+--
+-- {-| -}
+-- map5 :
+--     (a -> b -> c -> d -> e -> f)
+--     -> Update msg a
+--     -> Update msg b
+--     -> Update msg c
+--     -> Update msg d
+--     -> Update msg e
+--     -> Update msg f
+-- map5 f ( v, cmda ) ( w, cmdb ) ( x, cmdc ) ( y, cmdd ) ( z, cmde ) =
+--     ( f v w x y z, Cmd.batch [ cmda, cmdb, cmdc, cmdd, cmde ] )
 
 
 {-| Create a `Update` from a given `Model`
 -}
 singleton : model -> Update msg model
 singleton a =
-    ( a, Cmd.none )
+    ( a, [], Cmd.none )
 
 
 {-|
@@ -209,57 +213,58 @@ functions in this library.
 
 -}
 andThen : (a -> Update msg b) -> Update msg a -> Update msg b
-andThen f ( model, cmd ) =
+andThen f ( model, changes, cmd ) =
     let
-        ( model_, cmd_ ) =
+        ( modelNew, changesNew, cmdNew ) =
             f model
     in
-    ( model_, Cmd.batch [ cmd, cmd_ ] )
+    ( modelNew, changes ++ changesNew, Cmd.batch [ cmd, cmdNew ] )
 
 
 {-| Construct a new `Update` from parts
 -}
-update : model -> Cmd msg -> Update msg model
-update a b =
-    identity ( a, b )
+update : model -> List Change -> Cmd msg -> Update msg model
+update a changes b =
+    identity ( a, changes, b )
 
 
 {-| Add a `Cmd` to a `Update`, the `Model` is uneffected
 -}
-command : Cmd msg -> UpdateF msg model
-command cmd ( model, cmd_ ) =
-    ( model, Cmd.batch [ cmd, cmd_ ] )
+addCmd : Cmd msg -> UpdateF msg model
+addCmd cmd ( model, changes, cmd_ ) =
+    ( model, changes, Cmd.batch [ cmd, cmd_ ] )
 
 
 {-| Add a `Cmd` to a `Update` based on its `Model`, the `Model` will not be effected
 -}
-effect_ : Respond msg model -> UpdateF msg model
-effect_ f ( model, cmd ) =
-    ( model, Cmd.batch [ cmd, f model ] )
+conditionalCmd : Respond msg model -> UpdateF msg model
+conditionalCmd f ( model, changes, cmd ) =
+    ( model, changes, Cmd.batch [ cmd, f model ] )
 
 
 {-| Map on the `Cmd`.
 -}
 mapCmd : (a -> b) -> Update a model -> Update b model
-mapCmd f ( model, cmd ) =
-    ( model, Cmd.map f cmd )
+mapCmd f ( model, changes, cmd ) =
+    ( model, changes, Cmd.map f cmd )
 
 
 {-| Drop the current `Cmd` and replace with an empty thunk
 -}
 dropCmd : UpdateF msg model
-dropCmd =
-    singleton << Tuple.first
+dropCmd ( model, changes, cmd ) =
+    -- was: singleton << Tuple.first
+    ( model, changes, Cmd.none )
 
 
 {-| -}
 sequence : List (Update msg model) -> Update msg (List model)
 sequence =
     let
-        f ( model, cmd ) ( models, cmds ) =
-            ( model :: models, Cmd.batch [ cmd, cmds ] )
+        f ( model, changeList, cmd ) ( models, changeLists, cmds ) =
+            ( model :: models, changeList ++ changeLists, Cmd.batch [ cmd, cmds ] )
     in
-    List.foldr f ( [], Cmd.none )
+    List.foldr f ( [], [], Cmd.none )
 
 
 {-| -}
