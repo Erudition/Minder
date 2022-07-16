@@ -91,8 +91,7 @@ viewActivities env app =
     section
         [ class "main" ]
         [ ul [ class "activity-list" ] <|
-            IntDict.values <|
-                IntDict.map (\k v -> viewActivity app env ( ID.tag k, v )) (IntDict.filterValues Activity.showing (allActivities app.activities))
+            List.filterMap (viewActivity app env) (Activity.allUnhidden app.activities)
         ]
 
 
@@ -114,8 +113,8 @@ viewActivities env app =
 --     ( key, viewActivity app env activity )
 
 
-viewActivity : Profile -> Environment -> ( ActivityID, Activity ) -> Html Msg
-viewActivity app env ( activityID, activity ) =
+viewActivity : Profile -> Environment -> Activity -> Html Msg
+viewActivity app env activity =
     let
         describeSession sesh =
             Timeline.inHoursMinutes sesh ++ "\n"
@@ -124,13 +123,13 @@ viewActivity app env ( activityID, activity ) =
         [ class "activity" ]
         [ button
             [ class "activity-button"
-            , classList [ ( "current", Profile.currentActivityID app == activityID ) ]
+            , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking activityID)
             , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline activityID))
             ]
             [ viewIcon activity.icon
             , div []
-                [ text (writeActivityUsage app env ( activityID, activity ))
+                [ text (writeActivityUsage app env activity)
                 ]
             , div []
                 [ text (writeActivityToday app env activityID)
@@ -153,8 +152,8 @@ writeTime env =
 
 
 viewIcon : Activity.Icon -> Html Msg
-viewIcon icon =
-    case icon of
+viewIcon getIcon =
+    case getIcon of
         File svgPath ->
             img
                 [ class "activity-icon"
@@ -173,17 +172,17 @@ viewIcon icon =
             text singleEmoji
 
 
-writeActivityUsage : Profile -> Environment -> ( ActivityID, Activity ) -> String
-writeActivityUsage app env ( activityID, activity ) =
+writeActivityUsage : Profile -> Environment -> Activity -> String
+writeActivityUsage app env activity =
     let
         period =
-            Tuple.second activity.maxTime
+            Tuple.second (Activity.getMaxTime activity)
 
         lastPeriod =
             Timeline.relevantTimeline app.timeline env.time period
 
         total =
-            Timeline.totalLive env.time lastPeriod activityID
+            Timeline.totalLive env.time lastPeriod (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total
@@ -195,9 +194,9 @@ writeActivityUsage app env ( activityID, activity ) =
         ""
 
 
-writeActivityToday : Profile -> Environment -> ActivityID -> String
+writeActivityToday : Profile -> Environment -> Activity -> String
 writeActivityToday app env activityID =
-    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline env activityID)
+    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline env (Activity.getID activity))
 
 
 exportActivityViewModel : Profile -> Environment -> Encode.Value
@@ -212,8 +211,8 @@ exportActivityViewModel appData environment =
     in
     Encode.list encodeActivityVM <|
         IntDict.toList <|
-            IntDict.filterValues Activity.showing <|
-                allActivities appData.activities
+            IntDict.filterValues Activity.isShowing <|
+                Activity.all appData.activities
 
 
 
@@ -264,13 +263,13 @@ urlTriggers : Profile -> List ( String, Dict.Dict String Msg )
 urlTriggers app =
     let
         activitiesWithNames =
-            List.concat <| List.map entriesPerActivity (IntDict.toList (allActivities app.activities))
+            List.concat <| List.map entriesPerActivity (IntDict.toList (Activity.all app.activities))
 
         entriesPerActivity ( id, activity ) =
             List.map (\nm -> ( nm, StartTracking (ID.tag id) )) activity.names
                 ++ List.map (\nm -> ( String.toLower nm, StartTracking (ID.tag id) )) activity.names
     in
     [ ( "start", Dict.fromList activitiesWithNames )
-    , ( "stop", Dict.fromList [ ( "stop", StartTracking dummy ) ] )
+    , ( "stop", Dict.fromList [ ( "stop", StartTracking Activity.unknown ) ] )
     , ( "export", Dict.fromList [ ( "all", ExportVM ) ] )
     ]

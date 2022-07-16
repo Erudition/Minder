@@ -1,4 +1,4 @@
-module Activity.Activity exposing (..)
+module Activity.Activity exposing (Activity, ActivityID, Store, excusableRatio, getByID, getID, getIcon, getMaxTime, getName, getTemplate, idCodec, storeCodec, unknown)
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
@@ -16,6 +16,9 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Nonempty exposing (..)
+import Log
+import Maybe.Extra as Maybe
+import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
@@ -29,24 +32,31 @@ import Time
 import Time.Extra exposing (..)
 
 
+{-| Opaque type for an activity, with everything inside necessary to get any detail
+-}
+type Activity
+    = BuiltIn Template BuiltInSearch
+    | Custom Template CustomActivitySkel (ID CustomActivitySkel)
+
+
 type ActivityID
-    = BuiltInActivity Template
-    | CustomActivity Template (ID CustomActivitySkel)
+    = BuiltInActivityID Template
+    | CustomActivityID Template (ID CustomActivitySkel)
 
 
-activityIDCodec : Codec String ActivityID
-activityIDCodec =
+idCodec : Codec String ActivityID
+idCodec =
     Codec.customType
         (\builtInActivity customActivity value ->
             case value of
-                BuiltInActivity template ->
+                BuiltInActivityID template ->
                     builtInActivity template
 
-                CustomActivity template customActivityID ->
+                CustomActivityID template customActivityID ->
                     customActivity template customActivityID
         )
-        |> Codec.variant1 ( 1, "BuiltInActivity" ) BuiltInActivity Template.codec
-        |> Codec.variant2 ( 2, "CustomActivity" ) CustomActivity Template.codec Codec.id
+        |> Codec.variant1 ( 1, "BuiltInActivity" ) BuiltInActivityID Template.codec
+        |> Codec.variant2 ( 2, "CustomActivity" ) CustomActivityID Template.codec Codec.id
         |> Codec.finishCustomType
 
 
@@ -70,7 +80,7 @@ type alias BuiltInActivitySkel =
     , evidence : RepList Evidence
     , backgroundable : RW (Maybe Bool)
     , maxTime : RW (Maybe DurationPerPeriod)
-    , hidden : RW (Maybe Bool)
+    , hidden : RW Bool
     , externalIDs : RepDict String String
     }
 
@@ -85,7 +95,7 @@ builtInActivitySkelCodec =
         |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
         |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
         |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
-        |> maybeRW ( 9, "hidden" ) .hidden Codec.bool
+        |> fieldRW ( 9, "hidden" ) .hidden Codec.bool False
         |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
         |> Codec.finishRecord
 
@@ -99,7 +109,7 @@ type alias CustomActivitySkel =
     , evidence : RepList Evidence
     , backgroundable : RW (Maybe Bool)
     , maxTime : RW (Maybe DurationPerPeriod)
-    , hidden : RW (Maybe Bool)
+    , hidden : RW Bool
     , externalIDs : RepDict String String
     }
 
@@ -115,24 +125,13 @@ customActivitySkelCodec =
         |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
         |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
         |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
-        |> maybeRW ( 9, "hidden" ) .hidden Codec.bool
+        |> fieldRW ( 9, "hidden" ) .hidden Codec.bool False
         |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
         |> Codec.finishRecord
 
 
 unknown =
-    BuiltInActivity DillyDally
-
-
-fromCustom : CustomActivitySkel -> Activity
-fromCustom skel =
-    let
-        base =
-            defaults skel.template
-    in
-    { base
-        | names = RepList.listValues skel.names
-    }
+    BuiltInActivityID DillyDally
 
 
 type Excusable
@@ -159,19 +158,6 @@ excusableCodec =
         |> Codec.variant1 ( 2, "TemporarilyExcused" ) TemporarilyExcused durationPerPeriodCodec
         |> Codec.variant0 ( 3, "IndefinitelyExcused" ) IndefinitelyExcused
         |> Codec.finishCustomType
-
-
-excusableFor : Activity -> DurationPerPeriod
-excusableFor skel =
-    case skel.excusable of
-        NeverExcused ->
-            ( Minutes 0, Minutes 0 )
-
-        TemporarilyExcused durationPerPeriod ->
-            durationPerPeriod
-
-        IndefinitelyExcused ->
-            ( Hours 24, Hours 24 )
 
 
 {-| We could have both durations share a combined Interval, e.g. "50 minutes per 60 minutes" , without losing any information, but it's more human friendly to say e.g. "50 minutes per hour" when we can.
@@ -238,8 +224,9 @@ type Category
     | Communication
 
 
-type alias Activity =
-    { names : List String -- TODO should be Translations
+type alias TemplateDefaults =
+    { id : ActivityID
+    , names : List String -- TODO should be Translations
     , icon : Icon -- TODO figure out best way to do this. svg file path?
     , excusable : Excusable
     , taskOptional : Bool -- technically they can all be "unplanned"
@@ -248,12 +235,11 @@ type alias Activity =
     , backgroundable : Bool
     , maxTime : DurationPerPeriod
     , hidden : Bool -- The user can hide any of the "stock" activities they don't use
-    , template : Template -- template this activity was derived from, in case we want to propogate changes to defaults
     , externalIDs : Dict String String
     }
 
 
-defaults : Template -> Activity
+defaults : Template -> TemplateDefaults
 defaults startWith =
     case startWith of
         DillyDally ->
@@ -266,7 +252,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Minutes 0, Hours 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -280,7 +266,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -294,7 +280,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Hours 5 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -308,7 +294,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Minutes 20, Hours 2 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -322,7 +308,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -336,7 +322,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -350,7 +336,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -364,7 +350,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -378,7 +364,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -392,7 +378,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -406,7 +392,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -420,7 +406,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -434,7 +420,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -448,7 +434,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -462,7 +448,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -476,7 +462,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -490,7 +476,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 8, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -504,7 +490,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -518,7 +504,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -532,7 +518,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -546,7 +532,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Minutes 30, Hours 24 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -560,7 +546,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -574,7 +560,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -588,7 +574,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Minutes 30, Hours 5 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -602,7 +588,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -616,7 +602,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -630,7 +616,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -644,7 +630,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -658,7 +644,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -672,7 +658,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -686,7 +672,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -700,7 +686,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -714,7 +700,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -728,7 +714,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -742,7 +728,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -756,7 +742,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -770,7 +756,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = True
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -784,7 +770,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -798,7 +784,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -812,7 +798,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -826,7 +812,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -840,7 +826,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -854,7 +840,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -868,7 +854,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -882,7 +868,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -896,7 +882,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -910,7 +896,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -924,7 +910,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -938,7 +924,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -952,7 +938,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -966,7 +952,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -980,7 +966,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -994,7 +980,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -1008,7 +994,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -1022,7 +1008,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 2, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -1036,7 +1022,7 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 6, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
@@ -1050,16 +1036,276 @@ defaults startWith =
             , backgroundable = False
             , maxTime = ( Hours 8, Days 1 )
             , hidden = False
-            , template = startWith
+            , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
             }
 
 
-showing : Activity -> Bool
-showing act =
-    not act.hidden
+
+-- ACTIVITY API
+-- ACTIVITY API
+
+
+{-| Get the Activity's starting template
+-}
+getTemplate : Activity -> Template
+getTemplate act =
+    case act of
+        BuiltIn template builtInActivitySkel ->
+            template
+
+        Custom template customActivitySkel customActivitySkelID ->
+            template
+
+
+{-| Get the Activity's ID
+-}
+getID : Activity -> ActivityID
+getID act =
+    case act of
+        BuiltIn template builtInActivitySkel ->
+            BuiltInActivityID template
+
+        Custom template customActivitySkel customActivitySkelID ->
+            CustomActivityID template customActivitySkelID
+
+
+isHidden : Activity -> Bool
+isHidden act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.hidden.get
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).hidden
+
+        Custom template customSkel customSkelID ->
+            customSkel.hidden.get
+
+
+isShowing : Activity -> Bool
+isShowing act =
+    not (isHidden act)
+
+
+hide : Activity -> Change
+hide act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.hidden.set False
+
+        BuiltIn template (NoSkelYet newSkelChanger) ->
+            newSkelChanger (\builtInSkel -> [ builtInSkel.hidden.set False ])
+
+        Custom template customSkel customSkelID ->
+            customSkel.hidden.set False
 
 
 getName : Activity -> String
 getName act =
-    Maybe.withDefault "?" (List.head act.names)
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            RepList.headValue builtInSkel.names
+                |> Maybe.or (List.head (defaults template).names)
+                -- TODO template should have nonempty list
+                |> Maybe.withDefault "untitled built-in activity"
+
+        BuiltIn template (NoSkelYet _) ->
+            List.head (defaults template).names
+                -- TODO template should have nonempty list
+                |> Maybe.withDefault "untitled built-in activity"
+
+        Custom template customSkel customSkelID ->
+            RepList.headValue customSkel.names
+                |> Maybe.or (List.head (defaults template).names)
+                -- TODO template should have nonempty list
+                |> Maybe.withDefault "untitled custom activity"
+
+
+getIcon : Activity -> Icon
+getIcon act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.icon.get
+                |> Maybe.withDefault (defaults template).icon
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).icon
+
+        Custom template customSkel customSkelID ->
+            customSkel.icon.get
+                |> Maybe.withDefault (defaults template).icon
+
+
+{-| internal accessor - use excusableRatio
+-}
+getExcusable : Activity -> Excusable
+getExcusable act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.excusable.get
+                |> Maybe.withDefault (defaults template).excusable
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).excusable
+
+        Custom template customSkel customSkelID ->
+            customSkel.excusable.get
+                |> Maybe.withDefault (defaults template).excusable
+
+
+excusableRatio : Activity -> DurationPerPeriod
+excusableRatio act =
+    case getExcusable act of
+        NeverExcused ->
+            ( Minutes 0, Minutes 0 )
+
+        TemporarilyExcused durationPerPeriod ->
+            durationPerPeriod
+
+        IndefinitelyExcused ->
+            ( Hours 24, Hours 24 )
+
+
+isTaskOptional : Activity -> Bool
+isTaskOptional act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.taskOptional.get
+                |> Maybe.withDefault (defaults template).taskOptional
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).taskOptional
+
+        Custom template customSkel customSkelID ->
+            customSkel.taskOptional.get
+                |> Maybe.withDefault (defaults template).taskOptional
+
+
+setTaskOptional : Bool -> Activity -> Change
+setTaskOptional newSetting act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.taskOptional.set (Just newSetting)
+
+        BuiltIn template (NoSkelYet newSkelChanger) ->
+            newSkelChanger (\builtInSkel -> [ builtInSkel.taskOptional.set (Just newSetting) ])
+
+        Custom template customSkel customSkelID ->
+            customSkel.taskOptional.set (Just newSetting)
+
+
+isBackgroundable : Activity -> Bool
+isBackgroundable act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.backgroundable.get
+                |> Maybe.withDefault (defaults template).backgroundable
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).backgroundable
+
+        Custom template customSkel customSkelID ->
+            customSkel.backgroundable.get
+                |> Maybe.withDefault (defaults template).backgroundable
+
+
+setBackgroundable : Bool -> Activity -> Change
+setBackgroundable newSetting act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.backgroundable.set (Just newSetting)
+
+        BuiltIn template (NoSkelYet newSkelChanger) ->
+            newSkelChanger (\builtInSkel -> [ builtInSkel.backgroundable.set (Just newSetting) ])
+
+        Custom template customSkel customSkelID ->
+            customSkel.backgroundable.set (Just newSetting)
+
+
+getMaxTime : Activity -> DurationPerPeriod
+getMaxTime act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.maxTime.get
+                |> Maybe.withDefault (defaults template).maxTime
+
+        BuiltIn template (NoSkelYet _) ->
+            (defaults template).maxTime
+
+        Custom template customSkel customSkelID ->
+            customSkel.maxTime.get
+                |> Maybe.withDefault (defaults template).maxTime
+
+
+setMaxTime : DurationPerPeriod -> Activity -> Change
+setMaxTime newSetting act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            builtInSkel.maxTime.set (Just newSetting)
+
+        BuiltIn template (NoSkelYet newSkelChanger) ->
+            newSkelChanger (\builtInSkel -> [ builtInSkel.maxTime.set (Just newSetting) ])
+
+        Custom template customSkel customSkelID ->
+            customSkel.maxTime.set (Just newSetting)
+
+
+
+-- STORE of ACTIVITIES
+
+
+type alias Store =
+    ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
+
+
+storeCodec : Codec String Store
+storeCodec =
+    Codec.tuple
+        (Codec.repDict Template.codec builtInActivitySkelCodec)
+        (Codec.repDb customActivitySkelCodec)
+
+
+getByID : ActivityID -> Store -> Activity
+getByID activityID ( builtins, customs ) =
+    case activityID of
+        BuiltInActivityID template ->
+            case RepDict.get template builtins of
+                Just foundSkel ->
+                    BuiltIn template (FoundSkel foundSkel)
+
+                Nothing ->
+                    BuiltIn template
+                        (NoSkelYet (\changer -> RepDict.insertNewWithChanges template changer builtins))
+
+        CustomActivityID template customSkelID ->
+            case RepDb.get customSkelID customs of
+                Just foundCustom ->
+                    Custom template foundCustom customSkelID
+
+                Nothing ->
+                    -- Need RepDb.getOrCreate
+                    Debug.todo "tried to access an activity that was deleted/corrupted/unknown!"
+
+
+type BuiltInSearch
+    = FoundSkel BuiltInActivitySkel
+    | NoSkelYet ((BuiltInActivitySkel -> List Change) -> Change)
+
+
+getAll : Store -> List Activity
+getAll store =
+    let
+        builtIns =
+            List.map BuiltInActivityID Template.all
+
+        customs =
+            -- TODO
+            []
+    in
+    List.map (\a -> getByID a store) (builtIns ++ customs)
+
+
+allUnhidden : Store -> List Activity
+allUnhidden store =
+    List.filter isShowing (getAll store)

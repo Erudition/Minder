@@ -47,8 +47,8 @@ type RepDictEntry k v
 
 
 type alias Member v =
-    { remove : Change
-    , value : v
+    { value : v
+    , remove : Change
     }
 
 
@@ -153,6 +153,25 @@ list repDict =
 getMember : k -> RepDict k v -> Maybe (Member v)
 getMember key ((RepDict record) as repDict) =
     AnyDict.get key record.members
+
+
+
+-- TODO
+-- getOrCreateMember : k -> RepDict k v -> Maybe (Member v)
+-- getOrCreateMember key ((RepDict record) as repDict) =
+--     case AnyDict.get key record.members of
+--         Just found ->
+--             Just found
+--
+--         Nothing ->
+--             case record.memberGenerator () of
+--                 Just generated ->
+--                     Just <|
+--                         Member generated
+--                             (Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "can't remove uninitialized")))
+--
+--                 Nothing ->
+--                     Nothing
 
 
 {-| Get your RepDict as a read-only List, with values wrapped in `Member` records so you still have access to the handle

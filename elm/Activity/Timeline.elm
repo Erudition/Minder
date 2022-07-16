@@ -53,9 +53,9 @@ currentInstanceID switchList =
     Switch.getInstanceID (latestSwitch switchList)
 
 
-currentActivity : StoredActivities -> Timeline -> Activity
-currentActivity storedActivities switchList =
-    Activity.get (currentActivityID switchList) storedActivities
+currentActivity : Activity.Store -> Timeline -> Activity
+currentActivity store switchList =
+    Activity.getByID (currentActivityID switchList) store
 
 
 startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Change
@@ -419,7 +419,7 @@ excusedUsage : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
 excusedUsage timeline now ( activityID, activity ) =
     let
         lastPeriod =
-            relevantTimeline timeline now (Tuple.first (Activity.excusableFor activity))
+            relevantTimeline timeline now (Tuple.first (Activity.excusableRatio activity))
     in
     totalLive now (RepList.listValues lastPeriod) activityID
 
@@ -428,14 +428,14 @@ excusedUsage timeline now ( activityID, activity ) =
 -}
 excusableLimit : Activity -> Duration
 excusableLimit activity =
-    dur (Tuple.first (Activity.excusableFor activity))
+    dur (Tuple.first (Activity.excusableRatio activity))
 
 
 {-| Length of the the window in which excused time is limited.
 -}
 excusableLimitWindow : Activity -> Duration
 excusableLimitWindow activity =
-    dur (Tuple.second (Activity.excusableFor activity))
+    dur (Tuple.second (Activity.excusableRatio activity))
 
 
 {-| Total time NOT used within the excused window.

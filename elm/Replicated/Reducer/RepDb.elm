@@ -152,11 +152,11 @@ size (RepDb record) =
 
 addNew : RepDb memberType -> Change
 addNew repDict =
-    addNewWithChanges repDict (\_ -> [])
+    addNewWithChanges (\_ -> []) repDict
 
 
-addNewWithChanges : RepDb memberType -> (memberType -> List Change) -> Change
-addNewWithChanges (RepDb record) changer =
+addNewWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
+addNewWithChanges changer (RepDb record) =
     let
         newItemMaybe =
             record.memberGenerator ()

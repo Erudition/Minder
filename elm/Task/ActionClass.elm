@@ -56,7 +56,7 @@ codec : Codec String ActionClassSkel
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string
-        |> maybeRW ( 2, "activity" ) .activity Activity.Activity.activityIDCodec
+        |> maybeRW ( 2, "activity" ) .activity Activity.Activity.idCodec
         |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
         |> fieldRW ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
         |> fieldRW ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero
