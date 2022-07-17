@@ -2,6 +2,7 @@ module Integrations.Todoist exposing (calcImportance, describeSuccess, devSecret
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Dict exposing (Dict)
+import Dict.Any exposing (AnyDict)
 import Helpers exposing (..)
 import Http
 import ID
@@ -20,6 +21,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Profile exposing (Profile, TodoistIntegrationData, saveError)
+import Replicated.Change as Change exposing (Change)
 import Set
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
@@ -47,7 +49,7 @@ devSecret =
     "0bdc5149510737ab941485bace8135c60e2d812b"
 
 
-handle : Todoist.Msg -> Profile -> ( Profile, String )
+handle : Todoist.Msg -> Profile -> ( Change.Frame, String )
 handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
         Ok ( newCache, changes ) ->
@@ -75,15 +77,19 @@ handle msg app =
                     , parentProjectID = newMaybeParent
                     , activityProjectIDs = projectToActivityMapping
                     }
-            in
-            ( { app
-                | todoist = newTodoistData
 
-                -- TODO figure out deleted
-                , taskInstances = IntDict.union newInstances app.taskInstances
-                , taskClasses = IntDict.union newClasses app.taskClasses
-                , taskEntries = app.taskEntries -- TODO merge in new entries
-              }
+                finalChanges =
+                    -- { app
+                    --     | todoist = newTodoistData
+                    --
+                    --     -- TODO figure out deleted
+                    --     , taskInstances = IntDict.union newInstances app.taskInstances
+                    --     , taskClasses = IntDict.union newClasses app.taskClasses
+                    --     , taskEntries = app.taskEntries -- TODO merge in new entries
+                    --   }
+                    []
+            in
+            ( Change.saveChanges "" finalChanges
             , describeSuccess changes
             )
 
@@ -92,7 +98,7 @@ handle msg app =
                 description =
                     Todoist.describeError err
             in
-            ( saveError app description, description )
+            ( Change.saveChanges "" [ saveError app description ], description )
 
 
 describeSuccess : Todoist.LatestChanges -> String
@@ -165,13 +171,10 @@ detectActivityProjects maybeParent app cache =
                     IntDict.filterValues hasTimetrackAsParent cache.projects
 
                 newActivityLookupTable =
-                    filterActivityProjects validActivityProjects activities
+                    filterActivityProjects validActivityProjects app.activities
 
                 oldActivityLookupTable =
                     app.todoist.activityProjectIDs
-
-                activities =
-                    Activity.all app.activities
             in
             -- add it to what we already know! TODO what if one is deleted?
             IntDict.union newActivityLookupTable oldActivityLookupTable
@@ -191,19 +194,19 @@ tryGetTimetrackParentProject localData cache =
 
 {-| Take our todoist-project dictionary and our activity dictionary, and create a translation table between them.
 -}
-filterActivityProjects : IntDict Project -> IntDict Activity -> IntDict ActivityID
+filterActivityProjects : IntDict Project -> Activity.Store -> IntDict ActivityID
 filterActivityProjects projects activities =
     -- phew! this was a hard one conceptually :) Looks clean though!
     let
         -- The only part of our activities we care about here is the name field, so we reduce the activities to just their name list
-        activityNamesDict =
-            IntDict.mapValues .names activities
+        activityIDsWithNames =
+            List.map (\act -> ( Activity.getID act, Activity.getNames act )) (Activity.allUnhidden activities)
 
         -- Our IntDict's (Keys, Values) are (activityID, nameList). This function gets mapped to our dictionary to check for matches. what was once a dictionary of names is now a dictionary of Maybe ActivityIDs.
-        matchToID nameToTest activityID nameList =
+        matchToID nameToTest ( activityID, nameList ) =
             if List.member nameToTest nameList then
                 -- Wrap values we want to keep
-                Just (ID.tag activityID)
+                Just activityID
 
             else
                 -- No match, will be removed from the dict
@@ -211,13 +214,13 @@ filterActivityProjects projects activities =
 
         -- Try a given name with matchToID, filter out the nothings, which should either be all of them, or all but one.
         activityNameMatches nameToTest =
-            IntDict.filterMap (matchToID nameToTest) activityNamesDict
+            List.filterMap (matchToID nameToTest) activityIDsWithNames
 
         -- Convert the matches dict to a list and then to a single ActivityID, maybe.
         -- If for some reason there's multiple matches, choose the first. TODO save error instead
         -- If none matched, returns nothing (List.head) TODO save error instead
         pickFirstMatch nameToTest =
-            List.head <| IntDict.values (activityNameMatches nameToTest)
+            List.head (activityNameMatches nameToTest)
     in
     -- For all projects, take the name and check it against the activityID dict
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects

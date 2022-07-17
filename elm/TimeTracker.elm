@@ -27,6 +27,8 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Profile exposing (..)
 import Refocus
+import Replicated.Change as Change exposing (Change)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -125,7 +127,7 @@ viewActivity app env activity =
             [ class "activity-button"
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions app.timeline (Activity.getID activity)))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions (RepList.listValues app.timeline) (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []
@@ -182,7 +184,7 @@ writeActivityUsage app env activity =
             Timeline.relevantTimeline app.timeline env.time period
 
         total =
-            Timeline.totalLive env.time lastPeriod (Activity.getID activity)
+            Timeline.totalLive env.time (RepList.listValues lastPeriod) (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total
@@ -229,31 +231,32 @@ type Msg
     | ExportVM
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
 update msg state app env =
     case msg of
         NoOp ->
             ( state
-            , app
+            , Change.none
             , Cmd.none
             )
 
         StartTracking activityId ->
             let
-                ( updatedApp, cmds ) =
+                ( changes, cmds ) =
                     Refocus.switchActivity activityId app env
             in
             ( state
-            , updatedApp
+            , Change.saveChanges "Started tracking" changes
             , Cmd.batch
                 [ cmds
-                , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel updatedApp env )
+
+                -- , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel updatedApp env )
                 ]
             )
 
         ExportVM ->
             ( state
-            , app
+            , Change.none
             , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app env )
             )
 

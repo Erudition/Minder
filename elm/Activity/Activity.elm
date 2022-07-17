@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getByID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, isShowing, storeCodec, unknown)
+module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getAllIncludingHidden, getByID, getExternalID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, isShowing, setExternalID, storeCodec, totalCount, unknown)
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
@@ -1264,6 +1264,32 @@ setMaxTime newSetting act =
             customSkel.maxTime.set (Just newSetting)
 
 
+getExternalID : String -> Activity -> Maybe String
+getExternalID key act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            RepDict.get key builtInSkel.externalIDs
+
+        BuiltIn template (NoSkelYet _) ->
+            Nothing
+
+        Custom template customSkel customSkelID ->
+            RepDict.get key customSkel.externalIDs
+
+
+setExternalID : String -> String -> Activity -> Change
+setExternalID key value act =
+    case act of
+        BuiltIn template (FoundSkel builtInSkel) ->
+            RepDict.update key (\_ -> Just value) builtInSkel.externalIDs
+
+        BuiltIn template (NoSkelYet newSkelChanger) ->
+            newSkelChanger (\builtInSkel -> [ RepDict.update key (\_ -> Just value) builtInSkel.externalIDs ])
+
+        Custom template customSkel customSkelID ->
+            RepDict.update key (\_ -> Just value) customSkel.externalIDs
+
+
 
 -- STORE of ACTIVITIES
 
@@ -1306,8 +1332,8 @@ type BuiltInSearch
     | NoSkelYet ((BuiltInActivitySkel -> List Change) -> Change)
 
 
-getAll : Store -> List Activity
-getAll store =
+getAllIncludingHidden : Store -> List Activity
+getAllIncludingHidden store =
     let
         builtIns =
             List.map BuiltInActivityID Template.all
@@ -1321,4 +1347,9 @@ getAll store =
 
 allUnhidden : Store -> List Activity
 allUnhidden store =
-    List.filter isShowing (getAll store)
+    List.filter isShowing (getAllIncludingHidden store)
+
+
+totalCount : Store -> Int
+totalCount store =
+    List.length <| getAllIncludingHidden store

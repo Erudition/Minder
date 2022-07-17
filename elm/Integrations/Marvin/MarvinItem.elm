@@ -1,6 +1,6 @@
 module Integrations.Marvin.MarvinItem exposing (..)
 
-import Activity.Activity as Activity exposing (Activity, ActivityID, StoredActivities)
+import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Dict exposing (Dict)
 import Helpers exposing (..)
 import ID
@@ -13,6 +13,8 @@ import List.Extra as List
 import Maybe.Extra
 import Profile exposing (Profile)
 import Regex
+import Replicated.Change as Change exposing (Change)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
@@ -357,49 +359,51 @@ toDocketItem marvinItem profile =
 
 type OutputType
     = ConvertedToTaskTriplet { entries : List Task.Entry.Entry, classes : List Task.ActionClass.ActionClassSkel, instances : List Task.AssignedAction.AssignedActionSkel }
-    | ConvertedToActivity StoredActivities
+    | ConvertedToActivity Activity.Store
 
 
-projectToDocketActivity : StoredActivities -> MarvinItem -> StoredActivities
+projectToDocketActivity : Activity.Store -> MarvinItem -> List Change
 projectToDocketActivity activities marvinCategory =
     let
-        nameMatch key value =
-            List.member marvinCategory.title value.names
+        nameMatch act =
+            List.member marvinCategory.title (Activity.getNames act)
 
         matchingActivities =
-            IntDict.filter nameMatch (Activity.allActivities activities)
+            List.filter nameMatch (Activity.allUnhidden activities)
 
         firstActivityMatch =
-            List.head (IntDict.toList matchingActivities)
+            List.head matchingActivities
 
-        toCustomizations : Maybe Activity.Customizations
+        -- toCustomizations : Maybe Activity.Customizations
         toCustomizations =
-            case firstActivityMatch of
-                Just ( key, activity ) ->
-                    Just
-                        { names = Nothing
-                        , icon = Nothing
-                        , excusable = Nothing
-                        , taskOptional = Nothing
-                        , evidence = []
-                        , category = Nothing
-                        , backgroundable = Nothing
-                        , maxTime = Nothing
-                        , hidden = Nothing
-                        , template = activity.template
-                        , id = ID.tag key
-                        , externalIDs = Dict.insert "marvinCategory" marvinCategory.id activity.externalIDs
-                        }
-
-                Nothing ->
-                    Nothing
+            -- case firstActivityMatch of
+            --     Just ( key, activity ) ->
+            --         Just
+            --             { names = Nothing
+            --             , icon = Nothing
+            --             , excusable = Nothing
+            --             , taskOptional = Nothing
+            --             , evidence = []
+            --             , category = Nothing
+            --             , backgroundable = Nothing
+            --             , maxTime = Nothing
+            --             , hidden = Nothing
+            --             , template = activity.template
+            --             , id = ID.tag key
+            --             , externalIDs = Dict.insert "marvinCategory" marvinCategory.id activity.externalIDs
+            --             }
+            --
+            --     Nothing ->
+            --         Nothing
+            Debug.todo "convert customizations to changes"
     in
     case toCustomizations of
         Just customizedActivity ->
-            IntDict.insert (ID.read customizedActivity.id) customizedActivity activities
+            -- IntDict.insert (ID.read customizedActivity.id) customizedActivity activities
+            Debug.todo "generate changes"
 
         Nothing ->
-            activities
+            []
 
 
 toDocketTask : Profile -> MarvinItem -> { entries : List Task.Entry.Entry, classes : List Task.ActionClass.ActionClassSkel, instances : List Task.AssignedAction.AssignedActionSkel }
@@ -445,13 +449,15 @@ toDocketClassAndEntry classCounter profile marvinItem =
             Dict.get marvinGeneratorID existingClassesWithMarvinLink
 
         existingClassMaybe =
-            Maybe.andThen (\classID -> IntDict.get classID profile.taskClasses) existingClassIDMaybe
+            Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe
 
         newEntry =
-            Task.Entry.newRootEntry newClassID
+            -- Task.Entry.newRootEntry newClassID
+            Debug.todo "create new root entry"
 
         classBase =
-            Maybe.withDefault (Task.ActionClass.newActionClassSkel marvinItem.title newClassID) existingClassMaybe
+            -- Maybe.withDefault (Task.ActionClass.newActionClassSkel marvinItem.title newClassID) existingClassMaybe
+            Debug.todo "create new action class if no existing one"
 
         derivedMarvinGeneratorID =
             -- instance ID like 2021-11-11_b5946420-afe1-488e-adb0-3633b1905095
@@ -473,15 +479,16 @@ toDocketClassAndEntry classCounter profile marvinItem =
                 , extra = updateExtraData classBase.extra
             }
     in
-    case existingClassMaybe of
-        Just existingClass ->
-            ( finalClass, Nothing )
+    -- case existingClassMaybe of
+    -- Just existingClass ->
+    --     ( finalClass, Nothing )
+    --
+    -- Nothing ->
+    --     ( finalClass, Just newEntry )
+    Debug.todo "toDocketClassAndEntry"
 
-        Nothing ->
-            ( finalClass, Just newEntry )
 
-
-toDocketInstance : Int -> Task.ActionClass.ActionClassSkel -> Profile -> MarvinItem -> Task.AssignedAction.AssignedActionSkel
+toDocketInstance : Int -> Task.ActionClass.ActionClassSkel -> Profile -> MarvinItem -> Maybe (Task.AssignedAction.AssignedActionSkel -> Change)
 toDocketInstance classCounter class profile marvinItem =
     let
         existingInstancesWithMarvinLink =
@@ -500,10 +507,11 @@ toDocketInstance classCounter class profile marvinItem =
             Dict.get marvinItem.id existingInstancesWithMarvinLink
 
         existingInstanceMaybe =
-            Maybe.andThen (\instanceID -> IntDict.get instanceID profile.taskInstances) existingInstanceIDMaybe
+            Maybe.andThen (\instanceID -> RepDb.get instanceID profile.taskInstances) existingInstanceIDMaybe
 
         instanceBase =
-            Maybe.withDefault (Task.AssignedAction.newAssignedActionSkel classCounter class) existingInstanceMaybe
+            -- Maybe.withDefault (Task.AssignedAction.newAssignedActionSkel classCounter class) existingInstanceMaybe
+            Debug.todo "what to do about generating a new instance conditionally"
 
         plannedSessionList : List UserPlannedSession
         plannedSessionList =
@@ -683,16 +691,16 @@ parseTimesList timesList =
 
 {-| Determine which activity to assign to a newly imported class
 -}
-determineClassActivity : MarvinItem -> StoredActivities -> Maybe ActivityID
+determineClassActivity : MarvinItem -> Activity.Store -> Maybe ActivityID
 determineClassActivity marvinItem activities =
     case ( marvinItem.parentId, marvinItem.labelIds ) of
         ( Just someParent, [] ) ->
             let
                 activitiesWithMarvinCategories =
-                    List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+                    List.map getMarvinID (Activity.allUnhidden activities)
 
-                getMarvinID ( intID, activity ) =
-                    ( ID.tag intID, Dict.get "marvinCategory" activity.externalIDs )
+                getMarvinID activity =
+                    Activity.getExternalID "marvinCategory" activity
 
                 matchingActivities : List ActivityID
                 matchingActivities =
@@ -711,7 +719,7 @@ determineClassActivity marvinItem activities =
         ( _, labels ) ->
             let
                 activitiesWithMarvinLabels =
-                    List.map getMarvinID (IntDict.toList (Activity.allActivities activities))
+                    List.map getMarvinID (Activity.allUnhidden activities)
 
                 getMarvinID ( intID, activity ) =
                     ( ID.tag intID, Dict.get "marvinLabel" activity.externalIDs )
@@ -752,47 +760,31 @@ decodeMarvinLabel =
         |> optionalIgnored "_rev"
 
 
-labelToDocketActivity : StoredActivities -> MarvinLabel -> StoredActivities
+labelToDocketActivity : Activity.Store -> MarvinLabel -> List Change
 labelToDocketActivity activities label =
     let
-        nameMatch key value =
-            List.member label.title value.names || List.member (String.toLower label.title) (List.map (String.toLower << String.trim) value.names)
+        nameMatch activity =
+            List.member label.title (Activity.getNames activity) || List.member (String.toLower label.title) (List.map (String.toLower << String.trim) (Activity.getNames activity))
 
         matchingActivities =
             -- Debug.log ("matching activity names for " ++ label.title) <|
-            IntDict.filter nameMatch (Activity.allActivities activities)
+            List.filter nameMatch (Activity.allUnhidden activities)
 
         firstActivityMatch =
-            List.head (IntDict.toList matchingActivities)
+            List.head matchingActivities
 
-        toCustomizations : Maybe Activity.Customizations
-        toCustomizations =
+        toChanges : List Change
+        toChanges =
             case firstActivityMatch of
-                Just ( key, activity ) ->
-                    Just
-                        { names = Nothing
-                        , icon = Nothing
-                        , excusable = Nothing
-                        , taskOptional = Nothing
-                        , evidence = []
-                        , category = Nothing
-                        , backgroundable = Nothing
-                        , maxTime = Nothing
-                        , hidden = Nothing
-                        , template = activity.template
-                        , id = ID.tag key
-                        , externalIDs = Dict.insert "marvinLabel" label.id activity.externalIDs
-                        }
+                Just activity ->
+                    -- TODO add Changes for:
+                    -- Dict.insert "marvinLabel" label.id activity.externalIDs
+                    []
 
                 Nothing ->
-                    Nothing
+                    []
     in
-    case toCustomizations of
-        Just customizedActivity ->
-            IntDict.insert (ID.read customizedActivity.id) customizedActivity activities
-
-        Nothing ->
-            activities
+    toChanges
 
 
 type alias MarvinTimeBlock =
@@ -872,16 +864,19 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
             Dict.get (normalizeTitle marvinBlock.title) assignments
 
         activityLookup =
-            Dict.fromList <| List.filterMap createActivityLookupEntry (IntDict.toList (Activity.allActivities profile.activities))
+            Dict.fromList <| List.filterMap createActivityLookupEntry (Activity.allUnhidden profile.activities)
 
-        createActivityLookupEntry : ( Int, Activity ) -> Maybe ( LabelID, ActivityID )
-        createActivityLookupEntry ( activityID, activity ) =
-            case Dict.get "marvinLabel" activity.externalIDs of
+        getExternalIDs activity =
+            Debug.todo "Activity.getExternalIDs dict accessor"
+
+        createActivityLookupEntry : Activity -> Maybe ( LabelID, ActivityID )
+        createActivityLookupEntry activity =
+            case Dict.get "marvinLabel" (getExternalIDs activity) of
                 Nothing ->
                     Nothing
 
                 Just marvinLabelID ->
-                    Just ( marvinLabelID, ID.tag activityID )
+                    Just ( marvinLabelID, Activity.getID activity )
 
         buildWithActivity activityFound =
             { focus = TimeBlock.TimeBlock.Activity activityFound
@@ -910,7 +905,9 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
         Just foundAssignment ->
             case Dict.get foundAssignment activityLookup of
                 Nothing ->
-                    Just <| buildWithTag foundAssignment
+                    -- Just <| buildWithTag foundAssignment
+                    Debug.todo "produce Changes"
 
                 Just foundActivity ->
-                    Just <| buildWithActivity foundActivity
+                    -- Just <| buildWithActivity foundActivity
+                    Debug.todo "produce Changes"

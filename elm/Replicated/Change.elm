@@ -208,6 +208,13 @@ saveChanges description changes =
     Frame { normalizedChanges = normalizeChanges changes, description = description }
 
 
+{-| An empty Frame, for when you have no changes to save.
+-}
+none : Frame
+none =
+    Frame { normalizedChanges = [], description = "Empty Frame" }
+
+
 {-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
 
 We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.

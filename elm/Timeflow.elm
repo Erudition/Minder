@@ -25,6 +25,8 @@ import IntDict exposing (IntDict)
 import List.Extra as List
 import Profile exposing (..)
 import Refocus
+import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week
@@ -215,6 +217,10 @@ view maybeVState profile env =
                             )
                     ]
                 ]
+
+
+
+-- svgExperiment : ViewState -> Profile -> Environment -> ( widgetID, ( widgetState, widgetInitCmd ) )
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
@@ -821,15 +827,13 @@ blobToPoints displaySettings env blob =
             sandwichBlob (toFloat x - 1)
 
 
+historyBlobs : Environment -> Profile -> Period -> List FlowBlob
 historyBlobs env profile displayPeriod =
     let
         historyList =
-            Activity.Timeline.switchListLiveToPeriods env.time profile.timeline
-
-        activities =
-            Activity.allActivities profile.activities
+            Activity.Timeline.switchListLiveToPeriods env.time (RepList.listValues profile.timeline)
     in
-    List.map (makeHistoryBlob env activities displayPeriod)
+    List.map (makeHistoryBlob env profile.activities displayPeriod)
         (List.takeWhile
             (\( _, _, m ) -> Period.haveOverlap displayPeriod m)
             historyList
@@ -899,8 +903,8 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Environment -> IntDict Activity -> Period -> ( Activity.ActivityID, Maybe Task.AssignedActionID, Period ) -> FlowBlob
-makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sessionPeriod ) =
+makeHistoryBlob : Environment -> Activity.Store -> Period -> ( Activity.ActivityID, Maybe Task.AssignedActionID, Period ) -> FlowBlob
+makeHistoryBlob env activityStore displayPeriod ( activityID, instanceIDMaybe, sessionPeriod ) =
     let
         -- sessionPositions =
         --     getPositionInDay day.rowLength day.period sessionPeriod
@@ -915,13 +919,13 @@ makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sess
                 ++ activityName
 
         sessionActivity =
-            getActivity activityID activities
+            Activity.getByID activityID activityStore
 
         activityName =
-            Maybe.withDefault "Unnamed Activity" <| List.head sessionActivity.names
+            Activity.getName sessionActivity
 
         activityIcon =
-            case sessionActivity.icon of
+            case Activity.getIcon sessionActivity of
                 File svgPath ->
                     ""
 
@@ -932,7 +936,7 @@ makeHistoryBlob env activities displayPeriod ( activityID, instanceIDMaybe, sess
                     "⚪"
 
         activityHue =
-            toFloat (ID.read activityID) / toFloat (IntDict.size activities)
+            toFloat (String.length (Activity.getName sessionActivity)) / 10
 
         activityColor =
             hsluv
