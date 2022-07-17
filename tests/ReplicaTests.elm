@@ -461,9 +461,8 @@ nodeWithModifiedNestedStressTest =
                     nestedStressTest.listOfNestedRecords
 
                 changes =
-                    -- TODO why is the order reversed
-                    [ RepList.addNew repListOfWritables
-                    , RepList.addNewWithChanges repListOfWritables <|
+                    [ RepList.spawn repListOfWritables
+                    , RepList.spawnWithChanges <|
                         \obj ->
                             [ obj.address.set "1 bologna street"
                             , obj.address.set "2 bologna street"
@@ -472,6 +471,7 @@ nodeWithModifiedNestedStressTest =
                             , obj.minor.set False
                             , obj.kids.set newKidsList
                             ]
+                                repListOfWritables
                     ]
 
                 newKidsList =

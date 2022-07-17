@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, addNew, addNewWithChanges, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove, spawn, spawnWithChanges)
 
 import Array exposing (Array)
 import Console
@@ -227,13 +227,13 @@ length (RepList record) =
     List.length record.members
 
 
-addNew : RepList memberType -> Change
-addNew repList =
-    addNewWithChanges repList (\_ -> [])
+spawn : RepList memberType -> Change
+spawn repList =
+    spawnWithChanges (\_ -> []) repList
 
 
-addNewWithChanges : RepList memberType -> (memberType -> List Change) -> Change
-addNewWithChanges (RepList record) changer =
+spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
+spawnWithChanges changer (RepList record) =
     let
         newItemMaybe =
             record.memberGenerator ()

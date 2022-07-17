@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, empty, get, getID, insertNew, insertNewWithChanges, list, reducerID, remove, update)
+module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, empty, get, getID, insert, list, reducerID, remove, spawn, spawnWithChanges, update)
 
 import Array exposing (Array)
 import Console
@@ -141,6 +141,35 @@ get key repDict =
     Maybe.map .value (getMember key repDict)
 
 
+{-| Insert an entry into a replicated dictionary of primitives.
+-}
+insert : k -> v -> RepDict k v -> Change
+insert newKey newValue (RepDict record) =
+    let
+        newItemToObjectChange =
+            record.memberChanger (Present newKey newValue)
+    in
+    Change.Chunk
+        { target = record.id
+        , objectChanges = [ newItemToObjectChange ]
+        }
+
+
+{-| Bulk insert entries into a replicated dictionary of primitives, via a list of (key, value) tuples.
+Only works with dictionaries with primitives.
+-}
+bulkInsert : List ( k, v ) -> RepDict k v -> Change
+bulkInsert newItems (RepDict record) =
+    let
+        newItemToObjectChange ( newKey, newValue ) =
+            record.memberChanger (Present newKey newValue)
+    in
+    Change.Chunk
+        { target = record.id
+        , objectChanges = List.map newItemToObjectChange newItems
+        }
+
+
 {-| Get your RepDict as a read-only List.
 -}
 list : RepDict k v -> List ( k, v )
@@ -220,13 +249,19 @@ size (RepDict record) =
     AnyDict.size record.members
 
 
-insertNew : k -> RepDict k v -> Change
-insertNew key repDict =
-    insertNewWithChanges key (\_ -> []) repDict
+{-| Spawn a new member at the given key.
+Works with reptypes only - use `insert` if your members are primitives.
+-}
+spawn : k -> RepDict k v -> Change
+spawn key repDict =
+    spawnWithChanges key (\_ -> []) repDict
 
 
-insertNewWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
-insertNewWithChanges key valueChanger (RepDict record) =
+{-| Spawn a new member at the given key, then immediately make the given changes to it.
+Works with reptypes only - use `insert` if your members are primitives.
+-}
+spawnWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
+spawnWithChanges key valueChanger (RepDict record) =
     let
         newMemberMaybe =
             record.memberGenerator ()

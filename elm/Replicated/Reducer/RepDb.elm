@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, list, members, reducerID, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, listValues, members, reducerID, size, update)
 
 import Array exposing (Array)
 import Console
@@ -132,13 +132,13 @@ getMember givenID (RepDb repDbRecord) =
 
 {-| Get your RepDb as a read-only List.
 -}
-list : RepDb memberType -> List memberType
-list (RepDb repSetRecord) =
+listValues : RepDb memberType -> List memberType
+listValues (RepDb repSetRecord) =
     Dict.values repSetRecord.members
         |> List.map .value
 
 
-{-| Get your RepDb as a list of `Member`s, providing you access to the Db-removal changer and the item's ID.
+{-| Get your RepDb as a listValues of `Member`s, providing you access to the Db-removal changer and the item's ID.
 -}
 members : RepDb memberType -> List (Member memberType)
 members (RepDb repSetRecord) =
@@ -153,6 +153,16 @@ size (RepDb record) =
 addNew : RepDb memberType -> Change
 addNew repDict =
     addNewWithChanges (\_ -> []) repDict
+
+
+update : ID memberType -> (memberType -> List Change) -> RepDb memberType -> List Change
+update givenID changer repDb =
+    case get givenID repDb of
+        Just foundDesiredMember ->
+            changer foundDesiredMember
+
+        Nothing ->
+            [ addNewWithChanges changer repDb ]
 
 
 addNewWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
