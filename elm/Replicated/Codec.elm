@@ -1043,9 +1043,9 @@ repDb memberCodec =
                             }
     in
     Codec
-        { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.list input)
+        { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.listValues input)
         , bytesDecoder = BD.fail
-        , jsonEncoder = \input -> JE.list (getJsonEncoder memberCodec) (RepDb.list input)
+        , jsonEncoder = \input -> JE.list (getJsonEncoder memberCodec) (RepDb.listValues input)
         , jsonDecoder = JD.fail "no repdb"
         , nodeEncoder = Just repDbNodeEncoder
         , nodeDecoder = Just repDbNodeDecoder

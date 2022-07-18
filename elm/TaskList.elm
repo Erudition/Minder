@@ -2,7 +2,6 @@ module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewS
 
 import Activity.Activity exposing (ActivityID)
 import Activity.Switch
-import Refocus
 import Activity.Timeline
 import Browser
 import Browser.Dom
@@ -32,6 +31,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Maybe.Extra as Maybe
 import Profile exposing (..)
+import Refocus
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -42,8 +42,8 @@ import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
 import Task.ActionClass as Class exposing (ActionClassID)
-import Task.Entry as Entry
 import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, instanceProgress, isRelevantNow)
+import Task.Entry as Entry
 import Task.Progress exposing (..)
 import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
@@ -960,7 +960,7 @@ update msg state app env =
                         --    Integrations.Todoist.sendChanges app.todoist
                         --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
                         , Cmd.map MarvinServerResponse <|
-                            Marvin.updateDoc env.time
+                            Marvin.updateDocOfItem env.time
                                 [ "done", "doneAt" ]
                                 { givenTask | instance = updateTaskInstance givenTask.instance }
                         , trackingStoppedCmds

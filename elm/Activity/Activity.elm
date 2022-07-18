@@ -1315,7 +1315,7 @@ getByID activityID ( builtins, customs ) =
 
                 Nothing ->
                     BuiltIn template
-                        (NoSkelYet (\changer -> RepDict.insertNewWithChanges template changer builtins))
+                        (NoSkelYet (\changer -> RepDict.spawnWithChanges template changer builtins))
 
         CustomActivityID template customSkelID ->
             case RepDb.get customSkelID customs of
