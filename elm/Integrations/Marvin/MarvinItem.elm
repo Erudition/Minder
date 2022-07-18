@@ -545,7 +545,7 @@ toDocketTask profile marvinItem =
                     instanceChanges existingInstance
 
                 Nothing ->
-                    [ RepDb.addNewWithChanges instanceChanges profile.taskInstances ]
+                    [ RepDb.spawnWithChanges instanceChanges profile.taskInstances ]
 
         finalEntryAndClassChanges =
             case Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe of
@@ -555,7 +555,7 @@ toDocketTask profile marvinItem =
                 Nothing ->
                     [ -- TODO how to add class to entry before class exists?
                       -- RepList.spawnWithChanges (Task.Entry.initWithClass existingClassID) profile.taskEntries
-                      RepDb.addNewWithChanges classChanges profile.taskClasses
+                      RepDb.spawnWithChanges classChanges profile.taskClasses
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges

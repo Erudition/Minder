@@ -20,6 +20,7 @@ import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
 import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, makeFullActionClass, parentPropertiesCodec)
+import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
 
 
@@ -235,3 +236,20 @@ getClassesFromEntries ( entries, classDb ) =
 
 type Warning
     = LookupFailure ActionClassID
+
+
+initWithClass : Entry -> ActionClassID -> List Change
+initWithClass entry actionClassID =
+    let
+        entryChildInit superProjectChild =
+            []
+    in
+    [ entry.properties.title.set <| Just "Entry title"
+    , RepList.append [ ProjectIsHere (Debug.todo "how do i fill this with a ProjectClass") ] entry.children
+    ]
+
+
+
+-- Todo list left off:
+-- - how do I add a new Custom Type value to a RepList when the variant takes a nested type?
+-- - how do I refer to the ID of an object that's being created in the same frame I want the reference made? update IDs to be pointers?

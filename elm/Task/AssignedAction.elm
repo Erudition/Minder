@@ -23,7 +23,6 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
 import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, decodeTaskMoment, encodeTaskMoment)
-import Task.Entry exposing (Entry, getClassesFromEntries)
 import Task.Progress as Progress exposing (..)
 import Task.Series exposing (Series, SeriesID)
 import Task.SessionSkel as Session exposing (UserPlannedSession, decodeSession, encodeSession)
@@ -37,7 +36,7 @@ import ZoneHistory exposing (ZoneHistory)
 {-| Definition of a single instance of a single task - one particular time that the specific thing will be done, that can be scheduled. Can be thought of as an "assignment" of a task (class). There may be zero (an unassigned task), and there may be many (a repeated task) for a given class.
 -}
 type alias AssignedActionSkel =
-    { classID : ActionClassID
+    { classID : RW ActionClassID
     , memberOfSeries : Maybe SeriesID
     , completion : RW Progress.Portion
     , externalDeadline : RW (Maybe FuzzyMoment) -- *
@@ -53,7 +52,7 @@ type alias AssignedActionSkel =
 codec : Codec String AssignedActionSkel
 codec =
     Codec.record AssignedActionSkel
-        |> Codec.coreR ( 1, "classID" ) .classID Codec.id
+        |> Codec.coreRW ( 1, "classID" ) .classID Codec.id
         |> Codec.maybeR ( 2, "memberOfSeries" ) .memberOfSeries Codec.int
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0
         |> Codec.maybeRW ( 4, "externalDeadline" ) .externalDeadline Codec.fuzzyMoment
@@ -110,7 +109,7 @@ assignedActionsOfClass : ( ZoneHistory, Period ) -> RepDb AssignedActionSkel -> 
 assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
     let
         savedInstancesWithMatchingClass =
-            List.filter (\member -> member.value.classID == fullClass.classID) (RepDb.members allSavedInstances)
+            List.filter (\member -> member.value.classID.get == fullClass.classID) (RepDb.members allSavedInstances)
 
         savedInstancesFull =
             List.indexedMap toFull savedInstancesWithMatchingClass
@@ -295,3 +294,8 @@ getCompletionInt instance =
 getExtra : String -> AssignedAction -> Maybe String
 getExtra key instance =
     RepDict.get key instance.instance.extra
+
+
+setExtra : String -> String -> AssignedAction -> Change
+setExtra key value instance =
+    RepDict.insert key value instance.instance.extra

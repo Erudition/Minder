@@ -68,17 +68,18 @@ startActivity time newActivityID timeline =
     RepList.append [ Switch.newSwitch time newActivityID Nothing ] timeline
 
 
-backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline
+backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> List Change
 backfill timeline periodsToAdd =
-    case periodsToAdd of
-        [] ->
-            Log.logMessageOnly "nothing to backfill!" timeline
-
-        [ singlePeriod ] ->
-            placeNewSession timeline singlePeriod
-
-        singlePeriod :: rest ->
-            placeNewSession (backfill timeline rest) singlePeriod
+    -- case periodsToAdd of
+    --     [] ->
+    --         Log.logMessageOnly "nothing to backfill!" timeline
+    --
+    --     [ singlePeriod ] ->
+    --         placeNewSession timeline singlePeriod
+    --
+    --     singlePeriod :: rest ->
+    --         placeNewSession (backfill timeline rest) singlePeriod
+    Debug.todo "fix backfill"
 
 
 placeNewSession : Timeline -> ( ActivityID, Maybe AssignedActionID, Period ) -> Timeline

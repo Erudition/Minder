@@ -32,6 +32,10 @@ import List.Extra as List
 import Maybe.Extra as Maybe
 import Profile exposing (..)
 import Refocus
+import Replicated.Change as Change exposing (Change)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -837,40 +841,36 @@ type Msg
     | StopTracking AssignedActionID
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
-update msg state app env =
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
+update msg state profile env =
     case msg of
         Add ->
             case state of
                 Normal filters _ "" ->
                     ( Normal filters Nothing ""
                       -- resets new-entry-textbox to empty, collapses tasks
-                    , app
+                    , Change.none
                     , Cmd.none
                     )
 
                 Normal filters _ newTaskTitle ->
                     let
-                        newClassID =
-                            Moment.toSmartInt env.time
+                        newClassInit newClass =
+                            [ newClass.title.set (Class.normalizeTitle newTaskTitle)
+                            , RepList.spawnWithChanges (newEntryInit newClassID) profile.taskEntries
+                            , RepDb.spawnWithChanges (newInstanceInit newClassID) profile.taskInstances
+                            ]
 
-                        newEntry =
-                            Entry.newRootEntry newClassID
+                        newEntryInit newClassID entry =
+                            Task.Entry.initWithClass entry newClassID
 
-                        newTaskClass =
-                            Class.newActionClassSkel (Class.normalizeTitle newTaskTitle) newClassID
-
-                        newTaskInstance =
-                            Instance.newAssignedActionSkel (Moment.toSmartInt env.time) newTaskClass
+                        newInstanceInit newClassID newInstance =
+                            [ newInstance.classID.set newClassID
+                            ]
                     in
                     ( Normal filters Nothing ""
-                      -- resets new-entry-textbox to empty, collapses tasks
-                    , { app
-                        | taskEntries = List.append app.taskEntries [ newEntry ]
-                        , taskClasses = IntDict.insert newTaskClass.id newTaskClass app.taskClasses
-                        , taskInstances = IntDict.insert newTaskInstance.id newTaskInstance app.taskInstances
-                      }
-                      -- now using the creation time as the task ID, for sync
+                      -- ^resets new-entry-textbox to empty, collapses tasks
+                    , [ RepDb.spawnWithChanges (\newClass -> []) profile.taskClasses ]
                     , Cmd.none
                     )
 
@@ -881,7 +881,7 @@ update msg state app env =
               in
               Normal filters expanded typedSoFar
               -- TODO will collapse expanded tasks. Should it?
-            , app
+            , Change.none
             , Cmd.none
             )
 
@@ -895,7 +895,7 @@ update msg state app env =
                     Browser.Dom.focus ("task-" ++ String.fromInt id)
             in
             ( state
-            , { app | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances }
+            , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
             , Job.attempt (\_ -> NoOp) focus
             )
 
@@ -905,7 +905,7 @@ update msg state app env =
                     { t | title = task }
             in
             ( state
-            , { app | taskClasses = IntDict.update classID (Maybe.map updateTitle) app.taskClasses }
+            , { profile | taskClasses = IntDict.update classID (Maybe.map updateTitle) profile.taskClasses }
             , Cmd.none
             )
 
@@ -915,20 +915,20 @@ update msg state app env =
                     { t | externalDeadline = date }
             in
             ( state
-            , { app | taskInstances = IntDict.update id (Maybe.map updateTask) app.taskInstances }
+            , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
             , Cmd.none
             )
 
         Delete id ->
             ( state
-            , { app | taskInstances = IntDict.remove id app.taskInstances }
+            , { profile | taskInstances = IntDict.remove id profile.taskInstances }
             , Cmd.none
             )
 
         DeleteComplete ->
             ( state
-            , app
-              -- TODO { app | taskInstances = IntDict.filter (\_ t -> not (Instance.completed t)) app.taskInstances }
+            , Change.none
+              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Instance.completed t)) profile.taskInstances }
             , Cmd.none
             )
 
@@ -941,7 +941,7 @@ update msg state app env =
                     Instance.instanceProgress givenTask
 
                 profile1WithUpdatedInstance =
-                    { app | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) app.taskInstances }
+                    { profile | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) profile.taskInstances }
             in
             -- how does the new completion status compare to the previous?
             case ( isMax oldProgress, isMax ( new_completion, getUnits oldProgress ) ) of
@@ -957,7 +957,7 @@ update msg state app env =
                         [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
 
                         --, Cmd.map TodoistServerResponse <|
-                        --    Integrations.Todoist.sendChanges app.todoist
+                        --    Integrations.Todoist.sendChanges profile.todoist
                         --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
                         , Cmd.map MarvinServerResponse <|
                             Marvin.updateDocOfItem env.time
@@ -975,7 +975,7 @@ update msg state app env =
                         [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
 
                         -- , Cmd.map TodoistServerResponse <|
-                        --     Integrations.Todoist.sendChanges app.todoist
+                        --     Integrations.Todoist.sendChanges profile.todoist
                         --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
                         ]
                     )
@@ -986,42 +986,42 @@ update msg state app env =
 
         FocusSlider task focused ->
             ( state
-            , app
+            , Change.none
             , Cmd.none
             )
 
         NoOp ->
             ( state
-            , app
+            , Change.none
             , Cmd.none
             )
 
         TodoistServerResponse response ->
             let
-                ( newAppData, whatHappened ) =
-                    Integrations.Todoist.handle response app
+                ( todoistChanges, whatHappened ) =
+                    Integrations.Todoist.handle response profile
             in
             ( state
-            , newAppData
+            , todoistChanges
             , Commands.toast whatHappened
             )
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, app, Cmd.none )
+            ( state, Change.none, Cmd.none )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField ->
                     Normal newList expandedTaskMaybe newTaskField
-            , app
+            , Change.none
             , Cmd.none
             )
 
         StartTracking instanceID activityID ->
             let
                 ( newProfile1WithSwitch, switchCommands ) =
-                    Refocus.switchTracking activityID (Just instanceID) app env
+                    Refocus.switchTracking activityID (Just instanceID) profile env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
                     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
@@ -1037,13 +1037,13 @@ update msg state app env =
         StopTracking instanceID ->
             let
                 activityToContinue =
-                    Activity.Timeline.currentActivityID app.timeline
+                    Activity.Timeline.currentActivityID profile.timeline
 
                 instanceToStop =
-                    Activity.Timeline.currentInstanceID app.timeline
+                    Activity.Timeline.currentInstanceID profile.timeline
 
                 ( newProfile1WithSwitch, switchCommands ) =
-                    Refocus.switchTracking activityToContinue Nothing app env
+                    Refocus.switchTracking activityToContinue Nothing profile env
 
                 ( newProfile2WithMarvinTimes, marvinCmds ) =
                     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False
