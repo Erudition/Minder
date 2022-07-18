@@ -349,8 +349,8 @@ timeOfDayDecoder =
     customDecoder string SmartTime.Human.Clock.fromStandardString
 
 
-toDocketItem : MarvinItem -> Profile -> List Change
-toDocketItem marvinItem profile =
+toDocketItem : Profile -> MarvinItem -> List Change
+toDocketItem profile marvinItem =
     case marvinItem.db of
         "Tasks" ->
             toDocketTask profile marvinItem

@@ -3,7 +3,7 @@ module Integrations.Marvin exposing (..)
 {-| A library for interacting with the Amazing Marvin API.
 -}
 
-import Activity.Activity as Activity exposing (StoredActivities)
+import Activity.Activity as Activity
 import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
@@ -12,7 +12,7 @@ import Environment exposing (Environment)
 import Helpers exposing (..)
 import Http
 import IntDict exposing (IntDict)
-import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, OutputType(..), labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
+import Integrations.Marvin.MarvinItem as MarvinItem exposing (ItemType(..), LabelID, MarvinItem, MarvinLabel, MarvinTimeBlock, labelToDocketActivity, marvinTimeBlockToDocketTimeBlock, toDocketItem, toDocketTask)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
 import List.Extra as List
@@ -20,6 +20,7 @@ import Log
 import Maybe.Extra as Maybe
 import Profile exposing (Profile)
 import Refocus
+import Replicated.Change as Change exposing (Change)
 import Set
 import SmartTime.Duration as Duration
 import SmartTime.Human.Duration as HumanDuration
@@ -27,8 +28,8 @@ import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.ActionClass
-import Task.Entry
 import Task.AssignedAction
+import Task.Entry
 import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url.Builder
 
@@ -282,19 +283,19 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> Environment -> Msg -> ( Profile, String, Cmd Msg )
+handle : Int -> Profile -> Environment -> Msg -> ( Change.Frame, String, Cmd Msg )
 handle classCounter profile env response =
     case response of
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( profile
+                    ( Change.none
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , describeError err
                     , Cmd.none
                     )
@@ -302,13 +303,13 @@ handle classCounter profile env response =
         AuthResult result ->
             case result of
                 Ok serversays ->
-                    ( profile
+                    ( Change.none
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , describeError err
                     , Cmd.none
                     )
@@ -317,16 +318,16 @@ handle classCounter profile env response =
             case result of
                 Ok itemList ->
                     let
-                        newProfile =
+                        changes =
                             importItems profile itemList
                     in
-                    ( newProfile
+                    ( Change.saveChanges "Imported Marvin Items" changes
                     , "Fetched items: " ++ Debug.toString itemList
                     , getTimeBlockAssignments
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when getting items: " ++ describeError err
                     , Cmd.none
                     )
@@ -335,16 +336,16 @@ handle classCounter profile env response =
             case result of
                 Ok labelList ->
                     let
-                        newActivities =
+                        changes =
                             importLabels profile labelList
                     in
-                    ( { profile | activities = IntDict.union profile.activities newActivities }
+                    ( Change.saveChanges "Imported Marvin Labels" changes
                     , "Fetched labels: " ++ Debug.toString labelList
                     , getTasks partialAccessToken
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when getting labels: " ++ describeError err
                     , Cmd.none
                     )
@@ -352,13 +353,13 @@ handle classCounter profile env response =
         GotTimeBlocks assignments result ->
             case result of
                 Ok timeBlockList ->
-                    ( { profile | timeBlocks = importTimeBlocks profile assignments timeBlockList }
+                    ( Change.saveChanges "Imported Marvin Timeblocks" <| importTimeBlocks profile assignments timeBlockList
                     , "Fetched timeblocks: " ++ Debug.toString timeBlockList
                     , getTrackedItem partialAccessToken
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when getting time blocks: " ++ describeError err
                     , Cmd.none
                     )
@@ -366,13 +367,13 @@ handle classCounter profile env response =
         GotTimeBlockAssignments assignmentsResult ->
             case assignmentsResult of
                 Ok assignmentDict ->
-                    ( profile
+                    ( Change.none
                     , "Fetched timeblock assignments: " ++ Debug.toString assignmentDict
                     , getTimeBlocks assignmentDict
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when getting time block assignments: " ++ describeError err
                     , Cmd.none
                     )
@@ -384,18 +385,22 @@ handle classCounter profile env response =
                         updatedTimeline =
                             Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
 
-                        ( profileWithRefocus, refocusCmds ) =
+                        updatedProfile =
+                            -- TODO how to get this to incorprate changes in profile
+                            profile
+
+                        ( refocusChanges, refocusCmds ) =
                             Refocus.refreshTracking
-                                { profile | timeline = updatedTimeline }
+                                updatedProfile
                                 env
                     in
-                    ( profileWithRefocus
+                    ( Change.saveChanges "Backfilled timeline with Marvin data" refocusChanges
                     , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
                     , refocusCmds
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when getting canonical timetrack timing tables: " ++ describeError err
                     , Cmd.none
                     )
@@ -420,9 +425,9 @@ handle classCounter profile env response =
                                     trackTruthToTimelineSessions profile env (TrackTruthItem itemID timesList)
 
                                 Nothing ->
-                                    Debug.log "wha??? no task?? " []
+                                    Log.crashInDev "wha??? no task?? " []
 
-                        updatedTimeline =
+                        updateTimeline =
                             Timeline.backfill profile.timeline asSessions
 
                         newestReport time =
@@ -431,13 +436,13 @@ handle classCounter profile env response =
                         logMsg =
                             "got timetrack acknowledgement at " ++ HumanMoment.toStandardString env.time ++ " my time, newest marvin time was off by " ++ (Maybe.withDefault "none" <| Maybe.map newestReport (List.last timesList))
                     in
-                    ( { profile | timeline = updatedTimeline }
+                    ( Change.saveChanges "Got Marvin tracking acknowledgement" updateTimeline
                     , logMsg
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , "when sending start/stop timetracking signal: " ++ describeError err
                     , Cmd.none
                     )
@@ -445,7 +450,7 @@ handle classCounter profile env response =
         GotTrackedItem result ->
             case result of
                 Ok itemID ->
-                    ( profile
+                    ( Change.none
                     , ""
                     , trackTruth partialAccessToken itemID
                     )
@@ -462,76 +467,31 @@ handle classCounter profile env response =
                             Maybe.andThen (Task.AssignedAction.getExtra "marvinID") activeInstanceMaybe
                     in
                     -- also Ok, Marvin returns empty string
-                    ( profile
+                    ( Change.none
                     , ""
                     , Maybe.withDefault Cmd.none <| Maybe.map (trackTruth partialAccessToken) activeMarvinIDMaybe
                     )
 
                 Err err ->
-                    ( profile
+                    ( Change.none
                     , describeError err
                     , Cmd.none
                     )
 
 
-importItems : Profile -> List MarvinItem -> Profile
+importItems : Profile -> List MarvinItem -> List Change
 importItems profile itemList =
-    let
-        updateProfileWithOutput item beforeProfile =
-            let
-                output =
-                    toDocketItem item beforeProfile
-
-                tasks =
-                    Maybe.toList (tasksOnly output)
-
-                activities =
-                    Maybe.toList (activitiesOnly output)
-            in
-            { beforeProfile
-                | taskEntries = beforeProfile.taskEntries ++ List.concatMap .entries tasks
-                , taskClasses = IntDict.union (IntDict.fromList <| List.map (\i -> ( i.id, i )) <| List.concatMap .classes tasks) beforeProfile.taskClasses
-                , taskInstances = IntDict.union (IntDict.fromList <| List.map (\i -> ( i.id, i )) <| List.concatMap .instances tasks) beforeProfile.taskInstances
-                , activities = List.foldl (\d1 d2 -> IntDict.union d2 d1) beforeProfile.activities activities
-            }
-
-        profileFedToAll =
-            List.foldl updateProfileWithOutput profile itemList
-
-        tasksOnly outputItem =
-            case outputItem of
-                ConvertedToTaskTriplet taskitem ->
-                    Just taskitem
-
-                _ ->
-                    Nothing
-
-        activitiesOnly outputItem =
-            case outputItem of
-                ConvertedToActivity activitystore ->
-                    Just activitystore
-
-                _ ->
-                    Nothing
-    in
-    profileFedToAll
+    List.concatMap (toDocketItem profile) itemList
 
 
-importLabels : Profile -> List MarvinLabel -> Activity.StoredActivities
+importLabels : Profile -> List MarvinLabel -> List Change
 importLabels profile labels =
-    let
-        activities =
-            List.map (labelToDocketActivity profile.activities) labels
-
-        finalActivities =
-            List.foldl IntDict.union IntDict.empty activities
-    in
-    finalActivities
+    List.concatMap (labelToDocketActivity profile.activities) labels
 
 
-importTimeBlocks : Profile -> TimeBlockAssignments -> List MarvinTimeBlock -> List TimeBlock
+importTimeBlocks : Profile -> TimeBlockAssignments -> List MarvinTimeBlock -> List Change
 importTimeBlocks profile assignments marvinBlocks =
-    List.filterMap (marvinTimeBlockToDocketTimeBlock profile assignments) marvinBlocks
+    List.concatMap (marvinTimeBlockToDocketTimeBlock profile assignments) marvinBlocks
 
 
 addTask : SecretToken -> Cmd Msg
@@ -674,8 +634,8 @@ getTasks secret =
 
 {-| Update a marvin doc
 -}
-updateDoc : Moment -> List String -> Task.AssignedAction.AssignedAction -> Cmd Msg
-updateDoc timestamp updatedFields taskInstance =
+updateDocOfItem : Moment -> List String -> Task.AssignedAction.AssignedAction -> Cmd Msg
+updateDocOfItem timestamp updatedFields taskInstance =
     let
         asMarvinItem =
             MarvinItem.fromDocket taskInstance
@@ -815,38 +775,33 @@ timeTrack secret taskID starting =
         }
 
 
-marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.AssignedAction.AssignedActionID -> Bool -> ( Profile, Cmd Msg )
+marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.AssignedAction.AssignedActionID -> Bool -> ( List Change, Cmd Msg )
 marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
     case Maybe.andThen (Profile.getInstanceByID profile env) instanceIDMaybe of
-        Just instance ->
-            case Task.AssignedAction.getExtra "marvinID" instance of
+        Just instanceNowTracking ->
+            case Task.AssignedAction.getExtra "marvinID" instanceNowTracking of
                 Nothing ->
-                    ( profile, Cmd.none )
+                    ( [], Cmd.none )
 
-                Just marvinID ->
+                Just marvinIDAssociatedWithInstance ->
                     let
                         trackCmd =
-                            timeTrack partialAccessToken marvinID starting
+                            timeTrack partialAccessToken marvinIDAssociatedWithInstance starting
 
-                        instanceSkel =
-                            instance.instance
-
-                        updatedInstanceSkel =
-                            { instanceSkel | extra = Dict.insert "marvinTimes" (timesUpdater profile (Task.AssignedAction.getID instance)) instanceSkel.extra }
-
-                        updatedInstanceDict =
-                            IntDict.insert (Task.AssignedAction.getID instance) updatedInstanceSkel profile.taskInstances
-
-                        updatedProfile =
-                            { profile | taskInstances = updatedInstanceDict }
+                        updateInstance =
+                            Task.AssignedAction.setExtra
+                                "marvinTimes"
+                                (timesUpdater profile (Task.AssignedAction.getID instanceNowTracking))
+                                instanceNowTracking
 
                         updateTimesCmd =
-                            updateDoc env.time [ "times" ] { instance | instance = updatedInstanceSkel }
+                            -- TODO should we wait till after the instance changes frame is saved to run this command?
+                            updateDocOfItem env.time [ "times" ] instanceNowTracking
                     in
-                    ( updatedProfile, Cmd.batch [ trackCmd ] )
+                    ( [ updateInstance ], Cmd.batch [ trackCmd ] )
 
         Nothing ->
-            ( profile, Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
+            ( [], Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
 
 
 timesUpdater : Profile -> Task.AssignedAction.AssignedActionID -> String
