@@ -12,7 +12,7 @@ import Log
 import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (Object)
+import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -20,9 +20,9 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| A replicated list.
 -}
-type RepList memberType
+type RepList i memberType
     = RepList
-        { id : Change.Pointer
+        { pointer : Change.Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Change.ObjectChange
@@ -30,10 +30,10 @@ type RepList memberType
         }
 
 
-empty : RepList a
+empty : RepList Placeholder memberType
 empty =
     RepList
-        { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
         , members = []
         , included = Object.All
         , memberChanger =
@@ -48,25 +48,25 @@ type alias Item memberType =
     }
 
 
-head : RepList memberType -> Maybe (Item memberType)
+head : RepList I memberType -> Maybe (Item memberType)
 head (RepList repList) =
     List.head repList.members
 
 
-headValue : RepList memberType -> Maybe memberType
+headValue : RepList I memberType -> Maybe memberType
 headValue (RepList repList) =
     List.head repList.members
         |> Maybe.map .value
 
 
-last : RepList memberType -> Maybe (Item memberType)
+last : RepList I memberType -> Maybe (Item memberType)
 last (RepList repList) =
     List.last repList.members
 
 
-getID : RepList memberType -> Change.Pointer
+getID : RepList I memberType -> Change.Pointer
 getID (RepList repSet) =
-    repSet.id
+    repSet.pointer
 
 
 type Handle
@@ -80,7 +80,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList I memberType
 buildFromReplicaDb targetObject payloadToMember memberChanger =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
@@ -124,7 +124,7 @@ buildFromReplicaDb targetObject payloadToMember memberChanger =
                     Nothing
     in
     RepList
-        { id = Object.getPointer targetObject
+        { pointer = Object.getPointer targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
         , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
@@ -139,14 +139,14 @@ buildFromReplicaDb targetObject payloadToMember memberChanger =
 {-| Get your RepList as a read-only List.
 The List will always be in chronological order, with the newest addition at the top (accessing the head is the most performant way to use Lists anyway) but you can always List.reverse or List.sort it.
 -}
-listValues : RepList memberType -> List memberType
+listValues : RepList I memberType -> List memberType
 listValues (RepList repSetRecord) =
     List.map .value repSetRecord.members
 
 
 {-| Get your RepList as a List of `Item`s.
 -}
-list : RepList memberType -> List (Item memberType)
+list : RepList I memberType -> List (Item memberType)
 list (RepList repSetRecord) =
     repSetRecord.members
 
@@ -158,7 +158,7 @@ list (RepList repSetRecord) =
   - using it as your item's unique ID in a record type
 
 -}
-dict : RepList memberType -> Dict OpIDString memberType
+dict : RepList I memberType -> Dict OpIDString memberType
 dict (RepList repSetRecord) =
     let
         handleString (Handle handle) =
@@ -170,17 +170,17 @@ dict (RepList repSetRecord) =
 
 -- {-| Insert an item, right after the member with the given ID.
 -- -}
--- insert : RepList memberType -> Dict Handle memberType -> Change
+-- insert : RepList i memberType -> Dict Handle memberType -> Change
 -- insert (RepList repSetRecord) =
 --     Debug.todo "insertAfter"
 
 
 {-| Insert an item, right after the member with the given ID.
 -}
-insertAfter : Handle -> memberType -> RepList memberType -> Change
+insertAfter : Handle -> memberType -> RepList I memberType -> Change
 insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
     Change.Chunk
-        { target = repSetRecord.id
+        { target = repSetRecord.pointer
         , objectChanges =
             [ repSetRecord.memberChanger newItem (Just attachmentPoint) ]
         }
@@ -188,38 +188,38 @@ insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
 
 {-| Add items to the collection.
 -}
-append : List memberType -> RepList memberType -> Change
+append : List memberType -> RepList I memberType -> Change
 append newItems (RepList record) =
     let
         newItemToObjectChange newItem =
             record.memberChanger newItem Nothing
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges = List.map newItemToObjectChange newItems
         }
 
 
-remove : Handle -> RepList memberType -> Change
+remove : Handle -> RepList I memberType -> Change
 remove (Handle itemToRemove) (RepList record) =
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges =
             [ Change.RevertOp itemToRemove ]
         }
 
 
-length : RepList memberType -> Int
+length : RepList i memberType -> Int
 length (RepList record) =
     List.length record.members
 
 
-spawn : RepList memberType -> Change
+spawn : RepList I memberType -> Change
 spawn repList =
     spawnWithChanges (\_ -> []) repList
 
 
-spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
+spawnWithChanges : (memberType -> List Change) -> RepList I memberType -> Change
 spawnWithChanges changer (RepList record) =
     let
         newItemMaybe =
@@ -251,7 +251,7 @@ spawnWithChanges changer (RepList record) =
                     newItemChangesAsRepListObjectChanges
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges =
             finalChangeList
         }

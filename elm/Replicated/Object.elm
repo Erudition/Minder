@@ -27,6 +27,14 @@ type alias SavedObject =
     }
 
 
+type Placeholder
+    = Placeholder
+
+
+type I
+    = Initialized
+
+
 type alias OpDict =
     AnyDict OpID.OpIDSortable OpID Op
 

@@ -13,7 +13,7 @@ import Log
 import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (EventPayload, Object)
+import Replicated.Object as Object exposing (EventPayload, I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -21,12 +21,12 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Register userType
+type Register i userType
     = Register
         { pointer : Change.Pointer
         , fields : Dict FieldSlot FieldHistoryBackwards -- backwards history
         , included : Object.InclusionInfo
-        , toRecord : Register userType -> userType
+        , toRecord : Register I userType -> userType
         }
 
 
@@ -43,12 +43,13 @@ reducerID =
     "lww"
 
 
+getPointer : Register I userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer
 
 
 
--- empty : OpID.ObjectID -> Register userType
+-- empty : OpID.ObjectID -> Register I userType
 -- empty objectID =
 --     Register { pointer = Change.ExistingObjectPointer objectID, included = Object.All, fields = Dict.empty }
 
@@ -57,9 +58,9 @@ build :
     { object : Object
     , pendingID : Change.PendingID
     , objectMaybe : Maybe Object
-    , toRecord : Register userType -> userType
+    , toRecord : Register I userType -> userType
     }
-    -> Register userType
+    -> Register I userType
 build { object, pendingID, objectMaybe, toRecord } =
     let
         fieldsDict =
@@ -117,7 +118,7 @@ encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
 
 
 
--- merge : Nonempty (Register userType) -> Register userType
+-- merge : Nonempty (Register I userType) -> Register I userType
 -- merge registers =
 --     let
 --         (Register firstDetails) =
@@ -154,21 +155,21 @@ type alias FieldSlot =
     Int
 
 
-getFieldLatestOnly : Register userType -> FieldIdentifier -> Maybe FieldPayload
+getFieldLatestOnly : Register I userType -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
         |> Maybe.map Nonempty.head
         |> Maybe.map Tuple.second
 
 
-getFieldHistory : Register userType -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory : Register I userType -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
     Dict.get desiredFieldSlot register.fields
         |> Maybe.map Nonempty.toList
         |> Maybe.withDefault []
 
 
-getFieldHistoryValues : Register userType -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues : Register I userType -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues register field =
     List.map Tuple.second (getFieldHistory register field)
 
