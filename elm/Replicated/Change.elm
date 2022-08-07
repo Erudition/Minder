@@ -33,32 +33,6 @@ type ObjectChange
     | RevertOp OpID
 
 
-type Pointer
-    = ExistingObjectPointer ObjectID
-    | PlaceholderPointer Op.ReducerID PendingID ParentNotifier
-
-
-equalPointers pointer1 pointer2 =
-    case ( pointer1, pointer2 ) of
-        ( ExistingObjectPointer objectID1, ExistingObjectPointer objectID2 ) ->
-            objectID1 == objectID2
-
-        ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
-            reducerID1 == reducerID2 && pendingIDMatch pendingID1 pendingID2
-
-        _ ->
-            False
-
-
-isPlaceholder pointer =
-    case pointer of
-        PlaceholderPointer _ _ _ ->
-            True
-
-        _ ->
-            False
-
-
 type Atom
     = JsonValueAtom JE.Value
     | RonAtom Op.OpPayloadAtom
@@ -96,69 +70,6 @@ compareToRonPayload changePayload ronPayload =
 changeToChangePayload : Change -> PotentialPayload
 changeToChangePayload change =
     [ QuoteNestedObject change ]
-
-
-type alias ParentNotifier =
-    Change -> Change
-
-
-type PendingCounter
-    = PendingCounter (List Int)
-    | PendingWildcard
-
-
-type PendingID
-    = PendingID (List Int)
-
-
-usePendingCounter : Int -> PendingCounter -> { id : PendingID, passToChild : PendingCounter }
-usePendingCounter siblingNum givenPendingCounter =
-    case givenPendingCounter of
-        PendingWildcard ->
-            { id = PendingID [] -- these are always considered unequal
-            , passToChild = firstPendingCounter -- children can become matchable again
-            }
-
-        PendingCounter inCounterList ->
-            let
-                ancestors =
-                    case inCounterList of
-                        [] ->
-                            []
-
-                        myNum :: prior ->
-                            prior
-            in
-            { id = PendingID inCounterList
-            , passToChild = PendingCounter (siblingNum :: ancestors)
-            }
-
-
-unmatchableCounter : PendingCounter
-unmatchableCounter =
-    PendingWildcard
-
-
-firstPendingCounter =
-    PendingCounter [ 0 ]
-
-
-pendingIDMatch : PendingID -> PendingID -> Bool
-pendingIDMatch pendingID1 pendingID2 =
-    case ( pendingID1, pendingID2 ) of
-        ( PendingID [], _ ) ->
-            False
-
-        ( _, PendingID [] ) ->
-            False
-
-        _ ->
-            pendingID1 == pendingID2
-
-
-pendingIDToString : PendingID -> String
-pendingIDToString (PendingID intList) =
-    String.concat <| List.intersperse "." (List.map String.fromInt intList)
 
 
 {-| This only needs to be called once, when changes are saved. calling any other place is redundant
@@ -235,3 +146,96 @@ normalizeChanges changesToNormalize =
     in
     combineChangesOfSameTarget changesToNormalize
         |> List.map wrapInParent
+
+
+
+-- POINTERS
+
+
+type Pointer
+    = ExistingObjectPointer ObjectID
+    | PlaceholderPointer Op.ReducerID PendingID ParentNotifier
+
+
+equalPointers pointer1 pointer2 =
+    case ( pointer1, pointer2 ) of
+        ( ExistingObjectPointer objectID1, ExistingObjectPointer objectID2 ) ->
+            objectID1 == objectID2
+
+        ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
+            reducerID1 == reducerID2 && pendingIDMatch pendingID1 pendingID2
+
+        _ ->
+            False
+
+
+isPlaceholder pointer =
+    case pointer of
+        PlaceholderPointer _ _ _ ->
+            True
+
+        _ ->
+            False
+
+
+type alias ParentNotifier =
+    Change -> Change
+
+
+type PendingCounter
+    = PendingCounter (List Int)
+    | PendingWildcard
+
+
+type PendingID
+    = PendingID (List Int)
+
+
+usePendingCounter : Int -> PendingCounter -> { id : PendingID, passToChild : PendingCounter }
+usePendingCounter siblingNum givenPendingCounter =
+    case givenPendingCounter of
+        PendingWildcard ->
+            { id = PendingID [] -- these are always considered unequal
+            , passToChild = firstPendingCounter -- children can become matchable again
+            }
+
+        PendingCounter inCounterList ->
+            let
+                ancestors =
+                    case inCounterList of
+                        [] ->
+                            []
+
+                        myNum :: prior ->
+                            prior
+            in
+            { id = PendingID inCounterList
+            , passToChild = PendingCounter (siblingNum :: ancestors)
+            }
+
+
+unmatchableCounter : PendingCounter
+unmatchableCounter =
+    PendingWildcard
+
+
+firstPendingCounter =
+    PendingCounter [ 0 ]
+
+
+pendingIDMatch : PendingID -> PendingID -> Bool
+pendingIDMatch pendingID1 pendingID2 =
+    case ( pendingID1, pendingID2 ) of
+        ( PendingID [], _ ) ->
+            False
+
+        ( _, PendingID [] ) ->
+            False
+
+        _ ->
+            pendingID1 == pendingID2
+
+
+pendingIDToString : PendingID -> String
+pendingIDToString (PendingID intList) =
+    String.concat <| List.intersperse "." (List.map String.fromInt intList)

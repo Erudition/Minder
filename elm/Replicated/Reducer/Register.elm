@@ -4,6 +4,7 @@ import Bytes.Decode
 import Bytes.Encode
 import Console
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Helpers
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
@@ -20,12 +21,12 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Register
+type Register userType
     = Register
-        { id : OpID.ObjectID
-        , version : OpID.ObjectVersion
+        { pointer : Change.Pointer
         , fields : Dict FieldSlot FieldHistoryBackwards -- backwards history
         , included : Object.InclusionInfo
+        , toRecord : Register userType -> userType
         }
 
 
@@ -42,40 +43,43 @@ reducerID =
     "lww"
 
 
-getID (Register register) =
-    register.id
+getPointer (Register register) =
+    register.pointer
 
 
-getVersion (Register register) =
-    register.version
+
+-- empty : OpID.ObjectID -> Register userType
+-- empty objectID =
+--     Register { pointer = Change.ExistingObjectPointer objectID, included = Object.All, fields = Dict.empty }
 
 
-empty : OpID.ObjectID -> Register
-empty objectID =
-    Register { id = objectID, included = Object.All, version = objectID, fields = Dict.empty }
-
-
-build : Node -> Object -> Register
-build node object =
+build :
+    { object : Object
+    , pendingID : Change.PendingID
+    , objectMaybe : Maybe Object
+    , toRecord : Register userType -> userType
+    }
+    -> Register userType
+build { object, pendingID, objectMaybe, toRecord } =
     let
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
             -- we want newest to oldest list, but folding reverses the list, so stick with foldL
             -- (warn: foldL/foldR applies the arguments in opposite order to the folding function)
-            Dict.foldl addFieldEntry Dict.empty object.events
+            AnyDict.foldl addFieldEntry Dict.empty (Object.getEvents object)
 
-        addFieldEntry : OpIDSortable -> Object.KeptEvent -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
-        addFieldEntry key (Object.KeptEvent { id, payload }) buildingDict =
-            case extractFieldEventFromObjectPayload payload of
+        addFieldEntry : OpID -> Object.Event -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
+        addFieldEntry eventID event buildingDict =
+            case extractFieldEventFromObjectPayload (Object.eventPayload event) of
                 Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
                     let
                         logMsg =
                             "Adding to " ++ Console.underline fieldName ++ " field history"
                     in
-                    Dict.update fieldSlot (addUpdate ( id, fieldPayload )) buildingDict
+                    Dict.update fieldSlot (addUpdate ( eventID, fieldPayload )) buildingDict
 
                 Err problem ->
-                    Log.logSeparate ("WARNING " ++ problem) payload buildingDict
+                    Log.logSeparate ("WARNING " ++ problem) (Object.eventPayload event) buildingDict
 
         addUpdate : ( OpID, FieldPayload ) -> Maybe FieldHistoryBackwards -> Maybe FieldHistoryBackwards
         addUpdate newUpdate existingUpdatesMaybe =
@@ -86,7 +90,7 @@ build node object =
                     )
                 )
     in
-    Register { id = object.creation, version = object.lastSeen, included = Object.All, fields = fieldsDict }
+    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = toRecord }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
@@ -112,29 +116,30 @@ encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
         ++ fieldPayload
 
 
-merge : Nonempty Register -> Register
-merge registers =
-    let
-        (Register firstDetails) =
-            Nonempty.head registers
 
-        highestVersion : OpID.ObjectVersion
-        highestVersion =
-            Nonempty.head (Nonempty.sortBy OpID.toString (Nonempty.map getVersion registers))
-
-        minimumInclusion =
-            -- TODO
-            Object.All
-
-        getFields (Register reg) =
-            reg.fields
-    in
-    Register
-        { id = firstDetails.id
-        , version = highestVersion
-        , fields = Nonempty.foldl1 Dict.union (Nonempty.map getFields registers)
-        , included = minimumInclusion
-        }
+-- merge : Nonempty (Register userType) -> Register userType
+-- merge registers =
+--     let
+--         (Register firstDetails) =
+--             Nonempty.head registers
+--
+--         highestVersion : OpID.ObjectVersion
+--         highestVersion =
+--             Nonempty.head (Nonempty.sortBy OpID.toString (Nonempty.map getVersion registers))
+--
+--         minimumInclusion =
+--             -- TODO
+--             Object.All
+--
+--         getFields (Register reg) =
+--             reg.fields
+--     in
+--     Register
+--         { pointer = firstDetails.pointer
+--         , version = highestVersion
+--         , fields = Nonempty.foldl1 Dict.union (Nonempty.map getFields registers)
+--         , included = minimumInclusion
+--         }
 
 
 type alias FieldIdentifier =
@@ -149,21 +154,21 @@ type alias FieldSlot =
     Int
 
 
-getFieldLatestOnly : Register -> FieldIdentifier -> Maybe FieldPayload
+getFieldLatestOnly : Register userType -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
         |> Maybe.map Nonempty.head
         |> Maybe.map Tuple.second
 
 
-getFieldHistory : Register -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory : Register userType -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
     Dict.get desiredFieldSlot register.fields
         |> Maybe.map Nonempty.toList
         |> Maybe.withDefault []
 
 
-getFieldHistoryValues : Register -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues : Register userType -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues register field =
     List.map Tuple.second (getFieldHistory register field)
 
@@ -201,4 +206,11 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
     { get = latestValue
     , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     , history = rest
+    }
+
+
+initRW : fieldVal -> RW fieldVal
+initRW value =
+    { get = value
+    , set = \new -> Change.Chunk { target = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity, objectChanges = [] }
     }

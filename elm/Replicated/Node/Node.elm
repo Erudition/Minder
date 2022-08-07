@@ -2,6 +2,7 @@ module Replicated.Node.Node exposing (..)
 
 import Console
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
@@ -20,11 +21,15 @@ import SmartTime.Moment exposing (Moment)
 -}
 type alias Node =
     { identity : NodeID
-    , objects : ObjectsByCreationDb
+    , ops : OpDb
     , root : Maybe ObjectID
     , highestSeenClock : Int
     , peers : List Peer
     }
+
+
+type alias OpDb =
+    AnyDict OpID.OpIDSortable OpID Op
 
 
 type alias InitArgs =
@@ -54,7 +59,7 @@ initFromSaved { sameSession, storedNodeID } inputRon =
         startNode oldNodeID =
             { identity = newIdentity oldNodeID
             , peers = []
-            , objects = Dict.empty
+            , ops = AnyDict.empty OpID.toSortablePrimitives
             , root = Nothing
             , highestSeenClock = 0
             }
@@ -80,7 +85,7 @@ testNode : Node
 testNode =
     { identity = firstSessionEver
     , peers = []
-    , objects = Dict.empty
+    , ops = AnyDict.empty OpID.toSortablePrimitives
     , root = Nothing
     , highestSeenClock = 0
     }
@@ -113,7 +118,7 @@ updateWithClosedOps node newOps =
             case alreadyHaveThisOp op of
                 Nothing ->
                     { node
-                        | objects = updateObject n.objects op
+                        | ops = AnyDict.insert (Op.id op) op n.ops
                         , highestSeenClock = max n.highestSeenClock (OpID.getClock (Op.id op))
                     }
 
@@ -121,7 +126,7 @@ updateWithClosedOps node newOps =
                     Debug.todo ("Already have op " ++ OpID.toString (Op.id op) ++ "as an object..")
 
         alreadyHaveThisOp op =
-            Dict.get (OpID.toString (Op.id op)) node.objects
+            AnyDict.get (Op.id op) node.ops
     in
     List.foldl updatedNodeWithOp node newOps
 
@@ -232,35 +237,13 @@ First we compare against object creation IDs, then the stored "last seen" IDs, s
 -}
 lookupObject : Node -> OpID -> Result OpImportWarning ( ReducerID, ObjectID )
 lookupObject node opIDToFind =
-    case Dict.get (OpID.toString opIDToFind) node.objects of
-        -- ^first, quickly check only the object IDs
-        Just foundObject ->
-            Ok ( foundObject.reducer, foundObject.creation )
+    case AnyDict.get opIDToFind node.ops of
+        -- will even find objects by middle ops (version references)
+        Just foundOp ->
+            Ok ( Op.reducer foundOp, Op.object foundOp )
 
         Nothing ->
-            case List.head <| Dict.toList <| Dict.filter (\k v -> v.lastSeen == opIDToFind) node.objects of
-                -- ^next, check only the last seen opIDs of each object
-                Just ( _, foundObject ) ->
-                    Ok ( foundObject.reducer, foundObject.creation )
-
-                Nothing ->
-                    -- ^ last resort, check all other ops
-                    let
-                        allOtherOpIDsLookup =
-                            List.concatMap pairOpsWithObject (Dict.values node.objects)
-
-                        pairOpsWithObject givenObject =
-                            List.map (\opID -> ( opID, Object.getReducer givenObject, Object.getID givenObject )) (Object.allOtherOpIDs givenObject)
-
-                        matchMaybe =
-                            List.find (\( eachOpID, _, _ ) -> eachOpID == opIDToFind) allOtherOpIDsLookup
-                    in
-                    case matchMaybe of
-                        Just ( _, foundObjectReducer, foundObjectID ) ->
-                            Ok ( foundObjectReducer, foundObjectID )
-
-                        Nothing ->
-                            Err (UnknownReference opIDToFind)
+            Err (UnknownReference opIDToFind)
 
 
 {-| Save your changes!
@@ -508,6 +491,8 @@ objectChangeToUnstampedOp node inCounter objectChange =
             )
 
 
+{-| Internal helper used when converting Changes into final Ops, that must reference a real object or generate one.
+-}
 getOrInitObject :
     Node
     -> InCounter
@@ -522,14 +507,22 @@ getOrInitObject :
 getOrInitObject node inCounter targetObject =
     case targetObject of
         Change.ExistingObjectPointer objectID ->
-            case Dict.get (OpID.toString objectID) node.objects of
-                Nothing ->
+            let
+                opThatMatchesObject opID op =
+                    if Op.object op == objectID then
+                        Just op
+
+                    else
+                        Nothing
+            in
+            case AnyDict.filter (\opID op -> Op.object op == objectID) node.ops |> AnyDict.values of
+                [] ->
                     Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
 
-                Just foundObject ->
-                    { reducerID = foundObject.reducer
-                    , objectID = foundObject.creation
-                    , lastSeen = foundObject.lastSeen
+                firstOp :: moreOps ->
+                    { reducerID = Op.reducer firstOp
+                    , objectID = objectID
+                    , lastSeen = Op.id (Maybe.withDefault firstOp <| List.last moreOps)
                     , initOps = []
                     , postInitCounter = inCounter
                     }
@@ -547,49 +540,46 @@ getOrInitObject node inCounter targetObject =
             }
 
 
-
--- getObjectLastSeenID : (Node) -> ReducerID -> ObjectID -> OpID
--- getObjectLastSeenID node reducer objectID =
---     let
---         relevantObject =
---             Dict.get (OpID.toString objectID) node.objects
---     in
---     Maybe.withDefault objectID <| Maybe.map .lastSeen relevantObject
-
-
-updateObject : ObjectsByCreationDb -> Op -> ObjectsByCreationDb
-updateObject oBCDict newOp =
+{-| Build an object out of the matching ops in the replica - or a placeholder.
+-}
+getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, pendingID : Change.PendingID, reducer : ReducerID, parentNotifier : Change.ParentNotifier } -> Object
+getObject { node, cutoff, foundIDs, pendingID, reducer, parentNotifier } =
     let
-        opIDStringToUpdate =
-            OpID.toString (Op.object newOp)
+        uninitializedObject =
+            Object.Unsaved { reducer = reducer, pendingID = pendingID, parentNotifier = parentNotifier }
     in
-    -- we have an object objects. Do work inside it, and return it
-    Dict.update opIDStringToUpdate (Object.applyOp newOp) oBCDict
-
-
-type alias ObjectsByCreationDb =
-    Dict ObjectIDString Object
-
-
-getObjectIfExists : Node -> List OpID.ObjectID -> Maybe Object
-getObjectIfExists node objectIDs =
-    --TODO handle multiple concurrent objects and merge
-    let
-        getObject id =
-            Dict.get (OpID.toString id) node.objects
-
-        foundObjects =
-            List.filterMap getObject objectIDs
-    in
-    case foundObjects of
+    case foundIDs of
         [] ->
-            Nothing
+            uninitializedObject
 
-        [ solo ] ->
-            Just solo
+        foundSome ->
+            let
+                matchingOp opID op =
+                    not (pastCutoff opID) && correctObject op
 
-        first :: more ->
-            Debug.todo "gotta merge multiple concurrently created objects"
+                pastCutoff opID =
+                    case cutoff of
+                        Nothing ->
+                            True
+
+                        Just cutoffMoment ->
+                            SmartTime.Moment.toSmartInt cutoffMoment > OpID.toInt opID
+
+                correctObject op =
+                    List.member (Op.object op) foundSome
+
+                findMatchingOps =
+                    AnyDict.filter matchingOp node.ops
+            in
+            case Object.buildSavedObject findMatchingOps of
+                ( Just finalObject, [] ) ->
+                    Object.Saved finalObject
+
+                ( Just finalObject, warnings ) ->
+                    Log.crashInDev "object builder produced warnings!" <| Object.Saved finalObject
+
+                ( Nothing, warnings ) ->
+                    Log.crashInDev "object builder found nothing, and produced warnings!" uninitializedObject
 
 
 

@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, empty, get, getID, insert, list, reducerID, remove, spawn, spawnWithChanges, update)
+module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, empty, get, getPointer, insert, list, reducerID, spawn, spawnWithChanges, update)
 
 import Array exposing (Array)
 import Console
@@ -21,18 +21,22 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepDict k v
     = RepDict
-        { id : Change.Pointer
-        , members : AnyDict String k (Member v)
+        { pointer : Change.Pointer
+        , members : AnyDict KeyAsString k (Member v)
         , included : Object.InclusionInfo
         , memberChanger : RepDictEntry k v -> Change.ObjectChange
         , memberGenerator : () -> Maybe v
         }
 
 
+type alias KeyAsString =
+    String
+
+
 empty : RepDict k v
 empty =
     RepDict
-        { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
         , members = AnyDict.empty (\_ -> "")
         , included = Object.All
         , memberChanger =
@@ -41,6 +45,8 @@ empty =
         }
 
 
+{-| Internal wrapper to track if an item is removed from the dict.
+-}
 type RepDictEntry k v
     = Present k v
     | Cleared k
@@ -52,18 +58,13 @@ type alias Member v =
     }
 
 
-getID : RepDict k v -> Change.Pointer
-getID (RepDict repSet) =
-    repSet.id
+getPointer : RepDict k v -> Change.Pointer
+getPointer (RepDict repDict) =
+    repDict.pointer
 
 
 type alias Handle =
     OpIDString
-
-
-memberIDToOpID : Handle -> OpID
-memberIDToOpID opID =
-    OpID.fromStringForced opID
 
 
 reducerID : Op.ReducerID
@@ -73,34 +74,26 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Change.Pointer -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> RepDict k v
-buildFromReplicaDb node targetObject payloadToEntry memberChanger keyToString =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> RepDict k v
+buildFromReplicaDb targetObject payloadToEntry memberChanger keyToString =
     let
-        existingObjectMaybe =
-            case targetObject of
-                Change.ExistingObjectPointer objectID ->
-                    Node.getObjectIfExists node [ objectID ]
-
-                _ ->
-                    Nothing
-
         eventsAsMemberPairs : List ( k, Member v )
         eventsAsMemberPairs =
-            case existingObjectMaybe of
-                Just foundObject ->
-                    List.filterMap (eventToMemberPair (Object.getID foundObject)) (Dict.values foundObject.events)
+            case Object.getCreationID targetObject of
+                Just objectID ->
+                    List.filterMap (eventToMemberPair objectID) (AnyDict.toList (Object.getEvents targetObject))
 
                 Nothing ->
                     []
 
-        eventToMemberPair : ObjectID -> Object.KeptEvent -> Maybe ( k, Member v )
-        eventToMemberPair containerObjectID event =
-            case payloadToEntry (Object.eventPayloadAsJson event) of
-                Just (Present key val) ->
+        eventToMemberPair : ObjectID -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
+        eventToMemberPair containerObjectID ( eventID, event ) =
+            case ( payloadToEntry (Object.eventPayloadAsJson event), Object.eventReverted event ) of
+                ( Just (Present key val), False ) ->
                     Just
                         ( key
                         , { value = val
-                          , remove = remover containerObjectID (Object.eventID event)
+                          , remove = remover containerObjectID eventID
                           }
                         )
 
@@ -122,11 +115,11 @@ buildFromReplicaDb node targetObject payloadToEntry memberChanger keyToString =
                     Nothing
     in
     RepDict
-        { id = targetObject
+        { pointer = Object.getPointer targetObject
         , members = AnyDict.fromList keyToString eventsAsMemberPairs
         , memberChanger = memberChanger
         , memberGenerator = generateMemberValue
-        , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
+        , included = Object.getIncluded targetObject
         }
 
 
@@ -150,7 +143,7 @@ insert newKey newValue (RepDict record) =
             record.memberChanger (Present newKey newValue)
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges = [ newItemToObjectChange ]
         }
 
@@ -165,7 +158,7 @@ bulkInsert newItems (RepDict record) =
             record.memberChanger (Present newKey newValue)
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges = List.map newItemToObjectChange newItems
         }
 
@@ -177,7 +170,7 @@ list repDict =
     List.map (\( k, v ) -> ( k, v.value )) (listMembers repDict)
 
 
-{-| Get an a member as an `Member`, which gives you access to its `Handle`.
+{-| Get an a member as an `Member`, which gives you access to its remover.
 -}
 getMember : k -> RepDict k v -> Maybe (Member v)
 getMember key ((RepDict record) as repDict) =
@@ -230,17 +223,8 @@ update key updater ((RepDict record) as repDict) =
             record.memberChanger updatedEntry
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges = [ newMemberAsObjectChange ]
-        }
-
-
-remove : RepDict k v -> Handle -> Change
-remove (RepDict record) itemToRemove =
-    Change.Chunk
-        { target = record.id
-        , objectChanges =
-            [ Change.RevertOp (memberIDToOpID itemToRemove) ]
         }
 
 
@@ -292,7 +276,7 @@ spawnWithChanges key valueChanger (RepDict record) =
                     newMemberChangesAsRepDictObjectChanges
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges =
             finalChangeList
         }

@@ -1,8 +1,9 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, addNewWithChanges, buildFromReplicaDb, empty, get, getID, getMember, listValues, members, reducerID, size, update)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, buildFromReplicaDb, empty, get, getMember, getPointer, listValues, members, reducerID, size, spawnNoChange, spawnWithChanges, update)
 
 import Array exposing (Array)
 import Console
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Dict.Extra as Dict
 import ID exposing (ID)
 import Json.Encode as JE
@@ -22,12 +23,18 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepDb memberType
     = RepDb
-        { id : Change.Pointer
-        , members : Dict OpID.OpIDSortable (Member memberType)
+        { pointer : Change.Pointer
+        , members : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
         , included : Object.InclusionInfo
         , memberChanger : memberType -> Maybe OpID -> Change.ObjectChange
         , memberGenerator : () -> Maybe memberType
         }
+
+
+{-| Internal reminder that the ID of the inclusion Op is not the same as the member object's ID.
+-}
+type alias InclusionOpID =
+    OpID
 
 
 type alias Member memberType =
@@ -40,8 +47,8 @@ type alias Member memberType =
 empty : RepDb a
 empty =
     RepDb
-        { id = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-        , members = Dict.empty
+        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+        , members = AnyDict.empty OpID.toSortablePrimitives
         , included = Object.All
         , memberChanger =
             \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
@@ -49,9 +56,9 @@ empty =
         }
 
 
-getID : RepDb memberType -> Change.Pointer
-getID (RepDb repSet) =
-    repSet.id
+getPointer : RepDb memberType -> Change.Pointer
+getPointer (RepDb repSet) =
+    repSet.pointer
 
 
 reducerID : Op.ReducerID
@@ -61,28 +68,20 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Change.Pointer -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepDb memberType
-buildFromReplicaDb node targetObject payloadToMember memberChanger =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepDb memberType
+buildFromReplicaDb object payloadToMember memberChanger =
     let
-        existingObjectMaybe =
-            case targetObject of
-                Change.ExistingObjectPointer objectID ->
-                    Node.getObjectIfExists node [ objectID ]
-
-                _ ->
-                    Nothing
-
-        keyValueList : List ( OpID.OpIDSortable, Member memberType )
-        keyValueList =
-            case existingObjectMaybe of
-                Just foundObject ->
-                    List.filterMap (eventToKeyMemberPairMaybe (Object.getID foundObject)) (Dict.values foundObject.events)
+        memberDict : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
+        memberDict =
+            case Object.getCreationID object of
+                Just objectID ->
+                    AnyDict.filterMap (eventToKeyMemberPairMaybe objectID) (Object.getEvents object)
 
                 Nothing ->
-                    []
+                    AnyDict.empty OpID.toSortablePrimitives
 
-        eventToKeyMemberPairMaybe : ObjectID -> Object.KeptEvent -> Maybe ( OpID.OpIDSortable, Member memberType )
-        eventToKeyMemberPairMaybe containerObjectID event =
+        eventToKeyMemberPairMaybe : ObjectID -> InclusionOpID -> Object.Event -> Maybe (Member memberType)
+        eventToKeyMemberPairMaybe containerObjectID eventID event =
             case
                 ( Object.extractOpIDFromEventPayload event
                 , payloadToMember (Object.eventPayloadAsJson event)
@@ -90,12 +89,10 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
             of
                 ( Just memberObjectID, Just memberValue ) ->
                     Just
-                        ( OpID.toSortablePrimitives memberObjectID
-                        , { id = ID.tag memberObjectID
-                          , value = memberValue
-                          , remove = remover containerObjectID (Object.eventID event)
-                          }
-                        )
+                        { id = ID.tag memberObjectID
+                        , value = memberValue
+                        , remove = remover containerObjectID eventID
+                        }
 
                 _ ->
                     Nothing
@@ -107,11 +104,11 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                 }
     in
     RepDb
-        { id = targetObject
-        , members = Dict.fromList keyValueList
+        { pointer = Object.getPointer object
+        , members = memberDict
         , memberChanger = memberChanger
         , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
-        , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
+        , included = Object.getIncluded object
         }
 
 
@@ -121,20 +118,20 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
 
 get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
-    Dict.get (OpID.toSortablePrimitives (ID.read givenID)) repDbRecord.members
+    AnyDict.get (ID.read givenID) repDbRecord.members
         |> Maybe.map .value
 
 
 getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
-    Dict.get (OpID.toSortablePrimitives (ID.read givenID)) repDbRecord.members
+    AnyDict.get (ID.read givenID) repDbRecord.members
 
 
 {-| Get your RepDb as a read-only List.
 -}
 listValues : RepDb memberType -> List memberType
 listValues (RepDb repSetRecord) =
-    Dict.values repSetRecord.members
+    AnyDict.values repSetRecord.members
         |> List.map .value
 
 
@@ -142,17 +139,17 @@ listValues (RepDb repSetRecord) =
 -}
 members : RepDb memberType -> List (Member memberType)
 members (RepDb repSetRecord) =
-    Dict.values repSetRecord.members
+    AnyDict.values repSetRecord.members
 
 
 size : RepDb memberType -> Int
 size (RepDb record) =
-    Dict.size record.members
+    AnyDict.size record.members
 
 
-addNew : RepDb memberType -> Change
-addNew repDict =
-    addNewWithChanges (\_ -> []) repDict
+spawnNoChange : RepDb memberType -> Change
+spawnNoChange repDict =
+    spawnWithChanges (\_ -> []) repDict
 
 
 update : ID memberType -> (memberType -> List Change) -> RepDb memberType -> List Change
@@ -162,11 +159,11 @@ update givenID changer repDb =
             changer foundDesiredMember
 
         Nothing ->
-            [ addNewWithChanges changer repDb ]
+            [ spawnWithChanges changer repDb ]
 
 
-addNewWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
-addNewWithChanges changer (RepDb record) =
+spawnWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
+spawnWithChanges changer (RepDb record) =
     let
         newItemMaybe =
             record.memberGenerator ()
@@ -197,7 +194,7 @@ addNewWithChanges changer (RepDb record) =
                     newItemChangesAsRepDbObjectChanges
     in
     Change.Chunk
-        { target = record.id
+        { target = record.pointer
         , objectChanges =
             finalChangeList
         }

@@ -3,6 +3,7 @@ module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb,
 import Array exposing (Array)
 import Console
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Dict.Extra as Dict
 import Json.Encode as JE
 import List.Extra as List
@@ -68,13 +69,8 @@ getID (RepList repSet) =
     repSet.id
 
 
-type alias Handle =
-    OpIDString
-
-
-memberIDToOpID : Handle -> OpID
-memberIDToOpID opID =
-    OpID.fromStringForced opID
+type Handle
+    = Handle OpID
 
 
 reducerID : Op.ReducerID
@@ -84,20 +80,12 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Node -> Change.Pointer -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
-buildFromReplicaDb node targetObject payloadToMember memberChanger =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
+buildFromReplicaDb targetObject payloadToMember memberChanger =
     let
-        existingObjectMaybe =
-            case targetObject of
-                Change.ExistingObjectPointer objectID ->
-                    Node.getObjectIfExists node [ objectID ]
-
-                _ ->
-                    Nothing
-
-        compareEvents : Object.KeptEvent -> Object.KeptEvent -> Order
-        compareEvents eventA eventB =
-            case compare (OpID.toString (Object.eventReference eventA)) (OpID.toString (Object.eventReference eventB)) of
+        compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
+        compareEvents ( eventIDA, eventA ) ( eventIDB, eventB ) =
+            case compare (OpID.toSortablePrimitives (Object.eventReference eventA)) (OpID.toSortablePrimitives (Object.eventReference eventB)) of
                 GT ->
                     GT
 
@@ -105,7 +93,7 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                     LT
 
                 EQ ->
-                    case compare (OpID.toString (Object.eventID eventA)) (OpID.toString (Object.eventID eventB)) of
+                    case compare (OpID.toSortablePrimitives eventIDA) (OpID.toSortablePrimitives eventIDB) of
                         GT ->
                             -- later additions come first
                             LT
@@ -117,35 +105,30 @@ buildFromReplicaDb node targetObject payloadToMember memberChanger =
                             EQ
 
         sortedEventsAsItems =
-            case existingObjectMaybe of
-                Just foundObject ->
-                    let
-                        sortedEvents =
-                            Dict.values foundObject.events
-                                |> List.sortWith compareEvents
-                    in
-                    List.filterMap eventToItem sortedEvents
+            let
+                sortedEvents =
+                    AnyDict.toList (Object.getEvents targetObject)
+                        |> List.sortWith compareEvents
+            in
+            List.filterMap eventToItem sortedEvents
 
-                Nothing ->
-                    []
-
-        eventToItem event =
-            case payloadToMember (Object.eventPayloadAsJson event) of
-                Nothing ->
-                    Nothing
-
-                Just item ->
+        eventToItem ( eventID, event ) =
+            case ( payloadToMember (Object.eventPayloadAsJson event), Object.eventReverted event ) of
+                ( Just item, True ) ->
                     Just
-                        { handle = OpID.toString (Object.eventID event)
+                        { handle = Handle eventID
                         , value = item
                         }
+
+                _ ->
+                    Nothing
     in
     RepList
-        { id = targetObject
+        { id = Object.getPointer targetObject
         , members = sortedEventsAsItems
         , memberChanger = memberChanger
         , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
-        , included = Maybe.map .included existingObjectMaybe |> Maybe.withDefault Object.All
+        , included = Object.getIncluded targetObject
         }
 
 
@@ -175,9 +158,13 @@ list (RepList repSetRecord) =
   - using it as your item's unique ID in a record type
 
 -}
-dict : RepList memberType -> Dict Handle memberType
+dict : RepList memberType -> Dict OpIDString memberType
 dict (RepList repSetRecord) =
-    Dict.fromList (List.map (\mem -> ( mem.handle, mem.value )) repSetRecord.members)
+    let
+        handleString (Handle handle) =
+            OpID.toString handle
+    in
+    Dict.fromList (List.map (\member -> ( handleString member.handle, member.value )) repSetRecord.members)
 
 
 
@@ -191,11 +178,11 @@ dict (RepList repSetRecord) =
 {-| Insert an item, right after the member with the given ID.
 -}
 insertAfter : Handle -> memberType -> RepList memberType -> Change
-insertAfter attachmentPoint newItem (RepList repSetRecord) =
+insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.id
         , objectChanges =
-            [ repSetRecord.memberChanger newItem (Just (memberIDToOpID attachmentPoint)) ]
+            [ repSetRecord.memberChanger newItem (Just attachmentPoint) ]
         }
 
 
@@ -214,11 +201,11 @@ append newItems (RepList record) =
 
 
 remove : Handle -> RepList memberType -> Change
-remove itemToRemove (RepList record) =
+remove (Handle itemToRemove) (RepList record) =
     Change.Chunk
         { target = record.id
         , objectChanges =
-            [ Change.RevertOp (memberIDToOpID itemToRemove) ]
+            [ Change.RevertOp itemToRemove ]
         }
 
 

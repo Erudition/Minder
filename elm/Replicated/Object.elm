@@ -1,8 +1,10 @@
 module Replicated.Object exposing (..)
 
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
 import Log
+import Replicated.Change as Change exposing (Change)
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -10,32 +12,181 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| The most generic "object", to be inherited by other replicated data types for specific functionality.
 -}
-type alias Object =
+type Object
+    = Saved SavedObject
+    | Unsaved UnsavedObject
+
+
+type alias SavedObject =
     { reducer : Op.ReducerID
     , creation : ObjectID
-    , events : Dict OpIDSortable KeptEvent
+    , events : EventDict
     , included : InclusionInfo
-    , lastSeen : OpID
+    , aliases : List ObjectID
+    , version : OpID.ObjectVersion
     }
 
 
-getID : Object -> ObjectID
-getID object =
-    object.creation
+type alias OpDict =
+    AnyDict OpID.OpIDSortable OpID Op
+
+
+type alias EventDict =
+    AnyDict OpID.OpIDSortable OpID Event
+
+
+buildSavedObject : OpDict -> ( Maybe SavedObject, List ObjectBuildWarning )
+buildSavedObject opDict =
+    case AnyDict.values opDict of
+        [] ->
+            ( Nothing, [ NoHeader ] )
+
+        firstOp :: moreOps ->
+            let
+                base =
+                    { reducer = Op.reducer firstOp
+                    , creation = Op.object firstOp
+                    , events = AnyDict.empty OpID.toSortablePrimitives
+                    , included = All -- TODO
+                    , version = Op.id firstOp
+                    , aliases = []
+                    }
+
+                ( outputObject, outputWarnings ) =
+                    List.foldl (applyOp opDict) ( base, [] ) moreOps
+            in
+            ( Just outputObject, outputWarnings )
+
+
+{-| Apply an incoming Op to an object if we have it.
+Ops must have a reference.
+-}
+applyOp : OpDict -> Op -> ( SavedObject, List ObjectBuildWarning ) -> ( SavedObject, List ObjectBuildWarning )
+applyOp opDict newOp ( oldObject, oldWarnings ) =
+    let
+        opPayloadToEventPayload opPayload =
+            case opPayload of
+                [ singleAtom ] ->
+                    Op.atomToJsonValue singleAtom
+
+                multipleAtoms ->
+                    JE.list Op.atomToJsonValue multipleAtoms
+    in
+    case Op.reference newOp of
+        Op.OpReference ref ->
+            -- op ref means it's an event op (or reversion)
+            let
+                ( newEventDict, newWarnings ) =
+                    if Op.pattern newOp == Op.DeletionOp then
+                        -- this op reverts a real event
+                        revertEventHelper ref oldObject.events opDict
+
+                    else
+                        ( AnyDict.insert (Op.id newOp)
+                            (Event { referencedOp = ref, reverted = False, payload = Op.payload newOp })
+                            oldObject.events
+                        , []
+                        )
+            in
+            ( { reducer = oldObject.reducer
+              , creation = oldObject.creation
+              , events = newEventDict
+              , included = oldObject.included
+              , version = Op.id newOp -- assuming running in chrono order
+              , aliases = oldObject.aliases
+              }
+            , oldWarnings ++ newWarnings
+            )
+
+        Op.ReducerReference reducerID ->
+            -- reducer ref means it's a header op, add to aliases
+            ( { oldObject | aliases = Op.id newOp :: oldObject.aliases }, oldWarnings )
+
+
+{-| Internal function to find the event to revert.
+-}
+revertEventHelper : OpID -> EventDict -> OpDict -> ( EventDict, List ObjectBuildWarning )
+revertEventHelper ref eventDict opDict =
+    case AnyDict.get ref eventDict of
+        Just foundEventToRevert ->
+            ( AnyDict.insert ref foundEventToRevert eventDict, [] )
+
+        Nothing ->
+            -- maybe the op reverts another reversion op, rather than an event directly
+            case AnyDict.get ref opDict of
+                Nothing ->
+                    ( eventDict, [ UnknownReference ref ] )
+
+                Just referencedOp ->
+                    case Op.reference referencedOp of
+                        Op.ReducerReference _ ->
+                            Log.crashInDev "Tried to revert a creation op!" ( eventDict, [ UnknownReference ref ] )
+
+                        Op.OpReference opID ->
+                            -- recursively find the event to revert
+                            revertEventHelper opID eventDict opDict
+
+
+type ObjectBuildWarning
+    = NoHeader
+    | UnknownReference OpID
+
+
+type alias UnsavedObject =
+    { reducer : Op.ReducerID
+    , pendingID : Change.PendingID
+    , parentNotifier : Change.ParentNotifier
+    }
+
+
+getCreationID : Object -> Maybe ObjectID
+getCreationID object =
+    case object of
+        Saved initializedObject ->
+            Just initializedObject.creation
+
+        Unsaved uninitializedObject ->
+            Nothing
+
+
+getPointer : Object -> Change.Pointer
+getPointer object =
+    case object of
+        Saved initializedObject ->
+            Change.ExistingObjectPointer initializedObject.creation
+
+        Unsaved uninitializedObject ->
+            Change.PlaceholderPointer uninitializedObject.reducer uninitializedObject.pendingID uninitializedObject.parentNotifier
+
+
+getIncluded : Object -> InclusionInfo
+getIncluded object =
+    case object of
+        Saved initializedObject ->
+            initializedObject.included
+
+        Unsaved uninitializedObject ->
+            All
 
 
 getReducer : Object -> Op.ReducerID
 getReducer object =
-    object.reducer
+    case object of
+        Saved initializedObject ->
+            initializedObject.reducer
+
+        Unsaved uninitializedObject ->
+            uninitializedObject.reducer
 
 
-{-| We assume creation op IDs were checked already, this is just post-init events
--}
-allOtherOpIDs : Object -> List OpID
-allOtherOpIDs object =
-    -- TODO for performance, should we keep this list in memory?
-    -- TODO what about non-kept events?
-    List.map eventID (Dict.values object.events)
+getEvents : Object -> EventDict
+getEvents object =
+    case object of
+        Saved initializedObject ->
+            initializedObject.events
+
+        Unsaved uninitializedObject ->
+            AnyDict.empty OpID.toSortablePrimitives
 
 
 type alias EventPayload =
@@ -45,28 +196,33 @@ type alias EventPayload =
 {-| An event that has not been undone/deleted.
 -}
 type
-    KeptEvent
+    Event
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = KeptEvent { id : OpID, reference : OpID, payload : EventPayload }
+    = Event { referencedOp : OpID, reverted : Bool, payload : EventPayload }
 
 
-eventReference : KeptEvent -> OpID
-eventReference (KeptEvent event) =
-    event.reference
+eventReference : Event -> OpID
+eventReference (Event event) =
+    event.referencedOp
 
 
-eventID : KeptEvent -> OpID
-eventID (KeptEvent event) =
-    event.id
-
-
-eventPayload : KeptEvent -> EventPayload
-eventPayload (KeptEvent event) =
+eventPayload : Event -> EventPayload
+eventPayload (Event event) =
     event.payload
 
 
-eventPayloadAsJson : KeptEvent -> JE.Value
-eventPayloadAsJson (KeptEvent event) =
+eventReverted : Event -> Bool
+eventReverted (Event event) =
+    event.reverted
+
+
+revertEvent : Event -> Event
+revertEvent (Event event) =
+    Event { event | reverted = not event.reverted }
+
+
+eventPayloadAsJson : Event -> JE.Value
+eventPayloadAsJson (Event event) =
     case List.map Op.atomToJsonValue event.payload of
         [] ->
             JE.null
@@ -78,62 +234,14 @@ eventPayloadAsJson (KeptEvent event) =
             JE.list identity multiple
 
 
-extractOpIDFromEventPayload : KeptEvent -> Maybe OpID
-extractOpIDFromEventPayload (KeptEvent event) =
+extractOpIDFromEventPayload : Event -> Maybe OpID
+extractOpIDFromEventPayload (Event event) =
     case event.payload of
         [ Op.IDPointerAtom opID ] ->
             Just opID
 
         other ->
             Log.crashInDev ("item was supposed to be a single OpID pointer, but instead found " ++ Debug.toString other) Nothing
-
-
-{-| Apply an incoming Op to an object if we have it.
-Ops must have a reference.
--}
-applyOp : Op -> Maybe Object -> Maybe Object
-applyOp newOp oldObjectMaybe =
-    let
-        opPayloadToEventPayload opPayload =
-            case opPayload of
-                [ singleAtom ] ->
-                    Op.atomToJsonValue singleAtom
-
-                multipleAtoms ->
-                    JE.list Op.atomToJsonValue multipleAtoms
-
-        newEvent givenRef =
-            KeptEvent { id = Op.id newOp, reference = givenRef, payload = Op.payload newOp }
-    in
-    case ( oldObjectMaybe, Op.reference newOp ) of
-        ( Just oldObject, Op.OpReference ref ) ->
-            Just
-                { reducer = oldObject.reducer
-                , creation = oldObject.creation
-                , events =
-                    if Op.pattern newOp == Op.DeletionOp then
-                        Dict.remove (OpID.toSortablePrimitives ref) oldObject.events
-
-                    else
-                        Dict.insert (OpID.toSortablePrimitives <| Op.id newOp) (newEvent ref) oldObject.events
-                , included = oldObject.included
-                , lastSeen = OpID.latest oldObject.lastSeen (Op.id newOp)
-                }
-
-        ( Nothing, Op.ReducerReference reducerID ) ->
-            Just
-                { reducer = reducerID
-                , creation = Op.id newOp -- TODO or should it be the Op's ObjectID?
-                , events = Dict.empty
-                , included = All
-                , lastSeen = Op.id newOp
-                }
-
-        ( Just oldObject, Op.ReducerReference reducerID ) ->
-            Debug.todo <| "this object exists: \n" ++ Debug.toString oldObject ++ "\n but the op I got to apply to it: \n" ++ Debug.toString newOp ++ "\n referenced a reducer, as if it's trying to initialize it again?"
-
-        ( Nothing, Op.OpReference ref ) ->
-            Debug.todo "this op referenced an opID, but it's object was not found"
 
 
 type InclusionInfo
