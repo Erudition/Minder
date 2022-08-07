@@ -54,14 +54,8 @@ getPointer (Register register) =
 --     Register { pointer = Change.ExistingObjectPointer objectID, included = Object.All, fields = Dict.empty }
 
 
-build :
-    { object : Object
-    , pendingID : Change.PendingID
-    , objectMaybe : Maybe Object
-    , toRecord : Register I userType -> userType
-    }
-    -> Register I userType
-build { object, pendingID, objectMaybe, toRecord } =
+build : Object -> (Register I userType -> userType) -> Register I userType
+build object regToRecord =
     let
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
@@ -91,7 +85,7 @@ build { object, pendingID, objectMaybe, toRecord } =
                     )
                 )
     in
-    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = toRecord }
+    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = regToRecord }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )

@@ -60,4 +60,4 @@ intDict valueCodec =
         keyValuePairCodec =
             Codec.tuple Codec.int valueCodec
     in
-    Codec.immutableList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList
+    Codec.primitiveList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList
