@@ -10,7 +10,7 @@ import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, New(..))
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (EventPayload, I, Object, Placeholder)
@@ -21,12 +21,13 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Register i userType
+type Register userType
     = Register
         { pointer : Change.Pointer
         , fields : Dict FieldSlot FieldHistoryBackwards -- backwards history
         , included : Object.InclusionInfo
-        , toRecord : Register I userType -> userType
+        , toRecord : Maybe Moment -> Register userType -> userType
+        , fromRecord : userType -> Register userType
         }
 
 
@@ -43,19 +44,19 @@ reducerID =
     "lww"
 
 
-getPointer : Register I userType -> Change.Pointer
+getPointer : Register userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer
 
 
 
--- empty : OpID.ObjectID -> Register I userType
+-- empty : OpID.ObjectID -> Register userType
 -- empty objectID =
 --     Register { pointer = Change.ExistingObjectPointer objectID, included = Object.All, fields = Dict.empty }
 
 
-build : Object -> (Register I userType -> userType) -> Register I userType
-build object regToRecord =
+build : Object -> (Maybe Moment -> Register userType -> userType) -> (userType -> Register userType) -> Register userType
+build object regToRecord recordToReg =
     let
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
@@ -85,7 +86,12 @@ build object regToRecord =
                     )
                 )
     in
-    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = regToRecord }
+    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = regToRecord, fromRecord = recordToReg }
+
+
+new : userType -> New (Register userType)
+new inputRecord =
+    New (fromRecord inputRecord)
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
@@ -112,7 +118,7 @@ encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
 
 
 
--- merge : Nonempty (Register I userType) -> Register I userType
+-- merge : Nonempty (Register userType) -> Register userType
 -- merge registers =
 --     let
 --         (Register firstDetails) =
@@ -149,21 +155,26 @@ type alias FieldSlot =
     Int
 
 
-getFieldLatestOnly : Register I userType -> FieldIdentifier -> Maybe FieldPayload
+latest : Register record -> record
+latest ((Register registerDetails) as reg) =
+    registerDetails.toRecord Nothing reg
+
+
+getFieldLatestOnly : Register userType -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
         |> Maybe.map Nonempty.head
         |> Maybe.map Tuple.second
 
 
-getFieldHistory : Register I userType -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory : Register userType -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
     Dict.get desiredFieldSlot register.fields
         |> Maybe.map Nonempty.toList
         |> Maybe.withDefault []
 
 
-getFieldHistoryValues : Register I userType -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues : Register userType -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues register field =
     List.map Tuple.second (getFieldHistory register field)
 

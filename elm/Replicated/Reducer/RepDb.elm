@@ -10,7 +10,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, New(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -21,7 +21,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| A replicated list.
 -}
-type RepDb i memberType
+type RepDb memberType
     = RepDb
         { pointer : Change.Pointer
         , members : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
@@ -44,19 +44,20 @@ type alias Member memberType =
     }
 
 
-empty : RepDb Placeholder a
+empty : New (RepDb a)
 empty =
-    RepDb
-        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-        , members = AnyDict.empty OpID.toSortablePrimitives
-        , included = Object.All
-        , memberChanger =
-            \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
-        , memberGenerator = \() -> Nothing
-        }
+    New <|
+        RepDb
+            { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+            , members = AnyDict.empty OpID.toSortablePrimitives
+            , included = Object.All
+            , memberChanger =
+                \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
+            , memberGenerator = \() -> Nothing
+            }
 
 
-getPointer : RepDb I memberType -> Change.Pointer
+getPointer : RepDb memberType -> Change.Pointer
 getPointer (RepDb repSet) =
     repSet.pointer
 
@@ -68,7 +69,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepDb I memberType
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepDb memberType
 buildFromReplicaDb object payloadToMember memberChanger =
     let
         memberDict : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
@@ -116,20 +117,20 @@ buildFromReplicaDb object payloadToMember memberChanger =
 -- ACCESSORS
 
 
-get : ID memberType -> RepDb I memberType -> Maybe memberType
+get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
     AnyDict.get (ID.read givenID) repDbRecord.members
         |> Maybe.map .value
 
 
-getMember : ID memberType -> RepDb I memberType -> Maybe (Member memberType)
+getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
     AnyDict.get (ID.read givenID) repDbRecord.members
 
 
 {-| Get your RepDb as a read-only List.
 -}
-listValues : RepDb I memberType -> List memberType
+listValues : RepDb memberType -> List memberType
 listValues (RepDb repSetRecord) =
     AnyDict.values repSetRecord.members
         |> List.map .value
@@ -137,22 +138,22 @@ listValues (RepDb repSetRecord) =
 
 {-| Get your RepDb as a listValues of `Member`s, providing you access to the Db-removal changer and the item's ID.
 -}
-members : RepDb I memberType -> List (Member memberType)
+members : RepDb memberType -> List (Member memberType)
 members (RepDb repSetRecord) =
     AnyDict.values repSetRecord.members
 
 
-size : RepDb I memberType -> Int
+size : RepDb memberType -> Int
 size (RepDb record) =
     AnyDict.size record.members
 
 
-spawnNoChange : RepDb I memberType -> Change
+spawnNoChange : RepDb memberType -> Change
 spawnNoChange repDict =
     spawnWithChanges (\_ -> []) repDict
 
 
-update : ID memberType -> (memberType -> List Change) -> RepDb I memberType -> List Change
+update : ID memberType -> (memberType -> List Change) -> RepDb memberType -> List Change
 update givenID changer repDb =
     case get givenID repDb of
         Just foundDesiredMember ->
@@ -162,7 +163,7 @@ update givenID changer repDb =
             [ spawnWithChanges changer repDb ]
 
 
-spawnWithChanges : (memberType -> List Change) -> RepDb I memberType -> Change
+spawnWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
 spawnWithChanges changer (RepDb record) =
     let
         newItemMaybe =

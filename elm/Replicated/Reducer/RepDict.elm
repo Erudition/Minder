@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, New(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -19,7 +19,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| A replicated list.
 -}
-type RepDict i k v
+type RepDict k v
     = RepDict
         { pointer : Change.Pointer
         , members : AnyDict KeyAsString k (Member v)
@@ -33,16 +33,17 @@ type alias KeyAsString =
     String
 
 
-empty : RepDict Placeholder k v
+empty : New (RepDict k v)
 empty =
-    RepDict
-        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-        , members = AnyDict.empty (\_ -> "")
-        , included = Object.All
-        , memberChanger =
-            \memberType -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
-        , memberGenerator = \() -> Nothing
-        }
+    New <|
+        RepDict
+            { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+            , members = AnyDict.empty (\_ -> "")
+            , included = Object.All
+            , memberChanger =
+                \memberType -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
+            , memberGenerator = \() -> Nothing
+            }
 
 
 {-| Internal wrapper to track if an item is removed from the dict.
@@ -58,7 +59,7 @@ type alias Member v =
     }
 
 
-getPointer : RepDict I k v -> Change.Pointer
+getPointer : RepDict k v -> Change.Pointer
 getPointer (RepDict repDict) =
     repDict.pointer
 
@@ -74,7 +75,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> RepDict I k v
+buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> RepDict k v
 buildFromReplicaDb targetObject payloadToEntry memberChanger keyToString =
     let
         eventsAsMemberPairs : List ( k, Member v )
@@ -129,14 +130,14 @@ buildFromReplicaDb targetObject payloadToEntry memberChanger keyToString =
 
 {-| Get an a member as an `Member`, which gives you access to its `Handle`.
 -}
-get : k -> RepDict I k v -> Maybe v
+get : k -> RepDict k v -> Maybe v
 get key repDict =
     Maybe.map .value (getMember key repDict)
 
 
 {-| Insert an entry into a replicated dictionary of primitives.
 -}
-insert : k -> v -> RepDict I k v -> Change
+insert : k -> v -> RepDict k v -> Change
 insert newKey newValue (RepDict record) =
     let
         newItemToObjectChange =
@@ -151,7 +152,7 @@ insert newKey newValue (RepDict record) =
 {-| Bulk insert entries into a replicated dictionary of primitives, via a list of (key, value) tuples.
 Only works with dictionaries with primitives.
 -}
-bulkInsert : List ( k, v ) -> RepDict I k v -> Change
+bulkInsert : List ( k, v ) -> RepDict k v -> Change
 bulkInsert newItems (RepDict record) =
     let
         newItemToObjectChange ( newKey, newValue ) =
@@ -165,21 +166,21 @@ bulkInsert newItems (RepDict record) =
 
 {-| Get your RepDict as a read-only List.
 -}
-list : RepDict I k v -> List ( k, v )
+list : RepDict k v -> List ( k, v )
 list repDict =
     List.map (\( k, v ) -> ( k, v.value )) (listMembers repDict)
 
 
 {-| Get an a member as an `Member`, which gives you access to its remover.
 -}
-getMember : k -> RepDict I k v -> Maybe (Member v)
+getMember : k -> RepDict k v -> Maybe (Member v)
 getMember key ((RepDict record) as repDict) =
     AnyDict.get key record.members
 
 
 
 -- TODO
--- getOrCreateMember : k -> RepDict I k v -> Maybe (Member v)
+-- getOrCreateMember : k -> RepDict k v -> Maybe (Member v)
 -- getOrCreateMember key ((RepDict record) as repDict) =
 --     case AnyDict.get key record.members of
 --         Just found ->
@@ -198,14 +199,14 @@ getMember key ((RepDict record) as repDict) =
 
 {-| Get your RepDict as a read-only List, with values wrapped in `Member` records so you still have access to the handle
 -}
-listMembers : RepDict I k v -> List ( k, Member v )
+listMembers : RepDict k v -> List ( k, Member v )
 listMembers (RepDict repSetRecord) =
     AnyDict.toList repSetRecord.members
 
 
 {-| Update the value of a dictionary for a specific key with a given function.
 -}
-update : k -> (Maybe v -> Maybe v) -> RepDict I k v -> Change
+update : k -> (Maybe v -> Maybe v) -> RepDict k v -> Change
 update key updater ((RepDict record) as repDict) =
     let
         oldValueMaybe =
@@ -228,7 +229,7 @@ update key updater ((RepDict record) as repDict) =
         }
 
 
-size : RepDict I k v -> Int
+size : RepDict k v -> Int
 size (RepDict record) =
     AnyDict.size record.members
 
@@ -236,7 +237,7 @@ size (RepDict record) =
 {-| Spawn a new member at the given key.
 Works with reptypes only - use `insert` if your members are primitives.
 -}
-spawn : k -> RepDict I k v -> Change
+spawn : k -> RepDict k v -> Change
 spawn key repDict =
     spawnWithChanges key (\_ -> []) repDict
 
@@ -244,7 +245,7 @@ spawn key repDict =
 {-| Spawn a new member at the given key, then immediately make the given changes to it.
 Works with reptypes only - use `insert` if your members are primitives.
 -}
-spawnWithChanges : k -> (v -> List Change) -> RepDict I k v -> Change
+spawnWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
 spawnWithChanges key valueChanger (RepDict record) =
     let
         newMemberMaybe =

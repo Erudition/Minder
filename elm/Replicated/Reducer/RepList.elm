@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, empty, getID, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove, spawn, spawnWithChanges)
+module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, getID, head, headValue, insertAfter, last, length, list, listValues, new, reducerID, remove, spawn, spawnWithChanges)
 
 import Array exposing (Array)
 import Console
@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, New(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -20,7 +20,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| A replicated list.
 -}
-type RepList i memberType
+type RepList memberType
     = RepList
         { pointer : Change.Pointer
         , members : List (Item memberType)
@@ -30,16 +30,17 @@ type RepList i memberType
         }
 
 
-empty : RepList Placeholder memberType
-empty =
-    RepList
-        { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-        , members = []
-        , included = Object.All
-        , memberChanger =
-            \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
-        , memberGenerator = \() -> Nothing
-        }
+new : New (RepList memberType)
+new =
+    New <|
+        RepList
+            { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
+            , members = []
+            , included = Object.All
+            , memberChanger =
+                \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
+            , memberGenerator = \() -> Nothing
+            }
 
 
 type alias Item memberType =
@@ -48,23 +49,23 @@ type alias Item memberType =
     }
 
 
-head : RepList I memberType -> Maybe (Item memberType)
+head : RepList memberType -> Maybe (Item memberType)
 head (RepList repList) =
     List.head repList.members
 
 
-headValue : RepList I memberType -> Maybe memberType
+headValue : RepList memberType -> Maybe memberType
 headValue (RepList repList) =
     List.head repList.members
         |> Maybe.map .value
 
 
-last : RepList I memberType -> Maybe (Item memberType)
+last : RepList memberType -> Maybe (Item memberType)
 last (RepList repList) =
     List.last repList.members
 
 
-getID : RepList I memberType -> Change.Pointer
+getID : RepList memberType -> Change.Pointer
 getID (RepList repSet) =
     repSet.pointer
 
@@ -80,7 +81,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList I memberType
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
 buildFromReplicaDb targetObject payloadToMember memberChanger =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
@@ -139,14 +140,14 @@ buildFromReplicaDb targetObject payloadToMember memberChanger =
 {-| Get your RepList as a read-only List.
 The List will always be in chronological order, with the newest addition at the top (accessing the head is the most performant way to use Lists anyway) but you can always List.reverse or List.sort it.
 -}
-listValues : RepList I memberType -> List memberType
+listValues : RepList memberType -> List memberType
 listValues (RepList repSetRecord) =
     List.map .value repSetRecord.members
 
 
 {-| Get your RepList as a List of `Item`s.
 -}
-list : RepList I memberType -> List (Item memberType)
+list : RepList memberType -> List (Item memberType)
 list (RepList repSetRecord) =
     repSetRecord.members
 
@@ -154,11 +155,11 @@ list (RepList repSetRecord) =
 {-| Get your RepList as a standard Dict, where the provided keys are unique identifiers that can be used for mutating the collection:
 
   - removing an item
-  - inserting empty items after a known existing item
+  - inserting new items after a known existing item
   - using it as your item's unique ID in a record type
 
 -}
-dict : RepList I memberType -> Dict OpIDString memberType
+dict : RepList memberType -> Dict OpIDString memberType
 dict (RepList repSetRecord) =
     let
         handleString (Handle handle) =
@@ -170,14 +171,14 @@ dict (RepList repSetRecord) =
 
 -- {-| Insert an item, right after the member with the given ID.
 -- -}
--- insert : RepList i memberType -> Dict Handle memberType -> Change
+-- insert : RepList memberType -> Dict Handle memberType -> Change
 -- insert (RepList repSetRecord) =
 --     Debug.todo "insertAfter"
 
 
 {-| Insert an item, right after the member with the given ID.
 -}
-insertAfter : Handle -> memberType -> RepList I memberType -> Change
+insertAfter : Handle -> memberType -> RepList memberType -> Change
 insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.pointer
@@ -188,7 +189,7 @@ insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
 
 {-| Add items to the collection.
 -}
-append : List memberType -> RepList I memberType -> Change
+append : List memberType -> RepList memberType -> Change
 append newItems (RepList record) =
     let
         newItemToObjectChange newItem =
@@ -200,7 +201,7 @@ append newItems (RepList record) =
         }
 
 
-remove : Handle -> RepList I memberType -> Change
+remove : Handle -> RepList memberType -> Change
 remove (Handle itemToRemove) (RepList record) =
     Change.Chunk
         { target = record.pointer
@@ -209,17 +210,17 @@ remove (Handle itemToRemove) (RepList record) =
         }
 
 
-length : RepList i memberType -> Int
+length : RepList memberType -> Int
 length (RepList record) =
     List.length record.members
 
 
-spawn : RepList I memberType -> Change
+spawn : RepList memberType -> Change
 spawn repList =
     spawnWithChanges (\_ -> []) repList
 
 
-spawnWithChanges : (memberType -> List Change) -> RepList I memberType -> Change
+spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
 spawnWithChanges changer (RepList record) =
     let
         newItemMaybe =
