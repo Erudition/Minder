@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, empty, get, getPointer, insert, list, reducerID, spawn, spawnWithChanges, update)
+module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, get, getInit, getPointer, insert, list, reducerID, size, update)
 
 import Array exposing (Array)
 import Console
@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, New(..))
+import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -24,26 +24,13 @@ type RepDict k v
         { pointer : Change.Pointer
         , members : AnyDict KeyAsString k (Member v)
         , included : Object.InclusionInfo
-        , memberChanger : RepDictEntry k v -> Change.ObjectChange
-        , memberGenerator : () -> Maybe v
+        , memberAdder : RepDictEntry k v -> Change.ObjectChange
+        , startWith : List ( k, v )
         }
 
 
 type alias KeyAsString =
     String
-
-
-empty : New (RepDict k v)
-empty =
-    New <|
-        RepDict
-            { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-            , members = AnyDict.empty (\_ -> "")
-            , included = Object.All
-            , memberChanger =
-                \memberType -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
-            , memberGenerator = \() -> Nothing
-            }
 
 
 {-| Internal wrapper to track if an item is removed from the dict.
@@ -75,8 +62,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> RepDict k v
-buildFromReplicaDb targetObject payloadToEntry memberChanger keyToString =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> List ( k, v ) -> RepDict k v
+buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initEntries =
     let
         eventsAsMemberPairs : List ( k, Member v )
         eventsAsMemberPairs =
@@ -118,9 +105,9 @@ buildFromReplicaDb targetObject payloadToEntry memberChanger keyToString =
     RepDict
         { pointer = Object.getPointer targetObject
         , members = AnyDict.fromList keyToString eventsAsMemberPairs
-        , memberChanger = memberChanger
-        , memberGenerator = generateMemberValue
+        , memberAdder = memberAdder
         , included = Object.getIncluded targetObject
+        , startWith = initEntries
         }
 
 
@@ -141,7 +128,7 @@ insert : k -> v -> RepDict k v -> Change
 insert newKey newValue (RepDict record) =
     let
         newItemToObjectChange =
-            record.memberChanger (Present newKey newValue)
+            record.memberAdder (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
@@ -156,7 +143,7 @@ bulkInsert : List ( k, v ) -> RepDict k v -> Change
 bulkInsert newItems (RepDict record) =
     let
         newItemToObjectChange ( newKey, newValue ) =
-            record.memberChanger (Present newKey newValue)
+            record.memberAdder (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
@@ -221,7 +208,7 @@ update key updater ((RepDict record) as repDict) =
                     Cleared key
 
         newMemberAsObjectChange =
-            record.memberChanger updatedEntry
+            record.memberAdder updatedEntry
     in
     Change.Chunk
         { target = record.pointer
@@ -234,50 +221,56 @@ size (RepDict record) =
     AnyDict.size record.members
 
 
-{-| Spawn a new member at the given key.
-Works with reptypes only - use `insert` if your members are primitives.
--}
-spawn : k -> RepDict k v -> Change
-spawn key repDict =
-    spawnWithChanges key (\_ -> []) repDict
+getInit : RepDict k v -> List ( k, v )
+getInit (RepDict record) =
+    record.startWith
 
 
-{-| Spawn a new member at the given key, then immediately make the given changes to it.
-Works with reptypes only - use `insert` if your members are primitives.
--}
-spawnWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
-spawnWithChanges key valueChanger (RepDict record) =
-    let
-        newMemberMaybe =
-            record.memberGenerator ()
 
-        newMemberChanges =
-            case newMemberMaybe of
-                Nothing ->
-                    []
-
-                Just newMember ->
-                    valueChanger newMember
-                        -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
-                        |> Change.combineChangesOfSameTarget
-
-        newMemberChangesAsRepDictObjectChanges =
-            List.map (Change.NewPayload << Change.changeToChangePayload) newMemberChanges
-
-        finalChangeList =
-            case ( newMemberChangesAsRepDictObjectChanges, newMemberMaybe ) of
-                ( [], Just newMember ) ->
-                    -- effectively a no-op so the member object will still initialize
-                    [ record.memberChanger (Present key newMember) ]
-
-                ( [], Nothing ) ->
-                    Log.crashInDev "Should never happen, no item generated to add to list" []
-
-                ( nonEmptyChangeList, _ ) ->
-                    newMemberChangesAsRepDictObjectChanges
-    in
-    Change.Chunk
-        { target = record.pointer
-        , objectChanges =
-            finalChangeList
-        }
+-- {-| Spawn a new member at the given key.
+-- Works with reptypes only - use `insert` if your members are primitives.
+-- -}
+-- spawn : k -> RepDict k v -> Change
+-- spawn key repDict =
+--     spawnWithChanges key (\_ -> []) repDict
+--
+--
+-- {-| Spawn a new member at the given key, then immediately make the given changes to it.
+-- Works with reptypes only - use `insert` if your members are primitives.
+-- -}
+-- spawnWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
+-- spawnWithChanges key valueChanger (RepDict record) =
+--     let
+--         newMemberMaybe =
+--             record.memberGenerator ()
+--
+--         newMemberChanges =
+--             case newMemberMaybe of
+--                 Nothing ->
+--                     []
+--
+--                 Just newMember ->
+--                     valueChanger newMember
+--                         -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
+--                         |> Change.combineChangesOfSameTarget
+--
+--         newMemberChangesAsRepDictObjectChanges =
+--             List.map (Change.NewPayload << Change.changeToChangePayload) newMemberChanges
+--
+--         finalChangeList =
+--             case ( newMemberChangesAsRepDictObjectChanges, newMemberMaybe ) of
+--                 ( [], Just newMember ) ->
+--                     -- effectively a no-op so the member object will still initialize
+--                     [ record.memberAdder (Present key newMember) ]
+--
+--                 ( [], Nothing ) ->
+--                     Log.crashInDev "Should never happen, no item generated to add to list" []
+--
+--                 ( nonEmptyChangeList, _ ) ->
+--                     newMemberChangesAsRepDictObjectChanges
+--     in
+--     Change.Chunk
+--         { target = record.pointer
+--         , objectChanges =
+--             finalChangeList
+--         }

@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, getID, head, headValue, insertAfter, last, length, list, listValues, new, reducerID, remove, spawn, spawnWithChanges)
+module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, getID, getInit, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, New(..))
+import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -25,22 +25,9 @@ type RepList memberType
         { pointer : Change.Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
-        , memberChanger : memberType -> Maybe OpID -> Change.ObjectChange
-        , memberGenerator : () -> Maybe memberType
+        , memberAdder : memberType -> Maybe OpID -> Change.ObjectChange
+        , startWith : List memberType
         }
-
-
-new : New (RepList memberType)
-new =
-    New <|
-        RepList
-            { pointer = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity
-            , members = []
-            , included = Object.All
-            , memberChanger =
-                \memberType opIDMaybe -> Change.NewPayload <| List.singleton (Change.RonAtom (Op.NakedStringAtom "uninitialized"))
-            , memberGenerator = \() -> Nothing
-            }
 
 
 type alias Item memberType =
@@ -81,8 +68,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> RepList memberType
-buildFromReplicaDb targetObject payloadToMember memberChanger =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> List memberType -> RepList memberType
+buildFromReplicaDb targetObject payloadToMember memberAdder initMembers =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
         compareEvents ( eventIDA, eventA ) ( eventIDB, eventB ) =
@@ -127,9 +114,9 @@ buildFromReplicaDb targetObject payloadToMember memberChanger =
     RepList
         { pointer = Object.getPointer targetObject
         , members = sortedEventsAsItems
-        , memberChanger = memberChanger
-        , memberGenerator = \_ -> payloadToMember (JE.string "{}") -- "{}" for decoding nothingness
+        , memberAdder = memberAdder
         , included = Object.getIncluded targetObject
+        , startWith = initMembers
         }
 
 
@@ -183,7 +170,7 @@ insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.pointer
         , objectChanges =
-            [ repSetRecord.memberChanger newItem (Just attachmentPoint) ]
+            [ repSetRecord.memberAdder newItem (Just attachmentPoint) ]
         }
 
 
@@ -193,7 +180,7 @@ append : List memberType -> RepList memberType -> Change
 append newItems (RepList record) =
     let
         newItemToObjectChange newItem =
-            record.memberChanger newItem Nothing
+            record.memberAdder newItem Nothing
     in
     Change.Chunk
         { target = record.pointer
@@ -215,50 +202,53 @@ length (RepList record) =
     List.length record.members
 
 
-spawn : RepList memberType -> Change
-spawn repList =
-    spawnWithChanges (\_ -> []) repList
-
-
-spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
-spawnWithChanges changer (RepList record) =
-    let
-        newItemMaybe =
-            record.memberGenerator ()
-
-        newItemChanges =
-            case newItemMaybe of
-                Nothing ->
-                    []
-
-                Just newItem ->
-                    changer newItem
-                        -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
-                        |> Change.combineChangesOfSameTarget
-
-        newItemChangesAsRepListObjectChanges =
-            List.map (Change.NewPayload << Change.changeToChangePayload) newItemChanges
-
-        finalChangeList =
-            case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of
-                ( [], Just newItem ) ->
-                    -- effectively a no-op so the member object will still initialize
-                    [ record.memberChanger newItem Nothing ]
-
-                ( [], Nothing ) ->
-                    Log.crashInDev "Should never happen, no item generated to add to list" []
-
-                ( nonEmptyChangeList, _ ) ->
-                    newItemChangesAsRepListObjectChanges
-    in
-    Change.Chunk
-        { target = record.pointer
-        , objectChanges =
-            finalChangeList
-        }
+getInit : RepList memberType -> List memberType
+getInit (RepList record) =
+    record.startWith
 
 
 
+-- spawn : RepList memberType -> Change
+-- spawn repList =
+--     spawnWithChanges (\_ -> []) repList
+--
+--
+-- spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
+-- spawnWithChanges changer (RepList record) =
+--     let
+--         newItemMaybe =
+--             record.memberGenerator ()
+--
+--         newItemChanges =
+--             case newItemMaybe of
+--                 Nothing ->
+--                     []
+--
+--                 Just newItem ->
+--                     changer newItem
+--                         -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
+--                         |> Change.combineChangesOfSameTarget
+--
+--         newItemChangesAsRepListObjectChanges =
+--             List.map (Change.NewPayload << Change.changeToChangePayload) newItemChanges
+--
+--         finalChangeList =
+--             case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of
+--                 ( [], Just newItem ) ->
+--                     -- effectively a no-op so the member object will still initialize
+--                     [ record.memberAdder newItem Nothing ]
+--
+--                 ( [], Nothing ) ->
+--                     Log.crashInDev "Should never happen, no item generated to add to list" []
+--
+--                 ( nonEmptyChangeList, _ ) ->
+--                     newItemChangesAsRepListObjectChanges
+--     in
+--     Change.Chunk
+--         { target = record.pointer
+--         , objectChanges =
+--             finalChangeList
+--         }
 -- Normal listValues functions
 -- map : (memberTypeA -> memberTypeB) -> RepList memberTypeA -> RepList memberTypeB
 -- map mapper (RepList repSetRecord) =

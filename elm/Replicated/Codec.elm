@@ -86,7 +86,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 {-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
 -}
-type Codec e a
+type RepCodec e a init
     = Codec
         { bytesEncoder : a -> BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error e) a)
@@ -94,7 +94,16 @@ type Codec e a
         , jsonDecoder : JD.Decoder (Result (Error e) a)
         , nodeEncoder : Maybe (NodeEncoder a)
         , nodeDecoder : Maybe (NodeDecoder e a)
+        , init : Initializer init a
         }
+
+
+type alias Codec e a =
+    RepCodec e a a
+
+
+type alias Initializer i a =
+    Int -> i -> a
 
 
 
@@ -153,8 +162,8 @@ type alias NodeDecoderInputs =
     }
 
 
-type alias RegisterFieldEncoder ut =
-    RegisterFieldEncoderInputs ut -> RegisterFieldEncoderOutput
+type alias RegisterFieldEncoder i r =
+    RegisterFieldEncoderInputs i r -> RegisterFieldEncoderOutput
 
 
 {-| Inputs to a node Field decoder.
@@ -163,18 +172,18 @@ Why is Register a Maybe?
 First launch ever, Register would not exist, can't create it during decode phase either. Yet we need the record to be filled, which is why we have field defaults. It would be created as soon as the first field is set to a non-default value.
 
 -}
-type alias RegisterFieldEncoderInputs full =
+type alias RegisterFieldEncoderInputs i full =
     { node : Node
-    , register : Register full
+    , register : Register i full
     , mode : ChangesToGenerate
     , updateRegisterAfterChildInit : Change.PotentialPayload -> Change
     , pendingCounter : Change.PendingCounter
     }
 
 
-type alias RegisterFieldDecoder record =
+type alias RegisterFieldDecoder i record =
     -- For now we just reuse Json Decoders
-    RegisterFieldDecoderInputs -> Register record -> record
+    RegisterFieldDecoderInputs -> Register i record -> record
 
 
 type alias RegisterFieldDecoderInputs =
@@ -240,6 +249,11 @@ decodeFromNode profileCodec node =
 
                 Err jdError ->
                     Err (FailedToDecodeRoot <| JD.errorToString jdError)
+
+
+init : RepCodec e repType i -> Int -> i -> repType
+init (Codec codecDetails) =
+    codecDetails.init
 
 
 endian : Bytes.Endianness
@@ -573,6 +587,7 @@ buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
         , jsonDecoder = jsonDecoder
         , nodeEncoder = Nothing
         , nodeDecoder = Nothing
+        , init = \_ same -> same
         }
 
 
@@ -583,7 +598,7 @@ buildNestableCodec :
     -> JD.Decoder (Result (Error e) a)
     -> Maybe (NodeEncoder a)
     -> Maybe (NodeDecoder e a)
-    -> Codec e a
+    -> RepCodec e a a
 buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ronDecoderMaybe =
     Codec
         { bytesEncoder = encoder_
@@ -592,6 +607,7 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ron
         , jsonDecoder = jsonDecoder
         , nodeEncoder = ronEncoderMaybe
         , nodeDecoder = ronDecoderMaybe
+        , init = \_ same -> same
         }
 
 
@@ -623,6 +639,7 @@ string =
                         _ ->
                             Log.crashInDev "tried to node-encode with string encoder but not passed a flat string value" []
         , nodeDecoder = Nothing
+        , init = \_ same -> same
         }
 
 
@@ -797,7 +814,7 @@ maybe justCodec =
 
 {-| A replicated list
 -}
-repList : Codec e memberType -> Codec e (RepList memberType)
+repList : Codec e memberType -> RepCodec e (RepList memberType) (List memberType)
 repList memberCodec =
     let
         normalJsonDecoder =
@@ -848,7 +865,7 @@ repList memberCodec =
                     Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, pendingID = pending.id, reducer = RepList.reducerID, parentNotifier = parentNotifier }
 
                 repListBuilder foundObjects =
-                    Ok <| RepList.buildFromReplicaDb (object foundObjects) (memberRonDecoder node pending.passToChild cutoff) (memberChanger node Nothing parentNotifier)
+                    Ok <| RepList.buildFromReplicaDb (object foundObjects) (memberRonDecoder node pending.passToChild cutoff) (memberChanger node Nothing parentNotifier) []
             in
             JD.map repListBuilder concurrentObjectIDsDecoder
 
@@ -859,7 +876,7 @@ repList memberCodec =
                     changeToChangePayload <|
                         Chunk
                             { target = RepList.getID existingRepList
-                            , objectChanges = [] -- TODO should this be blank
+                            , objectChanges = List.map (\v -> memberChanger node (Just mode) parentNotifier v Nothing) (RepList.getInit existingRepList)
                             }
 
                 _ ->
@@ -868,6 +885,21 @@ repList memberCodec =
                             { target = Change.PlaceholderPointer RepList.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
                             , objectChanges = []
                             }
+
+        initializer : Initializer (List memberType) (RepList memberType)
+        initializer key initMembers =
+            let
+                pending =
+                    -- TODO use another number to differentiate e.g. replist init 0 from register init 0, since their children would both have pending id 0.0...
+                    Change.usePendingCounter key Change.firstPendingCounter
+
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = RepList.reducerID, parentNotifier = identity }
+
+                repListBuilder =
+                    RepList.buildFromReplicaDb object (memberRonDecoder Node.testNode pending.passToChild Nothing) (memberChanger Node.testNode Nothing identity) initMembers
+            in
+            repListBuilder
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -877,6 +909,7 @@ repList memberCodec =
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = Just repListRonEncoder
         , nodeDecoder = Just repListRonDecoder
+        , init = initializer
         }
 
 
@@ -915,6 +948,7 @@ primitiveList codec =
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = Nothing
         , nodeDecoder = Nothing
+        , init = \_ same -> same
         }
 
 
@@ -960,9 +994,9 @@ array codec =
     primitiveList codec |> mapHelper (Result.map Array.fromList) Array.toList
 
 
-{-| A replicated list
+{-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec e memberType -> Codec e (RepDb memberType)
+repDb : Codec e memberType -> RepCodec e (RepDb memberType) (List memberType)
 repDb memberCodec =
     let
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.PotentialPayload
@@ -975,13 +1009,8 @@ repDb memberCodec =
                 , pendingCounter = Change.unmatchableCounter
                 }
 
-        memberChanger node encodeModeMaybe parentNotifier newMemberValue newRefMaybe =
-            case newRefMaybe of
-                Just givenRef ->
-                    Change.NewPayloadWithRef { payload = memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue, ref = givenRef }
-
-                Nothing ->
-                    Change.NewPayload (memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue)
+        memberChanger node encodeModeMaybe parentNotifier newMemberValue =
+            Change.NewPayload (memberRonEncoder node encodeModeMaybe parentNotifier newMemberValue)
 
         memberRonDecoder : Node -> Change.PendingCounter -> Maybe Moment -> JE.Value -> Maybe memberType
         memberRonDecoder node childPendingCounter cutoff encodedMember =
@@ -1002,7 +1031,7 @@ repDb memberCodec =
                     Node.getObject { node = node, cutoff = Nothing, foundIDs = foundObjectIDs, pendingID = pending.id, reducer = RepDb.reducerID, parentNotifier = parentNotifier }
 
                 repDbBuilder foundObjects =
-                    Ok <| RepDb.buildFromReplicaDb (object foundObjects) (memberRonDecoder node pending.passToChild cutoff) (memberChanger node Nothing parentNotifier)
+                    Ok <| RepDb.buildFromReplicaDb (object foundObjects) (memberRonDecoder node pending.passToChild cutoff) (memberChanger node Nothing parentNotifier) []
             in
             JD.map repDbBuilder concurrentObjectIDsDecoder
 
@@ -1013,7 +1042,7 @@ repDb memberCodec =
                     changeToChangePayload <|
                         Chunk
                             { target = RepDb.getPointer existingRepDb
-                            , objectChanges = [] -- TODO should this be blank
+                            , objectChanges = List.map (memberChanger node (Just mode) parentNotifier) (RepDb.getInit existingRepDb)
                             }
 
                 _ ->
@@ -1022,6 +1051,17 @@ repDb memberCodec =
                             { target = Change.PlaceholderPointer RepDb.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
                             , objectChanges = []
                             }
+
+        initializer : Int -> List memberType -> RepDb memberType
+        initializer key initMembers =
+            let
+                pending =
+                    Change.usePendingCounter key Change.firstPendingCounter
+
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = RepDb.reducerID, parentNotifier = identity }
+            in
+            RepDb.buildFromReplicaDb object (memberRonDecoder Node.testNode pending.passToChild Nothing) (memberChanger Node.testNode Nothing identity) initMembers
     in
     Codec
         { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.listValues input)
@@ -1030,14 +1070,19 @@ repDb memberCodec =
         , jsonDecoder = JD.fail "no repdb"
         , nodeEncoder = Just repDbNodeEncoder
         , nodeDecoder = Just repDbNodeDecoder
+        , init = initializer
         }
 
 
-{-| A replicated dict
+{-| A replicated dictionary.
 -}
-repDict : Codec e k -> Codec e v -> Codec e (RepDict k v)
+repDict : Codec e k -> Codec e v -> RepCodec e (RepDict k v) (List ( k, v ))
 repDict keyCodec valueCodec =
     let
+        -- We use the json-encoded form as the dict key, since it's always comparable!
+        keyToString key =
+            JE.encode 0 (getJsonEncoder keyCodec key)
+
         flatDictListCodec =
             primitiveList (tuple keyCodec valueCodec)
 
@@ -1118,11 +1163,8 @@ repDict keyCodec valueCodec =
                 object foundObjectIDs =
                     Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, pendingID = pending.id, reducer = RepDict.reducerID, parentNotifier = parentNotifier }
 
-                keyToString key =
-                    JE.encode 0 (getJsonEncoder keyCodec key)
-
                 repDictBuilder foundObjects =
-                    Ok <| RepDict.buildFromReplicaDb (object foundObjects) (entryRonDecoder node pending.passToChild cutoff) (entryChanger node Nothing parentNotifier) keyToString
+                    Ok <| RepDict.buildFromReplicaDb (object foundObjects) (entryRonDecoder node pending.passToChild cutoff) (entryChanger node Nothing parentNotifier) keyToString []
             in
             JD.map repDictBuilder concurrentObjectIDsDecoder
 
@@ -1133,7 +1175,7 @@ repDict keyCodec valueCodec =
                     changeToChangePayload <|
                         Chunk
                             { target = RepDict.getPointer existingRepDict
-                            , objectChanges = [] -- TODO should this be blank
+                            , objectChanges = List.map (\( k, v ) -> entryChanger node (Just mode) parentNotifier (Present k v)) (RepDict.getInit existingRepDict)
                             }
 
                 _ ->
@@ -1142,6 +1184,17 @@ repDict keyCodec valueCodec =
                             { target = Change.PlaceholderPointer RepList.reducerID (Change.usePendingCounter 0 pendingCounter).id identity
                             , objectChanges = []
                             }
+
+        initializer : Int -> List ( k, v ) -> RepDict k v
+        initializer key initMembers =
+            let
+                pending =
+                    Change.usePendingCounter key Change.firstPendingCounter
+
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = RepDb.reducerID, parentNotifier = identity }
+            in
+            RepDict.buildFromReplicaDb object (entryRonDecoder Node.testNode pending.passToChild Nothing) (entryChanger Node.testNode Nothing identity) keyToString initMembers
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -1150,6 +1203,7 @@ repDict keyCodec valueCodec =
         , jsonDecoder = JD.fail "no repdict"
         , nodeEncoder = Just repDictRonEncoder
         , nodeDecoder = Just repDictRonDecoder
+        , init = initializer
         }
 
 
@@ -1507,6 +1561,7 @@ finishFragileRecord (FragileRecordCodec codec) =
         , jsonDecoder = codec.jsonDecoder
         , nodeEncoder = Nothing
         , nodeDecoder = Nothing
+        , init = \_ same -> same
         }
 
 
@@ -1532,19 +1587,19 @@ type alias FieldValue =
 
 {-| A partially built Codec for a smart record.
 -}
-type PartialRegister errs full remaining
+type PartialRegister errs i full remaining
     = PartialRegister
         { bytesEncoder : full -> List BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error errs) remaining)
         , jsonEncoders : List (SmartJsonFieldEncoder full)
         , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
-        , ronEncoders : List (RegisterFieldEncoder full)
-        , nodeDecoder : RegisterFieldDecoder remaining
+        , ronEncoders : List (RegisterFieldEncoder i full)
+        , nodeDecoder : RegisterFieldDecoder i remaining
         }
 
 
-record : remaining -> PartialRegister errs full remaining
+record : remaining -> PartialRegister errs i full remaining
 record remainingConstructor =
     PartialRegister
         { bytesEncoder = \_ -> []
@@ -1559,7 +1614,7 @@ record remainingConstructor =
 
 {-| Not exposed - for all `readable` functions
 -}
-readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRegister errs full (fieldType -> remaining) -> PartialRegister errs full remaining
+readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefaultMaybe (PartialRegister recordCodecSoFar) =
     let
         jsonObjectFieldKey =
@@ -2034,9 +2089,9 @@ finishRecord partial =
             finishRegister partial
 
         unwrapRecord =
-            finishedRegister |> map Register.new Register.latest
+            Debug.todo "override individual"
     in
-    nakedRecordCodec
+    unwrapRecord
 
 
 {-| Finish creating a codec for a record.
@@ -2136,7 +2191,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : List (RegisterFieldEncoder full) -> NodeEncoderInputs (Register full) -> Change.PotentialPayload
+registerNodeEncoder : List (RegisterFieldEncoder i full) -> NodeEncoderInputs (Register i full) -> Change.PotentialPayload
 registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
     let
         register =
@@ -2150,9 +2205,6 @@ registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounte
                             Node.getObject { node = node, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = Register.reducerID, parentNotifier = parentNotifier }
                     in
                     Register.build fallbackObject regToRecord
-
-        regToRecord =
-            Debug.todo "regToRecord"
 
         pending =
             Change.usePendingCounter 0 pendingCounter
@@ -2219,7 +2271,7 @@ type RegisterFieldEncoderOutput
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput)
+newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs i full -> RegisterFieldEncoderOutput)
 newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, register, node, updateRegisterAfterChildInit, pendingCounter } =
     let
         runFieldRonEncoder value =

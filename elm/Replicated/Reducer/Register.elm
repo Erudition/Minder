@@ -10,7 +10,7 @@ import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, New(..))
+import Replicated.Change as Change exposing (Change)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (EventPayload, I, Object, Placeholder)
@@ -21,13 +21,13 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Register userType
+type Register i userType
     = Register
         { pointer : Change.Pointer
         , fields : Dict FieldSlot FieldHistoryBackwards -- backwards history
         , included : Object.InclusionInfo
-        , toRecord : Maybe Moment -> Register userType -> userType
-        , fromRecord : userType -> Register userType
+        , toRecord : Maybe Moment -> Register i userType -> userType
+        , init : i
         }
 
 
@@ -44,7 +44,7 @@ reducerID =
     "lww"
 
 
-getPointer : Register userType -> Change.Pointer
+getPointer : Register i userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer
 
@@ -55,8 +55,8 @@ getPointer (Register register) =
 --     Register { pointer = Change.ExistingObjectPointer objectID, included = Object.All, fields = Dict.empty }
 
 
-build : Object -> (Maybe Moment -> Register userType -> userType) -> (userType -> Register userType) -> Register userType
-build object regToRecord recordToReg =
+build : Object -> (Maybe Moment -> Register i userType -> userType) -> i -> Register i userType
+build object regToRecord initialInputs =
     let
         fieldsDict =
             -- object.events is a dict, so always ID order, so always oldest to newest.
@@ -86,12 +86,7 @@ build object regToRecord recordToReg =
                     )
                 )
     in
-    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = regToRecord, fromRecord = recordToReg }
-
-
-new : userType -> New (Register userType)
-new inputRecord =
-    New (fromRecord inputRecord)
+    Register { pointer = Object.getPointer object, included = Object.All, fields = fieldsDict, toRecord = regToRecord, init = initialInputs }
 
 
 extractFieldEventFromObjectPayload : EventPayload -> Result String ( FieldIdentifier, FieldPayload )
@@ -155,26 +150,26 @@ type alias FieldSlot =
     Int
 
 
-latest : Register record -> record
+latest : Register i record -> record
 latest ((Register registerDetails) as reg) =
     registerDetails.toRecord Nothing reg
 
 
-getFieldLatestOnly : Register userType -> FieldIdentifier -> Maybe FieldPayload
+getFieldLatestOnly : Register i userType -> FieldIdentifier -> Maybe FieldPayload
 getFieldLatestOnly (Register register) ( fieldSlot, _ ) =
     Dict.get fieldSlot register.fields
         |> Maybe.map Nonempty.head
         |> Maybe.map Tuple.second
 
 
-getFieldHistory : Register userType -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory : Register i userType -> FieldIdentifier -> List ( OpID, FieldPayload )
 getFieldHistory (Register register) ( desiredFieldSlot, name ) =
     Dict.get desiredFieldSlot register.fields
         |> Maybe.map Nonempty.toList
         |> Maybe.withDefault []
 
 
-getFieldHistoryValues : Register userType -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues : Register i userType -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues register field =
     List.map Tuple.second (getFieldHistory register field)
 
@@ -212,11 +207,4 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
     { get = latestValue
     , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
     , history = rest
-    }
-
-
-initRW : fieldVal -> RW fieldVal
-initRW value =
-    { get = value
-    , set = \new -> Change.Chunk { target = Change.PlaceholderPointer reducerID (Change.usePendingCounter 0 Change.unmatchableCounter).id identity, objectChanges = [] }
     }
