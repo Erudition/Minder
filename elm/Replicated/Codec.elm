@@ -58,7 +58,9 @@ import Base64
 import Bytes
 import Bytes.Decode as BD
 import Bytes.Encode as BE
+import Console
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
@@ -71,7 +73,7 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
-import Replicated.Reducer.Register as Register exposing (RW, Register(..))
+import Replicated.Reducer.Register as Register exposing (Register(..))
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -86,7 +88,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 {-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
 -}
-type RepCodec e a init
+type RepCodec e i a
     = Codec
         { bytesEncoder : a -> BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error e) a)
@@ -94,7 +96,7 @@ type RepCodec e a init
         , jsonDecoder : JD.Decoder (Result (Error e) a)
         , nodeEncoder : Maybe (NodeEncoder a)
         , nodeDecoder : Maybe (NodeDecoder e a)
-        , init : Initializer init a
+        , init : Initializer i a
         }
 
 
@@ -162,28 +164,27 @@ type alias NodeDecoderInputs =
     }
 
 
-type alias RegisterFieldEncoder i r =
-    RegisterFieldEncoderInputs i r -> RegisterFieldEncoderOutput
+type alias RegisterFieldEncoder r =
+    RegisterFieldEncoderInputs r -> RegisterFieldEncoderOutput
 
 
 {-| Inputs to a node Field decoder.
-
-Why is Register a Maybe?
-First launch ever, Register would not exist, can't create it during decode phase either. Yet we need the record to be filled, which is why we have field defaults. It would be created as soon as the first field is set to a non-default value.
-
 -}
-type alias RegisterFieldEncoderInputs i full =
+type alias RegisterFieldEncoderInputs full =
     { node : Node
-    , register : Register i full
+    , register : Register full
     , mode : ChangesToGenerate
     , updateRegisterAfterChildInit : Change.PotentialPayload -> Change
     , pendingCounter : Change.PendingCounter
     }
 
 
-type alias RegisterFieldDecoder i record =
-    -- For now we just reuse Json Decoders
-    RegisterFieldDecoderInputs -> Register i record -> record
+type alias RegisterFieldDecoder e full remaining =
+    RegisterFieldDecoderInputs -> Register full -> ( Result (Error e) remaining, List (Error e) )
+
+
+type alias RegisterFieldInitializer parentSeed full remaining =
+    parentSeed -> Register full -> remaining
 
 
 type alias RegisterFieldDecoderInputs =
@@ -219,6 +220,7 @@ type Error e
     | SerializerOutOfDate
     | ObjectNotFound OpID
     | FailedToDecodeRoot String
+    | JDError JD.Error
 
 
 version : Int
@@ -251,7 +253,7 @@ decodeFromNode profileCodec node =
                     Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
-init : RepCodec e repType i -> Int -> i -> repType
+init : RepCodec e i repType -> Int -> i -> repType
 init (Codec codecDetails) =
     codecDetails.init
 
@@ -263,21 +265,21 @@ endian =
 
 {-| Extracts the `Decoder` contained inside the `Codec`.
 -}
-getBytesDecoder : Codec e a -> BD.Decoder (Result (Error e) a)
+getBytesDecoder : RepCodec e s a -> BD.Decoder (Result (Error e) a)
 getBytesDecoder (Codec m) =
     m.bytesDecoder
 
 
 {-| Extracts the json `Decoder` contained inside the `Codec`.
 -}
-getJsonDecoder : Codec e a -> JD.Decoder (Result (Error e) a)
+getJsonDecoder : RepCodec e s a -> JD.Decoder (Result (Error e) a)
 getJsonDecoder (Codec m) =
     m.jsonDecoder
 
 
 {-| Extracts the ron decoder contained inside the `Codec`.
 -}
-getNodeDecoder : Codec e a -> NodeDecoder e a
+getNodeDecoder : RepCodec e i a -> NodeDecoder e a
 getNodeDecoder (Codec m) =
     let
         -- TODO this is only because we still sometimes wrap values in double quotes
@@ -410,14 +412,14 @@ replaceFromUrl =
 
 {-| Extracts the encoding function contained inside the `Codec`.
 -}
-getBytesEncoder : Codec e a -> a -> BE.Encoder
+getBytesEncoder : RepCodec e s a -> a -> BE.Encoder
 getBytesEncoder (Codec m) =
     m.bytesEncoder
 
 
 {-| Extracts the replica encoding function contained inside the `Codec`.
 -}
-getNodeEncoder : Codec e a -> NodeEncoder a
+getNodeEncoder : RepCodec e s a -> NodeEncoder a
 getNodeEncoder (Codec m) inputs =
     case m.nodeEncoder of
         Just nativeRonEncoder ->
@@ -435,14 +437,14 @@ getNodeEncoder (Codec m) inputs =
 
 {-| Extracts the json encoding function contained inside the `Codec`.
 -}
-getJsonEncoder : Codec e a -> a -> JE.Value
+getJsonEncoder : RepCodec e s a -> a -> JE.Value
 getJsonEncoder (Codec m) =
     m.jsonEncoder
 
 
 {-| Convert an Elm value into a sequence of bytes.
 -}
-encodeToBytes : Codec e a -> a -> Bytes.Bytes
+encodeToBytes : RepCodec e s a -> a -> Bytes.Bytes
 encodeToBytes codec value =
     BE.sequence
         [ BE.unsignedInt8 version
@@ -519,7 +521,7 @@ replaceForUrl =
 --
 --         rootObject =
 --             Node.getObject
---                 { node = node, cutoff = Nothing, foundIDs = List.filterMap identity [ node.root ], pendingID = starterPendingID, reducer = Register.reducerID, parentNotifier = identity }
+--                 { node = node, cutoff = Nothing, foundIDs = List.filterMap identity [ node.root ], pendingID = starterPendingID, reducer = registerReducerID, parentNotifier = identity }
 --
 --         rootRegister =
 --             Register.build rootObject regToRecord
@@ -814,7 +816,7 @@ maybe justCodec =
 
 {-| A replicated list
 -}
-repList : Codec e memberType -> RepCodec e (RepList memberType) (List memberType)
+repList : RepCodec e memberSeed memberType -> RepCodec e (List memberType) (RepList memberType)
 repList memberCodec =
     let
         normalJsonDecoder =
@@ -996,7 +998,7 @@ array codec =
 
 {-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec e memberType -> RepCodec e (RepDb memberType) (List memberType)
+repDb : Codec e memberType -> RepCodec e (List memberType) (RepDb memberType)
 repDb memberCodec =
     let
         memberRonEncoder : Node -> Maybe ChangesToGenerate -> Change.ParentNotifier -> memberType -> Change.PotentialPayload
@@ -1076,7 +1078,7 @@ repDb memberCodec =
 
 {-| A replicated dictionary.
 -}
-repDict : Codec e k -> Codec e v -> RepCodec e (RepDict k v) (List ( k, v ))
+repDict : Codec e k -> Codec e v -> RepCodec e (List ( k, v )) (RepDict k v)
 repDict keyCodec valueCodec =
     let
         -- We use the json-encoded form as the dict key, since it's always comparable!
@@ -1585,17 +1587,25 @@ type alias FieldValue =
     String
 
 
+type FieldFallback parentSeed fieldSeed fieldType
+    = Default fieldType
+    | InitWithParentSeed (parentSeed -> fieldSeed)
+    | DefaultFromParentSeed (parentSeed -> fieldType)
+    | DefaultAndInitWithParentSeed fieldType (parentSeed -> fieldSeed)
+
+
 {-| A partially built Codec for a smart record.
 -}
-type PartialRegister errs i full remaining
+type PartialRegister errs s full remaining
     = PartialRegister
         { bytesEncoder : full -> List BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error errs) remaining)
         , jsonEncoders : List (SmartJsonFieldEncoder full)
         , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
-        , ronEncoders : List (RegisterFieldEncoder i full)
-        , nodeDecoder : RegisterFieldDecoder i remaining
+        , nodeEncoders : List (RegisterFieldEncoder full)
+        , nodeDecoder : RegisterFieldDecoder errs full remaining
+        , nodeInitializer : RegisterFieldInitializer s full remaining
         }
 
 
@@ -1607,32 +1617,47 @@ record remainingConstructor =
         , jsonEncoders = []
         , jsonArrayDecoder = JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
-        , ronEncoders = []
-        , nodeDecoder = \_ -> JD.succeed (Ok remainingConstructor)
+        , nodeEncoders = []
+        , nodeDecoder = \_ _ -> ( remainingConstructor, [] )
         }
+
+
+fieldDefaultMaybe fallback =
+    case fallback of
+        Default default ->
+            Just default
+
+        InitWithParentSeed _ ->
+            Nothing
 
 
 {-| Not exposed - for all `readable` functions
 -}
-readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
-readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefaultMaybe (PartialRegister recordCodecSoFar) =
+readableHelper : FieldIdentifier -> (full -> fieldType) -> RepCodec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
-            -- TODO initial numbers  allowed in JSON fieldR names?
-            String.fromInt fieldSlot ++ fieldName
+            fieldName ++ String.fromInt fieldSlot
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
+            (getBytesEncoder fieldCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
-        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
-        nodeDecoder inputs =
-            registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec inputs
+        nodeDecoder : RegisterFieldDecoder errs full remaining
+        nodeDecoder inputs inputRegister =
+            let
+                ( thisFieldValue, thisFieldErrors ) =
+                    registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) fallback fieldCodec inputs inputRegister
+
+                ( remainingRecordConstructor, soFarErrors ) =
+                    recordCodecSoFar.nodeDecoder inputs inputRegister
+            in
+            ( remainingRecordConstructor thisFieldValue, soFarErrors ++ thisFieldErrors )
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1640,7 +1665,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
             BD.map2
                 combineIfBothSucceed
                 recordCodecSoFar.bytesDecoder
-                (getBytesDecoder fieldValueCodec)
+                (getBytesDecoder fieldCodec)
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
             JD.map2
@@ -1648,39 +1673,40 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.jsonArrayDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
+                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldCodec))
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , nodeDecoder =
-            mapRegisterNodeDecoder
-                combineIfBothSucceed
-                -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.nodeDecoder
-                -- and now we're wrapping it in yet another layer, this field's decoder
-                nodeDecoder
+        , nodeEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (fieldDefaultMaybe fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
+        , nodeDecoder = nodeDecoder
         }
 
 
 {-| Not exposed - for all `writable` functions
 -}
-writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> Maybe fieldType -> PartialRegister errs full (RW fieldType -> remaining) -> PartialRegister errs full remaining
-writableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefaultMaybe (PartialRegister recordCodecSoFar) =
+writableHelper : FieldIdentifier -> (full -> RW fieldType) -> RepCodec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
     let
         jsonObjectFieldKey =
             -- For now, just stick number and name together.
-            String.fromInt fieldSlot ++ fieldName
+            fieldName ++ String.fromInt fieldSlot
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldValueCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
+            (getBytesEncoder fieldCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
+            ( jsonObjectFieldKey, getJsonEncoder fieldCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
-        nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) (RW fieldType))
-        nodeDecoder inputs =
-            registerWritableFieldDecoder ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec inputs
+        nodeDecoder : RegisterFieldDecoder errs full remaining
+        nodeDecoder inputs inputRegister =
+            let
+                ( thisFieldValue, thisFieldErrors ) =
+                    registerWritableFieldDecoder ( fieldSlot, fieldName ) fallback fieldCodec inputs inputRegister
+
+                ( remainingRecordConstructor, soFarErrors ) =
+                    recordCodecSoFar.nodeDecoder inputs inputRegister
+            in
+            ( remainingRecordConstructor thisFieldValue, soFarErrors ++ thisFieldErrors )
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1688,14 +1714,8 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = recordCodecSoFar.fieldIndex + 1
-        , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultMaybe fieldValueCodec :: recordCodecSoFar.ronEncoders
-        , nodeDecoder =
-            mapRegisterNodeDecoder
-                combineIfBothSucceed
-                -- the previous decoder layers, functions stacked on top of each other
-                recordCodecSoFar.nodeDecoder
-                -- and now we're wrapping it in yet another layer, this field's decoder
-                nodeDecoder
+        , nodeEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) (fieldDefaultMaybe fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
+        , nodeDecoder = nodeDecoder
         }
 
 
@@ -1709,9 +1729,9 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-fieldR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRegister errs full (fieldType -> remaining) -> PartialRegister errs full remaining
-fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (Just fieldDefault) soFar
+fieldR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldR ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (Default fieldDefault) soFar
 
 
 {-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
@@ -1719,9 +1739,9 @@ fieldR ( fieldSlot, fieldName ) fieldGetter fieldValueCodec fieldDefault soFar =
   - If your fieldR will more often be set to something else (e.g. `Just 0`), consider using `readable` with your `maybe`-wrapped codec instead and using the common value as the default. This will save space and bandwidth.
 
 -}
-maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs justFieldType -> PartialRegister errs full (Maybe justFieldType -> remaining) -> PartialRegister errs full remaining
-maybeR fieldID fieldGetter fieldValueCodec recordBuilt =
-    readableHelper fieldID fieldGetter (maybe fieldValueCodec) Nothing recordBuilt
+maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs justFieldType -> PartialRegister errs i full (Maybe justFieldType -> remaining) -> PartialRegister errs i full remaining
+maybeR fieldID fieldGetter fieldCodec recordBuilt =
+    readableHelper fieldID fieldGetter (maybe fieldCodec) (Default Nothing) recordBuilt
 
 
 {-| Read a `RepList` field without adding the `repList` codec. Default is an empty `RepList`.
@@ -1732,9 +1752,9 @@ maybeR fieldID fieldGetter fieldValueCodec recordBuilt =
   - If your fieldR is not a `RepList` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repList` codec instead.
 
 -}
-fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberType -> PartialRegister errs full (RepList memberType -> remaining) -> PartialRegister errs full remaining
-fieldList fieldID fieldGetter fieldValueCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repList fieldValueCodec) Nothing recordBuilt
+fieldList : FieldIdentifier -> (full -> RepList memberType) -> RepCodec errs memberSeed memberType -> PartialRegister errs i full (RepList memberType -> remaining) -> PartialRegister errs i full remaining
+fieldList fieldID fieldGetter fieldCodec recordBuilt =
+    readableHelper fieldID fieldGetter (repList fieldCodec) (InitWithParentSeed (\parentSeed -> [])) recordBuilt
 
 
 {-| Read a `RepDict` field without adding the `repDict` codec. Default is an empty `RepDict`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
@@ -1745,9 +1765,9 @@ fieldList fieldID fieldGetter fieldValueCodec recordBuilt =
   - If your fieldR is not a `RepDict` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDict` codec instead.
 
 -}
-fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyType, Codec errs valueType ) -> PartialRegister errs full (RepDict keyType valueType -> remaining) -> PartialRegister errs full remaining
+fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyType, Codec errs valueType ) -> PartialRegister errs i full (RepDict keyType valueType -> remaining) -> PartialRegister errs i full remaining
 fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
-    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) Nothing recordBuilt
+    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (InitWithParentSeed (\parentSeed -> [])) recordBuilt
 
 
 {-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
@@ -1756,16 +1776,9 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
   - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
 
 -}
-fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberType -> PartialRegister errs full (RepDb memberType -> remaining) -> PartialRegister errs full remaining
-fieldDb fieldID fieldGetter fieldValueCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repDb fieldValueCodec) Nothing recordBuilt
-
-
-{-| Read a fieldR containing a nested Register.
--}
-nestedField : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRegister errs full (fieldType -> remaining) -> PartialRegister errs full remaining
-nestedField fieldID fieldGetter fieldValueCodec recordBuilt =
-    readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
+fieldDb fieldID fieldGetter fieldCodec recordBuilt =
+    readableHelper fieldID fieldGetter (repDb fieldCodec) (InitWithParentSeed (\parentSeed -> [])) recordBuilt
 
 
 {-| Read a record field wrapped with `RW`. This makes the fieldR writable.
@@ -1779,9 +1792,9 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldType -> PartialRegister errs full (RW (Maybe fieldType) -> remaining) -> PartialRegister errs full remaining
-maybeRW fieldIdentifier fieldGetter fieldValueCodec soFar =
-    writableHelper fieldIdentifier fieldGetter (maybe fieldValueCodec) (Just Nothing) soFar
+maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldType -> PartialRegister errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister errs i full remaining
+maybeRW fieldIdentifier fieldGetter fieldCodec soFar =
+    writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (Default Nothing) soFar
 
 
 {-| Read a `Maybe` record field wrapped with `RW`. This makes the fieldR writable.
@@ -1795,87 +1808,63 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRegister errs full (RW fieldType -> remaining) -> PartialRegister errs full remaining
-fieldRW fieldIdentifier fieldGetter fieldValueCodec fieldDefault soFar =
-    writableHelper fieldIdentifier fieldGetter fieldValueCodec (Just fieldDefault) soFar
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
+    writableHelper fieldIdentifier fieldGetter fieldCodec (Default fieldDefault) soFar
 
 
-{-| Read a forever-essential field. Avoid whenever sensible defaults are possible.
-
-  - Only add required fields BEFORE using in production for the first time.
-  - NEVER add required fields after that, or old data may be seen as corrupt.
-  - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
-  - Will it be essential forever? Once you require a fieldR, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
-  - Consider if this fieldR being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the fieldR is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this fieldR were truly essential.)
-
--}
-coreR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRegister errs full (fieldType -> remaining) -> PartialRegister errs full remaining
-coreR fieldID fieldGetter fieldValueCodec recordBuilt =
-    readableHelper fieldID fieldGetter fieldValueCodec Nothing recordBuilt
-
-
-{-| Read a forever-essential field. Avoid whenever sensible defaults are possible.
+{-| Read a field that is required, yet has no sensible default. Use sparingly.
 
   - Only add required fields BEFORE using in production for the first time.
   - NEVER add required fields after that, or old data may be seen as corrupt.
   - Useful for "Parse, Don't Validate" as you can use this to avoid extra validation later, e.g. `Maybe` wrappers on fields that should never be missing.
-  - Will it be essential forever? Once you require a fieldR, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones.
-  - Consider if this fieldR being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing RepLists. If the fieldR is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this fieldR were truly essential.)
+  - Will it be essential forever? Once you require a field, you can't make it optional later - omitted values from new clients will be seen as corrupt by old ones!
+  - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing collections. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
 
 -}
-coreRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType -> PartialRegister errs full (RW fieldType -> remaining) -> PartialRegister errs full remaining
-coreRW fieldIdentifier fieldGetter fieldValueCodec soFar =
-    writableHelper fieldIdentifier fieldGetter fieldValueCodec Nothing soFar
+coreR : FieldIdentifier -> (full -> fieldType) -> RepCodec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+coreR fieldID fieldGetter fieldCodec seeder recordBuilt =
+    readableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
 
 
+{-| Read and Write a core field. A core field is both required, AND has no sensible default. Prefer non-core fields when possible.
 
---
--- fieldN : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType -> PartialRegister errs full (fieldType -> remaining) -> PartialRegister errs full remaining
--- fieldN ( fieldSlot, fieldName ) fieldGetter fieldValueCodec (PartialRegister recordCodecSoFar) =
---     let
---         jsonObjectFieldKey =
---             -- For now, just stick number and name together.
---             String.fromInt fieldSlot ++ fieldName
---
---         addToPartialBytesEncoderList existingRecord =
---             -- Tack on the new encoder to the big list of all the encoders
---             (getBytesEncoder fieldValueCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
---
---         addToPartialJsonEncoderList =
---             -- Tack on the new encoder to the big list of all the encoders
---             ( jsonObjectFieldKey, getJsonEncoder fieldValueCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
---
---         nodeDecoder : RegisterFieldDecoderInputs -> JD.Decoder (Result (Error errs) fieldType)
---         nodeDecoder inputs =
---             registerReadOnlyFieldDecoder ( fieldSlot, fieldName ) Nothing fieldValueCodec inputs
---     in
---     PartialRegister
---         { bytesEncoder = addToPartialBytesEncoderList
---         , bytesDecoder =
---             BD.map2
---                 combineIfBothSucceed
---                 recordCodecSoFar.bytesDecoder
---                 (getBytesDecoder fieldValueCodec)
---         , jsonEncoders = addToPartialJsonEncoderList
---         , jsonArrayDecoder =
---             JD.map2
---                 combineIfBothSucceed
---                 -- the previous decoder layers, functions stacked on top of each other
---                 recordCodecSoFar.jsonArrayDecoder
---                 -- and now we're wrapping it in yet another layer, this field's decoder
---                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldValueCodec))
---         , fieldIndex = recordCodecSoFar.fieldIndex + 1
---         , ronEncoders = newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) Nothing fieldValueCodec :: recordCodecSoFar.ronEncoders
---         , nodeDecoder =
---             mapRegisterNodeDecoder
---                 combineIfBothSucceed
---                 -- the previous decoder layers, functions stacked on top of each other
---                 recordCodecSoFar.nodeDecoder
---                 -- and now we're wrapping it in yet another layer, this field's decoder
---                 nodeDecoder
---         }
+Including any core fields in your register will force you to pass in a "seed" any time you initialize it. The seed value contains whatever you need to initialize all the core fields. Registers that do not need seeds are more robust to serialization!
+
+  - If this field is truly unique to the register upon initialization, does it really need to be writable? Consider using `coreR` instead, so your code can initialize the field with a seed but not accidentally modify it later.
+
+-}
+coreRW : FieldIdentifier -> (full -> RW fieldType) -> RepCodec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+coreRW fieldID fieldGetter fieldCodec seeder recordBuilt =
+    writableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
 
 
+{-| Read a field that is not needs a seed.
+Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the parent's seed, if it has one. Otherwise, that's just `()` The return value will be used to seed the field.
+
+  - Does your field actually need to be available as soon as the parent exists? If not, consider wrapping it in something like `Maybe` so you can give a it a default of `Nothing` and seed it when you actually need it. Then you don't need a seed from the parent.
+  - You can use this to seed the field with a constant, ignoring the parent seed like `(\_ -> [1,2,3])` if you need that for some reason. But if a constant works, your field's type can probably be made seedless anyway. You can also just use a field default, rather than seeding, so your parent register can be seedless.
+
+-}
+seededR : FieldIdentifier -> (full -> fieldType) -> RepCodec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+seededR fieldID fieldGetter fieldCodec default seeder recordBuilt =
+    readableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) recordBuilt
+
+
+{-| Read/Write a field that needs a seed.
+Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the parent's seed, if it has one. Otherwise, that's just `()` The return value will be used to seed the field.
+
+  - Does your field actually need to be available as soon as the parent exists? If not, consider wrapping it in something like `Maybe` so you can give a it a default of `Nothing` and seed it when you actually need it. Then you don't need a seed from the parent.
+  - You can use this to seed the field with a constant, ignoring the parent seed like `(\_ -> [1,2,3])` if you need that for some reason. But if a constant works, your field's type can probably be made seedless anyway. You can also just use a field default, rather than seeding, so your parent register can be seedless.
+
+-}
+seededRW : FieldIdentifier -> (full -> RW fieldType) -> RepCodec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+seededRW fieldID fieldGetter fieldCodec default seeder recordBuilt =
+    writableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) recordBuilt
+
+
+{-| Helper for mapping over 2 decoders, since they contain Results. If one fails, the combined decoder fails.
+-}
 combineIfBothSucceed : Result (Error e) (fieldType -> remaining) -> Result (Error e) fieldType -> Result (Error e) remaining
 combineIfBothSucceed decoderA decoderB =
     case ( decoderA, decoderB ) of
@@ -1920,124 +1909,93 @@ updateRegisterPostChildInit parentRegister fieldIdentifier changeToWrap =
         { target =
             Register.getPointer parentRegister
         , objectChanges =
-            [ Change.NewPayload (Register.encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
+            [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
         }
 
 
 {-| RON what to do when decoding a (potentially nested!) object field.
 -}
-registerReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) fieldtype)
-registerReadOnlyFieldDecoder (( fieldSlot, fieldName ) as fieldIdentifier) defaultMaybe fieldValueCodec inputs =
+registerReadOnlyFieldDecoder : ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> RepCodec e fieldSeed fieldType -> RegisterFieldDecoderInputs -> Register record -> ( fieldType, List (Error e) )
+registerReadOnlyFieldDecoder (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs parent =
     let
-        fieldLatestValueMaybe =
-            Register.getFieldLatestOnly inputs.parent fieldIdentifier
-
         runFieldDecoder thingToDecode =
             JD.decodeValue
-                (getNodeDecoder fieldValueCodec
-                    { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateRegisterPostChildInit inputs.parent fieldIdentifier, cutoff = inputs.cutoff }
+                (getNodeDecoder fieldCodec
+                    { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = updateRegisterPostChildInit parent fieldIdentifier, cutoff = inputs.cutoff }
                 )
                 thingToDecode
+
+        default =
+            case fallback of
+                Default defaultGiven ->
+                    defaultGiven
+
+                InitWithParentSeed seedToFieldType ->
+                    -- TODO zero is probably not a good choice
+                    init fieldCodec 0 (seedToFieldType inputs.parentSeed)
+
+        nestedCodecIsObject =
+            False
     in
-    case defaultMaybe of
-        Just default ->
-            case fieldLatestValueMaybe of
+    case nestedCodecIsObject of
+        False ->
+            case getFieldLatestOnly parent fieldIdentifier of
                 Nothing ->
-                    -- fieldR was never set - fall back to default
-                    JD.succeed (Ok default)
+                    -- field was never set - fall back to default
+                    ( default, [] )
 
                 Just foundField ->
                     -- fieldR was set - decode value and use it
                     case runFieldDecoder (Op.payloadToJsonValue foundField) of
-                        Ok something ->
-                            JD.succeed something
+                        Ok (Ok goodValue) ->
+                            ( goodValue, [] )
 
-                        Err problem ->
-                            -- fall back to default if we failed to decode set value for some reason
-                            -- TODO error instead?
-                            -- JD.succeed <| Ok (default)
-                            Debug.todo <| "decoder failure: " ++ JD.errorToString problem
+                        Ok (Err problem) ->
+                            ( default, [ problem ] )
 
-        Nothing ->
-            -- for nested objects ONLY (fieldN)
-            let
-                logMsg =
-                    "++++ registerReadOnlyFieldDecoder (fieldN): in parent register found fieldR '" ++ fieldName ++ "' with history "
+                        Err jsonDecodeError ->
+                            ( default, [ JDError jsonDecodeError ] )
 
-                fieldUUIDHistoryList =
-                    Register.getFieldHistoryValues inputs.parent ( fieldSlot, fieldName )
-                        |> List.concatMap Nonempty.toList
-
-                allNestedObjects =
-                    runFieldDecoder (JE.list Op.atomToJsonValue fieldUUIDHistoryList)
-            in
-            case allNestedObjects of
-                Ok something ->
-                    -- there was a set value AND it decoded successfully
-                    JD.succeed something
-
-                Err problem ->
-                    -- there was no value set OR it failed to decode
-                    Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
+        True ->
+            -- let
+            --     fieldUUIDHistoryList =
+            --         getFieldHistoryValues parent ( fieldSlot, fieldName )
+            --             |> List.concatMap Nonempty.toList
+            --
+            --     allNestedObjects =
+            --         runFieldDecoder (JE.list Op.atomToJsonValue fieldUUIDHistoryList)
+            -- in
+            -- case allNestedObjects of
+            --     Ok something ->
+            --         -- there was a set value AND it decoded successfully
+            --         JD.succeed something
+            --
+            --     Err problem ->
+            --         -- there was no value set OR it failed to decode
+            --         Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
+            Debug.todo "we need to handle multiple concurrent object IDs"
 
 
-registerWritableFieldDecoder : ( FieldSlot, FieldName ) -> Maybe fieldtype -> Codec e fieldtype -> RegisterFieldDecoderInputs -> JD.Decoder (Result (Error e) (RW fieldtype))
-registerWritableFieldDecoder (( fieldSlot, fieldName ) as fieldIdentifier) defaultMaybe fieldValueCodec inputs =
+registerWritableFieldDecoder : ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> RepCodec e fieldSeed fieldType -> RegisterFieldDecoderInputs -> Register record -> ( RW fieldType, List (Error e) )
+registerWritableFieldDecoder fieldIdentifier fallback fieldCodec inputs parent =
     let
-        sameInputs =
-            { node = inputs.node, pendingCounter = inputs.pendingCounter }
-
-        wrapRW : Change.Pointer -> fieldtype -> RW fieldtype
-        wrapRW targetObject head =
-            Register.buildRW targetObject ( fieldSlot, fieldName ) fieldEncoder head
-
-        parentNotifier =
-            updateRegisterPostChildInit inputs.parent fieldIdentifier
-
         fieldEncoder newValue =
-            getNodeEncoder fieldValueCodec
+            getNodeEncoder fieldCodec
                 { node = inputs.node
                 , mode = defaultEncodeMode
                 , thingToEncode = EncodeThis newValue
-                , parentNotifier = parentNotifier
+                , parentNotifier = updateRegisterPostChildInit parent fieldIdentifier
                 , pendingCounter = inputs.pendingCounter -- TODO increment?
                 }
 
-        registerObject =
-            inputs.parent
+        wrapRW : Change.Pointer -> fieldType -> RW fieldType
+        wrapRW targetObject head =
+            buildRW targetObject fieldIdentifier fieldEncoder head
 
-        desiredFieldEncodedMaybe =
-            Register.getFieldLatestOnly registerObject ( fieldSlot, fieldName )
-                |> Maybe.map Op.payloadToJsonValue
-
-        desiredFieldDecodedMaybe =
-            Maybe.map runDecoderOnFoundField desiredFieldEncodedMaybe
-
-        runDecoderOnFoundField : JE.Value -> Result JD.Error (Result (Error e) fieldtype)
-        runDecoderOnFoundField foundValue =
-            JD.decodeValue (getNodeDecoder fieldValueCodec { node = inputs.node, pendingCounter = inputs.pendingCounter, parentNotifier = parentNotifier }) foundValue
-
-        -- TODO if nested codec is another register, decode with getFieldHistoryValues instead, using that as the list of objects
+        ( readHelpOutputFieldType, readHelpOutputErrors ) =
+            registerReadOnlyFieldDecoder fieldIdentifier fallback fieldCodec inputs parent
     in
-    case ( desiredFieldDecodedMaybe, defaultMaybe ) of
-        ( Nothing, Just default ) ->
-            JD.succeed <| Ok <| wrapRW (Register.getPointer registerObject) default
-
-        ( Nothing, Nothing ) ->
-            Log.crashInDev ("Missing an essential field: " ++ fieldName)
-                (JD.succeed <| Err DataCorrupted)
-
-        ( Just (Ok (Ok foundVal)), _ ) ->
-            JD.succeed <| Ok <| wrapRW (Register.getPointer registerObject) foundVal
-
-        ( Just (Ok (Err e)), _ ) ->
-            JD.succeed <| Err e
-
-        ( Just (Err e), _ ) ->
-            -- better than failing silently? should be unreachable
-            --JD.succeed <| Err DataCorrupted
-            Log.crashInDev ("should be unreachable, decoder did not return Result-wrapped value! and ran into problem: " ++ JD.errorToString e)
-                (JD.succeed <| Err DataCorrupted)
+    ( wrapRW (Register.getPointer parent) readHelpOutputFieldType, readHelpOutputErrors )
 
 
 prepDecoder : String -> String
@@ -2080,11 +2038,12 @@ concurrentObjectIDsDecoder =
 
 
 {-| Finish creating a codec for a record.
+This is a Register, stripped of its wrapper.
 -}
-finishRecord : PartialRegister errs full full -> Codec errs full
+finishRecord : PartialRegister errs () full full -> RepCodec errs () full
 finishRecord partial =
     let
-        finishedRegister : Codec errs (Register full)
+        finishedRegister : RepCodec errs () (Register full)
         finishedRegister =
             finishRegister partial
 
@@ -2094,10 +2053,10 @@ finishRecord partial =
     unwrapRecord
 
 
-{-| Finish creating a codec for a record.
+{-| Finish creating a codec for a register.
 -}
-finishRegister : PartialRegister errs full full -> Codec errs (Register full)
-finishRegister (PartialRegister allFieldsCodec) =
+finishRegister : PartialRegister errs () full full -> RepCodec errs () (Register full)
+finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     let
         encodeAsJsonObject reg =
             let
@@ -2125,10 +2084,12 @@ finishRegister (PartialRegister allFieldsCodec) =
                             Change.usePendingCounter 0 pendingCounter
 
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, pendingID = pending.id, reducer = Register.reducerID, parentNotifier = parentNotifier }
+                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, pendingID = pending.id, reducer = registerReducerID, parentNotifier = parentNotifier }
 
-                        regToRecord givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, pendingCounter = pending.passToChild, parentNotifier = parentNotifier, cutoff = cutoff }
+                        regToRecord givenCutoff reg =
+                            allFieldsCodec.nodeDecoder { node = node, pendingCounter = pending.passToChild, parentNotifier = parentNotifier, cutoff = givenCutoff } reg
+                                -- TODO currently ignoring errors
+                                |> Tuple.first
                     in
                     JD.succeed <| Ok <| Register.build object regToRecord
             in
@@ -2136,7 +2097,8 @@ finishRegister (PartialRegister allFieldsCodec) =
 
         nodeEncoder : NodeEncoder (Register full)
         nodeEncoder inputs =
-            registerNodeEncoder allFieldsCodec.ronEncoders
+            registerNodeEncoder partialRegister
+                Nothing
                 { thingToEncode = inputs.thingToEncode
                 , mode = inputs.mode
                 , node = inputs.node
@@ -2144,28 +2106,28 @@ finishRegister (PartialRegister allFieldsCodec) =
                 , pendingCounter = inputs.pendingCounter
                 }
 
-        dummyRegister =
+        emptyRegister key seed =
             let
                 pending =
-                    Change.usePendingCounter 0 Change.unmatchableCounter
+                    Change.usePendingCounter key Change.unmatchableCounter
 
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = Register.reducerID, parentNotifier = identity }
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = registerReducerID, parentNotifier = identity }
 
                 regToRecord cutoff =
-                    allFieldsCodec.nodeDecoder { node = Node.testNode, pendingCounter = pending.passToChild, parentNotifier = identity, cutoff = cutoff }
+                    allFieldsCodec.nodeInitializer
             in
             Register.build object regToRecord
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Register full))
         bytesDecoder =
             -- TODO use allFieldsCodec.bytesDecoder
-            BD.succeed <| Ok <| dummyRegister
+            BD.succeed <| Ok <| emptyRegister Nothing
 
         jsonDecoder : JD.Decoder (Result (Error errs) (Register full))
         jsonDecoder =
             -- TODO use allFieldsCodec.jsonArrayDecoder
-            JD.succeed <| Ok <| dummyRegister
+            JD.succeed <| Ok <| emptyRegister Nothing
     in
     Codec
         { nodeEncoder = Just nodeEncoder
@@ -2174,7 +2136,221 @@ finishRegister (PartialRegister allFieldsCodec) =
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
+        , init = \key initialInputs -> emptyRegister key initialInputs
         }
+
+
+{-| Finish creating a codec for a register that needs a seed.
+-}
+finishSeededRegister : PartialRegister errs s full full -> RepCodec errs s (Register full)
+finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
+    let
+        encodeAsJsonObject reg =
+            let
+                fullRecord =
+                    Register.latest reg
+
+                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
+                    ( fieldKey, fieldEncoder fullRecord )
+            in
+            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+
+        encodeAsDictList fullRecord =
+            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+
+        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
+            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+
+        nodeDecoder : NodeDecoder errs (Register full)
+        nodeDecoder { node, pendingCounter, parentNotifier, cutoff } =
+            let
+                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) (Register full))
+                registerDecoder objectIDs =
+                    let
+                        pending =
+                            Change.usePendingCounter 0 pendingCounter
+
+                        object =
+                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, pendingID = pending.id, reducer = registerReducerID, parentNotifier = parentNotifier }
+
+                        regToRecord givenCutoff reg =
+                            allFieldsCodec.nodeDecoder { node = node, pendingCounter = pending.passToChild, parentNotifier = parentNotifier, cutoff = givenCutoff } reg
+                                -- TODO currently ignoring errors
+                                |> Tuple.first
+                    in
+                    JD.succeed <| Ok <| Register.build object regToRecord
+            in
+            JD.andThen registerDecoder concurrentObjectIDsDecoder
+
+        nodeEncoder : NodeEncoder (Register full)
+        nodeEncoder inputs =
+            registerNodeEncoder partialRegister
+                Nothing
+                { thingToEncode = inputs.thingToEncode
+                , mode = inputs.mode
+                , node = inputs.node
+                , parentNotifier = inputs.parentNotifier
+                , pendingCounter = inputs.pendingCounter
+                }
+
+        emptyRegister key seed =
+            let
+                pending =
+                    Change.usePendingCounter key Change.unmatchableCounter
+
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = registerReducerID, parentNotifier = identity }
+
+                regToRecord cutoff reg =
+                    allFieldsCodec.nodeInitializer seed reg
+            in
+            Register.build object regToRecord
+
+        bytesDecoder : BD.Decoder (Result (Error errs) (Register full))
+        bytesDecoder =
+            -- TODO use allFieldsCodec.bytesDecoder
+            BD.fail
+
+        jsonDecoder : JD.Decoder (Result (Error errs) (Register full))
+        jsonDecoder =
+            -- TODO use allFieldsCodec.jsonArrayDecoder
+            JD.fail "Need to add decoder to reptype"
+    in
+    Codec
+        { nodeEncoder = Just nodeEncoder
+        , nodeDecoder = Just nodeDecoder
+        , bytesEncoder = \reg -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (Register.latest reg)
+        , bytesDecoder = bytesDecoder
+        , jsonEncoder = encodeAsJsonObject
+        , jsonDecoder = jsonDecoder
+        , init = \key initialInputs -> emptyRegister key initialInputs
+        }
+
+
+type alias FieldPayload =
+    Nonempty Op.OpPayloadAtom
+
+
+type alias FieldHistoryBackwards =
+    Nonempty ( OpID, FieldPayload )
+
+
+type alias FieldHistoryDict =
+    Dict FieldSlot FieldHistoryBackwards
+
+
+registerReducerID : Op.ReducerID
+registerReducerID =
+    "lww"
+
+
+buildRegisterFieldDictionary : Object -> FieldHistoryDict
+buildRegisterFieldDictionary object =
+    let
+        addFieldEntry : OpID -> Object.Event -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
+        addFieldEntry eventID event buildingDict =
+            case extractFieldEventFromObjectPayload (Object.eventPayload event) of
+                Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
+                    let
+                        logMsg =
+                            "Adding to " ++ Console.underline fieldName ++ " field history"
+                    in
+                    Dict.update fieldSlot (addUpdate ( eventID, fieldPayload )) buildingDict
+
+                Err problem ->
+                    Log.logSeparate ("WARNING " ++ problem) (Object.eventPayload event) buildingDict
+
+        addUpdate : ( OpID, FieldPayload ) -> Maybe FieldHistoryBackwards -> Maybe FieldHistoryBackwards
+        addUpdate newUpdate existingUpdatesMaybe =
+            Just
+                (Nonempty newUpdate
+                    (Maybe.withDefault []
+                        (Maybe.map Nonempty.toList existingUpdatesMaybe)
+                    )
+                )
+    in
+    -- object.events is a dict, so always ID order, so always oldest to newest.
+    -- we want newest to oldest list, but folding reverses the list, so stick with foldL
+    -- (warn: foldL/foldR applies the arguments in opposite order to the folding function)
+    AnyDict.foldl addFieldEntry Dict.empty (Object.getEvents object)
+
+
+extractFieldEventFromObjectPayload : Object.EventPayload -> Result String ( FieldIdentifier, FieldPayload )
+extractFieldEventFromObjectPayload payload =
+    case payload of
+        (Op.IntegerAtom fieldSlot) :: (Op.NakedStringAtom fieldName) :: rest ->
+            case rest of
+                [] ->
+                    Err <| "Register: Missing payload for field " ++ fieldName
+
+                head :: tail ->
+                    Ok ( ( fieldSlot, fieldName ), Nonempty head tail )
+
+        badList ->
+            Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
+
+
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> List Change.Atom -> List Change.Atom
+encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
+    [ Change.RonAtom (Op.IntegerAtom fieldSlot)
+    , Change.RonAtom (Op.NakedStringAtom fieldName)
+    ]
+        ++ fieldPayload
+
+
+getFieldLatestOnly : FieldHistoryDict -> FieldIdentifier -> Maybe FieldPayload
+getFieldLatestOnly fields ( fieldSlot, _ ) =
+    Dict.get fieldSlot fields
+        |> Maybe.map Nonempty.head
+        |> Maybe.map Tuple.second
+
+
+getFieldHistory : FieldHistoryDict -> FieldIdentifier -> List ( OpID, FieldPayload )
+getFieldHistory fields ( desiredFieldSlot, name ) =
+    Dict.get desiredFieldSlot fields
+        |> Maybe.map Nonempty.toList
+        |> Maybe.withDefault []
+
+
+getFieldHistoryValues : FieldHistoryDict -> FieldIdentifier -> List FieldPayload
+getFieldHistoryValues fields field =
+    List.map Tuple.second (getFieldHistory fields field)
+
+
+type alias RW fieldVal =
+    { get : fieldVal
+    , set : fieldVal -> Change
+    }
+
+
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> RW fieldVal
+buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
+    let
+        nestedChange newValue =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
+    in
+    { get = latestValue
+    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
+    }
+
+
+type alias RWH fieldVal =
+    { get : fieldVal
+    , set : fieldVal -> Change
+    , history : List ( OpID, fieldVal )
+    }
+
+
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
+    let
+        nestedChange newValue =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
+    in
+    { get = latestValue
+    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
+    , history = rest
+    }
 
 
 {-| Encodes an register as a list of Changes (which generate Ops):
@@ -2191,68 +2367,81 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : List (RegisterFieldEncoder i full) -> NodeEncoderInputs (Register i full) -> Change.PotentialPayload
-registerNodeEncoder ronFieldEncoders ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
+registerNodeEncoder : PartialRegister errs i full full -> Maybe i -> NodeEncoderInputs (Register full) -> Change.PotentialPayload
+registerNodeEncoder (PartialRegister allFieldsCodec) seedMaybe ({ node, thingToEncode, mode, pendingCounter, parentNotifier } as details) =
     let
-        register =
+        registerMaybe =
             case thingToEncode of
                 EncodeThis reg ->
-                    reg
+                    Just reg
 
                 JustEncodeDefaultsIfNeeded ->
-                    let
-                        fallbackObject =
-                            Node.getObject { node = node, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = Register.reducerID, parentNotifier = parentNotifier }
-                    in
-                    Register.build fallbackObject regToRecord
+                    Maybe.map fallbackRegister seedMaybe
+
+        fallbackObject =
+            Node.getObject { node = node, cutoff = Nothing, foundIDs = [], pendingID = pending.id, reducer = registerReducerID, parentNotifier = parentNotifier }
+
+        fallbackRegister seed =
+            Register.build fallbackObject regToRecord
+
+        regToRecord cutoff reg =
+            -- this would never get used, right? just to make the build function happy, but we're only encoding defaults here, of a placeholder object
+            allFieldsCodec.nodeDecoder { node = node, pendingCounter = pendingCounter, parentNotifier = parentNotifier, cutoff = cutoff } reg
+                |> Tuple.first
 
         pending =
             Change.usePendingCounter 0 pendingCounter
-
-        target =
-            Register.getPointer register
-
-        updateMePostChildInit fieldChangedPayload =
-            Change.Chunk
-                { target = target
-                , objectChanges = [ Change.NewPayload fieldChangedPayload ]
-                }
-
-        subChanges : List Change.ObjectChange
-        subChanges =
-            let
-                runSubEncoder : Int -> (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
-                runSubEncoder index subEncoderFunction =
-                    subEncoderFunction
-                        { node = node
-                        , register = register
-                        , mode = mode
-                        , pendingCounter = (Change.usePendingCounter index pending.passToChild).passToChild
-                        , updateRegisterAfterChildInit = updateMePostChildInit -- wraps overall object change, but field encoders wrap specific field payload subchanges
-                        }
-                        |> asObjectChanges
-
-                asObjectChanges : RegisterFieldEncoderOutput -> Maybe Change.ObjectChange
-                asObjectChanges subEncoderOutput =
-                    case subEncoderOutput of
-                        EncodeThisField objChange ->
-                            Just objChange
-
-                        SkipThisField ->
-                            Nothing
-            in
-            ronFieldEncoders
-                |> List.indexedMap runSubEncoder
-                |> List.filterMap identity
     in
-    List.singleton
-        (Change.QuoteNestedObject
-            (Chunk
-                { target = target
-                , objectChanges = subChanges
-                }
-            )
-        )
+    case registerMaybe of
+        Just register ->
+            let
+                target =
+                    Register.getPointer register
+
+                updateMePostChildInit fieldChangedPayload =
+                    Change.Chunk
+                        { target = target
+                        , objectChanges = [ Change.NewPayload fieldChangedPayload ]
+                        }
+
+                subChanges : List Change.ObjectChange
+                subChanges =
+                    let
+                        runSubEncoder : Int -> (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
+                        runSubEncoder index subEncoderFunction =
+                            subEncoderFunction
+                                { node = node
+                                , register = register
+                                , mode = mode
+                                , pendingCounter = (Change.usePendingCounter index pending.passToChild).passToChild
+                                , updateRegisterAfterChildInit = updateMePostChildInit -- wraps overall object change, but field encoders wrap specific field payload subchanges
+                                }
+                                |> asObjectChanges
+
+                        asObjectChanges : RegisterFieldEncoderOutput -> Maybe Change.ObjectChange
+                        asObjectChanges subEncoderOutput =
+                            case subEncoderOutput of
+                                EncodeThisField objChange ->
+                                    Just objChange
+
+                                SkipThisField ->
+                                    Nothing
+                    in
+                    allFieldsCodec.nodeEncoders
+                        |> List.indexedMap runSubEncoder
+                        |> List.filterMap identity
+            in
+            List.singleton
+                (Change.QuoteNestedObject
+                    (Chunk
+                        { target = target
+                        , objectChanges = subChanges
+                        }
+                    )
+                )
+
+        Nothing ->
+            []
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -2271,18 +2460,18 @@ type RegisterFieldEncoderOutput
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> Codec e fieldType -> (RegisterFieldEncoderInputs i full -> RegisterFieldEncoderOutput)
-newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldValueCodec { mode, register, node, updateRegisterAfterChildInit, pendingCounter } =
+newRegisterFieldEncoderEntry : FieldIdentifier -> Maybe fieldType -> RepCodec e fieldSeed fieldType -> (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput)
+newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldCodec { mode, register, node, updateRegisterAfterChildInit, pendingCounter } =
     let
         runFieldRonEncoder value =
-            getNodeEncoder fieldValueCodec
+            getNodeEncoder fieldCodec
                 { mode = mode
                 , node = node
                 , thingToEncode = value
                 , parentNotifier =
                     \changeToWrap ->
                         updateRegisterAfterChildInit
-                            (Register.encodeFieldPayloadAsObjectPayload
+                            (encodeFieldPayloadAsObjectPayload
                                 ( fieldSlot, fieldName )
                                 (changeToChangePayload changeToWrap)
                             )
@@ -2293,7 +2482,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
         wrapFieldEncoderOutput value =
             let
                 wrapper =
-                    Register.encodeFieldPayloadAsObjectPayload
+                    encodeFieldPayloadAsObjectPayload
                         ( fieldSlot, fieldName )
             in
             wrapper (runFieldRonEncoder (EncodeThis value))
@@ -2304,12 +2493,12 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
         --     let
         --         hasNestedWritableObject =
         --             -- check to see if there's a nested object, otherwise no point checking for register override
-        --             case fieldValueCodec of
+        --             case fieldCodec of
         --                 Codec codecrecord ->
         --                     Maybe.Extra.isJust codecrecord.nodeEncoder
         --
         --         encodedSubRegisterPotentially =
-        --             Register.getFieldLatestOnly register ( fieldSlot, fieldName )
+        --             getFieldLatestOnly register ( fieldSlot, fieldName )
         --
         --         subRegisterObjectIDsMaybe : List ObjectID
         --         subRegisterObjectIDsMaybe =
@@ -2326,7 +2515,7 @@ newRegisterFieldEncoderEntry ( fieldSlot, fieldName ) fieldDefaultIfApplies fiel
         --         False ->
         --             EncodeThis fallbackValue
         getValue =
-            Register.getFieldLatestOnly register ( fieldSlot, fieldName )
+            getFieldLatestOnly register ( fieldSlot, fieldName )
 
         encodedDefault fieldDefault =
             runFieldRonEncoder (EncodeThis fieldDefault)
