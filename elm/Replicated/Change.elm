@@ -183,59 +183,46 @@ type alias ParentNotifier =
 
 
 type PendingCounter
-    = PendingCounter (List Int)
+    = PendingCounter (List SiblingIndex)
     | PendingWildcard
 
 
 type PendingID
-    = PendingID (List Int)
+    = ParentExists ObjectID (List SiblingIndex)
+    | ParentPending Op.ReducerID (List SiblingIndex)
 
 
-usePendingCounter : Int -> PendingCounter -> { id : PendingID, passToChild : PendingCounter }
-usePendingCounter siblingNum givenPendingCounter =
-    case givenPendingCounter of
-        PendingWildcard ->
-            { id = PendingID [] -- these are always considered unequal
-            , passToChild = firstPendingCounter -- children can become matchable again
-            }
-
-        PendingCounter inCounterList ->
-            let
-                ancestors =
-                    case inCounterList of
-                        [] ->
-                            []
-
-                        myNum :: prior ->
-                            prior
-            in
-            { id = PendingID inCounterList
-            , passToChild = PendingCounter (siblingNum :: ancestors)
-            }
-
-
-unmatchableCounter : PendingCounter
-unmatchableCounter =
-    PendingWildcard
-
-
-firstPendingCounter =
-    PendingCounter [ 0 ]
+type alias SiblingIndex =
+    Int
 
 
 pendingIDMatch : PendingID -> PendingID -> Bool
 pendingIDMatch pendingID1 pendingID2 =
     case ( pendingID1, pendingID2 ) of
-        ( PendingID [], _ ) ->
+        ( ParentExists _ [], _ ) ->
             False
 
-        ( _, PendingID [] ) ->
+        ( ParentPending _ [], _ ) ->
+            False
+
+        ( _, ParentExists _ [] ) ->
+            False
+
+        ( _, ParentPending _ [] ) ->
             False
 
         _ ->
             pendingID1 == pendingID2
 
 
-pendingIDToString : PendingID -> String
-pendingIDToString (PendingID intList) =
-    String.concat <| List.intersperse "." (List.map String.fromInt intList)
+newPointer : { parent : Pointer, index : SiblingIndex, childChangeWrapper : ParentNotifier, reducerID : Op.ReducerID } -> Pointer
+newPointer { parent, index, childChangeWrapper, reducerID } =
+    case parent of
+        ExistingObjectPointer objectID ->
+            PlaceholderPointer reducerID (ParentExists objectID [ index ]) childChangeWrapper
+
+        PlaceholderPointer parentReducerID (ParentExists parentObjectID siblingTree) parentNotifier ->
+            PlaceholderPointer reducerID (ParentExists parentObjectID (siblingTree ++ [ index ])) (\child -> parentNotifier (childChangeWrapper child))
+
+        PlaceholderPointer parentReducerID (ParentPending firstAncestorReducerID siblingTree) parentNotifier ->
+            PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (siblingTree ++ [ index ])) (\child -> parentNotifier (childChangeWrapper child))
