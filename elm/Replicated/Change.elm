@@ -188,8 +188,8 @@ type PendingCounter
 
 
 type PendingID
-    = ParentExists ObjectID (List SiblingIndex)
-    | ParentPending Op.ReducerID (List SiblingIndex)
+    = ParentExists ObjectID (Nonempty SiblingIndex)
+    | ParentPending Op.ReducerID (Nonempty SiblingIndex)
 
 
 type alias SiblingIndex =
@@ -198,31 +198,32 @@ type alias SiblingIndex =
 
 pendingIDMatch : PendingID -> PendingID -> Bool
 pendingIDMatch pendingID1 pendingID2 =
-    case ( pendingID1, pendingID2 ) of
-        ( ParentExists _ [], _ ) ->
-            False
-
-        ( ParentPending _ [], _ ) ->
-            False
-
-        ( _, ParentExists _ [] ) ->
-            False
-
-        ( _, ParentPending _ [] ) ->
-            False
-
-        _ ->
-            pendingID1 == pendingID2
+    pendingID1 == pendingID2
 
 
-newPointer : { parent : Pointer, index : SiblingIndex, childChangeWrapper : ParentNotifier, reducerID : Op.ReducerID } -> Pointer
-newPointer { parent, index, childChangeWrapper, reducerID } =
+newPointer : { parent : Pointer, position : Nonempty SiblingIndex, childChangeWrapper : ParentNotifier, reducerID : Op.ReducerID } -> Pointer
+newPointer { parent, position, childChangeWrapper, reducerID } =
     case parent of
         ExistingObjectPointer objectID ->
-            PlaceholderPointer reducerID (ParentExists objectID [ index ]) childChangeWrapper
+            PlaceholderPointer reducerID (ParentExists objectID position) childChangeWrapper
 
-        PlaceholderPointer parentReducerID (ParentExists parentObjectID siblingTree) parentNotifier ->
-            PlaceholderPointer reducerID (ParentExists parentObjectID (siblingTree ++ [ index ])) (\child -> parentNotifier (childChangeWrapper child))
+        PlaceholderPointer parentReducerID (ParentExists parentObjectID parentPosition) parentNotifier ->
+            PlaceholderPointer reducerID (ParentExists parentObjectID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
 
-        PlaceholderPointer parentReducerID (ParentPending firstAncestorReducerID siblingTree) parentNotifier ->
-            PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (siblingTree ++ [ index ])) (\child -> parentNotifier (childChangeWrapper child))
+        PlaceholderPointer parentReducerID (ParentPending firstAncestorReducerID parentPosition) parentNotifier ->
+            PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
+
+
+genesisPointer : Int -> Pointer
+genesisPointer index =
+    PlaceholderPointer "genesis" (ParentPending "genesis" (Nonempty.singleton index)) identity
+
+
+updateChildChangeWrapper : Pointer -> ParentNotifier -> Pointer
+updateChildChangeWrapper pointer newWrapper =
+    case pointer of
+        ExistingObjectPointer objectID ->
+            ExistingObjectPointer objectID
+
+        PlaceholderPointer reducerID pos parentNotifier ->
+            PlaceholderPointer reducerID pos (\change -> newWrapper (parentNotifier change))
