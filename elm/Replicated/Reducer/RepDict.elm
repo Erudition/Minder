@@ -24,7 +24,7 @@ type RepDict k v
         { pointer : Change.Pointer
         , members : AnyDict KeyAsString k (Member v)
         , included : Object.InclusionInfo
-        , memberAdder : RepDictEntry k v -> Change.ObjectChange
+        , memberAdder : Change.SiblingIndex -> RepDictEntry k v -> Change.ObjectChange
         , startWith : List ( k, v )
         }
 
@@ -62,7 +62,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> List ( k, v ) -> RepDict k v
+buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (Change.SiblingIndex -> RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> List ( k, v ) -> RepDict k v
 buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initEntries =
     let
         eventsAsMemberPairs : List ( k, Member v )
@@ -93,14 +93,6 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initEntri
                 { target = Change.ExistingObjectPointer containerObjectID
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 }
-
-        generateMemberValue _ =
-            case payloadToEntry (JE.string "{}") of
-                Just (Present k v) ->
-                    Just v
-
-                _ ->
-                    Nothing
     in
     RepDict
         { pointer = Object.getPointer targetObject
@@ -128,7 +120,7 @@ insert : k -> v -> RepDict k v -> Change
 insert newKey newValue (RepDict record) =
     let
         newItemToObjectChange =
-            record.memberAdder (Present newKey newValue)
+            record.memberAdder -1 (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
@@ -142,12 +134,12 @@ Only works with dictionaries with primitives.
 bulkInsert : List ( k, v ) -> RepDict k v -> Change
 bulkInsert newItems (RepDict record) =
     let
-        newItemToObjectChange ( newKey, newValue ) =
-            record.memberAdder (Present newKey newValue)
+        newItemToObjectChange index ( newKey, newValue ) =
+            record.memberAdder index (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
-        , objectChanges = List.map newItemToObjectChange newItems
+        , objectChanges = List.indexedMap newItemToObjectChange newItems
         }
 
 
@@ -208,7 +200,7 @@ update key updater ((RepDict record) as repDict) =
                     Cleared key
 
         newMemberAsObjectChange =
-            record.memberAdder updatedEntry
+            record.memberAdder -2 updatedEntry
     in
     Change.Chunk
         { target = record.pointer
@@ -224,53 +216,3 @@ size (RepDict record) =
 getInit : RepDict k v -> List ( k, v )
 getInit (RepDict record) =
     record.startWith
-
-
-
--- {-| Spawn a new member at the given key.
--- Works with reptypes only - use `insert` if your members are primitives.
--- -}
--- spawn : k -> RepDict k v -> Change
--- spawn key repDict =
---     spawnWithChanges key (\_ -> []) repDict
---
---
--- {-| Spawn a new member at the given key, then immediately make the given changes to it.
--- Works with reptypes only - use `insert` if your members are primitives.
--- -}
--- spawnWithChanges : k -> (v -> List Change) -> RepDict k v -> Change
--- spawnWithChanges key valueChanger (RepDict record) =
---     let
---         newMemberMaybe =
---             record.memberGenerator ()
---
---         newMemberChanges =
---             case newMemberMaybe of
---                 Nothing ->
---                     []
---
---                 Just newMember ->
---                     valueChanger newMember
---                         -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
---                         |> Change.combineChangesOfSameTarget
---
---         newMemberChangesAsRepDictObjectChanges =
---             List.map (Change.NewPayload << Change.changeToChangePayload) newMemberChanges
---
---         finalChangeList =
---             case ( newMemberChangesAsRepDictObjectChanges, newMemberMaybe ) of
---                 ( [], Just newMember ) ->
---                     -- effectively a no-op so the member object will still initialize
---                     [ record.memberAdder (Present key newMember) ]
---
---                 ( [], Nothing ) ->
---                     Log.crashInDev "Should never happen, no item generated to add to list" []
---
---                 ( nonEmptyChangeList, _ ) ->
---                     newMemberChangesAsRepDictObjectChanges
---     in
---     Change.Chunk
---         { target = record.pointer
---         , objectChanges =
---             finalChangeList
---         }

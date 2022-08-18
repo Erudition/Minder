@@ -3,6 +3,7 @@ module Replicated.Object exposing (..)
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
+import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
 import Replicated.Change as Change exposing (Change)
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
@@ -142,8 +143,9 @@ type ObjectBuildWarning
 
 type alias UnsavedObject =
     { reducer : Op.ReducerID
-    , pendingID : Change.PendingID
-    , parentNotifier : Change.ParentNotifier
+    , parent : Change.Pointer
+    , childWrapper : Change.ParentNotifier
+    , position : Nonempty Change.SiblingIndex
     }
 
 
@@ -160,11 +162,11 @@ getCreationID object =
 getPointer : Object -> Change.Pointer
 getPointer object =
     case object of
-        Saved initializedObject ->
-            Change.ExistingObjectPointer initializedObject.creation
+        Saved savedObject ->
+            Change.ExistingObjectPointer savedObject.creation
 
-        Unsaved uninitializedObject ->
-            Change.PlaceholderPointer uninitializedObject.reducer uninitializedObject.pendingID uninitializedObject.parentNotifier
+        Unsaved unsavedObject ->
+            Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, childChangeWrapper = unsavedObject.childWrapper, reducerID = unsavedObject.reducer }
 
 
 getIncluded : Object -> InclusionInfo

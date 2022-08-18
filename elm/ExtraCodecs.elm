@@ -58,6 +58,6 @@ intDict : Codec String v -> Codec String (IntDict v)
 intDict valueCodec =
     let
         keyValuePairCodec =
-            Codec.tuple Codec.int valueCodec
+            Codec.pair Codec.int valueCodec
     in
     Codec.primitiveList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList

@@ -542,11 +542,11 @@ getOrInitObject node inCounter targetObject =
 
 {-| Build an object out of the matching ops in the replica - or a placeholder.
 -}
-getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, pendingID : Change.PendingID, reducer : ReducerID, parentNotifier : Change.ParentNotifier } -> Object
-getObject { node, cutoff, foundIDs, pendingID, reducer, parentNotifier } =
+getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, parent : Change.Pointer, reducer : ReducerID, childWrapper : Change.ParentNotifier, position : Nonempty Change.SiblingIndex } -> Object
+getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
     let
         uninitializedObject =
-            Object.Unsaved { reducer = reducer, pendingID = pendingID, parentNotifier = parentNotifier }
+            Object.Unsaved { reducer = reducer, parent = parent, childWrapper = childWrapper, position = position }
     in
     case foundIDs of
         [] ->

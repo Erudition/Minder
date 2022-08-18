@@ -173,7 +173,7 @@ type alias DurationPerPeriod =
 
 durationPerPeriodCodec : Codec String DurationPerPeriod
 durationPerPeriodCodec =
-    Codec.tuple Codec.humanDuration Codec.humanDuration
+    Codec.pair Codec.humanDuration Codec.humanDuration
 
 
 {-| Icons. For activities, at least.
@@ -1300,7 +1300,7 @@ type alias Store =
 
 storeCodec : Codec String Store
 storeCodec =
-    Codec.tuple
+    Codec.pair
         (Codec.repDict Template.codec builtInActivitySkelCodec)
         (Codec.repDb customActivitySkelCodec)
 

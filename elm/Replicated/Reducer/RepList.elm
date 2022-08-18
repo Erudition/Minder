@@ -25,7 +25,7 @@ type RepList memberType
         { pointer : Change.Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
-        , memberAdder : memberType -> Maybe OpID -> Change.ObjectChange
+        , memberAdder : Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange
         , startWith : List memberType
         }
 
@@ -68,7 +68,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Maybe OpID -> Change.ObjectChange) -> List memberType -> RepList memberType
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange) -> List memberType -> RepList memberType
 buildFromReplicaDb targetObject payloadToMember memberAdder initMembers =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
@@ -170,7 +170,7 @@ insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.pointer
         , objectChanges =
-            [ repSetRecord.memberAdder newItem (Just attachmentPoint) ]
+            [ repSetRecord.memberAdder -1 newItem (Just attachmentPoint) ]
         }
 
 
@@ -179,12 +179,12 @@ insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
 append : List memberType -> RepList memberType -> Change
 append newItems (RepList record) =
     let
-        newItemToObjectChange newItem =
-            record.memberAdder newItem Nothing
+        newItemToObjectChange newIndex newItem =
+            record.memberAdder newIndex newItem Nothing
     in
     Change.Chunk
         { target = record.pointer
-        , objectChanges = List.map newItemToObjectChange newItems
+        , objectChanges = List.indexedMap newItemToObjectChange newItems
         }
 
 

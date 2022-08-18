@@ -61,7 +61,7 @@ unitCodec =
         |> Codec.variant0 ( 2, "Permille" ) Permille
         |> Codec.variant1 ( 3, "Word" ) Word Codec.int
         |> Codec.variant1 ( 3, "Minute" ) Minute Codec.int
-        |> Codec.variant2 ( 3, "CustomUnit" ) CustomUnit (Codec.tuple Codec.string Codec.string) Codec.int
+        |> Codec.variant2 ( 3, "CustomUnit" ) CustomUnit (Codec.pair Codec.string Codec.string) Codec.int
         |> Codec.finishCustomType
 
 

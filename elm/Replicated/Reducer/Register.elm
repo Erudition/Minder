@@ -18,50 +18,12 @@ import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-{-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
--}
-type Register userType
-    = Register
-        { pointer : Change.Pointer
-        , included : Object.InclusionInfo
-        , toRecord : Maybe Moment -> userType
-        }
 
-
-getPointer : Register userType -> Change.Pointer
-getPointer (Register register) =
-    register.pointer
-
-
-build : Object -> (Maybe Moment -> userType) -> Register userType
-build object regToRecord =
-    Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord }
-
-
-
--- merge : Nonempty (Register userType) -> Register userType
--- merge registers =
---     let
---         (Register firstDetails) =
---             Nonempty.head registers
---
---         highestVersion : OpID.ObjectVersion
---         highestVersion =
---             Nonempty.head (Nonempty.sortBy OpID.toString (Nonempty.map getVersion registers))
---
---         minimumInclusion =
---             -- TODO
---             Object.All
---
---         getFields (Register reg) =
---             reg.fields
---     in
---     Register
---         { pointer = firstDetails.pointer
---         , version = highestVersion
---         , fields = Nonempty.foldl1 Dict.union (Nonempty.map getFields registers)
---         , included = minimumInclusion
---         }
+-- type alias Register =
+--     Codec.Register
+-- getPointer : Register userType -> Change.Pointer
+-- getPointer (Register register) =
+--     register.pointer
 
 
 type alias FieldIdentifier =
@@ -76,6 +38,8 @@ type alias FieldSlot =
     Int
 
 
-latest : Register record -> record
-latest ((Register registerDetails) as reg) =
-    registerDetails.toRecord Nothing
+
+--
+-- latest : Register record -> record
+-- latest ((Register registerDetails) as reg) =
+--     registerDetails.toRecord Nothing

@@ -26,7 +26,7 @@ type alias UserPlannedSession =
 
 codec : Codec String UserPlannedSession
 codec =
-    Codec.tuple Codec.fuzzyMoment Codec.duration
+    Codec.pair Codec.fuzzyMoment Codec.duration
 
 
 decodeSession : Decoder UserPlannedSession
