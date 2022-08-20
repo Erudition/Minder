@@ -73,7 +73,6 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
-import Replicated.Reducer.Register as Register
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -123,6 +122,7 @@ type alias NodeEncoderInputs a =
 
 type ThingToEncode fieldType
     = EncodeThis fieldType
+    | EncodeObjectOrThis (Nonempty ObjectID) (Maybe fieldType) -- so that naked registers have something to fall back on
     | JustEncodeDefaultsIfNeeded
 
 
@@ -289,19 +289,6 @@ getJsonDecoder (Codec m) =
 -}
 getNodeDecoder : RepCodec e i a -> NodeDecoder e a
 getNodeDecoder (Codec m) =
-    let
-        -- TODO this is only because we still sometimes wrap values in double quotes
-        unwrapString : String -> JD.Decoder (Result (Error e) a)
-        unwrapString givenJson =
-            case JD.decodeString m.jsonDecoder givenJson of
-                Ok good ->
-                    JD.succeed good
-
-                Err bad ->
-                    JD.fail "nope"
-
-        --JD.succeed (Err DataCorrupted)
-    in
     case m.nodeDecoder of
         Nothing ->
             -- formerly JD.oneOf [ m.jsonDecoder, JD.string |> JD.andThen unwrapString ]
@@ -438,6 +425,12 @@ getNodeEncoder (Codec m) inputs =
                 EncodeThis thing ->
                     List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
 
+                EncodeObjectOrThis _ (Just thing) ->
+                    List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
+
+                EncodeObjectOrThis _ Nothing ->
+                    []
+
                 JustEncodeDefaultsIfNeeded ->
                     -- no need to encode defaults for primitive encoders
                     []
@@ -514,36 +507,6 @@ replaceBase64Chars =
 replaceForUrl : Regex
 replaceForUrl =
     Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
-
-
-
--- TODO is below needed?
--- {-| Get values from the Node into a Change.
--- Pass the codec of the root object.
--- -}
--- encodeNodeToChanges : Node -> Codec e profile -> Change.PotentialPayload
--- encodeNodeToChanges node profileCodec =
---     let
---         starterPendingID =
---             (Change.usePendingCounter 0 Change.firstPendingCounter).id
---
---         rootObject =
---             Node.getObject
---                 { node = node, cutoff = Nothing, foundIDs = List.filterMap identity [ node.root ], pendingID = starterPendingID, reducer = registerReducerID, parentNotifier = identity }
---
---         rootRegister =
---             Register.build rootObject regToRecord
---
---         thingToEncode =
---             EncodeThis rootRegister
---     in
---     getNodeEncoder profileCodec
---         { node = node
---         , mode = defaultEncodeMode
---         , thingToEncode = thingToEncode
---         , parentNotifier = identity
---         , pendingCounter = Change.firstPendingCounter
---         }
 
 
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
@@ -643,7 +606,6 @@ string =
                 \inputs ->
                     case inputs.thingToEncode of
                         EncodeThis stringToEncode ->
-                            -- TODO eliminate quotes and decode without them
                             List.singleton <| Change.RonAtom <| Op.StringAtom stringToEncode
 
                         _ ->
@@ -667,7 +629,7 @@ bool =
                 EncodeThis False ->
                     [ Change.RonAtom <| Op.NakedStringAtom "false" ]
 
-                JustEncodeDefaultsIfNeeded ->
+                _ ->
                     []
 
         boolNodeDecoder : NodeDecoder e Bool
@@ -731,7 +693,7 @@ int =
                 EncodeThis givenInt ->
                     [ Change.RonAtom <| Op.IntegerAtom givenInt ]
 
-                JustEncodeDefaultsIfNeeded ->
+                _ ->
                     []
     in
     buildNestableCodec
@@ -1186,7 +1148,7 @@ repDict keyCodec valueCodec =
                             Just (Present key value)
 
                         _ ->
-                            Debug.todo "found key and value but not able to decode them"
+                            Log.crashInDev "entryRonDecoder : found key and value but not able to decode them?" Nothing
 
                 Ok [ keyEncoded ] ->
                     case decodeKey keyEncoded of
@@ -1194,10 +1156,10 @@ repDict keyCodec valueCodec =
                             Just (Cleared key)
 
                         _ ->
-                            Debug.todo "found just key alone but not able to decode it"
+                            Log.crashInDev "entryRonDecoder : found just key alone but not able to decode it" Nothing
 
                 other ->
-                    Debug.todo "the dict entry wasn't in the expected shape"
+                    Log.crashInDev "entryRonDecoder : the dict entry wasn't in the expected shape" Nothing
 
         repDictRonDecoder : NodeDecoder e (RepDict k v)
         repDictRonDecoder ({ node, parent, position, cutoff } as details) =
@@ -1968,47 +1930,23 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
         default =
             fieldDefaultMaybe fallback
-
-        nestedCodecIsObject =
-            False
     in
-    case nestedCodecIsObject of
-        False ->
-            case getFieldLatestOnly inputs.history fieldIdentifier of
-                Nothing ->
-                    -- field was never set - fall back to default
-                    ( default, [] )
+    case getFieldLatestOnly inputs.history fieldIdentifier of
+        Nothing ->
+            -- field was never set - fall back to default
+            ( default, [] )
 
-                Just foundField ->
-                    -- fieldR was set - decode value and use it
-                    case runFieldDecoder (Op.payloadToJsonValue foundField) of
-                        Ok (Ok goodValue) ->
-                            ( Just goodValue, [] )
+        Just foundField ->
+            -- field was set before
+            case runFieldDecoder (Op.payloadToJsonValue foundField) of
+                Ok (Ok goodValue) ->
+                    ( Just goodValue, [] )
 
-                        Ok (Err problem) ->
-                            ( default, [ problem ] )
+                Ok (Err problem) ->
+                    ( default, [ problem ] )
 
-                        Err jsonDecodeError ->
-                            ( default, [ JDError jsonDecodeError ] )
-
-        True ->
-            -- let
-            --     fieldUUIDHistoryList =
-            --         getFieldHistoryValues parent ( fieldSlot, fieldName )
-            --             |> List.concatMap Nonempty.toList
-            --
-            --     allNestedObjects =
-            --         runFieldDecoder (JE.list Op.atomToJsonValue fieldUUIDHistoryList)
-            -- in
-            -- case allNestedObjects of
-            --     Ok something ->
-            --         -- there was a set value AND it decoded successfully
-            --         JD.succeed something
-            --
-            --     Err problem ->
-            --         -- there was no value set OR it failed to decode
-            --         Debug.todo ("failed to decode UUID list: " ++ JD.errorToString problem)
-            Debug.todo "we need to handle multiple concurrent object IDs"
+                Err jsonDecodeError ->
+                    ( default, [ JDError jsonDecodeError ] )
 
 
 registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> RepCodec e fieldSeed fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List (Error e) )
@@ -2074,20 +2012,232 @@ concurrentObjectIDsDecoder =
         ]
 
 
-{-| Finish creating a codec for a record.
+{-| Finish creating a codec for a naked Register.
 This is a Register, stripped of its wrapper.
 -}
 finishRecord : PartialRegister errs () full full -> RepCodec errs () full
-finishRecord partial =
+finishRecord ((PartialRegister allFieldsCodec) as partial) =
     let
-        finishedRegister : RepCodec errs () (Register full)
-        finishedRegister =
-            finishRegister partial
+        encodeAsJsonObject nakedRecord =
+            let
+                fullRecord =
+                    nakedRecord
 
-        unwrapRecord =
-            Debug.todo "override individual"
+                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
+                    ( fieldKey, fieldEncoder fullRecord )
+            in
+            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+
+        encodeAsDictList fullRecord =
+            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+
+        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
+            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+
+        nodeDecoder : NodeDecoder errs full
+        nodeDecoder { node, parent, position, cutoff } =
+            let
+                nakedRegisterDecoder : List ObjectID -> JD.Decoder (Result (Error errs) full)
+                nakedRegisterDecoder objectIDs =
+                    let
+                        object =
+                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position, childWrapper = identity }
+
+                        history =
+                            buildRegisterFieldDictionary object
+
+                        regToRecordByDecoding =
+                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = cutoff, history = history }
+                                -- TODO currently ignoring errors
+                                |> Tuple.first
+
+                        regToRecordByInit =
+                            allFieldsCodec.nodeInitializer
+
+                        finalRecord =
+                            case regToRecordByDecoding of
+                                Just recordDecoded ->
+                                    recordDecoded
+
+                                Nothing ->
+                                    regToRecordByInit () parent
+                    in
+                    JD.succeed <| Ok <| finalRecord
+            in
+            JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
+
+        nodeEncoder : NodeEncoder full
+        nodeEncoder inputs =
+            let
+                checkThingToEncode : ThingToEncode (Register full)
+                checkThingToEncode =
+                    case inputs.thingToEncode of
+                        EncodeThis fieldType ->
+                            Log.crashInDev "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead, so no way to get the actual register object we need to encode" JustEncodeDefaultsIfNeeded
+
+                        EncodeObjectOrThis objectIDNonempty _ ->
+                            EncodeObjectOrThis objectIDNonempty Nothing
+
+                        JustEncodeDefaultsIfNeeded ->
+                            JustEncodeDefaultsIfNeeded
+            in
+            registerNodeEncoder partial
+                Nothing
+                { thingToEncode = checkThingToEncode
+                , mode = inputs.mode
+                , node = inputs.node
+                , parent = inputs.parent
+                , position = inputs.position
+                }
+
+        emptyRegister parent position =
+            let
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
+
+                history =
+                    buildRegisterFieldDictionary object
+            in
+            allFieldsCodec.nodeInitializer () (Object.getPointer object)
+
+        tempEmpty =
+            emptyRegister (Change.genesisPointer 0) (Nonempty.singleton 0)
+
+        bytesDecoder : BD.Decoder (Result (Error errs) full)
+        bytesDecoder =
+            allFieldsCodec.bytesDecoder
+
+        jsonDecoder : JD.Decoder (Result (Error errs) full)
+        jsonDecoder =
+            allFieldsCodec.jsonArrayDecoder
     in
-    unwrapRecord
+    Codec
+        { nodeEncoder = Just nodeEncoder
+        , nodeDecoder = Just nodeDecoder
+        , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
+        , bytesDecoder = bytesDecoder
+        , jsonEncoder = encodeAsJsonObject
+        , jsonDecoder = jsonDecoder
+        , init = \parent position initialInputs -> emptyRegister parent position
+        }
+
+
+{-| Finish creating a codec for a naked Register.
+This is a Register, stripped of its wrapper.
+-}
+finishSeededRecord : PartialRegister errs s full full -> RepCodec errs s full
+finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
+    let
+        encodeAsJsonObject nakedRecord =
+            let
+                fullRecord =
+                    nakedRecord
+
+                passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
+                    ( fieldKey, fieldEncoder fullRecord )
+            in
+            JE.object (List.map passFullRecordToFieldEncoder allFieldsCodec.jsonEncoders)
+
+        encodeAsDictList fullRecord =
+            JE.list (encodeEntryInDictList fullRecord) allFieldsCodec.jsonEncoders
+
+        encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
+            JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
+
+        nodeDecoder : NodeDecoder errs full
+        nodeDecoder { node, parent, position, cutoff } =
+            let
+                nakedRegisterDecoder : List ObjectID -> JD.Decoder (Result (Error errs) full)
+                nakedRegisterDecoder objectIDs =
+                    let
+                        object =
+                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
+
+                        history =
+                            buildRegisterFieldDictionary object
+
+                        regToRecordByDecoding givenCutoff =
+                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = givenCutoff, history = history }
+                                -- TODO currently ignoring errors
+                                |> Tuple.first
+
+                        wrongCutoffRegToRecordByDecoding =
+                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = Nothing, history = history }
+                                -- TODO currently ignoring errors
+                                |> Tuple.first
+
+                        regToRecord regCanBeBuilt givenCutoff =
+                            case regToRecordByDecoding givenCutoff of
+                                Just recordDecoded ->
+                                    recordDecoded
+
+                                Nothing ->
+                                    -- if it was decodable when built, but not with the given cutoff, ignore the cutoff. Should not matter, as we will provide defaults no matter what cutoff is given.
+                                    regCanBeBuilt
+                    in
+                    case wrongCutoffRegToRecordByDecoding of
+                        Just regCanBeBuilt ->
+                            JD.succeed <| Ok <| regToRecord regCanBeBuilt Nothing
+
+                        Nothing ->
+                            JD.succeed <| Err DataCorrupted
+            in
+            JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
+
+        nodeEncoder : NodeEncoder full
+        nodeEncoder inputs =
+            let
+                checkThingToEncode : ThingToEncode (Register full)
+                checkThingToEncode =
+                    case inputs.thingToEncode of
+                        EncodeThis fieldType ->
+                            Log.crashInDev "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead, so no way to get the actual register object we need to encode" JustEncodeDefaultsIfNeeded
+
+                        EncodeObjectOrThis objectIDNonempty _ ->
+                            EncodeObjectOrThis objectIDNonempty Nothing
+
+                        JustEncodeDefaultsIfNeeded ->
+                            JustEncodeDefaultsIfNeeded
+            in
+            registerNodeEncoder partial
+                Nothing
+                { thingToEncode = checkThingToEncode
+                , mode = inputs.mode
+                , node = inputs.node
+                , parent = inputs.parent
+                , position = inputs.position
+                }
+
+        emptyRegister parent position seed =
+            let
+                object =
+                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
+
+                history =
+                    buildRegisterFieldDictionary object
+            in
+            allFieldsCodec.nodeInitializer seed (Object.getPointer object)
+
+        tempEmpty =
+            emptyRegister (Change.genesisPointer 0) (Nonempty.singleton 0)
+
+        bytesDecoder : BD.Decoder (Result (Error errs) full)
+        bytesDecoder =
+            allFieldsCodec.bytesDecoder
+
+        jsonDecoder : JD.Decoder (Result (Error errs) full)
+        jsonDecoder =
+            allFieldsCodec.jsonArrayDecoder
+    in
+    Codec
+        { nodeEncoder = Just nodeEncoder
+        , nodeDecoder = Just nodeDecoder
+        , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
+        , bytesDecoder = bytesDecoder
+        , jsonEncoder = encodeAsJsonObject
+        , jsonDecoder = jsonDecoder
+        , init = \parent position initialInputs -> emptyRegister parent position initialInputs
+        }
 
 
 {-| Finish creating a codec for a register.
@@ -2379,11 +2529,23 @@ encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
         ++ fieldPayload
 
 
+{-| Register field fetch - will combine nested objectIDs if found
+-}
 getFieldLatestOnly : FieldHistoryDict -> FieldIdentifier -> Maybe FieldPayload
-getFieldLatestOnly fields ( fieldSlot, _ ) =
-    Dict.get fieldSlot fields
-        |> Maybe.map Nonempty.head
-        |> Maybe.map Tuple.second
+getFieldLatestOnly fields ( fieldSlot, name ) =
+    case Dict.get fieldSlot fields of
+        Nothing ->
+            Nothing
+
+        Just ((Nonempty ( firstOpID, Nonempty (Op.IDPointerAtom objectID) anyMoreAtoms ) anyMoreOps) as history) ->
+            -- nested object will be in this specific form, an objectID as its first (usually only) atom
+            -- can't just detect objectIDs present because it could be a custom type wrapping one
+            -- stick together all objectIDs found ever
+            Just <| Nonempty.concatMap Tuple.second history
+
+        Just historyNonempty ->
+            -- first one didn't begin with an ObjectID atom, go back to normal
+            Just <| Tuple.second (Nonempty.head historyNonempty)
 
 
 getFieldHistory : FieldHistoryDict -> FieldIdentifier -> List ( OpID, FieldPayload )
@@ -2451,16 +2613,27 @@ JK: Updated thinking is this doesn't work anyway - a custom type could contain a
 registerNodeEncoder : PartialRegister errs i full full -> Maybe i -> NodeEncoderInputs (Register full) -> Change.PotentialPayload
 registerNodeEncoder (PartialRegister allFieldsCodec) seedMaybe ({ node, thingToEncode, mode, parent, position } as details) =
     let
-        fallbackObject =
-            Node.getObject { node = node, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
+        fallbackObject foundIDs =
+            Node.getObject { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
 
         ( registerPointer, history ) =
             case thingToEncode of
                 EncodeThis (Register regDetails) ->
                     ( regDetails.pointer, regDetails.history )
 
+                EncodeObjectOrThis objectIDs (Just (Register regDetails)) ->
+                    ( regDetails.pointer, regDetails.history )
+
+                EncodeObjectOrThis objectIDs Nothing ->
+                    -- it was a naked register, so no direct Register access, must rebuild
+                    let
+                        rebuiltRegisterObject =
+                            fallbackObject (Nonempty.toList objectIDs)
+                    in
+                    ( Object.getPointer rebuiltRegisterObject, buildRegisterFieldDictionary rebuiltRegisterObject )
+
                 JustEncodeDefaultsIfNeeded ->
-                    ( Object.getPointer fallbackObject, Dict.empty )
+                    ( Object.getPointer (fallbackObject []), Dict.empty )
 
         updateMePostChildInit fieldChangedPayload =
             Change.Chunk
@@ -2524,7 +2697,7 @@ type RegisterFieldEncoderOutput
 newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> Maybe fieldType -> RepCodec e fieldSeed fieldType -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput)
 newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldCodec { mode, node, updateRegisterAfterChildInit, parentPointer, history } =
     let
-        runFieldRonEncoder value =
+        runFieldNodeEncoder valueToEncode =
             let
                 parent =
                     Change.updateChildChangeWrapper parentPointer finishChildWrapper
@@ -2539,56 +2712,102 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplie
             getNodeEncoder fieldCodec
                 { mode = mode
                 , node = node
-                , thingToEncode = value
+                , thingToEncode = valueToEncode
                 , parent = parentPointer
-                , position = Nonempty.singleton index -- Already "used" by register encoder
+                , position = Nonempty.singleton index
                 }
 
-        wrapFieldEncoderOutput : fieldType -> Change.PotentialPayload
-        wrapFieldEncoderOutput value =
-            let
-                wrapper =
-                    encodeFieldPayloadAsObjectPayload
-                        ( fieldSlot, fieldName )
-            in
-            wrapper (runFieldRonEncoder (EncodeThis value))
-
-        getValue =
+        getPayloadIfSet =
             getFieldLatestOnly history ( fieldSlot, fieldName )
 
-        encodedDefault fieldDefault =
-            runFieldRonEncoder (EncodeThis fieldDefault)
-
-        explicitDefaultIfNeeded fieldDefault =
-            case ( mode.setDefaultsExplicitly, wrapFieldEncoderOutput fieldDefault ) of
-                ( True, changePayloadHead :: changePayloadTail ) ->
-                    -- only if we got something back from the encoder
-                    EncodeThisField <| Change.NewPayload (changePayloadHead :: changePayloadTail)
+        fieldDecodedMaybe payload =
+            -- even though we're in an encoder, we must run the decoder to get the value out of the register's memory. This is borrowed from registerReadOnlyFieldDecoder
+            let
+                run =
+                    JD.decodeValue
+                        (getNodeDecoder fieldCodec
+                            { node = node, position = Nonempty.singleton index, parent = Change.updateChildChangeWrapper parentPointer (updateRegisterPostChildInit parentPointer ( fieldSlot, fieldName )), cutoff = Nothing }
+                        )
+                        (Op.payloadToJsonValue payload)
+            in
+            case run of
+                Ok (Ok fieldValue) ->
+                    Just fieldValue
 
                 _ ->
-                    SkipThisField
+                    Nothing
     in
     case fieldDefaultIfApplies of
         Just fieldDefault ->
-            case getValue of
+            -- Okay we have a default to fall back to
+            let
+                encodedDefault : Change.PotentialPayload
+                encodedDefault =
+                    let
+                        wrapper =
+                            encodeFieldPayloadAsObjectPayload
+                                ( fieldSlot, fieldName )
+                    in
+                    -- EncodeThis because this only gets used on default value
+                    wrapper (runFieldNodeEncoder (EncodeThis fieldDefault))
+
+                explicitDefaultIfNeeded =
+                    case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects ) of
+                        ( True, _ ) ->
+                            EncodeThisField <| Change.NewPayload encodedDefault
+
+                        ( False, False ) ->
+                            SkipThisField
+
+                        ( False, True ) ->
+                            -- is nested object? if so we must still initialize it
+                            case encodedDefault of
+                                [ Change.QuoteNestedObject subChange ] ->
+                                    -- looks like it was a nested object, let it initialize
+                                    EncodeThisField <| Change.NewPayload encodedDefault
+
+                                _ ->
+                                    SkipThisField
+            in
+            -- has the value been set?
+            case getPayloadIfSet of
                 Nothing ->
-                    explicitDefaultIfNeeded fieldDefault
+                    -- never been set before, encode default if requested by mode, or just skip
+                    explicitDefaultIfNeeded
 
                 Just foundPreviousValue ->
-                    -- since encoders return ChangeAtoms, we need to wrap the fetched existing value in a ChangeAtom to compare to the default output.
-                    if Change.compareToRonPayload (encodedDefault fieldDefault) (Nonempty.toList foundPreviousValue) then
-                        explicitDefaultIfNeeded fieldDefault
-
-                    else
-                        EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
+                    -- it's been set before. even if set to default (e.g. Nothing) we will honor this
+                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
 
         Nothing ->
-            case getValue of
+            -- we have no default to fall back to, this is for nested objects or core fields
+            case getPayloadIfSet of
                 Nothing ->
+                    -- TODO this should be (fieldDecoder Nothing) so we can still encode defaults from uninitialized objects if needed
                     SkipThisField
 
-                Just foundPreviousValue ->
-                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
+                Just latestPayload ->
+                    -- it was set before, can we decode it?
+                    case fieldDecodedMaybe latestPayload of
+                        Nothing ->
+                            -- give up! spit back out what we already had in the register.
+                            EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom latestPayload
+
+                        Just fieldValue ->
+                            -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
+                            case extractQuotedObjects (Nonempty.toList latestPayload) of
+                                [] ->
+                                    -- give up! spit back out what we already had in the register.
+                                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom latestPayload
+
+                                firstFoundObjectID :: moreFoundObjectIDs ->
+                                    let
+                                        runNestedEncoder =
+                                            EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) (Just fieldValue)
+                                                |> runFieldNodeEncoder
+                                    in
+                                    -- encode not only this field (set to this object), but also grab any encoder output from that object
+                                    EncodeThisField <| Change.NewPayload runNestedEncoder
 
 
 {-| For getting the list of pointers out of the stored ops - perhaps even a bunch of ops, whose atoms can be concatenated (to merge all concurrent inits)
@@ -2660,6 +2879,9 @@ mapHelper fromBytes_ toBytes_ codec =
                 EncodeThis a ->
                     EncodeThis (toBytes_ a)
 
+                EncodeObjectOrThis objectIDs fieldMaybe ->
+                    EncodeObjectOrThis objectIDs (Maybe.map toBytes_ fieldMaybe)
+
                 JustEncodeDefaultsIfNeeded ->
                     JustEncodeDefaultsIfNeeded
     in
@@ -2715,6 +2937,9 @@ mapValid fromBytes_ toBytes_ codec =
             case original of
                 EncodeThis a ->
                     EncodeThis (toBytes_ a)
+
+                EncodeObjectOrThis objectIDs fieldMaybe ->
+                    EncodeObjectOrThis objectIDs (Maybe.map toBytes_ fieldMaybe)
 
                 JustEncodeDefaultsIfNeeded ->
                     JustEncodeDefaultsIfNeeded
@@ -3793,11 +4018,14 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 nodeMatcher : VariantEncoder
                 nodeMatcher =
                     case nodeEncoderInputs.thingToEncode of
-                        EncodeThis encodeThing ->
-                            priorVariants.nodeMatcher encodeThing
+                        EncodeThis encodeThisThing ->
+                            priorVariants.nodeMatcher encodeThisThing
+
+                        EncodeObjectOrThis _ (Just encodeThisThing) ->
+                            priorVariants.nodeMatcher encodeThisThing
 
                         _ ->
-                            Debug.todo "there was nothing to encode, should never happen"
+                            Log.crashInDev "Should never happen: VariantEncoder was passed a ThingToEncode that did not contain any thing to encode..." <| VariantEncoder { bytes = BE.unsignedInt8 0, json = JE.null, node = \_ -> [] }
 
                 getNodeVariantEncoder (VariantEncoder encoders) =
                     encoders.node newInputs
@@ -3853,7 +4081,7 @@ getNodeEncoderModifiedForVariants codec thingToEncode =
         finishInputs modifiedEncoder =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
-            , thingToEncode = EncodeThis thingToEncode -- TODO would register instead be needed?
+            , thingToEncode = EncodeThis thingToEncode
             , position = modifiedEncoder.position
             , parent = modifiedEncoder.parent
             }

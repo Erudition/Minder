@@ -10,6 +10,7 @@ import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Change as Change exposing (Change)
+import Replicated.Codec as Codec
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (EventPayload, I, Object, Placeholder)
@@ -36,6 +37,10 @@ type alias FieldName =
 
 type alias FieldSlot =
     Int
+
+
+type alias RW field =
+    Codec.RW field
 
 
 
