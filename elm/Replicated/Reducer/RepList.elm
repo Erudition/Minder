@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (RepList, append, buildFromReplicaDb, dict, getID, getInit, head, headValue, insertAfter, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getID, getStartMembers, head, headValue, insertNew, insertNewAndChange, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Context(..), Pointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -22,7 +22,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 -}
 type RepList memberType
     = RepList
-        { pointer : Change.Pointer
+        { pointer : Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberAdder : Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange
@@ -156,31 +156,64 @@ dict (RepList repSetRecord) =
 
 
 
--- {-| Insert an item, right after the member with the given ID.
--- -}
--- insert : RepList memberType -> Dict Handle memberType -> Change
--- insert (RepList repSetRecord) =
---     Debug.todo "insertAfter"
+-- MODIFIERS
 
 
-{-| Insert an item, right after the member with the given ID.
+{-| Where should we insert new stuff?
+
+  - `First`: The item(s) will become the first in the replist.\*
+  - `Last`: The item(s) will become the last in the replist.\*
+  - `After`: The item(s) will be placed immediately after the item with the given handle.\*
+
+Unsaved same-frame changes do not know about each other, so if you insert things multiple separate times before saving your changes, be sure the change list is also in the desired order. It's usually better to combine these into a single insertion though!
+
+\*until the next time this is done! Keep in mind other unsynced replicas may be doing this too...
+
 -}
-insertAfter : Handle -> memberType -> RepList memberType -> Change
-insertAfter (Handle attachmentPoint) newItem (RepList repSetRecord) =
+type InsertionPoint
+    = First
+    | Last
+    | After Handle
+
+
+{-| Internal helper to put an item in the correct place.
+-}
+attachmentPointHelper : Pointer -> InsertionPoint -> Maybe OpID
+attachmentPointHelper containerPointer insertionPoint =
+    case insertionPoint of
+        Last ->
+            Nothing
+
+        After (Handle opID) ->
+            Just opID
+
+        First ->
+            case Change.getPointerObjectID containerPointer of
+                Just creationOpID ->
+                    Just creationOpID
+
+                Nothing ->
+                    Nothing
+
+
+{-| Insert an item at the given location.
+-}
+insert : InsertionPoint -> memberType -> RepList memberType -> Change
+insert insertionPoint newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.pointer
         , objectChanges =
-            [ repSetRecord.memberAdder -1 newItem (Just attachmentPoint) ]
+            [ repSetRecord.memberAdder -1 newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
         }
 
 
-{-| Add items to the collection.
+{-| Add items at the given location.
 -}
-append : List memberType -> RepList memberType -> Change
-append newItems (RepList record) =
+append : InsertionPoint -> List memberType -> RepList memberType -> Change
+append insertionPoint newItems (RepList record) =
     let
         newItemToObjectChange newIndex newItem =
-            record.memberAdder newIndex newItem Nothing
+            record.memberAdder newIndex newItem (attachmentPointHelper record.pointer insertionPoint)
     in
     Change.Chunk
         { target = record.pointer
@@ -188,6 +221,8 @@ append newItems (RepList record) =
         }
 
 
+{-| Remove an item with the given handle.
+-}
 remove : Handle -> RepList memberType -> Change
 remove (Handle itemToRemove) (RepList record) =
     Change.Chunk
@@ -197,58 +232,75 @@ remove (Handle itemToRemove) (RepList record) =
         }
 
 
+{-| How many saved items are in this replist?
+-}
 length : RepList memberType -> Int
 length (RepList record) =
     List.length record.members
 
 
-getInit : RepList memberType -> List memberType
-getInit (RepList record) =
+getStartMembers : RepList memberType -> List memberType
+getStartMembers (RepList record) =
     record.startWith
 
 
+{-| Insert an item at the given location, that must be created anew with a context clue.
+The new item will be generated from the function you pass, which has the `Context` as its input.
 
--- spawn : RepList memberType -> Change
--- spawn repList =
---     spawnWithChanges (\_ -> []) repList
---
---
--- spawnWithChanges : (memberType -> List Change) -> RepList memberType -> Change
--- spawnWithChanges changer (RepList record) =
---     let
---         newItemMaybe =
---             record.memberGenerator ()
---
---         newItemChanges =
---             case newItemMaybe of
---                 Nothing ->
---                     []
---
---                 Just newItem ->
---                     changer newItem
---                         -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
---                         |> Change.combineChangesOfSameTarget
---
---         newItemChangesAsRepListObjectChanges =
---             List.map (Change.NewPayload << Change.changeToChangePayload) newItemChanges
---
---         finalChangeList =
---             case ( newItemChangesAsRepListObjectChanges, newItemMaybe ) of
---                 ( [], Just newItem ) ->
---                     -- effectively a no-op so the member object will still initialize
---                     [ record.memberAdder newItem Nothing ]
---
---                 ( [], Nothing ) ->
---                     Log.crashInDev "Should never happen, no item generated to add to list" []
---
---                 ( nonEmptyChangeList, _ ) ->
---                     newItemChangesAsRepListObjectChanges
---     in
---     Change.Chunk
---         { target = record.pointer
---         , objectChanges =
---             finalChangeList
---         }
+    - If you don't need a context (e.g. you are addding an already-saved reptype), just use `insert`.
+
+-}
+insertNew : InsertionPoint -> (Context -> memberType) -> RepList memberType -> Change
+insertNew insertionPoint newItemFromContext repList =
+    insertNewAndChange insertionPoint newItemFromContext (\_ -> []) repList
+
+
+{-| Insert an item at the given location, and make some changes to it!
+The new item will be generated from the function you pass, which has the `Context` as its input.
+The changes will be applied to the new object in the way specified by your changer function, which takes the new object as its input.
+
+    - If you don't need to make any changes this frame, just use `insertNew`.
+
+-}
+insertNewAndChange : InsertionPoint -> (Context -> memberType) -> (memberType -> List Change) -> RepList memberType -> Change
+insertNewAndChange insertionPoint newItemFromContext itemChanger (RepList record) =
+    let
+        newItem =
+            newItemFromContext (Change.Context record.pointer)
+
+        newItemChanges =
+            itemChanger newItem
+                -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
+                |> Change.combineChangesOfSameTarget
+
+        newItemChangesAsRepListObjectChanges =
+            List.map wrapSubChangeWithRef newItemChanges
+
+        wrapSubChangeWithRef subChange =
+            case attachmentPointHelper record.pointer insertionPoint of
+                Just opID ->
+                    Change.NewPayloadWithRef { payload = Change.changeToChangePayload subChange, ref = opID }
+
+                Nothing ->
+                    Change.NewPayload (Change.changeToChangePayload subChange)
+
+        objectChangeList =
+            case newItemChangesAsRepListObjectChanges of
+                [] ->
+                    -- effectively a no-op so the member object will still initialize
+                    [ record.memberAdder 0 newItem Nothing ]
+
+                nonEmptyChangeList ->
+                    newItemChangesAsRepListObjectChanges
+    in
+    Change.Chunk
+        { target = record.pointer
+        , objectChanges =
+            objectChangeList
+        }
+
+
+
 -- Normal listValues functions
 -- map : (memberTypeA -> memberTypeB) -> RepList memberTypeA -> RepList memberTypeB
 -- map mapper (RepList repSetRecord) =
@@ -257,4 +309,4 @@ getInit (RepList record) =
 --         mappedMembers =
 --             List.map (\item -> { handle = item.handle, value = mapper item.value }) repSetRecord.members
 --     in
---     { repSetRecord | members = mappedMembers }
+--     { repSetRecord | members = mappedMembers, startWith = List.map mapper repSetRecord.startWith }
