@@ -68,7 +68,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change(..), Pointer(..), changeToChangePayload)
+import Replicated.Change as Change exposing (Change(..), Context(..), Pointer(..), changeToChangePayload)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -256,9 +256,19 @@ decodeFromNode profileCodec node =
                     Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
-init : Codec e i repType -> Int -> i -> repType
-init (SymCodec codecDetails) key =
-    codecDetails.init (Change.genesisPointer key) (Nonempty.singleton key)
+init : Codec e () repType -> Context -> repType
+init (SymCodec codecDetails) (Context parentPointer) =
+    codecDetails.init parentPointer (Nonempty.singleton 0) ()
+
+
+initWith : Codec e i repType -> Context -> i -> repType
+initWith (SymCodec codecDetails) (Context parentPointer) =
+    codecDetails.init parentPointer (Nonempty.singleton 0)
+
+
+initMultiple : Codec e () repType -> Context -> Change.SiblingIndex -> repType
+initMultiple (SymCodec codecDetails) (Context parentPointer) key =
+    codecDetails.init parentPointer (Nonempty.singleton key) ()
 
 
 getInitializer : Codec e i repType -> Initializer i repType
@@ -864,7 +874,7 @@ repList memberCodec =
                     changeToChangePayload <|
                         Chunk
                             { target = RepList.getID existingRepList
-                            , objectChanges = List.indexedMap (\i v -> finalMemberChanger i v Nothing) (RepList.getInit existingRepList)
+                            , objectChanges = List.indexedMap (\i v -> finalMemberChanger i v Nothing) (RepList.getStartMembers existingRepList)
                             }
 
                 _ ->
@@ -3081,9 +3091,9 @@ You need to pass a pattern matchering function, see the FAQ for details.
         | Yellow Float
         | Green
 
-    semaphoreCodec : S.Codec e Semaphore
+    semaphoreCodec : Codec e Semaphore
     semaphoreCodec =
-        S.customType
+        Codec.customType
             (\redEncoder yellowEncoder greenEncoder value ->
                 case value of
                     Red i s b ->
@@ -3095,10 +3105,10 @@ You need to pass a pattern matchering function, see the FAQ for details.
                     Green ->
                         greenEncoder
             )
-            |> S.variant3 ( 1, "Red" ) Red S.int S.string S.bool
-            |> S.variant1 ( 2, "Yellow" ) Yellow S.float
-            |> S.variant0 ( 3, "Green" ) Green
-            |> S.finishCustomType
+            |> Codec.variant3 ( 1, "Red" ) Red S.int S.string S.bool
+            |> Codec.variant1 ( 2, "Yellow" ) Yellow S.float
+            |> Codec.variant0 ( 3, "Green" ) Green
+            |> Codec.finishCustomType
 
 -}
 customType : matcher -> CustomTypeCodec { youNeedAtLeastOneVariant : () } e matcher value

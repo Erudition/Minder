@@ -178,6 +178,15 @@ isPlaceholder pointer =
             False
 
 
+getPointerObjectID pointer =
+    case pointer of
+        PlaceholderPointer _ _ _ ->
+            Nothing
+
+        ExistingObjectPointer objectID ->
+            Just objectID
+
+
 type alias ParentNotifier =
     Change -> Change
 
@@ -227,3 +236,7 @@ updateChildChangeWrapper pointer newWrapper =
 
         PlaceholderPointer reducerID pos parentNotifier ->
             PlaceholderPointer reducerID pos (\change -> newWrapper (parentNotifier change))
+
+
+type Context
+    = Context Pointer
