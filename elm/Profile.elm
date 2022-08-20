@@ -15,7 +15,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -54,7 +54,7 @@ type alias Profile =
 
 
 
--- codec : Codec e Profile
+-- codec : SymCodec e Profile
 -- codec =
 --     Codec.record Profile
 --         |> Codec.fieldR ( 1, "uid" ) .uid RC.int 0
@@ -68,7 +68,7 @@ type alias Profile =
 --         |> Codec.finishRecord
 
 
-codec : Codec String Profile
+codec : SymCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
@@ -89,7 +89,7 @@ type alias TodoistIntegrationData =
     }
 
 
-todoistIntegrationDataCodec : Codec String TodoistIntegrationData
+todoistIntegrationDataCodec : SymCodec String TodoistIntegrationData
 todoistIntegrationDataCodec =
     -- Codec.record TodoistIntegrationData
     --     |> Codec.fieldR ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache

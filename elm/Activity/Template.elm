@@ -5,7 +5,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldList, fieldRW)
+import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldList, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -71,7 +71,7 @@ type Template
     | Repair
 
 
-codec : Codec e Template
+codec : SymCodec e Template
 codec =
     Codec.quickEnum DillyDally allExceptDillyDally
 

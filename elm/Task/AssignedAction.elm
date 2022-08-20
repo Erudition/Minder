@@ -11,7 +11,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -49,7 +49,7 @@ type alias AssignedActionSkel =
     }
 
 
-codec : Codec String AssignedActionSkel
+codec : SymCodec String AssignedActionSkel
 codec =
     Codec.record AssignedActionSkel
         |> Codec.coreRW ( 1, "classID" ) .classID Codec.id

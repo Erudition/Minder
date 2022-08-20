@@ -7,7 +7,7 @@ import ID
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (decode)
 import Json.Encode as Encode
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
@@ -41,7 +41,7 @@ encodeTimeBlock timeBlock =
     Codec.encodeToJson codec timeBlock
 
 
-codec : Codec String TimeBlock
+codec : SymCodec String TimeBlock
 codec =
     Codec.record TimeBlock
         |> Codec.coreRW ( 1, "focus" ) .focus focusCodec
@@ -51,7 +51,7 @@ codec =
         |> Codec.finishRecord
 
 
-focusCodec : Codec String Focus
+focusCodec : SymCodec String Focus
 focusCodec =
     Codec.customType
         (\activityEncoder tagEncoder value ->

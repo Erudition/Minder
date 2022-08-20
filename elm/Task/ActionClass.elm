@@ -12,7 +12,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -52,7 +52,7 @@ type alias ActionClassSkel =
     }
 
 
-codec : Codec String ActionClassSkel
+codec : SymCodec String ActionClassSkel
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string
@@ -84,7 +84,7 @@ type alias ParentProperties =
     }
 
 
-parentPropertiesCodec : Codec String ParentProperties
+parentPropertiesCodec : SymCodec String ParentProperties
 parentPropertiesCodec =
     Codec.record ParentProperties
         |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
@@ -143,7 +143,7 @@ type RelativeTiming
     | FromToday Duration
 
 
-relativeTimingCodec : Codec String RelativeTiming
+relativeTimingCodec : SymCodec String RelativeTiming
 relativeTimingCodec =
     Codec.customType
         (\fromDeadline fromToday value ->

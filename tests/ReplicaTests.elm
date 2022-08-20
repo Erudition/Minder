@@ -10,7 +10,7 @@ import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
 import Replicated.Change as Change
-import Replicated.Codec as RC exposing (Codec, decodeFromNode)
+import Replicated.Codec as RC exposing (SymCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
@@ -34,7 +34,7 @@ suite =
         ]
 
 
-nodeFromCodec : Codec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+nodeFromCodec : SymCodec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodec profileCodec =
     let
         logOps chunks =
@@ -58,7 +58,7 @@ type alias ReadOnlyObject =
     }
 
 
-readOnlyObjectCodec : Codec e ReadOnlyObject
+readOnlyObjectCodec : SymCodec e ReadOnlyObject
 readOnlyObjectCodec =
     RC.record ReadOnlyObject
         |> RC.fieldN ( 1, "legal_name" ) .name exampleSubObjectCodec
@@ -96,7 +96,7 @@ type alias ExampleSubObjectLegalName =
     }
 
 
-exampleSubObjectCodec : Codec e ExampleSubObjectLegalName
+exampleSubObjectCodec : SymCodec e ExampleSubObjectLegalName
 exampleSubObjectCodec =
     RC.record ExampleSubObjectLegalName
         |> RC.fieldR ( 1, "first" ) .first RC.string "firstname"
@@ -164,7 +164,7 @@ type alias WritableObject =
     }
 
 
-writableObjectCodec : Codec e WritableObject
+writableObjectCodec : SymCodec e WritableObject
 writableObjectCodec =
     RC.record WritableObject
         |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last", title = Ms }
@@ -261,7 +261,7 @@ simpleList =
     [ "0-Alpha", "1-Beta", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
-simpleListCodec : Codec e (RepList String)
+simpleListCodec : SymCodec e (RepList String)
 simpleListCodec =
     RC.repList RC.string
 
@@ -391,7 +391,7 @@ type alias NestedStressTest =
     }
 
 
-nestedStressTestCodec : Codec e NestedStressTest
+nestedStressTestCodec : SymCodec e NestedStressTest
 nestedStressTestCodec =
     RC.record NestedStressTest
         |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "first layer"
@@ -406,7 +406,7 @@ type alias RecordOf3Records =
     }
 
 
-recordOf3RecordsCodec : Codec e RecordOf3Records
+recordOf3RecordsCodec : SymCodec e RecordOf3Records
 recordOf3RecordsCodec =
     RC.record RecordOf3Records
         |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "second layer"
@@ -420,7 +420,7 @@ type alias RecordOf2Records =
     }
 
 
-recordOf2RecordsCodec : Codec e RecordOf2Records
+recordOf2RecordsCodec : SymCodec e RecordOf2Records
 recordOf2RecordsCodec =
     RC.record RecordOf2Records
         |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "third layer"

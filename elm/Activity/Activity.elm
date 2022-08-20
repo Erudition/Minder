@@ -19,7 +19,7 @@ import List.Nonempty exposing (..)
 import Log
 import Maybe.Extra as Maybe
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -44,7 +44,7 @@ type ActivityID
     | CustomActivityID Template (ID CustomActivitySkel)
 
 
-idCodec : Codec String ActivityID
+idCodec : SymCodec String ActivityID
 idCodec =
     Codec.customType
         (\builtInActivity customActivity value ->
@@ -85,7 +85,7 @@ type alias BuiltInActivitySkel =
     }
 
 
-builtInActivitySkelCodec : Codec String BuiltInActivitySkel
+builtInActivitySkelCodec : Codec String () BuiltInActivitySkel
 builtInActivitySkelCodec =
     Codec.record BuiltInActivitySkel
         |> fieldList ( 1, "names" ) .names Codec.string
@@ -114,10 +114,10 @@ type alias CustomActivitySkel =
     }
 
 
-customActivitySkelCodec : Codec String CustomActivitySkel
+customActivitySkelCodec : Codec String Template CustomActivitySkel
 customActivitySkelCodec =
     Codec.record CustomActivitySkel
-        |> coreR ( 0, "template" ) .template Template.codec
+        |> coreR ( 0, "template" ) .template Template.codec identity
         |> fieldList ( 1, "names" ) .names Codec.string
         |> maybeRW ( 2, "icon" ) .icon iconCodec
         |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
@@ -127,7 +127,7 @@ customActivitySkelCodec =
         |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
         |> fieldRW ( 9, "hidden" ) .hidden Codec.bool False
         |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
-        |> Codec.finishRecord
+        |> Codec.finishSeededRecord
 
 
 unknown =
@@ -140,7 +140,7 @@ type Excusable
     | IndefinitelyExcused
 
 
-excusableCodec : Codec String Excusable
+excusableCodec : SymCodec String Excusable
 excusableCodec =
     Codec.customType
         (\neverExcused temporarilyExcused indefinitelyExcused value ->
@@ -171,7 +171,7 @@ type alias DurationPerPeriod =
     ( HumanDuration, HumanDuration )
 
 
-durationPerPeriodCodec : Codec String DurationPerPeriod
+durationPerPeriodCodec : SymCodec String DurationPerPeriod
 durationPerPeriodCodec =
     Codec.pair Codec.humanDuration Codec.humanDuration
 
@@ -186,7 +186,7 @@ type Icon
     | Emoji String
 
 
-iconCodec : Codec e Icon
+iconCodec : SymCodec e Icon
 iconCodec =
     Codec.customType
         (\file ion other emoji value ->
@@ -1298,7 +1298,7 @@ type alias Store =
     ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
 
 
-storeCodec : Codec String Store
+storeCodec : Codec String Store Store
 storeCodec =
     Codec.pair
         (Codec.repDict Template.codec builtInActivitySkelCodec)
@@ -1315,7 +1315,7 @@ getByID activityID ( builtins, customs ) =
 
                 Nothing ->
                     BuiltIn template
-                        (NoSkelYet (\changer -> RepDict.spawnWithChanges template changer builtins))
+                        (NoSkelYet (\builtInSkel -> RepDict.insert template builtInSkel builtins))
 
         CustomActivityID template customSkelID ->
             case RepDb.get customSkelID customs of
@@ -1329,7 +1329,7 @@ getByID activityID ( builtins, customs ) =
 
 type BuiltInSearch
     = FoundSkel BuiltInActivitySkel
-    | NoSkelYet ((BuiltInActivitySkel -> List Change) -> Change)
+    | NoSkelYet (BuiltInActivitySkel -> Change)
 
 
 getAllIncludingHidden : Store -> List Activity

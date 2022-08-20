@@ -10,7 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -82,7 +82,7 @@ type alias ProjectClass =
     }
 
 
-projectCodec : Codec String ProjectClass
+projectCodec : SymCodec String ProjectClass
 projectCodec =
     Codec.record ProjectClass
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
@@ -99,7 +99,7 @@ type alias SuperProject =
     }
 
 
-superProjectCodec : Codec String SuperProject
+superProjectCodec : SymCodec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
@@ -112,7 +112,7 @@ type SuperProjectChild
     | ProjectIsHere ProjectClass
 
 
-superProjectChildCodec : Codec String SuperProjectChild
+superProjectChildCodec : SymCodec String SuperProjectChild
 superProjectChildCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->
@@ -139,7 +139,7 @@ type alias TaskClass =
     }
 
 
-taskClassCodec : Codec String TaskClass
+taskClassCodec : SymCodec String TaskClass
 taskClassCodec =
     Codec.record TaskClass
         |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
@@ -167,7 +167,7 @@ type TaskClassChild
     | Nested TaskClass
 
 
-taskClassChildCodec : Codec String TaskClassChild
+taskClassChildCodec : SymCodec String TaskClassChild
 taskClassChildCodec =
     Codec.customType
         (\singleton nested value ->
@@ -245,7 +245,7 @@ initWithClass entry actionClassID =
             []
     in
     [ entry.properties.title.set <| Just "Entry title"
-    , RepList.append [ ProjectIsHere (Debug.todo "how do i fill this with a ProjectClass") ] entry.children
+    , RepList.spawnWithChanges (\spc -> [ spc.get ]) entry.children
     ]
 
 
