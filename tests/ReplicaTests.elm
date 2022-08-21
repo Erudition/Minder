@@ -62,10 +62,10 @@ readOnlyObjectCodec : SymCodec e ReadOnlyObject
 readOnlyObjectCodec =
     RC.record ReadOnlyObject
         |> RC.fieldN ( 1, "legal_name" ) .name exampleSubObjectCodec
-        |> RC.fieldR ( 2, "address" ) .address RC.string "default address"
-        |> RC.fieldR ( 3, "number" ) .number RC.int 1
-        |> RC.fieldR ( 4, "living" ) .living RC.bool True
-        |> RC.fieldR ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) (Just 5)
+        |> RC.field ( 2, "address" ) .address RC.string "default address"
+        |> RC.field ( 3, "number" ) .number RC.int 1
+        |> RC.field ( 4, "living" ) .living RC.bool True
+        |> RC.field ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) (Just 5)
         |> RC.finishRecord
 
 
@@ -99,9 +99,9 @@ type alias ExampleSubObjectLegalName =
 exampleSubObjectCodec : SymCodec e ExampleSubObjectLegalName
 exampleSubObjectCodec =
     RC.record ExampleSubObjectLegalName
-        |> RC.fieldR ( 1, "first" ) .first RC.string "firstname"
-        |> RC.fieldR ( 2, "last" ) .last RC.string "default surname"
-        |> RC.fieldR ( 3, "title" ) .title titleCodec Mrs
+        |> RC.field ( 1, "first" ) .first RC.string "firstname"
+        |> RC.field ( 2, "last" ) .last RC.string "default surname"
+        |> RC.field ( 3, "title" ) .title titleCodec Mrs
         |> RC.finishRecord
 
 
@@ -394,7 +394,7 @@ type alias NestedStressTest =
 nestedStressTestCodec : SymCodec e NestedStressTest
 nestedStressTestCodec =
     RC.record NestedStressTest
-        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "first layer"
+        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "first layer"
         |> RC.fieldN ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
         |> RC.fieldN ( 3, "listOfNestedRecords" ) .listOfNestedRecords (RC.repList writableObjectCodec)
         |> RC.finishRecord
@@ -409,7 +409,7 @@ type alias RecordOf3Records =
 recordOf3RecordsCodec : SymCodec e RecordOf3Records
 recordOf3RecordsCodec =
     RC.record RecordOf3Records
-        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "second layer"
+        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "second layer"
         |> RC.fieldN ( 2, "recordOf2Records" ) .recordOf2Records recordOf2RecordsCodec
         |> RC.finishRecord
 
@@ -423,7 +423,7 @@ type alias RecordOf2Records =
 recordOf2RecordsCodec : SymCodec e RecordOf2Records
 recordOf2RecordsCodec =
     RC.record RecordOf2Records
-        |> RC.fieldR ( 1, "recordDepth" ) .recordDepth RC.string "third layer"
+        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "third layer"
         |> RC.fieldN ( 2, "recordWithRecord" ) .recordWithRecord writableObjectCodec
         |> RC.finishRecord
 

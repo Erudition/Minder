@@ -255,9 +255,9 @@ insertNew insertionPoint newItemFromContext repList =
     insertNewAndChange insertionPoint newItemFromContext (\_ -> []) repList
 
 
-{-| Insert an item at the given location, and make some changes to it!
-The new item will be generated from the function you pass, which has the `Context` as its input.
-The changes will be applied to the new object in the way specified by your changer function, which takes the new object as its input.
+{-| Insert an item at the given location (1), and make some changes to it!
+The new item will be generated from the function (2) you pass, which has the `Context` as its input.
+Upon saving, the changes will be applied to the new object in the way specified by your changer function (3), which takes the new object as its input.
 
     - If you don't need to make any changes this frame, just use `insertNew`.
 

@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, get, getInit, getPointer, insert, list, reducerID, size, update)
+module Replicated.Reducer.RepDict exposing (RepDict, RepDictEntry(..), buildFromReplicaDb, bulkInsert, get, getInit, getPointer, insert, insertNew, list, reducerID, size, update)
 
 import Array exposing (Array)
 import Console
@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Context(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -143,6 +143,56 @@ bulkInsert newItems (RepDict record) =
         }
 
 
+{-| Insert an entry whose value needs a context clue for initialization.
+The new value will be generated from the function you pass, which has the `Context` as its input.
+
+    - If you don't need a context (e.g. you are addding an already-saved reptype), just use `insert`.
+
+-}
+insertNew : k -> (Context -> v) -> RepDict k v -> Change
+insertNew key newValueFromContext repDict =
+    insertNewAndChange key newValueFromContext (\_ -> []) repDict
+
+
+{-| Insert an entry whose value needs a context clue for initialization, and make some changes to it!
+The new item will be generated from the function (1) you pass, which has the `Context` as its input.
+Upon saving, the changes will be applied to the new object in the way specified by your changer function (2), which takes the new object as its input.
+
+    - If you don't need to make any changes this frame, just use `insertNew`.
+
+-}
+insertNewAndChange : k -> (Context -> v) -> (v -> List Change) -> RepDict k v -> Change
+insertNewAndChange key newValueFromContext valueChanger (RepDict record) =
+    let
+        newValue =
+            newValueFromContext (Change.Context record.pointer)
+
+        newValueChanges =
+            valueChanger newValue
+                -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
+                |> Change.combineChangesOfSameTarget
+
+        newValueChangesAsRepDictObjectChanges =
+            List.map wrapSubChange newValueChanges
+
+        wrapSubChange subChange =
+            Change.NewPayload (Change.changeToChangePayload subChange)
+
+        objectChangeList =
+            case newValueChangesAsRepDictObjectChanges of
+                [] ->
+                    [ record.memberAdder 0 (Present key newValue) ]
+
+                nonEmptyChangeList ->
+                    newValueChangesAsRepDictObjectChanges
+    in
+    Change.Chunk
+        { target = record.pointer
+        , objectChanges =
+            objectChangeList
+        }
+
+
 {-| Get your RepDict as a read-only List.
 -}
 list : RepDict k v -> List ( k, v )
@@ -158,9 +208,9 @@ getMember key ((RepDict record) as repDict) =
 
 
 
--- TODO
--- getOrCreateMember : k -> RepDict k v -> Maybe (Member v)
--- getOrCreateMember key ((RepDict record) as repDict) =
+--
+-- getOrNew : k -> RepDict k v -> Maybe (Member v)
+-- getOrNew key ((RepDict record) as repDict) =
 --     case AnyDict.get key record.members of
 --         Just found ->
 --             Just found
