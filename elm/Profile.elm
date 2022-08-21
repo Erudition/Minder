@@ -57,7 +57,7 @@ type alias Profile =
 -- codec : SymCodec e Profile
 -- codec =
 --     Codec.record Profile
---         |> Codec.fieldR ( 1, "uid" ) .uid RC.int 0
+--         |> Codec.field ( 1, "uid" ) .uid RC.int 0
 --         |> Codec.fieldList  ( 2, "errors" ) .errors (RC.immutableList RC.string)
 --         |> RC.fieldR ( 3, "taskEntries" ) .taskEntries (RC.immutableList (Debug.todo "Task.Entry.codec")) []
 --         |> RC.fieldR ( 4, "taskClasses" ) .taskClasses (Debug.todo "Task.Class.codec") IntDict.empty
@@ -77,7 +77,7 @@ codec =
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
         |> Codec.nestedField ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
-        |> Codec.fieldR ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
+        |> Codec.field ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
         |> Codec.finishRecord
 
@@ -92,9 +92,9 @@ type alias TodoistIntegrationData =
 todoistIntegrationDataCodec : SymCodec String TodoistIntegrationData
 todoistIntegrationDataCodec =
     -- Codec.record TodoistIntegrationData
-    --     |> Codec.fieldR ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache
+    --     |> Codec.field ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache
     --     |> Codec.maybeR ( 2, "parentProjectID" ) Decode.int
-    --     |> Codec.fieldR ( 3, "activityProjectIDs" ) (Codec.intDict Activity.idCodec)
+    --     |> Codec.field ( 3, "activityProjectIDs" ) (Codec.intDict Activity.idCodec)
     --     |> Codec.finishRecord
     Debug.todo "todoist codec"
 

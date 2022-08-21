@@ -13,7 +13,7 @@ import IntDict exposing (IntDict)
 import Ionicon
 import Ionicon.Android as Android
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (SymCodec, coreR, coreRW, fieldDict, fieldList, fieldR, fieldRW)
+import Replicated.Codec as Codec exposing (SymCodec, coreR, coreRW, fieldDict, fieldList, field, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -40,7 +40,7 @@ codec =
             Codec.record SwitchSkel
                 |> coreR ( 1, "moment" ) .moment Codec.moment
                 |> coreR ( 2, "newActivity" ) .newActivity Activity.Activity.idCodec
-                |> fieldR ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing
+                |> field ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing
                 |> Codec.finishRecord
     in
     Codec.map Switch (\(Switch skel) -> skel) skelCodec

@@ -12,7 +12,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -52,10 +52,10 @@ type alias ActionClassSkel =
     }
 
 
-codec : SymCodec String ActionClassSkel
+codec : Codec String String ActionClassSkel
 codec =
     Codec.record ActionClassSkel
-        |> coreRW ( 1, "title" ) .title Codec.string
+        |> coreRW ( 1, "title" ) .title Codec.string identity
         |> maybeRW ( 2, "activity" ) .activity Activity.Activity.idCodec
         |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
         |> fieldRW ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
@@ -68,7 +68,7 @@ codec =
         |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
-        |> Codec.finishRecord
+        |> Codec.finishSeededRecord
 
 
 type alias ActionClassID =
@@ -84,7 +84,7 @@ type alias ParentProperties =
     }
 
 
-parentPropertiesCodec : SymCodec String ParentProperties
+parentPropertiesCodec : Codec String () ParentProperties
 parentPropertiesCodec =
     Codec.record ParentProperties
         |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing

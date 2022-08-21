@@ -5,7 +5,7 @@ import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
-import Replicated.Codec as Codec exposing (SymCodec, fieldDict, coreR, coreRW, fieldR, fieldList, fieldRW)
+import Replicated.Codec as Codec exposing (SymCodec, fieldDict, coreR, coreRW, field, fieldList, fieldRW)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.ActionClass exposing (ActionClassSkel, ParentProperties)

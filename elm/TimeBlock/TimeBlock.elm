@@ -7,7 +7,7 @@ import ID
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (decode)
 import Json.Encode as Encode
-import Replicated.Codec as Codec exposing (SymCodec)
+import Replicated.Codec as Codec exposing (Codec, SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
@@ -31,24 +31,22 @@ type Focus
     | Tag TagID
 
 
-decodeTimeBlock : Decode.Decoder TimeBlock
-decodeTimeBlock =
-    customDecoder Decode.value (Result.mapError (\e -> "") << Codec.decodeFromJson codec)
+type alias TimeBlockSeed =
+    { focus : Focus
+    , date : CalendarDate
+    , startTime : TimeOfDay
+    , duration : Duration
+    }
 
 
-encodeTimeBlock : TimeBlock -> Encode.Value
-encodeTimeBlock timeBlock =
-    Codec.encodeToJson codec timeBlock
-
-
-codec : SymCodec String TimeBlock
+codec : Codec String TimeBlockSeed TimeBlock
 codec =
     Codec.record TimeBlock
-        |> Codec.coreRW ( 1, "focus" ) .focus focusCodec
-        |> Codec.coreRW ( 2, "date" ) .date Codec.calendarDate
-        |> Codec.coreRW ( 3, "startTime" ) .startTime Codec.timeOfDay
-        |> Codec.fieldRW ( 4, "duration" ) .duration Codec.duration Duration.anHour
-        |> Codec.finishRecord
+        |> Codec.coreRW ( 1, "focus" ) .focus focusCodec .focus
+        |> Codec.coreRW ( 2, "date" ) .date Codec.calendarDate .date
+        |> Codec.coreRW ( 3, "startTime" ) .startTime Codec.timeOfDay .startTime
+        |> Codec.coreRW ( 4, "duration" ) .duration Codec.duration .duration
+        |> Codec.finishSeededRecord
 
 
 focusCodec : SymCodec String Focus

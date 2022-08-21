@@ -10,7 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (SymCodec)
+import Replicated.Codec as Codec exposing (Codec, SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -82,10 +82,10 @@ type alias ProjectClass =
     }
 
 
-projectCodec : SymCodec String ProjectClass
+projectCodec : Codec String () ProjectClass
 projectCodec =
     Codec.record ProjectClass
-        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.fieldRW ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
         |> Codec.fieldList ( 3, "children" ) .children taskClassCodec
         |> Codec.finishRecord
@@ -102,7 +102,7 @@ type alias SuperProject =
 superProjectCodec : SymCodec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
-        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.field ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.fieldList ( 2, "children" ) .children superProjectChildCodec
         |> Codec.finishRecord
 
@@ -139,10 +139,10 @@ type alias TaskClass =
     }
 
 
-taskClassCodec : SymCodec String TaskClass
+taskClassCodec : Codec String () TaskClass
 taskClassCodec =
     Codec.record TaskClass
-        |> Codec.nestedField ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.fieldList ( 2, "children" ) .children taskClassChildCodec
         |> Codec.finishRecord
 
@@ -245,7 +245,7 @@ initWithClass entry actionClassID =
             []
     in
     [ entry.properties.title.set <| Just "Entry title"
-    , RepList.spawnWithChanges (\spc -> [ spc.get ]) entry.children
+    , RepList.insertNewAndChange RepList.Last (\c -> ProjectIsHere (Codec.init projectCodec c)) (\spc -> []) entry.children
     ]
 
 

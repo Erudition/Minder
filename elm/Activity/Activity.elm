@@ -35,7 +35,7 @@ import Time.Extra exposing (..)
 {-| Opaque type for an activity, with everything inside necessary to get any detail
 -}
 type Activity
-    = BuiltIn Template BuiltInSearch
+    = BuiltIn Template BuiltInActivitySkel
     | Custom Template CustomActivitySkel (ID CustomActivitySkel)
 
 
@@ -1073,11 +1073,8 @@ getID act =
 isHidden : Activity -> Bool
 isHidden act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.hidden.get
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).hidden
 
         Custom template customSkel customSkelID ->
             customSkel.hidden.get
@@ -1091,11 +1088,8 @@ isShowing act =
 hide : Activity -> Change
 hide act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.hidden.set False
-
-        BuiltIn template (NoSkelYet newSkelChanger) ->
-            newSkelChanger (\builtInSkel -> [ builtInSkel.hidden.set False ])
 
         Custom template customSkel customSkelID ->
             customSkel.hidden.set False
@@ -1104,14 +1098,9 @@ hide act =
 getName : Activity -> String
 getName act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             RepList.headValue builtInSkel.names
                 |> Maybe.or (List.head (defaults template).names)
-                -- TODO template should have nonempty list
-                |> Maybe.withDefault "untitled built-in activity"
-
-        BuiltIn template (NoSkelYet _) ->
-            List.head (defaults template).names
                 -- TODO template should have nonempty list
                 |> Maybe.withDefault "untitled built-in activity"
 
@@ -1125,11 +1114,8 @@ getName act =
 getNames : Activity -> List String
 getNames act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             RepList.listValues builtInSkel.names ++ (defaults template).names
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).names
 
         Custom template customSkel customSkelID ->
             RepList.listValues customSkel.names ++ (defaults template).names
@@ -1138,12 +1124,9 @@ getNames act =
 getIcon : Activity -> Icon
 getIcon act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.icon.get
                 |> Maybe.withDefault (defaults template).icon
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).icon
 
         Custom template customSkel customSkelID ->
             customSkel.icon.get
@@ -1155,12 +1138,9 @@ getIcon act =
 getExcusable : Activity -> Excusable
 getExcusable act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.excusable.get
                 |> Maybe.withDefault (defaults template).excusable
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).excusable
 
         Custom template customSkel customSkelID ->
             customSkel.excusable.get
@@ -1183,12 +1163,9 @@ excusableRatio act =
 isTaskOptional : Activity -> Bool
 isTaskOptional act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.taskOptional.get
                 |> Maybe.withDefault (defaults template).taskOptional
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).taskOptional
 
         Custom template customSkel customSkelID ->
             customSkel.taskOptional.get
@@ -1198,11 +1175,8 @@ isTaskOptional act =
 setTaskOptional : Bool -> Activity -> Change
 setTaskOptional newSetting act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.taskOptional.set (Just newSetting)
-
-        BuiltIn template (NoSkelYet newSkelChanger) ->
-            newSkelChanger (\builtInSkel -> [ builtInSkel.taskOptional.set (Just newSetting) ])
 
         Custom template customSkel customSkelID ->
             customSkel.taskOptional.set (Just newSetting)
@@ -1211,12 +1185,9 @@ setTaskOptional newSetting act =
 isBackgroundable : Activity -> Bool
 isBackgroundable act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.backgroundable.get
                 |> Maybe.withDefault (defaults template).backgroundable
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).backgroundable
 
         Custom template customSkel customSkelID ->
             customSkel.backgroundable.get
@@ -1226,11 +1197,8 @@ isBackgroundable act =
 setBackgroundable : Bool -> Activity -> Change
 setBackgroundable newSetting act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.backgroundable.set (Just newSetting)
-
-        BuiltIn template (NoSkelYet newSkelChanger) ->
-            newSkelChanger (\builtInSkel -> [ builtInSkel.backgroundable.set (Just newSetting) ])
 
         Custom template customSkel customSkelID ->
             customSkel.backgroundable.set (Just newSetting)
@@ -1239,12 +1207,9 @@ setBackgroundable newSetting act =
 getMaxTime : Activity -> DurationPerPeriod
 getMaxTime act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.maxTime.get
                 |> Maybe.withDefault (defaults template).maxTime
-
-        BuiltIn template (NoSkelYet _) ->
-            (defaults template).maxTime
 
         Custom template customSkel customSkelID ->
             customSkel.maxTime.get
@@ -1254,11 +1219,8 @@ getMaxTime act =
 setMaxTime : DurationPerPeriod -> Activity -> Change
 setMaxTime newSetting act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             builtInSkel.maxTime.set (Just newSetting)
-
-        BuiltIn template (NoSkelYet newSkelChanger) ->
-            newSkelChanger (\builtInSkel -> [ builtInSkel.maxTime.set (Just newSetting) ])
 
         Custom template customSkel customSkelID ->
             customSkel.maxTime.set (Just newSetting)
@@ -1267,11 +1229,8 @@ setMaxTime newSetting act =
 getExternalID : String -> Activity -> Maybe String
 getExternalID key act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             RepDict.get key builtInSkel.externalIDs
-
-        BuiltIn template (NoSkelYet _) ->
-            Nothing
 
         Custom template customSkel customSkelID ->
             RepDict.get key customSkel.externalIDs
@@ -1280,11 +1239,8 @@ getExternalID key act =
 setExternalID : String -> String -> Activity -> Change
 setExternalID key value act =
     case act of
-        BuiltIn template (FoundSkel builtInSkel) ->
+        BuiltIn template builtInSkel ->
             RepDict.update key (\_ -> Just value) builtInSkel.externalIDs
-
-        BuiltIn template (NoSkelYet newSkelChanger) ->
-            newSkelChanger (\builtInSkel -> [ RepDict.update key (\_ -> Just value) builtInSkel.externalIDs ])
 
         Custom template customSkel customSkelID ->
             RepDict.update key (\_ -> Just value) customSkel.externalIDs
@@ -1311,11 +1267,11 @@ getByID activityID ( builtins, customs ) =
         BuiltInActivityID template ->
             case RepDict.get template builtins of
                 Just foundSkel ->
-                    BuiltIn template (FoundSkel foundSkel)
+                    BuiltIn template foundSkel
 
                 Nothing ->
-                    BuiltIn template
-                        (NoSkelYet (\builtInSkel -> RepDict.insert template builtInSkel builtins))
+                    Debug.todo
+                        "convert to KeyedRepDb"
 
         CustomActivityID template customSkelID ->
             case RepDb.get customSkelID customs of
@@ -1325,11 +1281,6 @@ getByID activityID ( builtins, customs ) =
                 Nothing ->
                     -- Need RepDb.getOrCreate
                     Debug.todo "tried to access an activity that was deleted/corrupted/unknown!"
-
-
-type BuiltInSearch
-    = FoundSkel BuiltInActivitySkel
-    | NoSkelYet (BuiltInActivitySkel -> Change)
 
 
 getAllIncludingHidden : Store -> List Activity
