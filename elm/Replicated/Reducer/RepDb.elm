@@ -10,7 +10,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Changer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -27,7 +27,7 @@ type RepDb memberType
         , members : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
         , included : Object.InclusionInfo
         , memberAdder : memberType -> Change.ObjectChange
-        , startWith : List memberType
+        , startWith : Changer (RepDb memberType)
         }
 
 
@@ -56,8 +56,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Change.ObjectChange) -> List memberType -> RepDb memberType
-buildFromReplicaDb object payloadToMember memberAdder initMembers =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Change.ObjectChange) -> Changer (RepDb memberType) -> RepDb memberType
+buildFromReplicaDb object payloadToMember memberAdder init =
     let
         memberDict : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
         memberDict =
@@ -96,7 +96,7 @@ buildFromReplicaDb object payloadToMember memberAdder initMembers =
         , members = memberDict
         , memberAdder = memberAdder
         , included = Object.getIncluded object
-        , startWith = initMembers
+        , startWith = init
         }
 
 
@@ -143,9 +143,9 @@ add newMembers (RepDb record) =
         }
 
 
-getInit : RepDb memberType -> List memberType
-getInit (RepDb record) =
-    record.startWith
+getInit : RepDb memberType -> List Change
+getInit ((RepDb record) as repDb) =
+    record.startWith repDb
 
 
 

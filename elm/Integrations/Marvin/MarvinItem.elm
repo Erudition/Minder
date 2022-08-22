@@ -14,6 +14,7 @@ import Maybe.Extra
 import Profile exposing (Profile)
 import Regex
 import Replicated.Change as Change exposing (Change)
+import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -31,7 +32,7 @@ import Task.AssignedAction
 import Task.Entry
 import Task.Progress
 import Task.SessionSkel exposing (UserPlannedSession)
-import TimeBlock.TimeBlock exposing (TimeBlock)
+import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 
 
 type alias ItemID =
@@ -523,7 +524,7 @@ toDocketTask profile marvinItem =
                 Maybe.Extra.or
                     (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate)
                     (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day)
-            , RepList.append plannedSessionList instance.plannedSessions
+            , RepList.append RepList.Last plannedSessionList instance.plannedSessions
             , instance.relevanceStarts.set <|
                 if Maybe.Extra.isJust marvinItem.recurringTaskId then
                     Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day
@@ -545,7 +546,7 @@ toDocketTask profile marvinItem =
                     instanceChanges existingInstance
 
                 Nothing ->
-                    [ RepDb.spawnWithChanges instanceChanges profile.taskInstances ]
+                    [ Debug.todo "RepDb.spawnWithChanges instanceChanges profile.taskInstances" ]
 
         finalEntryAndClassChanges =
             case Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe of
@@ -555,7 +556,7 @@ toDocketTask profile marvinItem =
                 Nothing ->
                     [ -- TODO how to add class to entry before class exists?
                       -- RepList.spawnWithChanges (Task.Entry.initWithClass existingClassID) profile.taskEntries
-                      RepDb.spawnWithChanges classChanges profile.taskClasses
+                      Debug.todo "RepDb.spawnWithChanges classChanges profile.taskClasses"
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges
@@ -822,19 +823,13 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
                 Just marvinLabelID ->
                     Just ( marvinLabelID, Activity.getID activity )
 
-        buildWithActivity activityFound newBlock =
-            [ newBlock.focus.set <| TimeBlock.TimeBlock.Activity activityFound
-            , newBlock.date.set marvinBlock.date
-            , newBlock.startTime.set marvinBlock.time
-            , newBlock.duration.set marvinBlock.duration
-            ]
+        buildWithActivity activityFound context =
+            Codec.initWith TimeBlock.codec context <|
+                TimeBlock.TimeBlockSeed (TimeBlock.Activity activityFound) marvinBlock.date marvinBlock.time marvinBlock.duration
 
-        buildWithTag tag newBlock =
-            [ newBlock.focus.set <| TimeBlock.TimeBlock.Tag tag
-            , newBlock.date.set marvinBlock.date
-            , newBlock.startTime.set marvinBlock.time
-            , newBlock.duration.set marvinBlock.duration
-            ]
+        buildWithTag tag context =
+            Codec.initWith TimeBlock.codec context <|
+                TimeBlock.TimeBlockSeed (TimeBlock.Tag tag) marvinBlock.date marvinBlock.time marvinBlock.duration
 
         logBad =
             String.concat [ "Could not find a label for ", marvinBlock.title, ", normalized as ", normalizeTitle marvinBlock.title ]
@@ -849,7 +844,7 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
         Just foundAssignment ->
             case Dict.get foundAssignment activityLookup of
                 Nothing ->
-                    [ RepList.spawnWithChanges (buildWithTag foundAssignment) profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last (buildWithTag foundAssignment) profile.timeBlocks ]
 
                 Just foundActivity ->
-                    [ RepList.spawnWithChanges (buildWithActivity foundActivity) profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last (buildWithActivity foundActivity) profile.timeBlocks ]

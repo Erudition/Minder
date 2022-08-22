@@ -143,7 +143,7 @@ switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment 
 switchTracking newActivityID newInstanceIDMaybe oldProfile env =
     let
         addNewSwitch =
-            RepList.append [ newSwitch env.time newActivityID newInstanceIDMaybe ] oldProfile.timeline
+            RepList.append RepList.Last [ newSwitch env.time newActivityID newInstanceIDMaybe ] oldProfile.timeline
 
         oldInstanceIDMaybe =
             Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)

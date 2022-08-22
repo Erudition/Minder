@@ -1254,9 +1254,9 @@ type alias Store =
     ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
 
 
-storeCodec : Codec String Store Store
+storeCodec : Codec String () Store
 storeCodec =
-    Codec.pair
+    Codec.seedlessPair
         (Codec.repDict Template.codec builtInActivitySkelCodec)
         (Codec.repDb customActivitySkelCodec)
 

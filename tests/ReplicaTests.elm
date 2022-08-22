@@ -568,7 +568,7 @@ modifiedNestedStressTestIntegrityCheck =
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID subject)
             , test "the repList has been initialized and its ID is not a placeholder" <|
-                \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getID o.listOfNestedRecords)) False decodedNST
+                \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getPointer o.listOfNestedRecords)) False decodedNST
             ]
         , test "checking the decoded nested mess has the changes" <|
             \_ ->

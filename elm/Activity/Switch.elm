@@ -13,7 +13,7 @@ import IntDict exposing (IntDict)
 import Ionicon
 import Ionicon.Android as Android
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (SymCodec, coreR, coreRW, fieldDict, fieldList, field, fieldRW)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, coreRW, field, fieldDict, fieldList, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -35,13 +35,13 @@ type alias SwitchSkel =
 codec : SymCodec String Switch
 codec =
     let
-        skelCodec : SymCodec String SwitchSkel
+        skelCodec : Codec String SwitchSkel SwitchSkel
         skelCodec =
             Codec.record SwitchSkel
-                |> coreR ( 1, "moment" ) .moment Codec.moment
-                |> coreR ( 2, "newActivity" ) .newActivity Activity.Activity.idCodec
-                |> field ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing
-                |> Codec.finishRecord
+                |> coreR ( 1, "moment" ) .moment Codec.moment .moment
+                |> coreR ( 2, "newActivity" ) .newActivity Activity.Activity.idCodec .newActivity
+                |> Codec.seededR ( 3, "newActionMaybe" ) .newActionMaybe (Codec.maybe Codec.id) Nothing .newActionMaybe
+                |> Codec.finishSeededRecord
     in
     Codec.map Switch (\(Switch skel) -> skel) skelCodec
 

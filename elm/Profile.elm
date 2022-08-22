@@ -15,11 +15,11 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
-import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -68,14 +68,14 @@ type alias Profile =
 --         |> Codec.finishRecord
 
 
-codec : SymCodec String Profile
+codec : Codec String () Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
         |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
         |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
-        |> Codec.nestedField ( 5, "activities" ) .activities Activity.storeCodec
+        |> Codec.fieldReg ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
         |> Codec.field ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
@@ -110,7 +110,7 @@ emptyTodoistIntegrationData =
 
 saveWarnings : Profile -> Decode.Warnings -> Change
 saveWarnings appData warnings =
-    RepList.append [ Decode.warningsToString warnings ] appData.errors
+    RepList.append Last [ Decode.warningsToString warnings ] appData.errors
 
 
 saveDecodeErrors : Profile -> Decode.Errors -> Change
@@ -120,7 +120,7 @@ saveDecodeErrors appData errors =
 
 saveError : Profile -> String -> Change
 saveError appData error =
-    RepList.append [ error ] appData.errors
+    RepList.append Last [ error ] appData.errors
 
 
 

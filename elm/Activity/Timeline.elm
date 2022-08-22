@@ -21,7 +21,7 @@ import List.Extra as List
 import List.Nonempty exposing (..)
 import Log
 import Replicated.Change as Change exposing (Change)
-import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
@@ -60,12 +60,12 @@ currentActivity store switchList =
 
 startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> Change
 startTask time newActivityID instanceID timeline =
-    RepList.append [ Switch.newSwitch time newActivityID (Just instanceID) ] timeline
+    RepList.append Last [ Switch.newSwitch time newActivityID (Just instanceID) ] timeline
 
 
 startActivity : Moment -> ActivityID -> Timeline -> Change
 startActivity time newActivityID timeline =
-    RepList.append [ Switch.newSwitch time newActivityID Nothing ] timeline
+    RepList.append Last [ Switch.newSwitch time newActivityID Nothing ] timeline
 
 
 backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> List Change

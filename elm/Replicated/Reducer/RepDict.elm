@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Context(..))
+import Replicated.Change as Change exposing (Change, Changer, Context(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -25,7 +25,7 @@ type RepDict k v
         , members : AnyDict KeyAsString k (Member v)
         , included : Object.InclusionInfo
         , memberAdder : Change.SiblingIndex -> RepDictEntry k v -> Change.ObjectChange
-        , startWith : List ( k, v )
+        , startWith : Changer (RepDict k v)
         }
 
 
@@ -62,8 +62,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (Change.SiblingIndex -> RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> List ( k, v ) -> RepDict k v
-buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initEntries =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (Change.SiblingIndex -> RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> Changer (RepDict k v) -> RepDict k v
+buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChanger =
     let
         eventsAsMemberPairs : List ( k, Member v )
         eventsAsMemberPairs =
@@ -99,7 +99,7 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initEntri
         , members = AnyDict.fromList keyToString eventsAsMemberPairs
         , memberAdder = memberAdder
         , included = Object.getIncluded targetObject
-        , startWith = initEntries
+        , startWith = initChanger
         }
 
 
@@ -263,6 +263,6 @@ size (RepDict record) =
     AnyDict.size record.members
 
 
-getInit : RepDict k v -> List ( k, v )
-getInit (RepDict record) =
-    record.startWith
+getInit : RepDict k v -> List Change
+getInit ((RepDict record) as repDict) =
+    record.startWith repDict

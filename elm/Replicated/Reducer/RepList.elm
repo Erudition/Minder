@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getID, getStartMembers, head, headValue, insertNew, insertNewAndChange, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, insertNewAndChange, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Context(..), Pointer)
+import Replicated.Change as Change exposing (Change, Changer, Context(..), Pointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -26,7 +26,7 @@ type RepList memberType
         , members : List (Item memberType)
         , included : Object.InclusionInfo
         , memberAdder : Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange
-        , startWith : List memberType
+        , startWith : Changer (RepList memberType)
         }
 
 
@@ -52,8 +52,8 @@ last (RepList repList) =
     List.last repList.members
 
 
-getID : RepList memberType -> Change.Pointer
-getID (RepList repSet) =
+getPointer : RepList memberType -> Change.Pointer
+getPointer (RepList repSet) =
     repSet.pointer
 
 
@@ -68,8 +68,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange) -> List memberType -> RepList memberType
-buildFromReplicaDb targetObject payloadToMember memberAdder initMembers =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> RepList memberType
+buildFromReplicaDb targetObject payloadToMember memberAdder init =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
         compareEvents ( eventIDA, eventA ) ( eventIDB, eventB ) =
@@ -116,7 +116,7 @@ buildFromReplicaDb targetObject payloadToMember memberAdder initMembers =
         , members = sortedEventsAsItems
         , memberAdder = memberAdder
         , included = Object.getIncluded targetObject
-        , startWith = initMembers
+        , startWith = init
         }
 
 
@@ -239,9 +239,9 @@ length (RepList record) =
     List.length record.members
 
 
-getStartMembers : RepList memberType -> List memberType
-getStartMembers (RepList record) =
-    record.startWith
+getInit : RepList memberType -> List Change
+getInit ((RepList record) as repList) =
+    record.startWith repList
 
 
 {-| Insert an item at the given location, that must be created anew with a context clue.

@@ -21,6 +21,10 @@ type Change
         }
 
 
+type alias Changer o =
+    o -> List Change
+
+
 {-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
 -}
 type alias PotentialPayload =

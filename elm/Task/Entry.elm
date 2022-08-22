@@ -99,10 +99,10 @@ type alias SuperProject =
     }
 
 
-superProjectCodec : SymCodec String SuperProject
+superProjectCodec : Codec String () SuperProject
 superProjectCodec =
     Codec.record SuperProject
-        |> Codec.field ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.fieldList ( 2, "children" ) .children superProjectChildCodec
         |> Codec.finishRecord
 
