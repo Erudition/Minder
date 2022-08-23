@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), Screen(..), ViewState, buildModel, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (Model, Msg(..), Screen(..), ViewState, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
@@ -34,6 +34,7 @@ import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Codec as Codec exposing (Codec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Reducer.RepDb as RepDb
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
@@ -137,25 +138,33 @@ log label valueToLog =
 command for every step of the update function.
 -}
 updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
-updateWithStorage msg model =
-    let
-        ( newModel, newFrames, cmds ) =
-            update msg model
+updateWithStorage msg startModel =
+    case update msg startModel of
+        ( newModel, [], newCmds ) ->
+            ( newModel, newCmds )
 
-        { outputFrame, updatedNode } =
-            Node.apply (Just model.environment.time) model.node (List.head newFrames)
+        ( newModel, moreFrames, newCmds ) ->
+            let
+                ( finalModel, finalOutputFrame ) =
+                    List.foldl applyFrame ( newModel, [] ) moreFrames
 
-        updatedProfile =
-            case Codec.decodeFromNode Profile.codec model.node of
-                Ok newProfile ->
-                    newProfile
+                applyFrame givenFrame ( givenModel, outputsSoFar ) =
+                    let
+                        { outputFrame, updatedNode } =
+                            Node.apply (Just givenModel.environment.time) givenModel.node givenFrame
+                    in
+                    ( { newModel | node = updatedNode }, outputsSoFar ++ outputFrame )
+            in
+            case Codec.decodeFromNode Profile.codec finalModel.node of
+                Ok updatedProfile ->
+                    ( { finalModel | profile = updatedProfile }
+                    , Cmd.batch [ setStorage (Op.closedChunksToFrameText finalOutputFrame), newCmds ]
+                    )
 
                 Err _ ->
-                    model.profile
-    in
-    ( { newModel | node = updatedNode, profile = updatedProfile }
-    , Cmd.batch [ setStorage (Op.closedChunksToFrameText outputFrame), cmds ]
-    )
+                    ( startModel
+                    , newCmds
+                    )
 
 
 {-| Slips in before the real `update` function to pass in the current time.
@@ -180,14 +189,13 @@ updateWithTime msg ({ environment } as model) =
             , Job.perform (Tock submsg) Moment.now
             )
 
-        -- no storage change, just view
-        Tock NoOp time ->
-            let
-                newEnv =
-                    { environment | time = time }
-            in
-            update NoOp { model | environment = newEnv }
-
+        -- -- no storage change, just view
+        -- Tock NoOp time ->
+        --     let
+        --         newEnv =
+        --             { environment | time = time }
+        --     in
+        --     update NoOp { model | environment = newEnv }
         -- actually do the update
         Tock submsg time ->
             let
@@ -229,7 +237,11 @@ init maybeRon url maybeKey =
                         Ok { node, warnings } ->
                             case Codec.decodeFromNode Profile.codec node of
                                 Ok profile ->
-                                    buildModel profile url maybeKey
+                                    { viewState = viewUrl url
+                                    , profile = profile
+                                    , environment = Environment.preInit maybeKey
+                                    , node = node
+                                    }
 
                                 Err _ ->
                                     Debug.todo "profile failed to decode from node"
@@ -239,17 +251,20 @@ init maybeRon url maybeKey =
 
                 -- no ron stored at all
                 Nothing ->
-                    case decodeFromNode Profile.codec (Node.startNewNode Nothing []) of
-                        Ok { node, warnings } ->
-                            case Codec.decodeFromNode Profile.codec node of
-                                Ok profile ->
-                                    buildModel profile url maybeKey
-
-                                Err _ ->
-                                    Debug.todo "profile failed to decode from node"
+                    let
+                        { newNode, startFrame } =
+                            Node.startNewNode Nothing []
+                    in
+                    case decodeFromNode Profile.codec newNode of
+                        Ok profile ->
+                            { viewState = viewUrl url
+                            , profile = profile
+                            , environment = Environment.preInit maybeKey
+                            , node = newNode
+                            }
 
                         Err _ ->
-                            Debug.todo "could not init from saved ron"
+                            Debug.todo "profile failed to decode from node"
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel
@@ -282,14 +297,7 @@ type alias Model =
     { viewState : ViewState
     , profile : Profile
     , environment : Environment
-    }
-
-
-buildModel : Profile -> Url.Url -> Maybe Nav.Key -> Model
-buildModel profile url maybeKey =
-    { viewState = viewUrl url
-    , profile = profile
-    , environment = Environment.preInit maybeKey
+    , node : Node
     }
 
 
@@ -646,7 +654,11 @@ update msg ({ viewState, profile, environment } as model) =
     in
     case msg of
         ClearErrors ->
-            ( Model viewState { profile | errors = [] } environment, [], Cmd.none )
+            ( model
+              -- TODO Model viewState { profile | errors = [] } environment
+            , []
+            , Cmd.none
+            )
 
         ThirdPartySync service ->
             case service of
@@ -684,7 +696,8 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setBody whatHappened
                         |> Notif.setBigTextStyle True
             in
-            ( Model viewState newAppData environment
+            ( model
+              -- TODO Model viewState newAppData environment
             , []
             , notify [ notification ]
             )
@@ -692,10 +705,10 @@ update msg ({ viewState, profile, environment } as model) =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( newProfile1WithItems, whatHappened, nextStep ) =
-                    Marvin.handle (IntDict.size profile.taskClasses + 1000) profile environment response
+                    Marvin.handle (RepDb.size profile.taskClasses + 1000) profile environment response
 
                 newProfile2WithErrors =
-                    Profile.saveError newProfile1WithItems ("Synced with Marvin: \n" ++ whatHappened)
+                    Profile.saveError profile ("Synced with Marvin: \n" ++ whatHappened)
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
@@ -713,7 +726,8 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setAccentColor "green"
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
-            ( Model viewState newProfile2WithErrors environment
+            ( model
+              -- TODO Model viewState newProfile2WithErrors environment
             , []
             , Cmd.batch
                 [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
@@ -731,14 +745,14 @@ update msg ({ viewState, profile, environment } as model) =
 
                         Nothing ->
                             -- running headless
-                            ( model, Cmd.none )
+                            ( model, [], Cmd.none )
 
                 Browser.External href ->
                     justRunCommand <| Nav.load href
 
         NewUrl url ->
             let
-                ( modelAfter, effectsAfter ) =
+                ( modelAfter, changeFramesAfter, effectsAfter ) =
                     handleUrlTriggers url model
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
@@ -765,7 +779,11 @@ update msg ({ viewState, profile, environment } as model) =
                         ( newState, newFrame, newCommand ) =
                             TaskList.update subMsg subViewState profile environment
                     in
-                    ( Model (ViewState (TaskList newState) 0) profile environment, [ newFrame ], Cmd.map TaskListMsg newCommand )
+                    ( model
+                      -- TODO Model (ViewState (TaskList newState) 0) profile environment
+                    , [ newFrame ]
+                    , Cmd.map TaskListMsg newCommand
+                    )
 
         TimeTrackerMsg subMsg ->
             let
@@ -780,7 +798,11 @@ update msg ({ viewState, profile, environment } as model) =
                 ( newState, newApp, newCommand ) =
                     TimeTracker.update subMsg subViewState profile environment
             in
-            ( Model (ViewState (TimeTracker newState) 0) newApp environment, Cmd.map TimeTrackerMsg newCommand )
+            ( model
+            , []
+              -- TODO  Model (ViewState (TimeTracker newState) 0) newApp environment
+            , Cmd.map TimeTrackerMsg newCommand
+            )
 
         TimeflowMsg subMsg ->
             let
@@ -803,10 +825,10 @@ update msg ({ viewState, profile, environment } as model) =
                         _ ->
                             viewState
             in
-            ( Model newViewState newApp environment, Cmd.map TimeflowMsg newCommand )
+            ( model, [], Cmd.map TimeflowMsg newCommand )
 
         _ ->
-            ( model, Cmd.none )
+            ( model, [], Cmd.none )
 
 
 
@@ -870,7 +892,7 @@ routeParser =
 
 {-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
 -}
-handleUrlTriggers : Url.Url -> Model -> ( Model, Cmd Msg )
+handleUrlTriggers : Url.Url -> Model -> ( Model, List Change.Frame, Cmd Msg )
 handleUrlTriggers rawUrl ({ profile, environment } as model) =
     let
         url =
@@ -944,13 +966,14 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
             case ( parsedUrlSuccessfully, normalizedUrl.query ) of
                 ( Just triggerMsg, Just _ ) ->
                     let
-                        ( newModel, newCmd ) =
+                        ( newModel, newFrames, newCmd ) =
                             update triggerMsg model
 
                         newCmdWithUrlCleaner =
                             Cmd.batch [ newCmd, removeTriggersFromUrl ]
                     in
                     ( newModel
+                    , []
                     , newCmdWithUrlCleaner
                     )
 
@@ -962,24 +985,32 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
                                 ++ " parsers matched key and value: "
                                 ++ query
                     in
-                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
+                    ( model
+                    , []
+                      -- TODO { model | profile = saveError profile problemText }
+                    , External.Commands.toast problemText
+                    )
 
                 ( Just triggerMsg, Nothing ) ->
                     let
                         problemText =
                             "Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!"
                     in
-                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
+                    ( model
+                    , []
+                      --TODO { model | profile = saveError profile problemText }
+                    , External.Commands.toast problemText
+                    )
 
                 ( Nothing, Nothing ) ->
-                    ( model, Cmd.none )
+                    ( model, [], Cmd.none )
 
         Nothing ->
             -- Failed to parse URL Query - was there one?
             case normalizedUrl.query of
                 Nothing ->
                     -- Perfectly normal - failed to parse triggers because there were none.
-                    ( model, Cmd.none )
+                    ( model, [], Cmd.none )
 
                 Just queriesPresent ->
                     -- passed a query that we didn't understand! Fail gracefully
@@ -987,7 +1018,11 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
                         problemText =
                             "URL: not sure what to do with: " ++ queriesPresent ++ ", so I just left it there. Is the trigger misspelled?"
                     in
-                    ( { model | profile = saveError profile problemText }, External.Commands.toast problemText )
+                    ( model
+                    , []
+                      -- TODO { model | profile = saveError profile problemText }
+                    , External.Commands.toast problemText
+                    )
 
 
 nerfUrl : Url.Url -> Url.Url
