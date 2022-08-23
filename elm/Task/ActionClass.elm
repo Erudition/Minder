@@ -52,6 +52,10 @@ type alias ActionClassSkel =
     }
 
 
+newActionClassSkel c title changer =
+    Codec.initWithAndChange codec c title changer
+
+
 codec : Codec String String ActionClassSkel
 codec =
     Codec.record ActionClassSkel

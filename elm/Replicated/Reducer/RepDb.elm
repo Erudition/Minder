@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, add, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size)
 
 import Array exposing (Array)
 import Console
@@ -10,7 +10,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer)
+import Replicated.Change as Change exposing (Change, Changer, Context(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -135,8 +135,24 @@ size (RepDb record) =
     AnyDict.size record.members
 
 
-add : List memberType -> RepDb memberType -> Change
-add newMembers (RepDb record) =
+addNew : Creator memberType -> RepDb memberType -> Change
+addNew newMemberCreator (RepDb record) =
+    let
+        newMember =
+            newMemberCreator (Context record.pointer)
+    in
+    Change.Chunk
+        { target = record.pointer
+        , objectChanges = [ record.memberAdder newMember ]
+        }
+
+
+addMultipleNew : Creator (List memberType) -> RepDb memberType -> Change
+addMultipleNew newMembersCreator (RepDb record) =
+    let
+        newMembers =
+            newMembersCreator (Context record.pointer)
+    in
     Change.Chunk
         { target = record.pointer
         , objectChanges = List.map record.memberAdder newMembers
@@ -183,7 +199,7 @@ getInit ((RepDb record) as repDb) =
 --                     [ record.memberAdder newItem Nothing ]
 --
 --                 ( [], Nothing ) ->
---                     Log.crashInDev "Should never happen, no item generated to add to list" []
+--                     Log.crashInDev "Should never happen, no item generated to addNew to list" []
 --
 --                 ( nonEmptyChangeList, _ ) ->
 --                     newItemChangesAsRepDbObjectChanges

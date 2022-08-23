@@ -25,6 +25,10 @@ type alias Changer o =
     o -> List Change
 
 
+type alias Creator a =
+    Context -> a
+
+
 {-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
 -}
 type alias PotentialPayload =

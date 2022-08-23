@@ -45,7 +45,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.ActionClass as Class exposing (ActionClassID)
+import Task.ActionClass as Class exposing (ActionClass, ActionClassID)
 import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, instanceProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
@@ -212,7 +212,7 @@ viewTasks env filter trackedTaskMaybe tasks =
 
 viewKeyedTask : Environment -> Maybe AssignedActionID -> AssignedAction -> ( String, Html Msg )
 viewKeyedTask env trackedTaskMaybe task =
-    ( String.fromInt task.instance.id, lazy3 viewTask env trackedTaskMaybe task )
+    ( Instance.getIDString task, lazy3 viewTask env trackedTaskMaybe task )
 
 
 
@@ -247,11 +247,11 @@ viewTask env trackedTaskMaybe task =
                         [ justifyContent Css.end
                         ]
                     ]
-                    [ if SmartTime.Duration.isZero task.class.minEffort then
+                    [ if SmartTime.Duration.isZero (Instance.getMinEffort task) then
                         text ""
 
                       else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
                     ]
                 , div
                     [ class "task-bubble"
@@ -276,11 +276,11 @@ viewTask env trackedTaskMaybe task =
                         , textAlign center
                         ]
                     ]
-                    [ if SmartTime.Duration.isZero task.class.predictedEffort then
+                    [ if SmartTime.Duration.isZero (Instance.getPredictedEffort task) then
                         text ""
 
                       else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
                     ]
                 , div
                     [ class "maximum-duration"
@@ -288,21 +288,21 @@ viewTask env trackedTaskMaybe task =
                         [ justifyContent Css.end
                         ]
                     ]
-                    [ if SmartTime.Duration.isZero task.class.maxEffort then
+                    [ if SmartTime.Duration.isZero (Instance.getMaxEffort task) then
                         text ""
 
                       else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes task.class.predictedEffort)))
+                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
                     ]
                 ]
             , div [ class "title-and-details" ]
                 [ label
-                    [ onDoubleClick (EditingTitle task.instance.id True)
-                    , onClick (FocusSlider task.instance.id True)
-                    , css [ fontWeight (Css.int <| Basics.round (task.class.importance * 200 + 200)), pointerEvents none ]
+                    [ onDoubleClick (EditingTitle task True)
+                    , onClick (FocusSlider task True)
+                    , css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
                     , class "task-title"
                     ]
-                    [ span [ class "task-title-text" ] [ text task.class.title ]
+                    [ span [ class "task-title-text" ] [ text <| Instance.getTitle task ]
                     , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
                     ]
                 , timingInfo env task
@@ -334,12 +334,12 @@ viewTask env trackedTaskMaybe task =
             ]
         , input
             [ class "edit"
-            , value task.class.title
+            , value <| Instance.getTitle task
             , name "title"
-            , id ("task-" ++ String.fromInt task.instance.id)
-            , onInput (UpdateTitle task.instance.id)
-            , onBlur (EditingTitle task.instance.id False)
-            , onEnter (EditingTitle task.instance.id False)
+            , id ("task-" ++ Instance.getIDString task)
+            , onInput (UpdateTitle task)
+            , onBlur (EditingTitle task False)
+            , onEnter (EditingTitle task False)
             ]
             []
         ]
@@ -412,7 +412,7 @@ activityColor task =
         activityDerivation n =
             modBy 360 ((n + 1) * 333)
     in
-    case Maybe.map ID.read task.class.activity of
+    case Maybe.map String.length (Instance.getActivityIDString task) of
         Just activityNumber ->
             let
                 hue =
@@ -435,15 +435,15 @@ taskTooltip env task =
     String.concat <|
         List.intersperse "\n" <|
             List.filterMap identity
-                ([ Just ("Class ID: " ++ String.fromInt task.class.id)
-                 , Just ("Instance ID: " ++ String.fromInt task.instance.id)
-                 , Maybe.map (ID.read >> String.fromInt >> String.append "activity ID: ") task.class.activity
-                 , Just ("importance: " ++ String.fromFloat task.class.importance)
-                 , Just ("progress: " ++ Task.Progress.toString ( task.instance.completion, task.class.completionUnits ))
-                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") task.instance.relevanceStarts
-                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") task.instance.relevanceEnds
+                ([ Just ("Class ID: " ++ Instance.getClassIDString task)
+                 , Just ("Instance ID: " ++ Instance.getIDString task)
+                 , Maybe.map (String.append "activity ID: ") (Instance.getActivityIDString task)
+                 , Just ("importance: " ++ String.fromFloat (Instance.getImportance task))
+                 , Just ("progress: " ++ Task.Progress.toString (Instance.getProgress task))
+                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") (Instance.getRelevanceStarts task)
+                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") (Instance.getRelevanceEnds task)
                  ]
-                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (Dict.toList task.instance.extra)
+                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list task.instance.extra)
                 )
 
 
@@ -469,9 +469,9 @@ progressSlider task =
                 "any"
             )
         , onInput (extractSliderInput task)
-        , onDoubleClick (EditingTitle task.instance.id True)
-        , onFocus (FocusSlider task.instance.id True)
-        , onBlur (FocusSlider task.instance.id False)
+        , onDoubleClick (EditingTitle task True)
+        , onFocus (FocusSlider task True)
+        , onBlur (FocusSlider task False)
         , dynamicSliderThumbCss (getNormalizedPortion (instanceProgress task))
         ]
         []
@@ -523,7 +523,7 @@ timingInfo env task =
             describeEffort task
 
         uniquePrefix =
-            "task-" ++ String.fromInt task.instance.id ++ "-"
+            "task-" ++ ID.toString (Instance.getID task) ++ "-"
 
         dateLabelNameAndID : String
         dateLabelNameAndID =
@@ -532,8 +532,8 @@ timingInfo env task =
         dueDate_editable =
             editableDateLabel env
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.instance.externalDeadline)
-                (attemptDateChange env task.instance.id task.instance.externalDeadline "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.instance.externalDeadline.get)
+                (attemptDateChange env task task.instance.externalDeadline.get "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -542,10 +542,10 @@ timingInfo env task =
             editableTimeLabel env
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange env task.instance.id task.instance.externalDeadline "Due")
+                (attemptTimeChange env task task.instance.externalDeadline.get "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.instance.externalDeadline of
+            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.instance.externalDeadline.get of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -627,7 +627,7 @@ describeEffort task =
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort task.class.minEffort, sayEffort task.class.predictedEffort, sayEffort task.class.maxEffort ) of
+    case ( sayEffort (Instance.getMinEffort task), sayEffort (Instance.getPredictedEffort task), sayEffort (Instance.getMaxEffort task) ) of
         ( [], [], [] ) ->
             ""
 
@@ -659,7 +659,7 @@ describeTaskPlan env fullSession =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> ActionClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : Environment -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange env task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -683,7 +683,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> ActionClassID -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : Environment -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -825,14 +825,14 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle ActionClassID Bool
-    | UpdateTitle ActionClassID String
+    | EditingTitle AssignedAction Bool
+    | UpdateTitle AssignedAction String
     | Add
     | Delete AssignedActionID
     | DeleteComplete
     | UpdateProgress AssignedAction Portion
-    | FocusSlider ActionClassID Bool
-    | UpdateTaskDate ActionClassID String (Maybe FuzzyMoment)
+    | FocusSlider AssignedAction Bool
+    | UpdateTaskDate AssignedAction String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
@@ -855,22 +855,27 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle ->
                     let
-                        newClassInit newClass =
-                            [ newClass.title.set (Class.normalizeTitle newTaskTitle)
-                            , RepList.spawnWithChanges (newEntryInit newClassID) profile.taskEntries
-                            , RepDb.spawnWithChanges (newInstanceInit newClassID) profile.taskInstances
+                        newClassInit c =
+                            Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
+
+                        newClassChanger newClass =
+                            [-- RepList.insertNew RepList.Last (newEntryInit (newClassID)) profile.taskEntries
+                             -- , RepDb.addNew (newInstanceInit newClassID) profile.taskInstances
                             ]
 
                         newEntryInit newClassID entry =
-                            Task.Entry.initWithClass entry newClassID
+                            Entry.initWithClass entry newClassID
 
                         newInstanceInit newClassID newInstance =
                             [ newInstance.classID.set newClassID
                             ]
+
+                        frameDescription =
+                            "Added new task class: " ++ newTaskTitle
                     in
                     ( Normal filters Nothing ""
                       -- ^resets new-entry-textbox to empty, collapses tasks
-                    , [ RepDb.spawnWithChanges (\newClass -> []) profile.taskClasses ]
+                    , Change.saveChanges frameDescription [ RepDb.addNew newClassInit profile.taskClasses ]
                     , Cmd.none
                     )
 
@@ -885,45 +890,49 @@ update msg state profile env =
             , Cmd.none
             )
 
-        EditingTitle id isEditing ->
+        EditingTitle class isEditing ->
             let
                 updateTask t =
                     t
 
                 -- TODO editing should be a viewState thing, not a task prop
                 focus =
-                    Browser.Dom.focus ("task-" ++ String.fromInt id)
+                    Browser.Dom.focus ("task-" ++ ID.toString class.classID)
             in
-            ( state
-            , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
-            , Job.attempt (\_ -> NoOp) focus
-            )
+            -- ( state
+            -- , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
+            -- , Job.attempt (\_ -> NoOp) focus
+            -- )
+            Debug.todo "editing title"
 
-        UpdateTitle classID task ->
+        UpdateTitle class task ->
             let
                 updateTitle t =
                     { t | title = task }
             in
-            ( state
-            , { profile | taskClasses = IntDict.update classID (Maybe.map updateTitle) profile.taskClasses }
-            , Cmd.none
-            )
+            -- ( state
+            -- , { profile | taskClasses = IntDict.update classID (Maybe.map updateTitle) profile.taskClasses }
+            -- , Cmd.none
+            -- )
+            Debug.todo "UpdateTitle"
 
         UpdateTaskDate id field date ->
             let
                 updateTask t =
                     { t | externalDeadline = date }
             in
-            ( state
-            , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
-            , Cmd.none
-            )
+            -- ( state
+            -- , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
+            -- , Cmd.none
+            -- )
+            Debug.todo "UpdateTaskDate"
 
         Delete id ->
-            ( state
-            , { profile | taskInstances = IntDict.remove id profile.taskInstances }
-            , Cmd.none
-            )
+            -- ( state
+            -- , { profile | taskInstances = IntDict.remove id profile.taskInstances }
+            -- , Cmd.none
+            -- )
+            Debug.todo "Delete"
 
         DeleteComplete ->
             ( state
@@ -932,57 +941,58 @@ update msg state profile env =
             , Cmd.none
             )
 
-        UpdateProgress givenTask new_completion ->
-            let
-                updateTaskInstance t =
-                    { t | completion = new_completion }
-
-                oldProgress =
-                    Instance.instanceProgress givenTask
-
-                profile1WithUpdatedInstance =
-                    { profile | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) profile.taskInstances }
-            in
-            -- how does the new completion status compare to the previous?
-            case ( isMax oldProgress, isMax ( new_completion, getUnits oldProgress ) ) of
-                ( False, True ) ->
-                    let
-                        ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
-                            update (StopTracking (Instance.getID givenTask)) state profile1WithUpdatedInstance env
-                    in
-                    ( viewState2
-                    , profile2WithTrackingStopped
-                    , -- It was incomplete before, completed now
-                      Cmd.batch
-                        [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
-
-                        --, Cmd.map TodoistServerResponse <|
-                        --    Integrations.Todoist.sendChanges profile.todoist
-                        --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                        , Cmd.map MarvinServerResponse <|
-                            Marvin.updateDocOfItem env.time
-                                [ "done", "doneAt" ]
-                                { givenTask | instance = updateTaskInstance givenTask.instance }
-                        , trackingStoppedCmds
-                        ]
-                    )
-
-                ( True, False ) ->
-                    -- It was complete before, but now marked incomplete
-                    ( state
-                    , profile1WithUpdatedInstance
-                    , Cmd.batch
-                        [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
-
-                        -- , Cmd.map TodoistServerResponse <|
-                        --     Integrations.Todoist.sendChanges profile.todoist
-                        --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
-                        ]
-                    )
-
-                _ ->
-                    -- nothing changed, completion-wise
-                    ( state, profile1WithUpdatedInstance, Cmd.none )
+        UpdateProgress givenTask newCompletion ->
+            -- let
+            --     updateTaskInstance t =
+            --         Instance.setCompletion newCompletion
+            --
+            --     oldProgress =
+            --         Instance.instanceProgress givenTask
+            --
+            --     profile1WithUpdatedInstance =
+            --         { profile | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) profile.taskInstances }
+            -- in
+            -- -- how does the new completion status compare to the previous?
+            -- case ( isMax oldProgress, isMax ( newCompletion, getUnits oldProgress ) ) of
+            --     ( False, True ) ->
+            --         let
+            --             ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
+            --                 update (StopTracking (Instance.getID givenTask)) state profile1WithUpdatedInstance env
+            --         in
+            --         ( viewState2
+            --         , profile2WithTrackingStopped
+            --         , -- It was incomplete before, completed now
+            --           Cmd.batch
+            --             [ Commands.toast ("Marked as complete: " ++ givenTask.class.title)
+            --
+            --             --, Cmd.map TodoistServerResponse <|
+            --             --    Integrations.Todoist.sendChanges profile.todoist
+            --             --        [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemClose (TodoistCommand.RealItem givenTask.instance.id) ) ]
+            --             , Cmd.map MarvinServerResponse <|
+            --                 Marvin.updateDocOfItem env.time
+            --                     [ "done", "doneAt" ]
+            --                     { givenTask | instance = updateTaskInstance givenTask.instance }
+            --             , trackingStoppedCmds
+            --             ]
+            --         )
+            --
+            --     ( True, False ) ->
+            --         -- It was complete before, but now marked incomplete
+            --         ( state
+            --         , profile1WithUpdatedInstance
+            --         , Cmd.batch
+            --             [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
+            --
+            --             -- , Cmd.map TodoistServerResponse <|
+            --             --     Integrations.Todoist.sendChanges profile.todoist
+            --             --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
+            --             ]
+            --         )
+            --
+            --     _ ->
+            --         -- nothing changed, completion-wise
+            --         ( state, profile1WithUpdatedInstance, Cmd.none )
+            Debug.todo "completion update"
 
         FocusSlider task focused ->
             ( state
@@ -1019,39 +1029,41 @@ update msg state profile env =
             )
 
         StartTracking instanceID activityID ->
-            let
-                ( newProfile1WithSwitch, switchCommands ) =
-                    Refocus.switchTracking activityID (Just instanceID) profile env
-
-                ( newProfile2WithMarvinTimes, marvinCmds ) =
-                    Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
-            in
-            ( state
-            , newProfile2WithMarvinTimes
-            , Cmd.batch
-                [ Cmd.map MarvinServerResponse <| marvinCmds
-                , switchCommands
-                ]
-            )
+            -- let
+            --     ( addSwitch, switchCommands ) =
+            --         Refocus.switchTracking activityID (Just instanceID) profile env
+            --
+            --     ( newProfile2WithMarvinTimes, marvinCmds ) =
+            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
+            -- in
+            -- ( state
+            -- , newProfile2WithMarvinTimes
+            -- , Cmd.batch
+            --     [ Cmd.map MarvinServerResponse <| marvinCmds
+            --     , switchCommands
+            --     ]
+            -- )
+            Debug.todo "start tracking"
 
         StopTracking instanceID ->
-            let
-                activityToContinue =
-                    Activity.Timeline.currentActivityID profile.timeline
-
-                instanceToStop =
-                    Activity.Timeline.currentInstanceID profile.timeline
-
-                ( newProfile1WithSwitch, switchCommands ) =
-                    Refocus.switchTracking activityToContinue Nothing profile env
-
-                ( newProfile2WithMarvinTimes, marvinCmds ) =
-                    Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False
-            in
-            ( state
-            , newProfile2WithMarvinTimes
-            , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, switchCommands ]
-            )
+            -- let
+            --     activityToContinue =
+            --         Activity.Timeline.currentActivityID profile.timeline
+            --
+            --     instanceToStop =
+            --         Activity.Timeline.currentInstanceID profile.timeline
+            --
+            --     ( newProfile1WithSwitch, switchCommands ) =
+            --         Refocus.switchTracking activityToContinue Nothing profile env
+            --
+            --     ( newProfile2WithMarvinTimes, marvinCmds ) =
+            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False
+            -- in
+            -- ( state
+            -- , newProfile2WithMarvinTimes
+            -- , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, switchCommands ]
+            -- )
+            Debug.todo "stop tracking"
 
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
@@ -1064,7 +1076,7 @@ urlTriggers profile env =
             List.map doneTriggerEntry allFullTaskInstances
 
         doneTriggerEntry fullInstance =
-            ( String.fromInt (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
+            ( ID.toString (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
 
         taskIDsWithStartMsg =
             List.filterMap startTriggerEntry allFullTaskInstances
@@ -1081,7 +1093,7 @@ urlTriggers profile env =
 
                 Just hasActivityID ->
                     Just
-                        ( String.fromInt (Instance.getID fullInstance)
+                        ( ID.toString (Instance.getID fullInstance)
                         , StartTracking (Instance.getID fullInstance) hasActivityID
                         , StopTracking (Instance.getID fullInstance)
                         )

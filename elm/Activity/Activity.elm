@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getAllIncludingHidden, getByID, getExternalID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, isShowing, setExternalID, storeCodec, totalCount, unknown)
+module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getAllIncludingHidden, getByID, getExternalID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, idToString, isShowing, setExternalID, storeCodec, totalCount, unknown)
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
@@ -58,6 +58,11 @@ idCodec =
         |> Codec.variant1 ( 1, "BuiltInActivity" ) BuiltInActivityID Template.codec
         |> Codec.variant2 ( 2, "CustomActivity" ) CustomActivityID Template.codec Codec.id
         |> Codec.finishCustomType
+
+
+idToString : ActivityID -> String
+idToString activityID =
+    Codec.encodeToJsonString idCodec activityID
 
 
 {-| What's going on here?

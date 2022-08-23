@@ -1,4 +1,4 @@
-port module Main exposing (JsonAppDatabase, Model, Msg(..), Screen(..), ViewState, buildModel, emptyViewState, infoFooter, init, main, profileFromJson, profileToJson, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (Model, Msg(..), Screen(..), ViewState, buildModel, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
@@ -30,7 +30,10 @@ import Log
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (..)
+import Replicated.Change as Change exposing (Change, Frame)
+import Replicated.Codec as Codec exposing (Codec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Op.Op as Op exposing (Op)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)
@@ -45,7 +48,7 @@ import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
 
 
-main : Program (Maybe JsonAppDatabase) Model Msg
+main : Program (Maybe String) Model Msg
 main =
     Browser.application
         { init = initGraphical
@@ -118,7 +121,7 @@ decodeButtons =
     ClassicDecode.field "buttons" (ClassicDecode.map (\buttons -> buttons == 1) ClassicDecode.int)
 
 
-port setStorage : JsonAppDatabase -> Cmd msg
+port setStorage : String -> Cmd msg
 
 
 port storageChangedElsewhere : (String -> msg) -> Sub msg
@@ -136,11 +139,22 @@ command for every step of the update function.
 updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg model =
     let
-        ( newModel, cmds ) =
+        ( newModel, newFrames, cmds ) =
             update msg model
+
+        { outputFrame, updatedNode } =
+            Node.apply (Just model.environment.time) model.node (List.head newFrames)
+
+        updatedProfile =
+            case Codec.decodeFromNode Profile.codec model.node of
+                Ok newProfile ->
+                    newProfile
+
+                Err _ ->
+                    model.profile
     in
-    ( newModel
-    , Cmd.batch [ setStorage (profileToJson newModel.profile), cmds ]
+    ( { newModel | node = updatedNode, profile = updatedProfile }
+    , Cmd.batch [ setStorage (Op.closedChunksToFrameText outputFrame), cmds ]
     )
 
 
@@ -196,33 +210,46 @@ updateWithTime msg ({ environment } as model) =
             updateWithTime (Tick msg) model
 
 
-initGraphical : Maybe JsonAppDatabase -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+type alias StoredRON =
+    String
+
+
+initGraphical : Maybe StoredRON -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 initGraphical maybeJson url key =
     init maybeJson url (Just key)
 
 
-init : Maybe JsonAppDatabase -> Url.Url -> Maybe Nav.Key -> ( Model, Cmd Msg )
-init maybeJson url maybeKey =
+init : Maybe StoredRON -> Url.Url -> Maybe Nav.Key -> ( Model, Cmd Msg )
+init maybeRon url maybeKey =
     let
         startingModel =
-            case maybeJson of
-                Just jsonAppDatabase ->
-                    case profileFromJson jsonAppDatabase of
-                        Success savedAppData ->
-                            buildModel savedAppData url maybeKey
+            case maybeRon of
+                Just foundRon ->
+                    case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } foundRon of
+                        Ok { node, warnings } ->
+                            case Codec.decodeFromNode Profile.codec node of
+                                Ok profile ->
+                                    buildModel profile url maybeKey
 
-                        WithWarnings warnings savedAppData ->
-                            buildModel (Profile.saveWarnings savedAppData warnings) url maybeKey
+                                Err _ ->
+                                    Debug.todo "profile failed to decode from node"
 
-                        Errors errors ->
-                            buildModel (Profile.saveDecodeErrors Profile.fromScratch errors) url maybeKey
+                        Err _ ->
+                            Debug.todo "could not init from saved ron"
 
-                        BadJson ->
-                            buildModel Profile.fromScratch url maybeKey
-
-                -- no json stored at all
+                -- no ron stored at all
                 Nothing ->
-                    buildModel Profile.fromScratch url maybeKey
+                    case decodeFromNode Profile.codec (Node.startNewNode Nothing []) of
+                        Ok { node, warnings } ->
+                            case Codec.decodeFromNode Profile.codec node of
+                                Ok profile ->
+                                    buildModel profile url maybeKey
+
+                                Err _ ->
+                                    Debug.todo "profile failed to decode from node"
+
+                        Err _ ->
+                            Debug.todo "could not init from saved ron"
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel
@@ -264,20 +291,6 @@ buildModel profile url maybeKey =
     , profile = profile
     , environment = Environment.preInit maybeKey
     }
-
-
-type alias JsonAppDatabase =
-    String
-
-
-profileFromJson : JsonAppDatabase -> DecodeResult Profile
-profileFromJson incomingJson =
-    Decode.decodeString decodeProfile incomingJson
-
-
-profileToJson : Profile -> JsonAppDatabase
-profileToJson appData =
-    Encode.encode 0 (encodeProfile appData)
 
 
 type alias ViewState =
@@ -622,18 +635,18 @@ type ThirdPartyResponse
 -- How we update our Model on a given Msg?
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, List Change.Frame, Cmd Msg )
 update msg ({ viewState, profile, environment } as model) =
     let
         justRunCommand command =
-            ( model, command )
+            ( model, [], command )
 
         justSetEnv newEnv =
-            ( Model viewState profile newEnv, Cmd.none )
+            ( Model viewState profile newEnv, [], Cmd.none )
     in
     case msg of
         ClearErrors ->
-            ( Model viewState { profile | errors = [] } environment, Cmd.none )
+            ( Model viewState { profile | errors = [] } environment, [], Cmd.none )
 
         ThirdPartySync service ->
             case service of
@@ -672,6 +685,7 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setBigTextStyle True
             in
             ( Model viewState newAppData environment
+            , []
             , notify [ notification ]
             )
 
@@ -700,6 +714,7 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
             ( Model viewState newProfile2WithErrors environment
+            , []
             , Cmd.batch
                 [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
                 , notify [ notification ]
@@ -728,7 +743,7 @@ update msg ({ viewState, profile, environment } as model) =
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( { modelAfter | viewState = viewUrl url }, effectsAfter )
+            ( { modelAfter | viewState = viewUrl url }, [], effectsAfter )
 
         TaskListMsg subMsg ->
             case subMsg of
@@ -747,10 +762,10 @@ update msg ({ viewState, profile, environment } as model) =
                                 _ ->
                                     TaskList.defaultView
 
-                        ( newState, newApp, newCommand ) =
+                        ( newState, newFrame, newCommand ) =
                             TaskList.update subMsg subViewState profile environment
                     in
-                    ( Model (ViewState (TaskList newState) 0) newApp environment, Cmd.map TaskListMsg newCommand )
+                    ( Model (ViewState (TaskList newState) 0) profile environment, [ newFrame ], Cmd.map TaskListMsg newCommand )
 
         TimeTrackerMsg subMsg ->
             let
@@ -789,24 +804,6 @@ update msg ({ viewState, profile, environment } as model) =
                             viewState
             in
             ( Model newViewState newApp environment, Cmd.map TimeflowMsg newCommand )
-
-        NewAppData newJSON ->
-            let
-                maybeNewApp =
-                    profileFromJson newJSON
-            in
-            case maybeNewApp of
-                Success savedAppData ->
-                    ( Model viewState savedAppData environment, toast "Synced with another browser tab!" )
-
-                WithWarnings warnings savedAppData ->
-                    ( Model viewState (Profile.saveWarnings savedAppData warnings) environment, Cmd.none )
-
-                Errors errors ->
-                    ( Model viewState (Profile.saveDecodeErrors profile errors) environment, Cmd.none )
-
-                BadJson ->
-                    ( Model viewState (Profile.saveError profile "Got bad JSON from cross-sync") environment, Cmd.none )
 
         _ ->
             ( model, Cmd.none )

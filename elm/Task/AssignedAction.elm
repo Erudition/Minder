@@ -1,6 +1,6 @@
 module Task.AssignedAction exposing (..)
 
-import Activity.Activity exposing (ActivityID)
+import Activity.Activity as Activity exposing (ActivityID)
 import Dict exposing (Dict)
 import ExtraCodecs as Codec
 import ID exposing (ID)
@@ -266,6 +266,16 @@ getID ins =
     ins.instanceID
 
 
+getIDString : AssignedAction -> String
+getIDString ins =
+    ID.toString ins.instanceID
+
+
+getClassIDString : AssignedAction -> String
+getClassIDString ins =
+    ID.toString ins.classID
+
+
 getTitle : AssignedAction -> String
 getTitle ins =
     ins.class.title.get
@@ -276,9 +286,19 @@ getActivityID ins =
     ins.class.activity.get
 
 
+getActivityIDString : AssignedAction -> Maybe String
+getActivityIDString ins =
+    Maybe.map Activity.idToString ins.class.activity.get
+
+
 getProgress : AssignedAction -> Progress
 getProgress instance =
     ( instance.instance.completion.get, instance.class.completionUnits.get )
+
+
+setCompletion : Portion -> AssignedAction -> Change
+setCompletion newPortion instance =
+    instance.instance.completion.set newPortion
 
 
 getProgressMaxInt : AssignedAction -> Portion
@@ -289,6 +309,36 @@ getProgressMaxInt instance =
 getCompletionInt : AssignedAction -> Int
 getCompletionInt instance =
     instance.instance.completion.get
+
+
+getImportance : AssignedAction -> Float
+getImportance instance =
+    instance.class.importance.get
+
+
+getRelevanceStarts : AssignedAction -> Maybe FuzzyMoment
+getRelevanceStarts instance =
+    instance.instance.relevanceStarts.get
+
+
+getRelevanceEnds : AssignedAction -> Maybe FuzzyMoment
+getRelevanceEnds instance =
+    instance.instance.relevanceEnds.get
+
+
+getMinEffort : AssignedAction -> Duration
+getMinEffort instance =
+    instance.class.minEffort.get
+
+
+getPredictedEffort : AssignedAction -> Duration
+getPredictedEffort instance =
+    instance.class.predictedEffort.get
+
+
+getMaxEffort : AssignedAction -> Duration
+getMaxEffort instance =
+    instance.class.maxEffort.get
 
 
 getExtra : String -> AssignedAction -> Maybe String

@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Context(..))
+import Replicated.Change as Change exposing (Change, Changer, Context(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -146,50 +146,19 @@ bulkInsert newItems (RepDict record) =
 {-| Insert an entry whose value needs a context clue for initialization.
 The new value will be generated from the function you pass, which has the `Context` as its input.
 
-    - If you don't need a context (e.g. you are addding an already-saved reptype), just use `insert`.
+    - If you don't need a context (e.g. you are adding an already-saved reptype), just use `insert`.
 
 -}
-insertNew : k -> (Context -> v) -> RepDict k v -> Change
-insertNew key newValueFromContext repDict =
-    insertNewAndChange key newValueFromContext (\_ -> []) repDict
-
-
-{-| Insert an entry whose value needs a context clue for initialization, and make some changes to it!
-The new item will be generated from the function (1) you pass, which has the `Context` as its input.
-Upon saving, the changes will be applied to the new object in the way specified by your changer function (2), which takes the new object as its input.
-
-    - If you don't need to make any changes this frame, just use `insertNew`.
-
--}
-insertNewAndChange : k -> (Context -> v) -> (v -> List Change) -> RepDict k v -> Change
-insertNewAndChange key newValueFromContext valueChanger (RepDict record) =
+insertNew : k -> Creator v -> RepDict k v -> Change
+insertNew key newValueFromContext (RepDict repDictRecord) =
     let
         newValue =
-            newValueFromContext (Change.Context record.pointer)
-
-        newValueChanges =
-            valueChanger newValue
-                -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
-                |> Change.combineChangesOfSameTarget
-
-        newValueChangesAsRepDictObjectChanges =
-            List.map wrapSubChange newValueChanges
-
-        wrapSubChange subChange =
-            Change.NewPayload (Change.changeToChangePayload subChange)
-
-        objectChangeList =
-            case newValueChangesAsRepDictObjectChanges of
-                [] ->
-                    [ record.memberAdder 0 (Present key newValue) ]
-
-                nonEmptyChangeList ->
-                    newValueChangesAsRepDictObjectChanges
+            newValueFromContext (Change.Context repDictRecord.pointer)
     in
     Change.Chunk
-        { target = record.pointer
+        { target = repDictRecord.pointer
         , objectChanges =
-            objectChangeList
+            [ repDictRecord.memberAdder 0 (Present key newValue) ]
         }
 
 

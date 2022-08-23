@@ -91,11 +91,11 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
-startNewNode nowMaybe rootChange =
+startNewNode : Maybe Moment -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
+startNewNode nowMaybe startChanges =
     let
         firstChangeFrame =
-            Change.saveChanges "Node initialized" [ rootChange ]
+            Change.saveChanges "Node initialized" startChanges
 
         { updatedNode, created, outputFrame } =
             apply nowMaybe testNode firstChangeFrame
