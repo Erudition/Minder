@@ -9,8 +9,8 @@ import List.Extra
 import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
-import Replicated.Change as Change
-import Replicated.Codec as RC exposing (SymCodec, decodeFromNode)
+import Replicated.Change as Change exposing (Context, Creator)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
@@ -34,17 +34,17 @@ suite =
         ]
 
 
-nodeFromCodec : SymCodec e profile -> { startNode : Node, result : Result (RC.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+nodeFromCodec : Codec e () profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodec profileCodec =
     let
         logOps chunks =
             Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
-            Node.startNewNode Nothing (RC.encodeDefaults profileCodec)
+            Node.startNewNode Nothing [ Codec.encodeDefaults Node.testNode profileCodec ]
 
         tryDecoding =
-            RC.decodeFromNode profileCodec newNode
+            Codec.decodeFromNode profileCodec newNode
     in
     { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
@@ -58,15 +58,15 @@ type alias ReadOnlyObject =
     }
 
 
-readOnlyObjectCodec : SymCodec e ReadOnlyObject
+readOnlyObjectCodec : Codec e () ReadOnlyObject
 readOnlyObjectCodec =
-    RC.record ReadOnlyObject
-        |> RC.fieldN ( 1, "legal_name" ) .name exampleSubObjectCodec
-        |> RC.field ( 2, "address" ) .address RC.string "default address"
-        |> RC.field ( 3, "number" ) .number RC.int 1
-        |> RC.field ( 4, "living" ) .living RC.bool True
-        |> RC.field ( 5, "heightMaybe" ) .heightMaybe (RC.maybe RC.int) (Just 5)
-        |> RC.finishRecord
+    Codec.record ReadOnlyObject
+        |> Codec.fieldReg ( 1, "legal_name" ) .name exampleSubObjectCodec
+        |> Codec.field ( 2, "address" ) .address Codec.string "default address"
+        |> Codec.field ( 3, "number" ) .number Codec.int 1
+        |> Codec.field ( 4, "living" ) .living Codec.bool True
+        |> Codec.field ( 5, "heightMaybe" ) .heightMaybe (Codec.maybe Codec.int) (Just 5)
+        |> Codec.finishRecord
 
 
 correctDefaultReadOnlyObject : ReadOnlyObject
@@ -86,7 +86,7 @@ type FormalTitle
 
 
 titleCodec =
-    RC.fragileEnum Mr [ Mrs, Ms ]
+    Codec.quickEnum Mr [ Mrs, Ms ]
 
 
 type alias ExampleSubObjectLegalName =
@@ -96,13 +96,13 @@ type alias ExampleSubObjectLegalName =
     }
 
 
-exampleSubObjectCodec : SymCodec e ExampleSubObjectLegalName
+exampleSubObjectCodec : Codec e () ExampleSubObjectLegalName
 exampleSubObjectCodec =
-    RC.record ExampleSubObjectLegalName
-        |> RC.field ( 1, "first" ) .first RC.string "firstname"
-        |> RC.field ( 2, "last" ) .last RC.string "default surname"
-        |> RC.field ( 3, "title" ) .title titleCodec Mrs
-        |> RC.finishRecord
+    Codec.record ExampleSubObjectLegalName
+        |> Codec.field ( 1, "first" ) .first Codec.string "firstname"
+        |> Codec.field ( 2, "last" ) .last Codec.string "default surname"
+        |> Codec.field ( 3, "title" ) .title titleCodec Mrs
+        |> Codec.finishRecord
 
 
 correctDefaultName : ExampleSubObjectLegalName
@@ -129,7 +129,7 @@ type KidsStatus
 
 
 kidsStatusCodec =
-    RC.customType
+    Codec.customType
         (\noKidsEncoder bioKidsEncoder fosterKidsEncoder someEncoder value ->
             case value of
                 NoKids ->
@@ -144,11 +144,11 @@ kidsStatusCodec =
                 SomeOfBoth bio foster ->
                     someEncoder bio foster
         )
-        |> RC.variant0 ( 0, "nokids" ) NoKids
-        |> RC.variant1 ( 1, "biokids" ) BiologicalKids (RC.repList exampleSubObjectCodec)
-        |> RC.variant1 ( 2, "fosterkids" ) FosterKids (RC.repList exampleSubObjectCodec)
-        |> RC.variant2 ( 3, "bothkindsofkids" ) SomeOfBoth (RC.repList exampleSubObjectCodec) (RC.repList exampleSubObjectCodec)
-        |> RC.finishCustomType
+        |> Codec.variant0 ( 0, "nokids" ) NoKids
+        |> Codec.variant1 ( 1, "biokids" ) BiologicalKids (Codec.repList exampleSubObjectCodec)
+        |> Codec.variant1 ( 2, "fosterkids" ) FosterKids (Codec.repList exampleSubObjectCodec)
+        |> Codec.variant2 ( 3, "bothkindsofkids" ) SomeOfBoth (Codec.repList exampleSubObjectCodec) (Codec.repList exampleSubObjectCodec)
+        |> Codec.finishCustomType
 
 
 
@@ -164,16 +164,16 @@ type alias WritableObject =
     }
 
 
-writableObjectCodec : SymCodec e WritableObject
+writableObjectCodec : Codec e () WritableObject
 writableObjectCodec =
-    RC.record WritableObject
-        |> RC.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last", title = Ms }
-        -- ^ an example of using fieldRW instead of fieldN, providing an explicit default
-        |> RC.fieldRW ( 2, "address" ) .address RC.string "default address 2"
-        |> RC.fieldRW ( 3, "number" ) .number RC.int 42
-        |> RC.fieldRW ( 4, "minor" ) .minor RC.bool False
-        |> RC.fieldRW ( 5, "kids" ) .kids kidsStatusCodec NoKids
-        |> RC.finishRecord
+    Codec.record WritableObject
+        |> Codec.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last", title = Ms }
+        -- ^ an example of using fieldRW instead of fieldReg, providing an explicit default
+        |> Codec.fieldRW ( 2, "address" ) .address Codec.string "default address 2"
+        |> Codec.fieldRW ( 3, "number" ) .number Codec.int 42
+        |> Codec.fieldRW ( 4, "minor" ) .minor Codec.bool False
+        |> Codec.fieldRW ( 5, "kids" ) .kids kidsStatusCodec NoKids
+        |> Codec.finishRecord
 
 
 writableObjectEncodeThenDecode =
@@ -231,7 +231,7 @@ nodeModifications =
             "5+here"
 
         changedObjectDecoded =
-            RC.decodeFromNode writableObjectCodec afterNode
+            Codec.decodeFromNode writableObjectCodec afterNode
     in
     describe "Modifying a simple node with a writable root object."
         [ describe "Checking the node has changed in correct places"
@@ -261,9 +261,9 @@ simpleList =
     [ "0-Alpha", "1-Beta", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
-simpleListCodec : SymCodec e (RepList String)
+simpleListCodec : Codec e () (RepList String)
 simpleListCodec =
-    RC.repList RC.string
+    Codec.repList Codec.string
 
 
 fakeNodeWithSimpleList : Node
@@ -273,7 +273,7 @@ fakeNodeWithSimpleList =
             nodeFromCodec simpleListCodec
 
         addChanges repList =
-            RepList.append simpleList repList
+            RepList.append RepList.Last simpleList repList
     in
     case result of
         Ok repList ->
@@ -295,29 +295,29 @@ repListEncodeThenDecode =
         \_ ->
             let
                 generatedRepList =
-                    RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList
+                    Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList
             in
-            Result.map RepList.list generatedRepList |> Expect.equal (Ok simpleList)
+            Result.map RepList.listValues generatedRepList |> Expect.equal (Ok simpleList)
 
 
 fakeNodeWithModifiedList : Node
 fakeNodeWithModifiedList =
-    case RC.decodeFromNode simpleListCodec fakeNodeWithSimpleList of
+    case Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList of
         Ok repList ->
             let
-                membersWithIDs =
-                    Dict.toList (RepList.dict repList)
+                listItems =
+                    RepList.list repList
 
                 secondMemberHandle =
-                    List.Extra.getAt 1 membersWithIDs
-                        |> Maybe.map Tuple.first
+                    List.Extra.getAt 1 listItems
+                        |> Maybe.map .handle
 
                 firstMemberHandle =
-                    List.head membersWithIDs
-                        |> Maybe.map Tuple.first
+                    List.head listItems
+                        |> Maybe.map .handle
 
                 addItemInPosition3 handle =
-                    RepList.insertAfter handle "Inserted after 1" repList
+                    RepList.insert (RepList.After handle) "Inserted after 1" repList
 
                 removeItemPosition0 handle =
                     RepList.remove handle repList
@@ -350,10 +350,10 @@ repListInsertAndRemove =
         \_ ->
             let
                 generatedRepList =
-                    RC.decodeFromNode simpleListCodec fakeNodeWithModifiedList
+                    Codec.decodeFromNode simpleListCodec fakeNodeWithModifiedList
 
                 list =
-                    Result.map RepList.list generatedRepList
+                    Result.map RepList.listValues generatedRepList
             in
             list |> Expect.equal (Ok modifiedList)
 
@@ -391,13 +391,13 @@ type alias NestedStressTest =
     }
 
 
-nestedStressTestCodec : SymCodec e NestedStressTest
+nestedStressTestCodec : Codec e () NestedStressTest
 nestedStressTestCodec =
-    RC.record NestedStressTest
-        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "first layer"
-        |> RC.fieldN ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
-        |> RC.fieldN ( 3, "listOfNestedRecords" ) .listOfNestedRecords (RC.repList writableObjectCodec)
-        |> RC.finishRecord
+    Codec.record NestedStressTest
+        |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "first layer"
+        |> Codec.fieldReg ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
+        |> Codec.fieldList ( 3, "listOfNestedRecords" ) .listOfNestedRecords writableObjectCodec
+        |> Codec.finishRecord
 
 
 type alias RecordOf3Records =
@@ -406,12 +406,12 @@ type alias RecordOf3Records =
     }
 
 
-recordOf3RecordsCodec : SymCodec e RecordOf3Records
+recordOf3RecordsCodec : Codec e () RecordOf3Records
 recordOf3RecordsCodec =
-    RC.record RecordOf3Records
-        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "second layer"
-        |> RC.fieldN ( 2, "recordOf2Records" ) .recordOf2Records recordOf2RecordsCodec
-        |> RC.finishRecord
+    Codec.record RecordOf3Records
+        |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "second layer"
+        |> Codec.fieldReg ( 2, "recordOf2Records" ) .recordOf2Records recordOf2RecordsCodec
+        |> Codec.finishRecord
 
 
 type alias RecordOf2Records =
@@ -420,12 +420,12 @@ type alias RecordOf2Records =
     }
 
 
-recordOf2RecordsCodec : SymCodec e RecordOf2Records
+recordOf2RecordsCodec : Codec e () RecordOf2Records
 recordOf2RecordsCodec =
-    RC.record RecordOf2Records
-        |> RC.field ( 1, "recordDepth" ) .recordDepth RC.string "third layer"
-        |> RC.fieldN ( 2, "recordWithRecord" ) .recordWithRecord writableObjectCodec
-        |> RC.finishRecord
+    Codec.record RecordOf2Records
+        |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "third layer"
+        |> Codec.fieldReg ( 2, "recordWithRecord" ) .recordWithRecord writableObjectCodec
+        |> Codec.finishRecord
 
 
 
@@ -461,21 +461,27 @@ nodeWithModifiedNestedStressTest =
                     nestedStressTest.listOfNestedRecords
 
                 changes =
-                    [ RepList.spawn repListOfWritables
-                    , RepList.spawnWithChanges <|
-                        \obj ->
+                    [ RepList.insertNew RepList.Last (Codec.init writableObjectCodec) repListOfWritables
+                    , RepList.insertNew RepList.Last newWritable repListOfWritables
+                    ]
+
+                newWritable : Change.Creator WritableObject
+                newWritable c =
+                    let
+                        woChanges : Change.Changer WritableObject
+                        woChanges obj =
                             [ obj.address.set "1 bologna street"
                             , obj.address.set "2 bologna street"
                             , obj.address.set "3 bologna street" -- to make sure later-specified changes take precedence, though users should never need to do this in the same frame
                             , obj.number.set 999
                             , obj.minor.set False
-                            , obj.kids.set newKidsList
+                            , obj.kids.set (newKidsList c)
                             ]
-                                repListOfWritables
-                    ]
+                    in
+                    Codec.initAndChange writableObjectCodec c woChanges
 
-                newKidsList =
-                    SomeOfBoth RepList.empty RepList.empty
+                newKidsList c =
+                    SomeOfBoth (Codec.init (Codec.repList exampleSubObjectCodec) c) (Codec.init (Codec.repList exampleSubObjectCodec) c)
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
@@ -546,7 +552,7 @@ modifiedNestedStressTestIntegrityCheck =
             nodeWithModifiedNestedStressTest.original
 
         decodedNST =
-            RC.decodeFromNode nestedStressTestCodec subject
+            Codec.decodeFromNode nestedStressTestCodec subject
 
         opsToFlush =
             (nodeFromCodec nestedStressTestCodec).startFrame
