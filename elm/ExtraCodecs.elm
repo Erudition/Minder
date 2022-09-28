@@ -61,3 +61,4 @@ intDict valueCodec =
             Codec.pair Codec.int valueCodec
     in
     Codec.primitiveList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList
+

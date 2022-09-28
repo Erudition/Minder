@@ -17,7 +17,7 @@ import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepStore as RepDb exposing (Store)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -29,6 +29,7 @@ import Task.AssignedAction
 import Task.Entry
 import Task.Progress exposing (..)
 import Task.Session
+import Incubator.Todoist
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
 
@@ -42,8 +43,8 @@ type alias AppInstance =
 type alias Profile =
     { errors : RepList String
     , taskEntries : RepList Task.Entry.Entry
-    , taskClasses : RepDb Task.ActionClass.ActionClassSkel
-    , taskInstances : RepDb Task.AssignedAction.AssignedActionSkel
+    , taskClasses : Store Task.ActionClass.ActionClassSkel
+    , taskInstances : Store Task.AssignedAction.AssignedActionSkel
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -77,7 +78,7 @@ codec =
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
         |> Codec.fieldReg ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
-        |> Codec.field ( 7, "todoist" ) .todoist todoistIntegrationDataCodec emptyTodoistIntegrationData
+        |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> Codec.todo emptyTodoistIntegrationData))
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
         |> Codec.finishRecord
 
@@ -89,14 +90,15 @@ type alias TodoistIntegrationData =
     }
 
 
-todoistIntegrationDataCodec : SymCodec String TodoistIntegrationData
+todoistIntegrationDataCodec : Codec String () TodoistIntegrationData
 todoistIntegrationDataCodec =
-    -- Codec.record TodoistIntegrationData
-    --     |> Codec.field ( 1, "cache" ) Todoist.decodeCache Todoist.emptyCache
-    --     |> Codec.maybeR ( 2, "parentProjectID" ) Decode.int
-    --     |> Codec.field ( 3, "activityProjectIDs" ) (Codec.intDict Activity.idCodec)
-    --     |> Codec.finishRecord
-    Debug.todo "todoist codec"
+    Codec.record TodoistIntegrationData
+        |> Codec.fieldReg ( 1, "cache" ) .cache (Codec.lazy (\_ -> Todoist.cacheCodec))
+        |> Codec.maybeR ( 2, "parentProjectID" ) .parentProjectID Codec.int
+        |> Codec.field ( 3, "activityProjectIDs" ) .activityProjectIDs (Codec.intDict Activity.idCodec) IntDict.empty
+        |> Codec.finishRecord
+
+
 
 
 emptyTodoistIntegrationData : TodoistIntegrationData

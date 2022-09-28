@@ -6,6 +6,7 @@ import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import GraphicSVG exposing (GraphicSVG)
 import List.Extra
+import Dict.Any as AnyDict exposing (AnyDict)
 import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
@@ -228,7 +229,7 @@ nodeModifications =
                     Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         generatedRootObjectID =
-            "5+here"
+            OpID.fromStringForced "5+here"
 
         changedObjectDecoded =
             Codec.decodeFromNode writableObjectCodec afterNode
@@ -237,12 +238,12 @@ nodeModifications =
         [ describe "Checking the node has changed in correct places"
             [ test "the node should the same number of objects in it." <|
                 \_ ->
-                    Expect.equal (Dict.size beforeNode.objects) (Dict.size afterNode.objects)
+                    Expect.equal (Node.objectCount beforeNode) (Node.objectCount afterNode)
             , test "the demo node should have a root" <|
                 \_ ->
                     Expect.notEqual afterNode.root Nothing
             , test "the root object should have n more events, with n being the number of new changes to the root object" <|
-                \_ -> Expect.equal (Dict.size (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) (Dict.size (getObjectEventList generatedRootObjectID afterNode))
+                \_ -> Expect.equal (List.length (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) (List.length (getObjectEventList generatedRootObjectID afterNode))
             ]
         , test "Testing the final decoded object for the new changes" <|
             \_ ->
@@ -371,13 +372,8 @@ expectOkAndEqualWhenMapped mapper expectedValue testedResultValue =
             Expect.fail (Log.logSeparate "failure" error "did not decode")
 
 
-getObjectEventList generatedRootObjectID node =
-    case Dict.get generatedRootObjectID node.objects of
-        Just foundObject ->
-            foundObject.events
-
-        Nothing ->
-            Debug.todo ("There was no " ++ generatedRootObjectID ++ " in the objects database, all I found was these " ++ String.fromInt (Dict.size node.objects) ++ ": \n" ++ String.join "\n" (Dict.keys node.objects) ++ ".")
+getObjectEventList objectID node =
+    List.filter (\o -> Op.object o == objectID) (AnyDict.values node.ops)
 
 
 
@@ -540,16 +536,19 @@ modifiedNestedStressTestIntegrityCheck =
             nodeFromCodec nestedStressTestCodec
 
         generatedRootObjectID =
-            "0+here"
+            OpID.fromStringForced "0+here"
 
         generatedRepListObjectID =
-            "13+here"
+            OpID.fromStringForced "13+here"
 
         eventListSize givenID givenNode =
-            Dict.size (getObjectEventList givenID givenNode)
+            List.length (getObjectEventList givenID givenNode)
 
         subject =
             nodeWithModifiedNestedStressTest.original
+
+        objectCount =
+            AnyDict.values subject.ops
 
         decodedNST =
             Codec.decodeFromNode nestedStressTestCodec subject
@@ -570,7 +569,7 @@ modifiedNestedStressTestIntegrityCheck =
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Expect.equal (Dict.size subject.objects) 6
+                    Expect.equal (Node.objectCount subject) 6
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID subject)
             , test "the repList has been initialized and its ID is not a placeholder" <|
@@ -579,7 +578,7 @@ modifiedNestedStressTestIntegrityCheck =
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
                 Expect.all
-                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.list o.listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (.address >> .get) <| RepList.listValues o.listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first
                     ]
                     decodedNST
         , test "the new Custom Type repLists have been initialized" <|

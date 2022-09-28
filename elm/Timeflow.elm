@@ -482,7 +482,7 @@ blobToShape display env initialBlob =
 
 
 blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ), startCapTL : Point, endCapTL : Point }
-blobToPoints displaySettings env blob =
+blobToPoints displaySettings _ blob =
     let
         msBetweenWalls =
             Duration.inMs displaySettings.hourRowSize

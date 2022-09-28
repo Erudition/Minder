@@ -1,4 +1,4 @@
-module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), LatestChanges, Msg(..), Resources(..), Response, SecretToken, decodeCache, decodeIncrementalSyncToken, decodeResponse, describeError, easyHandle, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, summarizeChanges, sync)
+module Incubator.Todoist exposing (Cache, IncrementalSyncToken(..), LatestChanges, Msg(..), Resources(..), Response, SecretToken, decodeCache, decodeIncrementalSyncToken, decodeResponse, describeError, easyHandle, emptyCache, encodeCache, encodeIncrementalSyncToken, encodeResources, handleResponse, pruneDeleted, serverUrl, summarizeChanges, sync, cacheCodec)
 
 {-| A library for interacting with the Todoist API.
 
@@ -8,6 +8,8 @@ Allows efficient batch processing and incremental sync.
 
 import Dict exposing (Dict)
 import Helpers exposing (..)
+import Replicated.Codec as Codec exposing (Codec)
+import ExtraCodecs as Codec
 import Http
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist.Command exposing (..)
@@ -25,6 +27,7 @@ import Set exposing (Set)
 import SmartTime.Human.Moment as HumanMoment
 import Url
 import Url.Builder
+import Replicated.Codec exposing (Codec)
 
 
 type alias SecretToken =
@@ -93,7 +96,14 @@ encodeCache record =
         , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
         ]
 
-
+cacheCodec : Codec e () Cache
+cacheCodec =
+    Codec.record Cache
+    |> Codec.field ( 1, "nextSync" ) .nextSync (Codec.string |> Codec.map IncrementalSyncToken (\(IncrementalSyncToken t) -> t)) (IncrementalSyncToken "*")
+    |> Codec.field ( 2, "items" ) .items (Debug.todo "items codec") IntDict.empty
+    |> Codec.field ( 3, "projects" ) .projects (Debug.todo "items codec") IntDict.empty
+    |> Codec.field (4, "pendingCommands") .pendingCommands (Codec.primitiveList Codec.string) []
+    |> Codec.finishRecord
 
 -- syncUrl : IncrementalSyncToken  -> Url.Url
 -- syncUrl (IncrementalSyncToken incrementalSyncToken) =

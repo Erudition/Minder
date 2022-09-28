@@ -15,6 +15,7 @@ import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import SmartTime.Moment exposing (Moment)
+import Set
 
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
@@ -245,6 +246,13 @@ lookupObject node opIDToFind =
         Nothing ->
             Err (UnknownReference opIDToFind)
 
+{-| Quick way to see how many recognized objects are in the Node.
+-}
+objectCount : Node -> Int
+objectCount node =
+    List.map (Op.object >> OpID.toSortablePrimitives) (AnyDict.values node.ops)
+    |> Set.fromList
+    |> Set.size
 
 {-| Save your changes!
 Always supply the current time (`Just moment`).

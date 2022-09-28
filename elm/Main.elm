@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), Screen(..), ViewState, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl)
+port module Main exposing (Model, Msg(..), Screen(..), ViewState, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl, StoredRON)
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
@@ -34,7 +34,7 @@ import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Codec as Codec exposing (Codec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op as Op exposing (Op)
-import Replicated.Reducer.RepDb as RepDb
+import Replicated.Reducer.RepStore as RepDb
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Human.Moment as HumanMoment exposing (Zone)

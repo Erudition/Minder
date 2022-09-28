@@ -1,17 +1,12 @@
 port module Headless exposing (main)
 
-import Json.Decode.Exploration as Decode exposing (..)
-import Json.Encode as Encode
+import Json.Decode.Exploration exposing (..)
 import Main exposing (..)
 import Platform exposing (worker)
-import Profile exposing (Profile)
-import Task as Job
-import Time
-import TimeTracker
 import Url
 
 
-main : Program ( String, Maybe JsonAppDatabase ) Model Msg
+main : Program ( String, Maybe StoredRON ) Model Msg
 main =
     worker
         { init = initHeadless
@@ -20,21 +15,8 @@ main =
         }
 
 
-updateWithVMupdate : Msg -> Model -> ( Model, Cmd Msg )
-updateWithVMupdate msg model =
-    let
-        ( newModel, cmds ) =
-            updateWithTime msg model
 
-        ( _, exportCmds ) =
-            updateWithTime (TimeTrackerMsg TimeTracker.ExportVM) model
-    in
-    ( newModel
-    , Cmd.batch [ cmds ]
-    )
-
-
-initHeadless : ( String, Maybe JsonAppDatabase ) -> ( Model, Cmd Msg )
+initHeadless : ( String, Maybe StoredRON ) -> ( Model, Cmd Msg )
 initHeadless ( urlAsString, maybeJson ) =
     init maybeJson (urlOrElse urlAsString) Nothing
 
@@ -55,7 +37,7 @@ fallbackUrl =
 
 
 headlessSubscriptions : Model -> Sub Msg
-headlessSubscriptions ({ profile, environment } as model) =
+headlessSubscriptions (_ as _) =
     Sub.batch
         [ headlessMsg (\s -> NewUrl (urlOrElse s))
 

@@ -2,33 +2,27 @@ module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnh
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
-import Date
 import Dict exposing (..)
-import External.Commands as Commands exposing (..)
+import External.Commands exposing (..)
 import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID exposing (ID)
-import IntDict exposing (IntDict)
-import Ionicon
-import Ionicon.Android as Android
-import Json.Decode.Exploration as Decode exposing (..)
-import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
-import Json.Encode.Extra as Encode2 exposing (..)
+import Json.Decode.Exploration exposing (..)
+import Json.Decode.Exploration.Pipeline exposing (..)
+import Json.Encode exposing (..)
+import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
-import Log
 import Maybe.Extra as Maybe
-import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
+import Replicated.Change exposing (Change)
+import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Reducer.Register exposing (RW)
+import Replicated.Reducer.RepStore as RepDb exposing (Store(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import SmartTime.Duration as Duration exposing (..)
-import SmartTime.Human.Duration as HumanDuration exposing (..)
-import SmartTime.Moment as Moment exposing (..)
+import SmartTime.Duration exposing (..)
+import SmartTime.Human.Duration exposing (..)
+import SmartTime.Moment exposing (..)
 import Svg.Styled exposing (..)
-import Time
 import Time.Extra exposing (..)
 
 
@@ -135,6 +129,7 @@ customActivitySkelCodec =
         |> Codec.finishSeededRecord
 
 
+unknown : ActivityID
 unknown =
     BuiltInActivityID DillyDally
 
@@ -1056,10 +1051,10 @@ defaults startWith =
 getTemplate : Activity -> Template
 getTemplate act =
     case act of
-        BuiltIn template builtInActivitySkel ->
+        BuiltIn template _ ->
             template
 
-        Custom template customActivitySkel customActivitySkelID ->
+        Custom template _ _ ->
             template
 
 
@@ -1068,20 +1063,20 @@ getTemplate act =
 getID : Activity -> ActivityID
 getID act =
     case act of
-        BuiltIn template builtInActivitySkel ->
+        BuiltIn template _ ->
             BuiltInActivityID template
 
-        Custom template customActivitySkel customActivitySkelID ->
+        Custom template _ customActivitySkelID ->
             CustomActivityID template customActivitySkelID
 
 
 isHidden : Activity -> Bool
 isHidden act =
     case act of
-        BuiltIn template builtInSkel ->
+        BuiltIn _ builtInSkel ->
             builtInSkel.hidden.get
 
-        Custom template customSkel customSkelID ->
+        Custom _ customSkel _ ->
             customSkel.hidden.get
 
 
@@ -1109,7 +1104,7 @@ getName act =
                 -- TODO template should have nonempty list
                 |> Maybe.withDefault "untitled built-in activity"
 
-        Custom template customSkel customSkelID ->
+        Custom template customSkel _ ->
             RepList.headValue customSkel.names
                 |> Maybe.or (List.head (defaults template).names)
                 -- TODO template should have nonempty list
@@ -1122,7 +1117,7 @@ getNames act =
         BuiltIn template builtInSkel ->
             RepList.listValues builtInSkel.names ++ (defaults template).names
 
-        Custom template customSkel customSkelID ->
+        Custom template customSkel _ ->
             RepList.listValues customSkel.names ++ (defaults template).names
 
 
@@ -1133,7 +1128,7 @@ getIcon act =
             builtInSkel.icon.get
                 |> Maybe.withDefault (defaults template).icon
 
-        Custom template customSkel customSkelID ->
+        Custom template customSkel _ ->
             customSkel.icon.get
                 |> Maybe.withDefault (defaults template).icon
 
@@ -1147,7 +1142,7 @@ getExcusable act =
             builtInSkel.excusable.get
                 |> Maybe.withDefault (defaults template).excusable
 
-        Custom template customSkel customSkelID ->
+        Custom template customSkel _ ->
             customSkel.excusable.get
                 |> Maybe.withDefault (defaults template).excusable
 
@@ -1216,7 +1211,7 @@ getMaxTime act =
             builtInSkel.maxTime.get
                 |> Maybe.withDefault (defaults template).maxTime
 
-        Custom template customSkel customSkelID ->
+        Custom template customSkel _ ->
             customSkel.maxTime.get
                 |> Maybe.withDefault (defaults template).maxTime
 
@@ -1234,20 +1229,20 @@ setMaxTime newSetting act =
 getExternalID : String -> Activity -> Maybe String
 getExternalID key act =
     case act of
-        BuiltIn template builtInSkel ->
+        BuiltIn _ builtInSkel ->
             RepDict.get key builtInSkel.externalIDs
 
-        Custom template customSkel customSkelID ->
+        Custom _ customSkel _ ->
             RepDict.get key customSkel.externalIDs
 
 
 setExternalID : String -> String -> Activity -> Change
 setExternalID key value act =
     case act of
-        BuiltIn template builtInSkel ->
+        BuiltIn _ builtInSkel ->
             RepDict.update key (\_ -> Just value) builtInSkel.externalIDs
 
-        Custom template customSkel customSkelID ->
+        Custom _ customSkel _ ->
             RepDict.update key (\_ -> Just value) customSkel.externalIDs
 
 
@@ -1256,7 +1251,7 @@ setExternalID key value act =
 
 
 type alias Store =
-    ( RepDict Template BuiltInActivitySkel, RepDb CustomActivitySkel )
+    ( RepDict Template BuiltInActivitySkel, Store CustomActivitySkel )
 
 
 storeCodec : Codec String () Store

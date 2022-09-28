@@ -13,7 +13,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepStore as RepDb exposing (Store)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Result.Extra as Result
@@ -93,7 +93,7 @@ Take the skeleton data and get all relevant(within given time period) instances 
 TODO organize with IDs somehow
 
 -}
-listAllAssignedActions : List ActionClass -> RepDb AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
+listAllAssignedActions : List ActionClass -> Store AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
 listAllAssignedActions fullClasses instanceSkeletonDb timeData =
     List.concatMap (assignedActionsOfClass timeData instanceSkeletonDb) fullClasses
 
@@ -105,7 +105,7 @@ Combine the saved instances with generated ones, to get the full picture within 
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
 
 -}
-assignedActionsOfClass : ( ZoneHistory, Period ) -> RepDb AssignedActionSkel -> ActionClass -> List AssignedAction
+assignedActionsOfClass : ( ZoneHistory, Period ) -> Store AssignedActionSkel -> ActionClass -> List AssignedAction
 assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
     let
         savedInstancesWithMatchingClass =

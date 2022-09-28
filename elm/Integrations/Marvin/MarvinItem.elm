@@ -15,7 +15,7 @@ import Profile exposing (Profile)
 import Regex
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
+import Replicated.Reducer.RepStore as RepDb exposing (Store(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration(..))

@@ -2,14 +2,13 @@ port module Browserless exposing (..)
 
 import Browser
 import Html as PlainHtml
-import Html.Styled exposing (Html, node, toUnstyled)
-import Main exposing (JsonAppDatabase, Model, Msg)
-import Platform exposing (worker)
+import Html.Styled exposing (node, toUnstyled)
+import Main exposing (StoredRON, Model, Msg)
 import Url
 import VirtualDom
 
 
-main : Program ( String, Maybe JsonAppDatabase ) Model Msg
+main : Program ( String, Maybe StoredRON ) Model Msg
 main =
     Browser.element
         { init = initBrowserless
@@ -19,13 +18,13 @@ main =
         }
 
 
-initBrowserless : ( String, Maybe JsonAppDatabase ) -> ( Model, Cmd Msg )
+initBrowserless : ( String, Maybe StoredRON ) -> ( Model, Cmd Msg )
 initBrowserless ( urlAsString, maybeJson ) =
     Main.init maybeJson (urlOrElse urlAsString) Nothing
 
 
 browserlessView : Model -> VirtualDom.Node Msg
-browserlessView { viewState, profile, environment } =
+browserlessView _ =
     toUnstyled <|
         node "AbsoluteLayout" [] []
 

@@ -73,7 +73,7 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepStore as RepDb exposing (Store)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Set exposing (Set)
@@ -1037,7 +1037,7 @@ array codec =
 
 {-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec e s memberType -> Codec e () (RepDb memberType)
+repDb : Codec e s memberType -> Codec e () (Store memberType)
 repDb memberCodec =
     let
         memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Pointer } -> memberType -> Change.ObjectChange
@@ -1060,7 +1060,7 @@ repDb memberCodec =
                 _ ->
                     Nothing
 
-        repDbNodeDecoder : NodeDecoder e (RepDb memberType)
+        repDbNodeDecoder : NodeDecoder e (Store memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
             let
                 repDbBuilder foundObjectIDs =
@@ -1075,7 +1075,7 @@ repDb memberCodec =
             in
             JD.map repDbBuilder concurrentObjectIDsDecoder
 
-        repDbNodeEncoder : NodeEncoder (RepDb memberType)
+        repDbNodeEncoder : NodeEncoder (Store memberType)
         repDbNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
                 EncodeThis existingRepDb ->
@@ -1105,7 +1105,7 @@ repDb memberCodec =
                             , objectChanges = []
                             }
 
-        initializer : InitializerInputs () (RepDb memberType) -> RepDb memberType
+        initializer : InitializerInputs () (Store memberType) -> Store memberType
         initializer { parent, position, seed, changer } =
             let
                 object =
@@ -1864,7 +1864,7 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
   - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
 
 -}
-fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
+fieldDb : FieldIdentifier -> (full -> Store memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (Store memberType -> remaining) -> PartialRegister errs i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
     readableHelper fieldID fieldGetter (repDb fieldCodec) (InitWithParentSeed (\parentSeed -> ())) recordBuilt
 
@@ -3170,6 +3170,21 @@ lazy f =
         , init = \inputs -> getInitializer (f ()) inputs
         }
 
+
+{-| When you haven't gotten to writing a Codec for this yet.
+
+-}
+todo : a -> (Codec e s a)
+todo  bogusValue =
+    Codec
+        { bytesEncoder = \_ -> BE.unsignedInt8 9
+        , bytesDecoder = BD.fail
+        , jsonEncoder = \_ -> JE.null
+        , jsonDecoder = JD.fail "TODO"
+        , nodeEncoder = Nothing
+        , nodeDecoder = Nothing
+        , init = \_ -> bogusValue
+        }
 
 
 -- CUSTOM
