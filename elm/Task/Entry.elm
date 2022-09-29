@@ -12,7 +12,7 @@ import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec)
 import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepStore as RepDb exposing (Store)
+import Replicated.Reducer.RepStore as RepDb exposing (RepStore)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Result.Extra as Result
 import SmartTime.Duration exposing (Duration)
@@ -186,7 +186,7 @@ taskClassChildCodec =
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( RepList Entry, Store ActionClassSkel ) -> ( List ActionClass, List Warning )
+getClassesFromEntries : ( RepList Entry, RepStore ActionClassSkel ) -> ( List ActionClass, List Warning )
 getClassesFromEntries ( entries, classDb ) =
     let
         traverseRootWrappers entry =

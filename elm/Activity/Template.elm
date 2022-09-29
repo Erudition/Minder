@@ -7,7 +7,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Codec as Codec exposing (SymCodec, coreRW, fieldList, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepStore as RepDb exposing (Store(..))
+import Replicated.Reducer.RepStore as RepDb exposing (RepStore(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 
 
