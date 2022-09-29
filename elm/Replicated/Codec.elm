@@ -73,12 +73,14 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
-import Replicated.Reducer.RepStore as RepDb exposing (Store)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
+import Replicated.Change exposing (Atom(..))
 
 
 
@@ -1037,7 +1039,7 @@ array codec =
 
 {-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec e s memberType -> Codec e () (Store memberType)
+repDb : Codec e s memberType -> Codec e () (RepDb memberType)
 repDb memberCodec =
     let
         memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Pointer } -> memberType -> Change.ObjectChange
@@ -1060,7 +1062,7 @@ repDb memberCodec =
                 _ ->
                     Nothing
 
-        repDbNodeDecoder : NodeDecoder e (Store memberType)
+        repDbNodeDecoder : NodeDecoder e (RepDb memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
             let
                 repDbBuilder foundObjectIDs =
@@ -1075,7 +1077,7 @@ repDb memberCodec =
             in
             JD.map repDbBuilder concurrentObjectIDsDecoder
 
-        repDbNodeEncoder : NodeEncoder (Store memberType)
+        repDbNodeEncoder : NodeEncoder (RepDb memberType)
         repDbNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
                 EncodeThis existingRepDb ->
@@ -1105,7 +1107,7 @@ repDb memberCodec =
                             , objectChanges = []
                             }
 
-        initializer : InitializerInputs () (Store memberType) -> Store memberType
+        initializer : InitializerInputs () (RepDb memberType) -> RepDb memberType
         initializer { parent, position, seed, changer } =
             let
                 object =
@@ -1277,6 +1279,169 @@ repDict keyCodec valueCodec =
         , nodeDecoder = Just repDictRonDecoder
         , init = initializer
         }
+
+
+
+
+
+{-| Codec for a replicated store. Accepts a key codec and a value codec.
+- By design, the store only accepts values with seedless codecs.
+-}
+repStore : Codec e ki k -> Codec e () v -> Codec e () (RepStore k v)
+repStore keyCodec valueCodec =
+    let
+        -- We use the json-encoded form as the dict key, since it's always comparable!
+        keyToString key =
+            JE.encode 0 (getJsonEncoder keyCodec key)
+
+        flatDictListCodec =
+            primitiveList (pair keyCodec valueCodec)
+
+        jsonEncoder : RepStore k v -> JE.Value
+        jsonEncoder input =
+            getJsonEncoder flatDictListCodec (RepStore.listModified input)
+
+        bytesEncoder : RepStore k v -> BE.Encoder
+        bytesEncoder input =
+            getBytesEncoder flatDictListCodec (RepStore.listModified input)
+
+        entryNodeEncodeWrapper : Node -> Maybe ChangesToGenerate -> Pointer -> Change.SiblingIndex -> k -> Change -> Change.PotentialPayload
+        entryNodeEncodeWrapper node encodeModeMaybe parent entryPosition keyToSet childValueChange =
+            let
+                keyEncoder givenKey =
+                    getNodeEncoder keyCodec
+                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                        , node = node
+                        , thingToEncode = EncodeThis givenKey
+                        , parent = parent
+                        , position = Nonempty entryPosition [ 1 ] -- value encoder uses 2
+                        }
+
+            in
+                 keyEncoder keyToSet ++ (changeToChangePayload childValueChange)
+
+
+        entryNodeDecoder : Node -> Pointer -> Maybe Moment -> JE.Value -> Maybe (RepStore.RepStoreEntry k v)
+        entryNodeDecoder node parent cutoff encodedEntry =
+            let
+                decodeKey encodedKey =
+                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Nonempty.singleton 1, parent = parent, cutoff = cutoff }) encodedKey
+
+                decodeValue encodedValue =
+                    JD.decodeValue (getNodeDecoder valueCodec 
+                        { node = node, position = Nonempty.singleton 2
+                        , parent = parent -- no need to wrap child changes as decoding entries means they already exist
+                        , cutoff = cutoff }
+                        ) encodedValue
+
+
+            in
+            case JD.decodeValue (JD.list JD.value) encodedEntry of
+                Ok (keyEncoded :: [ valueEncoded ]) ->
+                    case ( decodeKey keyEncoded, decodeValue valueEncoded ) of
+                        ( Ok (Ok key), Ok (Ok value) ) ->
+                            Just (RepStore.RepStoreEntry key value)
+
+                        _ ->
+                            Log.crashInDev "storeEntryNodeDecoder : found key and value but not able to decode them?" Nothing
+
+                _ ->
+                    Log.crashInDev "storeEntryNodeDecoder : the store entry wasn't in the expected shape" Nothing
+
+        repStoreNodeDecoder : NodeDecoder e (RepStore k v)
+        repStoreNodeDecoder (details) =
+            JD.map (repStoreBuilder details (nonChanger) >> Ok)  concurrentObjectIDsDecoder
+
+        repStoreBuilder { node, parent, position, cutoff } changer foundObjects =
+            let
+                object foundObjectIDs =
+                    Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position, childWrapper = identity }
+
+                repStoreObject =
+                    object foundObjects
+
+                repStorePointer =
+                    Object.getPointer repStoreObject
+
+                allEntries  = List.filterMap (\event -> entryNodeDecoder node repStorePointer Nothing (Object.eventPayloadAsJson event)) ( AnyDict.values (Object.getEvents repStoreObject))
+
+                entriesDict  = 
+                    List.foldl (\(RepStore.RepStoreEntry k v) dictSoFar -> AnyDict.update k (updateEntry v) dictSoFar ) (AnyDict.empty keyToString) (allEntries )
+
+                updateEntry newVal oldValMaybe =
+                    case oldValMaybe of
+                        Nothing ->
+                            Just [newVal]
+
+                        Just [] ->
+                            Just [newVal]
+
+                        Just prevEntries ->
+                            Just (newVal :: prevEntries)
+
+                fetcher  key =
+                    AnyDict.get key (entriesDict )
+                    |> Maybe.andThen List.head
+                    |> Maybe.withDefault (createObjectAt key)
+
+                createObjectAt key =
+                    init valueCodec (Context (parentWithNotifier key))
+
+                parentWithNotifier key =
+                    Change.updateChildChangeWrapper parent (wrapNewChildValue key)
+
+                wrapNewChildValue key changeToWrap =
+                    Change.Chunk
+                        { target = parent
+                        , objectChanges =
+                            [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent (2) key changeToWrap) ]
+                        }
+                    
+            in
+            RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = (fetcher), start = changer}
+
+        repStoreNodeEncoder : NodeEncoder (RepStore k v)
+        repStoreNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
+            case thingToEncode of
+                EncodeThis existingRepStore ->
+                    let
+                        extractObjectChange change =
+                            case change of
+                                Chunk { target, objectChanges } ->
+                                    objectChanges
+
+                        allObjectChanges =
+                            List.concatMap extractObjectChange (RepStore.getInit existingRepStore)
+                    in
+                    changeToChangePayload <|
+                        Chunk
+                            { target = RepStore.getPointer existingRepStore
+                            , objectChanges = allObjectChanges
+                            }
+
+                _ ->
+                    changeToChangePayload <|
+                        Chunk
+                            { target = Change.newPointer { parent = parent, position = position, childChangeWrapper = identity, reducerID = RepDict.reducerID }
+                            , objectChanges = []
+                            }
+
+        initializer : InitializerInputs () (RepStore k v) -> RepStore k v
+        initializer { parent, position, changer } =
+            repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } changer []
+
+    in
+    Codec
+        { bytesEncoder = bytesEncoder
+        , bytesDecoder = BD.fail
+        , jsonEncoder = jsonEncoder
+        , jsonDecoder = JD.fail "no repstore"
+        , nodeEncoder = Just repStoreNodeEncoder
+        , nodeDecoder = Just repStoreNodeDecoder
+        , init = initializer
+        }
+
+
 
 
 {-| Codec for serializing a `Dict`
@@ -1864,7 +2029,7 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
   - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
 
 -}
-fieldDb : FieldIdentifier -> (full -> Store memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (Store memberType -> remaining) -> PartialRegister errs i full remaining
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
     readableHelper fieldID fieldGetter (repDb fieldCodec) (InitWithParentSeed (\parentSeed -> ())) recordBuilt
 
