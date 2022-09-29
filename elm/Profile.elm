@@ -17,7 +17,7 @@ import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
-import Replicated.Reducer.RepStore as RepDb exposing (RepStore)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -43,8 +43,8 @@ type alias AppInstance =
 type alias Profile =
     { errors : RepList String
     , taskEntries : RepList Task.Entry.Entry
-    , taskClasses : RepStore Task.ActionClass.ActionClassSkel
-    , taskInstances : RepStore Task.AssignedAction.AssignedActionSkel
+    , taskClasses : RepDb Task.ActionClass.ActionClassSkel
+    , taskInstances : RepDb Task.AssignedAction.AssignedActionSkel
     , activities : Activity.Store
     , timeline : Timeline
 

@@ -16,7 +16,8 @@ import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register exposing (RW)
-import Replicated.Reducer.RepStore as RepDb exposing (Store(..))
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration exposing (..)
@@ -1251,13 +1252,13 @@ setExternalID key value act =
 
 
 type alias Store =
-    ( RepDict Template BuiltInActivitySkel, Store CustomActivitySkel )
+    ( RepStore Template BuiltInActivitySkel, RepDb CustomActivitySkel )
 
 
 storeCodec : Codec String () Store
 storeCodec =
     Codec.seedlessPair
-        (Codec.repDict Template.codec builtInActivitySkelCodec)
+        (Codec.repStore Template.codec builtInActivitySkelCodec)
         (Codec.repDb customActivitySkelCodec)
 
 
@@ -1265,13 +1266,8 @@ getByID : ActivityID -> Store -> Activity
 getByID activityID ( builtins, customs ) =
     case activityID of
         BuiltInActivityID template ->
-            case RepDict.get template builtins of
-                Just foundSkel ->
-                    BuiltIn template foundSkel
-
-                Nothing ->
-                    Debug.todo
-                        "convert to KeyedRepDb"
+            BuiltIn template (RepStore.get template builtins) 
+                
 
         CustomActivityID template customSkelID ->
             case RepDb.get customSkelID customs of

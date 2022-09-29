@@ -33,7 +33,7 @@ import Maybe.Extra as Maybe
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change)
-import Replicated.Reducer.RepStore as RepDb exposing (RepStore)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration exposing (Duration)
