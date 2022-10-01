@@ -37,7 +37,7 @@ fallbackUrl =
 
 
 headlessSubscriptions : Model -> Sub Msg
-headlessSubscriptions (_ as _) =
+headlessSubscriptions (_) =
     Sub.batch
         [ headlessMsg (\s -> NewUrl (urlOrElse s))
 
