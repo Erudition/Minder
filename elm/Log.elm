@@ -16,12 +16,12 @@ For prod mode:
 -}
 runningEnvironment : RunningEnvironment a
 runningEnvironment =
-    Dev Debug.log Debug.todo
+    Dev Debug.log Debug.todo Debug.toString
 
 
 type RunningEnvironment a
     = Production
-    | Dev (Logger a) (Crasher a)
+    | Dev (Logger a) (Crasher a) (Stringifier a)
 
 
 type alias Logger a =
@@ -31,6 +31,9 @@ type alias Logger a =
 type alias Crasher a =
     String -> a
 
+type alias Stringifier a =
+     a -> String
+
 
 logMessageOnly : String -> a -> a
 logMessageOnly msg thing =
@@ -38,7 +41,7 @@ logMessageOnly msg thing =
         Production ->
             thing
 
-        Dev logger todo ->
+        Dev logger _ _ ->
             let
                 forceLogEvenWhenNotEvaluated : Logger Logged -> String -> thing -> thing
                 forceLogEvenWhenNotEvaluated logger2 msg2 thing2 =
@@ -60,7 +63,7 @@ log label item =
         Production ->
             item
 
-        Dev logger todo ->
+        Dev logger todo _ ->
             logger label item
 
 
@@ -69,15 +72,28 @@ logSeparate label separateThing attachmentItem =
         Production ->
             attachmentItem
 
-        Dev logger todo ->
+        Dev logger todo _ ->
             Tuple.second ( logger label separateThing, attachmentItem )
 
 
-crashInDev : String -> a -> a
+crashInDev : String -> prodFallbackValue -> prodFallbackValue
 crashInDev crashMessage a =
     case runningEnvironment of
         Production ->
             a
 
-        Dev logger todo ->
+        Dev logger todo _ ->
             todo crashMessage
+
+crashInDevProse : List String -> prodFallbackValue -> prodFallbackValue
+crashInDevProse prose =
+    crashInDev (String.join "    \n    " prose)
+
+dump : a -> String
+dump thing =
+    case runningEnvironment of
+        Production ->
+            "Not in dev mode, no toString available."
+
+        Dev _ _ stringifier ->
+            stringifier thing
