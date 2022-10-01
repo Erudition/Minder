@@ -563,9 +563,9 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
         foundSome ->
             let
                 matchingOp opID op =
-                    not (pastCutoff opID) && correctObject op
+                    (beforeCutoff opID) && correctObject op
 
-                pastCutoff opID =
+                beforeCutoff opID =
                     case cutoff of
                         Nothing ->
                             True
@@ -575,6 +575,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
 
                 correctObject op =
                     List.member (Op.object op) foundSome
+                    
 
                 findMatchingOps =
                     AnyDict.filter matchingOp node.ops
@@ -587,7 +588,14 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
                     Log.crashInDev "object builder produced warnings!" <| Object.Saved finalObject
 
                 ( Nothing, warnings ) ->
-                    Log.crashInDev "object builder found nothing, and produced warnings!" uninitializedObject
+                    Log.crashInDevProse 
+                        ["Node.getObject:"
+                        , "object builder was tasked with building an object that should exist but found nothing. The existing object(s) supposedly had ID(s):"
+                        , Log.dump foundSome
+                        , "Matched " ++ String.fromInt (AnyDict.size findMatchingOps) ++ " out of " ++ String.fromInt (AnyDict.size node.ops) ++ " total ops (correct object and pre-cutoff)."
+                        , "The builder produced these warnings:"
+                        , Log.dump warnings
+                        ] uninitializedObject
 
 
 
