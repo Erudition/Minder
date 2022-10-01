@@ -28,10 +28,10 @@ suite =
         [ readOnlyObjectEncodeThenDecode
         , writableObjectEncodeThenDecode
         , repListEncodeThenDecode
-        , repListInsertAndRemove
-        , nodeModifications
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        -- , repListInsertAndRemove
+        -- , nodeModifications
+        -- ,  nestedStressTestIntegrityCheck
+        -- ,  modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -157,7 +157,7 @@ kidsStatusCodec =
 
 
 type alias WritableObject =
-    { name : RW ExampleSubObjectLegalName
+    { name : ExampleSubObjectLegalName
     , address : RW String
     , number : RW Int
     , minor : RW Bool
@@ -168,8 +168,8 @@ type alias WritableObject =
 writableObjectCodec : Codec e () WritableObject
 writableObjectCodec =
     Codec.record WritableObject
-        |> Codec.fieldRW ( 1, "name" ) .name exampleSubObjectCodec { first = "default first", last = "default last", title = Ms }
-        -- ^ an example of using fieldRW instead of fieldReg, providing an explicit default
+        |> Codec.fieldReg ( 1, "name" ) .name exampleSubObjectCodec
+        -- was ^ an example of using fieldRW instead of fieldReg, providing an explicit default
         |> Codec.fieldRW ( 2, "address" ) .address Codec.string "default address 2"
         |> Codec.fieldRW ( 3, "number" ) .number Codec.int 42
         |> Codec.fieldRW ( 4, "minor" ) .minor Codec.bool False
@@ -177,6 +177,7 @@ writableObjectCodec =
         |> Codec.finishRecord
 
 
+writableObjectEncodeThenDecode : Test
 writableObjectEncodeThenDecode =
     test "Encoding a writable object to Changes, applying to a node, then decoding it from the node." <|
         \_ ->
@@ -285,12 +286,13 @@ fakeNodeWithSimpleList =
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
             in
-            applied.updatedNode
+            Debug.log ("CREATED " ++ Debug.toString applied.created ++ " outframe: " ++ logOps) applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"
 
 
+repListEncodeThenDecode : Test
 repListEncodeThenDecode =
     test "Encoding a list to Changes, applying to a node, then decoding it from the node." <|
         \_ ->
@@ -335,7 +337,7 @@ fakeNodeWithModifiedList =
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
             in
-            applied.updatedNode
+             applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"
@@ -502,8 +504,8 @@ nodeWithModifiedNestedStressTest =
             in
             { original = applied.updatedNode, serialized = reInitializedNodeAndSuch.node, warnings = reInitializedNodeAndSuch.warnings }
 
-        Err _ ->
-            Debug.todo "no start dummy object"
+        Err problem ->
+            Debug.todo ("no start dummy object, failed because: " ++ Debug.toString problem)
 
 
 testRon =

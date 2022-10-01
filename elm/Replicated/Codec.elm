@@ -2061,7 +2061,7 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs (fieldType) fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
     writableHelper fieldIdentifier fieldGetter fieldCodec (Default fieldDefault) soFar
 
@@ -2323,7 +2323,12 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 checkThingToEncode =
                     case inputs.thingToEncode of
                         EncodeThis fieldType ->
-                            Log.crashInDev "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead, so no way to get the actual register object we need to encode" JustEncodeDefaultsIfNeeded
+                            Log.crashInDevProse 
+                                ["Codec.finishRecord.nodeEncoder:"
+                                ,"naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:"
+                                , Log.dump inputs.thingToEncode
+                                ,"...so no way to get the actual register object we need to encode"
+                                ] JustEncodeDefaultsIfNeeded
 
                         EncodeObjectOrThis objectIDNonempty _ ->
                             EncodeObjectOrThis objectIDNonempty Nothing
@@ -2977,7 +2982,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplie
     let
         runFieldNodeEncoder valueToEncode =
             let
-                parent =
+                parent = -- TODO replaced?
                     Change.updateChildChangeWrapper parentPointer finishChildWrapper
 
                 finishChildWrapper changeToWrap =
