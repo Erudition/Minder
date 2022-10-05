@@ -1,6 +1,7 @@
 module Integrations.Marvin.Model exposing (..)
 
 import Integrations.Marvin.MarvinItem exposing (..)
+import Dict exposing (Dict)
 
 
 type alias MarvinModel =

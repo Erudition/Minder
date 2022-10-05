@@ -68,7 +68,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change(..), Changer, Context(..), Pointer(..), changeToChangePayload)
+import Replicated.Change as Change exposing (Atom(..), Change(..), Changer, Context(..), Pointer(..), changeToChangePayload)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -80,7 +80,6 @@ import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
-import Replicated.Change exposing (Atom(..))
 
 
 
@@ -256,14 +255,12 @@ decodeFromNode profileCodec node =
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
-    case getNodeDecoder profileCodec of
-        nodeDecoder ->
-            case JD.decodeString (nodeDecoder { node = node, parent = Change.genesisPointer 0, cutoff = Nothing, position = Nonempty.singleton 0 }) (prepDecoder rootEncoded) of
-                Ok value ->
-                    value
+    case JD.decodeString (getNodeDecoder profileCodec { node = node, parent = Change.genesisPointer 0, cutoff = Nothing, position = Nonempty.singleton 0 }) (prepDecoder rootEncoded) of
+        Ok value ->
+            Debug.log (Console.bgMagenta "decodeFromNode: Decoded root Ok: ") value
 
-                Err jdError ->
-                    Err (FailedToDecodeRoot <| JD.errorToString jdError)
+        Err jdError ->
+            Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
 init : Codec e () repType -> Context -> repType
@@ -1281,11 +1278,10 @@ repDict keyCodec valueCodec =
         }
 
 
-
-
-
 {-| Codec for a replicated store. Accepts a key codec and a value codec.
-- By design, the store only accepts values with seedless codecs.
+
+  - By design, the store only accepts values with seedless codecs.
+
 -}
 repStore : Codec e ki k -> Codec e () v -> Codec e () (RepStore k v)
 repStore keyCodec valueCodec =
@@ -1316,10 +1312,8 @@ repStore keyCodec valueCodec =
                         , parent = parent
                         , position = Nonempty entryPosition [ 1 ] -- value encoder uses 2
                         }
-
             in
-                 keyEncoder keyToSet ++ (changeToChangePayload childValueChange)
-
+            keyEncoder keyToSet ++ changeToChangePayload childValueChange
 
         entryNodeDecoder : Node -> Pointer -> Maybe Moment -> JE.Value -> Maybe (RepStore.RepStoreEntry k v)
         entryNodeDecoder node parent cutoff encodedEntry =
@@ -1328,13 +1322,15 @@ repStore keyCodec valueCodec =
                     JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Nonempty.singleton 1, parent = parent, cutoff = cutoff }) encodedKey
 
                 decodeValue encodedValue =
-                    JD.decodeValue (getNodeDecoder valueCodec 
-                        { node = node, position = Nonempty.singleton 2
-                        , parent = parent -- no need to wrap child changes as decoding entries means they already exist
-                        , cutoff = cutoff }
-                        ) encodedValue
-
-
+                    JD.decodeValue
+                        (getNodeDecoder valueCodec
+                            { node = node
+                            , position = Nonempty.singleton 2
+                            , parent = parent -- no need to wrap child changes as decoding entries means they already exist
+                            , cutoff = cutoff
+                            }
+                        )
+                        encodedValue
             in
             case JD.decodeValue (JD.list JD.value) encodedEntry of
                 Ok (keyEncoded :: [ valueEncoded ]) ->
@@ -1349,8 +1345,8 @@ repStore keyCodec valueCodec =
                     Log.crashInDev "storeEntryNodeDecoder : the store entry wasn't in the expected shape" Nothing
 
         repStoreNodeDecoder : NodeDecoder e (RepStore k v)
-        repStoreNodeDecoder (details) =
-            JD.map (repStoreBuilder details (nonChanger) >> Ok)  concurrentObjectIDsDecoder
+        repStoreNodeDecoder details =
+            JD.map (repStoreBuilder details nonChanger >> Ok) concurrentObjectIDsDecoder
 
         repStoreBuilder { node, parent, position, cutoff } changer foundObjects =
             let
@@ -1363,26 +1359,27 @@ repStore keyCodec valueCodec =
                 repStorePointer =
                     Object.getPointer repStoreObject
 
-                allEntries  = List.filterMap (\event -> entryNodeDecoder node repStorePointer Nothing (Object.eventPayloadAsJson event)) ( AnyDict.values (Object.getEvents repStoreObject))
+                allEntries =
+                    List.filterMap (\event -> entryNodeDecoder node repStorePointer Nothing (Object.eventPayloadAsJson event)) (AnyDict.values (Object.getEvents repStoreObject))
 
-                entriesDict  = 
-                    List.foldl (\(RepStore.RepStoreEntry k v) dictSoFar -> AnyDict.update k (updateEntry v) dictSoFar ) (AnyDict.empty keyToString) (allEntries )
+                entriesDict =
+                    List.foldl (\(RepStore.RepStoreEntry k v) dictSoFar -> AnyDict.update k (updateEntry v) dictSoFar) (AnyDict.empty keyToString) allEntries
 
                 updateEntry newVal oldValMaybe =
                     case oldValMaybe of
                         Nothing ->
-                            Just [newVal]
+                            Just [ newVal ]
 
                         Just [] ->
-                            Just [newVal]
+                            Just [ newVal ]
 
                         Just prevEntries ->
                             Just (newVal :: prevEntries)
 
-                fetcher  key =
-                    AnyDict.get key (entriesDict )
-                    |> Maybe.andThen List.head
-                    |> Maybe.withDefault (createObjectAt key)
+                fetcher key =
+                    AnyDict.get key entriesDict
+                        |> Maybe.andThen List.head
+                        |> Maybe.withDefault (createObjectAt key)
 
                 createObjectAt key =
                     init valueCodec (Context (parentWithNotifier key))
@@ -1394,11 +1391,10 @@ repStore keyCodec valueCodec =
                     Change.Chunk
                         { target = parent
                         , objectChanges =
-                            [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent (2) key changeToWrap) ]
+                            [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent 2 key changeToWrap) ]
                         }
-                    
             in
-            RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = (fetcher), start = changer}
+            RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
 
         repStoreNodeEncoder : NodeEncoder (RepStore k v)
         repStoreNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
@@ -1429,7 +1425,6 @@ repStore keyCodec valueCodec =
         initializer : InitializerInputs () (RepStore k v) -> RepStore k v
         initializer { parent, position, changer } =
             repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } changer []
-
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -1440,8 +1435,6 @@ repStore keyCodec valueCodec =
         , nodeDecoder = Just repStoreNodeDecoder
         , init = initializer
         }
-
-
 
 
 {-| Codec for serializing a `Dict`
@@ -1822,7 +1815,15 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                     recordCodecSoFar.nodeDecoder inputs
 
                 updatedConstructorMaybe =
-                    Maybe.Extra.andMap thisFieldValueMaybe remainingRecordConstructorMaybe
+                    case ( thisFieldValueMaybe, remainingRecordConstructorMaybe ) of
+                        ( Just thisFieldValue, Just remainingRecordConstructor ) ->
+                            Just <| remainingRecordConstructor thisFieldValue
+
+                        ( Nothing, _ ) ->
+                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: " ++ fieldName ++ " field decoded to nothing.. error was " ++ Debug.toString thisFieldErrors) Nothing
+
+                        ( _, Nothing ) ->
+                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: " ++ fieldName ++ " field was missing prior constructor, error was " ++ Debug.toString thisFieldErrors) Nothing
             in
             ( updatedConstructorMaybe, soFarErrors ++ thisFieldErrors )
 
@@ -1905,7 +1906,15 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                     recordCodecSoFar.nodeDecoder inputs
 
                 updatedConstructorMaybe =
-                    Maybe.Extra.andMap thisFieldValueMaybe remainingRecordConstructorMaybe
+                    case ( thisFieldValueMaybe, remainingRecordConstructorMaybe ) of
+                        ( Just thisFieldValue, Just remainingRecordConstructor ) ->
+                            Just <| remainingRecordConstructor thisFieldValue
+
+                        ( Nothing, _ ) ->
+                            Log.crashInDev ("Codec.writableHelper.nodeDecoder:" ++ fieldName ++ " field decoded to nothing...") Nothing
+
+                        ( _, Nothing ) ->
+                            Log.crashInDev ("Codec.writableHelper.nodeDecoder:" ++ fieldName ++ " field was missing prior constructor..") Nothing
             in
             ( updatedConstructorMaybe, soFarErrors ++ thisFieldErrors )
 
@@ -2061,7 +2070,7 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs (fieldType) fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
     writableHelper fieldIdentifier fieldGetter fieldCodec (Default fieldDefault) soFar
 
@@ -2183,7 +2192,13 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
     case getFieldLatestOnly inputs.history fieldIdentifier of
         Nothing ->
             -- field was never set - fall back to default
-            ( default, [] )
+            case default of
+                Just _ ->
+                    ( default, [] )
+
+                Nothing ->
+                    Log.crashInDev ("Failed to decode a field (" ++ fieldName ++ ") that should always decode (required missing, or nested should return defaults), there's no default to fall back to")
+                        ( default, [ DataCorrupted ] )
 
         Just foundField ->
             -- field was set before
@@ -2219,7 +2234,7 @@ registerWritableFieldDecoder index fieldIdentifier fallback fieldCodec inputs =
             ( Just (wrapRW inputs.parentPointer thingToWrap), errorsSoFar )
 
         ( previousShowstopper, errorsSoFar ) ->
-            ( Nothing, DataCorrupted :: errorsSoFar )
+            ( Nothing, errorsSoFar )
 
 
 prepDecoder : String -> String
@@ -2241,7 +2256,8 @@ concurrentObjectIDsDecoder =
                     JD.succeed opID
 
                 Nothing ->
-                    JD.fail (givenString ++ " is not a valid OpID...")
+                    Log.crashInDev "concurrentObjectIDsDecoder got bad opID?" <|
+                        JD.fail (givenString ++ " is not a valid OpID...")
 
         unquoteObjectID quoted =
             case String.startsWith ">" quoted of
@@ -2296,20 +2312,20 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                         history =
                             buildRegisterFieldDictionary object
 
-                        regToRecordByDecoding =
+                        ( regToRecordByDecodingMaybe, decodeProblems ) =
                             allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = cutoff, history = history }
-                                -- TODO currently ignoring errors
-                                |> Tuple.first
 
+                        -- TODO currently ignoring errors
                         regToRecordByInit =
                             allFieldsCodec.nodeInitializer
 
                         finalRecord =
-                            case regToRecordByDecoding of
+                            case regToRecordByDecodingMaybe of
                                 Just recordDecoded ->
                                     recordDecoded
 
                                 Nothing ->
+                                    -- Log.crashInDev "nakedRegisterDecoder decoded nothing!" <|
                                     regToRecordByInit () parent
                     in
                     JD.succeed <| Ok <| finalRecord
@@ -2323,12 +2339,13 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 checkThingToEncode =
                     case inputs.thingToEncode of
                         EncodeThis fieldType ->
-                            Log.crashInDevProse 
-                                ["Codec.finishRecord.nodeEncoder:"
-                                ,"naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:"
-                                , Log.dump inputs.thingToEncode
-                                ,"...so no way to get the actual register object we need to encode"
-                                ] JustEncodeDefaultsIfNeeded
+                            Log.crashInDevProse
+                                [ [ "Codec.finishRecord.nodeEncoder:" ]
+                                , [ "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:" ]
+                                , [ Log.dump inputs.thingToEncode ]
+                                , [ "...so no way to get the actual register object we need to encode" ]
+                                ]
+                                JustEncodeDefaultsIfNeeded
 
                         EncodeObjectOrThis objectIDNonempty _ ->
                             EncodeObjectOrThis objectIDNonempty Nothing
@@ -2982,7 +2999,8 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplie
     let
         runFieldNodeEncoder valueToEncode =
             let
-                parent = -- TODO replaced?
+                parent =
+                    -- TODO replaced?
                     Change.updateChildChangeWrapper parentPointer finishChildWrapper
 
                 finishChildWrapper changeToWrap =
@@ -3342,10 +3360,9 @@ lazy f =
 
 
 {-| When you haven't gotten to writing a Codec for this yet.
-
 -}
-todo : a -> (Codec e s a)
-todo  bogusValue =
+todo : a -> Codec e s a
+todo bogusValue =
     Codec
         { bytesEncoder = \_ -> BE.unsignedInt8 9
         , bytesDecoder = BD.fail
@@ -3355,6 +3372,7 @@ todo  bogusValue =
         , nodeDecoder = Nothing
         , init = \_ -> bogusValue
         }
+
 
 
 -- CUSTOM

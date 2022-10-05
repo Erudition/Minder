@@ -1,0 +1,4 @@
+{
+    "editor.formatOnSave": true,
+    "elmLS.elmFormatPath": "node_modules/.bin/elm-format"
+}

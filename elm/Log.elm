@@ -1,6 +1,7 @@
 module Log exposing (..)
 
 import Debug
+import Console
 
 
 {-| For dev mode:
@@ -85,9 +86,9 @@ crashInDev crashMessage a =
         Dev logger todo _ ->
             todo crashMessage
 
-crashInDevProse : List String -> prodFallbackValue -> prodFallbackValue
+crashInDevProse : Prose -> prodFallbackValue -> prodFallbackValue
 crashInDevProse prose =
-    crashInDev (String.join "    \n    " prose)
+    crashInDev (proseToString prose)
 
 dump : a -> String
 dump thing =
@@ -97,3 +98,33 @@ dump thing =
 
         Dev _ _ stringifier ->
             stringifier thing
+
+
+type alias Prose = List (List (String))
+
+proseToString : Prose  -> String
+proseToString prose =
+    String.join " \n        " (List.map (String.join " ") prose)
+
+
+int : Int -> String
+int i =
+    String.fromInt i
+
+length : List a -> String
+length l =
+    String.fromInt <| List.length l
+
+{-| Lets you specify a bad length to show up in red
+-}
+lengthWithBad : Int -> List a -> String
+lengthWithBad bad list =
+    let
+        foundLength =
+            List.length list
+
+        output = String.fromInt foundLength
+    in
+    if List.length list == bad then
+    Console.bgRed output else
+    Console.green output

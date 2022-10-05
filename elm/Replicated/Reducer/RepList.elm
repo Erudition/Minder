@@ -102,7 +102,7 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init =
 
         eventToItem ( eventID, event ) =
             case ( payloadToMember (Object.eventPayloadAsJson event), Object.eventReverted event ) of
-                ( Just item, True ) ->
+                ( Just item, False ) ->
                     Just
                         { handle = Handle eventID
                         , value = item
@@ -188,12 +188,7 @@ attachmentPointHelper containerPointer insertionPoint =
             Just opID
 
         First ->
-            case Change.getPointerObjectID containerPointer of
-                Just creationOpID ->
-                    Just creationOpID
-
-                Nothing ->
-                    Nothing
+            Change.getPointerObjectID containerPointer
 
 
 {-| Insert an item at the given location.

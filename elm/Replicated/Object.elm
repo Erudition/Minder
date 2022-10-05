@@ -1,5 +1,6 @@
 module Replicated.Object exposing (..)
 
+import Console
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
@@ -118,7 +119,7 @@ revertEventHelper : OpID -> EventDict -> OpDict -> ( EventDict, List ObjectBuild
 revertEventHelper ref eventDict opDict =
     case AnyDict.get ref eventDict of
         Just foundEventToRevert ->
-            ( AnyDict.insert ref foundEventToRevert eventDict, [] )
+            ( AnyDict.insert ref (revertEvent foundEventToRevert) eventDict, [] )
 
         Nothing ->
             -- maybe the op reverts another reversion op, rather than an event directly

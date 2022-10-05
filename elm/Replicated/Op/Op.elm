@@ -572,7 +572,7 @@ closedOpToString format (Op op) =
                     [ opID, ref ]
 
                 CompressedOps (Just (Op previousOp)) ->
-                    case ( OpID.isIncremental previousOp.operationID op.operationID, op.reference == OpReference previousOp.operationID ) of
+                    case ( OpID.isIncremental previousOp.operationID op.operationID && not (OpID.isReversion op.operationID), op.reference == OpReference previousOp.operationID ) of
                         ( True, True ) ->
                             [ "    ", "    " ]
 

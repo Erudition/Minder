@@ -2,11 +2,11 @@ module ReplicaTests exposing (suite)
 
 import Console
 import Dict
+import Dict.Any as AnyDict exposing (AnyDict)
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import GraphicSVG exposing (GraphicSVG)
 import List.Extra
-import Dict.Any as AnyDict exposing (AnyDict)
 import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
@@ -25,11 +25,13 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , nodeModifications
+        [ --readOnlyObjectEncodeThenDecode
+          --, writableObjectEncodeThenDecode
+          --, repListEncodeThenDecode
+          --  repListInsertAndRemove
+          -- ,
+          nodeModifications
+
         -- ,  nestedStressTestIntegrityCheck
         -- ,  modifiedNestedStressTestIntegrityCheck
         ]
@@ -46,8 +48,16 @@ nodeFromCodec profileCodec =
 
         tryDecoding =
             Codec.decodeFromNode profileCodec newNode
+
+        logStart =
+            Log.proseToString
+                [ [ "ReplicaTests.nodeFromCodec:" ]
+                , [ "Output Frame:" ]
+                , [ Op.closedChunksToFrameText startFrame ]
+                ]
     in
-    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+    Log.logMessageOnly logStart
+        { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
 type alias ReadOnlyObject =
@@ -157,23 +167,23 @@ kidsStatusCodec =
 
 
 type alias WritableObject =
-    { name : ExampleSubObjectLegalName
-    , address : RW String
+    { address : RW String
     , number : RW Int
     , minor : RW Bool
     , kids : RW KidsStatus
+    , name : ExampleSubObjectLegalName
     }
 
 
 writableObjectCodec : Codec e () WritableObject
 writableObjectCodec =
     Codec.record WritableObject
-        |> Codec.fieldReg ( 1, "name" ) .name exampleSubObjectCodec
-        -- was ^ an example of using fieldRW instead of fieldReg, providing an explicit default
         |> Codec.fieldRW ( 2, "address" ) .address Codec.string "default address 2"
         |> Codec.fieldRW ( 3, "number" ) .number Codec.int 42
         |> Codec.fieldRW ( 4, "minor" ) .minor Codec.bool False
         |> Codec.fieldRW ( 5, "kids" ) .kids kidsStatusCodec NoKids
+        |> Codec.fieldReg ( 1, "name" ) .name exampleSubObjectCodec
+        -- was ^ an example of using fieldRW instead of fieldReg, providing an explicit default
         |> Codec.finishRecord
 
 
@@ -286,7 +296,7 @@ fakeNodeWithSimpleList =
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
             in
-            Debug.log ("CREATED " ++ Debug.toString applied.created ++ " outframe: " ++ logOps) applied.updatedNode
+            applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"
@@ -294,11 +304,11 @@ fakeNodeWithSimpleList =
 
 repListEncodeThenDecode : Test
 repListEncodeThenDecode =
-    test "Encoding a list to Changes, applying to a node, then decoding it from the node." <|
+    test "repListEncodeThenDecode : Encoding a list to Changes, applying to a node, then decoding it from the node." <|
         \_ ->
             let
                 generatedRepList =
-                    Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList
+                    Codec.decodeFromNode simpleListCodec (Log.log (Console.bgYellow "repListEncodeThenDecode: node after applying") <| fakeNodeWithSimpleList)
             in
             Result.map RepList.listValues generatedRepList |> Expect.equal (Ok simpleList)
 
@@ -337,7 +347,7 @@ fakeNodeWithModifiedList =
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
             in
-             applied.updatedNode
+            applied.updatedNode
 
         Err _ ->
             Debug.todo "no start repList"
@@ -348,8 +358,9 @@ modifiedList =
     [ "1-Beta", "Inserted after 1", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
+repListInsertAndRemove : Test
 repListInsertAndRemove =
-    test "taking the node's list, adding an item after the second one, then removing the first item." <|
+    test "repListInsertAndRemove: taking the node's list, adding an item after the second one, then removing the first item." <|
         \_ ->
             let
                 generatedRepList =

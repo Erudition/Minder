@@ -14,8 +14,8 @@ import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
-import SmartTime.Moment exposing (Moment)
 import Set
+import SmartTime.Moment exposing (Moment)
 
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
@@ -115,16 +115,16 @@ startNewNode nowMaybe startChanges =
 updateWithClosedOps : Node -> List Op -> Node
 updateWithClosedOps node newOps =
     let
-        updatedNodeWithOp op n =
-            case alreadyHaveThisOp op of
+        updatedNodeWithOp newOp nodeToUpdate =
+            case alreadyHaveThisOp newOp of
                 Nothing ->
                     { node
-                        | ops = AnyDict.insert (Op.id op) op n.ops
-                        , highestSeenClock = max n.highestSeenClock (OpID.getClock (Op.id op))
+                        | ops = AnyDict.insert (Op.id newOp) newOp nodeToUpdate.ops
+                        , highestSeenClock = max nodeToUpdate.highestSeenClock (OpID.getClock (Op.id newOp))
                     }
 
                 Just _ ->
-                    Debug.todo ("Already have op " ++ OpID.toString (Op.id op) ++ "as an object..")
+                    Debug.todo ("Already have op " ++ OpID.toString (Op.id newOp) ++ "as an object..")
 
         alreadyHaveThisOp op =
             AnyDict.get (Op.id op) node.ops
@@ -246,13 +246,15 @@ lookupObject node opIDToFind =
         Nothing ->
             Err (UnknownReference opIDToFind)
 
+
 {-| Quick way to see how many recognized objects are in the Node.
 -}
 objectCount : Node -> Int
 objectCount node =
     List.map (Op.object >> OpID.toSortablePrimitives) (AnyDict.values node.ops)
-    |> Set.fromList
-    |> Set.size
+        |> Set.fromList
+        |> Set.size
+
 
 {-| Save your changes!
 Always supply the current time (`Just moment`).
@@ -282,11 +284,24 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
 
         updatedNode =
             updateWithClosedOps node finishedOps
+
+        newObjectsCreated =
+            creationOpsToObjectIDs finishedOps
+
+        logApplyResults =
+            Log.proseToString
+                [ [ "Node.apply:" ]
+                , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
+                , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
+                , [ "Output Frame:" ]
+                , [ Op.closedChunksToFrameText finishedOpChunks ]
+                ]
     in
-    { outputFrame = finishedOpChunks
-    , updatedNode = updatedNode
-    , created = creationOpsToObjectIDs finishedOps
-    }
+    Log.logMessageOnly logApplyResults
+        { outputFrame = finishedOpChunks
+        , updatedNode = updatedNode
+        , created = newObjectsCreated
+        }
 
 
 creationOpsToObjectIDs : List Op -> List OpID
@@ -515,15 +530,7 @@ getOrInitObject :
 getOrInitObject node inCounter targetObject =
     case targetObject of
         Change.ExistingObjectPointer objectID ->
-            let
-                opThatMatchesObject opID op =
-                    if Op.object op == objectID then
-                        Just op
-
-                    else
-                        Nothing
-            in
-            case AnyDict.filter (\opID op -> Op.object op == objectID) node.ops |> AnyDict.values of
+            case AnyDict.filter (\_ op -> Op.object op == objectID) node.ops |> AnyDict.values of
                 [] ->
                     Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
 
@@ -563,7 +570,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
         foundSome ->
             let
                 matchingOp opID op =
-                    (beforeCutoff opID) && correctObject op
+                    beforeCutoff opID && correctObject op
 
                 beforeCutoff opID =
                     case cutoff of
@@ -575,10 +582,9 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
 
                 correctObject op =
                     List.member (Op.object op) foundSome
-                    
 
                 findMatchingOps =
-                    AnyDict.filter matchingOp node.ops
+                    Log.log (Console.bgGreen "ops matching object") <| AnyDict.filter matchingOp (Log.log (Console.green "all ops") node.ops)
             in
             case Object.buildSavedObject findMatchingOps of
                 ( Just finalObject, [] ) ->
@@ -588,14 +594,15 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
                     Log.crashInDev "object builder produced warnings!" <| Object.Saved finalObject
 
                 ( Nothing, warnings ) ->
-                    Log.crashInDevProse 
-                        ["Node.getObject:"
-                        , "object builder was tasked with building an object that should exist but found nothing. The existing object(s) supposedly had ID(s):"
-                        , Log.dump foundSome
-                        , "Matched " ++ String.fromInt (AnyDict.size findMatchingOps) ++ " out of " ++ String.fromInt (AnyDict.size node.ops) ++ " total ops (correct object and pre-cutoff)."
-                        , "The builder produced these warnings:"
-                        , Log.dump warnings
-                        ] uninitializedObject
+                    Log.crashInDevProse
+                        [ [ "Node.getObject:" ]
+                        , [ "object builder was tasked with building an object that should exist but found nothing. The existing object(s) supposedly had ID(s):" ]
+                        , [ Log.dump foundSome ]
+                        , [ "Matched", Log.int (AnyDict.size findMatchingOps), "out of", Log.int (AnyDict.size node.ops), "total ops (correct object and pre-cutoff)." ]
+                        , [ "The builder produced these warnings:" ]
+                        , [ Log.dump warnings ]
+                        ]
+                        uninitializedObject
 
 
 
