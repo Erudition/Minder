@@ -207,6 +207,7 @@ type PendingCounter
 type PendingID
     = ParentExists ObjectID (Nonempty SiblingIndex)
     | ParentPending Op.ReducerID (Nonempty SiblingIndex)
+    | ParentIsRoot
 
 
 type alias SiblingIndex =
@@ -224,16 +225,19 @@ newPointer { parent, position, childChangeWrapper, reducerID } =
         ExistingObjectPointer objectID ->
             PlaceholderPointer reducerID (ParentExists objectID position) childChangeWrapper
 
-        PlaceholderPointer parentReducerID (ParentExists parentObjectID parentPosition) parentNotifier ->
+        PlaceholderPointer _ (ParentExists parentObjectID parentPosition) parentNotifier ->
             PlaceholderPointer reducerID (ParentExists parentObjectID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
 
-        PlaceholderPointer parentReducerID (ParentPending firstAncestorReducerID parentPosition) parentNotifier ->
+        PlaceholderPointer _ (ParentPending firstAncestorReducerID parentPosition) parentNotifier ->
             PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
 
+        PlaceholderPointer _ (ParentIsRoot) _ ->
+            PlaceholderPointer reducerID (ParentIsRoot) (identity)
 
-genesisPointer : Int -> Pointer
-genesisPointer index =
-    PlaceholderPointer "genesis" (ParentPending "genesis" (Nonempty.singleton index)) identity
+
+genesisPointer : Pointer
+genesisPointer =
+    PlaceholderPointer "genesis" (ParentIsRoot) identity
 
 
 updateChildChangeWrapper : Pointer -> ParentNotifier -> Pointer

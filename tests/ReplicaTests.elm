@@ -30,10 +30,10 @@ suite =
           --, repListEncodeThenDecode
           --  repListInsertAndRemove
           -- ,
-          nodeModifications
+          -- nodeModifications
 
-        -- ,  nestedStressTestIntegrityCheck
-        -- ,  modifiedNestedStressTestIntegrityCheck
+        --   nestedStressTestIntegrityCheck
+          modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -56,7 +56,6 @@ nodeFromCodec profileCodec =
                 , [ Op.closedChunksToFrameText startFrame ]
                 ]
     in
-    Log.logMessageOnly logStart
         { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
@@ -226,7 +225,7 @@ nodeModifications =
                 Ok exampleObjectFound ->
                     let
                         makeChanges =
-                            List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
+                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
 
                         { updatedNode, outputFrame } =
                             Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
@@ -240,7 +239,7 @@ nodeModifications =
                     Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         generatedRootObjectID =
-            OpID.fromStringForced "5+here"
+            OpID.fromStringForced "1+here"
 
         changedObjectDecoded =
             Codec.decodeFromNode writableObjectCodec afterNode
@@ -254,7 +253,7 @@ nodeModifications =
                 \_ ->
                     Expect.notEqual afterNode.root Nothing
             , test "the root object should have n more events, with n being the number of new changes to the root object" <|
-                \_ -> Expect.equal (List.length (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) (List.length (getObjectEventList generatedRootObjectID afterNode))
+                \_ ->  (List.length (getObjectEventList generatedRootObjectID beforeNode) + List.length changeList) |> Expect.equal (List.length (getObjectEventList generatedRootObjectID afterNode))
             ]
         , test "Testing the final decoded object for the new changes" <|
             \_ ->
@@ -397,6 +396,7 @@ type alias NestedStressTest =
     { recordDepth : String
     , recordOf3Records : RecordOf3Records
     , listOfNestedRecords : RepList WritableObject
+    , lastField : String
     }
 
 
@@ -406,6 +406,7 @@ nestedStressTestCodec =
         |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "first layer"
         |> Codec.fieldReg ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
         |> Codec.fieldList ( 3, "listOfNestedRecords" ) .listOfNestedRecords writableObjectCodec
+        |> Codec.field ( 4, "lastField" ) .lastField Codec.string "NST ending"
         |> Codec.finishRecord
 
 
@@ -471,7 +472,7 @@ nodeWithModifiedNestedStressTest =
 
                 changes =
                     [ RepList.insertNew RepList.Last (Codec.init writableObjectCodec) repListOfWritables
-                    , RepList.insertNew RepList.Last newWritable repListOfWritables
+                    , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable") <| RepList.insertNew RepList.Last newWritable repListOfWritables
                     ]
 
                 newWritable : Change.Creator WritableObject
@@ -487,7 +488,7 @@ nodeWithModifiedNestedStressTest =
                             , obj.kids.set (newKidsList c)
                             ]
                     in
-                    Codec.initAndChange writableObjectCodec c woChanges
+                    Codec.initAndChange writableObjectCodec (Debug.log (Console.bgMagenta "PARENT OF NEW WRITABLE") c) woChanges
 
                 newKidsList c =
                     SomeOfBoth (Codec.init (Codec.repList exampleSubObjectCodec) c) (Codec.init (Codec.repList exampleSubObjectCodec) c)
@@ -496,10 +497,10 @@ nodeWithModifiedNestedStressTest =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
 
                 ronData =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
+                    (Op.closedChunksToFrameText startFrame) ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 reInitialized =
-                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Op.closedChunksToFrameText (Debug.log ("RON DATA: " ++ ronData) <| startFrame ++ applied.outputFrame))
+                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Op.closedChunksToFrameText (Debug.log (Console.colorsInverted <| "RON DATA: " ++ ronData) <| startFrame ++ applied.outputFrame))
 
                 reInitializedNodeAndSuch =
                     case reInitialized of
@@ -549,10 +550,10 @@ modifiedNestedStressTestIntegrityCheck =
             nodeFromCodec nestedStressTestCodec
 
         generatedRootObjectID =
-            OpID.fromStringForced "0+here"
+            OpID.fromStringForced "18+here"
 
         generatedRepListObjectID =
-            OpID.fromStringForced "13+here"
+            OpID.fromStringForced "1+here"
 
         eventListSize givenID givenNode =
             List.length (getObjectEventList givenID givenNode)
@@ -582,9 +583,9 @@ modifiedNestedStressTestIntegrityCheck =
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Expect.equal (Node.objectCount subject) 6
+                    (Node.objectCount subject) |> Expect.equal  6
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
-                \_ -> Expect.equal 2 (eventListSize generatedRepListObjectID subject)
+                \_ -> (eventListSize generatedRepListObjectID subject) |> Expect.equal 3
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getPointer o.listOfNestedRecords)) False decodedNST
             ]

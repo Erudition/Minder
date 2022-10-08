@@ -63,7 +63,8 @@ frameParser =
 
                 Just chunkEndType ->
                     succeed ()
-                        |> Parser.map (\_ -> Debug.log "FINISHED PARSING CHUNK\n" <| Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
+                        |> Parser.map (\_ -> 
+                        Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
 
         opLineParserChainLoop opsReversed =
             let

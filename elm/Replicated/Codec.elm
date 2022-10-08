@@ -201,7 +201,7 @@ type alias RegisterFieldInitializer parentSeed remaining =
 
 type alias RegisterFieldDecoderInputs =
     { node : Node
-    , parentPointer : Pointer
+    , pointer : Pointer
     , history : FieldHistoryDict
     , cutoff : Maybe Moment
     }
@@ -255,9 +255,9 @@ decodeFromNode profileCodec node =
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
-    case JD.decodeString (getNodeDecoder profileCodec { node = node, parent = Change.genesisPointer 0, cutoff = Nothing, position = Nonempty.singleton 0 }) (prepDecoder rootEncoded) of
+    case JD.decodeString (getNodeDecoder profileCodec { node = node, parent = Change.genesisPointer, cutoff = Nothing, position = Nonempty.singleton 0 }) (prepDecoder rootEncoded) of
         Ok value ->
-            Debug.log (Console.bgMagenta "decodeFromNode: Decoded root Ok: ") value
+            value
 
         Err jdError ->
             Err (FailedToDecodeRoot <| JD.errorToString jdError)
@@ -546,12 +546,12 @@ encodeDefaults node rootCodec =
                 { node = node
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
                 , thingToEncode = JustEncodeDefaultsIfNeeded
-                , parent = Change.genesisPointer 0
+                , parent = Change.genesisPointer
                 , position = Nonempty.singleton 0
                 }
 
         bogusChange =
-            Change.Chunk { target = Change.genesisPointer 0, objectChanges = [] }
+            Change.Chunk { target = Change.genesisPointer, objectChanges = [] }
     in
     case ronPayload of
         [ Change.QuoteNestedObject change ] ->
@@ -1734,7 +1734,8 @@ type alias FieldValue =
 
 
 type FieldFallback parentSeed fieldSeed fieldType
-    = Default fieldType
+    = HardcodedDefault fieldType
+    | HardcodedSeed fieldSeed
     | InitWithParentSeed (parentSeed -> fieldSeed)
     | DefaultFromParentSeed (parentSeed -> fieldType)
     | DefaultAndInitWithParentSeed fieldType (parentSeed -> fieldSeed)
@@ -1775,13 +1776,20 @@ record remainingConstructor =
 fieldDefaultMaybe : FieldFallback parentSeed fieldSeed fieldType -> Maybe fieldType
 fieldDefaultMaybe fallback =
     case fallback of
-        Default default ->
+        HardcodedDefault default ->
             Just default
 
         DefaultAndInitWithParentSeed default _ ->
+            -- TODO used anywhere?
             Just default
 
-        _ ->
+        InitWithParentSeed _ ->
+            Nothing
+
+        HardcodedSeed seed ->
+            Nothing
+
+        DefaultFromParentSeed _ ->
             Nothing
 
 
@@ -1840,8 +1848,11 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                 fieldValue : fieldType
                 fieldValue =
                     case fallback of
-                        Default fieldType ->
+                        HardcodedDefault fieldType ->
                             fieldType
+
+                        HardcodedSeed fieldSeed ->
+                            fieldInit fieldSeed
 
                         InitWithParentSeed parentSeedToFieldSeed ->
                             fieldInit (parentSeedToFieldSeed parentSeed)
@@ -1870,7 +1881,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldCodec))
         , fieldIndex = newFieldIndex
-        , nodeEncoders = newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fieldDefaultMaybe fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
+        , nodeEncoders = newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
         , nodeDecoder = nodeDecoder
         , nodeInitializer = nodeInitializer
         }
@@ -1931,8 +1942,11 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                 fieldValue : fieldType
                 fieldValue =
                     case fallback of
-                        Default fieldType ->
+                        HardcodedDefault fieldType ->
                             fieldType
+
+                        HardcodedSeed fieldSeed ->
+                            fieldInit fieldSeed
 
                         InitWithParentSeed parentSeedToFieldSeed ->
                             fieldInit (parentSeedToFieldSeed parentSeed)
@@ -1964,7 +1978,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = newFieldIndex
-        , nodeEncoders = newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fieldDefaultMaybe fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
+        , nodeEncoders = newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
         , nodeDecoder = nodeDecoder
         , nodeInitializer = nodeInitializer
         }
@@ -1982,7 +1996,7 @@ The last argument specifies a default value, which is used when initializing the
 -}
 field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 field ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (Default fieldDefault) soFar
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedDefault fieldDefault) soFar
 
 
 {-| Read a field containing a nested register, using an auto-generated default.
@@ -1993,7 +2007,7 @@ field ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
 -}
 fieldReg : FieldIdentifier -> (full -> fieldType) -> Codec errs () fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldReg ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (InitWithParentSeed (\_ -> ())) soFar
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed ()) soFar
 
 
 {-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
@@ -2003,7 +2017,7 @@ fieldReg ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
 -}
 maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs fieldSeed justFieldType -> PartialRegister errs i full (Maybe justFieldType -> remaining) -> PartialRegister errs i full remaining
 maybeR fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (maybe fieldCodec) (Default Nothing) recordBuilt
+    readableHelper fieldID fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) recordBuilt
 
 
 {-| Read a `RepList` field without adding the `repList` codec. Default is an empty `RepList`.
@@ -2016,7 +2030,7 @@ maybeR fieldID fieldGetter fieldCodec recordBuilt =
 -}
 fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepList memberType -> remaining) -> PartialRegister errs i full remaining
 fieldList fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repList fieldCodec) (InitWithParentSeed (\_ -> ())) recordBuilt
+    readableHelper fieldID fieldGetter (repList fieldCodec) (HardcodedSeed (())) recordBuilt
 
 
 {-| Read a `RepDict` field without adding the `repDict` codec. Default is an empty `RepDict`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
@@ -2056,7 +2070,7 @@ The last argument specifies a default value, which is used when initializing the
 -}
 maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldSeed fieldType -> PartialRegister errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister errs i full remaining
 maybeRW fieldIdentifier fieldGetter fieldCodec soFar =
-    writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (Default Nothing) soFar
+    writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) soFar
 
 
 {-| Read a `Maybe` record field wrapped with `RW`. This makes the field writable.
@@ -2072,7 +2086,7 @@ The last argument specifies a default value, which is used when initializing the
 -}
 fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
-    writableHelper fieldIdentifier fieldGetter fieldCodec (Default fieldDefault) soFar
+    writableHelper fieldIdentifier fieldGetter fieldCodec (HardcodedDefault fieldDefault) soFar
 
 
 {-| Read a field that is required, yet has no sensible default. Use sparingly.
@@ -2179,15 +2193,30 @@ updateRegisterPostChildInit parentPointer fieldIdentifier changeToWrap =
 registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List (Error e) )
 registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
     let
+        parent =
+            Change.updateChildChangeWrapper inputs.pointer (updateRegisterPostChildInit inputs.pointer fieldIdentifier)
+
+        position =
+            Nonempty.singleton index
+
+
         runFieldDecoder thingToDecode =
             JD.decodeValue
                 (getNodeDecoder fieldCodec
-                    { node = inputs.node, position = Nonempty.singleton index, parent = Change.updateChildChangeWrapper inputs.parentPointer (updateRegisterPostChildInit inputs.parentPointer fieldIdentifier), cutoff = inputs.cutoff }
+                    { node = inputs.node, position = position, parent = parent, cutoff = inputs.cutoff }
                 )
                 thingToDecode
 
+        generatedDefaultMaybe =
+            case fallback of
+                HardcodedSeed fieldSeed ->
+                    Just <| (getInitializer fieldCodec) {parent = parent, seed = fieldSeed, position = position, changer = \_ -> []}
+
+                _ ->
+                    Nothing
         default =
-            fieldDefaultMaybe fallback
+            Maybe.Extra.or (fieldDefaultMaybe fallback) generatedDefaultMaybe
+
     in
     case getFieldLatestOnly inputs.history fieldIdentifier of
         Nothing ->
@@ -2197,7 +2226,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                     ( default, [] )
 
                 Nothing ->
-                    Log.crashInDev ("Failed to decode a field (" ++ fieldName ++ ") that should always decode (required missing, or nested should return defaults), there's no default to fall back to")
+                    Log.crashInDev ("registerReadOnlyFieldDecoder: Failed to decode a field (" ++ fieldName ++ ") that should always decode (required missing, or nested should return defaults), there's no default to fall back to")
                         ( default, [ DataCorrupted ] )
 
         Just foundField ->
@@ -2221,7 +2250,7 @@ registerWritableFieldDecoder index fieldIdentifier fallback fieldCodec inputs =
                 { node = inputs.node
                 , mode = defaultEncodeMode
                 , thingToEncode = EncodeThis newValue
-                , parent = Change.updateChildChangeWrapper inputs.parentPointer (updateRegisterPostChildInit inputs.parentPointer fieldIdentifier)
+                , parent = Change.updateChildChangeWrapper inputs.pointer (updateRegisterPostChildInit inputs.pointer fieldIdentifier)
                 , position = Nonempty.singleton index
                 }
 
@@ -2231,7 +2260,7 @@ registerWritableFieldDecoder index fieldIdentifier fallback fieldCodec inputs =
     in
     case registerReadOnlyFieldDecoder index fieldIdentifier fallback fieldCodec inputs of
         ( Just thingToWrap, errorsSoFar ) ->
-            ( Just (wrapRW inputs.parentPointer thingToWrap), errorsSoFar )
+            ( Just (wrapRW inputs.pointer thingToWrap), errorsSoFar )
 
         ( previousShowstopper, errorsSoFar ) ->
             ( Nothing, errorsSoFar )
@@ -2313,7 +2342,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                             buildRegisterFieldDictionary object
 
                         ( regToRecordByDecodingMaybe, decodeProblems ) =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = cutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = cutoff, history = history }
 
                         -- TODO currently ignoring errors
                         regToRecordByInit =
@@ -2325,8 +2354,8 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                                     recordDecoded
 
                                 Nothing ->
-                                    -- Log.crashInDev "nakedRegisterDecoder decoded nothing!" <|
-                                    regToRecordByInit () parent
+                                    Log.crashInDev "nakedRegisterDecoder decoded nothing!" <|
+                                        regToRecordByInit () parent
                     in
                     JD.succeed <| Ok <| finalRecord
             in
@@ -2339,12 +2368,12 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 checkThingToEncode =
                     case inputs.thingToEncode of
                         EncodeThis fieldType ->
-                            Log.crashInDevProse
-                                [ [ "Codec.finishRecord.nodeEncoder:" ]
-                                , [ "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:" ]
-                                , [ Log.dump inputs.thingToEncode ]
-                                , [ "...so no way to get the actual register object we need to encode" ]
-                                ]
+                            -- Log.log ( Log.proseToString <|
+                            --     [ [ "Codec.finishRecord.nodeEncoder:" ]
+                            --     , [ "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:" ]
+                            --     , [ Log.dump inputs.thingToEncode ]
+                            --     , [ "...so no way to get the actual register object we need to encode. But perhaps it deoesn't exist yet." ]
+                            --     ])
                                 JustEncodeDefaultsIfNeeded
 
                         EncodeObjectOrThis objectIDNonempty _ ->
@@ -2388,12 +2417,12 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                                 applied =
                                     Node.apply Nothing Node.testNode savedChangesFrame
                             in
-                            case JD.decodeString (nodeDecoder { node = applied.updatedNode, parent = parent, cutoff = Nothing, position = Nonempty.singleton 0 }) "" of
+                            case JD.decodeString (nodeDecoder { node = applied.updatedNode, parent = parent, cutoff = Nothing, position = Nonempty.singleton 0 }) "{}" of
                                 Ok (Ok patchSuccess) ->
                                     patchSuccess
 
-                                _ ->
-                                    Log.crashInDev "failed to patch naked register" empty
+                                problem ->
+                                    Log.crashInDev ("emptyRegister: failed to patch naked register. When decoding empty string, error was: " ++ Debug.toString problem ) empty
             in
             patchedRecord
 
@@ -2451,12 +2480,12 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
                         wrongCutoffRegToRecordByDecoding =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = Nothing, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = Nothing, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2565,7 +2594,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2608,7 +2637,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = changer }
 
         tempEmpty =
-            emptyRegister { parent = Change.genesisPointer 0, seed = (), changer = nonChanger, position = Nonempty.singleton 0 }
+            emptyRegister { parent = Change.genesisPointer, seed = (), changer = nonChanger, position = Nonempty.singleton 0 }
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Register full))
         bytesDecoder =
@@ -2665,12 +2694,12 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
                         wrongCutoffRegToRecordByDecoding =
-                            allFieldsCodec.nodeDecoder { node = node, parentPointer = parent, cutoff = Nothing, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = Nothing, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2994,13 +3023,13 @@ type RegisterFieldEncoderOutput
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> Maybe fieldType -> Codec e fieldSeed fieldType -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput)
-newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplies fieldCodec { mode, node, updateRegisterAfterChildInit, parentPointer, history } =
+newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput)
+newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Codec codecDetails) as fieldCodec) { mode, node, updateRegisterAfterChildInit, parentPointer, history } =
     let
         runFieldNodeEncoder valueToEncode =
             let
                 parent =
-                    -- TODO replaced?
+                    -- TODO obsoleted? parent already has notifier?
                     Change.updateChildChangeWrapper parentPointer finishChildWrapper
 
                 finishChildWrapper changeToWrap =
@@ -3037,8 +3066,10 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplie
 
                 _ ->
                     Nothing
+
+
     in
-    case fieldDefaultIfApplies of
+    case (fieldDefaultMaybe fieldFallback) of
         Just fieldDefault ->
             -- Okay we have a default to fall back to
             let
@@ -3084,8 +3115,38 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldDefaultIfApplie
             -- we have no default to fall back to, this is for nested objects or core fields
             case getPayloadIfSet of
                 Nothing ->
-                    -- TODO this should be (fieldDecoder Nothing) so we can still encode defaults from uninitialized objects if needed
-                    SkipThisField
+                    let
+                        encodedDefault : Change.PotentialPayload
+                        encodedDefault =
+                            let
+                                wrapper =
+                                    encodeFieldPayloadAsObjectPayload
+                                        ( fieldSlot, fieldName )
+                            in
+                            -- EncodeThis because this only gets used on default value
+                            wrapper (runFieldNodeEncoder (JustEncodeDefaultsIfNeeded))
+
+                        explicitDefaultIfNeeded =
+                            case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects ) of
+                                ( True, _ ) ->
+                                    EncodeThisField <| Change.NewPayload encodedDefault
+
+                                ( False, False ) ->
+                                    SkipThisField
+
+                                ( False, True ) ->
+                                    -- is nested object? if so we must still initialize it
+                                    case encodedDefault of
+                                        [ Change.QuoteNestedObject subChange ] ->
+                                            -- looks like it was a nested object, let it initialize
+                                            EncodeThisField <| Change.NewPayload encodedDefault
+
+                                        _ ->
+                                            SkipThisField
+                    in
+                    explicitDefaultIfNeeded
+ 
+                    
 
                 Just latestPayload ->
                     -- it was set before, can we decode it?

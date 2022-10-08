@@ -245,7 +245,7 @@ initWithClass entry actionClassID =
             []
     in
     [ entry.properties.title.set <| Just "Entry title"
-    , RepList.insertNewAndChange RepList.Last (\c -> ProjectIsHere (Codec.init projectCodec c)) (\spc -> []) entry.children
+    , RepList.insertNew RepList.Last (\c -> ProjectIsHere (Codec.init projectCodec c))  entry.children
     ]
 
 

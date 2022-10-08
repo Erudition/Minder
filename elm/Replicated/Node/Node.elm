@@ -297,7 +297,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
                 , [ Op.closedChunksToFrameText finishedOpChunks ]
                 ]
     in
-    Log.logMessageOnly logApplyResults
+    -- Log.logMessageOnly logApplyResults
         { outputFrame = finishedOpChunks
         , updatedNode = updatedNode
         , created = newObjectsCreated
@@ -584,7 +584,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
                     List.member (Op.object op) foundSome
 
                 findMatchingOps =
-                    Log.log (Console.bgGreen "ops matching object") <| AnyDict.filter matchingOp (Log.log (Console.green "all ops") node.ops)
+                    AnyDict.filter matchingOp node.ops
             in
             case Object.buildSavedObject findMatchingOps of
                 ( Just finalObject, [] ) ->

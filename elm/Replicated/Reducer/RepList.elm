@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, insertNewAndChange, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew,  last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -246,52 +246,38 @@ The new item will be generated from the function you pass, which has the `Contex
 
 -}
 insertNew : InsertionPoint -> (Context -> memberType) -> RepList memberType -> Change
-insertNew insertionPoint newItemFromContext repList =
-    insertNewAndChange insertionPoint newItemFromContext (\_ -> []) repList
-
-
-{-| Insert an item at the given location (1), and make some changes to it!
-The new item will be generated from the function (2) you pass, which has the `Context` as its input.
-Upon saving, the changes will be applied to the new object in the way specified by your changer function (3), which takes the new object as its input.
-
-    - If you don't need to make any changes this frame, just use `insertNew`.
-
--}
-insertNewAndChange : InsertionPoint -> (Context -> memberType) -> (memberType -> List Change) -> RepList memberType -> Change
-insertNewAndChange insertionPoint newItemFromContext itemChanger (RepList record) =
+insertNew insertionPoint newItemFromContext (RepList record) =
     let
         newItem =
             newItemFromContext (Change.Context record.pointer)
 
-        newItemChanges =
-            itemChanger newItem
-                -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
-                |> Change.combineChangesOfSameTarget
+        -- newItemChanges =
+        --     itemChanger newItem
+        --         -- combining here is necessary for now because wrapping the end result in the parent replist changer makes us not able to group
+        --         |> Change.combineChangesOfSameTarget
 
-        newItemChangesAsRepListObjectChanges =
-            List.map wrapSubChangeWithRef newItemChanges
+        -- newItemChangesAsRepListObjectChanges =
+        --     List.map wrapSubChangeWithRef newItemChanges
 
-        wrapSubChangeWithRef subChange =
-            case attachmentPointHelper record.pointer insertionPoint of
-                Just opID ->
-                    Change.NewPayloadWithRef { payload = Change.changeToChangePayload subChange, ref = opID }
+        -- wrapSubChangeWithRef subChange =
+        --     case attachmentPointHelper record.pointer insertionPoint of
+        --         Just opID ->
+        --             Change.NewPayloadWithRef { payload = Change.changeToChangePayload subChange, ref = opID }
 
-                Nothing ->
-                    Change.NewPayload (Change.changeToChangePayload subChange)
+        --         Nothing ->
+        --             Change.NewPayload (Change.changeToChangePayload subChange)
 
-        objectChangeList =
-            case newItemChangesAsRepListObjectChanges of
-                [] ->
-                    -- effectively a no-op so the member object will still initialize
-                    [ record.memberAdder 0 newItem Nothing ]
 
-                nonEmptyChangeList ->
-                    newItemChangesAsRepListObjectChanges
+        memberToObjectChange =
+            record.memberAdder 0 newItem refMaybe
+
+        refMaybe =
+            attachmentPointHelper record.pointer insertionPoint
     in
     Change.Chunk
         { target = record.pointer
         , objectChanges =
-            objectChangeList
+            [memberToObjectChange]
         }
 
 
