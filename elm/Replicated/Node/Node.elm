@@ -48,7 +48,7 @@ initFromSaved { sameSession, storedNodeID } inputRon =
             NodeID.fromString storedNodeID
 
         backfilledNode oldNodeID =
-            updateWithRon { node = startNode oldNodeID, warnings = [] } inputRon
+            updateWithRon { node = startNode oldNodeID, warnings = [], newObjects = [] } inputRon
 
         newIdentity oldNodeID =
             if sameSession then
@@ -92,6 +92,16 @@ testNode =
     }
 
 
+
+throwawayNode : Node
+throwawayNode =
+    { identity = NodeID.throwawayID
+    , peers = []
+    , ops = AnyDict.empty OpID.toSortablePrimitives
+    , root = Nothing
+    , highestSeenClock = 0
+    }
+
 startNewNode : Maybe Moment -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
 startNewNode nowMaybe startChanges =
     let
@@ -102,7 +112,7 @@ startNewNode nowMaybe startChanges =
             apply nowMaybe testNode firstChangeFrame
 
         newRoot =
-            List.last created
+            List.last (created)
 
         newNode =
             { updatedNode | root = newRoot }
@@ -141,6 +151,7 @@ type OpImportWarning
 type alias RonProcessedInfo =
     { node : Node
     , warnings : List OpImportWarning
+    , newObjects : List ObjectID
     }
 
 
@@ -158,7 +169,31 @@ updateWithRon old inputRon =
 -}
 updateWithMultipleFrames : List Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 updateWithMultipleFrames newFrames old =
-    List.foldl update old newFrames
+    let
+        assumeRootIfNeeded output =
+            -- deduce root object, if needed. should only run on first frame processed
+            case output.node.root of
+                Just _ ->
+                    output
+
+                Nothing ->
+                    let
+                        oldNode =
+                            output.node
+
+                        newRoot =
+                            -- last object created in first frame should always be the root
+                             List.last (Log.log (Console.bgYellow "new objects") output.newObjects)
+
+                        newNode =
+                            { oldNode | root = newRoot}
+                    in
+                    { output | node = newNode }
+
+        updateWithRootFinder frame oldInfo =
+                assumeRootIfNeeded (update frame oldInfo)
+    in
+    List.foldl updateWithRootFinder old (Log.logSeparate (Console.green "newFrames ") (List.length newFrames |> String.fromInt) newFrames)
 
 
 {-| Update a node with some Ops in a Frame.
@@ -201,18 +236,9 @@ updateNodeWithChunk chunk old =
     in
     case closedOpListResult of
         Ok closedOps ->
-            let
-                nodeWithRoot givenNode =
-                    -- deduce root object, if needed
-                    case givenNode.root of
-                        Just _ ->
-                            givenNode
-
-                        Nothing ->
-                            { givenNode | root = List.last <| creationOpsToObjectIDs closedOps }
-            in
-            { node = updateWithClosedOps (nodeWithRoot old.node) closedOps
+            { node = updateWithClosedOps (old.node) closedOps
             , warnings = old.warnings
+            , newObjects = old.newObjects ++ creationOpsToObjectIDs closedOps
             }
 
         Err newErr ->

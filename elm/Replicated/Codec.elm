@@ -77,6 +77,7 @@ import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
+import Replicated.Reducer.Register as Register exposing (..)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -2409,20 +2410,40 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                             empty
 
                         someChangesToMake ->
-                            -- this is a hack, but without it we couldn't have naked registers
+                            -- this is a hack, but without it we couldn't have naked registers with pre-init changes
                             let
                                 savedChangesFrame =
                                     Change.saveChanges "patching fake node" someChangesToMake
 
                                 applied =
-                                    Node.apply Nothing Node.testNode savedChangesFrame
+                                    -- apply changes to a dummy node. IDs will be all wrong but we won't ever use these Ops again,
+                                    Debug.log (Console.bgRed "naked register throwaway node was:") <| Node.apply Nothing Node.throwawayNode savedChangesFrame
+
+                                generatedObjectInFakeNode =
+                                    -- last object created is root. TODO should be able to grab .root from the node
+                                    List.Extra.last applied.created
+
+                                fakeIDAsString fakeID =
+                                    JE.encode 0 (JE.list Op.atomToJsonValue [ (Op.IDPointerAtom fakeID)])
+
+                                iDToFindString =
+                                    Maybe.map fakeIDAsString generatedObjectInFakeNode 
+                                    |> Maybe.withDefault "{}"
+                                    |> Debug.log (Console.bgRed "iDToFindString")
+
+                                
+                                extractFromThrowaway  =
+                                -- ...just using the throwaway node to decode the naked register,
+                                    JD.decodeString (nodeDecoder { node = applied.updatedNode, parent = parent, cutoff = Nothing, position = Nonempty.singleton 0 }) iDToFindString
                             in
-                            case JD.decodeString (nodeDecoder { node = applied.updatedNode, parent = parent, cutoff = Nothing, position = Nonempty.singleton 0 }) "{}" of
+                            
+                            case extractFromThrowaway of
                                 Ok (Ok patchSuccess) ->
-                                    patchSuccess
+                                    --  and use that as the init value!
+                                    Debug.log (Console.bgRed "naked register decoded from throwaway node was:") patchSuccess
 
                                 problem ->
-                                    Log.crashInDev ("emptyRegister: failed to patch naked register. When decoding empty string, error was: " ++ Debug.toString problem ) empty
+                                    Log.crashInDev ("emptyRegister: failed to patch naked register. When decoding {}, error was: " ++ Debug.toString problem ) empty
             in
             patchedRecord
 
@@ -2480,12 +2501,12 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
                         wrongCutoffRegToRecordByDecoding =
-                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = Nothing, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = Nothing, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2594,7 +2615,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2694,12 +2715,12 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = givenCutoff, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = givenCutoff, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
                         wrongCutoffRegToRecordByDecoding =
-                            allFieldsCodec.nodeDecoder { node = node, pointer = parent, cutoff = Nothing, history = history }
+                            allFieldsCodec.nodeDecoder { node = node, pointer = Object.getPointer object, cutoff = Nothing, history = history }
                                 -- TODO currently ignoring errors
                                 |> Tuple.first
 
@@ -2765,33 +2786,13 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         }
 
 
-{-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
--}
-type Register userType
-    = Register
-        { pointer : Change.Pointer
-        , included : Object.InclusionInfo
-        , toRecord : Maybe Moment -> userType
-        , history : FieldHistoryDict
-        , init : Changer (Register userType)
-        }
 
 
-type alias FieldPayload =
-    Nonempty Op.OpPayloadAtom
 
 
-type alias FieldHistoryBackwards =
-    Nonempty ( OpID, FieldPayload )
 
 
-type alias FieldHistoryDict =
-    Dict FieldSlot FieldHistoryBackwards
 
-
-registerReducerID : Op.ReducerID
-registerReducerID =
-    "lww"
 
 
 buildRegisterFieldDictionary : Object -> FieldHistoryDict
@@ -2879,10 +2880,7 @@ getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
 
 
-type alias RW fieldVal =
-    { get : fieldVal
-    , set : fieldVal -> Change
-    }
+
 
 
 buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> RW fieldVal
@@ -2896,11 +2894,7 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     }
 
 
-type alias RWH fieldVal =
-    { get : fieldVal
-    , set : fieldVal -> Change
-    , history : List ( OpID, fieldVal )
-    }
+
 
 
 buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal

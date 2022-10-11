@@ -15,6 +15,9 @@ generate record =
     NodeID "here"
 
 
+throwawayID =
+    NodeID "temp"
+
 bumpSessionID : NodeID -> NodeID
 bumpSessionID (NodeID nodeIDString) =
     -- TODO { nodeID | session = nodeID.session + 1 }

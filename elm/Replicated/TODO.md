@@ -1,5 +1,7 @@
 # Now
 - Run tests
+- Get naked records read-only enforced
+- Always auto-detect root object
 
 
 # Soon
@@ -7,6 +9,8 @@
 - do single quotes get properly escaped on output?
 - Parse OpIDs upfront and store in proper record form
 - Constrain the exposing(..) of Codec
+- get json decoding working
+- get bytes decoding working
 
 
 # Later
