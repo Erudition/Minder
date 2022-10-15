@@ -21,13 +21,13 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
-type Register userType
+type Reg userType
     = Register
         { pointer : Change.Pointer
         , included : Object.InclusionInfo
         , toRecord : Maybe Moment -> userType
         , history : FieldHistoryDict
-        , init : Changer (Register userType)
+        , init : Changer (Reg userType)
         }
 
 
@@ -44,7 +44,7 @@ type alias FieldHistoryDict =
 
 
 
-getPointer : Register userType -> Change.Pointer
+getPointer : Reg userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer
 
@@ -77,6 +77,6 @@ registerReducerID =
     "lww"
 
 
-latest : Register record -> record
+latest : Reg record -> record
 latest ((Register registerDetails) as reg) =
     registerDetails.toRecord Nothing

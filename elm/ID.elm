@@ -76,26 +76,33 @@ type User
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Change as Change exposing (Pointer)
+import Log
 
 
 type ID userType
-    = ID OpID
+    = ID Pointer
 
 
-{-| Tag something with an ID!
+{-| Tag a pointer, making it a type-constrained ID!
 -}
-tag : OpID -> ID userType
-tag opID =
-    ID opID
+tag : Pointer -> ID userType
+tag pointer =
+    ID pointer
 
 
 {-| Read an ID!
 -}
-read : ID userType -> OpID
-read (ID opID) =
-    opID
+read : ID userType -> Pointer
+read (ID pointer) =
+    pointer
 
 
 toString : ID userType -> String
-toString (ID opID) =
-    OpID.toString opID
+toString (ID pointer) =
+    case pointer of
+        Change.ExistingObjectPointer objectID ->
+            OpID.toString objectID
+
+        Change.PlaceholderPointer _ _ _ ->
+            Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" "Placeholder Pointer: Object Not Yet Initialized"

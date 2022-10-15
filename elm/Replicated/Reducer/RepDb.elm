@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size, addMultipleNew)
 
 import Array exposing (Array)
 import Console
@@ -38,7 +38,7 @@ type alias InclusionOpID =
 
 
 type alias Member memberType =
-    { id : ID memberType
+    { id : ID memberType -- "meta-tag"
     , value : memberType
     , remove : Change
     }
@@ -77,7 +77,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
             of
                 ( Just memberObjectID, Just memberValue ) ->
                     Just
-                        { id = ID.tag memberObjectID
+                        { id = ID.tag (Change.ExistingObjectPointer memberObjectID)
                         , value = memberValue
                         , remove = remover containerObjectID eventID
                         }
@@ -106,13 +106,23 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 
 get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
-    AnyDict.get (ID.read givenID) repDbRecord.members
-        |> Maybe.map .value
+    case ID.read givenID of
+        Change.ExistingObjectPointer objectID ->
+            AnyDict.get (objectID) repDbRecord.members
+            |> Maybe.map .value
+
+        _ ->
+            Nothing
 
 
 getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
-    AnyDict.get (ID.read givenID) repDbRecord.members
+    case ID.read givenID of
+        Change.ExistingObjectPointer objectID ->
+            AnyDict.get (objectID) repDbRecord.members
+
+        _ ->
+            Nothing
 
 
 {-| Get your RepDb as a read-only List.
@@ -162,50 +172,3 @@ addMultipleNew newMembersCreator (RepDb record) =
 getInit : RepDb memberType -> List Change
 getInit ((RepDb record) as repDb) =
     record.startWith repDb
-
-
-
--- update : ID memberType -> (memberType -> List Change) -> RepDb memberType -> List Change
--- update givenID changer repDb =
---     case get givenID repDb of
---         Just foundDesiredMember ->
---             changer foundDesiredMember
---
---         Nothing ->
---             [ spawnWithChanges changer repDb ]
--- spawnWithChanges : (memberType -> List Change) -> RepDb memberType -> Change
--- spawnWithChanges changer (RepDb record) =
---     let
---         newItemMaybe =
---             record.memberGenerator ()
---
---         newItemChanges =
---             case newItemMaybe of
---                 Nothing ->
---                     []
---
---                 Just newItem ->
---                     changer newItem
---                         -- combining here is necessary for now because wrapping the end result in the parent RepDb changer makes us not able to group
---                         |> Change.combineChangesOfSameTarget
---
---         newItemChangesAsRepDbObjectChanges =
---             List.map (Change.NewPayload << Change.changeToChangePayload) newItemChanges
---
---         finalChangeList =
---             case ( newItemChangesAsRepDbObjectChanges, newItemMaybe ) of
---                 ( [], Just newItem ) ->
---                     -- effectively a no-op so the member object will still initialize
---                     [ record.memberAdder newItem Nothing ]
---
---                 ( [], Nothing ) ->
---                     Log.crashInDev "Should never happen, no item generated to addNew to list" []
---
---                 ( nonEmptyChangeList, _ ) ->
---                     newItemChangesAsRepDbObjectChanges
---     in
---     Change.Chunk
---         { target = record.pointer
---         , objectChanges =
---             finalChangeList
---         }

@@ -1,5 +1,4 @@
 # Now
-- Run tests
 - Get naked records read-only enforced
 - Always auto-detect root object
 

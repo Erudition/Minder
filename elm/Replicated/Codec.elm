@@ -2044,7 +2044,7 @@ fieldList fieldID fieldGetter fieldCodec recordBuilt =
 -}
 fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyInit keyType, Codec errs valInit valueType ) -> PartialRegister errs i full (RepDict keyType valueType -> remaining) -> PartialRegister errs i full remaining
 fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
-    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (InitWithParentSeed (\parentSeed -> ())) recordBuilt
+    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (HardcodedSeed ()) recordBuilt
 
 
 {-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
@@ -2055,7 +2055,7 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
 -}
 fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repDb fieldCodec) (InitWithParentSeed (\parentSeed -> ())) recordBuilt
+    readableHelper fieldID fieldGetter (repDb fieldCodec) (HardcodedSeed ()) recordBuilt
 
 
 {-| Read a record field wrapped with `RW`. This makes the field writable.
@@ -2286,7 +2286,7 @@ concurrentObjectIDsDecoder =
                     JD.succeed opID
 
                 Nothing ->
-                    Log.crashInDev "concurrentObjectIDsDecoder got bad opID?" <|
+                    Log.log ("Codec.concurrentObjectIDsDecoder warning: got bad opID: " ++ givenString) <|
                         JD.fail (givenString ++ " is not a valid OpID...")
 
         unquoteObjectID quoted =
@@ -2365,7 +2365,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         nodeEncoder : NodeEncoder full
         nodeEncoder inputs =
             let
-                checkThingToEncode : ThingToEncode (Register full)
+                checkThingToEncode : ThingToEncode (Reg full)
                 checkThingToEncode =
                     case inputs.thingToEncode of
                         EncodeThis fieldType ->
@@ -2531,7 +2531,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
         nodeEncoder : NodeEncoder full
         nodeEncoder inputs =
             let
-                checkThingToEncode : ThingToEncode (Register full)
+                checkThingToEncode : ThingToEncode (Reg full)
                 checkThingToEncode =
                     case inputs.thingToEncode of
                         EncodeThis fieldType ->
@@ -2583,7 +2583,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
 
 {-| Finish creating a codec for a register.
 -}
-finishRegister : PartialRegister errs () full full -> Codec errs () (Register full)
+finishRegister : PartialRegister errs () full full -> Codec errs () (Reg full)
 finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     let
         encodeAsJsonObject (Register regDetails) =
@@ -2602,10 +2602,10 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
-        nodeDecoder : NodeDecoder errs (Register full)
+        nodeDecoder : NodeDecoder errs (Reg full)
         nodeDecoder { node, parent, position, cutoff } =
             let
-                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) (Register full))
+                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) (Reg full))
                 registerDecoder objectIDs =
                     let
                         object =
@@ -2634,7 +2634,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder (Register full)
+        nodeEncoder : NodeEncoder (Reg full)
         nodeEncoder inputs =
             registerNodeEncoder partialRegister
                 { thingToEncode = inputs.thingToEncode
@@ -2660,12 +2660,12 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         tempEmpty =
             emptyRegister { parent = Change.genesisPointer, seed = (), changer = nonChanger, position = Nonempty.singleton 0 }
 
-        bytesDecoder : BD.Decoder (Result (Error errs) (Register full))
+        bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
             -- TODO use allFieldsCodec.bytesDecoder
             BD.succeed <| Ok <| tempEmpty
 
-        jsonDecoder : JD.Decoder (Result (Error errs) (Register full))
+        jsonDecoder : JD.Decoder (Result (Error errs) (Reg full))
         jsonDecoder =
             -- TODO use allFieldsCodec.jsonArrayDecoder
             JD.succeed <| Ok <| tempEmpty
@@ -2683,7 +2683,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
 
 {-| Finish creating a codec for a register that needs a seed.
 -}
-finishSeededRegister : PartialRegister errs s full full -> Codec errs s (Register full)
+finishSeededRegister : PartialRegister errs s full full -> Codec errs s (Reg full)
 finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     let
         encodeAsJsonObject (Register regDetails) =
@@ -2702,10 +2702,10 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         encodeEntryInDictList fullRecord ( fieldKey, entryValueEncoder ) =
             JE.list identity [ JE.string fieldKey, entryValueEncoder fullRecord ]
 
-        nodeDecoder : NodeDecoder errs (Register full)
+        nodeDecoder : NodeDecoder errs (Reg full)
         nodeDecoder { node, parent, position, cutoff } =
             let
-                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) (Register full))
+                registerDecoder : List ObjectID -> JD.Decoder (Result (Error errs) (Reg full))
                 registerDecoder objectIDs =
                     let
                         object =
@@ -2742,7 +2742,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder (Register full)
+        nodeEncoder : NodeEncoder (Reg full)
         nodeEncoder inputs =
             registerNodeEncoder partialRegister
                 { thingToEncode = inputs.thingToEncode
@@ -2765,12 +2765,12 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             in
             Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = changer }
 
-        bytesDecoder : BD.Decoder (Result (Error errs) (Register full))
+        bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
             -- TODO use allFieldsCodec.bytesDecoder
             BD.fail
 
-        jsonDecoder : JD.Decoder (Result (Error errs) (Register full))
+        jsonDecoder : JD.Decoder (Result (Error errs) (Reg full))
         jsonDecoder =
             -- TODO use allFieldsCodec.jsonArrayDecoder
             JD.fail "Need to add decoder to reptype"
@@ -2923,7 +2923,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Register full) -> Change.PotentialPayload
+registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.PotentialPayload
 registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mode, parent, position } as details) =
     let
         fallbackObject foundIDs =

@@ -11,13 +11,25 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period(..))
+import Replicated.Change exposing (Pointer(..))
+import Log
 
 
 id : SymCodec e (ID userType)
 id =
+    let
+        iDtoPointerToObjectID givenID =
+            case (ID.read givenID) of
+                ExistingObjectPointer objectID ->
+                    objectID
+
+                PlaceholderPointer _ _ _ ->
+                    Log.crashInDev "ID should always be ObjectID before serializing" ((OpID.fromStringForced "error"))
+    in
+    
     Codec.string
         |> Codec.map OpID.fromStringForced OpID.toString
-        |> Codec.map ID.tag ID.read
+        |> Codec.map (\oid -> ID.tag (ExistingObjectPointer oid)) (iDtoPointerToObjectID)
 
 
 calendarDate : SymCodec e CalendarDate

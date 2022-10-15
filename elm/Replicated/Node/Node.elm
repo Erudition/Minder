@@ -67,7 +67,17 @@ initFromSaved { sameSession, storedNodeID } inputRon =
     in
     case lastIdentity of
         Just oldNodeID ->
-            Ok (backfilledNode oldNodeID)
+            let
+                backfilledNodeAttempt =
+                    backfilledNode oldNodeID
+            in
+            case (backfilledNodeAttempt.warnings) of
+                [] ->
+                    Ok (backfilledNodeAttempt)
+
+                warnings ->
+                    Log.crashInDev ("Node.initFromSaved finished with warnings!") <| 
+                    Ok (backfilledNodeAttempt)
 
         Nothing ->
             Err DecodingOldIdentityProblem
@@ -159,7 +169,13 @@ updateWithRon : RonProcessedInfo -> String -> RonProcessedInfo
 updateWithRon old inputRon =
     case Parser.run Op.ronParser inputRon of
         Ok parsedRonFrames ->
-            updateWithMultipleFrames parsedRonFrames old
+            case parsedRonFrames of
+                [] ->
+                    --make sure we don't pretend to succeed when we didn't actually get anything
+                    { old | warnings = old.warnings ++ [ EmptyChunk ] }
+
+                foundFrames ->
+                     updateWithMultipleFrames (Debug.log ("PARSED FRAMES:") <| parsedRonFrames) old
 
         Err parseDeadEnds ->
             { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }
@@ -200,7 +216,13 @@ updateWithMultipleFrames newFrames old =
 -}
 update : Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 update newFrame old =
-    List.foldl updateNodeWithChunk old newFrame.chunks
+    case newFrame.chunks of
+        [] ->
+            {old | warnings = old.warnings ++ [EmptyChunk]}
+
+        someChunks ->
+            List.foldl updateNodeWithChunk old someChunks
+    
 
 
 {-| Add a single object Chunk to the node.
