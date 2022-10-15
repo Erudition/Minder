@@ -32,6 +32,9 @@ import Task.Session
 import Incubator.Todoist
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
+import Replicated.Reducer.Register exposing (Reg)
+import Task.AssignedAction exposing (AssignedActionDb)
+import Task.ActionClass exposing (ActionClassDb)
 
 
 {-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
@@ -43,8 +46,8 @@ type alias AppInstance =
 type alias Profile =
     { errors : RepList String
     , taskEntries : RepList Task.Entry.Entry
-    , taskClasses : RepDb Task.ActionClass.ActionClassSkel
-    , taskInstances : RepDb Task.AssignedAction.AssignedActionSkel
+    , taskClasses : ActionClassDb
+    , taskInstances : AssignedActionDb
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -52,21 +55,6 @@ type alias Profile =
     , todoist : TodoistIntegrationData
     , timeBlocks : RepList TimeBlock
     }
-
-
-
--- codec : SymCodec e Profile
--- codec =
---     Codec.record Profile
---         |> Codec.field ( 1, "uid" ) .uid RC.int 0
---         |> Codec.fieldList  ( 2, "errors" ) .errors (RC.immutableList RC.string)
---         |> RC.fieldR ( 3, "taskEntries" ) .taskEntries (RC.immutableList (Debug.todo "Task.Entry.codec")) []
---         |> RC.fieldR ( 4, "taskClasses" ) .taskClasses (Debug.todo "Task.Class.codec") IntDict.empty
---         |> RC.fieldR ( 5, "taskInstances" ) .taskInstances (Debug.todo "Task.Instance.codec") IntDict.empty
---         |> RC.fieldR ( 6, "activities" ) .activities (Debug.todo "Activity.codec") IntDict.empty
---         |> RC.fieldR ( 7, "timeline" ) .timeline (RC.immutableList (Debug.todo "Activity.Activity.switchCodec")) []
---         |> RC.fieldR ( 7, "todoist" ) .todoist (Debug.todo "Activity.codec")
---         |> Codec.finishRecord
 
 
 codec : Codec String () Profile

@@ -12,7 +12,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec, SymCodec)
-import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -49,7 +49,7 @@ type alias AssignedActionSkel =
     }
 
 
-codec : Codec String ActionClassID AssignedActionSkel
+codec : Codec String ActionClassID (Reg AssignedActionSkel)
 codec =
     Codec.record AssignedActionSkel
         |> Codec.coreRW ( 1, "classID" ) .classID Codec.id identity
@@ -62,13 +62,13 @@ codec =
         |> Codec.maybeRW ( 8, "relevanceStarts" ) .relevanceStarts Codec.fuzzyMoment
         |> Codec.maybeRW ( 9, "relevanceEnds" ) .relevanceEnds Codec.fuzzyMoment
         |> Codec.fieldDict ( 10, "extra" ) .extra ( Codec.string, Codec.string )
-        |> Codec.finishSeededRecord
+        |> Codec.finishSeededRegister
 
 
 type alias AssignedActionID =
     ID AssignedActionSkel
 
-
+type alias AssignedActionDb = RepDb (Reg AssignedActionSkel)
 
 -- FULL Instances (augmented with Entry & ActionClass) ----------------------------------------
 
@@ -77,8 +77,8 @@ type alias AssignedActionID =
 -}
 type alias AssignedAction =
     { parents : List ParentProperties
-    , class : ActionClassSkel
-    , instance : AssignedActionSkel
+    , class : (Reg ActionClassSkel)
+    , instance : (Reg AssignedActionSkel)
     , index : Int
     , instanceID : AssignedActionID
     , classID : ActionClassID
@@ -93,9 +93,9 @@ Take the skeleton data and get all relevant(within given time period) instances 
 TODO organize with IDs somehow
 
 -}
-listAllAssignedActions : List ActionClass -> RepDb AssignedActionSkel -> ( ZoneHistory, Period ) -> List AssignedAction
-listAllAssignedActions fullClasses instanceSkeletonDb timeData =
-    List.concatMap (assignedActionsOfClass timeData instanceSkeletonDb) fullClasses
+listAllAssignedActions : List ActionClass -> AssignedActionDb -> ( ZoneHistory, Period ) -> List AssignedAction
+listAllAssignedActions fullClasses instanceDb timeData =
+    List.concatMap (assignedActionsOfClass timeData instanceDb) fullClasses
 
 
 {-| Take a class and return all of the instances relevant within the given period - saved or generated.
@@ -105,16 +105,16 @@ Combine the saved instances with generated ones, to get the full picture within 
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the classID for perf?
 
 -}
-assignedActionsOfClass : ( ZoneHistory, Period ) -> RepDb AssignedActionSkel -> ActionClass -> List AssignedAction
-assignedActionsOfClass ( zoneHistory, relevantPeriod ) allSavedInstances fullClass =
+assignedActionsOfClass : ( ZoneHistory, Period ) -> AssignedActionDb -> ActionClass -> List AssignedAction
+assignedActionsOfClass ( zoneHistory, relevantPeriod ) instanceDb fullClass =
     let
         savedInstancesWithMatchingClass =
-            List.filter (\member -> member.value.classID.get == fullClass.classID) (RepDb.members allSavedInstances)
+            List.filter (\member -> (Reg.latest member.value).classID.get == fullClass.classID) (RepDb.members instanceDb)
 
         savedInstancesFull =
             List.indexedMap toFull savedInstancesWithMatchingClass
 
-        toFull : Int -> RepDb.Member AssignedActionSkel -> AssignedAction
+        toFull : Int -> RepDb.Member (Reg AssignedActionSkel) -> AssignedAction
         toFull indexFromZero instanceSkelMember =
             { parents = fullClass.parents
             , class = fullClass.class
@@ -147,9 +147,9 @@ fillSeries ( zoneHistory, relevantPeriod ) fullClass seriesRule =
     []
 
 
-instanceProgress : AssignedAction -> Progress
-instanceProgress fullInstance =
-    ( fullInstance.instance.completion.get, fullInstance.class.completionUnits.get )
+getProgress : AssignedAction -> Progress
+getProgress fullInstance =
+    ( (Reg.latest fullInstance.instance).completion.get, (Reg.latest fullInstance.class).completionUnits.get )
 
 
 
@@ -163,10 +163,10 @@ isRelevantNow instance now zone =
             HumanMoment.Global now
 
         start =
-            Maybe.withDefault fuzzyNow instance.instance.relevanceStarts.get
+            Maybe.withDefault fuzzyNow (Reg.latest instance.instance).relevanceStarts.get
 
         end =
-            Maybe.withDefault fuzzyNow instance.instance.relevanceEnds.get
+            Maybe.withDefault fuzzyNow (Reg.latest instance.instance).relevanceEnds.get
 
         notBeforeStart =
             HumanMoment.compareFuzzy zone Clock.startOfDay fuzzyNow start /= Earlier
@@ -178,13 +178,13 @@ isRelevantNow instance now zone =
 
 
 completed : AssignedAction -> Bool
-completed spec =
-    isMax ( spec.instance.completion.get, spec.class.completionUnits.get )
+completed instance =
+    isMax ( (Reg.latest instance.instance).completion.get, (Reg.latest instance.class).completionUnits.get )
 
 
 partiallyCompleted : AssignedAction -> Bool
-partiallyCompleted spec =
-    spec.instance.completion.get > 0
+partiallyCompleted instance =
+    (Reg.latest instance.instance).completion.get > 0
 
 
 type alias WithSoonness t =
@@ -244,7 +244,7 @@ deepSort compareFuncs listToSort =
 -}
 compareSoonness : HumanMoment.Zone -> CompareFunction AssignedAction
 compareSoonness zone taskA taskB =
-    case ( taskA.instance.externalDeadline.get, taskB.instance.externalDeadline.get ) of
+    case ( (Reg.latest taskA.instance).externalDeadline.get, (Reg.latest taskB.instance).externalDeadline.get ) of
         ( Just fuzzyMomentA, Just fuzzyMomentB ) ->
             HumanMoment.compareFuzzyLateness zone Clock.endOfDay fuzzyMomentA fuzzyMomentB
 
@@ -277,75 +277,79 @@ getClassIDString ins =
 
 
 getTitle : AssignedAction -> String
-getTitle ins =
-    ins.class.title.get
+getTitle instance =
+    (Reg.latest instance.class).title.get
 
 
 getActivityID : AssignedAction -> Maybe ActivityID
-getActivityID ins =
-    ins.class.activity.get
+getActivityID instance =
+    (Reg.latest instance.class).activity.get
 
 
 getActivityIDString : AssignedAction -> Maybe String
-getActivityIDString ins =
-    Maybe.map Activity.idToString ins.class.activity.get
+getActivityIDString instance =
+    Maybe.map Activity.idToString  (Reg.latest instance.class).activity.get
 
 
 getProgress : AssignedAction -> Progress
 getProgress instance =
-    ( instance.instance.completion.get, instance.class.completionUnits.get )
+    ( (Reg.latest instance.instance).completion.get,  (Reg.latest instance.class).completionUnits.get )
 
 
 setCompletion : Portion -> AssignedAction -> Change
 setCompletion newPortion instance =
-    instance.instance.completion.set newPortion
+    (Reg.latest instance.instance).completion.set newPortion
 
 
 getProgressMaxInt : AssignedAction -> Portion
 getProgressMaxInt instance =
-    Progress.unitMax instance.class.completionUnits.get
+    Progress.unitMax  (Reg.latest instance.class).completionUnits.get
 
 
 getCompletionInt : AssignedAction -> Int
 getCompletionInt instance =
-    instance.instance.completion.get
+    (Reg.latest instance.instance).completion.get
 
 
 getImportance : AssignedAction -> Float
 getImportance instance =
-    instance.class.importance.get
+     (Reg.latest instance.class).importance.get
 
 
 getRelevanceStarts : AssignedAction -> Maybe FuzzyMoment
 getRelevanceStarts instance =
-    instance.instance.relevanceStarts.get
+    (Reg.latest instance.instance).relevanceStarts.get
 
 
 getRelevanceEnds : AssignedAction -> Maybe FuzzyMoment
 getRelevanceEnds instance =
-    instance.instance.relevanceEnds.get
+    (Reg.latest instance.instance).relevanceEnds.get
 
+
+getExternalDeadline : AssignedAction -> Maybe FuzzyMoment
+getExternalDeadline instance =
+    (Reg.latest instance.instance).externalDeadline.get
 
 getMinEffort : AssignedAction -> Duration
 getMinEffort instance =
-    instance.class.minEffort.get
+     (Reg.latest instance.class).minEffort.get
 
 
 getPredictedEffort : AssignedAction -> Duration
 getPredictedEffort instance =
-    instance.class.predictedEffort.get
+     (Reg.latest instance.class).predictedEffort.get
 
 
 getMaxEffort : AssignedAction -> Duration
 getMaxEffort instance =
-    instance.class.maxEffort.get
+     (Reg.latest instance.class).maxEffort.get
 
 
 getExtra : String -> AssignedAction -> Maybe String
 getExtra key instance =
-    RepDict.get key instance.instance.extra
+    RepDict.get key (Reg.latest instance.instance).extra
 
 
 setExtra : String -> String -> AssignedAction -> Change
 setExtra key value instance =
-    RepDict.insert key value instance.instance.extra
+    RepDict.insert key value (Reg.latest instance.instance).extra
