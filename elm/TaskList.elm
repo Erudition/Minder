@@ -46,13 +46,15 @@ import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
 import Task.ActionClass as Class exposing (ActionClass, ActionClassID)
-import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, instanceProgress, isRelevantNow)
+import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, getProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
 import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 import ZoneHistory
+import Replicated.Change exposing (Context)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 
 
 
@@ -443,7 +445,7 @@ taskTooltip env task =
                  , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") (Instance.getRelevanceStarts task)
                  , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") (Instance.getRelevanceEnds task)
                  ]
-                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list task.instance.extra)
+                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
                 )
 
 
@@ -453,7 +455,7 @@ progressSlider : AssignedAction -> Html Msg
 progressSlider task =
     let
         completion =
-            instanceProgress task
+            getProgress task
     in
     input
         [ class "task-progress"
@@ -472,7 +474,7 @@ progressSlider task =
         , onDoubleClick (EditingTitle task True)
         , onFocus (FocusSlider task True)
         , onBlur (FocusSlider task False)
-        , dynamicSliderThumbCss (getNormalizedPortion (instanceProgress task))
+        , dynamicSliderThumbCss (getNormalizedPortion (getProgress task))
         ]
         []
 
@@ -525,15 +527,15 @@ timingInfo env task =
         uniquePrefix =
             "task-" ++ ID.toString (Instance.getID task) ++ "-"
 
-        dateLabelNameAndID : String
+        dateLabelNameAndID :  String
         dateLabelNameAndID =
             uniquePrefix ++ "due-date-field"
 
         dueDate_editable =
             editableDateLabel env
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) task.instance.externalDeadline.get)
-                (attemptDateChange env task task.instance.externalDeadline.get "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) (Instance.getExternalDeadline task))
+                (attemptDateChange env task (Instance.getExternalDeadline task) "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -855,16 +857,21 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle ->
                     let
+                        -- make a new entry from the new class
+                        newEntryInit newClass parent  =
+                            Entry.initWithClass parent (ID.tag (Register.getPointer newClass))
+
+                        -- make a new ActionClass from Reg Skel
+                        newClassInit : Context -> (Reg Class.ActionClassSkel)
                         newClassInit c =
                             Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
 
+                        -- add new entry and instance to profile
+                        newClassChanger : (Reg Class.ActionClassSkel) -> List Change
                         newClassChanger newClass =
-                            [-- RepList.insertNew RepList.Last (newEntryInit (newClassID)) profile.taskEntries
-                             -- , RepDb.addNew (newInstanceInit newClassID) profile.taskInstances
+                            [ RepList.insertNew RepList.Last (newEntryInit (newClass)) profile.taskEntries
+                            , RepDb.addNew (newInstanceInit newClassID) profile.taskInstances
                             ]
-
-                        newEntryInit newClassID entry =
-                            Entry.initWithClass entry newClassID
 
                         newInstanceInit newClassID newInstance =
                             [ newInstance.classID.set newClassID
@@ -1076,7 +1083,7 @@ urlTriggers profile env =
             List.map doneTriggerEntry allFullTaskInstances
 
         doneTriggerEntry fullInstance =
-            ( ID.toString (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.instanceProgress fullInstance)) )
+            ( ID.toString (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.getProgress fullInstance)) )
 
         taskIDsWithStartMsg =
             List.filterMap startTriggerEntry allFullTaskInstances

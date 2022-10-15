@@ -576,7 +576,7 @@ freeSticky status =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress task)) (Task.Progress.getWhole (Task.AssignedAction.getProgress task))
 
                         Nothing ->
                             Nothing
@@ -625,7 +625,7 @@ tractionSticky status traction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress task)) (Task.Progress.getWhole (Task.AssignedAction.getProgress task))
 
                         Nothing ->
                             Nothing
@@ -700,7 +700,7 @@ excusedSticky status excused elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress task)) (Task.Progress.getWhole (Task.AssignedAction.getProgress task))
 
                         Nothing ->
                             -- show the decreasing amount of time left
@@ -763,7 +763,7 @@ distractionSticky status distraction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress task)) (Task.Progress.getWhole (Task.AssignedAction.getProgress task))
 
                         Nothing ->
                             Nothing
@@ -1122,7 +1122,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , expiresAfter = Just (Duration.fromHours 1) -- TODO
         , progress =
             if Task.AssignedAction.partiallyCompleted taskInstance then
-                Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress taskInstance)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress taskInstance))
+                Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress taskInstance)) (Task.Progress.getWhole (Task.AssignedAction.getProgress taskInstance))
 
             else
                 Nothing
@@ -1253,6 +1253,6 @@ currentTaskNotif now task =
         , status_text_size = Nothing
         , background_color = Nothing
         , countdown = Nothing
-        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.instanceProgress task)) (Task.Progress.getWhole (Task.AssignedAction.instanceProgress task))
+        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.AssignedAction.getProgress task)) (Task.Progress.getWhole (Task.AssignedAction.getProgress task))
         , actions = actions
     }

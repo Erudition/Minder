@@ -22,6 +22,7 @@ import SmartTime.Moment exposing (Moment)
 import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, makeFullActionClass, parentPropertiesCodec)
 import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
+import Replicated.Reducer.Register exposing (Reg)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -186,7 +187,7 @@ taskClassChildCodec =
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( RepList Entry, RepDb ActionClassSkel ) -> ( List ActionClass, List Warning )
+getClassesFromEntries : ( RepList Entry, RepDb (Reg ActionClassSkel) ) -> ( List ActionClass, List Warning )
 getClassesFromEntries ( entries, classDb ) =
     let
         traverseRootWrappers entry =
@@ -238,15 +239,22 @@ type Warning
     = LookupFailure ActionClassID
 
 
-initWithClass : Entry -> ActionClassID -> List Change
-initWithClass entry actionClassID =
+initWithClass : Change.Context -> ActionClassID -> Entry
+initWithClass parent actionClassID = 
     let
-        entryChildInit superProjectChild =
-            []
+        projectChanger newProject =
+            [-- add new actionclass to newProject.children replist
+            ]
+
+        entryChildInit subparent =
+            Codec.initAndChange projectCodec subparent projectChanger
+
+        entryChanger newEntry =
+            [ newEntry.properties.title.set <| Just "Entry title"
+            , RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2))  newEntry.children
+            ]
     in
-    [ entry.properties.title.set <| Just "Entry title"
-    , RepList.insertNew RepList.Last (\c -> ProjectIsHere (Codec.init projectCodec c))  entry.children
-    ]
+    Codec.initAndChange codec parent entryChanger
 
 
 

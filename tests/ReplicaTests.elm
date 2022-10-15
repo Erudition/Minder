@@ -392,7 +392,7 @@ getObjectEventList objectID node =
 
 -- NESTED MESS
 
-type alias R a = Register a
+type alias R a = Reg a
 
 type alias NestedStressTest =
     { recordDepth : String

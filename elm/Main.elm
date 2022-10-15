@@ -243,8 +243,8 @@ init maybeRon url maybeKey =
                                     , node = node
                                     }
 
-                                Err _ ->
-                                    Debug.todo "profile failed to decode from node"
+                                Err problem ->
+                                    Debug.todo <| "profile failed to decode from node because " ++ Debug.toString problem ++ "when trying to import from RON: `" ++ foundRon ++ "` and came with warnings: " ++ Debug.toString warnings
 
                         Err _ ->
                             Debug.todo "could not init from saved ron"
@@ -263,8 +263,8 @@ init maybeRon url maybeKey =
                             , node = newNode
                             }
 
-                        Err _ ->
-                            Debug.todo "profile failed to decode from node"
+                        Err problems ->
+                            Debug.todo <| "no previous profile found. but empty profile failed to decode from node! " ++ Debug.toString problems
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel

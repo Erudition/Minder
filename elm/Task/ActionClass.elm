@@ -21,6 +21,10 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
 import Task.Series
+import Replicated.Change exposing (Context)
+import Replicated.Change exposing (Changer)
+import Replicated.Reducer.Register exposing (Reg)
+import NativeScript.Notification exposing (Action)
 
 
 {-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
@@ -52,11 +56,12 @@ type alias ActionClassSkel =
     }
 
 
+newActionClassSkel : Context -> String -> (Changer (Reg ActionClassSkel)) -> (Reg ActionClassSkel)
 newActionClassSkel c title changer =
     Codec.initWithAndChange codec c title changer
 
 
-codec : Codec String String ActionClassSkel
+codec : Codec String String (Reg ActionClassSkel)
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
@@ -72,12 +77,13 @@ codec =
         |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
-        |> Codec.finishSeededRecord
+        |> Codec.finishSeededRegister
 
 
 type alias ActionClassID =
     ID ActionClassSkel
 
+type alias ActionClassDb = RepDb (Reg ActionClassSkel)
 
 
 -- FULL Task Classes (augmented with entry data) --------------------------
