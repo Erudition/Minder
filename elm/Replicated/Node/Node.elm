@@ -76,7 +76,7 @@ initFromSaved { sameSession, storedNodeID } inputRon =
                     Ok (backfilledNodeAttempt)
 
                 warnings ->
-                    Log.crashInDev ("Node.initFromSaved finished with warnings!") <| 
+                    Log.crashInDev ("Node.initFromSaved finished with warnings: " ++ Log.dump warnings) <| 
                     Ok (backfilledNodeAttempt)
 
         Nothing ->

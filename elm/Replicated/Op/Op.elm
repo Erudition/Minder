@@ -789,6 +789,11 @@ closedChunksToFrameText chunkList =
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
     in
-    List.map perChunk chunkList
-        |> String.concat
-        |> (\s -> s ++ ".\n")
+    case chunkList of
+        [] ->
+            ""
+
+        chunks ->
+            List.map perChunk chunks
+                |> String.concat
+                |> (\s -> s ++ ".\n")

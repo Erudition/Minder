@@ -124,7 +124,7 @@ type Frame
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Frame { normalizedChanges = normalizeChanges changes, description = description }
+    Log.log "Saving Changes:" <| Frame { normalizedChanges = normalizeChanges changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.
@@ -132,6 +132,16 @@ saveChanges description changes =
 none : Frame
 none =
     Frame { normalizedChanges = [], description = "Empty Frame" }
+
+
+isEmpty : Frame -> Bool
+isEmpty (Frame { normalizedChanges }) =
+    case normalizedChanges of
+        [] ->
+            True
+
+        _ ->
+            False
 
 
 {-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.

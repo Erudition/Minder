@@ -75,7 +75,7 @@ subscriptions ({ viewState, profile, environment } as model) =
         , storageChangedElsewhere NewAppData
 
         -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
-        , Moment.every (Duration.fromSeconds (1 / 5)) (Tock NoOp)
+        --, Moment.every (Duration.fromSeconds (1 / 5)) (Tock NoOp)
         ]
             ++ (case viewState.primaryView of
                     Timeflow subState ->
@@ -141,7 +141,7 @@ updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
 updateWithStorage msg startModel =
     case update msg startModel of
         ( newModel, [], newCmds ) ->
-            ( newModel, newCmds )
+            ( newModel, newCmds )      
 
         ( newModel, moreFrames, newCmds ) ->
             let
@@ -158,7 +158,7 @@ updateWithStorage msg startModel =
             case Codec.decodeFromNode Profile.codec finalModel.node of
                 Ok updatedProfile ->
                     ( { finalModel | profile = updatedProfile }
-                    , Cmd.batch [ setStorage (Op.closedChunksToFrameText finalOutputFrame), newCmds ]
+                    , Log.logSeparate "Saving with new frame" finalOutputFrame <| Cmd.batch [ setStorage (Op.closedChunksToFrameText finalOutputFrame), newCmds ]
                     )
 
                 Err _ ->
@@ -779,8 +779,7 @@ update msg ({ viewState, profile, environment } as model) =
                         ( newState, newFrame, newCommand ) =
                             TaskList.update subMsg subViewState profile environment
                     in
-                    ( model
-                      -- TODO Model (ViewState (TaskList newState) 0) profile environment
+                    ( { model | viewState = (ViewState (TaskList newState) 0) }
                     , [ newFrame ]
                     , Cmd.map TaskListMsg newCommand
                     )

@@ -133,18 +133,16 @@ view state profile env =
 
 
 
--- viewInput : String -> Html Msg
-
 
 viewInput : String -> Html Msg
-viewInput task =
+viewInput newEntryFieldContents =
     header
         [ class "header" ]
         [ input
             [ class "new-task"
             , placeholder "What needs to be done?"
             , autofocus True
-            , value task
+            , value newEntryFieldContents
             , name "newTask"
             , onInput UpdateNewEntryField
             , onEnter Add
