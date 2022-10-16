@@ -544,10 +544,10 @@ timingInfo env task =
             editableTimeLabel env
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange env task task.instance.externalDeadline.get "Due")
+                (attemptTimeChange env task (Instance.getExternalDeadline task) "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) task.instance.externalDeadline.get of
+            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) (Instance.getExternalDeadline task) of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -859,7 +859,7 @@ update msg state profile env =
                     let
                         -- make a new entry from the new class
                         newEntryInit newClass parent  =
-                            Entry.initWithClass parent (ID.tag (Register.getPointer newClass))
+                            Entry.initWithClass parent (ID.tag (Reg.getPointer newClass))
 
                         -- make a new ActionClass from Reg Skel
                         newClassInit : Context -> (Reg Class.ActionClassSkel)
@@ -870,11 +870,7 @@ update msg state profile env =
                         newClassChanger : (Reg Class.ActionClassSkel) -> List Change
                         newClassChanger newClass =
                             [ RepList.insertNew RepList.Last (newEntryInit (newClass)) profile.taskEntries
-                            , RepDb.addNew (newInstanceInit newClassID) profile.taskInstances
-                            ]
-
-                        newInstanceInit newClassID newInstance =
-                            [ newInstance.classID.set newClassID
+                            , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
                             ]
 
                         frameDescription =

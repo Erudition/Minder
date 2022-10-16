@@ -10,6 +10,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
 import Task.AssignedAction exposing (AssignedAction, AssignedActionSkel)
 import Task.SessionSkel exposing (..)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 
 
 
@@ -20,8 +21,8 @@ import Task.SessionSkel exposing (..)
 -}
 type alias FullSession =
     { parents : List ParentProperties
-    , class : ActionClassSkel
-    , instance : AssignedActionSkel
+    , class : (Reg ActionClassSkel)
+    , instance : (Reg AssignedActionSkel)
     , session : UserPlannedSession
     }
 
@@ -32,7 +33,7 @@ type alias FullSession =
 
 makeFullSession : AssignedAction -> UserPlannedSession -> FullSession
 makeFullSession inherited justSession =
-    { parents = inherited.parents
+    { parents = (inherited).parents
     , class = inherited.class
     , instance = inherited.instance
     , session = justSession
@@ -45,7 +46,10 @@ getFullSessions : AssignedAction -> List FullSession
 getFullSessions fullInstance =
     let
         ins =
-            fullInstance.instance
+            (Reg.latest fullInstance.instance)
+
+        class =
+            (Reg.latest fullInstance.class)
 
         providedSessions =
             RepList.listValues ins.plannedSessions
@@ -57,7 +61,7 @@ getFullSessions fullInstance =
                     Maybe.Extra.or ins.finishBy.get ins.externalDeadline.get
 
                 taskDuration =
-                    fullInstance.class.maxEffort.get
+                    class.maxEffort.get
             in
             case sessionStart of
                 Just foundStart ->

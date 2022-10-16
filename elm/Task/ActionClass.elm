@@ -23,7 +23,7 @@ import Task.Progress as Progress exposing (..)
 import Task.Series
 import Replicated.Change exposing (Context)
 import Replicated.Change exposing (Changer)
-import Replicated.Reducer.Register exposing (Reg)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import NativeScript.Notification exposing (Action)
 
 
@@ -81,7 +81,7 @@ codec =
 
 
 type alias ActionClassID =
-    ID ActionClassSkel
+    ID (Reg ActionClassSkel)
 
 type alias ActionClassDb = RepDb (Reg ActionClassSkel)
 
@@ -106,17 +106,17 @@ parentPropertiesCodec =
 type alias ActionClass =
     { parents : List ParentProperties
     , recurrence : Maybe Task.Series.Series
-    , class : ActionClassSkel
-    , classID : ID ActionClassSkel
+    , class : (Reg ActionClassSkel)
+    , classID : ActionClassID
     , remove : Change
     }
 
 
-makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> RepDb.Member ActionClassSkel -> ActionClass
+makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> RepDb.Member (Reg ActionClassSkel) -> ActionClass
 makeFullActionClass parentList recurrenceRules classSkelMember =
     { parents = parentList
     , recurrence = recurrenceRules
-    , class = classSkelMember.value
+    , class = ( classSkelMember.value)
     , classID = classSkelMember.id
     , remove = classSkelMember.remove
     }

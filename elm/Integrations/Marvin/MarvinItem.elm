@@ -18,6 +18,7 @@ import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
@@ -393,7 +394,7 @@ toDocketTask profile marvinItem =
             Dict.fromList <| List.filterMap pairClassWithMarvinIDMaybe existingClasses
 
         pairClassWithMarvinIDMaybe class =
-            case RepDict.get "marvinGeneratorID" class.class.extra of
+            case RepDict.get "marvinGeneratorID" (Reg.latest class.class).extra of
                 Just marvinID ->
                     Just ( marvinID, class.classID )
 
@@ -428,11 +429,12 @@ toDocketTask profile marvinItem =
             ]
 
         -- INSTANCE
+        existingInstancesWithMarvinLink : Dict String Task.AssignedAction.AssignedActionID
         existingInstancesWithMarvinLink =
             Dict.fromList <| List.filterMap pairInstanceWithMarvinIDMaybe (RepDb.members profile.taskInstances)
 
         pairInstanceWithMarvinIDMaybe member =
-            case RepDict.get "marvinID" member.value.extra of
+            case RepDict.get "marvinID" ((Reg.latest member.value).extra) of
                 Just marvinID ->
                     Just ( marvinID, member.id )
 
@@ -543,7 +545,7 @@ toDocketTask profile marvinItem =
         finalInstanceChanges =
             case Maybe.andThen (\instanceID -> RepDb.get instanceID profile.taskInstances) existingInstanceIDMaybe of
                 Just existingInstance ->
-                    instanceChanges existingInstance
+                    instanceChanges (Reg.latest existingInstance)
 
                 Nothing ->
                     [ Debug.todo "RepDb.spawnWithChanges instanceChanges profile.taskInstances" ]
@@ -551,7 +553,7 @@ toDocketTask profile marvinItem =
         finalEntryAndClassChanges =
             case Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe of
                 Just existingClass ->
-                    classChanges existingClass
+                    classChanges (Reg.latest existingClass)
 
                 Nothing ->
                     [ -- TODO how to add class to entry before class exists?
@@ -566,10 +568,10 @@ fromDocket : Task.AssignedAction.AssignedAction -> Maybe MarvinItem
 fromDocket instance =
     let
         idMaybe =
-            RepDict.get "marvinID" instance.instance.extra
+            Task.AssignedAction.getExtra "marvinID" instance
 
         revMaybe =
-            RepDict.get "marvinCouchdbRev" instance.instance.extra
+            Task.AssignedAction.getExtra "marvinCouchdbRev" instance
 
         toDate =
             Maybe.andThen (SmartTime.Human.Calendar.fromNumberString >> Result.toMaybe)
@@ -586,43 +588,43 @@ fromDocket instance =
                 { id = id
                 , rev = rev
                 , done = Debug.log "checking completion" Task.AssignedAction.completed instance
-                , day = toDate <| RepDict.get "marvinDay" instance.instance.extra
-                , title = instance.class.title.get
-                , parentId = RepDict.get "marvinParentID" instance.instance.extra
-                , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| RepDict.get "marvinLabels" instance.instance.extra
-                , firstScheduled = toDate <| RepDict.get "marvinFirstScheduled" instance.instance.extra
-                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| RepDict.get "marvinRank" instance.instance.extra
-                , dailySection = RepDict.get "marvinDailySection" instance.instance.extra
-                , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (RepDict.get "marvinEssentialOrBonus" instance.instance.extra)
-                , customSection = RepDict.get "marvinCustomSection" instance.instance.extra
-                , timeBlockSection = RepDict.get "marvinTimeBlockSection" instance.instance.extra
-                , note = RepDict.get "marvinNote" instance.instance.extra
-                , dueDate = toDate <| RepDict.get "marvinDueDate" instance.instance.extra
-                , timeEstimate = Just instance.class.predictedEffort.get
-                , isReward = Maybe.withDefault False <| Maybe.map toBool <| RepDict.get "marvinIsReward" instance.instance.extra
-                , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| RepDict.get "marvinIsStarred" instance.instance.extra
-                , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| RepDict.get "marvinIsFrogged" instance.instance.extra
-                , plannedWeek = toDate <| RepDict.get "marvinPlannedWeek" instance.instance.extra
+                , day = toDate <| Task.AssignedAction.getExtra "marvinDay" instance
+                , title = (Reg.latest instance.class).title.get
+                , parentId = Task.AssignedAction.getExtra "marvinParentID" instance
+                , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Task.AssignedAction.getExtra "marvinLabels" instance
+                , firstScheduled = toDate <| Task.AssignedAction.getExtra "marvinFirstScheduled" instance
+                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinRank" instance
+                , dailySection = Task.AssignedAction.getExtra "marvinDailySection" instance
+                , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (Task.AssignedAction.getExtra "marvinEssentialOrBonus" instance)
+                , customSection = Task.AssignedAction.getExtra "marvinCustomSection" instance
+                , timeBlockSection = Task.AssignedAction.getExtra "marvinTimeBlockSection" instance
+                , note = Task.AssignedAction.getExtra "marvinNote" instance
+                , dueDate = toDate <| Task.AssignedAction.getExtra "marvinDueDate" instance
+                , timeEstimate = Just (Reg.latest instance.class).predictedEffort.get
+                , isReward = Maybe.withDefault False <| Maybe.map toBool <| Task.AssignedAction.getExtra "marvinIsReward" instance
+                , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinIsStarred" instance
+                , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinIsFrogged" instance
+                , plannedWeek = toDate <| Task.AssignedAction.getExtra "marvinPlannedWeek" instance
                 , plannedMonth = Nothing -- TODO Maybe (Year, Month)
                 , rewardPoints = 0 -- TODO Float
-                , rewardId = RepDict.get "marvinRewardID" instance.instance.extra
-                , backburner = Maybe.withDefault False <| Maybe.map toBool <| RepDict.get "marvinBackburner" instance.instance.extra
-                , reviewDate = toDate <| RepDict.get "marvinReviewDate" instance.instance.extra
-                , itemSnoozeTime = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| RepDict.get "marvinItemSnoozeTime" instance.instance.extra
-                , permaSnoozeTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| RepDict.get "marvinPermaSnoozeTime" instance.instance.extra
-                , timeZoneOffset = Maybe.andThen String.toInt <| RepDict.get "marvinTimeZoneOffset" instance.instance.extra
-                , startDate = toDate <| RepDict.get "marvinStartDate" instance.instance.extra
-                , endDate = toDate <| RepDict.get "marvinEndDate" instance.instance.extra
-                , db = Maybe.withDefault "tasks" <| RepDict.get "marvinDb" instance.instance.extra
-                , times = parseTimesList <| Maybe.withDefault "[]" <| RepDict.get "marvinTimes" instance.instance.extra
-                , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| RepDict.get "marvinTaskTime" instance.instance.extra
-                , pinId = RepDict.get "marvinPinID" instance.instance.extra
-                , recurringTaskId = RepDict.get "recurringTaskID" instance.instance.extra
-                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| RepDict.get "marvinMasterRank" instance.instance.extra
-                , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| RepDict.get "marvinCreatedAt" instance.instance.extra
-                , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| RepDict.get "marvinDoneAt" instance.instance.extra
-                , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| RepDict.get "marvinUpdatedAt" instance.instance.extra
-                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeUnixTimestamp)) <| RepDict.get "marvinFieldUpdates" instance.instance.extra
+                , rewardId = Task.AssignedAction.getExtra "marvinRewardID" instance
+                , backburner = Maybe.withDefault False <| Maybe.map toBool <| Task.AssignedAction.getExtra "marvinBackburner" instance
+                , reviewDate = toDate <| Task.AssignedAction.getExtra "marvinReviewDate" instance
+                , itemSnoozeTime = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinItemSnoozeTime" instance
+                , permaSnoozeTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinPermaSnoozeTime" instance
+                , timeZoneOffset = Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinTimeZoneOffset" instance
+                , startDate = toDate <| Task.AssignedAction.getExtra "marvinStartDate" instance
+                , endDate = toDate <| Task.AssignedAction.getExtra "marvinEndDate" instance
+                , db = Maybe.withDefault "tasks" <| Task.AssignedAction.getExtra "marvinDb" instance
+                , times = parseTimesList <| Maybe.withDefault "[]" <| Task.AssignedAction.getExtra "marvinTimes" instance
+                , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinTaskTime" instance
+                , pinId = Task.AssignedAction.getExtra "marvinPinID" instance
+                , recurringTaskId = Task.AssignedAction.getExtra "recurringTaskID" instance
+                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinMasterRank" instance
+                , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinCreatedAt" instance
+                , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinDoneAt" instance
+                , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinUpdatedAt" instance
+                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeUnixTimestamp)) <| Task.AssignedAction.getExtra "marvinFieldUpdates" instance
                 }
 
         _ ->

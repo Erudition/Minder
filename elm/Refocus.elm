@@ -18,6 +18,7 @@ import Random
 import Replicated.Change as Change exposing (Change)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Human.Moment as HumanMoment
@@ -110,7 +111,7 @@ whatsImportantNow profile env =
     let
         prioritized =
             -- Must have an activity to tell
-            List.filter (\i -> i.class.activity.get /= Nothing)
+            List.filter (\i -> (Reg.latest i.class).activity.get /= Nothing)
                 (prioritizeTasks profile env)
 
         -- TODO allow activities to be WIN
@@ -263,10 +264,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                             Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
 
                         maxTimeRemaining =
-                            Duration.subtract newInstance.class.maxEffort.get timeSpent
+                            Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent
 
                         remainingToTarget =
-                            Duration.subtract newInstance.class.predictedEffort.get timeSpent
+                            Duration.subtract (Reg.latest newInstance.class).predictedEffort.get timeSpent
 
                         intendToFinishDuringThisSession =
                             -- TODO false if less time available than needed
@@ -572,7 +573,7 @@ freeSticky status =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ nt.class.title.get) status.newInstanceMaybe
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ (Reg.latest nt.class).title.get) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -1112,7 +1113,7 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , group = Just suggestedTasksGroup
         , subtitle = Just "Suggested"
         , at = Just now
-        , title = Just <| taskInstance.class.title.get
+        , title = Just <| (Reg.latest taskInstance.class).title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1148,7 +1149,7 @@ suggestedTasks profile env =
 
 taskClassNotifID : ActionClassID -> Int
 taskClassNotifID classID =
-    OpID.toInt (ID.read classID)
+    (ID.toInt classID)
 
 
 
@@ -1185,7 +1186,7 @@ cleanupTaskNotif now ( taskInstance, needs ) =
         , group = Just cleanupTasksGroup
         , subtitle = Just "Missing Duration/Activity"
         , at = Just now
-        , title = Just <| taskInstance.class.title.get
+        , title = Just <| (Reg.latest taskInstance.class).title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1234,7 +1235,7 @@ currentTaskNotif now task =
     { blank
         | id = Just <| taskClassNotifID task.classID
         , autoCancel = Just False
-        , title = Just task.class.title.get
+        , title = Just (Reg.latest task.class).title.get
         , chronometer = Just True
         , when = Just now
         , subtitle = Nothing

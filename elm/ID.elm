@@ -1,6 +1,6 @@
 module ID exposing
     ( ID(..)
-    , read, tag, toString
+    , read, tag, toString, toInt
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -106,3 +106,12 @@ toString (ID pointer) =
 
         Change.PlaceholderPointer _ _ _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" "Placeholder Pointer: Object Not Yet Initialized"
+
+toInt : ID userType -> Int
+toInt (ID pointer) =
+    case pointer of
+        Change.ExistingObjectPointer objectID ->
+            OpID.toInt objectID
+
+        Change.PlaceholderPointer _ _ _ ->
+            Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" 42

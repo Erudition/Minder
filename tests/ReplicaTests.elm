@@ -16,11 +16,10 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID
-import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Moment as Moment
 import Test exposing (..)
-import Replicated.Reducer.Register as Register exposing (Register)
+import Replicated.Reducer.Register as Reg exposing (Reg, RW)
 
 
 suite : Test
@@ -197,7 +196,7 @@ writableObjectEncodeThenDecode =
                 -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
                 -- disabled because forced default op generation is overruled by codec defaults
                 ]
-               ( Result.map Register.latest (nodeFromCodec writableObjectCodec).result)
+               ( Result.map Reg.latest (nodeFromCodec writableObjectCodec).result)
 
 
 
@@ -221,7 +220,7 @@ nodeModifications =
             startNode
 
         afterNode =
-            case Result.map Register.latest (result) of
+            case Result.map Reg.latest (result) of
                 Ok exampleObjectFound ->
                     let
                         makeChanges =
@@ -260,7 +259,7 @@ nodeModifications =
             \_ ->
                 Expect.all
                     (List.map Tuple.second changeList)
-                    (Result.map Register.latest changedObjectDecoded)
+                    (Result.map Reg.latest changedObjectDecoded)
         ]
 
 
@@ -449,9 +448,9 @@ nestedStressTestIntegrityCheck =
         expectations : List (Result (Codec.Error e) (NestedStressTest) -> Expectation)
         expectations =
             [ expectOkAndEqualWhenMapped .recordDepth "first layer"
-            , expectOkAndEqualWhenMapped (\r -> (Register.latest r.recordOf3Records).recordDepth) "second layer"
-            , expectOkAndEqualWhenMapped (\r ->  r.recordOf3Records |> Register.latest |> .recordOf2Records |> Register.latest |>  .recordDepth) "third layer"
-            , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records |> Register.latest |> .recordOf2Records |> Register.latest |> .recordWithRecord |> Register.latest |> .number |> .get) 42
+            , expectOkAndEqualWhenMapped (\r -> (Reg.latest r.recordOf3Records).recordDepth) "second layer"
+            , expectOkAndEqualWhenMapped (\r ->  r.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |>  .recordDepth) "third layer"
+            , expectOkAndEqualWhenMapped (\r -> r.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |> .recordWithRecord |> Reg.latest |> .number |> .get) 42
             ]
     in
     
@@ -459,7 +458,7 @@ nestedStressTestIntegrityCheck =
         \_ ->
             Expect.all
                 expectations
-                (Result.map Register.latest (nodeFromCodec nestedStressTestCodec).result)
+                (Result.map Reg.latest (nodeFromCodec nestedStressTestCodec).result)
 
 
 
@@ -472,7 +471,7 @@ nodeWithModifiedNestedStressTest =
         { startNode, result, startFrame } =
             nodeFromCodec nestedStressTestCodec
     in
-    case Result.map Register.latest result of
+    case Result.map Reg.latest result of
         Ok nestedStressTest ->
             let
                 repListOfWritables =
@@ -490,7 +489,7 @@ nodeWithModifiedNestedStressTest =
                         woChanges wrappedObj =
                             let
                                 obj =
-                                    Register.latest wrappedObj
+                                    Reg.latest wrappedObj
                             in
                             [ obj.address.set "1 bologna street"
                             , obj.address.set "2 bologna street"
@@ -582,7 +581,7 @@ modifiedNestedStressTestIntegrityCheck =
 
         decodedNST =
             Codec.decodeFromNode nestedStressTestCodec subject
-            |> Result.map Register.latest
+            |> Result.map Reg.latest
 
         opsToFlush =
             (nodeFromCodec nestedStressTestCodec).startFrame
@@ -609,7 +608,7 @@ modifiedNestedStressTestIntegrityCheck =
         , test "checking the decoded nested mess has the changes" <|
             \_ ->
                 Expect.all
-                    [ expectOkAndEqualWhenMapped (\o -> List.map (Register.latest >> .address >> .get) <| RepList.listValues (o).listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first
+                    [ expectOkAndEqualWhenMapped (\o -> List.map (Reg.latest >> .address >> .get) <| RepList.listValues (o).listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first
                     ]
                     (decodedNST)
         , test "the new Custom Type repLists have been initialized" <|
@@ -617,7 +616,7 @@ modifiedNestedStressTestIntegrityCheck =
                 expectOkAndEqualWhenMapped
                     (\o ->
                         RepList.last (o).listOfNestedRecords
-                            |> Maybe.map (.value >> Register.latest >> .kids >> .get)
+                            |> Maybe.map (.value >> Reg.latest >> .kids >> .get)
                             |> Maybe.map
                                 (\kidsValue ->
                                     case kidsValue of

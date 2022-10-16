@@ -66,9 +66,16 @@ codec =
 
 
 type alias AssignedActionID =
-    ID AssignedActionSkel
+    ID (Reg AssignedActionSkel)
 
 type alias AssignedActionDb = RepDb (Reg AssignedActionSkel)
+
+
+initWithClass : ActionClassID -> Change.Context -> (Reg AssignedActionSkel)
+initWithClass actionClassID parent = 
+    Codec.initWith codec parent actionClassID
+
+
 
 -- FULL Instances (augmented with Entry & ActionClass) ----------------------------------------
 
@@ -117,7 +124,7 @@ assignedActionsOfClass ( zoneHistory, relevantPeriod ) instanceDb fullClass =
         toFull : Int -> RepDb.Member (Reg AssignedActionSkel) -> AssignedAction
         toFull indexFromZero instanceSkelMember =
             { parents = fullClass.parents
-            , class = fullClass.class
+            , class = (fullClass.class)
             , instance = instanceSkelMember.value
             , index = indexFromZero + 1
             , instanceID = instanceSkelMember.id
@@ -145,11 +152,6 @@ fillSeries : ( ZoneHistory, Period ) -> ActionClass -> Maybe Series -> List Assi
 fillSeries ( zoneHistory, relevantPeriod ) fullClass seriesRule =
     -- TODO
     []
-
-
-getProgress : AssignedAction -> Progress
-getProgress fullInstance =
-    ( (Reg.latest fullInstance.instance).completion.get, (Reg.latest fullInstance.class).completionUnits.get )
 
 
 
