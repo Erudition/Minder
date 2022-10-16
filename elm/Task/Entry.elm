@@ -23,6 +23,7 @@ import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, P
 import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
 import Replicated.Reducer.Register exposing (Reg)
+import Task.ActionClass exposing (ActionClassDb)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -187,7 +188,7 @@ taskClassChildCodec =
 
 {-| Take all the Entries and flatten them into a list of Classes
 -}
-getClassesFromEntries : ( RepList Entry, RepDb (Reg ActionClassSkel) ) -> ( List ActionClass, List Warning )
+getClassesFromEntries : ( RepList Entry, ActionClassDb ) -> ( List ActionClass, List Warning )
 getClassesFromEntries ( entries, classDb ) =
     let
         traverseRootWrappers entry =
@@ -215,8 +216,8 @@ getClassesFromEntries ( entries, classDb ) =
             case child of
                 Singleton classID ->
                     case RepDb.getMember classID classDb of
-                        Just classSkel ->
-                            List.singleton <| Ok <| makeFullActionClass accumulator recurrenceRules classSkel
+                        Just classSkelReg ->
+                            List.singleton <| Ok <| makeFullActionClass accumulator recurrenceRules classSkelReg
 
                         Nothing ->
                             List.singleton <| Err <| LookupFailure classID
