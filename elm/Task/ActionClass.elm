@@ -21,7 +21,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
 import Task.Series
-import Replicated.Change exposing (Context)
+import Replicated.Change exposing (Parent)
 import Replicated.Change exposing (Changer)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import NativeScript.Notification exposing (Action)
@@ -56,9 +56,9 @@ type alias ActionClassSkel =
     }
 
 
-newActionClassSkel : Context -> String -> (Changer (Reg ActionClassSkel)) -> (Reg ActionClassSkel)
+newActionClassSkel : Parent -> String -> (Changer (Reg ActionClassSkel)) -> (Reg ActionClassSkel)
 newActionClassSkel c title changer =
-    Codec.initWithAndChange codec c title changer
+    Codec.seededNewWithChanges codec c title changer
 
 
 codec : Codec String String (Reg ActionClassSkel)

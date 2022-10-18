@@ -53,7 +53,7 @@ import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 import ZoneHistory
-import Replicated.Change exposing (Context)
+import Replicated.Change exposing (Parent)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 
 
@@ -860,7 +860,7 @@ update msg state profile env =
                             Entry.initWithClass parent (ID.tag (Reg.getPointer newClass))
 
                         -- make a new ActionClass from Reg Skel
-                        newClassInit : Context -> (Reg Class.ActionClassSkel)
+                        newClassInit : Parent -> (Reg Class.ActionClassSkel)
                         newClassInit c =
                             Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
 
