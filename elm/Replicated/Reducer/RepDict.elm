@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Context(..), Creator)
+import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -153,7 +153,7 @@ insertNew : k -> Creator v -> RepDict k v -> Change
 insertNew key newValueFromContext (RepDict repDictRecord) =
     let
         newValue =
-            newValueFromContext (Change.Context repDictRecord.pointer)
+            newValueFromContext (Change.ParentContext repDictRecord.pointer)
     in
     Change.Chunk
         { target = repDictRecord.pointer

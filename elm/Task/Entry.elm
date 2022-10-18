@@ -247,7 +247,7 @@ type Warning
     = LookupFailure ActionClassID
 
 
-initWithClass : Change.Context -> ActionClassID -> Entry
+initWithClass : Change.Parent -> ActionClassID -> Entry
 initWithClass parent actionClassID = 
     let
         taskClassChild =
@@ -260,7 +260,7 @@ initWithClass parent actionClassID =
 
         taskClassInit : Change.Creator TaskClass
         taskClassInit subparent =
-            Codec.initAndChange taskClassCodec subparent taskClassChanger
+            Codec.newWithChanges taskClassCodec subparent taskClassChanger
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
@@ -268,7 +268,7 @@ initWithClass parent actionClassID =
             ]
 
         entryChildInit subparent =
-            Codec.initAndChange projectCodec subparent projectChanger
+            Codec.newWithChanges projectCodec subparent projectChanger
 
         entryChanger : Entry -> List Change
         entryChanger newEntry =
@@ -276,7 +276,7 @@ initWithClass parent actionClassID =
             , RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2))  newEntry.children
             ]
     in
-    Codec.initAndChange codec parent entryChanger
+    Codec.newWithChanges codec parent entryChanger
 
 
 

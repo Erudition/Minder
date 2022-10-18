@@ -10,7 +10,7 @@ import List.Extra
 import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
-import Replicated.Change as Change exposing (Context, Creator)
+import Replicated.Change as Change exposing (Parent, Creator)
 import Replicated.Codec as Codec exposing (Codec, SymCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -478,7 +478,7 @@ nodeWithModifiedNestedStressTest =
                     nestedStressTest.listOfNestedRecords
 
                 changes =
-                    [ Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.init writableObjectCodec) repListOfWritables
+                    [ Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.new writableObjectCodec) repListOfWritables
                     , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
                     ]
 
@@ -499,11 +499,11 @@ nodeWithModifiedNestedStressTest =
                             , obj.kids.set (newKidsList c)
                             ]
                     in
-                    Codec.initAndChange writableObjectCodec (Debug.log (Console.bgMagenta "PARENT OF NEW WRITABLE") c) woChanges
+                    Codec.newWithChanges writableObjectCodec (Debug.log (Console.bgMagenta "PARENT OF NEW WRITABLE") c) woChanges
                     
 
                 newKidsList c =
-                    SomeOfBoth (Codec.init (Codec.repList exampleSubObjectCodec) c) (Codec.init (Codec.repList exampleSubObjectCodec) c)
+                    SomeOfBoth (Codec.new (Codec.repList exampleSubObjectCodec) c) (Codec.new (Codec.repList exampleSubObjectCodec) c)
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)

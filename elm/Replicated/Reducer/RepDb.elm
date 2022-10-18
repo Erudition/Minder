@@ -10,7 +10,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Context(..), Creator)
+import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -149,7 +149,7 @@ addNew : Creator memberType -> RepDb memberType -> Change
 addNew newMemberCreator (RepDb record) =
     let
         newMember =
-            newMemberCreator (Context record.pointer)
+            newMemberCreator (ParentContext record.pointer)
     in
     Change.Chunk
         { target = record.pointer
@@ -161,7 +161,7 @@ addMultipleNew : Creator (List memberType) -> RepDb memberType -> Change
 addMultipleNew newMembersCreator (RepDb record) =
     let
         newMembers =
-            newMembersCreator (Context record.pointer)
+            newMembersCreator (ParentContext record.pointer)
     in
     Change.Chunk
         { target = record.pointer

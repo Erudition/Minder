@@ -71,9 +71,9 @@ type alias AssignedActionID =
 type alias AssignedActionDb = RepDb (Reg AssignedActionSkel)
 
 
-initWithClass : ActionClassID -> Change.Context -> (Reg AssignedActionSkel)
+initWithClass : ActionClassID -> Change.Parent -> (Reg AssignedActionSkel)
 initWithClass actionClassID parent = 
-    Codec.initWith codec parent actionClassID
+    Codec.seededNew codec parent actionClassID
 
 
 

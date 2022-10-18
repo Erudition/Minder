@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Context(..), Pointer)
+import Replicated.Change as Change exposing (Change, Changer, Parent(..), Pointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
@@ -245,11 +245,11 @@ The new item will be generated from the function you pass, which has the `Contex
     - If you don't need a context (e.g. you are addding an already-saved reptype), just use `insert`.
 
 -}
-insertNew : InsertionPoint -> (Context -> memberType) -> RepList memberType -> Change
+insertNew : InsertionPoint -> (Parent -> memberType) -> RepList memberType -> Change
 insertNew insertionPoint newItemFromContext (RepList record) =
     let
         newItem =
-            newItemFromContext (Change.Context record.pointer)
+            newItemFromContext (Change.ParentContext record.pointer)
 
         -- newItemChanges =
         --     itemChanger newItem

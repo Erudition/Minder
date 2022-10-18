@@ -26,7 +26,7 @@ type alias Changer o =
 
 
 type alias Creator a =
-    Context -> a
+    Parent -> a
 
 
 {-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
@@ -260,5 +260,5 @@ updateChildChangeWrapper pointer newWrapper =
             PlaceholderPointer reducerID pos (\change -> newWrapper (parentNotifier change))
 
 
-type Context
-    = Context Pointer
+type Parent
+    = ParentContext Pointer

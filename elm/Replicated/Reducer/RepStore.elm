@@ -1,7 +1,7 @@
 module Replicated.Reducer.RepStore exposing ( RepStore, buildFromReplicaDb, get, getInit,  getPointer, reducerID, listModified, RepStoreEntry(..))
 
 import List.Nonempty exposing (Nonempty(..))
-import Replicated.Change as Change exposing (Change, Changer, Context(..))
+import Replicated.Change as Change exposing (Change, Changer, Parent(..))
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 

@@ -68,7 +68,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Atom(..), Change(..), Changer, Context(..), Pointer(..), changeToChangePayload)
+import Replicated.Change as Change exposing (Atom(..), Change(..), Changer, Parent(..), Pointer(..), changeToChangePayload)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -264,23 +264,23 @@ decodeFromNode profileCodec node =
             Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
-init : Codec e () repType -> Context -> repType
-init (Codec codecDetails) (Context parentPointer) =
+new : Codec e () repType -> Parent -> repType
+new (Codec codecDetails) (ParentContext parentPointer) =
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton "init", seed = (), changer = nonChanger }
 
 
-initAndChange : Codec e () repType -> Context -> Changer repType -> repType
-initAndChange (Codec codecDetails) (Context parentPointer) changer =
+newWithChanges : Codec e () repType -> Parent -> Changer repType -> repType
+newWithChanges (Codec codecDetails) (ParentContext parentPointer) changer =
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton "initAndChange", seed = (), changer = changer }
 
 
-initWith : Codec e seed repType -> Context -> seed -> repType
-initWith (Codec codecDetails) (Context parentPointer) seed =
+seededNew : Codec e seed repType -> Parent -> seed -> repType
+seededNew (Codec codecDetails) (ParentContext parentPointer) seed =
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("initWith " ++ Log.dump seed), seed = seed, changer = nonChanger }
 
 
-initWithAndChange : Codec e seed repType -> Context -> seed -> Changer repType -> repType
-initWithAndChange (Codec codecDetails) (Context parentPointer) seed changer =
+seededNewWithChanges : Codec e seed repType -> Parent -> seed -> Changer repType -> repType
+seededNewWithChanges (Codec codecDetails) (ParentContext parentPointer) seed changer =
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton "initWithAndChange", seed = seed, changer = changer }
 
 
@@ -1383,7 +1383,7 @@ repStore keyCodec valueCodec =
                         |> Maybe.withDefault (createObjectAt key)
 
                 createObjectAt key =
-                    init valueCodec (Context (parentWithNotifier key))
+                    new valueCodec (ParentContext (parentWithNotifier key))
 
                 parentWithNotifier key =
                     Change.updateChildChangeWrapper parent (wrapNewChildValue key)
@@ -2893,7 +2893,7 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = latestValue
-    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
+    , set = \newValue -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ] }
     }
 
 
@@ -2907,7 +2907,7 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = latestValue
-    , set = \new -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange new) ] }
+    , set = \newValue -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ] }
     , history = rest
     }
 
