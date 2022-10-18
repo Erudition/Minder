@@ -221,7 +221,7 @@ type PendingID
 
 
 type alias SiblingIndex =
-    Int
+    String
 
 
 pendingIDMatch : PendingID -> PendingID -> Bool
@@ -241,8 +241,8 @@ newPointer { parent, position, childChangeWrapper, reducerID } =
         PlaceholderPointer _ (ParentPending firstAncestorReducerID parentPosition) parentNotifier ->
             PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
 
-        PlaceholderPointer _ (ParentIsRoot) _ ->
-            PlaceholderPointer reducerID (ParentIsRoot) (identity)
+        PlaceholderPointer parentReducerID (ParentIsRoot) _ ->
+            PlaceholderPointer reducerID (ParentPending parentReducerID position) (identity)
 
 
 genesisPointer : Pointer

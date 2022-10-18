@@ -120,7 +120,7 @@ insert : k -> v -> RepDict k v -> Change
 insert newKey newValue (RepDict record) =
     let
         newItemToObjectChange =
-            record.memberAdder -1 (Present newKey newValue)
+            record.memberAdder "singleInsert" (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
@@ -135,7 +135,7 @@ bulkInsert : List ( k, v ) -> RepDict k v -> Change
 bulkInsert newItems (RepDict record) =
     let
         newItemToObjectChange index ( newKey, newValue ) =
-            record.memberAdder index (Present newKey newValue)
+            record.memberAdder ("bulkInsert#" ++ String.fromInt index) (Present newKey newValue)
     in
     Change.Chunk
         { target = record.pointer
@@ -158,7 +158,7 @@ insertNew key newValueFromContext (RepDict repDictRecord) =
     Change.Chunk
         { target = repDictRecord.pointer
         , objectChanges =
-            [ repDictRecord.memberAdder 0 (Present key newValue) ]
+            [ repDictRecord.memberAdder "insertNew" (Present key newValue) ]
         }
 
 
@@ -219,7 +219,7 @@ update key updater ((RepDict record) as repDict) =
                     Cleared key
 
         newMemberAsObjectChange =
-            record.memberAdder -2 updatedEntry
+            record.memberAdder "update" updatedEntry
     in
     Change.Chunk
         { target = record.pointer

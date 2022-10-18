@@ -94,17 +94,17 @@ type alias ParentProperties =
     }
 
 
-parentPropertiesCodec : Codec String () ParentProperties
+parentPropertiesCodec : Codec String () (Reg ParentProperties)
 parentPropertiesCodec =
     Codec.record ParentProperties
-        |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
-        |> Codec.finishRecord
+        |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) (Just "fake title - set me back to Nothing")
+        |> Codec.finishRegister
 
 
 {-| A fully spec'ed-out version of a ActionClass
 -}
 type alias ActionClass =
-    { parents : List ParentProperties
+    { parents : List (Reg ParentProperties)
     , recurrence : Maybe Task.Series.Series
     , class : (Reg ActionClassSkel)
     , classID : ActionClassID
@@ -112,9 +112,9 @@ type alias ActionClass =
     }
 
 
-makeFullActionClass : List ParentProperties -> Maybe Task.Series.Series -> RepDb.Member (Reg ActionClassSkel) -> ActionClass
-makeFullActionClass parentList recurrenceRules classSkelMember =
-    { parents = parentList
+makeFullActionClass : List (Reg ParentProperties) -> Maybe Task.Series.Series -> RepDb.Member (Reg ActionClassSkel) -> ActionClass
+makeFullActionClass parentPropsRegList recurrenceRules classSkelMember =
+    { parents = parentPropsRegList
     , recurrence = recurrenceRules
     , class = ( classSkelMember.value)
     , classID = classSkelMember.id

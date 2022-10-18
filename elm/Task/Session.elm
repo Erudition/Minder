@@ -20,7 +20,7 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 {-| A fully spec'ed-out version of a PlannedSession
 -}
 type alias FullSession =
-    { parents : List ParentProperties
+    { parents : List (Reg ParentProperties)
     , class : (Reg ActionClassSkel)
     , instance : (Reg AssignedActionSkel)
     , session : UserPlannedSession

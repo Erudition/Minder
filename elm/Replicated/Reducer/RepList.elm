@@ -198,7 +198,7 @@ insert insertionPoint newItem (RepList repSetRecord) =
     Change.Chunk
         { target = repSetRecord.pointer
         , objectChanges =
-            [ repSetRecord.memberAdder -1 newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
+            [ repSetRecord.memberAdder "insert" newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
         }
 
 
@@ -208,7 +208,7 @@ append : InsertionPoint -> List memberType -> RepList memberType -> Change
 append insertionPoint newItems (RepList record) =
     let
         newItemToObjectChange newIndex newItem =
-            record.memberAdder newIndex newItem (attachmentPointHelper record.pointer insertionPoint)
+            record.memberAdder ("append#" ++ String.fromInt newIndex) newItem (attachmentPointHelper record.pointer insertionPoint)
     in
     Change.Chunk
         { target = record.pointer
@@ -269,7 +269,7 @@ insertNew insertionPoint newItemFromContext (RepList record) =
 
 
         memberToObjectChange =
-            record.memberAdder 0 newItem refMaybe
+            record.memberAdder "insertNew" newItem refMaybe
 
         refMaybe =
             attachmentPointHelper record.pointer insertionPoint

@@ -83,7 +83,7 @@ initWithClass actionClassID parent =
 {-| A fully spec'ed-out version of a TaskInstance
 -}
 type alias AssignedAction =
-    { parents : List ParentProperties
+    { parents : List (Reg ParentProperties)
     , class : (Reg ActionClassSkel)
     , instance : (Reg AssignedActionSkel)
     , index : Int
@@ -123,7 +123,7 @@ assignedActionsOfClass ( zoneHistory, relevantPeriod ) instanceDb fullClass =
 
         toFull : Int -> RepDb.Member (Reg AssignedActionSkel) -> AssignedAction
         toFull indexFromZero instanceSkelMember =
-            { parents = fullClass.parents
+            { parents = (fullClass.parents)
             , class = (fullClass.class)
             , instance = instanceSkelMember.value
             , index = indexFromZero + 1

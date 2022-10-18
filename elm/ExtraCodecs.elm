@@ -23,8 +23,9 @@ id =
                 ExistingObjectPointer objectID ->
                     objectID
 
-                PlaceholderPointer _ _ _ ->
-                    Log.crashInDev "ID should always be ObjectID before serializing" ((OpID.fromStringForced "error"))
+                placeholderPointer ->
+                    -- Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer) 
+                    ((OpID.fromStringForced ("Uninitialized! " ++ Log.dump placeholderPointer)))
     in
     
     Codec.string
@@ -73,4 +74,3 @@ intDict valueCodec =
             Codec.pair Codec.int valueCodec
     in
     Codec.primitiveList keyValuePairCodec |> Codec.map IntDict.fromList IntDict.toList
-
