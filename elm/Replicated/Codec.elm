@@ -266,22 +266,22 @@ decodeFromNode profileCodec node =
 
 new : Codec e () repType -> Parent -> repType
 new (Codec codecDetails) (ParentContext parentPointer) =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "init", seed = (), changer = nonChanger }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "new", seed = (), changer = nonChanger }
 
 
 newWithChanges : Codec e () repType -> Parent -> Changer repType -> repType
 newWithChanges (Codec codecDetails) (ParentContext parentPointer) changer =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "initAndChange", seed = (), changer = changer }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "newWithChanges", seed = (), changer = changer }
 
 
 seededNew : Codec e seed repType -> Parent -> seed -> repType
 seededNew (Codec codecDetails) (ParentContext parentPointer) seed =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("initWith " ++ Log.dump seed), seed = seed, changer = nonChanger }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("seededNew"), seed = seed, changer = nonChanger }
 
 
 seededNewWithChanges : Codec e seed repType -> Parent -> seed -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) (ParentContext parentPointer) seed changer =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "initWithAndChange", seed = seed, changer = changer }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "seededNewWithChanges", seed = seed, changer = changer }
 
 
 nonChanger _ =

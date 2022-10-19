@@ -1,4 +1,7 @@
-# UNTETHERED
+# UNTETHERED/REPLICATOR
+
+Replicator is a library for building Elm apps with CRDTs ("reptypes")
+
 - Build offline-first apps with Elm and cutting-edge CRDTs
 - Eschew the cloud-dependent paradigm
 - Synchronize instances anytime, even without internet
@@ -11,7 +14,7 @@
 - Export a snapshot of your entire app, or specific chunks*, into JSON
 - Save your app's data in a compact binary format for scalability*
 
-
+* coming soon
 
 
 
@@ -36,10 +39,17 @@ On the bright side, this also simplifies the infrastructure, performance, and cl
 
 Another perk is that the two will be forwards- and backwards-compatible on the wire! If you wanna change a read-only record to be writable, just wrap it! If you have a writable Register that you never need to write to again, feel free to just change to a naked record Codec, and it will *just work*.
 
+## Update: Naked records can't have initial changes
+In the previous section I decided to make naked records "read-only" in order to prevent them from being changeable in a changer function (record -> List Change). But it turns out banning `RW` fields is not enough, as any of the nested objects can still be changed, meaning you can still go from a naked record to a Change by changing e.g. one of the replists in its fields. This was supposed to be a good thing, making them still useful with the only limitation being no `RW`s. But the nested Changes still have nowhere to go, and are lost upon initializing. This is silly, since the nested objects themselves *do* have the ability to hold their own pre-changes - the simply need to be initialized on their own.
+
+Making the naked record Codec be a "flat"/symmetrical codec would mean you can only initialize it with a full copy of the codec itself. This would solve the immediate problem, since you'd be forced to do Codec.init (now called `Codec.new`) on the nested objects in order to specify a full record. It's inconvenient though, defeating the purpose of the library's built-in initializers feature. It also stops parent records from initializing them silently without a seed, which is a case where there are no issues as there are no upfront changes (and the more common case). Ideally the change would only affect the explicit initialization of the Codec, and when nested it can continue with defaults as normal.
+
+So it's not actually necessary that naked records be read-only - it's only necessary that they cannot be initialized with changes (or at least those changes must be stored elsewhere). Meaning `RW` fields can come back to naked Registers! Cool!
+
+But we need a way to let parent Registers still initialize their naked-codec fields without a seed - yet always requiring a seed from the end user (the seed being a full literal of the record).
 
 
 
-* coming soon
 
 
 

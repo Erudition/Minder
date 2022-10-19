@@ -270,13 +270,19 @@ initWithClass parent actionClassID =
         entryChildInit subparent =
             Codec.newWithChanges projectCodec subparent projectChanger
 
-        entryChanger : Entry -> List Change
-        entryChanger newEntry =
-            [ (Reg.latest newEntry.properties).title.set <| Just "Entry title"
-            , RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2))  newEntry.children
+        parentPropertiesChanger : (Reg ParentProperties) -> List Change
+        parentPropertiesChanger newParentProperties =
+            [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
+            ]
+
+        childrenChanger : RepList SuperProjectChild -> List Change
+        childrenChanger newChildren =
+            [ RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2)) newChildren
             ]
     in
-    Codec.newWithChanges codec parent entryChanger
+    { properties = Codec.newWithChanges parentPropertiesCodec parent parentPropertiesChanger
+    , children = Codec.newWithChanges (Codec.repList superProjectChildCodec) parent childrenChanger
+    }
 
 
 
