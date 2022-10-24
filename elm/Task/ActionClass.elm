@@ -12,7 +12,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec,  coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -25,6 +25,8 @@ import Replicated.Change exposing (Parent)
 import Replicated.Change exposing (Changer)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import NativeScript.Notification exposing (Action)
+import Replicated.Codec exposing (WrappedCodec)
+import Replicated.Codec exposing (FlatCodec)
 
 
 {-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
@@ -61,7 +63,7 @@ newActionClassSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 
-codec : Codec String String (Reg ActionClassSkel)
+codec : Codec String (String, Changer (Reg ActionClassSkel)) (Reg ActionClassSkel)
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
@@ -94,7 +96,7 @@ type alias ParentProperties =
     }
 
 
-parentPropertiesCodec : Codec String () (Reg ParentProperties)
+parentPropertiesCodec : WrappedCodec String (Reg ParentProperties)
 parentPropertiesCodec =
     Codec.record ParentProperties
         |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) (Just "fake title - set me back to Nothing")
@@ -153,7 +155,7 @@ type RelativeTiming
     | FromToday Duration
 
 
-relativeTimingCodec : SymCodec String RelativeTiming
+relativeTimingCodec : FlatCodec String RelativeTiming
 relativeTimingCodec =
     Codec.customType
         (\fromDeadline fromToday value ->

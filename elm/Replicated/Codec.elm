@@ -89,7 +89,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 {-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
 -}
-type Codec e i a
+type Codec e s a
     = Codec
         { bytesEncoder : a -> BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error e) a)
@@ -97,23 +97,33 @@ type Codec e i a
         , jsonDecoder : JD.Decoder (Result (Error e) a)
         , nodeEncoder : Maybe (NodeEncoder a)
         , nodeDecoder : Maybe (NodeDecoder e a)
-        , init : Initializer i a
+        , init : Initializer s a
         }
 
 
-type alias SymCodec e a =
+type alias FlatCodec e a =
     Codec e a a
 
+type alias SkelCodec e a = 
+    Codec e Skel a
 
-type alias Initializer seed a =
-    InitializerInputs seed a -> a
+type alias WrappedOrSkelCodec e s a = 
+    Codec e (s -> List Change) a
+
+type alias WrappedCodec e a = 
+    Codec e (Changer a) a
+
+type alias WrappedSeededCodec e s a = 
+    Codec e (s, Changer a) a
 
 
-type alias InitializerInputs seed a =
+type alias Initializer i a =
+    InitializerInputs i -> a
+
+type alias InitializerInputs seed =
     { parent : Pointer
     , position : Nonempty Change.SiblingIndex
     , seed : seed
-    , changer : Changer a
     }
 
 
@@ -137,6 +147,7 @@ type ThingToEncode fieldType
 
 
 type alias NodeEncoderInputsNoVariable =
+    -- TODO make unnecessary, by currying NodeEncoderInputs
     { node : Node
     , mode : ChangesToGenerate
     , parent : Change.Pointer
@@ -247,7 +258,7 @@ version =
 
 {-| Pass in the codec for the root object.
 -}
-decodeFromNode : Codec e () profile -> Node -> Result (Error e) profile
+decodeFromNode : WrappedOrSkelCodec e s profile -> Node -> Result (Error e) profile
 decodeFromNode profileCodec node =
     let
         rootEncoded =
@@ -264,33 +275,36 @@ decodeFromNode profileCodec node =
             Err (FailedToDecodeRoot <| JD.errorToString jdError)
 
 
-new : Codec e () repType -> Parent -> repType
+new : Codec e (s -> List Change) repType -> Parent -> repType
 new (Codec codecDetails) (ParentContext parentPointer) =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "new", seed = (), changer = nonChanger }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "new", seed = nonChanger }
 
 
-newWithChanges : Codec e () repType -> Parent -> Changer repType -> repType
+
+newWithChanges : WrappedCodec e repType -> Parent -> Changer repType -> repType
 newWithChanges (Codec codecDetails) (ParentContext parentPointer) changer =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "newWithChanges", seed = (), changer = changer }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "newWithChanges", seed = changer }
 
 
-seededNew : Codec e seed repType -> Parent -> seed -> repType
+seededNew : Codec e s repType -> Parent -> s -> repType
 seededNew (Codec codecDetails) (ParentContext parentPointer) seed =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("seededNew"), seed = seed, changer = nonChanger }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("seededNew"), seed = seed }
 
-
-seededNewWithChanges : Codec e seed repType -> Parent -> seed -> Changer repType -> repType
+seededNewWithChanges : Codec e (s, Changer repType) repType -> Parent -> s -> (Changer repType) -> repType
 seededNewWithChanges (Codec codecDetails) (ParentContext parentPointer) seed changer =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "seededNewWithChanges", seed = seed, changer = changer }
-
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton ("seededNew"), seed = (seed, changer) }
 
 nonChanger _ =
     []
 
 
-getInitializer : Codec e i repType -> Initializer i repType
-getInitializer (Codec codecDetails) =
+getInitializer : Codec e (i) repType -> Initializer i repType
+getInitializer (Codec codecDetails) inputs =
     codecDetails.init
+        { parent = inputs.parent 
+        , position = inputs.position
+        , seed = inputs.seed
+        }
 
 
 endian : Bytes.Endianness
@@ -327,7 +341,7 @@ getNodeDecoder (Codec m) =
 
 {-| Run a `Codec` to turn a sequence of bytes into an Elm value.
 -}
-decodeFromBytes : SymCodec e a -> Bytes.Bytes -> Result (Error e) a
+decodeFromBytes : FlatCodec e a -> Bytes.Bytes -> Result (Error e) a
 decodeFromBytes codec bytes_ =
     let
         decoder =
@@ -354,7 +368,7 @@ decodeFromBytes codec bytes_ =
 
 {-| Run a `Codec` to turn a String encoded with `encodeToString` into an Elm value.
 -}
-decodeFromURLSafeByteString : SymCodec e a -> String -> Result (Error e) a
+decodeFromURLSafeByteString : FlatCodec e a -> String -> Result (Error e) a
 decodeFromURLSafeByteString codec base64 =
     case decodeStringToBytes base64 of
         Just bytes_ ->
@@ -578,7 +592,7 @@ buildUnnestableCodec :
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
-    -> SymCodec e a
+    -> FlatCodec e a
 buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
     Codec
         { bytesEncoder = encoder_
@@ -611,18 +625,6 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ron
         }
 
 
-preseed : s -> Codec e s a -> Codec e () a
-preseed seed (Codec given) =
-    Codec
-        { bytesEncoder = given.bytesEncoder
-        , bytesDecoder = given.bytesDecoder
-        , jsonEncoder = given.jsonEncoder
-        , jsonDecoder = given.jsonDecoder
-        , nodeEncoder = given.nodeEncoder
-        , nodeDecoder = given.nodeDecoder
-        , init = \inputs -> given.init { seed = seed, parent = inputs.parent, changer = inputs.changer, position = inputs.position }
-        }
-
 
 flatInit : Initializer a a
 flatInit { seed } =
@@ -631,7 +633,7 @@ flatInit { seed } =
 
 {-| Codec for serializing a `String`
 -}
-string : SymCodec e String
+string : FlatCodec e String
 string =
     Codec
         { bytesEncoder =
@@ -662,7 +664,7 @@ string =
 
 {-| Codec for serializing a `Bool`
 -}
-bool : SymCodec e Bool
+bool : FlatCodec e Bool
 bool =
     let
         boolNodeEncoder : NodeEncoder Bool   
@@ -729,7 +731,7 @@ bool =
 
 {-| Codec for serializing an `Int`
 -}
-int : SymCodec e Int
+int : FlatCodec e Int
 int =
     let
         intNodeEncoder : NodeEncoder Int
@@ -752,7 +754,7 @@ int =
 
 {-| Codec for serializing a `Float`
 -}
-float : SymCodec e Float
+float : FlatCodec e Float
 float =
     buildUnnestableCodec
         (BE.float64 endian)
@@ -763,7 +765,7 @@ float =
 
 {-| Codec for serializing a `Char`
 -}
-char : SymCodec e Char
+char : FlatCodec e Char
 char =
     let
         charEncode text =
@@ -831,7 +833,7 @@ maybe justCodec =
 
 {-| A replicated list
 -}
-repList : Codec e memberSeed memberType -> Codec e () (RepList memberType)
+repList : Codec e memberSeed memberType -> WrappedCodec e (RepList memberType)
 repList memberCodec =
     let
         normalJsonDecoder =
@@ -925,8 +927,8 @@ repList memberCodec =
                             , objectChanges = []
                             }
 
-        initializer : Initializer () (RepList memberType)
-        initializer { parent, position, seed, changer } =
+        initializer : Initializer (Changer (RepList memberType)) (RepList memberType)
+        initializer { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepList.reducerID, parent = parent, childWrapper = identity }
@@ -938,7 +940,7 @@ repList memberCodec =
                     memberRonDecoder { node = Node.testNode, parent = Object.getPointer object, cutoff = Nothing }
 
                 repListBuilder =
-                    RepList.buildFromReplicaDb object finalPayloadToMember finalMemberChanger nonChanger
+                    RepList.buildFromReplicaDb object finalPayloadToMember finalMemberChanger seed
             in
             repListBuilder
     in
@@ -958,7 +960,7 @@ repList memberCodec =
 You will not be able to change the contents without replacing the entire list, and such changes will not merge nicely with concurrent changes, so consider using a `RepList` instead!
 That said, useful for one-off lists, or Json serialization.
 -}
-primitiveList : SymCodec e a -> SymCodec e (List a)
+primitiveList : FlatCodec e a -> FlatCodec e (List a)
 primitiveList codec =
     let
         normalJsonDecoder =
@@ -993,7 +995,7 @@ primitiveList codec =
         }
 
 
-primitiveNonempty : SymCodec String userType -> SymCodec String (Nonempty userType)
+primitiveNonempty : FlatCodec String userType -> FlatCodec String (Nonempty userType)
 primitiveNonempty wrappedCodec =
     let
         nonEmptyFromList list =
@@ -1030,14 +1032,14 @@ listStep decoder_ ( n, xs ) =
 
 {-| Codec for serializing an `Array`
 -}
-array : SymCodec e a -> SymCodec e (Array a)
+array : FlatCodec e a -> FlatCodec e (Array a)
 array codec =
     primitiveList codec |> mapHelper (Result.map Array.fromList) Array.toList
 
 
 {-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec e s memberType -> Codec e () (RepDb memberType)
+repDb : Codec e s memberType -> WrappedCodec e (RepDb memberType)
 repDb memberCodec =
     let
         memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Pointer } -> memberType -> Change.ObjectChange
@@ -1105,8 +1107,8 @@ repDb memberCodec =
                             , objectChanges = []
                             }
 
-        initializer : InitializerInputs () (RepDb memberType) -> RepDb memberType
-        initializer { parent, position, seed, changer } =
+        initializer : InitializerInputs (Changer (RepDb memberType))  -> RepDb memberType
+        initializer { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepDb.reducerID, parent = parent, childWrapper = identity }
@@ -1120,7 +1122,7 @@ repDb memberCodec =
                 finalPayloadToMember =
                     memberRonDecoder { node = Node.testNode, parent = repDbPointer, cutoff = Nothing }
             in
-            RepDb.buildFromReplicaDb object finalPayloadToMember finalMemberChanger changer
+            RepDb.buildFromReplicaDb object finalPayloadToMember finalMemberChanger seed
     in
     Codec
         { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.listValues input)
@@ -1135,7 +1137,7 @@ repDb memberCodec =
 
 {-| A replicated dictionary.
 -}
-repDict : Codec e ki k -> Codec e vi v -> Codec e () (RepDict k v)
+repDict : Codec e ki k -> Codec e vi v -> WrappedCodec e (RepDict k v)
 repDict keyCodec valueCodec =
     let
         -- We use the json-encoded form as the dict key, since it's always comparable!
@@ -1257,8 +1259,8 @@ repDict keyCodec valueCodec =
                             , objectChanges = []
                             }
 
-        initializer : InitializerInputs () (RepDict k v) -> RepDict k v
-        initializer { parent, position, seed, changer } =
+        initializer : InitializerInputs (Changer (RepDict k v))  -> RepDict k v
+        initializer { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = RepDb.reducerID, position = position, childWrapper = identity }
@@ -1266,7 +1268,7 @@ repDict keyCodec valueCodec =
                 repDbPointer =
                     Object.getPointer object
             in
-            RepDict.buildFromReplicaDb object (entryRonDecoder Node.testNode repDbPointer Nothing) (entryChanger Node.testNode Nothing repDbPointer) keyToString changer
+            RepDict.buildFromReplicaDb object (entryRonDecoder Node.testNode repDbPointer Nothing) (entryChanger Node.testNode Nothing repDbPointer) keyToString seed
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -1284,7 +1286,7 @@ repDict keyCodec valueCodec =
   - By design, the store only accepts values with seedless codecs.
 
 -}
-repStore : Codec e ki k -> Codec e () v -> Codec e () (RepStore k v)
+repStore : Codec e ki k -> Codec e (s -> List Change) v -> WrappedCodec e (RepStore k v)
 repStore keyCodec valueCodec =
     let
         -- We use the json-encoded form as the dict key, since it's always comparable!
@@ -1423,9 +1425,9 @@ repStore keyCodec valueCodec =
                             , objectChanges = []
                             }
 
-        initializer : InitializerInputs () (RepStore k v) -> RepStore k v
-        initializer { parent, position, changer } =
-            repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } changer []
+        initializer : InitializerInputs (Changer (RepStore k v)) -> RepStore k v
+        initializer { parent, position, seed } =
+            repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } seed []
     in
     Codec
         { bytesEncoder = bytesEncoder
@@ -1450,7 +1452,7 @@ repStore keyCodec valueCodec =
         S.dict S.string S.int
 
 -}
-primitiveDict : SymCodec e comparable -> SymCodec e a -> SymCodec e (Dict comparable a)
+primitiveDict : FlatCodec e comparable -> FlatCodec e a -> FlatCodec e (Dict comparable a)
 primitiveDict keyCodec valueCodec =
     primitiveList (pair keyCodec valueCodec)
         |> mapHelper (Result.map Dict.fromList) Dict.toList
@@ -1458,14 +1460,14 @@ primitiveDict keyCodec valueCodec =
 
 {-| Codec for serializing a `Set`
 -}
-primitiveSet : SymCodec e comparable -> SymCodec e (Set comparable)
+primitiveSet : FlatCodec e comparable -> FlatCodec e (Set comparable)
 primitiveSet codec =
     primitiveList codec |> mapHelper (Result.map Set.fromList) Set.toList
 
 
 {-| Codec for serializing `()` (aka `Unit`).
 -}
-unit : SymCodec e ()
+unit : FlatCodec e ()
 unit =
     buildUnnestableCodec
         (always (BE.sequence []))
@@ -1498,7 +1500,7 @@ pair codecFirst codecSecond =
         |> finishCustomType
 
 
-seedlessPair : Codec e () a -> Codec e () b -> Codec e () ( a, b )
+seedlessPair : WrappedOrSkelCodec e s1 a -> WrappedOrSkelCodec e s2 b -> SkelCodec e ( a, b ) 
 seedlessPair codecFirst codecSecond =
     record Tuple.pair
         |> fieldReg ( 1, "first" ) Tuple.first codecFirst
@@ -1532,7 +1534,7 @@ triple codecFirst codecSecond codecThird =
 
 {-| Codec for serializing a `Result`
 -}
-result : SymCodec e error -> SymCodec e value -> SymCodec e (Result error value)
+result : FlatCodec e error -> FlatCodec e value -> FlatCodec e (Result error value)
 result errorCodec valueCodec =
     customType
         (\errEncoder okEncoder value ->
@@ -1562,7 +1564,7 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
                 Image.toPng
 
 -}
-bytes : SymCodec e Bytes.Bytes
+bytes : FlatCodec e Bytes.Bytes
 bytes =
     buildUnnestableCodec
         (\bytes_ ->
@@ -1609,7 +1611,7 @@ This is useful if you have a small integer you want to serialize and not use up 
 So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 
 -}
-byte : SymCodec e Int
+byte : FlatCodec e Int
 byte =
     buildUnnestableCodec
         BE.unsignedInt8
@@ -1644,7 +1646,7 @@ daysOfWeekCodec =
 ```
 
 -}
-quickEnum : a -> List a -> SymCodec e a
+quickEnum : a -> List a -> FlatCodec e a
 quickEnum defaultItem items =
     let
         getIndex value =
@@ -1744,7 +1746,7 @@ type FieldFallback parentSeed fieldSeed fieldType
 
 {-| A partially built Codec for a smart record.
 -}
-type PartialRegister n errs s full remaining
+type PartialRegister errs s full remaining
     = PartialRegister
         { bytesEncoder : full -> List BE.Encoder
         , bytesDecoder : BD.Decoder (Result (Error errs) remaining)
@@ -1756,14 +1758,12 @@ type PartialRegister n errs s full remaining
         , nodeInitializer : RegisterFieldInitializer s remaining
         }
 
-{-| This is an internal phantom type that gets applied to a `PartialRegister` as soon as you add an `RW` field to its Codec. Once an `RW` field is included, the Register is not eligible for the naked record finisher, `finishRecord`, and must be finished with a `finishRegister` instead. -}
-type CannotBeNaked =
-    CannotBeNaked
+
 
 {-| Start the record codec for a Register.
 Be sure to finish it off with a finisher function.
 -}
-record : remaining -> PartialRegister n errs i full remaining
+record : remaining -> PartialRegister errs i full remaining
 record remainingConstructor =
     PartialRegister
         { bytesEncoder = \_ -> []
@@ -1799,7 +1799,7 @@ fieldDefaultMaybe fallback =
 
 {-| Not exposed - for all `readable` functions
 -}
-readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister n errs parentSeed full (fieldType -> remaining) -> PartialRegister n errs parentSeed full remaining
+readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
 readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
     let
         newFieldIndex =
@@ -1847,7 +1847,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
                 fieldInit : fieldSeed -> fieldType
                 fieldInit fieldSeed =
-                    getInitializer fieldCodec { parent = regPointer, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), changer = nonChanger, seed = fieldSeed }
+                    getInitializer fieldCodec { parent = regPointer, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = fieldSeed }
 
                 fieldValue : fieldType
                 fieldValue =
@@ -1893,7 +1893,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
 {-| Not exposed - for all `writable` functions
 -}
-writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister n errs parentSeed full (RW fieldType -> remaining) -> PartialRegister CannotBeNaked errs parentSeed full remaining
+writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister  errs parentSeed full remaining
 writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
     let
         newFieldIndex =
@@ -1941,7 +1941,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
                 fieldInit : fieldSeed -> fieldType
                 fieldInit seed =
-                    getInitializer fieldCodec { parent = regPointer, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = seed, changer = nonChanger }
+                    getInitializer fieldCodec { parent = regPointer, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = seed }
 
                 fieldValue : fieldType
                 fieldValue =
@@ -1998,7 +1998,7 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister n errs i full (fieldType -> remaining) -> PartialRegister n errs i full remaining
+field : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 field ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
     readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedDefault fieldDefault) soFar
 
@@ -2006,20 +2006,29 @@ field ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
 {-| Read a field containing a nested register, using an auto-generated default.
 
   - This field is read-only, which is good because you can use the nested register's native way of writing changes. For example, a nested record can have `RW` fields, you can `Change` it that way.
-  - Auto-generating a default only works for seedless codecs - make sure your codec is of type `Codec e () MyType`, aka the seed is `()`. If you have a seeded object to put here, see `seededR` instead.
+  - Auto-generating a default only works for seedless codecs - make sure your codec is of type `SkelCodec e MyType`, aka the seed is `()`. If you have a seeded object to put here, see `seededR` instead.
 
 -}
-fieldReg : FieldIdentifier -> (full -> fieldType) -> Codec errs () fieldType -> PartialRegister n errs i full (fieldType -> remaining) -> PartialRegister n errs i full remaining
+fieldReg : FieldIdentifier -> (full -> fieldType) -> WrappedOrSkelCodec errs s  fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldReg ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed ()) soFar
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed (\_ -> [])) soFar
 
+
+{-| Read a field containing a nested record, using an auto-generated default.
+
+  - This field is read-only, which is good because you can use the nested register's native way of writing changes. For example, a nested record can have `RW` fields, you can `Change` it that way.
+  - Naked records "skeletons" can only be initialized this way, or using full record literal syntax.
+-}
+fieldRec : FieldIdentifier -> (full -> fieldType) -> SkelCodec errs fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRec ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed (\_ -> [])) soFar
 
 {-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
 
   - If your field will more often be set to something else (e.g. `Just 0`), consider using `readable` with your `maybe`-wrapped codec instead and using the common value as the default. This will save space and bandwidth.
 
 -}
-maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs fieldSeed justFieldType -> PartialRegister n errs i full (Maybe justFieldType -> remaining) -> PartialRegister n errs i full remaining
+maybeR : FieldIdentifier -> (full -> Maybe justFieldType) -> Codec errs fieldSeed justFieldType -> PartialRegister errs i full (Maybe justFieldType -> remaining) -> PartialRegister errs i full remaining
 maybeR fieldID fieldGetter fieldCodec recordBuilt =
     readableHelper fieldID fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) recordBuilt
 
@@ -2032,9 +2041,9 @@ maybeR fieldID fieldGetter fieldCodec recordBuilt =
   - If your field is not a `RepList` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repList` codec instead.
 
 -}
-fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberSeed memberType -> PartialRegister n errs i full (RepList memberType -> remaining) -> PartialRegister n errs i full remaining
+fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepList memberType -> remaining) -> PartialRegister errs i full remaining
 fieldList fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repList fieldCodec) (HardcodedSeed (())) recordBuilt
+    readableHelper fieldID fieldGetter (repList fieldCodec) (HardcodedSeed (nonChanger)) recordBuilt
 
 
 {-| Read a `RepDict` field without adding the `repDict` codec. Default is an empty `RepDict`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
@@ -2045,9 +2054,9 @@ fieldList fieldID fieldGetter fieldCodec recordBuilt =
   - If your field is not a `RepDict` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDict` codec instead.
 
 -}
-fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyInit keyType, Codec errs valInit valueType ) -> PartialRegister n errs i full (RepDict keyType valueType -> remaining) -> PartialRegister n errs i full remaining
+fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( Codec errs keyInit keyType, Codec errs valInit valueType ) -> PartialRegister errs i full (RepDict keyType valueType -> remaining) -> PartialRegister errs i full remaining
 fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
-    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (HardcodedSeed ()) recordBuilt
+    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (HardcodedSeed nonChanger) recordBuilt
 
 
 {-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
@@ -2056,9 +2065,9 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
   - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
 
 -}
-fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed memberType -> PartialRegister n errs i full (RepDb memberType -> remaining) -> PartialRegister n errs i full remaining
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repDb fieldCodec) (HardcodedSeed ()) recordBuilt
+    readableHelper fieldID fieldGetter (repDb fieldCodec) (HardcodedSeed nonChanger) recordBuilt
 
 
 {-| Read a record field wrapped with `RW`. This makes the field writable.
@@ -2072,7 +2081,7 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldSeed fieldType -> PartialRegister n errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister CannotBeNaked errs i full remaining
+maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldSeed fieldType -> PartialRegister errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister  errs i full remaining
 maybeRW fieldIdentifier fieldGetter fieldCodec soFar =
     writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) soFar
 
@@ -2088,7 +2097,7 @@ The last argument specifies a default value, which is used when initializing the
   - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister n errs i full (RW fieldType -> remaining) -> PartialRegister CannotBeNaked errs i full remaining
+fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister  errs i full remaining
 fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
     writableHelper fieldIdentifier fieldGetter fieldCodec (HardcodedDefault fieldDefault) soFar
 
@@ -2102,7 +2111,7 @@ fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
   - Consider if this field being set upfront is essential to this record. For graceful degradation, records missing essential fields will be omitted from any containing collections. If the field is in your root object, it may fail to parse entirely. (And that's exactly what you would want, if this field were truly essential.)
 
 -}
-coreR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister n errs parentSeed full (fieldType -> remaining) -> PartialRegister n errs parentSeed full remaining
+coreR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
 coreR fieldID fieldGetter fieldCodec seeder recordBuilt =
     readableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
 
@@ -2114,7 +2123,7 @@ Including any core fields in your register will force you to pass in a "seed" an
   - If this field is truly unique to the register upon initialization, does it really need to be writable? Consider using `coreR` instead, so your code can initialize the field with a seed but not accidentally modify it later.
 
 -}
-coreRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister n errs parentSeed full (RW fieldType -> remaining) -> PartialRegister CannotBeNaked errs parentSeed full remaining
+coreRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister  errs parentSeed full remaining
 coreRW fieldID fieldGetter fieldCodec seeder recordBuilt =
     writableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
 
@@ -2126,7 +2135,7 @@ Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the p
   - You can use this to seed the field with a constant, ignoring the parent seed like `(\_ -> [1,2,3])` if you need that for some reason. But if a constant works, your field's type can probably be made seedless anyway. You can also just use a field default, rather than seeding, so your parent register can be seedless.
 
 -}
-seededR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister n errs parentSeed full (fieldType -> remaining) -> PartialRegister n errs parentSeed full remaining
+seededR : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
 seededR fieldID fieldGetter fieldCodec default seeder recordBuilt =
     readableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) recordBuilt
 
@@ -2138,7 +2147,7 @@ Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the p
   - You can use this to seed the field with a constant, ignoring the parent seed like `(\_ -> [1,2,3])` if you need that for some reason. But if a constant works, your field's type can probably be made seedless anyway. You can also just use a field default, rather than seeding, so your parent register can be seedless.
 
 -}
-seededRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister n errs parentSeed full (RW fieldType -> remaining) -> PartialRegister CannotBeNaked errs parentSeed full remaining
+seededRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister  errs parentSeed full remaining
 seededRW fieldID fieldGetter fieldCodec default seeder recordBuilt =
     writableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) recordBuilt
 
@@ -2214,7 +2223,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
         generatedDefaultMaybe =
             case fallback of
                 HardcodedSeed fieldSeed ->
-                    Just <| (getInitializer fieldCodec) {parent = parent, seed = fieldSeed, position = position, changer = \_ -> []}
+                    Just <| (getInitializer fieldCodec) {parent = parent, seed = fieldSeed, position = position}
 
                 _ ->
                     Nothing
@@ -2310,11 +2319,14 @@ concurrentObjectIDsDecoder =
         ]
 
 
+type alias Skel =
+    () -> List Change
+
 {-| Finish creating a codec for a naked Register.
 This is a Register, stripped of its wrapper.
 Upgrade to a fully wrapped Register for features such as versioning and time travel.
 -}
-finishRecord : PartialRegister n errs () full full -> Codec errs () full
+finishRecord : PartialRegister errs () full full -> Codec errs Skel full
 finishRecord ((PartialRegister allFieldsCodec) as partial) =
     let
         encodeAsJsonObject nakedRecord =
@@ -2394,61 +2406,14 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 , position = inputs.position
                 }
 
-        emptyRegister : Initializer () full
-        emptyRegister { parent, position, changer } =
+        emptyRegister : Initializer Skel full
+        emptyRegister { parent, position } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
 
-                history =
-                    buildRegisterFieldDictionary object
-
-                empty =
-                    allFieldsCodec.nodeInitializer () (Object.getPointer object)
-
-                patchedRecord =
-                    case changer empty of
-                        [] ->
-                            -- phew, no need to patch!
-                            empty
-
-                        someChangesToMake ->
-                            -- this is a hack, but without it we couldn't have naked registers with pre-init changes
-                            let
-                                savedChangesFrame =
-                                    Change.saveChanges "patching fake node" someChangesToMake
-
-                                applied =
-                                    -- apply changes to a dummy node. IDs will be all wrong but we won't ever use these Ops again,
-                                    Debug.log (Console.bgRed "naked register throwaway node was:") <| Node.apply Nothing Node.throwawayNode savedChangesFrame
-
-                                generatedObjectInFakeNode =
-                                    -- last object created is root. TODO should be able to grab .root from the node
-                                    List.Extra.last applied.created
-
-                                fakeIDAsString fakeID =
-                                    JE.encode 0 (JE.list Op.atomToJsonValue [ (Op.IDPointerAtom fakeID)])
-
-                                iDToFindString =
-                                    Maybe.map fakeIDAsString generatedObjectInFakeNode 
-                                    |> Maybe.withDefault "{}"
-                                    |> Debug.log (Console.bgRed "iDToFindString")
-
-                                
-                                extractFromThrowaway  =
-                                -- ...just using the throwaway node to decode the naked register,
-                                    JD.decodeString (nodeDecoder { node = applied.updatedNode, parent = parent, cutoff = Nothing, position = Nonempty.singleton "throwawayChild" }) iDToFindString
-                            in
-                            
-                            case extractFromThrowaway of
-                                Ok (Ok patchSuccess) ->
-                                    --  and use that as the init value!
-                                    Debug.log (Console.bgRed "naked register decoded from throwaway node was:") patchSuccess
-
-                                problem ->
-                                    Log.crashInDev ("emptyRegister: failed to patch naked register. When decoding {}, error was: " ++ Debug.toString problem ) empty
             in
-            patchedRecord
+            allFieldsCodec.nodeInitializer () (Object.getPointer object)
 
         bytesDecoder : BD.Decoder (Result (Error errs) full)
         bytesDecoder =
@@ -2472,7 +2437,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
 {-| Finish creating a codec for a naked Register.
 This is a Register, stripped of its wrapper.
 -}
-finishSeededRecord : PartialRegister n errs s full full -> Codec errs s full
+finishSeededRecord : PartialRegister errs s full full -> Codec errs s full
 finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
     let
         encodeAsJsonObject nakedRecord =
@@ -2555,7 +2520,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                 }
 
         emptyRegister : Initializer s full
-        emptyRegister { parent, position, seed, changer } =
+        emptyRegister { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
@@ -2586,7 +2551,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
 
 {-| Finish creating a codec for a register.
 -}
-finishRegister : PartialRegister CannotBeNaked errs () full full -> Codec errs () (Reg full)
+finishRegister : PartialRegister errs () full full -> WrappedCodec errs (Reg full)
 finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     let
         encodeAsJsonObject (Register regDetails) =
@@ -2647,7 +2612,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 , position = inputs.position
                 }
 
-        emptyRegister { parent, position, changer } =
+        emptyRegister { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
@@ -2658,10 +2623,10 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 regToRecord cutoff =
                     allFieldsCodec.nodeInitializer () (Object.getPointer object)
             in
-            Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = changer }
+            Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = seed }
 
         tempEmpty =
-            emptyRegister { parent = Change.genesisPointer, seed = (), changer = nonChanger, position = Nonempty.singleton "flatTodo" }
+            emptyRegister { parent = Change.genesisPointer, seed = nonChanger, position = Nonempty.singleton "flatTodo" }
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
@@ -2686,7 +2651,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
 
 {-| Finish creating a codec for a register that needs a seed.
 -}
-finishSeededRegister : PartialRegister CannotBeNaked errs s full full -> Codec errs s (Reg full)
+finishSeededRegister : PartialRegister  errs s full full -> Codec errs (s, Changer (Reg full)) (Reg full)
 finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     let
         encodeAsJsonObject (Register regDetails) =
@@ -2755,7 +2720,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 , position = inputs.position
                 }
 
-        emptyRegister { parent, position, seed, changer } =
+        emptyRegister { parent, position, seed } =
             let
                 object =
                     Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
@@ -2764,9 +2729,9 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     buildRegisterFieldDictionary object
 
                 regToRecord cutoff =
-                    allFieldsCodec.nodeInitializer seed (Object.getPointer object)
+                    allFieldsCodec.nodeInitializer (Tuple.first seed) (Object.getPointer object)
             in
-            Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = changer }
+            Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = (Tuple.second seed) }
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
@@ -2926,7 +2891,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : PartialRegister n errs i full full -> NodeEncoderInputs (Reg full) -> Change.PotentialPayload
+registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.PotentialPayload
 registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mode, parent, position } as details) =
     let
         fallbackObject foundIDs =
@@ -3206,7 +3171,7 @@ I recommend writing tests for Codecs that use `map` to make sure you get back th
 [Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
 
 -}
-map : (a -> b) -> (b -> a) -> SymCodec e a -> SymCodec e b
+map : (a -> b) -> (b -> a) -> FlatCodec e a -> FlatCodec e b
 map fromBytes_ toBytes_ codec =
     mapHelper
         (\value ->
@@ -3221,7 +3186,7 @@ map fromBytes_ toBytes_ codec =
         codec
 
 
-mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> SymCodec e a -> SymCodec e b
+mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> FlatCodec e a -> FlatCodec e b
 mapHelper fromBytes_ toBytes_ codec =
     let
         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e) b)
@@ -3280,7 +3245,7 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 [Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
 
 -}
-mapValid : (a -> Result e b) -> (b -> a) -> SymCodec e a -> SymCodec e b
+mapValid : (a -> Result e b) -> (b -> a) -> FlatCodec e a -> FlatCodec e b
 mapValid fromBytes_ toBytes_ codec =
     let
         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e) b)
@@ -3326,7 +3291,7 @@ mapValid fromBytes_ toBytes_ codec =
 
 {-| Map errors generated by `mapValid`.
 -}
-mapError : (e1 -> e2) -> SymCodec e1 a -> SymCodec e2 a
+mapError : (e1 -> e2) -> FlatCodec e1 a -> FlatCodec e2 a
 mapError mapFunc codec =
     let
         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e2) a)

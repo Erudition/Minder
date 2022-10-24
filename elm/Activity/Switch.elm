@@ -13,7 +13,7 @@ import IntDict exposing (IntDict)
 import Ionicon
 import Ionicon.Android as Android
 import List.Nonempty exposing (..)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, coreRW, field, fieldDict, fieldList, fieldRW)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, coreR, coreRW, field, fieldDict, fieldList, fieldRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -32,7 +32,7 @@ type alias SwitchSkel =
     }
 
 
-codec : SymCodec String Switch
+codec : FlatCodec String Switch
 codec =
     let
         skelCodec : Codec String SwitchSkel SwitchSkel

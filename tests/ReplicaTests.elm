@@ -11,7 +11,7 @@ import Log
 import Main exposing (Screen(..))
 import Maybe.Extra
 import Replicated.Change as Change exposing (Parent, Creator)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, decodeFromNode)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, decodeFromNode, SkelCodec)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
@@ -20,6 +20,8 @@ import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Moment as Moment
 import Test exposing (..)
 import Replicated.Reducer.Register as Reg exposing (Reg, RW)
+import Replicated.Codec exposing (WrappedCodec)
+import Replicated.Codec exposing (WrappedOrSkelCodec)
 
 
 suite : Test
@@ -36,7 +38,7 @@ suite =
         ]
 
 
-nodeFromCodec : Codec e () profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+nodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodec profileCodec =
     let
         logOps chunks =
@@ -67,7 +69,7 @@ type alias ReadOnlyObject =
     }
 
 
-readOnlyObjectCodec : Codec e () ReadOnlyObject
+readOnlyObjectCodec : SkelCodec e ReadOnlyObject
 readOnlyObjectCodec =
     Codec.record ReadOnlyObject
         |> Codec.fieldReg ( 1, "legal_name" ) .name exampleSubObjectCodec
@@ -105,7 +107,7 @@ type alias ExampleSubObjectLegalName =
     }
 
 
-exampleSubObjectCodec : Codec e () ExampleSubObjectLegalName
+exampleSubObjectCodec : SkelCodec e  ExampleSubObjectLegalName
 exampleSubObjectCodec =
     Codec.record ExampleSubObjectLegalName
         |> Codec.field ( 1, "first" ) .first Codec.string "firstname"
@@ -173,7 +175,7 @@ type alias WritableObject =
     }
 
 
-writableObjectCodec : Codec e () (R WritableObject)
+writableObjectCodec : WrappedCodec e (Reg WritableObject)
 writableObjectCodec =
     Codec.record WritableObject
         |> Codec.fieldRW ( 2, "address" ) .address Codec.string "default address 2"
@@ -272,7 +274,7 @@ simpleList =
     [ "0-Alpha", "1-Beta", "2-Charley", "3-Delta", "4-Gamma" ]
 
 
-simpleListCodec : Codec e () (RepList String)
+simpleListCodec : WrappedCodec e (RepList String)
 simpleListCodec =
     Codec.repList Codec.string
 
@@ -391,17 +393,16 @@ getObjectEventList objectID node =
 
 -- NESTED MESS
 
-type alias R a = Reg a
 
 type alias NestedStressTest =
     { recordDepth : String
-    , recordOf3Records : R RecordOf3Records
-    , listOfNestedRecords : RepList (R WritableObject)
+    , recordOf3Records : Reg RecordOf3Records
+    , listOfNestedRecords : RepList (Reg WritableObject)
     , lastField : String
     }
 
 
-nestedStressTestCodec : Codec e () (R NestedStressTest)
+nestedStressTestCodec : WrappedCodec e (Reg NestedStressTest)
 nestedStressTestCodec =
     Codec.record NestedStressTest
         |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "first layer"
@@ -413,11 +414,11 @@ nestedStressTestCodec =
 
 type alias RecordOf3Records =
     { recordDepth : String
-    , recordOf2Records : R RecordOf2Records
+    , recordOf2Records : Reg RecordOf2Records
     }
 
 
-recordOf3RecordsCodec : Codec e () (R RecordOf3Records)
+recordOf3RecordsCodec : WrappedCodec e (Reg RecordOf3Records)
 recordOf3RecordsCodec =
     Codec.record RecordOf3Records
         |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "second layer"
@@ -427,11 +428,11 @@ recordOf3RecordsCodec =
 
 type alias RecordOf2Records =
     { recordDepth : String
-    , recordWithRecord : R WritableObject
+    , recordWithRecord : Reg WritableObject
     }
 
 
-recordOf2RecordsCodec : Codec e () (R RecordOf2Records)
+recordOf2RecordsCodec : WrappedCodec e (Reg RecordOf2Records)
 recordOf2RecordsCodec =
     Codec.record RecordOf2Records
         |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "third layer"
@@ -482,10 +483,10 @@ nodeWithModifiedNestedStressTest =
                     , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
                     ]
 
-                newWritable : Change.Creator (R WritableObject)
+                newWritable : Change.Creator (Reg WritableObject)
                 newWritable c =
                     let
-                        woChanges : Change.Changer (R WritableObject)
+                        woChanges : Change.Changer (Reg WritableObject)
                         woChanges wrappedObj =
                             let
                                 obj =

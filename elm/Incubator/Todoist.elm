@@ -28,6 +28,7 @@ import SmartTime.Human.Moment as HumanMoment
 import Url
 import Url.Builder
 import Replicated.Codec exposing (Codec)
+import Replicated.Codec exposing (SkelCodec)
 
 
 type alias SecretToken =
@@ -96,7 +97,7 @@ encodeCache record =
         , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
         ]
 
-cacheCodec : Codec e () Cache
+cacheCodec : SkelCodec e Cache
 cacheCodec =
     Codec.record Cache
     |> Codec.field ( 1, "nextSync" ) .nextSync (Codec.string |> Codec.map IncrementalSyncToken (\(IncrementalSyncToken t) -> t)) (IncrementalSyncToken "*")

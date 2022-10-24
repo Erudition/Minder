@@ -15,7 +15,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (SkelCodec, Codec, FlatCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -57,14 +57,14 @@ type alias Profile =
     }
 
 
-codec : Codec String () Profile
+codec : SkelCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
         |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
         |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
-        |> Codec.fieldReg ( 5, "activities" ) .activities Activity.storeCodec
+        |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> Codec.todo emptyTodoistIntegrationData))
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
@@ -78,7 +78,7 @@ type alias TodoistIntegrationData =
     }
 
 
-todoistIntegrationDataCodec : Codec String () TodoistIntegrationData
+todoistIntegrationDataCodec : SkelCodec String TodoistIntegrationData
 todoistIntegrationDataCodec =
     Codec.record TodoistIntegrationData
         |> Codec.fieldReg ( 1, "cache" ) .cache (Codec.lazy (\_ -> Todoist.cacheCodec))

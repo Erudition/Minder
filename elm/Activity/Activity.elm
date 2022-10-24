@@ -14,7 +14,7 @@ import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
 import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SymCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW, SkelCodec)
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
@@ -25,6 +25,7 @@ import SmartTime.Human.Duration exposing (..)
 import SmartTime.Moment exposing (..)
 import Svg.Styled exposing (..)
 import Time.Extra exposing (..)
+import Replicated.Codec exposing (WrappedCodec)
 
 
 {-| Opaque type for an activity, with everything inside necessary to get any detail
@@ -39,7 +40,7 @@ type ActivityID
     | CustomActivityID Template (ID CustomActivitySkel)
 
 
-idCodec : SymCodec String ActivityID
+idCodec : FlatCodec String ActivityID
 idCodec =
     Codec.customType
         (\builtInActivity customActivity value ->
@@ -85,7 +86,7 @@ type alias BuiltInActivitySkel =
     }
 
 
-builtInActivitySkelCodec : Codec String () BuiltInActivitySkel
+builtInActivitySkelCodec : SkelCodec String BuiltInActivitySkel
 builtInActivitySkelCodec =
     Codec.record BuiltInActivitySkel
         |> fieldList ( 1, "names" ) .names Codec.string
@@ -141,7 +142,7 @@ type Excusable
     | IndefinitelyExcused
 
 
-excusableCodec : SymCodec String Excusable
+excusableCodec : FlatCodec String Excusable
 excusableCodec =
     Codec.customType
         (\neverExcused temporarilyExcused indefinitelyExcused value ->
@@ -172,7 +173,7 @@ type alias DurationPerPeriod =
     ( HumanDuration, HumanDuration )
 
 
-durationPerPeriodCodec : SymCodec String DurationPerPeriod
+durationPerPeriodCodec : FlatCodec String DurationPerPeriod
 durationPerPeriodCodec =
     Codec.pair Codec.humanDuration Codec.humanDuration
 
@@ -187,7 +188,7 @@ type Icon
     | Emoji String
 
 
-iconCodec : SymCodec e Icon
+iconCodec : FlatCodec e Icon
 iconCodec =
     Codec.customType
         (\file ion other emoji value ->
@@ -1255,7 +1256,7 @@ type alias Store =
     ( RepStore Template BuiltInActivitySkel, RepDb CustomActivitySkel )
 
 
-storeCodec : Codec String () Store
+storeCodec : SkelCodec String Store
 storeCodec =
     Codec.seedlessPair
         (Codec.repStore Template.codec builtInActivitySkelCodec)

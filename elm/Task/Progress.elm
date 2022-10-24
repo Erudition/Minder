@@ -2,7 +2,7 @@ module Task.Progress exposing (Portion, Progress, Unit(..), decodeProgress, deco
 
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
-import Replicated.Codec as Codec exposing (SymCodec, fieldDict, coreRW, fieldList, fieldRW)
+import Replicated.Codec as Codec exposing (FlatCodec, fieldDict, coreRW, fieldList, fieldRW)
 
 
 {-| Proper Fractions, but with named units
@@ -37,7 +37,7 @@ type Unit
     | CustomUnit ( String, String ) Int
 
 
-unitCodec : SymCodec String Unit
+unitCodec : FlatCodec String Unit
 unitCodec =
     Codec.customType
         (\percent permille word minute customUnit value ->

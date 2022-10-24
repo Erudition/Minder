@@ -10,7 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SymCodec)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec)
 import Replicated.Reducer.Register as Reg exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -24,6 +24,8 @@ import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
 import Replicated.Reducer.Register exposing (Reg)
 import Task.ActionClass exposing (ActionClassDb)
+import Replicated.Codec exposing (SkelCodec)
+import Replicated.Codec exposing (WrappedCodec)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -84,7 +86,7 @@ type alias ProjectClass =
     }
 
 
-projectCodec : Codec String () (Reg ProjectClass)
+projectCodec : WrappedCodec String (Reg ProjectClass)
 projectCodec =
     Codec.record ProjectClass
         |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
@@ -101,7 +103,7 @@ type alias SuperProject =
     }
 
 
-superProjectCodec : Codec String () SuperProject
+superProjectCodec : SkelCodec String SuperProject
 superProjectCodec =
     Codec.record SuperProject
         |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
@@ -114,7 +116,7 @@ type SuperProjectChild
     | ProjectIsHere (Reg ProjectClass)
 
 
-superProjectChildCodec : SymCodec String SuperProjectChild
+superProjectChildCodec : FlatCodec String SuperProjectChild
 superProjectChildCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->
@@ -141,7 +143,7 @@ type alias TaskClass =
     }
 
 
-taskClassCodec : Codec String () TaskClass
+taskClassCodec : SkelCodec String TaskClass
 taskClassCodec =
     Codec.record TaskClass
         |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
@@ -169,7 +171,7 @@ type TaskClassChild
     | Nested TaskClass
 
 
-taskClassChildCodec : SymCodec String TaskClassChild
+taskClassChildCodec : FlatCodec String TaskClassChild
 taskClassChildCodec =
     Codec.customType
         (\singleton nested value ->
@@ -253,14 +255,11 @@ initWithClass parent actionClassID =
         taskClassChild =
             Singleton actionClassID
 
-        taskClassChanger : Change.Changer (TaskClass)
-        taskClassChanger newTaskClass =
-            [ RepList.insert RepList.Last taskClassChild (newTaskClass).children
-            ]
-
         taskClassInit : Change.Creator TaskClass
         taskClassInit subparent =
-            Codec.newWithChanges taskClassCodec subparent taskClassChanger
+            { properties = Codec.new parentPropertiesCodec subparent
+            , children =  Codec.newWithChanges (Codec.repList taskClassChildCodec) subparent (\list -> [RepList.insert RepList.Last taskClassChild list])
+            }
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
