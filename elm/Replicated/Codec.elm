@@ -77,7 +77,7 @@ import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
-import Replicated.Reducer.Register as Register exposing (..)
+import Replicated.Reducer.Register as Reg exposing (..)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
@@ -142,7 +142,7 @@ type alias NodeEncoderInputs a =
 
 type ThingToEncode fieldType
     = EncodeThis fieldType
-    | EncodeObjectOrThis (Nonempty ObjectID) (Maybe fieldType) -- so that naked registers have something to fall back on
+    | EncodeObjectOrThis (Nonempty ObjectID) (fieldType) -- so that naked registers have something to fall back on
     | JustEncodeDefaultsIfNeeded
 
 
@@ -185,21 +185,22 @@ type alias NodeDecoderInputs =
     }
 
 
-type alias RegisterFieldEncoder =
-    RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput
+type alias RegisterFieldEncoder full =
+    RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput
 
 
-{-| Inputs to a node Field decoder.
+{-| Inputs to a node Field encoder.
 
 No "position" because it's already in the parent, and field index can be determined by record counter
 
 -}
-type alias RegisterFieldEncoderInputs =
+type alias RegisterFieldEncoderInputs field =
     { node : Node
     , mode : ChangesToGenerate
     , history : FieldHistoryDict
     , parentPointer : Pointer
     , updateRegisterAfterChildInit : Change.PotentialPayload -> Change
+    , existingValMaybe : Maybe field
     }
 
 
@@ -466,11 +467,8 @@ getNodeEncoder (Codec m) inputs =
                 EncodeThis thing ->
                     List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
 
-                EncodeObjectOrThis _ (Just thing) ->
+                EncodeObjectOrThis _ thing ->
                     List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
-
-                EncodeObjectOrThis _ Nothing ->
-                    []
 
                 JustEncodeDefaultsIfNeeded ->
                     -- no need to encode defaults for primitive encoders
@@ -1753,7 +1751,7 @@ type PartialRegister errs s full remaining
         , jsonEncoders : List (SmartJsonFieldEncoder full)
         , jsonArrayDecoder : JD.Decoder (Result (Error errs) remaining)
         , fieldIndex : Int
-        , nodeEncoders : List RegisterFieldEncoder
+        , nodeEncoders : List (RegisterFieldEncoder full)
         , nodeDecoder : RegisterFieldDecoder errs remaining
         , nodeInitializer : RegisterFieldInitializer s remaining
         }
@@ -1868,6 +1866,20 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                             fieldInit (parentSeedToFieldSeed parentSeed)
             in
             applyToRemaining fieldValue
+
+        nodeEncoderEntry inputs =
+            let
+                inputsWithSpecificFieldValue : RegisterFieldEncoderInputs fieldType
+                inputsWithSpecificFieldValue =
+                    { node = inputs.node
+                    , history = inputs.history
+                    , mode = inputs.mode
+                    , parentPointer = inputs.parentPointer
+                    , updateRegisterAfterChildInit = inputs.updateRegisterAfterChildInit
+                    , existingValMaybe = Maybe.map fieldGetter inputs.existingValMaybe
+                    }
+            in
+            newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fallback) fieldCodec inputsWithSpecificFieldValue
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1885,7 +1897,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                 -- and now we're wrapping it in yet another layer, this field's decoder
                 (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldCodec))
         , fieldIndex = newFieldIndex
-        , nodeEncoders = newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) (fallback) fieldCodec :: recordCodecSoFar.nodeEncoders
+        , nodeEncoders = nodeEncoderEntry :: recordCodecSoFar.nodeEncoders
         , nodeDecoder = nodeDecoder
         , nodeInitializer = nodeInitializer
         }
@@ -2379,32 +2391,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
 
         nodeEncoder : NodeEncoder full
         nodeEncoder inputs =
-            let
-                checkThingToEncode : ThingToEncode (Reg full)
-                checkThingToEncode =
-                    case inputs.thingToEncode of
-                        EncodeThis fieldType ->
-                            Log.log ( Log.proseToString <|
-                                [ [ "Codec.finishRecord.nodeEncoder:" ]
-                                , [ "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead:" ]
-                                , [ Log.dump inputs.thingToEncode ]
-                                , [ "...so no way to get the actual register object we need to encode. But perhaps it doesn't exist yet." ]
-                                ])
-                                JustEncodeDefaultsIfNeeded
-
-                        EncodeObjectOrThis objectIDNonempty _ ->
-                            EncodeObjectOrThis objectIDNonempty Nothing
-
-                        JustEncodeDefaultsIfNeeded ->
-                            JustEncodeDefaultsIfNeeded
-            in
-            registerNodeEncoder partial
-                { thingToEncode = checkThingToEncode
-                , mode = inputs.mode
-                , node = inputs.node
-                , parent = inputs.parent
-                , position = inputs.position
-                }
+            recordNodeEncoder partial inputs
 
         emptyRegister : Initializer Skel full
         emptyRegister { parent, position } =
@@ -2498,26 +2485,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
 
         nodeEncoder : NodeEncoder full
         nodeEncoder inputs =
-            let
-                checkThingToEncode : ThingToEncode (Reg full)
-                checkThingToEncode =
-                    case inputs.thingToEncode of
-                        EncodeThis fieldType ->
-                            Log.crashInDev "naked Register was not passed EncodeObjectOrThis value, but an EncodeThis value instead, so no way to get the actual register object we need to encode" JustEncodeDefaultsIfNeeded
-
-                        EncodeObjectOrThis objectIDNonempty _ ->
-                            EncodeObjectOrThis objectIDNonempty Nothing
-
-                        JustEncodeDefaultsIfNeeded ->
-                            JustEncodeDefaultsIfNeeded
-            in
-            registerNodeEncoder partial
-                { thingToEncode = checkThingToEncode
-                , mode = inputs.mode
-                , node = inputs.node
-                , parent = inputs.parent
-                , position = inputs.position
-                }
+            recordNodeEncoder partial inputs
 
         emptyRegister : Initializer s full
         emptyRegister { parent, position, seed } =
@@ -2897,23 +2865,24 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
         fallbackObject foundIDs =
             Node.getObject { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
 
-        ( registerPointer, history, initChanges ) =
+
+        (regMaybe, recordMaybe) =
             case thingToEncode of
-                EncodeThis ((Register regDetails) as reg) ->
-                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
+                EncodeThis reg ->
+                    (Just reg, Just <| Reg.latest reg)
 
-                EncodeObjectOrThis objectIDs (Just ((Register regDetails) as reg)) ->
-                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
-
-                EncodeObjectOrThis objectIDs Nothing ->
-                    -- it was a naked register, so no direct Register access, must rebuild
-                    let
-                        rebuiltRegisterObject =
-                            fallbackObject (Nonempty.toList objectIDs)
-                    in
-                    ( Object.getPointer rebuiltRegisterObject, buildRegisterFieldDictionary rebuiltRegisterObject, [] )
+                EncodeObjectOrThis objectIDs reg ->
+                    (Just reg, Just <| Reg.latest reg)
 
                 JustEncodeDefaultsIfNeeded ->
+                    (Nothing, Nothing)
+
+        ( registerPointer, history, initChanges ) =
+            case regMaybe of
+                Just ((Register regDetails) as reg) ->
+                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
+
+                Nothing ->
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
 
         updateMePostChildInit fieldChangedPayload =
@@ -2935,7 +2904,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
         subChanges : List Change.ObjectChange
         subChanges =
             let
-                runSubEncoder : (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
+                runSubEncoder : (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
                 runSubEncoder subEncoderFunction =
                     subEncoderFunction
                         { node = node
@@ -2943,6 +2912,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
                         , mode = mode
                         , parentPointer = registerPointer
                         , updateRegisterAfterChildInit = updateMePostChildInit -- wraps overall object change, but field encoders wrap specific field payload subchanges
+                        , existingValMaybe = recordMaybe
                         }
                         |> asObjectChanges
 
@@ -2969,6 +2939,69 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
         )
 
 
+{-| Encodes a naked record
+-}
+recordNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs full -> Change.PotentialPayload
+recordNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mode, parent, position }) =
+    let
+        fallbackObject foundIDs =
+            Node.getObject { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, childWrapper = identity, position = position }
+
+        ( recordMaybe, object ) =
+            case thingToEncode of
+                EncodeThis (nakedRecord) ->
+                    ( Just nakedRecord, fallbackObject [])
+
+                EncodeObjectOrThis objectIDs nakedRecord ->
+                    ( Just nakedRecord, fallbackObject (Nonempty.toList objectIDs) )
+
+                JustEncodeDefaultsIfNeeded ->
+                    ( Nothing, fallbackObject [] )
+
+        updateMePostChildInit fieldChangedPayload =
+            Change.Chunk
+                { target = Object.getPointer object
+                , objectChanges = [ Change.NewPayload fieldChangedPayload ]
+                }
+
+
+        subChanges : List Change.ObjectChange
+        subChanges =
+            let
+                runSubEncoder : (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput) -> Maybe Change.ObjectChange
+                runSubEncoder subEncoderFunction =
+                    subEncoderFunction
+                        { node = node
+                        , history = buildRegisterFieldDictionary object
+                        , mode = mode
+                        , parentPointer = Object.getPointer object
+                        , updateRegisterAfterChildInit = updateMePostChildInit -- wraps overall object change, but field encoders wrap specific field payload subchanges
+                        , existingValMaybe = recordMaybe
+                        }
+                        |> asObjectChanges
+
+                asObjectChanges : RegisterFieldEncoderOutput -> Maybe Change.ObjectChange
+                asObjectChanges subEncoderOutput =
+                    case subEncoderOutput of
+                        EncodeThisField objChange ->
+                            Just objChange
+
+                        SkipThisField ->
+                            Nothing
+            in
+            allFieldsCodec.nodeEncoders
+                |> List.map runSubEncoder
+                |> List.filterMap identity
+    in
+    List.singleton
+        (Change.QuoteNestedObject
+            (Chunk
+                { target = Object.getPointer object
+                , objectChanges = subChanges
+                }
+            )
+        )
+
 {-| Does nothing but remind you not to reuse historical slots
 -}
 obsolete : List FieldIdentifier -> anything -> anything
@@ -2985,8 +3018,9 @@ type RegisterFieldEncoderOutput
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> (RegisterFieldEncoderInputs -> RegisterFieldEncoderOutput)
-newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Codec codecDetails) as fieldCodec) { mode, node, updateRegisterAfterChildInit, parentPointer, history } =
+newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> (RegisterFieldEncoderInputs full -> RegisterFieldEncoderOutput)
+newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Codec codecDetails) as fieldCodec) { mode, node, updateRegisterAfterChildInit, parentPointer, history, existingValMaybe } =
+    -- TODO so the problem is, when a seeded record needs to get written to Changes for the first time, how do we encode the core fields? We need to do that, but where would we keep the seed?
     let
         runFieldNodeEncoder valueToEncode =
             let
@@ -3086,7 +3120,9 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                                         ( fieldSlot, fieldName )
                             in
                             -- Nested encoder should be able to provide its own defaults
-                            wrapper (runFieldNodeEncoder (JustEncodeDefaultsIfNeeded))
+                            -- wrapper (runFieldNodeEncoder (JustEncodeDefaultsIfNeeded))
+                            -- TODO restore above
+                            []
 
                         explicitDefaultIfNeeded =
                             case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects ) of
@@ -3127,7 +3163,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                                 firstFoundObjectID :: moreFoundObjectIDs ->
                                     let
                                         runNestedEncoder =
-                                            EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) (Just fieldValue)
+                                            EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) (fieldValue)
                                                 |> runFieldNodeEncoder
                                     in
                                     -- encode not only this field (set to this object), but also grab any encoder output from that object
@@ -3203,8 +3239,8 @@ mapHelper fromBytes_ toBytes_ codec =
                 EncodeThis a ->
                     EncodeThis (toBytes_ a)
 
-                EncodeObjectOrThis objectIDs fieldMaybe ->
-                    EncodeObjectOrThis objectIDs (Maybe.map toBytes_ fieldMaybe)
+                EncodeObjectOrThis objectIDs fieldVal ->
+                    EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
 
                 JustEncodeDefaultsIfNeeded ->
                     JustEncodeDefaultsIfNeeded
@@ -3262,8 +3298,8 @@ mapValid fromBytes_ toBytes_ codec =
                 EncodeThis a ->
                     EncodeThis (toBytes_ a)
 
-                EncodeObjectOrThis objectIDs fieldMaybe ->
-                    EncodeObjectOrThis objectIDs (Maybe.map toBytes_ fieldMaybe)
+                EncodeObjectOrThis objectIDs fieldVal ->
+                    EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
 
                 JustEncodeDefaultsIfNeeded ->
                     JustEncodeDefaultsIfNeeded
@@ -4369,7 +4405,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
                         EncodeThis encodeThisThing ->
                             priorVariants.nodeMatcher encodeThisThing
 
-                        EncodeObjectOrThis _ (Just encodeThisThing) ->
+                        EncodeObjectOrThis _ (encodeThisThing) ->
                             priorVariants.nodeMatcher encodeThisThing
 
                         _ ->
