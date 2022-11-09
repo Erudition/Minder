@@ -101,7 +101,7 @@ read (ID pointer) =
 toString : ID userType -> String
 toString (ID pointer) =
     case pointer of
-        Change.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID _ ->
             OpID.toString objectID
 
         Change.PlaceholderPointer _ _ _ ->
@@ -110,7 +110,7 @@ toString (ID pointer) =
 toInt : ID userType -> Int
 toInt (ID pointer) =
     case pointer of
-        Change.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID _ ->
             OpID.toInt objectID
 
         Change.PlaceholderPointer _ _ _ ->

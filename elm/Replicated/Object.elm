@@ -163,7 +163,7 @@ getPointer : Object -> Change.Pointer
 getPointer object =
     case object of
         Saved savedObject ->
-            Change.ExistingObjectPointer savedObject.creation
+            Change.ExistingObjectPointer savedObject.creation identity
 
         Unsaved unsavedObject ->
             Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }

@@ -1850,7 +1850,6 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
                 fieldInit : fieldSeed -> fieldType
                 fieldInit fieldSeed =
-                    -- TODO is regPointerWithNotifier needed? only seems to generate extra defaults
                     getInitializer fieldCodec { parent = regPointerWithNotifier, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = fieldSeed }
 
                 fieldValue : fieldType
@@ -2230,21 +2229,8 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 -}
 updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change -> Change
 updateRegisterPostChildInit parentPointer fieldIdentifier ((Chunk deets) as changeToWrap) =
-    let
-        interceptReplist =
-            case deets.target of
-                Change.PlaceholderPointer reducerID pendingID _ ->
-                        if reducerID /= "lww" then
-                            Debug.todo "updating replist pointer"
-                        else
-                            parentPointer
-
-                _ ->
-                    parentPointer
-    in
-
     Change.Chunk
-        { target = interceptReplist
+        { target = parentPointer
         , objectChanges =
             [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
         }
@@ -2255,7 +2241,7 @@ updateRegisterPostChildInit parentPointer fieldIdentifier ((Chunk deets) as chan
 registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List (Error e) )
 registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
     let
-        parent =
+        regPointer =
             Change.updateChildChangeWrapper inputs.pointer parentNotifier
 
         parentNotifier =
@@ -2267,14 +2253,14 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
         runFieldDecoder thingToDecode =
             JD.decodeValue
                 (getNodeDecoder fieldCodec
-                    { node = inputs.node, position = position, parent = parent, cutoff = inputs.cutoff }
+                    { node = inputs.node, position = position, parent = regPointer, cutoff = inputs.cutoff }
                 )
                 thingToDecode
 
         generatedDefaultMaybe =
             case fallback of
                 HardcodedSeed fieldSeed ->
-                    Just <| (getInitializer fieldCodec) {parent = parent, seed = fieldSeed, position = position}
+                    Just <| (getInitializer fieldCodec) {parent = regPointer, seed = fieldSeed, position = position}
 
                 _ ->
                     Nothing

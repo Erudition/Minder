@@ -90,7 +90,7 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
 
         remover containerObjectID inclusionEventID =
             Change.Chunk
-                { target = Change.ExistingObjectPointer containerObjectID
+                { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 }
     in

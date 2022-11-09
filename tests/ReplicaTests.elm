@@ -488,8 +488,8 @@ nodeWithModifiedNestedStressTest =
                     [ Debug.log (Console.bgMagenta "nestedStressTest.deepestRecordAddress.set") (deepestRecordAddress.set "Updated address")
                     , nestedStressTest.lastField.set "updating last field"
 
-                    -- , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.new writableObjectCodec) repListOfWritables
-                    -- , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
+                    , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.new writableObjectCodec) repListOfWritables
+                    , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
                  
                     ]
 

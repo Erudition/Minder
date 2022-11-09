@@ -20,7 +20,7 @@ id =
     let
         iDtoPointerToObjectID givenID =
             case (ID.read givenID) of
-                ExistingObjectPointer objectID ->
+                ExistingObjectPointer objectID _ ->
                     objectID
 
                 placeholderPointer ->
@@ -30,7 +30,7 @@ id =
     
     Codec.string
         |> Codec.map OpID.fromStringForced OpID.toString
-        |> Codec.map (\oid -> ID.tag (ExistingObjectPointer oid)) (iDtoPointerToObjectID)
+        |> Codec.map (\oid -> ID.tag (ExistingObjectPointer oid identity)) (iDtoPointerToObjectID)
 
 
 calendarDate : FlatCodec e CalendarDate

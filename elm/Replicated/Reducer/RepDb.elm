@@ -77,7 +77,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
             of
                 ( Just memberObjectID, Just memberValue ) ->
                     Just
-                        { id = ID.tag (Change.ExistingObjectPointer memberObjectID)
+                        { id = ID.tag (Change.ExistingObjectPointer memberObjectID identity)
                         , value = memberValue
                         , remove = remover containerObjectID eventID
                         }
@@ -87,7 +87,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 
         remover containerObjectID inclusionEventID =
             Change.Chunk
-                { target = Change.ExistingObjectPointer containerObjectID
+                { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 }
     in
@@ -107,7 +107,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
     case ID.read givenID of
-        Change.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID _ ->
             AnyDict.get (objectID) repDbRecord.members
             |> Maybe.map .value
 
@@ -118,7 +118,7 @@ get givenID (RepDb repDbRecord) =
 getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
     case ID.read givenID of
-        Change.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID _ ->
             AnyDict.get (objectID) repDbRecord.members
 
         _ ->

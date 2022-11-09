@@ -59,7 +59,7 @@ compareToRonPayload changePayload ronPayload =
 
         ( [ QuoteNestedObject (Chunk { target, objectChanges }) ], [ ronAtom ] ) ->
             case ( target, objectChanges ) of
-                ( ExistingObjectPointer objectID, [] ) ->
+                ( ExistingObjectPointer objectID _, [] ) ->
                     -- see if it's just a ref to the same object. TODO: necessary?
                     String.contains (OpID.toString objectID) (Op.atomToRonString ronAtom)
 
@@ -162,8 +162,17 @@ normalizeChanges changesToNormalize =
 wrapInParentNotifier : Change -> Change
 wrapInParentNotifier ((Chunk chunkDetails) as originalChange) =
     case chunkDetails.target of
-        ExistingObjectPointer _ ->
-            originalChange
+        ExistingObjectPointer objectID parentNotifier ->
+            let
+                changeWithoutNotifier =
+                    -- to make sure we never wrap twice for some reason
+                    Chunk {chunkDetails | target = ExistingObjectPointer objectID identity }
+                
+                wrappedChange =
+                    (parentNotifier changeWithoutNotifier)
+                
+            in
+            wrappedChange
 
         PlaceholderPointer reducerID pendingID parentNotifier ->
             let
@@ -175,20 +184,20 @@ wrapInParentNotifier ((Chunk chunkDetails) as originalChange) =
                     (parentNotifier changeWithoutNotifier)
                 
             in
-            Log.log (Console.green "Wrapping placeholder change in parent") wrappedChange
+            wrappedChange
 
 
 -- POINTERS
 
 
 type Pointer
-    = ExistingObjectPointer ObjectID
+    = ExistingObjectPointer ObjectID ParentNotifier
     | PlaceholderPointer Op.ReducerID PendingID ParentNotifier
 
 
 equalPointers pointer1 pointer2 =
     case ( pointer1, pointer2 ) of
-        ( ExistingObjectPointer objectID1, ExistingObjectPointer objectID2 ) ->
+        ( ExistingObjectPointer objectID1 _, ExistingObjectPointer objectID2 _ ) ->
             objectID1 == objectID2
 
         ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
@@ -212,7 +221,7 @@ getPointerObjectID pointer =
         PlaceholderPointer _ _ _ ->
             Nothing
 
-        ExistingObjectPointer objectID ->
+        ExistingObjectPointer objectID _ ->
             Just objectID
 
 
@@ -243,8 +252,8 @@ pendingIDMatch pendingID1 pendingID2 =
 newPointer : { parent : Pointer, position : Nonempty SiblingIndex, reducerID : Op.ReducerID } -> Pointer
 newPointer { parent, position, reducerID } =
     case parent of
-        ExistingObjectPointer objectID ->
-            PlaceholderPointer reducerID (ParentExists objectID position) identity
+        ExistingObjectPointer objectID parentNotifier ->
+            PlaceholderPointer reducerID (ParentExists objectID position) parentNotifier
 
         PlaceholderPointer parentReducerID (ParentExists parentObjectID parentPosition) parentNotifier ->
             PlaceholderPointer reducerID (ParentPending parentReducerID (Nonempty.append position parentPosition)) parentNotifier
@@ -264,17 +273,12 @@ genesisPointer =
 updateChildChangeWrapper : Pointer -> ParentNotifier -> Pointer
 updateChildChangeWrapper pointer newWrapper =
     case pointer of
-        ExistingObjectPointer objectID ->
-            ExistingObjectPointer objectID
+        ExistingObjectPointer objectID parentNotifier ->
+            ExistingObjectPointer objectID (\change -> parentNotifier ( newWrapper change) )
 
         PlaceholderPointer reducerID pos parentNotifier ->
-            let
-                wrappedChanger change =
-                    -- oops, careful, this was backwards before, the new wrapper needs to be inserted before the outer parent wrapper
-                    parentNotifier ( newWrapper change) 
-                        
-            in
-            PlaceholderPointer reducerID pos wrappedChanger
+            -- oops, careful, this was backwards before, the new wrapper needs to be inserted before the outer parent wrapper
+            PlaceholderPointer reducerID pos (\change -> parentNotifier ( newWrapper change) )
 
 
 type Parent

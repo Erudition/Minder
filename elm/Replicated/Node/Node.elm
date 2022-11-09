@@ -584,7 +584,7 @@ getOrInitObject :
         }
 getOrInitObject node inCounter targetObject =
     case targetObject of
-        Change.ExistingObjectPointer objectID ->
+        Change.ExistingObjectPointer objectID _ ->
             case AnyDict.filter (\_ op -> Op.object op == objectID) node.ops |> AnyDict.values of
                 [] ->
                     Debug.todo ("object was supposed to pre-exist but couldn't find it: " ++ OpID.toString objectID)
