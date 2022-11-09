@@ -27,15 +27,13 @@ import Replicated.Codec exposing (WrappedOrSkelCodec)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ 
-        --     readOnlyObjectEncodeThenDecode
-        --   , writableObjectEncodeThenDecode
-        --   , repListEncodeThenDecode
-        --   , repListInsertAndRemove
-        --   , nodeModifications
-        --   , nestedStressTestIntegrityCheck
-        --   ,
-         modifiedNestedStressTestIntegrityCheck
+        [ readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -575,9 +573,6 @@ modifiedNestedStressTestIntegrityCheck =
         { startNode, result } =
             nodeFromCodec nestedStressTestCodec
 
-        generatedRepListObjectID =
-            OpID.fromStringForced "1+here"
-
         eventListSize givenID givenNode =
             List.length (getObjectEventList givenID givenNode)
 
@@ -596,7 +591,10 @@ modifiedNestedStressTestIntegrityCheck =
             decodedNSTReg
             |> Result.map Reg.latest
             
-            
+        generatedRepListObjectID =
+            Result.map (\root -> Change.getPointerObjectID (RepList.getPointer root.listOfNestedRecords)) decodedNST
+            |> Result.map (Maybe.withDefault (OpID.fromStringForced "was not initialized"))
+            |> Result.withDefault (OpID.fromStringForced "decode NST fail")
 
         opsToFlush =
             (nodeFromCodec nestedStressTestCodec).startFrame
@@ -617,7 +615,7 @@ modifiedNestedStressTestIntegrityCheck =
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    (Node.objectCount subject) |> Expect.equal 10
+                    (Node.objectCount subject) |> Expect.equal 11
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> (eventListSize generatedRepListObjectID subject) |> Expect.equal 3
             , test "the repList has been initialized and its ID is not a placeholder" <|

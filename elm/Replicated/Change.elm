@@ -157,6 +157,7 @@ normalizeChanges changesToNormalize =
     in
     combineChangesOfSameTarget changesToNormalize
         |> List.map wrapInParentNotifier
+        |> combineChangesOfSameTarget -- so that changes wrapped in same parent notifier are merged too
 
 
 wrapInParentNotifier : Change -> Change
