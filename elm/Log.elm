@@ -2,6 +2,7 @@ module Log exposing (..)
 
 import Debug
 import Console
+import DebugToJson
 
 
 {-| For dev mode:
@@ -98,6 +99,7 @@ dump thing =
 
         Dev _ _ stringifier ->
             stringifier thing
+            |> DebugToJson.pp
 
 
 type alias Prose = List (List (String))
