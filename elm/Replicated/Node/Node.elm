@@ -2,6 +2,7 @@ module Replicated.Node.Node exposing (..)
 
 import Console
 import Dict exposing (Dict)
+import Set exposing (Set)
 import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
 import List.Extra as List
@@ -71,13 +72,12 @@ initFromSaved { sameSession, storedNodeID } inputRon =
                 backfilledNodeAttempt =
                     backfilledNode oldNodeID
             in
-            case (backfilledNodeAttempt.warnings) of
+            case backfilledNodeAttempt.warnings of
                 [] ->
-                    Ok (backfilledNodeAttempt)
+                    Ok backfilledNodeAttempt
 
-                warnings ->
-                    Log.crashInDev ("Node.initFromSaved finished with warnings: " ++ Log.dump warnings) <| 
-                    Ok (backfilledNodeAttempt)
+                foundWarnings ->
+                    Err (BadRon foundWarnings)
 
         Nothing ->
             Err DecodingOldIdentityProblem
@@ -85,6 +85,7 @@ initFromSaved { sameSession, storedNodeID } inputRon =
 
 type InitError
     = DecodingOldIdentityProblem
+    | BadRon (List OpImportWarning)
 
 
 firstSessionEver : NodeID
@@ -303,6 +304,12 @@ objectCount node =
         |> Set.fromList
         |> Set.size
 
+{-| Quick way to see how many recognized objects are in the Node.
+-}
+objects : Node -> List ObjectID 
+objects node =
+    List.map (Op.object) (AnyDict.values node.ops)
+        |> List.uniqueBy (OpID.toSortablePrimitives)
 
 {-| Save your changes!
 Always supply the current time (`Just moment`).
@@ -605,11 +612,11 @@ getOrInitObject node inCounter targetObject =
 
 {-| Build an object out of the matching ops in the replica - or a placeholder.
 -}
-getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, parent : Change.Pointer, reducer : ReducerID, childWrapper : Change.ParentNotifier, position : Nonempty Change.SiblingIndex } -> Object
-getObject { node, cutoff, foundIDs, parent, reducer, childWrapper, position } =
+getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, parent : Change.Pointer, reducer : ReducerID, position : Nonempty Change.SiblingIndex } -> Object
+getObject { node, cutoff, foundIDs, parent, reducer,  position } =
     let
         uninitializedObject =
-            Object.Unsaved { reducer = reducer, parent = parent, childWrapper = childWrapper, position = position }
+            Object.Unsaved { reducer = reducer, parent = parent, position = position }
     in
     case foundIDs of
         [] ->

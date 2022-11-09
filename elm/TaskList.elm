@@ -856,8 +856,8 @@ update msg state profile env =
                 Normal filters _ newTaskTitle ->
                     let
                         -- make a new entry from the new class
-                        newEntryInit newClass parent  =
-                            Entry.initWithClass parent (ID.tag (Reg.getPointer newClass))
+                        newEntryInit parent  =
+                            Entry.initWithClass parent
 
                         -- make a new ActionClass from Reg Skel
                         newClassInit : Parent -> (Reg Class.ActionClassSkel)
@@ -867,8 +867,8 @@ update msg state profile env =
                         -- add new entry and instance to profile
                         newClassChanger : (Reg Class.ActionClassSkel) -> List Change
                         newClassChanger newClass =
-                            [ RepList.insertNew RepList.Last (newEntryInit (newClass)) profile.taskEntries
-                            , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
+                            [ RepList.insertNew RepList.Last (newEntryInit) profile.taskEntries
+                            -- , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
                             ]
 
                         frameDescription =

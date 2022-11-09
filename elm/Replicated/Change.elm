@@ -124,7 +124,7 @@ type Frame
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Log.log "Saving Changes:" <| Frame { normalizedChanges = normalizeChanges changes, description = description }
+    Log.log (Console.blue "Saving Changes:") <| Frame { normalizedChanges = normalizeChanges changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.
@@ -152,19 +152,30 @@ We also may have a change that targets a placeholder, and needs to modify the pa
 normalizeChanges : List Change -> List Change
 normalizeChanges changesToNormalize =
     let
-        wrapInParent : Change -> Change
-        wrapInParent ((Chunk chunkDetails) as originalChange) =
-            case chunkDetails.target of
-                ExistingObjectPointer _ ->
-                    originalChange
-
-                PlaceholderPointer reducerID pendingID parentNotifier ->
-                    -- TODO how to recurse upwards
-                    parentNotifier originalChange
+        bogusChange parentNotifier =
+            parentNotifier <| Chunk {target = genesisPointer, objectChanges = []}
     in
     combineChangesOfSameTarget changesToNormalize
-        |> List.map wrapInParent
+        |> List.map wrapInParentNotifier
 
+
+wrapInParentNotifier : Change -> Change
+wrapInParentNotifier ((Chunk chunkDetails) as originalChange) =
+    case chunkDetails.target of
+        ExistingObjectPointer _ ->
+            originalChange
+
+        PlaceholderPointer reducerID pendingID parentNotifier ->
+            let
+                changeWithoutNotifier =
+                    -- to make sure we never wrap twice for some reason
+                    Chunk {chunkDetails | target = PlaceholderPointer reducerID pendingID identity }
+                
+                wrappedChange =
+                    (parentNotifier changeWithoutNotifier)
+                
+            in
+            Log.log (Console.green "Wrapping placeholder change in parent") wrappedChange
 
 
 -- POINTERS
@@ -229,20 +240,20 @@ pendingIDMatch pendingID1 pendingID2 =
     pendingID1 == pendingID2
 
 
-newPointer : { parent : Pointer, position : Nonempty SiblingIndex, childChangeWrapper : ParentNotifier, reducerID : Op.ReducerID } -> Pointer
-newPointer { parent, position, childChangeWrapper, reducerID } =
+newPointer : { parent : Pointer, position : Nonempty SiblingIndex, reducerID : Op.ReducerID } -> Pointer
+newPointer { parent, position, reducerID } =
     case parent of
         ExistingObjectPointer objectID ->
-            PlaceholderPointer reducerID (ParentExists objectID position) childChangeWrapper
+            PlaceholderPointer reducerID (ParentExists objectID position) identity
 
-        PlaceholderPointer _ (ParentExists parentObjectID parentPosition) parentNotifier ->
-            PlaceholderPointer reducerID (ParentExists parentObjectID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
+        PlaceholderPointer parentReducerID (ParentExists parentObjectID parentPosition) parentNotifier ->
+            PlaceholderPointer reducerID (ParentPending parentReducerID (Nonempty.append position parentPosition)) parentNotifier
 
-        PlaceholderPointer _ (ParentPending firstAncestorReducerID parentPosition) parentNotifier ->
-            PlaceholderPointer reducerID (ParentPending firstAncestorReducerID (Nonempty.append position parentPosition)) (\child -> parentNotifier (childChangeWrapper child))
+        PlaceholderPointer parentReducerID (ParentPending grandparentReducerID parentPosition) parentNotifier ->
+            PlaceholderPointer reducerID (ParentPending parentReducerID (Nonempty.append position parentPosition)) parentNotifier
 
-        PlaceholderPointer parentReducerID (ParentIsRoot) _ ->
-            PlaceholderPointer reducerID (ParentPending parentReducerID position) (identity)
+        PlaceholderPointer parentReducerID (ParentIsRoot) parentNotifier ->
+            PlaceholderPointer reducerID (ParentPending parentReducerID position) (parentNotifier)
 
 
 genesisPointer : Pointer
@@ -257,7 +268,13 @@ updateChildChangeWrapper pointer newWrapper =
             ExistingObjectPointer objectID
 
         PlaceholderPointer reducerID pos parentNotifier ->
-            PlaceholderPointer reducerID pos (\change -> newWrapper (parentNotifier change))
+            let
+                wrappedChanger change =
+                    -- oops, careful, this was backwards before, the new wrapper needs to be inserted before the outer parent wrapper
+                    parentNotifier ( newWrapper change) 
+                        
+            in
+            PlaceholderPointer reducerID pos wrappedChanger
 
 
 type Parent

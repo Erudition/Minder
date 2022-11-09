@@ -28,13 +28,14 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ 
-            readOnlyObjectEncodeThenDecode
-          , writableObjectEncodeThenDecode
-          , repListEncodeThenDecode
-          , repListInsertAndRemove
-          , nodeModifications
-          ,nestedStressTestIntegrityCheck
-          ,modifiedNestedStressTestIntegrityCheck
+        --     readOnlyObjectEncodeThenDecode
+        --   , writableObjectEncodeThenDecode
+        --   , repListEncodeThenDecode
+        --   , repListInsertAndRemove
+        --   , nodeModifications
+        --   , nestedStressTestIntegrityCheck
+        --   ,
+         modifiedNestedStressTestIntegrityCheck
         ]
 
 
@@ -398,7 +399,7 @@ type alias NestedStressTest =
     { recordDepth : String
     , recordOf3Records : Reg RecordOf3Records
     , listOfNestedRecords : RepList (Reg WritableObject)
-    , lastField : String
+    , lastField : RW String
     }
 
 
@@ -407,8 +408,8 @@ nestedStressTestCodec =
     Codec.record NestedStressTest
         |> Codec.field ( 1, "recordDepth" ) .recordDepth Codec.string "first layer"
         |> Codec.fieldReg ( 2, "recordOf3Records" ) .recordOf3Records recordOf3RecordsCodec
-        |> Codec.fieldList ( 3, "listOfNestedRecords" ) .listOfNestedRecords writableObjectCodec
-        |> Codec.field ( 4, "lastField" ) .lastField Codec.string "NST ending"
+        |> Codec.fieldList ( 3, "listOfNestedRecords" ) .listOfNestedRecords writableObjectCodec 
+        |> Codec.fieldRW ( 4, "lastField" ) .lastField Codec.string "NST ending"
         |> Codec.finishRegister
 
 
@@ -478,9 +479,18 @@ nodeWithModifiedNestedStressTest =
                 repListOfWritables =
                     nestedStressTest.listOfNestedRecords
 
+                deepestRecordAddress =
+                    nestedStressTest.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |> .recordWithRecord |> Reg.latest |> .address
+
                 changes =
-                    [ Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.new writableObjectCodec) repListOfWritables
-                    , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
+                    Debug.log (Console.green "Changes to make") 
+                    -- FIXME - refuses to wrap in parent notifier
+                    [ Debug.log (Console.bgMagenta "nestedStressTest.deepestRecordAddress.set") (deepestRecordAddress.set "Updated address")
+                    , nestedStressTest.lastField.set "updating last field"
+
+                    -- , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 1") <| RepList.insertNew RepList.Last ( Codec.new writableObjectCodec) repListOfWritables
+                    -- , Debug.log (Console.bgMagenta "nestedStressTest.listOfNestedRecords add new writable 2") <| RepList.insertNew RepList.Last newWritable repListOfWritables
+                 
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -516,7 +526,7 @@ nodeWithModifiedNestedStressTest =
                     (Op.closedChunksToFrameText startFrame) ++ (Op.closedChunksToFrameText applied.outputFrame)
 
                 reInitialized =
-                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.log (Console.colorsInverted <| "RON DATA: " ++ ronData) (concatOldAndNewFrame))
+                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.log (Console.colorsInverted <| "RON DATA: \n" ++ ronData) (concatOldAndNewFrame))
 
                 reInitializedNodeAndSuch =
                     case reInitialized of
@@ -565,9 +575,6 @@ modifiedNestedStressTestIntegrityCheck =
         { startNode, result } =
             nodeFromCodec nestedStressTestCodec
 
-        generatedRootObjectID =
-            OpID.fromStringForced "18+here"
-
         generatedRepListObjectID =
             OpID.fromStringForced "1+here"
 
@@ -576,19 +583,29 @@ modifiedNestedStressTestIntegrityCheck =
 
         subject =
             nodeWithModifiedNestedStressTest.original
+            
 
         objectCount =
             AnyDict.values subject.ops
 
-        decodedNST =
+        decodedNSTReg =
             Codec.decodeFromNode nestedStressTestCodec subject
+            -- |> Debug.log (Console.bgRed "decodedNST")
+
+        decodedNST =
+            decodedNSTReg
             |> Result.map Reg.latest
+            
+            
 
         opsToFlush =
             (nodeFromCodec nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
-        [ test "Checking there are no serialization warnings in the test node" <|
+        [ test "the NST Register has been initialized and its ID is not a placeholder" <|
+            \_ ->
+                 expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (Reg.getPointer o)) False decodedNSTReg
+        , test "Checking there are no serialization warnings in the test node" <|
             \_ ->
                 nodeWithModifiedNestedStressTest.warnings |> Expect.equal []
         , test "Checking there are no serialization warnings in the test RON string" <|
@@ -617,8 +634,9 @@ modifiedNestedStressTestIntegrityCheck =
                 expectOkAndEqualWhenMapped
                     (\o ->
                         RepList.last (o).listOfNestedRecords
-                            |> Maybe.map (.value >> Reg.latest >> .kids >> .get)
-                            |> Maybe.map
+                            |> Result.fromMaybe ".listOfNestedRecords was empty"
+                            |> Result.map (.value >> Reg.latest >> .kids >> .get)
+                            |> Result.andThen
                                 (\kidsValue ->
                                     case kidsValue of
                                         SomeOfBoth repList1 repList2 ->
@@ -628,6 +646,6 @@ modifiedNestedStressTestIntegrityCheck =
                                             Err ("not set to SomeOfBoth! found: " ++ Debug.toString other)
                                 )
                     )
-                    (Just (Ok []))
+                    ((Ok []))
                     (decodedNST)
         ]

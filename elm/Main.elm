@@ -214,7 +214,7 @@ updateWithTime msg ({ environment } as model) =
             ( { model | environment = newEnv }, Cmd.none )
 
         -- intercept normal update
-        otherMsg ->
+        _ ->
             updateWithTime (Tick msg) model
 
 
@@ -235,19 +235,41 @@ init maybeRon url maybeKey =
                 Just foundRon ->
                     case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } foundRon of
                         Ok { node, warnings } ->
-                            case Codec.decodeFromNode Profile.codec node of
-                                Ok profile ->
+                            case (Codec.decodeFromNode Profile.codec node, warnings) of
+                                (Ok profile, []) ->
                                     { viewState = viewUrl url
                                     , profile = profile
                                     , environment = Environment.preInit maybeKey
                                     , node = node
                                     }
 
-                                Err problem ->
-                                    Debug.todo <| "profile failed to decode from node because " ++ Debug.toString problem ++ "when trying to import from RON: `" ++ foundRon ++ "` and came with warnings: " ++ Debug.toString warnings
+                                (Ok _, warningsFound) ->
+                                    initShowstopper
+                                        { savedRon = foundRon
+                                        , problems = [ "profile failed to import from RON, there were warnings:"
+                                            , Debug.toString warningsFound
+                                            ]
+                                        , url = url
+                                        }
 
-                        Err _ ->
-                            Debug.todo "could not init from saved ron"
+                                (Err problem, _) ->
+                                    initShowstopper
+                                        { savedRon = foundRon
+                                        , problems = [ "profile failed to decode from node when trying to import from RON"
+                                            , Debug.toString problem
+                                            , Debug.toString warnings
+                                            ]
+                                        , url = url
+                                        }
+
+                        Err initError ->
+                            initShowstopper
+                                { savedRon = foundRon
+                                , problems = [ "could not init from saved ron"
+                                    , Debug.toString initError
+                                    ]
+                                , url = url
+                                }
 
                 -- no ron stored at all
                 Nothing ->
@@ -264,7 +286,14 @@ init maybeRon url maybeKey =
                             }
 
                         Err problems ->
-                            Debug.todo <| "no previous profile found. but empty profile failed to decode from node! " ++ Debug.toString problems
+                            initShowstopper
+                                { savedRon = "No Stored RON."
+                                , problems = [ "no previous profile found. but empty profile failed to decode from node! "
+                                    , Debug.toString problems
+                                    ]
+                                , url = url
+                                }
+
 
         ( modelWithFirstUpdate, firstEffects ) =
             updateWithTime (NewUrl url) startingModel
@@ -275,12 +304,45 @@ init maybeRon url maybeKey =
             ]
 
         paneInits =
-            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init modelWithFirstUpdate.profile modelWithFirstUpdate.environment) ]
+            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init modelWithFirstUpdate.profile modelWithFirstUpdate.environment) 
+            ]
+
+        allEffectsIfSuccess =
+            case startingModel.viewState.primaryView of
+                Showstopper _ ->
+                    Cmd.none
+
+                _ ->
+                    Cmd.batch (effects ++ paneInits)
+
+        
     in
     ( modelWithFirstUpdate
-    , Cmd.batch (effects ++ paneInits)
+    , allEffectsIfSuccess
     )
 
+type alias ShowstopperDetails =
+    { savedRon : String
+    , problems : List String
+    , url : Url.Url
+    }
+
+initShowstopper : ShowstopperDetails -> Model
+initShowstopper details =
+    let
+        { newNode, startFrame } =
+            Node.startNewNode Nothing []
+    in
+    case decodeFromNode Profile.codec newNode of
+        Ok profile ->
+            { viewState = screenToViewState (Showstopper details) 
+            , profile = profile
+            , environment = Environment.preInit Nothing
+            , node = newNode
+            }
+
+        Err problems ->
+            Debug.todo <| "huh? empty profile failed to decode from node! " ++ Debug.toString problems
 
 
 --            MM    MM  OOOOO  DDDDD   EEEEEEE LL
@@ -318,14 +380,14 @@ type Screen
     = TaskList TaskList.ViewState
     | TimeTracker TimeTracker.ViewState
     | Timeflow (Maybe Timeflow.ViewState)
-    | Calendar
-    | Features
-    | Preferences
+    | Showstopper ShowstopperDetails
 
 
 screenToViewState : Screen -> ViewState
 screenToViewState screen =
     { primaryView = screen, uid = 0 }
+
+
 
 
 
@@ -360,9 +422,9 @@ view { viewState, profile, environment } =
                         H.map TimeTrackerMsg (TimeTracker.view subState profile environment)
                     }
 
-                _ ->
-                    { title = "TODO Some other page"
-                    , body = infoFooter
+                Showstopper details ->
+                    { title = "Showstopper"
+                    , body = viewShowstopper details
                     }
 
         withinPage =
@@ -436,8 +498,8 @@ globalLayout viewState profile env innerStuff =
                 Timeflow _ ->
                     selectedTab [ timetrackerLink, classesLink, tasksLink ] timeflowLink []
 
-                _ ->
-                    Debug.todo "branch not implemented"
+                Showstopper _ ->
+                    Element.none
     in
     layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
         column [ width fill, height fill ]
@@ -593,6 +655,22 @@ errorList stringList =
     in
     H.ol [] (List.map asLi stringList)
 
+
+viewShowstopper : ShowstopperDetails -> Html Msg
+viewShowstopper {savedRon, problems, url} =
+    let
+        viewProblem problem =
+            H.h3 [] [(H.text problem)]
+
+        allProblems =
+            List.map viewProblem problems
+
+    in
+    H.section [ class "showstopper" ]
+        ( (H.h1 [] [(H.text "Showstopper")])
+        :: allProblems ++
+        [   H.div [] [(H.text savedRon)]]
+        )
 
 
 -- type Phrase = Written_by

@@ -145,7 +145,6 @@ type ObjectBuildWarning
 type alias UnsavedObject =
     { reducer : Op.ReducerID
     , parent : Change.Pointer
-    , childWrapper : Change.ParentNotifier
     , position : Nonempty Change.SiblingIndex
     }
 
@@ -167,7 +166,7 @@ getPointer object =
             Change.ExistingObjectPointer savedObject.creation
 
         Unsaved unsavedObject ->
-            Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, childChangeWrapper = unsavedObject.childWrapper, reducerID = unsavedObject.reducer }
+            Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }
 
 
 getIncluded : Object -> InclusionInfo

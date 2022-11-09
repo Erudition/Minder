@@ -248,17 +248,21 @@ getClassesFromEntries ( entries, classDb ) =
 type Warning
     = LookupFailure ActionClassID
 
-
-initWithClass : Change.Parent -> ActionClassID -> Entry
-initWithClass parent actionClassID = 
+addActionToClass : ActionClassID -> TaskClass -> Change
+addActionToClass actionClassID classToModify =
     let
         taskClassChild =
             Singleton actionClassID
+    in
+    RepList.insert RepList.Last taskClassChild classToModify.children
 
+initWithClass : Change.Parent -> Entry
+initWithClass parent = 
+    let
         taskClassInit : Change.Creator TaskClass
         taskClassInit subparent =
             { properties = Codec.new parentPropertiesCodec subparent
-            , children =  Codec.newWithChanges (Codec.repList taskClassChildCodec) subparent (\list -> [RepList.insert RepList.Last taskClassChild list])
+            , children =  Codec.new (Codec.repList taskClassChildCodec) subparent
             }
 
         projectChanger : Change.Changer (Reg ProjectClass)
