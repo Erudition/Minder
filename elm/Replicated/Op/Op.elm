@@ -415,7 +415,11 @@ atomToRonString atom =
             string
 
         StringAtom string ->
-            "'" ++ string ++ "'"
+            let
+                ronSafeString =
+                    String.replace "'" "\\'" string
+            in
+            "'" ++ ronSafeString ++ "'"
 
         OtherUUIDAtom string ->
             string
