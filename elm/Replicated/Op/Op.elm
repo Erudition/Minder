@@ -561,6 +561,9 @@ closedOpToString format (Op op) =
         encodePayloadAtom atom =
             JE.encode 0 atom
 
+        emptyAtom =
+            " "
+
         inclusionList =
             case format of
                 ClosedOps ->
@@ -575,18 +578,18 @@ closedOpToString format (Op op) =
                 CompressedOps (Just (Op previousOp)) ->
                     case ( OpID.isIncremental previousOp.operationID op.operationID && not (OpID.isReversion op.operationID), op.reference == OpReference previousOp.operationID ) of
                         ( True, True ) ->
-                            [ "    ", "    " ]
+                            [ emptyAtom, emptyAtom ]
 
                         ( True, False ) ->
-                            [ "    ", ref ]
+                            [ emptyAtom, ref ]
 
                         ( False, True ) ->
-                            [ opID, "    " ]
+                            [ opID, emptyAtom ]
 
                         ( False, False ) ->
-                            [ opID, ref ]
+                            [ opID, emptyAtom ]
     in
-    String.join " " (inclusionList ++ List.map atomToRonString op.payload)
+    String.join "\t" (inclusionList ++ List.map atomToRonString op.payload)
 
 
 

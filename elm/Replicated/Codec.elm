@@ -2935,7 +2935,6 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
 
         updateMePostChildInit fieldChangedPayload =
-            Log.log (Console.bgGreen "wrapping child change") <|
             Change.Chunk
                 { target = registerPointer
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
@@ -3070,7 +3069,6 @@ type RegisterFieldEncoderOutput
 -}
 newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed fieldType -> (RegisterFieldEncoderInputs fieldType -> RegisterFieldEncoderOutput)
 newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Codec codecDetails) as fieldCodec) { mode, node, updateRegisterAfterChildInit, parentPointer, history, existingValMaybe } =
-    -- TODO so the problem is, when a seeded record needs to get written to Changes for the first time, how do we encode the core fields? We need to do that, but where would we keep the seed?
     let
         runFieldNodeEncoder valueToEncode =
             let
@@ -3114,7 +3112,13 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     Nothing
 
         isExistingSameAsDefault =
-            existingValMaybe == (fieldDefaultMaybe fieldFallback)
+            case (fieldFallback, existingValMaybe) of
+                (HardcodedSeed _, _) ->
+                    -- TODO we need to make sure blank objects stay unencoded
+                    True
+
+                _ ->
+                    existingValMaybe == (fieldDefaultMaybe fieldFallback)
 
         explicitDefaultIfNeeded val =
             case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects, isExistingSameAsDefault ) of

@@ -7,7 +7,7 @@ const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = win
 
 // Where we save the personal data
 var storagefilename = "Minder/personal-data.json"
-var browserStorageKey = 'docket-v0.1-data';
+var browserStorageKey = 'docket-v0.2-data';
 
 
 
@@ -85,9 +85,11 @@ function elmStartedWithoutTasker(app) {
     app.ports.setStorage.subscribe(function(state) {
         // TODO does this account for localStorage disabled/unavailable?
         // https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
-        Storage.set({
-         key: browserStorageKey,
-         value: state
+        Storage.get({ key: browserStorageKey }).then((found) => {
+            Storage.set({
+                key: browserStorageKey,
+                value: (found.value ? found.value : "") + state
+               });
         });
     });
 

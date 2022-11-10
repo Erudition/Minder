@@ -21,7 +21,7 @@ throwawayID =
 bumpSessionID : NodeID -> NodeID
 bumpSessionID (NodeID nodeIDString) =
     -- TODO { nodeID | session = nodeID.session + 1 }
-    NodeID (nodeIDString ++ "+")
+    NodeID (nodeIDString ++ "2")
 
 
 toString : NodeID -> String

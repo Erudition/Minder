@@ -151,7 +151,7 @@ updateWithStorage msg startModel =
                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                     let
                         { outputFrame, updatedNode } =
-                            Node.apply (Just givenModel.environment.time) givenModel.node givenFrame
+                            Node.apply (Just givenModel.environment.time) givenModel.node (Debug.log "Changes to save" givenFrame)
                     in
                     ( { newModel | node = updatedNode }, outputsSoFar ++ outputFrame )
             in
@@ -173,7 +173,6 @@ For bookkeeping purposes, we want the current time for pretty much every update.
 
 (Since Elm is pure and Time is side-effect-y, there's no better way to do this.)
 <https://stackoverflow.com/a/41025989/8645412>
-
 -}
 updateWithTime : Msg -> Model -> ( Model, Cmd Msg )
 updateWithTime msg ({ environment } as model) =
@@ -669,7 +668,7 @@ viewShowstopper {savedRon, problems, url} =
     H.section [ class "showstopper" ]
         ( (H.h1 [] [(H.text "Showstopper")])
         :: allProblems ++
-        [   H.div [] [(H.text savedRon)]]
+        [   H.pre [] [(H.text savedRon)]]
         )
 
 

@@ -867,7 +867,8 @@ update msg state profile env =
                         -- add new entry and instance to profile
                         newClassChanger : (Reg Class.ActionClassSkel) -> List Change
                         newClassChanger newClass =
-                            [ RepList.insertNew RepList.Last (newEntryInit) profile.taskEntries
+                            [ 
+                                --RepList.insertNew RepList.Last (newEntryInit) profile.taskEntries
                             -- , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
                             ]
 

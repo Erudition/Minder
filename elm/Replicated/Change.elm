@@ -16,8 +16,8 @@ Outputs a Chunk - Chunks are same-object changes within a Frame.
 -}
 type Change
     = Chunk
-        { target : Pointer
-        , objectChanges : List ObjectChange
+        { objectChanges : List ObjectChange
+        , target : Pointer
         }
 
 
@@ -155,7 +155,7 @@ normalizeChanges changesToNormalize =
         bogusChange parentNotifier =
             parentNotifier <| Chunk {target = genesisPointer, objectChanges = []}
     in
-    combineChangesOfSameTarget changesToNormalize
+    combineChangesOfSameTarget (changesToNormalize)
         |> List.map wrapInParentNotifier
         |> combineChangesOfSameTarget -- so that changes wrapped in same parent notifier are merged too
 
