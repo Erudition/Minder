@@ -2946,7 +2946,10 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
                 extractObjectChange change =
                     case change of
                         Chunk { target, objectChanges } ->
+                            if target == registerPointer then
                             objectChanges
+                            else
+                            Log.crashInDev "Tried to save changes to foreign object inside init changer" []
             in
             List.concatMap extractObjectChange initChanges
 
