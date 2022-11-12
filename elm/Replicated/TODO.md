@@ -1,6 +1,9 @@
 # Now
-- Get naked records read-only enforced
-- Always auto-detect root object
+- [ ] Track Placeholder<->ObjectID coorespondence when initializing so substitutions can be made
+- [ ] Move Codec.new functionality to individual reptypes - allows blocking naked record pre-changes
+- [ ] Deal with prechanges that affect some other object - maybe a separate field in Chunk {}?
+- [X] Get naked records read-only enforced
+- [ ] Always auto-detect root object
 
 
 # Soon

@@ -2163,7 +2163,7 @@ coreRW fieldID fieldGetter fieldCodec seeder recordBuilt =
     writableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
 
 
-{-| Read a field that is not needs a seed.
+{-| Read a field that needs a seed.
 Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the parent's seed, if it has one. Otherwise, that's just `()` The return value will be used to seed the field.
 
   - Does your field actually need to be available as soon as the parent exists? If not, consider wrapping it in something like `Maybe` so you can give a it a default of `Nothing` and seed it when you actually need it. Then you don't need a seed from the parent.
