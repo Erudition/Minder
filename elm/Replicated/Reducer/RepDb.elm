@@ -89,6 +89,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
             Change.Chunk
                 { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
+                , externalUpdates = []
                 }
     in
     RepDb
@@ -154,6 +155,7 @@ addNew newMemberCreator (RepDb record) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = [ record.memberAdder newMember ]
+        , externalUpdates = []
         }
 
 
@@ -166,6 +168,7 @@ addMultipleNew newMembersCreator (RepDb record) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = List.map record.memberAdder newMembers
+        , externalUpdates = []
         }
 
 

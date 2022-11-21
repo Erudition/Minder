@@ -199,6 +199,7 @@ insert insertionPoint newItem (RepList repSetRecord) =
         { target = repSetRecord.pointer
         , objectChanges =
             [ repSetRecord.memberAdder "insert" newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
+        , externalUpdates = []
         }
 
 
@@ -213,6 +214,7 @@ append insertionPoint newItems (RepList record) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = List.indexedMap newItemToObjectChange newItems
+        , externalUpdates = []
         }
 
 
@@ -224,6 +226,7 @@ remove (Handle itemToRemove) (RepList record) =
         { target = record.pointer
         , objectChanges =
             [ Change.RevertOp itemToRemove ]
+        , externalUpdates = []
         }
 
 
@@ -278,6 +281,7 @@ insertNew insertionPoint newItemFromContext (RepList record) =
         { target = record.pointer
         , objectChanges =
             [memberToObjectChange]
+        , externalUpdates = []
         }
 
 

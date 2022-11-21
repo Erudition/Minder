@@ -15,22 +15,21 @@ import Replicated.Change exposing (Pointer(..))
 import Log
 
 
-id : FlatCodec e (ID userType)
-id =
-    let
-        iDtoPointerToObjectID givenID =
-            case (ID.read givenID) of
-                ExistingObjectPointer objectID _ ->
-                    objectID
+-- id : FlatCodec e (ID userType)
+-- id =
+--     let
+--         iDtoPointerToObjectID givenID =
+--             case (ID.read givenID) of
+--                 ExistingObjectPointer objectID _ ->
+--                     objectID
 
-                placeholderPointer ->
-                    -- Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer) 
-                    ((OpID.fromStringForced ("Uninitialized! " ++ Log.dump placeholderPointer)))
-    in
-    
-    Codec.string
-        |> Codec.map OpID.fromStringForced OpID.toString
-        |> Codec.map (\oid -> ID.tag (ExistingObjectPointer oid identity)) (iDtoPointerToObjectID)
+--                 placeholderPointer ->
+--                     -- Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer) 
+--                     ((OpID.fromStringForced ("Uninitialized! " ++ Log.dump placeholderPointer)))
+--     in
+--     Codec.string
+--         |> Codec.map OpID.fromStringForced OpID.toString
+--         |> Codec.map (\oid -> ID.tag (ExistingObjectPointer oid identity)) (iDtoPointerToObjectID)
 
 
 calendarDate : FlatCodec e CalendarDate

@@ -92,6 +92,7 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
             Change.Chunk
                 { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
+                , externalUpdates = []
                 }
     in
     RepDict
@@ -125,6 +126,7 @@ insert newKey newValue (RepDict record) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = [ newItemToObjectChange ]
+        , externalUpdates = []
         }
 
 
@@ -140,6 +142,7 @@ bulkInsert newItems (RepDict record) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = List.indexedMap newItemToObjectChange newItems
+        , externalUpdates = []
         }
 
 
@@ -159,6 +162,7 @@ insertNew key newValueFromContext (RepDict repDictRecord) =
         { target = repDictRecord.pointer
         , objectChanges =
             [ repDictRecord.memberAdder "insertNew" (Present key newValue) ]
+        , externalUpdates = []
         }
 
 
@@ -224,6 +228,7 @@ update key updater ((RepDict record) as repDict) =
     Change.Chunk
         { target = record.pointer
         , objectChanges = [ newMemberAsObjectChange ]
+        , externalUpdates = []
         }
 
 

@@ -55,6 +55,7 @@ Here's some advice when choosing:
 
 import Array exposing (Array)
 import Base64
+import ID exposing (ID)
 import Bytes
 import Bytes.Decode as BD
 import Bytes.Encode as BE
@@ -82,6 +83,7 @@ import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 import Replicated.Change exposing (genesisPointer)
+import Replicated.Change exposing (ObjectChange)
 
 
 
@@ -565,7 +567,7 @@ encodeDefaults node rootCodec =
                 }
 
         bogusChange =
-            Change.Chunk { target = Change.genesisPointer, objectChanges = [] }
+            Change.Chunk { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
     in
     case ronPayload of
         [ Change.QuoteNestedObject change ] ->
@@ -653,6 +655,58 @@ string =
                     case inputs.thingToEncode of
                         EncodeThis stringToEncode ->
                             List.singleton <| Change.RonAtom <| Op.StringAtom stringToEncode
+
+                        _ ->
+                            Log.crashInDev ("Codec.string.nodeEncoder: tried to node-encode with string encoder but not passed a flat string value. Instead I was passed: `" ++ Log.dump inputs.thingToEncode ++ "` from my parent (" ++ Log.dump inputs.parent ++ ")") []
+        , nodeDecoder = Nothing
+        , init = flatInit
+        }
+
+id : FlatCodec e (ID userType)
+id =
+    let
+        toObjectID givenID =
+            case (ID.read givenID) of
+                ExistingObjectPointer objectID _ ->
+                    objectID
+
+                placeholderPointer ->
+                    -- Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer) 
+                    ((OpID.fromStringForced ("Uninitialized! " ++ Log.dump placeholderPointer)))
+
+        toChangeAtom givenID =
+             case (ID.read givenID) of
+                ExistingObjectPointer objectID _ ->
+                    Change.RonAtom <| Op.IDPointerAtom objectID
+
+                PlaceholderPointer reducerID pendingID _ ->
+                    Change.ReferenceObjectAtom reducerID pendingID
+
+        toString givenID =
+            OpID.toString (toObjectID givenID)
+
+        fromString asString =
+            ID.tag (ExistingObjectPointer (OpID.fromStringForced asString) identity)
+    in
+    Codec
+        { bytesEncoder =
+            \i ->
+                BE.sequence
+                    [ BE.unsignedInt32 endian (BE.getStringWidth (toString i))
+                    , BE.string (toString i)
+                    ]
+        , bytesDecoder =
+            BD.unsignedInt32 endian
+                |> BD.andThen
+                    (\charCount -> BD.string charCount |> BD.map (fromString >> Ok))
+        , jsonEncoder = toString >> JE.string
+        , jsonDecoder = JD.string |> JD.map (fromString >> Ok)
+        , nodeEncoder =
+            Just <|
+                \inputs ->
+                    case inputs.thingToEncode of
+                        EncodeThis idToEncode ->
+                            List.singleton <| toChangeAtom idToEncode
 
                         _ ->
                             Log.crashInDev ("Codec.string.nodeEncoder: tried to node-encode with string encoder but not passed a flat string value. Instead I was passed: `" ++ Log.dump inputs.thingToEncode ++ "` from my parent (" ++ Log.dump inputs.parent ++ ")") []
@@ -901,18 +955,15 @@ repList memberCodec =
             case thingToEncode of
                 EncodeThis existingRepList ->
                     let
-                        extractObjectChange change =
-                            case change of
-                                Chunk { target, objectChanges } ->
-                                    objectChanges
+                        (allObjectChanges, externalChanges) =
+                            extractInitChanges (RepList.getPointer existingRepList) (RepList.getInit existingRepList)
 
-                        allObjectChanges =
-                            List.concatMap extractObjectChange (RepList.getInit existingRepList)
                     in
                     changeToChangePayload <|
                         Chunk
                             { target = RepList.getPointer existingRepList
                             , objectChanges = allObjectChanges
+                            , externalUpdates = externalChanges
                             }
 
                 _ ->
@@ -924,6 +975,7 @@ repList memberCodec =
                         Chunk
                             { target = repListPointer
                             , objectChanges = []
+                            , externalUpdates = []
                             }
 
         initializer : Initializer (Changer (RepList memberType)) (RepList memberType)
@@ -1081,18 +1133,14 @@ repDb memberCodec =
             case thingToEncode of
                 EncodeThis existingRepDb ->
                     let
-                        extractObjectChange change =
-                            case change of
-                                Chunk { target, objectChanges } ->
-                                    objectChanges
-
-                        allObjectChanges =
-                            List.concatMap extractObjectChange (RepDb.getInit existingRepDb)
+                        (allObjectChanges, externalChanges) =
+                            extractInitChanges (RepDb.getPointer existingRepDb) (RepDb.getInit existingRepDb)
                     in
                     changeToChangePayload <|
                         Chunk
                             { target = RepDb.getPointer existingRepDb
                             , objectChanges = allObjectChanges
+                            , externalUpdates = externalChanges
                             }
 
                 _ ->
@@ -1104,6 +1152,7 @@ repDb memberCodec =
                         Chunk
                             { target = placeholderPointer
                             , objectChanges = []
+                            , externalUpdates = []
                             }
 
         initializer : InitializerInputs (Changer (RepDb memberType))  -> RepDb memberType
@@ -1237,18 +1286,14 @@ repDict keyCodec valueCodec =
             case thingToEncode of
                 EncodeThis existingRepDict ->
                     let
-                        extractObjectChange change =
-                            case change of
-                                Chunk { target, objectChanges } ->
-                                    objectChanges
-
-                        allObjectChanges =
-                            List.concatMap extractObjectChange (RepDict.getInit existingRepDict)
+                        (allObjectChanges, externalChanges) =
+                            extractInitChanges (RepDict.getPointer existingRepDict) (RepDict.getInit existingRepDict)
                     in
                     changeToChangePayload <|
                         Chunk
                             { target = RepDict.getPointer existingRepDict
                             , objectChanges = allObjectChanges
+                            , externalUpdates = externalChanges
                             }
 
                 _ ->
@@ -1256,6 +1301,7 @@ repDict keyCodec valueCodec =
                         Chunk
                             { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                             , objectChanges = []
+                            , externalUpdates = []
                             }
 
         initializer : InitializerInputs (Changer (RepDict k v))  -> RepDict k v
@@ -1394,6 +1440,7 @@ repStore keyCodec valueCodec =
                         { target = parent
                         , objectChanges =
                             [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent "value" key changeToWrap) ]
+                        , externalUpdates = []
                         }
             in
             RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
@@ -1403,18 +1450,14 @@ repStore keyCodec valueCodec =
             case thingToEncode of
                 EncodeThis existingRepStore ->
                     let
-                        extractObjectChange change =
-                            case change of
-                                Chunk { target, objectChanges } ->
-                                    objectChanges
-
-                        allObjectChanges =
-                            List.concatMap extractObjectChange (RepStore.getInit existingRepStore)
+                        (allObjectChanges, externalChanges) =
+                            extractInitChanges (RepStore.getPointer existingRepStore) (RepStore.getInit existingRepStore)
                     in
                     changeToChangePayload <|
                         Chunk
                             { target = RepStore.getPointer existingRepStore
                             , objectChanges = allObjectChanges
+                            , externalUpdates = externalChanges
                             }
 
                 _ ->
@@ -1422,6 +1465,7 @@ repStore keyCodec valueCodec =
                         Chunk
                             { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                             , objectChanges = []
+                            , externalUpdates = []
                             }
 
         initializer : InitializerInputs (Changer (RepStore k v)) -> RepStore k v
@@ -2233,6 +2277,7 @@ updateRegisterPostChildInit parentPointer fieldIdentifier ((Chunk deets) as chan
         { target = parentPointer
         , objectChanges =
             [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
+        , externalUpdates = []
         }
 
 
@@ -2871,6 +2916,7 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
             Change.Chunk 
                 { target = targetObject
                 , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
+                , externalUpdates = []
                 }
 
     in
@@ -2889,9 +2935,28 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = latestValue
-    , set = \newValue -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ] }
+    , set = \newValue -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
     , history = rest
     }
+
+{-| Helper function to separate out the init changes that actually belong to an object, vs. tagalongs that were given as well that affect some other object.
+-}
+extractInitChanges : Pointer -> List Change -> (List ObjectChange, List Change)
+extractInitChanges givenPointer initChanges =
+    let
+        extractObjectChange : Change -> (List ObjectChange, List Change) ->  (List ObjectChange, List Change)
+        extractObjectChange givenChange (sameObjectChanges, externalChanges) =
+            case givenChange of
+                Chunk { target, objectChanges } ->
+                    if target == givenPointer then
+                    -- collect ObjectChanges that belong to this object
+                        (sameObjectChanges ++ objectChanges, externalChanges)
+                    else
+                    -- collect external changes that need to go elsewhere
+                        (sameObjectChanges, externalChanges ++ [givenChange])
+    in
+    List.foldl extractObjectChange ([], []) initChanges
+
 
 
 {-| Encodes an register as a list of Changes (which generate Ops):
@@ -2938,20 +3003,11 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
             Change.Chunk
                 { target = registerPointer
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
+                , externalUpdates = []
                 }
 
-        extractedInitChanges : List Change.ObjectChange
-        extractedInitChanges =
-            let
-                extractObjectChange change =
-                    case change of
-                        Chunk { target, objectChanges } ->
-                            if target == registerPointer then
-                            objectChanges
-                            else
-                            Log.crashInDev "Tried to save changes to foreign object inside init changer" []
-            in
-            List.concatMap extractObjectChange initChanges
+        (extractedInitChanges, externalInitChanges) =
+            extractInitChanges registerPointer initChanges
 
         subChanges : List Change.ObjectChange
         subChanges =
@@ -2986,6 +3042,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mod
             (Chunk
                 { target = registerPointer
                 , objectChanges = subChanges ++ extractedInitChanges
+                , externalUpdates = externalInitChanges
                 }
             )
         )
@@ -3014,6 +3071,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mode,
             Change.Chunk
                 { target = Object.getPointer object
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
+                , externalUpdates = []
                 }
 
 
@@ -3050,6 +3108,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) ({ node, thingToEncode, mode,
             (Chunk
                 { target = Object.getPointer object
                 , objectChanges = subChanges
+                , externalUpdates = []
                 }
             )
         )

@@ -16,8 +16,9 @@ Outputs a Chunk - Chunks are same-object changes within a Frame.
 -}
 type Change
     = Chunk
-        { objectChanges : List ObjectChange
-        , target : Pointer
+        { target : Pointer
+        , objectChanges : List ObjectChange
+        , externalUpdates : List Change
         }
 
 
@@ -46,6 +47,7 @@ type Atom
     | RonAtom Op.OpPayloadAtom
     | QuoteNestedObject Change
     | NestedAtoms PotentialPayload
+    | ReferenceObjectAtom Op.ReducerID PendingID
 
 
 compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
@@ -108,6 +110,7 @@ mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =
     Chunk
         { target = change1Details.target
         , objectChanges = change2Details.objectChanges ++ change1Details.objectChanges -- reverses subchanges again.
+        , externalUpdates = change2Details.externalUpdates ++ change1Details.externalUpdates
         }
 
 
@@ -151,10 +154,6 @@ We also may have a change that targets a placeholder, and needs to modify the pa
 -}
 normalizeChanges : List Change -> List Change
 normalizeChanges changesToNormalize =
-    let
-        bogusChange parentNotifier =
-            parentNotifier <| Chunk {target = genesisPointer, objectChanges = []}
-    in
     combineChangesOfSameTarget (changesToNormalize)
         |> List.map wrapInParentNotifier
         |> combineChangesOfSameTarget -- so that changes wrapped in same parent notifier are merged too
@@ -240,6 +239,19 @@ type PendingID
     | ParentPending Op.ReducerID (Nonempty SiblingIndex)
     | ParentIsRoot
 
+pendingIDToString : PendingID -> String
+pendingIDToString pendingID =
+    case pendingID of
+        ParentExists objectID _ ->
+            OpID.toString objectID
+
+        ParentPending reducerID siblings ->
+            reducerID ++ (String.join " " (Nonempty.toList siblings) )
+
+        ParentIsRoot ->
+            "root"
+
+        
 
 type alias SiblingIndex =
     String
