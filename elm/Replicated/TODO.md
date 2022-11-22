@@ -1,5 +1,5 @@
 # Now
-- [ ] Fix all RON Parsing errors
+- [X] Fix all RON Parsing errors
 - [X] Create nice RON parser error messages
 - [ ] Track Placeholder<->ObjectID coorespondence when initializing so substitutions can be made
 - [ ] Move Codec.new functionality to individual reptypes - allows blocking naked record pre-changes

@@ -1,4 +1,4 @@
 {
     "editor.formatOnSave": true,
-    "elmLS.elmFormatPath": "node_modules/.bin/elm-format"
+    "elmLS.elmTestPath": "/home/adroit/Projects/Minder/node_modules/elm-test/bin/elm-test"
 }

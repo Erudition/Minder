@@ -32,7 +32,8 @@ import List.Extra as List
 import Maybe.Extra as Maybe
 import Profile exposing (..)
 import Refocus
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Parent)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -53,8 +54,6 @@ import Task.Session
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 import ZoneHistory
-import Replicated.Change exposing (Parent)
-import Replicated.Reducer.Register as Reg exposing (Reg)
 
 
 
@@ -130,8 +129,6 @@ view state profile env =
                     , lazy2 viewControls filters allFullTaskInstances
                     ]
                 ]
-
-
 
 
 viewInput : String -> Html Msg
@@ -525,7 +522,7 @@ timingInfo env task =
         uniquePrefix =
             "task-" ++ ID.toString (Instance.getID task) ++ "-"
 
-        dateLabelNameAndID :  String
+        dateLabelNameAndID : String
         dateLabelNameAndID =
             uniquePrefix ++ "due-date-field"
 
@@ -856,19 +853,18 @@ update msg state profile env =
                 Normal filters _ newTaskTitle ->
                     let
                         -- make a new entry from the new class
-                        newEntryInit parent  =
+                        newEntryInit parent =
                             Entry.initWithClass parent
 
                         -- make a new ActionClass from Reg Skel
-                        newClassInit : Parent -> (Reg Class.ActionClassSkel)
+                        newClassInit : Parent -> Reg Class.ActionClassSkel
                         newClassInit c =
                             Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
 
                         -- add new entry and instance to profile
-                        newClassChanger : (Reg Class.ActionClassSkel) -> List Change
+                        newClassChanger : Reg Class.ActionClassSkel -> List Change
                         newClassChanger newClass =
-                            [ 
-                            RepList.insertNew RepList.Last (newEntryInit) profile.taskEntries
+                            [ RepList.insertNew RepList.Last newEntryInit profile.taskEntries
                             , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
                             ]
 

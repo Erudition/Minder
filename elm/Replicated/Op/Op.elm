@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, reducer, reference, ronParser, Context(..), Problem(..), problemToString, contextStackToString)
+module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -7,11 +7,11 @@ import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Parser.Advanced as Parser exposing ((|.), (|=), Token(..), float, inContext, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Result.Extra
 import Set exposing (Set)
 import SmartTime.Moment as Moment
-import Parser.Advanced as Parser exposing ((|.), (|=), float, succeed, symbol, Token(..), inContext)
 
 
 type Op
@@ -30,43 +30,53 @@ type alias ClosedOp =
 
 -- PARSER LIBRARY
 
-type alias RonParser a =
-  Parser.Parser Context Problem a
 
-type Context 
+type alias RonParser a =
+    Parser.Parser Context Problem a
+
+
+type Context
     = ParsingOp (Maybe OpID)
     | ParsingOpID
     | ParsingChunk
     | ParsingFrame
     | ParsingPayloadAtom
 
+
 contextToString : Context -> String
 contextToString context =
     case context of
         ParsingOp (Just expectedOpID) ->
             "an Op (with expected ID " ++ OpID.toString expectedOpID ++ ")"
+
         ParsingOp Nothing ->
             "an Op (no prior op to deduce ID)"
+
         ParsingOpID ->
             "an Op ID"
+
         ParsingChunk ->
             "a chunk"
+
         ParsingFrame ->
             "a frame"
+
         ParsingPayloadAtom ->
             "a payload atom"
 
-contextStackToString : List { row : Int, col : Int, context : Context} -> String
+
+contextStackToString : List { row : Int, col : Int, context : Context } -> String
 contextStackToString contextStack =
     let
-        contextItemToString {row, col, context} =
+        contextItemToString { row, col, context } =
             contextToString context ++ " (r" ++ String.fromInt row ++ ",c" ++ String.fromInt col ++ ") "
     in
     List.map contextItemToString contextStack
-    |> String.join ", inside "
+        |> String.join ", inside "
+
 
 type Problem
-    = ExpectingChunkEnd 
+    = ExpectingChunkEnd
     | ExpectingFrameEnd
     | ExpectingSpecReferenceAtom
     | ExpectingSpecReducerIDAtom
@@ -90,138 +100,178 @@ type Problem
     | ExpectingComment
 
 
-
 problemToString : Problem -> String
 problemToString problem =
     case problem of
         ExpectingChunkEnd ->
             "Expecting end of chunk"
+
         ExpectingFrameEnd ->
             "Expecting end of frame (.)"
+
         ExpectingSpecReferenceAtom ->
             "Expecting a spec reference atom (:)"
+
         ExpectingSpecReducerIDAtom ->
             "Expecting a spec reducer ID atom (*)"
+
         ExpectingSpecOpIDAtom ->
             "Expecting a spec op ID atom (@)"
+
         ExpectingSpecObjectIDAtom ->
             "Expecting a spec object ID atom (#)"
+
         ExpectingReducerName ->
             "Expecting a known reducer name (lww, replist, ...)"
+
         ExpectingOpSeparator ->
             "Expecting an op separator (,)"
+
         ExpectingAlphaNumUnderscore ->
             "Expecting an alphanumeric character (or underscore)"
+
         ExpectingIntegerAtom ->
             "Expecting an integer atom"
+
         ExpectingFloatAtom ->
             "Expecting a float atom"
+
         InvalidIntegerAtom ->
             "Integer atom was not valid"
+
         InvalidFloatAtom ->
             "Float atom was not valid"
+
         ExpectingUUID ->
             "Expecting a RON UUID atom (>)"
+
         ExpectingQuotedString ->
             "Expecting a quoted string (')"
+
         ExpectingEscapedSingleQuote ->
             "Expecting an escaped single quote (\\')"
+
         ExpectedEndOfInput ->
             "Expecting the RON to end entirely"
+
         ExpectingIDClock ->
             "Expecting the clock portion of a UUID"
+
         InvalidIDClock ->
             "Clock portion of UUID was not valid"
+
         ExpectingNodeID ->
             "Expecting a node ID"
+
         ExpectingVersionSymbol ->
             "Expecting an op ID version symbol (+ or -)"
+
         ExpectingComment ->
             "Expecting a line comment (@~ ...)"
 
+
+
 -- TOKENS
+
 
 frameTerminator : Token Problem
 frameTerminator =
-  Token "." ExpectingFrameEnd
+    Token "." ExpectingFrameEnd
+
 
 referenceStarter : Token Problem
 referenceStarter =
-  Token ":" ExpectingSpecReferenceAtom
+    Token ":" ExpectingSpecReferenceAtom
+
 
 opIDStarter : Token Problem
 opIDStarter =
-  Token "@" ExpectingSpecOpIDAtom
+    Token "@" ExpectingSpecOpIDAtom
+
 
 reducerIDStarter : Token Problem
 reducerIDStarter =
-  Token "*" ExpectingSpecReducerIDAtom
+    Token "*" ExpectingSpecReducerIDAtom
+
 
 objectIDStarter : Token Problem
 objectIDStarter =
-  Token "#" ExpectingSpecObjectIDAtom
+    Token "#" ExpectingSpecObjectIDAtom
+
 
 lwwName : Token Problem
 lwwName =
-  Token "lww" ExpectingReducerName
+    Token "lww" ExpectingReducerName
+
 
 repListName : Token Problem
 repListName =
-  Token "replist" ExpectingReducerName
+    Token "replist" ExpectingReducerName
+
 
 opSeparator : Token Problem
 opSeparator =
-  Token "," ExpectingOpSeparator
+    Token "," ExpectingOpSeparator
+
 
 eventChunkTerminator : Token Problem
 eventChunkTerminator =
-  Token ";" ExpectingChunkEnd
+    Token ";" ExpectingChunkEnd
+
 
 assertionChunkTerminator : Token Problem
 assertionChunkTerminator =
-  Token "!" ExpectingChunkEnd
+    Token "!" ExpectingChunkEnd
+
 
 queryChunkTerminator : Token Problem
 queryChunkTerminator =
-  Token "?" ExpectingChunkEnd
+    Token "?" ExpectingChunkEnd
 
 
 uuidStarter : Token Problem
 uuidStarter =
-  Token ">" ExpectingUUID
+    Token ">" ExpectingUUID
+
 
 intStarter : Token Problem
 intStarter =
-  Token "=" ExpectingUUID
+    Token "=" ExpectingUUID
 
 
 floatStarter : Token Problem
 floatStarter =
-  Token "^" ExpectingUUID
+    Token "^" ExpectingUUID
+
 
 stringWrapSingleQuote : Token Problem
 stringWrapSingleQuote =
-  Token "'" ExpectingQuotedString
+    Token "'" ExpectingQuotedString
+
 
 escapedSingleQuote : Token Problem
 escapedSingleQuote =
-  Token "\\'" ExpectingEscapedSingleQuote
+    Token "\\'" ExpectingEscapedSingleQuote
+
 
 versionPlus : Token Problem
 versionPlus =
-  Token "+" ExpectingVersionSymbol
+    Token "+" ExpectingVersionSymbol
 
 
 versionMinus : Token Problem
 versionMinus =
-  Token "-" ExpectingVersionSymbol
+    Token "-" ExpectingVersionSymbol
 
 
 lineCommentStarter : Token Problem
 lineCommentStarter =
-  Token "@~" ExpectingComment
+    Token "@~" ExpectingComment
+
+
 
 -- PARSERS
+
 
 opIDParser : RonParser OpID
 opIDParser =
@@ -231,7 +281,7 @@ opIDParser =
 
         parseNodeID =
             Parser.variable
-            -- TODO what to really expect?
+                -- TODO what to really expect?
                 { start = Char.isLower
                 , inner = \c -> Char.isAlphaNum c || c == '_'
                 , reserved = Set.fromList [ "lww", "replist" ]
@@ -239,17 +289,16 @@ opIDParser =
                 }
 
         parseVersionSplitter =
-                Parser.oneOf
-                    [ Parser.map (\_ -> False) (symbol versionPlus)
-                    , Parser.map (\_ -> False) (symbol versionMinus)
-                    ]
+            Parser.oneOf
+                [ Parser.map (\_ -> False) (symbol versionPlus)
+                , Parser.map (\_ -> False) (symbol versionMinus)
+                ]
     in
     inContext ParsingOpID <|
         succeed OpID.fromPrimitives
             |= parseCounter
             |= parseVersionSplitter
             |= parseNodeID
-
 
 
 ronParser : RonParser (List OpenTextRonFrame)
@@ -285,8 +334,10 @@ frameParser =
 
                 Just chunkEndType ->
                     succeed ()
-                        |> Parser.map (\_ -> 
-                        Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType))
+                        |> Parser.map
+                            (\_ ->
+                                Parser.Done (FrameChunk (List.reverse opsReversed) chunkEndType)
+                            )
 
         opLineParserChainLoop opsReversed =
             let
@@ -296,13 +347,12 @@ frameParser =
                 parseRealOp =
                     succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
                         |. whitespace
-                        |= opLineParser (Maybe.map .opID lastSeenOp) 
+                        |= opLineParser (Maybe.map .opID lastSeenOp)
                         |. whitespace
 
                 commentPseudoOp =
-                    succeed (\_ -> Parser.Loop (opsReversed))
+                    succeed (\_ -> Parser.Loop opsReversed)
                         |= Parser.lineComment lineCommentStarter
-
             in
             Parser.oneOf
                 [ commentPseudoOp
@@ -322,7 +372,7 @@ frameParser =
     in
     succeed OpenTextRonFrame
         |= Parser.loop [] chunksInFrame
-    |> inContext ParsingFrame
+        |> inContext ParsingFrame
 
 
 type alias FrameChunk =
@@ -431,6 +481,7 @@ opLineParser prevOpIDMaybe =
                     -- This MUST fail if no alphaNumeric char (or _) or quote, to allow line to end
                     |= payloadAtomParser
                     |. whitespace
+
                 -- , succeed (\_ -> Parser.Loop atomsReversed)
                 --     -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
                 --     |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
@@ -462,8 +513,7 @@ opLineParser prevOpIDMaybe =
         |= Parser.loop [] opPayloadParser
         -- TODO don't parse payload on header ops?
         |= opEndParser
-    |> inContext (ParsingOp (Maybe.map OpID.nextOpInChain prevOpIDMaybe))
-
+        |> inContext (ParsingOp (Maybe.map OpID.nextOpInChain prevOpIDMaybe))
 
 
 payloadAtomParser : RonParser OpPayloadAtom
@@ -475,7 +525,7 @@ payloadAtomParser =
         , nakedStringTag -- can interpret nums
         , quotedString
         ]
-    |> inContext ParsingPayloadAtom
+        |> inContext ParsingPayloadAtom
 
 
 {-| Parses RON atoms without quotes (like abc123) into strings, with the same restrictions as elm record field names. Only for letter-number "tags" such as field names -- all other strings must be quoted!
@@ -494,8 +544,9 @@ nakedStringTag =
                 |. Parser.chompIf letterNumbersUnderscore ExpectingAlphaNumUnderscore
                 |. Parser.chompWhile letterNumbersUnderscore
 
-{-| Borrowed from https://github.com/elm/parser/issues/14#issuecomment-450547742
-to get around the long-ignored https://github.com/elm/parser/issues/28
+
+{-| Borrowed from <https://github.com/elm/parser/issues/14#issuecomment-450547742>
+to get around the long-ignored <https://github.com/elm/parser/issues/28>
 -}
 correctIntWorkaround : RonParser Int
 correctIntWorkaround =
@@ -509,8 +560,6 @@ correctIntWorkaround =
                     Nothing ->
                         Parser.problem ExpectingIntegerAtom
             )
-
-
 
 
 {-| Ron Integers start with equal sign =1099
@@ -528,8 +577,7 @@ ronInt =
                 |. Parser.token intStarter
                 |= parseInt
     in
-    Parser.oneOf [ explicit, (Parser.map IntegerAtom parseInt)]
-    
+    Parser.oneOf [ explicit, Parser.map IntegerAtom parseInt ]
 
 
 {-| Ron Integers start ^: ^3.14159, ^2.9979E5.
@@ -553,7 +601,7 @@ ronFloat =
                 |. Parser.token floatStarter
                 |= correctFloatWorkaround
     in
-    Parser.oneOf [ explicit, (Parser.map FloatAtom correctFloatWorkaround)]
+    Parser.oneOf [ explicit, Parser.map FloatAtom correctFloatWorkaround ]
 
 
 {-| Ron UUIDs start with >
@@ -594,11 +642,14 @@ isUninteresting char =
 
 sameLineSpaces : RonParser ()
 sameLineSpaces =
-    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r')
+    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\u{000D}')
+
 
 whitespace : RonParser ()
 whitespace =
-    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r' || c == '\n')
+    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\u{000D}' || c == '\n')
+
+
 
 -- CLOSED OP PARTS
 

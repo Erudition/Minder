@@ -11,9 +11,10 @@ import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec,  coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register as Register exposing (RW)
+import NativeScript.Notification exposing (Action)
+import Replicated.Change as Change exposing (Change, Changer, Parent)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -21,12 +22,6 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
 import Task.Series
-import Replicated.Change exposing (Parent)
-import Replicated.Change exposing (Changer)
-import Replicated.Reducer.Register as Reg exposing (Reg)
-import NativeScript.Notification exposing (Action)
-import Replicated.Codec exposing (WrappedCodec)
-import Replicated.Codec exposing (FlatCodec)
 
 
 {-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
@@ -58,12 +53,12 @@ type alias ActionClassSkel =
     }
 
 
-newActionClassSkel : Parent -> String -> (Changer (Reg ActionClassSkel)) -> (Reg ActionClassSkel)
+newActionClassSkel : Parent -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
 newActionClassSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 
-codec : Codec String (String, Changer (Reg ActionClassSkel)) (Reg ActionClassSkel)
+codec : Codec String ( String, Changer (Reg ActionClassSkel) ) (Reg ActionClassSkel)
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
@@ -85,7 +80,10 @@ codec =
 type alias ActionClassID =
     ID (Reg ActionClassSkel)
 
-type alias ActionClassDb = RepDb (Reg ActionClassSkel)
+
+type alias ActionClassDb =
+    RepDb (Reg ActionClassSkel)
+
 
 
 -- FULL Task Classes (augmented with entry data) --------------------------
@@ -108,7 +106,7 @@ parentPropertiesCodec =
 type alias ActionClass =
     { parents : List (Reg ParentProperties)
     , recurrence : Maybe Task.Series.Series
-    , class : (Reg ActionClassSkel)
+    , class : Reg ActionClassSkel
     , classID : ActionClassID
     , remove : Change
     }
@@ -118,7 +116,7 @@ makeFullActionClass : List (Reg ParentProperties) -> Maybe Task.Series.Series ->
 makeFullActionClass parentPropsRegList recurrenceRules classSkelMember =
     { parents = parentPropsRegList
     , recurrence = recurrenceRules
-    , class = ( classSkelMember.value)
+    , class = classSkelMember.value
     , classID = classSkelMember.id
     , remove = classSkelMember.remove
     }

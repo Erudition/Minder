@@ -1,7 +1,7 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toPointerString, toSortablePrimitives, toString, unusedCounter, fromPrimitives)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toPointerString, toSortablePrimitives, toString, unusedCounter)
 
 import Json.Decode as JD
-import Parser.Advanced as Parser exposing ((|.), (|=), float, spaces, succeed, symbol, Parser)
+import Parser.Advanced as Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import SmartTime.Moment as Moment exposing (Moment)
 
@@ -122,24 +122,39 @@ fromSortable : OpIDSortable -> OpID
 fromSortable ( clock, rest ) =
     OpID (String.fromInt clock ++ rest)
 
+
 fromPrimitives : Int -> Bool -> String -> OpID
 fromPrimitives clock reversion nodeName =
-    OpID (String.fromInt clock ++ if reversion then "-" else "+" ++ nodeName)
+    OpID
+        (String.fromInt clock
+            ++ (if reversion then
+                    "-"
+
+                else
+                    "+" ++ nodeName
+               )
+        )
+
 
 toPointerString : OpID -> String
 toPointerString (OpID string) =
     ">" ++ string
 
 
-
 type alias OpIDParser a =
-  Parser Context ParseProblem a
+    Parser Context ParseProblem a
 
-type Context = Definition String | List | Record
+
+type Context
+    = Definition String
+    | List
+    | Record
+
 
 type ParseProblem
     = BadCounter
     | BadNodeID
+
 
 parser : OpIDParser OpID
 parser =
