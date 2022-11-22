@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, reducer, reference, ronParser, Context(..), Problem(..), problemToString, contextStackToString)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -7,12 +7,11 @@ import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Parser exposing ((|.), (|=), Parser, float, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Result.Extra
 import Set exposing (Set)
 import SmartTime.Moment as Moment
-
+import Parser.Advanced as Parser exposing ((|.), (|=), float, succeed, symbol, Token(..), inContext)
 
 type Op
     = Op ClosedOp
@@ -28,19 +27,233 @@ type alias ClosedOp =
 
 
 
+-- PARSER LIBRARY
+
+type alias RonParser a =
+  Parser.Parser Context Problem a
+
+type Context 
+    = ParsingOp (Maybe OpID)
+    | ParsingOpID
+    | ParsingChunk
+    | ParsingFrame
+    | ParsingPayloadAtom
+
+contextToString : Context -> String
+contextToString context =
+    case context of
+        ParsingOp (Just expectedOpID) ->
+            "an Op (with expected ID " ++ OpID.toString expectedOpID ++ ")"
+        ParsingOp Nothing ->
+            "an Op (no prior op to deduce ID)"
+        ParsingOpID ->
+            "an Op ID"
+        ParsingChunk ->
+            "a chunk"
+        ParsingFrame ->
+            "a frame"
+        ParsingPayloadAtom ->
+            "a payload atom"
+
+contextStackToString : List { row : Int, col : Int, context : Context} -> String
+contextStackToString contextStack =
+    let
+        contextItemToString {row, col, context} =
+            contextToString context ++ " (r" ++ String.fromInt row ++ ",c" ++ String.fromInt col ++ ") "
+    in
+    List.map contextItemToString contextStack
+    |> String.join ", inside "
+
+type Problem
+    = ExpectingChunkEnd 
+    | ExpectingFrameEnd
+    | ExpectingSpecReferenceAtom
+    | ExpectingSpecReducerIDAtom
+    | ExpectingSpecOpIDAtom
+    | ExpectingSpecObjectIDAtom
+    | ExpectingReducerName
+    | ExpectingOpSeparator
+    | ExpectingAlphaNumUnderscore
+    | ExpectingIntegerAtom
+    | ExpectingFloatAtom
+    | InvalidIntegerAtom
+    | InvalidFloatAtom
+    | ExpectingUUID
+    | ExpectingQuotedString
+    | ExpectingEscapedSingleQuote
+    | ExpectedEndOfInput
+    | ExpectingIDClock
+    | InvalidIDClock
+    | ExpectingNodeID
+    | ExpectingVersionSymbol
+
+
+
+problemToString : Problem -> String
+problemToString problem =
+    case problem of
+        ExpectingChunkEnd ->
+            "Expecting end of chunk"
+        ExpectingFrameEnd ->
+            "Expecting end of frame (.)"
+        ExpectingSpecReferenceAtom ->
+            "Expecting a spec reference atom (:)"
+        ExpectingSpecReducerIDAtom ->
+            "Expecting a spec reducer ID atom (*)"
+        ExpectingSpecOpIDAtom ->
+            "Expecting a spec op ID atom (@)"
+        ExpectingSpecObjectIDAtom ->
+            "Expecting a spec object ID atom (#)"
+        ExpectingReducerName ->
+            "Expecting a known reducer name (lww, replist, ...)"
+        ExpectingOpSeparator ->
+            "Expecting an op separator (,)"
+        ExpectingAlphaNumUnderscore ->
+            "Expecting an alphanumeric character (or underscore)"
+        ExpectingIntegerAtom ->
+            "Expecting an integer atom"
+        ExpectingFloatAtom ->
+            "Expecting a float atom"
+        InvalidIntegerAtom ->
+            "Integer atom was not valid"
+        InvalidFloatAtom ->
+            "Float atom was not valid"
+        ExpectingUUID ->
+            "Expecting a RON UUID atom (>)"
+        ExpectingQuotedString ->
+            "Expecting a quoted string (')"
+        ExpectingEscapedSingleQuote ->
+            "Expecting an escaped single quote (\\')"
+        ExpectedEndOfInput ->
+            "Expecting the RON to end entirely"
+        ExpectingIDClock ->
+            "Expecting the clock portion of a UUID"
+        InvalidIDClock ->
+            "Clock portion of UUID was not valid"
+        ExpectingNodeID ->
+            "Expecting a node ID"
+        ExpectingVersionSymbol ->
+            "Expecting an op ID version symbol (+ or -)"
+
+-- TOKENS
+
+frameTerminator : Token Problem
+frameTerminator =
+  Token "." ExpectingFrameEnd
+
+referenceStarter : Token Problem
+referenceStarter =
+  Token ":" ExpectingSpecReferenceAtom
+
+opIDStarter : Token Problem
+opIDStarter =
+  Token "@" ExpectingSpecOpIDAtom
+
+reducerIDStarter : Token Problem
+reducerIDStarter =
+  Token "*" ExpectingSpecReducerIDAtom
+
+objectIDStarter : Token Problem
+objectIDStarter =
+  Token "#" ExpectingSpecObjectIDAtom
+
+lwwName : Token Problem
+lwwName =
+  Token "lww" ExpectingReducerName
+
+repListName : Token Problem
+repListName =
+  Token "replist" ExpectingReducerName
+
+opSeparator : Token Problem
+opSeparator =
+  Token "," ExpectingOpSeparator
+
+eventChunkTerminator : Token Problem
+eventChunkTerminator =
+  Token ";" ExpectingChunkEnd
+
+assertionChunkTerminator : Token Problem
+assertionChunkTerminator =
+  Token "!" ExpectingChunkEnd
+
+queryChunkTerminator : Token Problem
+queryChunkTerminator =
+  Token "?" ExpectingChunkEnd
+
+
+uuidStarter : Token Problem
+uuidStarter =
+  Token ">" ExpectingUUID
+
+intStarter : Token Problem
+intStarter =
+  Token "=" ExpectingUUID
+
+
+floatStarter : Token Problem
+floatStarter =
+  Token "^" ExpectingUUID
+
+stringWrapSingleQuote : Token Problem
+stringWrapSingleQuote =
+  Token "'" ExpectingQuotedString
+
+escapedSingleQuote : Token Problem
+escapedSingleQuote =
+  Token "\\'" ExpectingEscapedSingleQuote
+
+versionPlus : Token Problem
+versionPlus =
+  Token "+" ExpectingVersionSymbol
+
+
+versionMinus : Token Problem
+versionMinus =
+  Token "-" ExpectingVersionSymbol
+
 -- PARSERS
 
+opIDParser : RonParser OpID
+opIDParser =
+    let
+        parseCounter =
+            Parser.int ExpectingIDClock InvalidIDClock
 
-ronParser : Parser (List OpenTextRonFrame)
+        parseNodeID =
+            Parser.variable
+            -- TODO what to really expect?
+                { start = Char.isLower
+                , inner = \c -> Char.isAlphaNum c || c == '_'
+                , reserved = Set.fromList [ "lww", "replist" ]
+                , expecting = ExpectingNodeID
+                }
+
+        parseVersionSplitter =
+                Parser.oneOf
+                    [ Parser.map (\_ -> False) (symbol versionPlus)
+                    , Parser.map (\_ -> False) (symbol versionMinus)
+                    ]
+    in
+    inContext ParsingOpID <|
+        succeed OpID.fromPrimitives
+            |= parseCounter
+            |= parseVersionSplitter
+            |= parseNodeID
+
+
+
+ronParser : RonParser (List OpenTextRonFrame)
 ronParser =
     let
-        frameHelp : List OpenTextRonFrame -> Parser (Parser.Step (List OpenTextRonFrame) (List OpenTextRonFrame))
+        frameHelp : List OpenTextRonFrame -> RonParser (Parser.Step (List OpenTextRonFrame) (List OpenTextRonFrame))
         frameHelp framesReversed =
             Parser.oneOf
                 [ succeed (\frame -> Parser.Loop (frame :: framesReversed))
                     |= frameParser
                     |. whitespace
                 , succeed ()
+                    |. Parser.end ExpectedEndOfInput
                     -- make sure we've consumed all input
                     |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
                 ]
@@ -48,14 +261,14 @@ ronParser =
     Parser.loop [] frameHelp
 
 
-frameParser : Parser OpenTextRonFrame
+frameParser : RonParser OpenTextRonFrame
 frameParser =
     let
-        chunks : Parser FrameChunk
+        chunks : RonParser FrameChunk
         chunks =
             Parser.loop [] opsInChunk
 
-        opsInChunk : List OpenTextOp -> Parser (Parser.Step (List OpenTextOp) FrameChunk)
+        opsInChunk : List OpenTextOp -> RonParser (Parser.Step (List OpenTextOp) FrameChunk)
         opsInChunk opsReversed =
             case Maybe.andThen .endOfChunk (List.head opsReversed) of
                 Nothing ->
@@ -76,19 +289,20 @@ frameParser =
                 |= opLineParser (Maybe.map .opID lastSeenOp) 
                 |. whitespace
 
-        chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
+        chunksInFrame : List FrameChunk -> RonParser (Parser.Step (List FrameChunk) (List FrameChunk))
         chunksInFrame chunksReversed =
             Parser.oneOf
                 [ succeed (\thisChunk -> Parser.Loop (thisChunk :: chunksReversed))
                     |= chunks
                     |. whitespace
                 , succeed ()
-                    |. symbol "."
+                    |. symbol frameTerminator
                     |> Parser.map (\_ -> Parser.Done (List.reverse chunksReversed))
                 ]
     in
     succeed OpenTextRonFrame
         |= Parser.loop [] chunksInFrame
+    |> inContext ParsingFrame
 
 
 type alias FrameChunk =
@@ -125,22 +339,23 @@ type alias OpenTextOp =
     }
 
 
-opLineParser : Maybe OpID -> Parser OpenTextOp
+opLineParser : Maybe OpID -> RonParser OpenTextOp
 opLineParser prevOpIDMaybe =
     let
         opRefparser =
             succeed identity
-                |. symbol ":"
+                |. symbol referenceStarter
                 |= Parser.oneOf
+                    -- TODO allow any reducer name
                     [ succeed (ReducerReference "lww")
-                        |. Parser.keyword "lww"
+                        |. Parser.keyword lwwName
                     , succeed (ReducerReference "replist")
-                        |. Parser.keyword "replist"
+                        |. Parser.keyword repListName
                     , succeed OpReference
-                        |= OpID.parser
+                        |= opIDParser
                     ]
 
-        reducerIDParser : Parser ReducerID
+        reducerIDParser : RonParser ReducerID
         reducerIDParser =
             Parser.getChompedString (Parser.chompWhile Char.isAlpha)
                 |> Parser.andThen (\reducerID -> succeed reducerID)
@@ -149,7 +364,7 @@ opLineParser prevOpIDMaybe =
             Parser.oneOf
                 [ Parser.map Just <|
                     succeed identity
-                        |. symbol "*"
+                        |. symbol reducerIDStarter
                         |= reducerIDParser
                 , succeed Nothing
                 ]
@@ -158,8 +373,8 @@ opLineParser prevOpIDMaybe =
             Parser.oneOf
                 [ Parser.map Just <|
                     succeed identity
-                        |. symbol "#"
-                        |= OpID.parser
+                        |. symbol objectIDStarter
+                        |= opIDParser
                 , succeed Nothing
                 ]
 
@@ -168,15 +383,15 @@ opLineParser prevOpIDMaybe =
                 Just prevOpID ->
                     Parser.oneOf
                         [ succeed identity
-                            |. symbol "@"
-                            |= OpID.parser
+                            |. symbol opIDStarter
+                            |= opIDParser
                         , succeed (OpID.nextOpInChain prevOpID)
                         ]
 
                 Nothing ->
                     succeed identity
-                        |. symbol "@"
-                        |= OpID.parser
+                        |. symbol opIDStarter
+                        |= opIDParser
 
         optionalRefParser =
             case prevOpIDMaybe of
@@ -189,15 +404,16 @@ opLineParser prevOpIDMaybe =
                 _ ->
                     opRefparser
 
-        opPayloadParser : List OpPayloadAtom -> Parser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
+        opPayloadParser : List OpPayloadAtom -> RonParser (Parser.Step OpPayloadAtoms OpPayloadAtoms)
         opPayloadParser atomsReversed =
             Parser.oneOf
                 [ succeed (\thisAtom -> Parser.Loop (thisAtom :: atomsReversed))
                     -- This MUST fail if no alphaNumeric char (or _) or quote, to allow line to end
                     |= payloadAtomParser
-                , succeed (\_ -> Parser.Loop atomsReversed)
-                    -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
-                    |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
+                    |. whitespace
+                -- , succeed (\_ -> Parser.Loop atomsReversed)
+                --     -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
+                --     |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
                 , succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
                 ]
@@ -205,13 +421,13 @@ opLineParser prevOpIDMaybe =
         opEndParser =
             Parser.oneOf
                 [ succeed Nothing
-                    |. symbol ","
+                    |. symbol opSeparator
                 , succeed (Just EventChunk)
-                    |. symbol ";"
+                    |. symbol eventChunkTerminator
                 , succeed (Just AssertionChunk)
-                    |. symbol "!"
+                    |. symbol assertionChunkTerminator
                 , succeed (Just QueryChunk)
-                    |. symbol "?"
+                    |. symbol queryChunkTerminator
                 ]
     in
     succeed OpenTextOp
@@ -226,23 +442,26 @@ opLineParser prevOpIDMaybe =
         |= Parser.loop [] opPayloadParser
         -- TODO don't parse payload on header ops?
         |= opEndParser
+    |> inContext (ParsingOp (Maybe.map OpID.nextOpInChain prevOpIDMaybe))
 
 
-payloadAtomParser : Parser OpPayloadAtom
+
+payloadAtomParser : RonParser OpPayloadAtom
 payloadAtomParser =
     Parser.oneOf
         [ explicitRonPointer
-        , ronInt
         , ronFloat
+        , ronInt
         , nakedStringTag -- can interpret nums
         , quotedString
         ]
+    |> inContext ParsingPayloadAtom
 
 
 {-| Parses RON atoms without quotes (like abc123) into strings, with the same restrictions as elm record field names. Only for letter-number "tags" such as field names -- all other strings must be quoted!
 May NOT start with a digit.
 -}
-nakedStringTag : Parser OpPayloadAtom
+nakedStringTag : RonParser OpPayloadAtom
 nakedStringTag =
     let
         letterNumbersUnderscore char =
@@ -252,64 +471,70 @@ nakedStringTag =
         Parser.getChompedString <|
             succeed ()
                 -- chompWhile always succeeds, we need this to fail on empty
-                |. Parser.chompIf letterNumbersUnderscore
+                |. Parser.chompIf letterNumbersUnderscore ExpectingAlphaNumUnderscore
                 |. Parser.chompWhile letterNumbersUnderscore
 
 
 {-| Ron Integers start with equal sign =1099
 When unambiguous, prefixes could be omitted
 -}
-ronInt : Parser OpPayloadAtom
+ronInt : RonParser OpPayloadAtom
 ronInt =
-    Parser.number
-        { int = Just IntegerAtom
-        , hex = Nothing
-        , octal = Nothing
-        , binary = Nothing
-        , float = Nothing
-        }
+    let
+        parseInt =
+            Parser.int ExpectingIntegerAtom InvalidIntegerAtom
+
+        explicit =
+            succeed IntegerAtom
+                |. Parser.token intStarter
+                |= parseInt
+    in
+    Parser.oneOf [ explicit, (Parser.map IntegerAtom parseInt)]
+    
 
 
 {-| Ron Integers start ^: ^3.14159, ^2.9979E5.
 When unambiguous, prefixes could be omitted
 -}
-ronFloat : Parser OpPayloadAtom
+ronFloat : RonParser OpPayloadAtom
 ronFloat =
-    -- TODO parse prefix
-    Parser.number
-        { int = Nothing
-        , hex = Nothing
-        , octal = Nothing
-        , binary = Nothing
-        , float = Just FloatAtom
-        }
+    let
+        parseFloat =
+            Parser.float ExpectingFloatAtom InvalidFloatAtom
+
+        explicit =
+            succeed FloatAtom
+                |. Parser.token floatStarter
+                |= parseFloat
+    in
+    Parser.oneOf [ explicit, (Parser.map FloatAtom parseFloat)]
 
 
 {-| Ron UUIDs start with >
 -}
-explicitRonPointer : Parser OpPayloadAtom
+explicitRonPointer : RonParser OpPayloadAtom
 explicitRonPointer =
     succeed IDPointerAtom
-        |. Parser.token ">"
-        |= OpID.parser
+        |. Parser.token uuidStarter
+        |= opIDParser
 
 
-quotedString : Parser OpPayloadAtom
+quotedString : RonParser OpPayloadAtom
 quotedString =
     succeed StringAtom
-        |. Parser.token "'"
+        |. Parser.token stringWrapSingleQuote
         |= Parser.loop [] quotedStringHelp
 
 
-quotedStringHelp : List String -> Parser (Parser.Step (List String) String)
+quotedStringHelp : List String -> RonParser (Parser.Step (List String) String)
 quotedStringHelp piecesReversed =
     Parser.oneOf
         [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
-            |= Parser.keyword "\\'"
+            |= Parser.keyword escapedSingleQuote
 
         -- ^When we detect an escaped quote, don't stop parsing this atom
         , succeed (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
-            |= Parser.token "'"
+            |= Parser.token stringWrapSingleQuote
         , Parser.chompWhile isUninteresting
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
@@ -321,11 +546,11 @@ isUninteresting char =
     char /= '\\' && char /= '\''
 
 
-sameLineSpaces : Parser ()
+sameLineSpaces : RonParser ()
 sameLineSpaces =
     Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r')
 
-whitespace : Parser ()
+whitespace : RonParser ()
 whitespace =
     Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r' || c == '\n')
 

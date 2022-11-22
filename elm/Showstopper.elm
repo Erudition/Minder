@@ -14,8 +14,9 @@ import Replicated.Codec as Codec
 import Replicated.Node.Node as Node
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import Url
-import Parser
+import Parser.Advanced as Parser
 import Replicated.Op.OpID as OpID
+import Replicated.Op.Op as Op
 import Dict
 import Css
 
@@ -33,6 +34,9 @@ type alias ShowstopperDetails =
     , problem : InitFailure
     , url : Url.Url
     }
+
+type alias OpParserDeadEnd =
+    Parser.DeadEnd Op.Context Op.Problem
 
 
 view : ShowstopperDetails -> Html Msg
@@ -85,7 +89,7 @@ codecErrorToString codecError =
             JD.errorToString jdError
 
     
-viewSavedRon : String -> List (Parser.DeadEnd) -> Html msg
+viewSavedRon : String -> List (OpParserDeadEnd) -> Html msg
 viewSavedRon savedRon deadEndList =
     let
         lines =
@@ -130,48 +134,16 @@ viewSavedRon savedRon deadEndList =
             H.span 
                 [ HA.css [Css.backgroundColor (Css.rgb 255 0 0)]
                 , HA.title 
-                    (String.join "\n" <| List.map problemToString problemsHere)
+                    (String.join "\n" <| List.map Op.problemToString problemsHere)
                 ]
                 [text <| String.fromChar char]
     in
     H.section [] linesFormatted
 
 
-problemToString : Parser.Problem -> String
-problemToString problem =
-    case problem of
-        Parser.Expecting expected ->
-            "Expecting: " ++ expected
-        Parser.ExpectingInt ->
-            "Expecting an Int"
-        Parser.ExpectingHex ->
-            "Expecting a Hex value"
-        Parser.ExpectingOctal ->
-            "Expecting an Octal value"
-        Parser.ExpectingBinary ->
-            "Expecting a Binary value"
-        Parser.ExpectingFloat ->
-            "Expecting a Float"
-        Parser.ExpectingNumber ->
-            "Expecting a Number"
-        Parser.ExpectingVariable ->
-            "Expecting a Variable"
-        Parser.ExpectingSymbol symbol ->
-            "Expecting symbol: " ++ symbol
-        Parser.ExpectingKeyword keyword ->
-            "Expecting keyword: " ++ keyword
-        Parser.ExpectingEnd ->
-            "Expecting the end of input"
-        Parser.UnexpectedChar ->
-            "An unexpected character was encountered"
-        Parser.Problem desc ->
-            "Problem: " ++ desc
-        Parser.BadRepeat ->
-            "Bad Repeat"
-
-deadEndToString : Parser.DeadEnd -> String
-deadEndToString {row, col, problem} =
-    (problemToString problem) ++ " at row " ++ (String.fromInt row) ++ ", col " ++ (String.fromInt col) 
+deadEndToString : OpParserDeadEnd -> String
+deadEndToString {row, col, problem, contextStack} =
+    (Op.problemToString problem) ++ " at row " ++ (String.fromInt row) ++ ", col " ++ (String.fromInt col) ++ ", while parsing " ++ (Op.contextStackToString contextStack)
 
 viewImportWarnings savedRon opImportWarningList =
     let

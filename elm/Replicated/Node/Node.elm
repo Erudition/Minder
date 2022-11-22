@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Parser
+import Parser.Advanced as Parser
 import Replicated.Change as Change exposing (Change)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -156,7 +156,7 @@ updateWithClosedOps node newOps =
 
 
 type OpImportWarning
-    = ParseFail (List Parser.DeadEnd)
+    = ParseFail (List (Parser.DeadEnd Op.Context Op.Problem) )
     | UnknownReference OpID
     | EmptyChunk
 
