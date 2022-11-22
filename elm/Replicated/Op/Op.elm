@@ -13,6 +13,7 @@ import Set exposing (Set)
 import SmartTime.Moment as Moment
 import Parser.Advanced as Parser exposing ((|.), (|=), float, succeed, symbol, Token(..), inContext)
 
+
 type Op
     = Op ClosedOp
 
@@ -86,6 +87,7 @@ type Problem
     | InvalidIDClock
     | ExpectingNodeID
     | ExpectingVersionSymbol
+    | ExpectingComment
 
 
 
@@ -134,6 +136,8 @@ problemToString problem =
             "Expecting a node ID"
         ExpectingVersionSymbol ->
             "Expecting an op ID version symbol (+ or -)"
+        ExpectingComment ->
+            "Expecting a line comment (@~ ...)"
 
 -- TOKENS
 
@@ -212,6 +216,11 @@ versionMinus : Token Problem
 versionMinus =
   Token "-" ExpectingVersionSymbol
 
+
+lineCommentStarter : Token Problem
+lineCommentStarter =
+  Token "@~" ExpectingComment
+
 -- PARSERS
 
 opIDParser : RonParser OpID
@@ -283,11 +292,22 @@ frameParser =
             let
                 lastSeenOp =
                     List.head opsReversed
+
+                parseRealOp =
+                    succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
+                        |. whitespace
+                        |= opLineParser (Maybe.map .opID lastSeenOp) 
+                        |. whitespace
+
+                commentPseudoOp =
+                    succeed (\_ -> Parser.Loop (opsReversed))
+                        |= Parser.lineComment lineCommentStarter
+
             in
-            succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
-                |. whitespace
-                |= opLineParser (Maybe.map .opID lastSeenOp) 
-                |. whitespace
+            Parser.oneOf
+                [ commentPseudoOp
+                , parseRealOp
+                ]
 
         chunksInFrame : List FrameChunk -> RonParser (Parser.Step (List FrameChunk) (List FrameChunk))
         chunksInFrame chunksReversed =
@@ -474,6 +494,24 @@ nakedStringTag =
                 |. Parser.chompIf letterNumbersUnderscore ExpectingAlphaNumUnderscore
                 |. Parser.chompWhile letterNumbersUnderscore
 
+{-| Borrowed from https://github.com/elm/parser/issues/14#issuecomment-450547742
+to get around the long-ignored https://github.com/elm/parser/issues/28
+-}
+correctIntWorkaround : RonParser Int
+correctIntWorkaround =
+    Parser.getChompedString (Parser.chompWhile Char.isDigit)
+        |> Parser.andThen
+            (\str ->
+                case String.toInt str of
+                    Just n ->
+                        Parser.succeed n
+
+                    Nothing ->
+                        Parser.problem ExpectingIntegerAtom
+            )
+
+
+
 
 {-| Ron Integers start with equal sign =1099
 When unambiguous, prefixes could be omitted
@@ -482,7 +520,8 @@ ronInt : RonParser OpPayloadAtom
 ronInt =
     let
         parseInt =
-            Parser.int ExpectingIntegerAtom InvalidIntegerAtom
+            -- Parser.int ExpectingIntegerAtom InvalidIntegerAtom
+            correctIntWorkaround
 
         explicit =
             succeed IntegerAtom
@@ -499,15 +538,22 @@ When unambiguous, prefixes could be omitted
 ronFloat : RonParser OpPayloadAtom
 ronFloat =
     let
-        parseFloat =
+        -- The built-in float parser has a bug with leading 'e'.
+        -- See <https://github.com/elm/parser/issues/44>
+        correctFloatWorkaround =
+            -- By making it backtrackable, even if the input start with an 'e', we will be able to try out other alternative instead of getting stuck on it as an invalid number.
+            Parser.backtrackable <| Parser.float ExpectingFloatAtom InvalidFloatAtom
+
+        normalFloat =
+            -- Broken by parser bug
             Parser.float ExpectingFloatAtom InvalidFloatAtom
 
         explicit =
             succeed FloatAtom
                 |. Parser.token floatStarter
-                |= parseFloat
+                |= correctFloatWorkaround
     in
-    Parser.oneOf [ explicit, (Parser.map FloatAtom parseFloat)]
+    Parser.oneOf [ explicit, (Parser.map FloatAtom correctFloatWorkaround)]
 
 
 {-| Ron UUIDs start with >
