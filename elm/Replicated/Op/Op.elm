@@ -7,7 +7,7 @@ import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
+import Parser exposing ((|.), (|=), Parser, float, succeed, symbol)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Result.Extra
 import Set exposing (Set)
@@ -39,7 +39,7 @@ ronParser =
             Parser.oneOf
                 [ succeed (\frame -> Parser.Loop (frame :: framesReversed))
                     |= frameParser
-                    |. spaces
+                    |. whitespace
                 , succeed ()
                     -- make sure we've consumed all input
                     |> Parser.map (\_ -> Parser.Done (List.reverse framesReversed))
@@ -70,21 +70,18 @@ frameParser =
             let
                 lastSeenOp =
                     List.head opsReversed
-
-                parseLineWithContext =
-                    opLineParser (Maybe.map .opID lastSeenOp) (Maybe.map .reference lastSeenOp)
             in
             succeed (\thisOp -> Parser.Loop (thisOp :: opsReversed))
-                |. spaces
-                |= parseLineWithContext
-                |. sameLineSpaces
+                |. whitespace
+                |= opLineParser (Maybe.map .opID lastSeenOp) 
+                |. whitespace
 
         chunksInFrame : List FrameChunk -> Parser (Parser.Step (List FrameChunk) (List FrameChunk))
         chunksInFrame chunksReversed =
             Parser.oneOf
                 [ succeed (\thisChunk -> Parser.Loop (thisChunk :: chunksReversed))
                     |= chunks
-                    |. spaces
+                    |. whitespace
                 , succeed ()
                     |. symbol "."
                     |> Parser.map (\_ -> Parser.Done (List.reverse chunksReversed))
@@ -128,8 +125,8 @@ type alias OpenTextOp =
     }
 
 
-opLineParser : Maybe OpID -> Maybe Reference -> Parser OpenTextOp
-opLineParser prevOpIDMaybe prevRefMaybe =
+opLineParser : Maybe OpID -> Parser OpenTextOp
+opLineParser prevOpIDMaybe =
     let
         opRefparser =
             succeed identity
@@ -205,7 +202,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
                 ]
 
-        lineEndParser =
+        opEndParser =
             Parser.oneOf
                 [ succeed Nothing
                     |. symbol ","
@@ -228,7 +225,7 @@ opLineParser prevOpIDMaybe prevRefMaybe =
         |. sameLineSpaces
         |= Parser.loop [] opPayloadParser
         -- TODO don't parse payload on header ops?
-        |= lineEndParser
+        |= opEndParser
 
 
 payloadAtomParser : Parser OpPayloadAtom
@@ -288,8 +285,7 @@ ronFloat =
         }
 
 
-{-| Ron Integers start ^: ^3.14159, ^2.9979E5.
-When unambiguous, prefixes could be omitted
+{-| Ron UUIDs start with >
 -}
 explicitRonPointer : Parser OpPayloadAtom
 explicitRonPointer =
@@ -327,9 +323,11 @@ isUninteresting char =
 
 sameLineSpaces : Parser ()
 sameLineSpaces =
-    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
+    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r')
 
-
+whitespace : Parser ()
+whitespace =
+    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\r' || c == '\n')
 
 -- CLOSED OP PARTS
 

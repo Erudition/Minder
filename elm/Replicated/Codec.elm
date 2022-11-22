@@ -3174,12 +3174,12 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     Nothing
 
         isExistingSameAsDefault =
-            case (fieldFallback, existingValMaybe) of
-                (HardcodedSeed _, _) ->
-                    -- TODO we need to make sure blank objects stay unencoded
-                    True
+            -- case (fieldFallback, existingValMaybe) of
+            --     (HardcodedSeed _, _) ->
+            --         -- TODO we need to make sure blank objects stay unencoded
+            --         True
 
-                _ ->
+            --     _ ->
                     existingValMaybe == (fieldDefaultMaybe fieldFallback)
 
         explicitDefaultIfNeeded val =

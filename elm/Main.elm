@@ -47,6 +47,9 @@ import Timeflow
 import Url
 import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
+import Parser
+import Replicated.Op.OpID as OpID exposing (OpID)
+import Showstopper exposing (ShowstopperDetails, InitFailure(..))
 
 
 main : Program (Maybe String) Model Msg
@@ -245,28 +248,21 @@ init maybeRon url maybeKey =
                                 (Ok _, warningsFound) ->
                                     initShowstopper
                                         { savedRon = foundRon
-                                        , problems = [ "profile failed to import from RON, there were warnings:"
-                                            , Debug.toString warningsFound
-                                            ]
+                                        , problem =  ImportFail warningsFound
                                         , url = url
                                         }
 
                                 (Err problem, _) ->
                                     initShowstopper
                                         { savedRon = foundRon
-                                        , problems = [ "profile failed to decode from node when trying to import from RON"
-                                            , Debug.toString problem
-                                            , Debug.toString warnings
-                                            ]
+                                        , problem = DecodeNodeFail problem
                                         , url = url
                                         }
 
                         Err initError ->
                             initShowstopper
                                 { savedRon = foundRon
-                                , problems = [ "could not init from saved ron"
-                                    , Debug.toString initError
-                                    ]
+                                , problem = OtherFail initError
                                 , url = url
                                 }
 
@@ -284,12 +280,10 @@ init maybeRon url maybeKey =
                             , node = newNode
                             }
 
-                        Err problems ->
+                        Err problem ->
                             initShowstopper
                                 { savedRon = "No Stored RON."
-                                , problems = [ "no previous profile found. but empty profile failed to decode from node! "
-                                    , Debug.toString problems
-                                    ]
+                                , problem = DecodeNodeFail problem
                                 , url = url
                                 }
 
@@ -320,11 +314,6 @@ init maybeRon url maybeKey =
     , allEffectsIfSuccess
     )
 
-type alias ShowstopperDetails =
-    { savedRon : String
-    , problems : List String
-    , url : Url.Url
-    }
 
 initShowstopper : ShowstopperDetails -> Model
 initShowstopper details =
@@ -423,7 +412,7 @@ view { viewState, profile, environment } =
 
                 Showstopper details ->
                     { title = "Showstopper"
-                    , body = viewShowstopper details
+                    , body = H.map ShowstopperMsg (Showstopper.view details)
                     }
 
         withinPage =
@@ -655,21 +644,6 @@ errorList stringList =
     H.ol [] (List.map asLi stringList)
 
 
-viewShowstopper : ShowstopperDetails -> Html Msg
-viewShowstopper {savedRon, problems, url} =
-    let
-        viewProblem problem =
-            H.h3 [] [(H.text problem)]
-
-        allProblems =
-            List.map viewProblem problems
-
-    in
-    H.section [ class "showstopper" ]
-        ( (H.h1 [] [(H.text "Showstopper")])
-        :: allProblems ++
-        [   H.pre [] [(H.text savedRon)]]
-        )
 
 
 -- type Phrase = Written_by
@@ -702,6 +676,7 @@ type Msg
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
+    | ShowstopperMsg Showstopper.Msg
     | NewAppData String
     | MouseMoved Bool Float
 
