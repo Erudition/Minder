@@ -374,40 +374,6 @@ creationOpsToObjectIDs ops =
     List.filterMap getCreationIDs ops
 
 
-
--- combineSameObjectChunks : List Change -> List Change
--- combineSameObjectChunks changes =
---     let
---         sameObjectID change1 change2 =
---             case ( change1, change2 ) of
---                 ( Op.Chunk chunk1, Op.Chunk chunk2 ) ->
---                     case ( chunk1.object, chunk2.object ) of
---                         ( Op.ExistingObjectPointer objectID1, Op.ExistingObjectPointer objectID2 ) ->
---                             objectID1 == objectID2
---
---                         ( Op.PlaceholderPointer reducerID1 pendingID1, Op.PlaceholderPointer reducerID2 pendingID2 ) ->
---                             pendingID1 == pendingID2 && reducerID1 == reducerID2
---
---                         _ ->
---                             False
---
---         sameObjectGroups =
---             List.gatherWith sameObjectID changes
---
---         combineGroupedItems group =
---             case group of
---                 ( singleItem, [] ) ->
---                     [ singleItem ]
---
---                 ( Op.Chunk { object, objectChanges }, rest ) ->
---                     [ Op.Chunk { object = object, objectChanges = objectChanges ++ List.concatMap extractChanges rest } ]
---
---         extractChanges (Op.Chunk { objectChanges }) =
---             objectChanges
---     in
---     List.concatMap combineGroupedItems sameObjectGroups
-
-
 {-| Collects info on what ObjectIDs map back to what placeholder IDs from before they were initialized. In case we want to reference the new object same-frame.
 Use with Change.pendingIDToString
 -}
@@ -420,65 +386,54 @@ type alias ObjectMapping =
 oneChangeToOpChunks : Node -> ObjectMapping -> InCounter -> Change -> ( OutCounter, List Op.ClosedChunk )
 oneChangeToOpChunks node inMapping inCounter change =
     case change of
-        Change.Chunk { target, objectChanges, externalUpdates } ->
+        Change.Chunk (chunkDetails) ->
             let
-                ( ( outCounter1, ( outputMapping, createdobjectSpecified ) ), generatedInternalChunks ) =
+                -- TODO let outputMapping escape to caller for deeply nested mappings
+                ( ( outCounter, ( outputMapping, createdObjectMaybe ) ), generatedChunks ) =
                     chunkToOps node
                         ( inCounter, ( inMapping, Nothing ) )
-                        { target = target
-                        , objectChanges = objectChanges
+                        chunkDetails
 
-                        -- external updates not passed
-                        }
-
-                ( outCounter2, generatedExternalChunksList ) =
-                    if List.isEmpty externalUpdates then
-                        List.mapAccuml (oneChangeToOpChunks node outputMapping) outCounter1 externalUpdates
-
-                    else
-                        Debug.log "external Changes" <| List.mapAccuml (oneChangeToOpChunks node outputMapping) outCounter1 externalUpdates
-
-                outputChunks =
-                    generatedInternalChunks ++ List.concat generatedExternalChunksList
 
                 logOps =
-                    List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat outputChunks)
+                    List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
                         |> String.concat
             in
-            ( outCounter2, outputChunks )
+            ( outCounter, generatedChunks )
 
 
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 in mapAccuml form
 -}
-chunkToOps : Node -> ( InCounter, ( ObjectMapping, Maybe ObjectID ) ) -> { target : Change.Pointer, objectChanges : List Change.ObjectChange } -> ( ( OutCounter, ( ObjectMapping, Maybe ObjectID ) ), List Op.ClosedChunk )
-chunkToOps node ( inCounter, ( inMapping, _ ) ) { target, objectChanges } =
+chunkToOps : Node -> ( InCounter, ( ObjectMapping, Maybe ObjectID ) ) -> { target : Change.Pointer, objectChanges : List Change.ObjectChange, externalUpdates : List Change } -> ( ( OutCounter, ( ObjectMapping, Maybe ObjectID ) ), List Op.ClosedChunk )
+chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, externalUpdates } =
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
-        ( postPrereqCounter, processedChanges ) =
-            List.mapAccuml (objectChangeToUnstampedOp node inMapping) inCounter objectChanges
+        ( postPrereqCounter1, processedChanges ) =
+            List.mapAccuml (objectChangeToUnstampedOp node inMapping0) inCounter0 objectChanges
 
         allPrereqChunks =
             List.concatMap .prerequisiteChunks processedChanges
 
-        postPrereqMapping =
-            List.foldl Dict.union inMapping (List.map .mapping processedChanges)
+        postPrereqMapping1 =
+            List.foldl Dict.union inMapping0 (List.map .mapping processedChanges)
 
         allUnstampedChunkOps =
             List.map .thisObjectOp processedChanges
 
-        { reducerID, objectID, lastSeen, initOps, postInitCounter } =
-            getOrInitObject node postPrereqCounter target
+        { reducerID, objectID, lastSeen, initOps, postInitCounter2 } =
+            getOrInitObject node postPrereqCounter1 target
 
-        postInitMapping =
+        postInitMapping2 =
             case target of
                 Change.ExistingObjectPointer _ _ ->
                     -- we did not initialize anything
-                    postPrereqMapping
+                    postPrereqMapping1
 
                 Change.PlaceholderPointer _ pendingID _ ->
                     -- we initialized an object, add it to the mapping!
-                    Dict.insert ( reducerID, Change.pendingIDToString pendingID ) objectID postPrereqMapping
+                    Dict.insert ( reducerID, Change.pendingIDToString pendingID ) objectID postPrereqMapping1
+
 
         stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
         stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
@@ -491,11 +446,23 @@ chunkToOps node ( inCounter, ( inMapping, _ ) ) { target, objectChanges } =
             in
             ( ( stampOutCounter, newID ), stampedOp )
 
-        ( ( counterAfterObjectChanges, newLastSeen ), objectChangeOps ) =
-            List.mapAccuml stampChunkOps ( postInitCounter, lastSeen ) allUnstampedChunkOps
+        ( ( counterAfterObjectChanges3, newLastSeen ), objectChangeOps ) =
+            List.mapAccuml stampChunkOps ( postInitCounter2, lastSeen ) allUnstampedChunkOps
 
         logOps prefix ops =
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
+
+
+        ( counterAfterExternalChanges4, generatedExternalChunksList ) =
+            if List.isEmpty externalUpdates then
+                -- TODO any good reason to capture the mapping output? (postExternalMapping3)
+                Debug.log "no external changes" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 externalUpdates
+
+            else
+                Debug.log "yes external changes!" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 externalUpdates
+
+        externalChunks =
+            List.concat generatedExternalChunksList
 
         prereqLogMsg =
             case List.length allPrereqChunks of
@@ -505,13 +472,14 @@ chunkToOps node ( inCounter, ( inMapping, _ ) ) { target, objectChanges } =
                 n ->
                     "----\t^^last " ++ String.fromInt n ++ " chunks are prereqs for chunk"
 
+        thisObjectChunk =
+            [ Log.logMessageOnly (logOps "init" initOps) initOps ++ Log.logMessageOnly (logOps "change" objectChangeOps) objectChangeOps ]
+
         allOpsInDependencyOrder =
             Log.logMessageOnly prereqLogMsg allPrereqChunks
-                ++ [ Log.logMessageOnly (logOps "init" initOps) initOps
-                        ++ Log.logMessageOnly (logOps "change" objectChangeOps) objectChangeOps
-                   ]
+                ++ thisObjectChunk ++  externalChunks
     in
-    ( ( counterAfterObjectChanges, ( postInitMapping, Just objectID ) )
+    ( ( counterAfterExternalChanges4, ( postInitMapping2, Just objectID ) )
     , allOpsInDependencyOrder
     )
 
@@ -566,11 +534,7 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
                         ( ( postPrereqCounter, ( newMapping, subObjectIDMaybe ) ), newPrereqChunks ) =
                             chunkToOps node
                                 ( accumulated.counter, ( accumulated.mapping, Nothing ) )
-                                { target = chunkDetails.target
-                                , objectChanges = chunkDetails.objectChanges
-
-                                -- external updates omitted
-                                }
+                                chunkDetails
 
                         pointerPayload =
                             Maybe.map Op.IDPointerAtom subObjectIDMaybe
@@ -649,7 +613,7 @@ getOrInitObject :
         , objectID : ObjectID
         , lastSeen : OpID
         , initOps : List Op
-        , postInitCounter : OutCounter
+        , postInitCounter2 : OutCounter
         }
 getOrInitObject node inCounter targetObject =
     case targetObject of
@@ -663,7 +627,7 @@ getOrInitObject node inCounter targetObject =
                     , objectID = objectID
                     , lastSeen = Op.id (Maybe.withDefault firstOp <| List.last moreOps)
                     , initOps = []
-                    , postInitCounter = inCounter
+                    , postInitCounter2 = inCounter
                     }
 
         Change.PlaceholderPointer reducerID _ _ ->
@@ -675,7 +639,7 @@ getOrInitObject node inCounter targetObject =
             , objectID = newID
             , lastSeen = newID
             , initOps = [ Op.initObject reducerID newID ]
-            , postInitCounter = outCounter
+            , postInitCounter2 = outCounter
             }
 
 

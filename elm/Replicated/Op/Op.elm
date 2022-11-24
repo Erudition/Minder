@@ -484,7 +484,7 @@ opLineParser prevOpIDMaybe =
 
                 -- , succeed (\_ -> Parser.Loop atomsReversed)
                 --     -- This MUST fail if no spaces, to allow line to end (avoid chompWhile infinite loop problem)
-                --     |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}')
+                --     |= Parser.chompIf (\c -> c == ' ' || c == '\t' || c == '\u{000D}') ExpectedEndOfInput
                 , succeed ()
                     |> Parser.map (\_ -> Parser.Done (List.reverse atomsReversed))
                 ]
@@ -503,13 +503,13 @@ opLineParser prevOpIDMaybe =
     in
     succeed OpenTextOp
         |= optionalReducerIDParser
-        |. sameLineSpaces
+        |. whitespace
         |= optionalObjectIDParser
-        |. sameLineSpaces
+        |. whitespace
         |= optionalOpIDParser
-        |. sameLineSpaces
+        |. whitespace
         |= optionalRefParser
-        |. sameLineSpaces
+        |. whitespace
         |= Parser.loop [] opPayloadParser
         -- TODO don't parse payload on header ops?
         |= opEndParser
@@ -520,8 +520,8 @@ payloadAtomParser : RonParser OpPayloadAtom
 payloadAtomParser =
     Parser.oneOf
         [ explicitRonPointer
+        , ronInt -- should come before float if possible
         , ronFloat
-        , ronInt
         , nakedStringTag -- can interpret nums
         , quotedString
         ]
@@ -642,6 +642,7 @@ isUninteresting char =
 
 sameLineSpaces : RonParser ()
 sameLineSpaces =
+    -- DEPRECATED Pretty sure ron should be line-agnostic
     Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\u{000D}')
 
 

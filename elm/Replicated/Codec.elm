@@ -289,6 +289,7 @@ new (Codec codecDetails) (ParentContext parentPointer) =
 
 newWithChanges : WrappedCodec e repType -> Parent -> Changer repType -> repType
 newWithChanges (Codec codecDetails) (ParentContext parentPointer) changer =
+-- TODO change argument order
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton "newWithChanges", seed = changer }
 
 
@@ -299,7 +300,7 @@ seededNew (Codec codecDetails) (ParentContext parentPointer) seed =
 
 seededNewWithChanges : Codec e ( s, Changer repType ) repType -> Parent -> s -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) (ParentContext parentPointer) seed changer =
-    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "seededNew", seed = ( seed, changer ) }
+    codecDetails.init { parent = parentPointer, position = Nonempty.singleton "seededNewWithChanges", seed = ( seed, changer ) }
 
 
 nonChanger _ =
@@ -2941,7 +2942,7 @@ extractInitChanges givenPointer initChanges =
         extractObjectChange givenChange ( sameObjectChanges, externalChanges ) =
             case givenChange of
                 Chunk { target, objectChanges } ->
-                    if target == givenPointer then
+                    if Change.equalPointers target givenPointer then
                         -- collect ObjectChanges that belong to this object
                         ( sameObjectChanges ++ objectChanges, externalChanges )
 

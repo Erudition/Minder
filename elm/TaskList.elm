@@ -866,6 +866,7 @@ update msg state profile env =
                         newClassChanger newClass =
                             [ RepList.insertNew RepList.Last newEntryInit profile.taskEntries
                             , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
+                            , RepList.insert RepList.Last "trackme" profile.errors
                             ]
 
                         frameDescription =
