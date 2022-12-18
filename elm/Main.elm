@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), Screen(..), ViewState, emptyViewState, infoFooter, init, main, setStorage, subscriptions, update, updateWithStorage, updateWithTime, view, viewUrl, StoredRON)
+port module Main exposing (Msg(..), StoredRON, Temp, ViewState, emptyViewState, infoFooter, init, main, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
@@ -26,14 +26,17 @@ import Integrations.Todoist
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode
+import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
+import Parser
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Codec as Codec exposing (Codec, decodeFromNode)
+import Replicated.Framework as Framework
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Reducer.RepDb as RepDb
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
@@ -47,42 +50,41 @@ import Timeflow
 import Url
 import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
-import Parser
-import Replicated.Op.OpID as OpID exposing (OpID)
-import Showstopper exposing (ShowstopperDetails, InitFailure(..))
 
 
-main : Program (Maybe String) Model Msg
+main : Framework.Program () Profile Temp Msg
 main =
-    Browser.application
+    Framework.browserApplication
         { init = initGraphical
         , view = view
-        , update = updateWithTime
+        , update = update
         , subscriptions = subscriptions
         , onUrlChange = NewUrl
         , onUrlRequest = Link
+        , replicaCodec = Profile.codec
+        , portSetStorage = setStorage
         }
 
 
 subscriptions : Model -> Sub Msg
-subscriptions ({ viewState, profile, environment } as model) =
+subscriptions { replica, temp } =
     Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          HumanMoment.everyMinuteOnTheMinute environment.time
-            environment.timeZone
-            (Tock NoOp)
+          HumanMoment.everyMinuteOnTheMinute temp.environment.time
+            temp.environment.timeZone
+            (\_ -> NoOp)
 
         -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
-        , Browser.Events.onVisibilityChange (\_ -> Tick NoOp)
-        , storageChangedElsewhere NewAppData
+        , Browser.Events.onVisibilityChange (\_ -> NoOp)
+        -- , storageChangedElsewhere NewAppData
 
         -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
         --, Moment.every (Duration.fromSeconds (1 / 5)) (Tock NoOp)
         ]
-            ++ (case viewState.primaryView of
-                    Timeflow subState ->
-                        [ Sub.map TimeflowMsg (Timeflow.subscriptions profile environment subState) ]
+            ++ (case temp.viewState.timeflow of
+                    OpenPanel _ subState ->
+                        [ Sub.map TimeflowMsg (Timeflow.subscriptions replica temp.environment subState) ]
 
                     _ ->
                         []
@@ -137,200 +139,36 @@ log label valueToLog =
     valueToLog
 
 
-{-| We want to `setStorage` on every update. This function adds the setStorage
-command for every step of the update function.
--}
-updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
-updateWithStorage msg startModel =
-    case update msg startModel of
-        ( newModel, [], newCmds ) ->
-            ( newModel, newCmds )      
-
-        ( newModel, moreFrames, newCmds ) ->
-            let
-                ( finalModel, finalOutputFrame ) =
-                    List.foldl applyFrame ( newModel, [] ) moreFrames
-
-                applyFrame givenFrame ( givenModel, outputsSoFar ) =
-                    let
-                        { outputFrame, updatedNode } =
-                            Node.apply (Just givenModel.environment.time) givenModel.node (Debug.log "Changes to save" givenFrame)
-                    in
-                    ( { newModel | node = updatedNode }, outputsSoFar ++ outputFrame )
-            in
-            case Codec.decodeFromNode Profile.codec finalModel.node of
-                Ok updatedProfile ->
-                    ( { finalModel | profile = updatedProfile }
-                    , Log.logSeparate "Saving with new frame" finalOutputFrame <| Cmd.batch [ setStorage (Op.closedChunksToFrameText finalOutputFrame), newCmds ]
-                    )
-
-                Err _ ->
-                    ( startModel
-                    , newCmds
-                    )
-
-
-{-| Slips in before the real `update` function to pass in the current time.
-
-For bookkeeping purposes, we want the current time for pretty much every update. This function intercepts the `update` process by first updating our model's `time` field before passing our Msg along to the real `update` function, which can then assume `model.time` is an up-to-date value.
-
-(Since Elm is pure and Time is side-effect-y, there's no better way to do this.)
-<https://stackoverflow.com/a/41025989/8645412>
--}
-updateWithTime : Msg -> Model -> ( Model, Cmd Msg )
-updateWithTime msg ({ environment } as model) =
-    case msg of
-        NoOp ->
-            ( model
-            , Cmd.none
-            )
-
-        -- first get the current time
-        Tick submsg ->
-            ( model
-            , Job.perform (Tock submsg) Moment.now
-            )
-
-        -- -- no storage change, just view
-        -- Tock NoOp time ->
-        --     let
-        --         newEnv =
-        --             { environment | time = time }
-        --     in
-        --     update NoOp { model | environment = newEnv }
-        -- actually do the update
-        Tock submsg time ->
-            let
-                newEnv =
-                    { environment | time = time }
-            in
-            updateWithStorage submsg { model | environment = newEnv }
-
-        SetZoneAndTime zone time ->
-            -- The only time we ever need to fetch the zone is at the start, and that's also when we need the time, so we combine them to reduce initial updates - this saves us one
-            let
-                newEnv =
-                    { environment | time = time, timeZone = zone, launchTime = time }
-            in
-            -- no need to run updateWithStorage yet - on first run we do the first update anyway, with the passed in Msg, so skipping it here saves us another update with a storage write
-            ( { model | environment = newEnv }, Cmd.none )
-
-        -- intercept normal update
-        _ ->
-            updateWithTime (Tick msg) model
-
-
 type alias StoredRON =
     String
 
 
-initGraphical : Maybe StoredRON -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+initGraphical : () -> Url.Url -> Nav.Key -> Profile -> ( List Frame, Temp, Cmd Msg )
 initGraphical maybeJson url key =
-    init maybeJson url (Just key)
+    init url (Just key)
 
 
-init : Maybe StoredRON -> Url.Url -> Maybe Nav.Key -> ( Model, Cmd Msg )
-init maybeRon url maybeKey =
+init : Url.Url -> Maybe Nav.Key -> Profile -> ( List Frame, Temp, Cmd Msg )
+init url maybeKey replica =
     let
-        startingModel =
-            case maybeRon of
-                Just foundRon ->
-                    case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } foundRon of
-                        Ok { node, warnings } ->
-                            case (Codec.decodeFromNode Profile.codec node, warnings) of
-                                (Ok profile, []) ->
-                                    { viewState = viewUrl url
-                                    , profile = profile
-                                    , environment = Environment.preInit maybeKey
-                                    , node = node
-                                    }
+        cmdsFromUrl =
+            handleUrlTriggers url replica initialTemp
 
-                                (Ok _, warningsFound) ->
-                                    initShowstopper
-                                        { savedRon = foundRon
-                                        , problem =  ImportFail warningsFound
-                                        , url = url
-                                        }
-
-                                (Err problem, _) ->
-                                    initShowstopper
-                                        { savedRon = foundRon
-                                        , problem = DecodeNodeFail problem
-                                        , url = url
-                                        }
-
-                        Err initError ->
-                            initShowstopper
-                                { savedRon = foundRon
-                                , problem = OtherFail initError
-                                , url = url
-                                }
-
-                -- no ron stored at all
-                Nothing ->
-                    let
-                        { newNode, startFrame } =
-                            Node.startNewNode Nothing []
-                    in
-                    case decodeFromNode Profile.codec newNode of
-                        Ok profile ->
-                            { viewState = viewUrl url
-                            , profile = profile
-                            , environment = Environment.preInit maybeKey
-                            , node = newNode
-                            }
-
-                        Err problem ->
-                            initShowstopper
-                                { savedRon = "No Stored RON."
-                                , problem = DecodeNodeFail problem
-                                , url = url
-                                }
-
-
-        ( modelWithFirstUpdate, firstEffects ) =
-            updateWithTime (NewUrl url) startingModel
-
-        effects =
-            [ Job.perform identity (Job.map2 SetZoneAndTime HumanMoment.localZone Moment.now) -- reduces initial calls to update
-            , firstEffects
-            ]
-
-        paneInits =
-            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init modelWithFirstUpdate.profile modelWithFirstUpdate.environment) 
-            ]
-
-        allEffectsIfSuccess =
-            case startingModel.viewState.primaryView of
-                Showstopper _ ->
-                    Cmd.none
-
-                _ ->
-                    Cmd.batch (effects ++ paneInits)
-
-        
-    in
-    ( modelWithFirstUpdate
-    , allEffectsIfSuccess
-    )
-
-
-initShowstopper : ShowstopperDetails -> Model
-initShowstopper details =
-    let
-        { newNode, startFrame } =
-            Node.startNewNode Nothing []
-    in
-    case decodeFromNode Profile.codec newNode of
-        Ok profile ->
-            { viewState = screenToViewState (Showstopper details) 
-            , profile = profile
-            , environment = Environment.preInit Nothing
-            , node = newNode
+        initialTemp : Temp
+        initialTemp =
+            { viewState = navigate url
+            , environment = Environment.preInit maybeKey
             }
 
-        Err problems ->
-            Debug.todo <| "huh? empty profile failed to decode from node! " ++ Debug.toString problems
+        paneInits =
+            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init replica initialTemp.environment)
+            ]
+    in
+    ( []
+    , initialTemp
+    , Cmd.batch (cmdsFromUrl :: paneInits)
+    )
+
 
 
 --            MM    MM  OOOOO  DDDDD   EEEEEEE LL
@@ -343,39 +181,39 @@ initShowstopper details =
 {-| Our whole app's Model.
 Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is due thursday", all stored in App "Database").
 -}
-type alias Model =
+type alias Temp =
     { viewState : ViewState
-    , profile : Profile
     , environment : Environment
-    , node : Node
     }
 
 
+type alias Model =
+    Framework.Replicator Profile Temp
+
+
+type Panel panelState
+    = OpenPanel PanelPosition panelState
+    | ClosedPanel PanelPosition panelState
+    | UnopenedPanel
+
+
+type PanelPosition
+    = FullScreen
+
+
 type alias ViewState =
-    { primaryView : Screen
-    , uid : Int
+    { taskList : Panel TaskList.ViewState
+    , timeTracker : Panel TimeTracker.ViewState
+    , timeflow : Panel (Maybe Timeflow.ViewState)
     }
 
 
 emptyViewState : ViewState
 emptyViewState =
-    { primaryView = TaskList TaskList.defaultView
-    , uid = 0
+    { taskList = OpenPanel FullScreen <| TaskList.defaultView
+    , timeTracker = UnopenedPanel
+    , timeflow = UnopenedPanel
     }
-
-
-type Screen
-    = TaskList TaskList.ViewState
-    | TimeTracker TimeTracker.ViewState
-    | Timeflow (Maybe Timeflow.ViewState)
-    | Showstopper ShowstopperDetails
-
-
-screenToViewState : Screen -> ViewState
-screenToViewState screen =
-    { primaryView = screen, uid = 0 }
-
-
 
 
 
@@ -389,30 +227,31 @@ screenToViewState screen =
 
 
 view : Model -> Browser.Document Msg
-view { viewState, profile, environment } =
+view { replica, temp } =
     let
         activePage =
-            case viewState.primaryView of
-                TaskList subState ->
+            case ( temp.viewState.taskList, temp.viewState.timeflow, temp.viewState.timeTracker ) of
+                ( OpenPanel _ subState, _, _ ) ->
                     { title = "Docket - Task List"
-                    , body = H.map TaskListMsg (TaskList.view subState profile environment)
+                    , body = H.map TaskListMsg (TaskList.view subState replica temp.environment)
                     }
 
-                Timeflow subState ->
+                ( _, OpenPanel _ subState, _ ) ->
                     { title = "Docket - Timeflow"
                     , body =
-                        H.map TimeflowMsg (Timeflow.view subState profile environment)
+                        H.map TimeflowMsg (Timeflow.view subState replica temp.environment)
                     }
 
-                TimeTracker subState ->
+                ( _, _, OpenPanel _ subState ) ->
                     { title = "Docket Time Tracker"
                     , body =
-                        H.map TimeTrackerMsg (TimeTracker.view subState profile environment)
+                        H.map TimeTrackerMsg (TimeTracker.view subState replica temp.environment)
                     }
 
-                Showstopper details ->
-                    { title = "Showstopper"
-                    , body = H.map ShowstopperMsg (Showstopper.view details)
+                _ ->
+                    { title = "Multiple Panels Open"
+                    , body =
+                        H.map TimeflowMsg (Timeflow.view Nothing replica temp.environment)
                     }
 
         withinPage =
@@ -421,12 +260,12 @@ view { viewState, profile, environment } =
                     []
                     [ activePage.body
 
-                    --, errorList profile.errors
+                    --, errorList replica.errors
                     ]
     in
     { title = activePage.title
     , body =
-        [ globalLayout viewState profile environment withinPage ]
+        [ globalLayout temp.viewState replica temp.environment withinPage ]
     }
 
 
@@ -438,11 +277,15 @@ view { viewState, profile, environment } =
     Todo: Consider adding customizable styling for this.
 
 -}
-selectedTab : List (Element msg) -> Element msg -> List (Element msg) -> Element msg
-selectedTab startingList selected endingList =
-    row [ centerX, Element.spacing 20, height fill, Element.paddingXY 0 5 ]
-        (startingList
-            ++ [ el
+selectedTabs : List ( Bool, Element msg ) -> Element msg
+selectedTabs panelStatusAndLinks =
+    let
+        panelsList =
+            List.map applyOpenPanelStyle panelStatusAndLinks
+
+        applyOpenPanelStyle ( isOpen, givenLink ) =
+            if isOpen then
+                el
                     [ Element.centerY
                     , Element.centerX
                     , Background.color (rgba255 255 255 255 0.3)
@@ -451,14 +294,30 @@ selectedTab startingList selected endingList =
                     , Border.rounded 7
                     , Element.paddingXY 10 5
                     ]
-                    selected
-               ]
-            ++ endingList
-        )
+                    givenLink
+
+            else
+                givenLink
+    in
+    row [ centerX, Element.spacing 20, height fill, Element.paddingXY 0 5 ]
+        panelsList
+
+
+getPanelViewState : Panel panelState -> panelState -> ( panelState, PanelPosition )
+getPanelViewState panel default =
+    case panel of
+        OpenPanel position state ->
+            ( state, position )
+
+        ClosedPanel position state ->
+            ( state, position )
+
+        UnopenedPanel ->
+            ( default, FullScreen )
 
 
 globalLayout : ViewState -> Profile -> Environment -> PlainHtml.Html Msg -> PlainHtml.Html Msg
-globalLayout viewState profile env innerStuff =
+globalLayout viewState replica env innerStuff =
     let
         elmUIOptions =
             { options = [] }
@@ -475,19 +334,21 @@ globalLayout viewState profile env innerStuff =
         timeflowLink =
             link [ centerX, centerY ] { url = "#/timeflow", label = text "Timeflow" }
 
+        isPanelOpen panelStatus =
+            case panelStatus of
+                OpenPanel _ _ ->
+                    True
+
+                _ ->
+                    False
+
         footerLinks =
-            case viewState.primaryView of
-                TimeTracker _ ->
-                    selectedTab [] timetrackerLink [ classesLink, tasksLink, timeflowLink ]
-
-                TaskList _ ->
-                    selectedTab [ timetrackerLink, classesLink ] tasksLink [ timeflowLink ]
-
-                Timeflow _ ->
-                    selectedTab [ timetrackerLink, classesLink, tasksLink ] timeflowLink []
-
-                Showstopper _ ->
-                    Element.none
+            selectedTabs
+                [ ( isPanelOpen viewState.timeTracker, timetrackerLink )
+                , ( False, classesLink )
+                , ( isPanelOpen viewState.taskList, tasksLink )
+                , ( isPanelOpen viewState.timeflow, timeflowLink )
+                ]
     in
     layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
         column [ width fill, height fill ]
@@ -500,24 +361,24 @@ globalLayout viewState profile env innerStuff =
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ footerLinks
                 ]
-            , trackingDisplay profile env
+            , trackingDisplay replica env
             ]
 
 
-trackingDisplay profile env =
+trackingDisplay replica env =
     let
         currentActivity =
-            Timeline.currentActivity profile.activities profile.timeline
+            Timeline.currentActivity replica.activities replica.timeline
 
         latestSwitch =
-            -- Log.logMessageOnly ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch profile.timeline)))
-            Timeline.latestSwitch profile.timeline
+            -- Log.logMessageOnly ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch replica.timeline)))
+            Timeline.latestSwitch replica.timeline
 
         currentInstanceIDMaybe =
             Switch.getInstanceID latestSwitch
 
         allInstances =
-            Profile.instanceListNow profile env
+            Profile.instanceListNow replica env
 
         currentInstanceMaybe currentInstanceID =
             List.head (List.filter (\t -> Instance.getID t == currentInstanceID) allInstances)
@@ -645,7 +506,6 @@ errorList stringList =
 
 
 
-
 -- type Phrase = Written_by
 --             | Double_click_to_edit_a_task
 -- say : Phrase -> Language -> String
@@ -665,9 +525,6 @@ to them.
 -}
 type Msg
     = NoOp
-    | Tick Msg
-    | Tock Msg Moment
-    | SetZoneAndTime Zone Moment
     | ClearErrors
     | ThirdPartySync ThirdPartyService
     | ThirdPartyServerResponded ThirdPartyResponse
@@ -676,9 +533,7 @@ type Msg
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
-    | ShowstopperMsg Showstopper.Msg
-    | NewAppData String
-    | MouseMoved Bool Float
+    -- | MouseMoved Bool Float
 
 
 type ThirdPartyService
@@ -691,24 +546,35 @@ type ThirdPartyResponse
     | MarvinServer Marvin.Msg
 
 
-
--- How we update our Model on a given Msg?
-
-
-update : Msg -> Model -> ( Model, List Change.Frame, Cmd Msg )
-update msg ({ viewState, profile, environment } as model) =
+update : Msg -> Model -> ( List Change.Frame, Temp, Cmd Msg )
+update msg { temp, replica, now } =
     let
+        viewState =
+            temp.viewState
+
+        environment =
+            temp.environment
+
         justRunCommand command =
-            ( model, [], command )
+            ( [], temp, command )
+
+        noOp =
+            ( [], temp, Cmd.none )
 
         justSetEnv newEnv =
-            ( Model viewState profile newEnv, [], Cmd.none )
+            ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        NoOp ->
+            ( []
+            , temp
+            , Cmd.none
+            )
+
         ClearErrors ->
-            ( model
-              -- TODO Model viewState { profile | errors = [] } environment
-            , []
+            ( []
+            , temp
+              -- TODO Model viewState { replica | errors = [] } environment
             , Cmd.none
             )
 
@@ -718,7 +584,7 @@ update msg ({ viewState, profile, environment } as model) =
                     justRunCommand <|
                         Cmd.map ThirdPartyServerResponded <|
                             Cmd.map TodoistServer <|
-                                Integrations.Todoist.fetchUpdates profile.todoist
+                                Integrations.Todoist.fetchUpdates replica.todoist
 
                 Marvin ->
                     justRunCommand <|
@@ -732,7 +598,7 @@ update msg ({ viewState, profile, environment } as model) =
         ThirdPartyServerResponded (TodoistServer response) ->
             let
                 ( newAppData, whatHappened ) =
-                    Integrations.Todoist.handle response profile
+                    Integrations.Todoist.handle response replica
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
@@ -748,19 +614,16 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setBody whatHappened
                         |> Notif.setBigTextStyle True
             in
-            ( model
-              -- TODO Model viewState newAppData environment
-            , []
-            , notify [ notification ]
-            )
+            -- TODO Model viewState newAppData environment
+            justRunCommand (notify [ notification ])
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( newProfile1WithItems, whatHappened, nextStep ) =
-                    Marvin.handle (RepDb.size profile.taskClasses + 1000) profile environment response
+                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica environment response
 
                 newProfile2WithErrors =
-                    Profile.saveError profile ("Synced with Marvin: \n" ++ whatHappened)
+                    Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)
 
                 syncStatusChannel =
                     Notif.basicChannel "Sync Status"
@@ -778,14 +641,12 @@ update msg ({ viewState, profile, environment } as model) =
                         |> Notif.setAccentColor "green"
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
-            ( model
-              -- TODO Model viewState newProfile2WithErrors environment
-            , []
-            , Cmd.batch
-                [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
-                , notify [ notification ]
-                ]
-            )
+            -- TODO update appdata
+            justRunCommand <|
+                Cmd.batch
+                    [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
+                    , notify [ notification ]
+                    ]
 
         Link urlRequest ->
             case urlRequest of
@@ -797,89 +658,85 @@ update msg ({ viewState, profile, environment } as model) =
 
                         Nothing ->
                             -- running headless
-                            ( model, [], Cmd.none )
+                            noOp
 
                 Browser.External href ->
                     justRunCommand <| Nav.load href
 
         NewUrl url ->
             let
-                ( modelAfter, changeFramesAfter, effectsAfter ) =
-                    handleUrlTriggers url model
+                ( effectsAfter ) =
+                    handleUrlTriggers url replica temp
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( { modelAfter | viewState = viewUrl url }, [], effectsAfter )
+            justRunCommand <| effectsAfter
 
         TaskListMsg subMsg ->
             case subMsg of
                 TaskList.MarvinServerResponse subSubMsg ->
-                    update (ThirdPartyServerResponded (MarvinServer subSubMsg)) model
+                    justRunCommand <| Job.perform (\_ -> ThirdPartyServerResponded (MarvinServer subSubMsg)) (Job.succeed ())
 
                 _ ->
                     let
-                        subViewState =
-                            case viewState.primaryView of
-                                -- Currently viewing the task list
-                                TaskList subView ->
-                                    subView
+                        ( oldPanelState, position ) =
+                            getPanelViewState viewState.taskList TaskList.defaultView
 
-                                -- viewing something else at the time (or headless)
-                                _ ->
-                                    TaskList.defaultView
+                        ( newPanelState, newFrame, newCommand ) =
+                            TaskList.update subMsg oldPanelState replica environment
 
-                        ( newState, newFrame, newCommand ) =
-                            TaskList.update subMsg subViewState profile environment
+                        newViewState =
+                            { viewState | taskList = OpenPanel position newPanelState }
                     in
-                    ( { model | viewState = (ViewState (TaskList newState) 0) }
-                    , [ newFrame ]
+                    ( [ newFrame ]
+                    , { temp | viewState = newViewState }
                     , Cmd.map TaskListMsg newCommand
                     )
 
         TimeTrackerMsg subMsg ->
             let
-                subViewState =
-                    case viewState.primaryView of
-                        TimeTracker subView ->
-                            subView
+                ( oldPanelState, position ) =
+                    getPanelViewState viewState.timeTracker TimeTracker.defaultView
 
-                        _ ->
-                            TimeTracker.defaultView
+                ( newFrame, newPanelState, newCommand ) =
+                    TimeTracker.update subMsg oldPanelState replica environment
 
-                ( newState, newApp, newCommand ) =
-                    TimeTracker.update subMsg subViewState profile environment
+                newViewState =
+                    { viewState | timeTracker = OpenPanel position newPanelState }
             in
-            ( model
-            , []
-              -- TODO  Model (ViewState (TimeTracker newState) 0) newApp environment
+            ( [ newFrame ]
+            , { temp | viewState = newViewState }
             , Cmd.map TimeTrackerMsg newCommand
             )
 
         TimeflowMsg subMsg ->
             let
-                subViewState =
-                    case viewState.primaryView of
-                        Timeflow (Just subView) ->
-                            subView
+                ( panelState, position, initCmdsIfNeeded ) =
+                    case viewState.timeflow of
+                        OpenPanel oldPosition (Just oldState) ->
+                            ( oldState, oldPosition, Cmd.none )
+
+                        ClosedPanel oldPosition (Just oldState) ->
+                            ( oldState, oldPosition, Cmd.none )
 
                         _ ->
-                            Tuple.first (Timeflow.init profile environment)
+                            let
+                                ( freshState, initCmds ) =
+                                    Timeflow.init replica environment
+                            in
+                            ( freshState, FullScreen, initCmds )
 
-                ( newSubViewState, newApp, newCommand ) =
-                    Timeflow.update subMsg subViewState profile environment
+                ( newFrame, newPanelState, newCommand ) =
+                    Timeflow.update subMsg panelState replica environment
 
                 newViewState =
-                    case viewState.primaryView of
-                        Timeflow _ ->
-                            ViewState (Timeflow (Just newSubViewState)) 0
-
-                        _ ->
-                            viewState
+                    { viewState | timeflow = OpenPanel position (Just newPanelState) }
             in
-            ( model, [], Cmd.map TimeflowMsg newCommand )
+            ( [ newFrame ]
+            , { temp | viewState = newViewState }
+            , Cmd.map TimeflowMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
+            )
 
-        _ ->
-            ( model, [], Cmd.none )
 
 
 
@@ -919,8 +776,8 @@ bypassFakeFragment url =
             url
 
 
-viewUrl : Url.Url -> ViewState
-viewUrl url =
+navigate : Url.Url -> ViewState
+navigate url =
     let
         finalUrl =
             bypassFakeFragment url
@@ -931,20 +788,27 @@ viewUrl url =
 routeParser : Parser (ViewState -> a) a
 routeParser =
     let
-        wrapScreen parser =
-            P.map screenToViewState parser
+        openTimeTracker : TimeTracker.ViewState -> ViewState
+        openTimeTracker subView =
+            { emptyViewState | timeTracker = OpenPanel FullScreen subView }
+
+        openTaskList subView =
+            { emptyViewState | taskList = OpenPanel FullScreen subView }
+
+        openTimeflow subView =
+            { emptyViewState | timeflow = OpenPanel FullScreen subView }
     in
     P.oneOf
-        [ wrapScreen (P.map TaskList TaskList.routeView)
-        , wrapScreen (P.map TimeTracker TimeTracker.routeView)
-        , wrapScreen (P.map Timeflow Timeflow.routeView)
+        [ P.map openTaskList TaskList.routeView
+        , P.map openTimeTracker TimeTracker.routeView
+        , P.map openTimeflow Timeflow.routeView
         ]
 
 
-{-| Like an `update` function, but instead of accepting `Msg`s it works on the URL query -- to allow us to send `Msg`s from the address bar! (to the real update function). Thus our web app should be completely scriptable.
+{-| Turns parts of the URL query into `Cmd`s. to allow us to send `Msg`s from the address bar! Thus our web app should be completely scriptable.
 -}
-handleUrlTriggers : Url.Url -> Model -> ( Model, List Change.Frame, Cmd Msg )
-handleUrlTriggers rawUrl ({ profile, environment } as model) =
+handleUrlTriggers : Url.Url -> Profile -> Temp -> Cmd Msg
+handleUrlTriggers rawUrl replica temp =
     let
         url =
             bypassFakeFragment rawUrl
@@ -991,8 +855,8 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers profile environment)
-                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers profile)
+            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers replica temp.environment)
+                ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers replica)
                 ++ [ ( "sync"
                      , Dict.fromList
                         [ ( "todoist", ThirdPartySync Todoist )
@@ -1004,7 +868,7 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
 
         --TODO only remove handled triggers
         removeTriggersFromUrl =
-            case environment.navkey of
+            case temp.environment.navkey of
                 Just navkey ->
                     -- TODO maintain Fake Fragment. currently destroys it
                     Nav.replaceUrl navkey (Url.toString { url | query = Nothing })
@@ -1016,17 +880,7 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
         Just parsedUrlSuccessfully ->
             case ( parsedUrlSuccessfully, normalizedUrl.query ) of
                 ( Just triggerMsg, Just _ ) ->
-                    let
-                        ( newModel, newFrames, newCmd ) =
-                            update triggerMsg model
-
-                        newCmdWithUrlCleaner =
-                            Cmd.batch [ newCmd, removeTriggersFromUrl ]
-                    in
-                    ( newModel
-                    , []
-                    , newCmdWithUrlCleaner
-                    )
+                    Cmd.batch [ Job.perform (\_ -> triggerMsg) (Job.succeed ()), removeTriggersFromUrl ]
 
                 ( Nothing, Just query ) ->
                     let
@@ -1036,10 +890,8 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
                                 ++ " parsers matched key and value: "
                                 ++ query
                     in
-                    ( model
-                    , []
-                      -- TODO { model | profile = saveError profile problemText }
-                    , External.Commands.toast problemText
+                    (-- TODO { model | replica = saveError replica problemText }
+                     External.Commands.toast problemText
                     )
 
                 ( Just triggerMsg, Nothing ) ->
@@ -1047,21 +899,19 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
                         problemText =
                             "Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!"
                     in
-                    ( model
-                    , []
-                      --TODO { model | profile = saveError profile problemText }
-                    , External.Commands.toast problemText
+                    (--TODO { model | replica = saveError replica problemText }
+                     External.Commands.toast problemText
                     )
 
                 ( Nothing, Nothing ) ->
-                    ( model, [], Cmd.none )
+                    Cmd.none
 
         Nothing ->
             -- Failed to parse URL Query - was there one?
             case normalizedUrl.query of
                 Nothing ->
                     -- Perfectly normal - failed to parse triggers because there were none.
-                    ( model, [], Cmd.none )
+                    Cmd.none
 
                 Just queriesPresent ->
                     -- passed a query that we didn't understand! Fail gracefully
@@ -1069,10 +919,8 @@ handleUrlTriggers rawUrl ({ profile, environment } as model) =
                         problemText =
                             "URL: not sure what to do with: " ++ queriesPresent ++ ", so I just left it there. Is the trigger misspelled?"
                     in
-                    ( model
-                    , []
-                      -- TODO { model | profile = saveError profile problemText }
-                    , External.Commands.toast problemText
+                    (-- TODO { model | replica = saveError replica problemText }
+                     External.Commands.toast problemText
                     )
 
 
