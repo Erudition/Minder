@@ -41,7 +41,7 @@ nodeFromCodec profileCodec =
         logOps chunks =
             Op.closedChunksToFrameText chunks
 
-        { newNode, startFrame } =
+        { newNode, startOps } =
             Node.startNewNode Nothing [ Codec.encodeDefaults Node.testNode profileCodec ]
 
         tryDecoding =

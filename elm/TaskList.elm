@@ -871,10 +871,15 @@ update msg state profile env =
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
+
+                        finalChanges =
+                            [ RepList.insert RepList.Last newTaskTitle profile.errors
+                                -- RepDb.addNew newClassInit profile.taskClasses 
+                            ]
                     in
                     ( Normal filters Nothing ""
                       -- ^resets new-entry-textbox to empty, collapses tasks
-                    , Change.saveChanges frameDescription [ RepDb.addNew newClassInit profile.taskClasses ]
+                    , Change.saveChanges frameDescription finalChanges
                     , Cmd.none
                     )
 

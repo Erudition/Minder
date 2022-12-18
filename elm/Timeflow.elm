@@ -25,6 +25,7 @@ import IntDict exposing (IntDict)
 import List.Extra as List
 import Profile exposing (..)
 import Refocus
+import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -987,7 +988,7 @@ type alias Pointer =
     }
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Profile, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( Frame, ViewState, Cmd Msg )
 update msg state profile env =
     case Debug.log "timeflow update" msg of
         ChangeTimeWindow newStart newFinish ->
@@ -998,7 +999,7 @@ update msg state profile env =
                 withNewPeriodToRender =
                     { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
             in
-            ( { state | settings = withNewPeriodToRender }, profile, Cmd.none )
+            ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
 
         WidgetMsg widgetID widgetMsg ->
             case Dict.get widgetID state.widgets of
@@ -1013,8 +1014,8 @@ update msg state profile env =
                         newWidgetDict =
                             Dict.insert widgetID ( newWidgetState, widgetInitCmd ) state.widgets
                     in
-                    ( { state | widgets = newWidgetDict }
-                    , profile
+                    ( Change.none
+                    , { state | widgets = newWidgetDict }
                     , Cmd.map (WidgetMsg widgetID) widgetOutCmds
                     )
 
@@ -1026,21 +1027,21 @@ update msg state profile env =
                 newPointer =
                     { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
             in
-            ( { state | pointer = newPointer }, profile, Cmd.none )
+            ( Change.none, { state | pointer = newPointer }, Cmd.none )
 
         MouseDownAt itemID startPoint ->
             let
                 dragState =
                     DraggingStarted { id = itemID, start = startPoint, current = startPoint }
             in
-            ( { state | dragging = Just dragState }
-            , profile
+            ( Change.none
+            , { state | dragging = Just dragState }
             , Cmd.none
             )
 
         MouseUp ->
-            ( { state | dragging = Nothing }
-            , profile
+            ( Change.none
+            , { state | dragging = Nothing }
             , Cmd.none
             )
 

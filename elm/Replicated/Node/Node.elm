@@ -103,19 +103,13 @@ testNode =
     }
 
 
-throwawayNode : Node
-throwawayNode =
-    { identity = NodeID.throwawayID
-    , peers = []
-    , ops = AnyDict.empty OpID.toSortablePrimitives
-    , root = Nothing
-    , highestSeenClock = 0
-    }
-
-
-startNewNode : Maybe Moment -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
-startNewNode nowMaybe startChanges =
+startNewNode : Maybe Moment -> { newNode : Node, startFrame : List Op.ClosedChunk }
+startNewNode nowMaybe =
     let
+        startChanges = 
+            -- TODO
+            []
+
         firstChangeFrame =
             Change.saveChanges "Node initialized" startChanges
 

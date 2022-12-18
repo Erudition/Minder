@@ -2,28 +2,32 @@ port module Browserless exposing (..)
 
 import Browser
 import Html as PlainHtml
+import Profile exposing (..)
+
+import Replicated.Change as Change exposing (Change, Frame)
 import Html.Styled exposing (node, toUnstyled)
-import Main exposing (StoredRON, Model, Msg)
+import Main exposing (StoredRON, Temp, Msg)
 import Url
 import VirtualDom
 
 
-main : Program ( String, Maybe StoredRON ) Model Msg
+main : Program ( String, Maybe StoredRON ) Temp Msg
 main =
     Browser.element
-        { init = initBrowserless
-        , view = \m -> PlainHtml.div [] (Main.view m).body
-        , update = Main.updateWithTime
-        , subscriptions = Main.subscriptions
-        }
+        (Debug.todo "framework for browser.element")
+        -- { init = initBrowserless
+        -- , view = \m -> PlainHtml.div [] (Main.view m).body
+        -- , update = Main.updateWithTime
+        -- , subscriptions = Main.subscriptions
+        -- }
 
 
-initBrowserless : ( String, Maybe StoredRON ) -> ( Model, Cmd Msg )
-initBrowserless ( urlAsString, maybeJson ) =
-    Main.init maybeJson (urlOrElse urlAsString) Nothing
+initBrowserless : ( String, Profile ) -> ( List Change.Frame, Temp, Cmd Msg )
+initBrowserless ( urlAsString, profile ) =
+    Main.init (urlOrElse urlAsString) Nothing profile
 
 
-browserlessView : Model -> VirtualDom.Node Msg
+browserlessView : Temp -> VirtualDom.Node Msg
 browserlessView _ =
     toUnstyled <|
         node "AbsoluteLayout" [] []

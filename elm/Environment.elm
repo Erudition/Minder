@@ -4,7 +4,7 @@ module Environment exposing (Environment, preInit)
 
 import Browser.Navigation as Nav exposing (..)
 import Dict
-import Replicated.Node.Node as Node exposing (Node, startNewNode)
+import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op exposing (Op)
 import Replicated.Codec
 import SmartTime.Human.Clock

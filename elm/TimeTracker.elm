@@ -231,12 +231,12 @@ type Msg
     | ExportVM
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( Change.Frame, ViewState, Cmd Msg )
 update msg state app env =
     case msg of
         NoOp ->
-            ( state
-            , Change.none
+            ( Change.none
+            , state
             , Cmd.none
             )
 
@@ -245,8 +245,8 @@ update msg state app env =
                 ( changes, cmds ) =
                     Refocus.switchActivity activityId app env
             in
-            ( state
-            , Change.saveChanges "Started tracking" changes
+            ( Change.saveChanges "Started tracking" changes
+            , state
             , Cmd.batch
                 [ cmds
 
@@ -255,8 +255,8 @@ update msg state app env =
             )
 
         ExportVM ->
-            ( state
-            , Change.none
+            ( Change.none
+            , state
             , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app env )
             )
 

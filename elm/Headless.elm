@@ -3,22 +3,26 @@ port module Headless exposing (main)
 import Json.Decode.Exploration exposing (..)
 import Main exposing (..)
 import Platform exposing (worker)
+import Replicated.Change as Change exposing (Change, Frame)
+import Profile exposing (..)
+
 import Url
 
 
-main : Program ( String, Maybe StoredRON ) Model Msg
+main : Program ( String, Maybe StoredRON ) Temp Msg
 main =
     worker
-        { init = initHeadless
-        , update = updateWithTime
-        , subscriptions = headlessSubscriptions
-        }
+        (Debug.todo "framework for worker")
+        -- { init = initHeadless
+        -- , update = updateWithTime
+        -- , subscriptions = headlessSubscriptions
+        -- }
 
 
 
-initHeadless : ( String, Maybe StoredRON ) -> ( Model, Cmd Msg )
-initHeadless ( urlAsString, maybeJson ) =
-    init maybeJson (urlOrElse urlAsString) Nothing
+initHeadless : ( String, Profile ) -> ( List Change.Frame, Temp, Cmd Msg )
+initHeadless ( urlAsString, profile ) =
+    init (urlOrElse urlAsString) Nothing profile
 
 
 urlOrElse : String -> Url.Url
@@ -36,7 +40,7 @@ fallbackUrl =
     { protocol = Url.Http, host = "headless.docket.com", port_ = Nothing, path = "", query = Nothing, fragment = Nothing }
 
 
-headlessSubscriptions : Model -> Sub Msg
+headlessSubscriptions : Temp -> Sub Msg
 headlessSubscriptions (_) =
     Sub.batch
         [ headlessMsg (\s -> NewUrl (urlOrElse s))

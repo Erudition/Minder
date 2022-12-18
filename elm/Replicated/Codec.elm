@@ -265,8 +265,8 @@ version =
 
 {-| Pass in the codec for the root object.
 -}
-decodeFromNode : WrappedOrSkelCodec e s profile -> Node -> Result (Error e) profile
-decodeFromNode profileCodec node =
+decodeFromNode : WrappedOrSkelCodec e s root -> Node -> Result (Error e) root
+decodeFromNode rootCodec node =
     let
         rootEncoded =
             node.root
@@ -274,12 +274,37 @@ decodeFromNode profileCodec node =
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
-    case JD.decodeString (getNodeDecoder profileCodec { node = node, parent = Change.genesisPointer, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
+    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisPointer, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
         Ok value ->
             value
 
         Err jdError ->
             Err (FailedToDecodeRoot <| JD.errorToString jdError)
+
+
+{-| Pass in the codec for the root object.
+-}
+forceDecodeFromNode : SkelCodec e root -> Node -> (root, Maybe (Error e))
+forceDecodeFromNode rootCodec node =
+    let
+        rootEncoded =
+            node.root
+                -- TODO we need to get rid of those quotes, but JD.string expects them for now
+                |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
+                |> Maybe.withDefault "\"[]\""
+
+        fromScratch =
+            new rootCodec (ParentContext Change.genesisPointer)
+    in
+    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisPointer, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
+        Ok ( Ok success) ->
+            (success, Nothing)
+
+        Err jdError ->
+            (fromScratch, Just (FailedToDecodeRoot <| JD.errorToString jdError))
+
+        Ok (Err err) ->
+            (fromScratch, Debug.todo "nested error - come up with nicer presentation")
 
 
 new : Codec e (s -> List Change) repType -> Parent -> repType
