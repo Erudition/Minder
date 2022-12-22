@@ -71,14 +71,13 @@ subscriptions { replica, temp } =
     Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-        --   HumanMoment.everyMinuteOnTheMinute temp.environment.time
-        --     temp.environment.timeZone
-        --     (\_ -> NoOp)
+          --   HumanMoment.everyMinuteOnTheMinute temp.environment.time
+          --     temp.environment.timeZone
+          --     (\_ -> NoOp)
+          -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
+          Browser.Events.onVisibilityChange (\_ -> NoOp)
 
-        -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
-         Browser.Events.onVisibilityChange (\_ -> NoOp)
         -- , storageChangedElsewhere NewAppData
-
         -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
         --, Moment.every (Duration.fromSeconds (1 / 5)) (Tock NoOp)
         ]
@@ -322,17 +321,20 @@ globalLayout viewState replica env innerStuff =
         elmUIOptions =
             { options = [] }
 
-        timetrackerLink =
-            link [ centerX, centerY ] { url = "#/timetracker", label = text "Timetracker" }
+        projectsLink =
+            link [ centerX, centerY ] { url = "#/projects", label = text "Projects" }
 
-        classesLink =
-            link [ centerX, centerY ] { url = "#", label = text "Classes" }
-
-        tasksLink =
-            link [ centerX, centerY ] { url = "#/tasks", label = text "Tasks" }
+        readyLink =
+            link [ centerX, centerY ] { url = "#/ready", label = text "Ready" }
 
         timeflowLink =
             link [ centerX, centerY ] { url = "#/timeflow", label = text "Timeflow" }
+
+        timetrackerLink =
+            link [ centerX, centerY ] { url = "#/timetracker", label = text "Timetracker" }
+
+        dashLink =
+            link [ centerX, centerY ] { url = "#/dash", label = text "Dashboard" }
 
         isPanelOpen panelStatus =
             case panelStatus of
@@ -344,10 +346,11 @@ globalLayout viewState replica env innerStuff =
 
         footerLinks =
             selectedTabs
-                [ ( isPanelOpen viewState.timeTracker, timetrackerLink )
-                , ( False, classesLink )
-                , ( isPanelOpen viewState.taskList, tasksLink )
+                [ ( isPanelOpen viewState.taskList, projectsLink )
+                , ( False, readyLink )
                 , ( isPanelOpen viewState.timeflow, timeflowLink )
+                , ( isPanelOpen viewState.timeTracker, timetrackerLink )
+                , ( False, dashLink )
                 ]
     in
     layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
@@ -533,7 +536,10 @@ type Msg
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
-    -- | MouseMoved Bool Float
+
+
+
+-- | MouseMoved Bool Float
 
 
 type ThirdPartyService
@@ -665,12 +671,13 @@ update msg { temp, replica, now } =
 
         NewUrl url ->
             let
-                ( effectsAfter ) =
+                effectsAfter =
                     handleUrlTriggers url replica temp
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
+                    
             in
-            justRunCommand <| effectsAfter
+            ( [], {temp | viewState = navigate url }, effectsAfter )
 
         TaskListMsg subMsg ->
             case subMsg of
@@ -736,7 +743,6 @@ update msg { temp, replica, now } =
             , { temp | viewState = newViewState }
             , Cmd.map TimeflowMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
             )
-
 
 
 
