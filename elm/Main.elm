@@ -71,12 +71,12 @@ subscriptions { replica, temp } =
     Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          HumanMoment.everyMinuteOnTheMinute temp.environment.time
-            temp.environment.timeZone
-            (\_ -> NoOp)
+        --   HumanMoment.everyMinuteOnTheMinute temp.environment.time
+        --     temp.environment.timeZone
+        --     (\_ -> NoOp)
 
         -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
-        , Browser.Events.onVisibilityChange (\_ -> NoOp)
+         Browser.Events.onVisibilityChange (\_ -> NoOp)
         -- , storageChangedElsewhere NewAppData
 
         -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
@@ -210,7 +210,7 @@ type alias ViewState =
 
 emptyViewState : ViewState
 emptyViewState =
-    { taskList = OpenPanel FullScreen <| TaskList.defaultView
+    { taskList = UnopenedPanel -- OpenPanel FullScreen <| TaskList.defaultView
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
     }

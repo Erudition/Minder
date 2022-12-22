@@ -3,8 +3,6 @@ module HelperTests exposing (suite)
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Helpers
-import List.Extra
-import Main exposing (Screen(..))
 import Test exposing (..)
 
 

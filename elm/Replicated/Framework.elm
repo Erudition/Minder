@@ -284,7 +284,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                 PreInit {restoredNode, warnings, key, url, flags, userInit} ->
                     let
                         startNode =
-                            Maybe.withDefault (Node.startNewNode (Just now)).newNode restoredNode
+                            Maybe.withDefault (Node.startNewNode (Just now) []).newNode restoredNode
 
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =

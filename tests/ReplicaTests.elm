@@ -8,7 +8,6 @@ import Fuzz exposing (Fuzzer, int, list, string)
 import GraphicSVG exposing (GraphicSVG)
 import List.Extra
 import Log
-import Main exposing (Screen(..))
 import Maybe.Extra
 import Replicated.Change as Change exposing (Creator, Parent)
 import Replicated.Codec as Codec exposing (Codec, FlatCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
@@ -41,8 +40,11 @@ nodeFromCodec profileCodec =
         logOps chunks =
             Op.closedChunksToFrameText chunks
 
-        { newNode, startOps } =
-            Node.startNewNode Nothing [ Codec.encodeDefaults Node.testNode profileCodec ]
+        { newNode, startFrame } =
+            Node.startNewNode Nothing [addEncodedDefaults]
+
+        addEncodedDefaults =
+            Codec.encodeDefaults Node.testNode profileCodec
 
         tryDecoding =
             Codec.decodeFromNode profileCodec newNode
