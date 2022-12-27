@@ -128,7 +128,7 @@ fromPrimitives clock reversion nodeName =
     OpID
         (String.fromInt clock
             ++ (if reversion then
-                    "-"
+                    "-" ++ nodeName
 
                 else
                     "+" ++ nodeName

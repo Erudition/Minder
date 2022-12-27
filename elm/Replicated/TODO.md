@@ -1,4 +1,7 @@
 # Now
+- [X] Fix missing nodeID from reference OpID when it's a reversion op
+- [X] Fix reversion Ops not persisting
+- [ ] Determine why newly initialized objects (replist) are not detected until refresh (causing multiple inits while still placeholder in-ram)
 - [X] Fix all RON Parsing errors
 - [X] Create nice RON parser error messages
 - [ ] Track Placeholder<->ObjectID coorespondence when initializing so substitutions can be made

@@ -31,10 +31,7 @@ toString (NodeID nodeIDString) =
 
 fromString : String -> Maybe NodeID
 fromString input =
-    -- case List.map String.toInt (String.split "." input) of
-    --     [ Just first, Just second, Just third, Just fourth ] ->
-    --         Just (NodeID first second third fourth)
-    --
-    --     _ ->
-    --         Nothing
-    Just (NodeID input)
+    if String.length input > 0 then
+        Just (NodeID input)
+    else Nothing
+
