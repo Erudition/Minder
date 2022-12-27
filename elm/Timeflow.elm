@@ -1,4 +1,4 @@
-module Timeflow exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
+module Timeflow exposing (ViewState, init, routeView, subscriptions, update, view, Msg(..))
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Timeline
@@ -171,12 +171,8 @@ routeView =
     P.map Nothing (P.s "timeflow")
 
 
-view : Maybe ViewState -> Profile -> Environment -> SH.Html Msg
-view maybeVState profile env =
-    let
-        vState =
-            Maybe.withDefault (Tuple.first (init profile env)) maybeVState
-    in
+view : ViewState -> Profile -> Environment -> SH.Html Msg
+view vState profile env =
     SH.fromUnstyled <|
         layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
             column [ width fill, height fill ]
@@ -1046,10 +1042,6 @@ update msg state profile env =
             )
 
 
-subscriptions : Profile -> Environment -> Maybe ViewState -> Sub Msg
-subscriptions profile env maybeVState =
-    let
-        vState =
-            Maybe.withDefault (Tuple.first (init profile env)) maybeVState
-    in
+subscriptions : Profile -> Environment -> ViewState -> Sub Msg
+subscriptions profile env vState =
     Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys vState.widgets)

@@ -6,6 +6,7 @@ import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
+import DevTools
 import Dict
 import Element exposing (..)
 import Element.Background as Background
@@ -153,19 +154,18 @@ init url maybeKey replica =
         cmdsFromUrl =
             handleUrlTriggers url replica initialTemp
 
+        ( state, panelOpenCmds ) =
+            navigate url
+
         initialTemp : Temp
         initialTemp =
-            { viewState = navigate url
+            { viewState = state
             , environment = Environment.preInit maybeKey
             }
-
-        paneInits =
-            [ Cmd.map TimeflowMsg <| Tuple.second (Timeflow.init replica initialTemp.environment)
-            ]
     in
     ( []
     , initialTemp
-    , Cmd.batch (cmdsFromUrl :: paneInits)
+    , Cmd.batch [ cmdsFromUrl, panelOpenCmds ]
     )
 
 
@@ -203,7 +203,8 @@ type PanelPosition
 type alias ViewState =
     { taskList : Panel TaskList.ViewState
     , timeTracker : Panel TimeTracker.ViewState
-    , timeflow : Panel (Maybe Timeflow.ViewState)
+    , timeflow : Panel Timeflow.ViewState
+    , devTools : Panel DevTools.ViewState
     }
 
 
@@ -212,6 +213,7 @@ emptyViewState =
     { taskList = UnopenedPanel -- OpenPanel FullScreen <| TaskList.defaultView
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
+    , devTools = UnopenedPanel
     }
 
 
@@ -228,41 +230,56 @@ emptyViewState =
 view : Model -> Browser.Document Msg
 view { replica, temp } =
     let
-        activePage =
-            case ( temp.viewState.taskList, temp.viewState.timeflow, temp.viewState.timeTracker ) of
-                ( OpenPanel _ subState, _, _ ) ->
-                    { title = "Docket - Task List"
-                    , body = H.map TaskListMsg (TaskList.view subState replica temp.environment)
-                    }
+        openPanels =
+            List.filterMap identity
+                [ case temp.viewState.taskList of
+                    OpenPanel position state ->
+                        Just
+                            { title = "Projects"
+                            , body = H.map TaskListMsg (TaskList.view state replica temp.environment)
+                            }
 
-                ( _, OpenPanel _ subState, _ ) ->
-                    { title = "Docket - Timeflow"
-                    , body =
-                        H.map TimeflowMsg (Timeflow.view subState replica temp.environment)
-                    }
+                    _ ->
+                        Nothing
+                , case temp.viewState.timeTracker of
+                    OpenPanel position state ->
+                        Just
+                            { title = "Time Tracker"
+                            , body = H.map TimeTrackerMsg (TimeTracker.view state replica temp.environment)
+                            }
 
-                ( _, _, OpenPanel _ subState ) ->
-                    { title = "Docket Time Tracker"
-                    , body =
-                        H.map TimeTrackerMsg (TimeTracker.view subState replica temp.environment)
-                    }
+                    _ ->
+                        Nothing
+                , case temp.viewState.timeflow of
+                    OpenPanel position state ->
+                        Just
+                            { title = "Timeflow"
+                            , body = H.map TimeflowMsg (Timeflow.view state replica temp.environment)
+                            }
 
-                _ ->
-                    { title = "Multiple Panels Open"
-                    , body =
-                        H.map TimeflowMsg (Timeflow.view Nothing replica temp.environment)
-                    }
+                    _ ->
+                        Nothing
+                , case temp.viewState.devTools of
+                    OpenPanel position state ->
+                        Just
+                            { title = "Dev Tools"
+                            , body = H.map DevToolsMsg (DevTools.view state replica temp.environment)
+                            }
+
+                    _ ->
+                        Nothing
+                ]
+
+        finalTitle =
+            String.join "/" (List.map .title openPanels)
 
         withinPage =
             toUnstyled <|
                 H.node "page"
                     []
-                    [ activePage.body
-
-                    --, errorList replica.errors
-                    ]
+                    (List.map .body openPanels)
     in
-    { title = activePage.title
+    { title = finalTitle
     , body =
         [ globalLayout temp.viewState replica temp.environment withinPage ]
     }
@@ -336,6 +353,9 @@ globalLayout viewState replica env innerStuff =
         dashLink =
             link [ centerX, centerY ] { url = "#/dash", label = text "Dashboard" }
 
+        devToolsLink =
+            link [ centerX, centerY ] { url = "#/devtools", label = text "Dev" }
+
         isPanelOpen panelStatus =
             case panelStatus of
                 OpenPanel _ _ ->
@@ -351,6 +371,7 @@ globalLayout viewState replica env innerStuff =
                 , ( isPanelOpen viewState.timeflow, timeflowLink )
                 , ( isPanelOpen viewState.timeTracker, timetrackerLink )
                 , ( False, dashLink )
+                , ( isPanelOpen viewState.devTools, devToolsLink )
                 ]
     in
     layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
@@ -536,6 +557,7 @@ type Msg
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
+    | DevToolsMsg DevTools.Msg
 
 
 
@@ -674,10 +696,12 @@ update msg { temp, replica, now } =
                 effectsAfter =
                     handleUrlTriggers url replica temp
 
+                ( newViewState, panelOpenCmds ) =
+                    navigate url
+
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
-                    
             in
-            ( [], {temp | viewState = navigate url }, effectsAfter )
+            ( [], { temp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
 
         TaskListMsg subMsg ->
             case subMsg of
@@ -718,12 +742,12 @@ update msg { temp, replica, now } =
 
         TimeflowMsg subMsg ->
             let
-                ( panelState, position, initCmdsIfNeeded ) =
+                ( panelState, position, initCmdIfNeeded ) =
                     case viewState.timeflow of
-                        OpenPanel oldPosition (Just oldState) ->
+                        OpenPanel oldPosition oldState ->
                             ( oldState, oldPosition, Cmd.none )
 
-                        ClosedPanel oldPosition (Just oldState) ->
+                        ClosedPanel oldPosition oldState ->
                             ( oldState, oldPosition, Cmd.none )
 
                         _ ->
@@ -737,11 +761,39 @@ update msg { temp, replica, now } =
                     Timeflow.update subMsg panelState replica environment
 
                 newViewState =
-                    { viewState | timeflow = OpenPanel position (Just newPanelState) }
+                    { viewState | timeflow = OpenPanel position newPanelState }
             in
             ( [ newFrame ]
             , { temp | viewState = newViewState }
-            , Cmd.map TimeflowMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
+            , Cmd.map TimeflowMsg (Cmd.batch [ initCmdIfNeeded, newCommand ])
+            )
+
+        DevToolsMsg subMsg ->
+            let
+                ( panelState, position, initCmdsIfNeeded ) =
+                    case viewState.devTools of
+                        OpenPanel oldPosition oldState ->
+                            ( oldState, oldPosition, Cmd.none )
+
+                        ClosedPanel oldPosition oldState ->
+                            ( oldState, oldPosition, Cmd.none )
+
+                        _ ->
+                            let
+                                ( freshState, initCmds ) =
+                                    DevTools.init replica environment
+                            in
+                            ( freshState, FullScreen, initCmds )
+
+                ( newPanelState, newFrame, newCommand ) =
+                    DevTools.update subMsg panelState replica environment
+
+                newViewState =
+                    { viewState | devTools = OpenPanel position newPanelState }
+            in
+            ( [ newFrame ]
+            , { temp | viewState = newViewState }
+            , Cmd.map DevToolsMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
             )
 
 
@@ -782,13 +834,26 @@ bypassFakeFragment url =
             url
 
 
-navigate : Url.Url -> ViewState
+navigate : Url.Url -> ( ViewState, Cmd Msg )
 navigate url =
     let
         finalUrl =
             bypassFakeFragment url
+
+        finalViewState =
+            Maybe.withDefault emptyViewState (P.parse routeParser finalUrl)
+
+        panelOpenCmds =
+            List.filterMap identity
+                [ case finalViewState.timeflow of
+                    OpenPanel _ _ ->
+                        Just <| Job.perform (\_ -> TimeflowMsg Timeflow.MouseUp) (Job.succeed ())
+
+                    _ ->
+                        Nothing
+                ]
     in
-    Maybe.withDefault emptyViewState (P.parse routeParser finalUrl)
+    ( finalViewState, Cmd.batch panelOpenCmds )
 
 
 routeParser : Parser (ViewState -> a) a
@@ -801,13 +866,22 @@ routeParser =
         openTaskList subView =
             { emptyViewState | taskList = OpenPanel FullScreen subView }
 
-        openTimeflow subView =
-            { emptyViewState | timeflow = OpenPanel FullScreen subView }
+        openTimeflow subViewMaybe =
+            case subViewMaybe of
+                Just subView ->
+                    { emptyViewState | timeflow = OpenPanel FullScreen subView }
+
+                Nothing ->
+                    emptyViewState
+
+        openDevTools subView =
+            { emptyViewState | devTools = OpenPanel FullScreen subView }
     in
     P.oneOf
         [ P.map openTaskList TaskList.routeView
         , P.map openTimeTracker TimeTracker.routeView
         , P.map openTimeflow Timeflow.routeView
+        , P.map openDevTools DevTools.routeView
         ]
 
 

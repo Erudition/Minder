@@ -128,8 +128,25 @@ view state profile env =
                     , Html.Styled.Lazy.lazy4 viewTasks env activeFilter trackedTaskMaybe sortedTasks
                     , lazy2 viewControls filters allFullTaskInstances
                     ]
+                    , tempErrorList profile.errors
                 ]
 
+tempErrorList : RepList String -> Html Msg
+tempErrorList errors =
+    let
+        errorItems =
+            List.map showItem <| RepList.list errors
+
+        showItem {handle, value} =
+            div 
+                [
+                    onClick (SimpleChange (RepList.remove handle errors))
+                ] 
+                [text value] 
+
+    in
+    div [] errorItems 
+        
 
 viewInput : String -> Html Msg
 viewInput newEntryFieldContents =
@@ -836,6 +853,7 @@ type Msg
     | MarvinServerResponse Marvin.Msg
     | StartTracking AssignedActionID ActivityID
     | StopTracking AssignedActionID
+    | SimpleChange Change
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
@@ -1068,6 +1086,9 @@ update msg state profile env =
             -- , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, switchCommands ]
             -- )
             Debug.todo "stop tracking"
+
+        SimpleChange change ->
+            ( state, Change.saveChanges "Simple change" [change], Cmd.none )
 
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )

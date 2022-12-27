@@ -1,14 +1,14 @@
 # Now
+- [ ] Determine why newly initialized objects (replist) are not detected until refresh (causing multiple inits while still placeholder in-ram)
+- [ ] Always auto-detect root object
 - [X] Fix missing nodeID from reference OpID when it's a reversion op
 - [X] Fix reversion Ops not persisting
-- [ ] Determine why newly initialized objects (replist) are not detected until refresh (causing multiple inits while still placeholder in-ram)
 - [X] Fix all RON Parsing errors
 - [X] Create nice RON parser error messages
 - [ ] Track Placeholder<->ObjectID coorespondence when initializing so substitutions can be made
 - [ ] Move Codec.new functionality to individual reptypes - allows blocking naked record pre-changes
 - [ ] Deal with prechanges that affect some other object - maybe a separate field in Chunk {}?
 - [X] Get naked records read-only enforced
-- [ ] Always auto-detect root object
 
 
 # Soon
@@ -21,6 +21,7 @@
 
 
 # Later
+- Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
 - spit out warnings for nested errors
 - tolerate double-quote strings as well
 - if object changes are nested in a parent object change, they cannot be grouped together properly (thus each creating their own object) because it would be difficult and inefficient to recurse the whole nest change list every time we saveChanges (every frame). So we regroup at every level we can, such as in the replist adder. But we could move away from needing to use a function wrapper from the parent frame, and instead just have a change include a list of parent notifiers (as a flat custom type that indicated how to wrap it) and it would be easy to group them by same values in same places in that list.
