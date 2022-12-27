@@ -291,7 +291,7 @@ opIDParser =
         parseVersionSplitter =
             Parser.oneOf
                 [ Parser.map (\_ -> False) (symbol versionPlus)
-                , Parser.map (\_ -> False) (symbol versionMinus)
+                , Parser.map (\_ -> True) (symbol versionMinus)
                 ]
     in
     inContext ParsingOpID <|
