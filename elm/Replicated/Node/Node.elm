@@ -106,7 +106,7 @@ testNode =
 startNewNode : Maybe Moment -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
 startNewNode nowMaybe givenStartChanges =
     let
-        startChanges = 
+        startChanges =
             []
 
         firstChangeFrame =
@@ -332,7 +332,15 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
             List.concat finishedOpChunks
 
         updatedNode =
-            updateWithClosedOps node finishedOps
+            let
+                opsAdded =
+                    updateWithClosedOps node finishedOps
+            in
+            if node.root == Nothing then
+                { opsAdded | root = List.last newObjectsCreated }
+
+            else
+                opsAdded
 
         newObjectsCreated =
             creationOpsToObjectIDs finishedOps
@@ -379,14 +387,13 @@ type alias ObjectMapping =
 oneChangeToOpChunks : Node -> ObjectMapping -> InCounter -> Change -> ( OutCounter, List Op.ClosedChunk )
 oneChangeToOpChunks node inMapping inCounter change =
     case change of
-        Change.Chunk (chunkDetails) ->
+        Change.Chunk chunkDetails ->
             let
                 -- TODO let outputMapping escape to caller for deeply nested mappings
                 ( ( outCounter, ( outputMapping, createdObjectMaybe ) ), generatedChunks ) =
                     chunkToOps node
                         ( inCounter, ( inMapping, Nothing ) )
                         chunkDetails
-
 
                 logOps =
                     List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
@@ -427,7 +434,6 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
                     -- we initialized an object, add it to the mapping!
                     Dict.insert ( reducerID, Change.pendingIDToString pendingID ) objectID postPrereqMapping1
 
-
         stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
         stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
             let
@@ -444,7 +450,6 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
 
         logOps prefix ops =
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
-
 
         ( counterAfterExternalChanges4, generatedExternalChunksList ) =
             if List.isEmpty externalUpdates then
@@ -470,7 +475,8 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
 
         allOpsInDependencyOrder =
             Log.logMessageOnly prereqLogMsg allPrereqChunks
-                ++ thisObjectChunk ++  externalChunks
+                ++ thisObjectChunk
+                ++ externalChunks
     in
     ( ( counterAfterExternalChanges4, ( postInitMapping2, Just objectID ) )
     , allOpsInDependencyOrder
