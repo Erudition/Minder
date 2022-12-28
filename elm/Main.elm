@@ -781,7 +781,7 @@ update msg { temp, replica, now } =
                         _ ->
                             let
                                 ( freshState, initCmds ) =
-                                    DevTools.init replica environment
+                                    DevTools.init replica environment "not wired yet"
                             in
                             ( freshState, FullScreen, initCmds )
 

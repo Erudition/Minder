@@ -128,25 +128,8 @@ view state profile env =
                     , Html.Styled.Lazy.lazy4 viewTasks env activeFilter trackedTaskMaybe sortedTasks
                     , lazy2 viewControls filters allFullTaskInstances
                     ]
-                    , tempErrorList profile.errors
                 ]
 
-tempErrorList : RepList String -> Html Msg
-tempErrorList errors =
-    let
-        errorItems =
-            List.map showItem <| RepList.list errors
-
-        showItem {handle, value} =
-            div 
-                [
-                    onClick (SimpleChange (RepList.remove handle errors))
-                ] 
-                [text value] 
-
-    in
-    div [] errorItems 
-        
 
 viewInput : String -> Html Msg
 viewInput newEntryFieldContents =
@@ -882,9 +865,9 @@ update msg state profile env =
                         -- add new entry and instance to profile
                         newClassChanger : Reg Class.ActionClassSkel -> List Change
                         newClassChanger newClass =
-                            [ RepList.insertNew RepList.Last newEntryInit profile.taskEntries
-                            , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
-                            , RepList.insert RepList.Last "trackme" profile.errors
+                            [
+                            -- , RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
+                            RepList.insert RepList.Last ("would have added class " ++ (Debug.toString (Reg.getPointer newClass))) profile.errors
                             ]
 
                         frameDescription =
@@ -892,7 +875,8 @@ update msg state profile env =
 
                         finalChanges =
                             [ RepList.insert RepList.Last newTaskTitle profile.errors
-                                -- RepDb.addNew newClassInit profile.taskClasses 
+                            , RepList.insertNew RepList.Last newEntryInit profile.taskEntries
+                            , RepDb.addNew newClassInit profile.taskClasses
                             ]
                     in
                     ( Normal filters Nothing ""
@@ -1088,7 +1072,7 @@ update msg state profile env =
             Debug.todo "stop tracking"
 
         SimpleChange change ->
-            ( state, Change.saveChanges "Simple change" [change], Cmd.none )
+            ( state, Change.saveChanges "Simple change" [ change ], Cmd.none )
 
 
 urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
