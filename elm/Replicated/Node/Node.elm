@@ -451,13 +451,17 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
         logOps prefix ops =
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
 
+        normalizedExternalUpdates =
+            -- TODO is there a better place to do this? Need to find objects needing init within externalChanges
+            Change.normalizeChanges externalUpdates
+
         ( counterAfterExternalChanges4, generatedExternalChunksList ) =
             if List.isEmpty externalUpdates then
                 -- TODO any good reason to capture the mapping output? (postExternalMapping3)
-                Debug.log "no external changes" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 externalUpdates
+                Debug.log "no external changes" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 normalizedExternalUpdates
 
             else
-                Debug.log "yes external changes!" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 externalUpdates
+                Debug.log "yes external changes!" <| List.mapAccuml (oneChangeToOpChunks node postInitMapping2) counterAfterObjectChanges3 normalizedExternalUpdates
 
         externalChunks =
             List.concat generatedExternalChunksList

@@ -235,15 +235,6 @@ type alias SmartJsonFieldEncoder full =
 
 
 {-| Possible errors that can occur when decoding.
-
-  - `CustomError` - An error caused by `andThen` returning an Err value.
-  - `DataCorrupted` - This most likely will occur if you make breaking changes to your codec and try to decode old data\*. Have a look at `How do I change my codecs and still be able to decode old data?` in the readme for how to avoid introducing breaking changes.
-  - `SerializerOutOfDate` - When encoding, this package will include a version number. This makes it possible for me to make improvements to how data gets encoded without introducing breaking changes to your codecs. This error then, says that you're trying to decode data encoded with a newer version of elm-serialize.
-
-\*It's possible for corrupted data to still succeed in decoding (but with nonsense Elm values).
-This is because internally we're just encoding Elm values and not storing any kind of structural information.
-So if you encoded an Int and then a Float, and then tried decoding it as a Float and then an Int, there's no way for the decoder to know it read the data in the wrong order.
-
 -}
 type Error e
     = CustomError e
@@ -284,7 +275,7 @@ decodeFromNode rootCodec node =
 
 {-| Pass in the codec for the root object.
 -}
-forceDecodeFromNode : SkelCodec e root -> Node -> (root, Maybe (Error e))
+forceDecodeFromNode : SkelCodec e root -> Node -> ( root, Maybe (Error e) )
 forceDecodeFromNode rootCodec node =
     let
         rootEncoded =
@@ -297,14 +288,14 @@ forceDecodeFromNode rootCodec node =
             new rootCodec (ParentContext Change.genesisPointer)
     in
     case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisPointer, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
-        Ok ( Ok success) ->
-            (success, Nothing)
+        Ok (Ok success) ->
+            ( success, Nothing )
 
         Err jdError ->
-            (fromScratch, Just (FailedToDecodeRoot <| JD.errorToString jdError))
+            ( fromScratch, Just (FailedToDecodeRoot <| JD.errorToString jdError) )
 
         Ok (Err err) ->
-            (fromScratch, Debug.todo "nested error - come up with nicer presentation")
+            ( fromScratch, Debug.todo "nested error - come up with nicer presentation" )
 
 
 new : Codec e (s -> List Change) repType -> Parent -> repType
@@ -314,7 +305,7 @@ new (Codec codecDetails) (ParentContext parentPointer) =
 
 newWithChanges : WrappedCodec e repType -> Parent -> Changer repType -> repType
 newWithChanges (Codec codecDetails) (ParentContext parentPointer) changer =
--- TODO change argument order
+    -- TODO change argument order
     codecDetails.init { parent = parentPointer, position = Nonempty.singleton "newWithChanges", seed = changer }
 
 
@@ -2974,9 +2965,12 @@ extractInitChanges givenPointer initChanges =
                     else
                         -- collect external changes that need to go elsewhere
                         ( sameObjectChanges, externalChanges ++ [ givenChange ] )
-    in
-    List.foldl extractObjectChange ( [], [] ) initChanges
 
+        (allLocal, allExternal) =    
+            List.foldl extractObjectChange ( [], [] ) initChanges
+
+    in
+    (allLocal, allExternal)
 
 {-| Encodes an register as a list of Changes (which generate Ops):
 -- The Op encoding the register comes last in the list, as the preceding Ops create registers that it depends on.
@@ -3153,7 +3147,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
         runFieldNodeEncoder valueToEncode =
             let
                 parent =
-                    -- TODO obsoleted? parent already has notifier?
+                    -- Unneeded, parent already has notifier
                     Change.updateChildChangeWrapper parentPointer finishChildWrapper
 
                 finishChildWrapper changeToWrap =
@@ -3180,7 +3174,11 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                 run =
                     JD.decodeValue
                         (getNodeDecoder fieldCodec
-                            { node = node, position = Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), parent = Change.updateChildChangeWrapper parentPointer (updateRegisterPostChildInit parentPointer ( fieldSlot, fieldName )), cutoff = Nothing }
+                            { node = node
+                            , position = Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+                            , parent = Change.updateChildChangeWrapper parentPointer (updateRegisterPostChildInit parentPointer ( fieldSlot, fieldName ))
+                            , cutoff = Nothing
+                            }
                         )
                         (Op.payloadToJsonValue payload)
             in
@@ -3192,12 +3190,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     Nothing
 
         isExistingSameAsDefault =
-            -- case (fieldFallback, existingValMaybe) of
-            --     (HardcodedSeed _, _) ->
-            --         -- TODO we need to make sure blank objects stay unencoded
-            --         True
-            --     _ ->
-            existingValMaybe == fieldDefaultMaybe fieldFallback
+            case ( fieldFallback, existingValMaybe, getPayloadIfSet ) of
+                -- (HardcodedSeed _, _, Nothing) ->
+                -- The goal here is to target Unset rep-objects only. They will not be == to defaults as they contain functions and are not comparable. (Must also be unseeded/preseeded rep-objects, as seeded inits must be committed immediately)
+                -- True -- TODO too aggressive, skips some necessary stuff
+                -- TODO what if unseeded reg contains a seeded reg?
+                _ ->
+                    -- everything else should be comparable to the default
+                    existingValMaybe == fieldDefaultMaybe fieldFallback
 
         explicitDefaultIfNeeded val =
             case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects, isExistingSameAsDefault ) of

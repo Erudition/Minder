@@ -8,5 +8,5 @@
 
 
 # Timeflow
-- Take widget out of dictionary, we'll probably only need a preknown amount
+- Take widget out of dictionary, we'll probably only need a pre-known amount
 - Responsive screen sizing

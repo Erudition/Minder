@@ -19,7 +19,7 @@ import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-{-| A replicated list.
+{-| A replicated database.
 -}
 type RepDb memberType
     = RepDb
