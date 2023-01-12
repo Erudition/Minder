@@ -5,8 +5,9 @@ import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Op.Op as Op
+import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
+import Dict.Any exposing (AnyDict)
 
 
 {-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
@@ -15,11 +16,31 @@ Outputs a Chunk - Chunks are same-object changes within a Frame.
 
 -}
 type Change
-    = Chunk
+    = ChangeSet
         { target : Pointer
         , objectChanges : List ObjectChange
-        , externalUpdates : List Change
+        , externalUpdates : List Change -- gets put into 
         }
+
+
+type MaybeSkippableChange =
+    Skippable PotentialPayload
+    | Necessary PotentialPayload
+
+-- type alias ChangeSet =
+--     { existingObjectChanges : AnyDict OpID.ObjectIDString ObjectID (List ObjectChange)
+--     , objectsToCreate : AnyDict PendingIDString PendingID CreationInstructions
+--     , opsToRepeat : OpDb
+--     }
+
+
+-- type alias CreationInstructions =
+--         { changes: List ObjectChange
+--         , afterCreation : Change
+--         }
+
+type alias OpDb =
+    AnyDict OpID.OpIDSortable OpID Op
 
 
 type alias Changer o =
@@ -33,7 +54,7 @@ type alias Creator a =
 {-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
 -}
 type alias PotentialPayload =
-    List Atom
+    List ChangeAtom
 
 
 type ObjectChange
@@ -42,12 +63,18 @@ type ObjectChange
     | RevertOp OpID
 
 
-type Atom
+
+type alias PendingID =
+    { reducer : Op.ReducerID
+    , location : PendingObjectLocation
+    }
+
+type ChangeAtom
     = JsonValueAtom JE.Value
     | RonAtom Op.OpPayloadAtom
     | QuoteNestedObject Change
     | NestedAtoms PotentialPayload
-    | ReferenceObjectAtom Op.ReducerID PendingID
+    | PendingObjectReferenceAtom PendingID
 
 
 compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
@@ -59,7 +86,7 @@ compareToRonPayload changePayload ronPayload =
         ( [ RonAtom ronAtom1 ], [ ronAtom2 ] ) ->
             ronAtom1 == ronAtom2
 
-        ( [ QuoteNestedObject (Chunk { target, objectChanges }) ], [ ronAtom ] ) ->
+        ( [ QuoteNestedObject (ChangeSet { target, objectChanges }) ], [ ronAtom ] ) ->
             case ( target, objectChanges ) of
                 ( ExistingObjectPointer objectID _, [] ) ->
                     -- see if it's just a ref to the same object. TODO: necessary?
@@ -89,7 +116,7 @@ combineChangesOfSameTarget changeList =
     List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
 
 
-sameTarget (Chunk a) (Chunk b) =
+sameTarget (ChangeSet a) (ChangeSet b) =
     equalPointers a.target b.target
 
 
@@ -106,8 +133,8 @@ groupCombiner ( firstChange, moreChanges ) =
 
 {-| Combine chunks known to be changing the same object.
 -}
-mergeSameTargetChanges (Chunk change1Details) (Chunk change2Details) =
-    Chunk
+mergeSameTargetChanges (ChangeSet change1Details) (ChangeSet change2Details) =
+    ChangeSet
         { target = change1Details.target
         , objectChanges = change2Details.objectChanges ++ change1Details.objectChanges -- reverses subchanges again.
         , externalUpdates = change2Details.externalUpdates ++ change1Details.externalUpdates
@@ -160,28 +187,28 @@ normalizeChanges changesToNormalize =
 
 
 wrapInParentNotifier : Change -> Change
-wrapInParentNotifier ((Chunk chunkDetails) as originalChange) =
+wrapInParentNotifier ((ChangeSet chunkDetails) as originalChange) =
     case chunkDetails.target of
-        ExistingObjectPointer objectID parentNotifier ->
+        ExistingObjectPointer objectID installer ->
             let
                 changeWithoutNotifier =
                     -- to make sure we never wrap twice for some reason
-                    Chunk {chunkDetails | target = ExistingObjectPointer objectID identity }
+                    ChangeSet {chunkDetails | target = ExistingObjectPointer objectID identity }
                 
                 wrappedChange =
-                    (parentNotifier changeWithoutNotifier)
+                    (installer changeWithoutNotifier)
                 
             in
             wrappedChange
 
-        PlaceholderPointer reducerID pendingID parentNotifier ->
+        PlaceholderPointer pendingID installer ->
             let
                 changeWithoutNotifier =
                     -- to make sure we never wrap twice for some reason
-                    Chunk {chunkDetails | target = PlaceholderPointer reducerID pendingID identity }
+                    ChangeSet {chunkDetails | target = PlaceholderPointer pendingID identity }
                 
                 wrappedChange =
-                    (parentNotifier changeWithoutNotifier)
+                    (installer changeWithoutNotifier)
                 
             in
             wrappedChange
@@ -191,8 +218,8 @@ wrapInParentNotifier ((Chunk chunkDetails) as originalChange) =
 
 
 type Pointer
-    = ExistingObjectPointer ObjectID ParentNotifier
-    | PlaceholderPointer Op.ReducerID PendingID ParentNotifier
+    = ExistingObjectPointer ObjectID Installer
+    | PlaceholderPointer PendingID Installer
 
 
 equalPointers pointer1 pointer2 =
@@ -200,8 +227,8 @@ equalPointers pointer1 pointer2 =
         ( ExistingObjectPointer objectID1 _, ExistingObjectPointer objectID2 _ ) ->
             objectID1 == objectID2
 
-        ( PlaceholderPointer reducerID1 pendingID1 _, PlaceholderPointer reducerID2 pendingID2 _ ) ->
-            reducerID1 == reducerID2 && pendingIDMatch pendingID1 pendingID2
+        ( PlaceholderPointer pendingID1 _, PlaceholderPointer pendingID2 _ ) ->
+            pendingID1.reducer == pendingID2.reducer && pendingLocationMatch pendingID1.location pendingID2.location
 
         _ ->
             False
@@ -209,7 +236,7 @@ equalPointers pointer1 pointer2 =
 
 isPlaceholder pointer =
     case pointer of
-        PlaceholderPointer _ _ _ ->
+        PlaceholderPointer _ _ ->
             True
 
         _ ->
@@ -218,14 +245,14 @@ isPlaceholder pointer =
 
 getPointerObjectID pointer =
     case pointer of
-        PlaceholderPointer _ _ _ ->
+        PlaceholderPointer _ _ ->
             Nothing
 
         ExistingObjectPointer objectID _ ->
             Just objectID
 
 
-type alias ParentNotifier =
+type alias Installer =
     Change -> Change
 
 
@@ -234,13 +261,16 @@ type PendingCounter
     | PendingWildcard
 
 
-type PendingID
+type PendingObjectLocation
     = ParentExists ObjectID (Nonempty SiblingIndex)
     | ParentPending Op.ReducerID (Nonempty SiblingIndex)
     | ParentIsRoot
 
-pendingIDToString : PendingID -> String
-pendingIDToString pendingID =
+
+type alias PendingIDString = String
+
+pendingObjectLocationToString : PendingObjectLocation -> PendingIDString
+pendingObjectLocationToString pendingID =
     case pendingID of
         ParentExists objectID _ ->
             OpID.toString objectID
@@ -257,41 +287,43 @@ type alias SiblingIndex =
     String
 
 
-pendingIDMatch : PendingID -> PendingID -> Bool
-pendingIDMatch pendingID1 pendingID2 =
+pendingLocationMatch : PendingObjectLocation -> PendingObjectLocation -> Bool
+pendingLocationMatch pendingID1 pendingID2 =
     pendingID1 == pendingID2
 
 
 newPointer : { parent : Pointer, position : Nonempty SiblingIndex, reducerID : Op.ReducerID } -> Pointer
 newPointer { parent, position, reducerID } =
     case parent of
-        ExistingObjectPointer objectID parentNotifier ->
-            PlaceholderPointer reducerID (ParentExists objectID position) parentNotifier
+        ExistingObjectPointer objectID installer ->
+            PlaceholderPointer (PendingID reducerID (ParentExists objectID position)) installer
 
-        PlaceholderPointer parentReducerID (ParentExists parentObjectID parentPosition) parentNotifier ->
-            PlaceholderPointer reducerID (ParentPending parentReducerID (Nonempty.append position parentPosition)) parentNotifier
+        PlaceholderPointer pendingID installer ->
+            case pendingID.location of
+                (ParentExists parentObjectID parentPosition) ->
+                    PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer (Nonempty.append position parentPosition))) installer
 
-        PlaceholderPointer parentReducerID (ParentPending grandparentReducerID parentPosition) parentNotifier ->
-            PlaceholderPointer reducerID (ParentPending parentReducerID (Nonempty.append position parentPosition)) parentNotifier
+                (ParentPending grandparentReducerID parentPosition) ->
+                    PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer (Nonempty.append position parentPosition))) installer
 
-        PlaceholderPointer parentReducerID (ParentIsRoot) parentNotifier ->
-            PlaceholderPointer reducerID (ParentPending parentReducerID position) (parentNotifier)
+                ParentIsRoot ->
+                    PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer position)) (installer)
 
 
 genesisPointer : Pointer
 genesisPointer =
-    PlaceholderPointer "genesis" (ParentIsRoot) identity
+    PlaceholderPointer (PendingID "genesis" (ParentIsRoot)) identity
 
 
-updateChildChangeWrapper : Pointer -> ParentNotifier -> Pointer
+updateChildChangeWrapper : Pointer -> Installer -> Pointer
 updateChildChangeWrapper pointer newWrapper =
     case pointer of
-        ExistingObjectPointer objectID parentNotifier ->
-            ExistingObjectPointer objectID (\change -> parentNotifier ( newWrapper change) )
+        ExistingObjectPointer objectID installer ->
+            ExistingObjectPointer objectID (\change -> installer ( newWrapper change) )
 
-        PlaceholderPointer reducerID pos parentNotifier ->
+        PlaceholderPointer pendingID installer ->
             -- oops, careful, this was backwards before, the new wrapper needs to be inserted before the outer parent wrapper
-            PlaceholderPointer reducerID pos (\change -> parentNotifier ( newWrapper change) )
+            PlaceholderPointer pendingID (\change -> installer ( newWrapper change) )
 
 
 type Parent

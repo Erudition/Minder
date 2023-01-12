@@ -89,7 +89,7 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
                     Nothing
 
         remover containerObjectID inclusionEventID =
-            Change.Chunk
+            Change.ChangeSet
                 { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 , externalUpdates = []
@@ -123,7 +123,7 @@ insert newKey newValue (RepDict record) =
         newItemToObjectChange =
             record.memberAdder "singleInsert" (Present newKey newValue)
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = record.pointer
         , objectChanges = [ newItemToObjectChange ]
         , externalUpdates = []
@@ -139,7 +139,7 @@ bulkInsert newItems (RepDict record) =
         newItemToObjectChange index ( newKey, newValue ) =
             record.memberAdder ("bulkInsert#" ++ String.fromInt index) (Present newKey newValue)
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = record.pointer
         , objectChanges = List.indexedMap newItemToObjectChange newItems
         , externalUpdates = []
@@ -158,7 +158,7 @@ insertNew key newValueFromContext (RepDict repDictRecord) =
         newValue =
             newValueFromContext (Change.ParentContext repDictRecord.pointer)
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = repDictRecord.pointer
         , objectChanges =
             [ repDictRecord.memberAdder "insertNew" (Present key newValue) ]
@@ -225,7 +225,7 @@ update key updater ((RepDict record) as repDict) =
         newMemberAsObjectChange =
             record.memberAdder "update" updatedEntry
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = record.pointer
         , objectChanges = [ newMemberAsObjectChange ]
         , externalUpdates = []

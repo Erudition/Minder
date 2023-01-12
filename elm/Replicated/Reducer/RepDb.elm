@@ -86,7 +86,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
                     Nothing
 
         remover containerObjectID inclusionEventID =
-            Change.Chunk
+            Change.ChangeSet
                 { target = Change.ExistingObjectPointer containerObjectID identity
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 , externalUpdates = []
@@ -152,7 +152,7 @@ addNew newMemberCreator (RepDb record) =
         newMember =
             newMemberCreator (ParentContext record.pointer)
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = record.pointer
         , objectChanges = [ record.memberAdder newMember ]
         , externalUpdates = []
@@ -165,7 +165,7 @@ addMultipleNew newMembersCreator (RepDb record) =
         newMembers =
             newMembersCreator (ParentContext record.pointer)
     in
-    Change.Chunk
+    Change.ChangeSet
         { target = record.pointer
         , objectChanges = List.map record.memberAdder newMembers
         , externalUpdates = []

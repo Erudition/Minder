@@ -69,7 +69,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Atom(..), Change(..), Changer, ObjectChange, Parent(..), Pointer(..), changeToChangePayload, genesisPointer)
+import Replicated.Change as Change exposing (ChangeAtom(..), Change(..), Changer, ObjectChange, Parent(..), Pointer(..), changeToChangePayload, genesisPointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -588,7 +588,7 @@ encodeDefaults node rootCodec =
                 }
 
         bogusChange =
-            Change.Chunk { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
+            Change.ChangeSet { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
     in
     case ronPayload of
         [ Change.QuoteNestedObject change ] ->
@@ -700,8 +700,8 @@ id =
                 ExistingObjectPointer objectID _ ->
                     Change.RonAtom <| Op.IDPointerAtom objectID
 
-                PlaceholderPointer reducerID pendingID _ ->
-                    Change.ReferenceObjectAtom reducerID pendingID
+                PlaceholderPointer pendingID _ ->
+                    Change.PendingObjectReferenceAtom pendingID
 
         toString givenID =
             OpID.toString (toObjectID givenID)
@@ -980,7 +980,7 @@ repList memberCodec =
                             extractInitChanges (RepList.getPointer existingRepList) (RepList.getInit existingRepList)
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = RepList.getPointer existingRepList
                             , objectChanges = allObjectChanges
                             , externalUpdates = externalChanges
@@ -992,7 +992,7 @@ repList memberCodec =
                             Change.newPointer { parent = parent, position = position, reducerID = RepList.reducerID }
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = repListPointer
                             , objectChanges = []
                             , externalUpdates = []
@@ -1157,7 +1157,7 @@ repDb memberCodec =
                             extractInitChanges (RepDb.getPointer existingRepDb) (RepDb.getInit existingRepDb)
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = RepDb.getPointer existingRepDb
                             , objectChanges = allObjectChanges
                             , externalUpdates = externalChanges
@@ -1169,7 +1169,7 @@ repDb memberCodec =
                             Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID }
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = placeholderPointer
                             , objectChanges = []
                             , externalUpdates = []
@@ -1310,7 +1310,7 @@ repDict keyCodec valueCodec =
                             extractInitChanges (RepDict.getPointer existingRepDict) (RepDict.getInit existingRepDict)
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = RepDict.getPointer existingRepDict
                             , objectChanges = allObjectChanges
                             , externalUpdates = externalChanges
@@ -1318,7 +1318,7 @@ repDict keyCodec valueCodec =
 
                 _ ->
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                             , objectChanges = []
                             , externalUpdates = []
@@ -1456,7 +1456,7 @@ repStore keyCodec valueCodec =
                     Change.updateChildChangeWrapper parent (wrapNewChildValue key)
 
                 wrapNewChildValue key changeToWrap =
-                    Change.Chunk
+                    Change.ChangeSet
                         { target = parent
                         , objectChanges =
                             [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent "value" key changeToWrap) ]
@@ -1474,7 +1474,7 @@ repStore keyCodec valueCodec =
                             extractInitChanges (RepStore.getPointer existingRepStore) (RepStore.getInit existingRepStore)
                     in
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = RepStore.getPointer existingRepStore
                             , objectChanges = allObjectChanges
                             , externalUpdates = externalChanges
@@ -1482,7 +1482,7 @@ repStore keyCodec valueCodec =
 
                 _ ->
                     changeToChangePayload <|
-                        Chunk
+                        ChangeSet
                             { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                             , objectChanges = []
                             , externalUpdates = []
@@ -2293,8 +2293,8 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
 -}
 updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change -> Change
-updateRegisterPostChildInit parentPointer fieldIdentifier ((Chunk deets) as changeToWrap) =
-    Change.Chunk
+updateRegisterPostChildInit parentPointer fieldIdentifier ((ChangeSet deets) as changeToWrap) =
+    Change.ChangeSet
         { target = parentPointer
         , objectChanges =
             [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
@@ -2308,9 +2308,9 @@ registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback 
 registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
     let
         regPointer =
-            Change.updateChildChangeWrapper inputs.pointer parentNotifier
+            Change.updateChildChangeWrapper inputs.pointer installer
 
-        parentNotifier =
+        installer =
             updateRegisterPostChildInit inputs.pointer fieldIdentifier
 
         position =
@@ -2880,7 +2880,7 @@ extractFieldEventFromObjectPayload payload =
             Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> List Change.Atom -> List Change.Atom
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> List Change.ChangeAtom -> List Change.ChangeAtom
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     [ Change.RonAtom (Op.IntegerAtom fieldSlot)
     , Change.RonAtom (Op.NakedStringAtom fieldName)
@@ -2919,14 +2919,14 @@ getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
 
 
-buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.ChangeAtom) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
 
         setter setValue =
-            Change.Chunk
+            Change.ChangeSet
                 { target = targetObject
                 , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
                 , externalUpdates = []
@@ -2937,14 +2937,14 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     }
 
 
-buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.Atom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.ChangeAtom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
     let
         nestedChange newValue =
             encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
     in
     { get = latestValue
-    , set = \newValue -> Change.Chunk { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
+    , set = \newValue -> Change.ChangeSet { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
     , history = rest
     }
 
@@ -2957,7 +2957,7 @@ extractInitChanges givenPointer initChanges =
         extractObjectChange : Change -> ( List ObjectChange, List Change ) -> ( List ObjectChange, List Change )
         extractObjectChange givenChange ( sameObjectChanges, externalChanges ) =
             case givenChange of
-                Chunk { target, objectChanges } ->
+                ChangeSet { target, objectChanges } ->
                     if Change.equalPointers target givenPointer then
                         -- collect ObjectChanges that belong to this object
                         ( sameObjectChanges ++ objectChanges, externalChanges )
@@ -3012,7 +3012,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
 
         updateMePostChildInit fieldChangedPayload =
-            Change.Chunk
+            Change.ChangeSet
                 { target = registerPointer
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
                 , externalUpdates = []
@@ -3051,7 +3051,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
     in
     List.singleton
         (Change.QuoteNestedObject
-            (Chunk
+            (ChangeSet
                 { target = registerPointer
                 , objectChanges = subChanges ++ extractedInitChanges
                 , externalUpdates = externalInitChanges
@@ -3080,7 +3080,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
                     ( Nothing, fallbackObject [] )
 
         updateMePostChildInit fieldChangedPayload =
-            Change.Chunk
+            Change.ChangeSet
                 { target = Object.getPointer object
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
                 , externalUpdates = []
@@ -3116,7 +3116,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
     in
     List.singleton
         (Change.QuoteNestedObject
-            (Chunk
+            (ChangeSet
                 { target = Object.getPointer object
                 , objectChanges = subChanges
                 , externalUpdates = []
@@ -3616,14 +3616,14 @@ type VariantEncoder
     = VariantEncoder
         { bytes : BE.Encoder
         , json : JE.Value
-        , node : NodeEncoderInputsNoVariable -> List Change.Atom
+        , node : NodeEncoderInputsNoVariable -> List Change.ChangeAtom
         }
 
 
 {-| Normal Node encoders spit out NodeENcoderOutput, but since we need to iteratively build up a variant encoder from scratch, we modify encoders to just produce a list which can be empty. The "from scratch" actually starts with []
 -}
 type alias VariantNodeEncoder =
-    NodeEncoderInputsNoVariable -> List Change.Atom
+    NodeEncoderInputsNoVariable -> List Change.ChangeAtom
 
 
 variantBuilder :

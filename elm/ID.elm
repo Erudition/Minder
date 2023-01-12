@@ -104,7 +104,7 @@ toString (ID pointer) =
         Change.ExistingObjectPointer objectID _ ->
             OpID.toString objectID
 
-        Change.PlaceholderPointer _ _ _ ->
+        Change.PlaceholderPointer _ _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" "Placeholder Pointer: Object Not Yet Initialized"
 
 toInt : ID userType -> Int
@@ -113,5 +113,5 @@ toInt (ID pointer) =
         Change.ExistingObjectPointer objectID _ ->
             OpID.toInt objectID
 
-        Change.PlaceholderPointer _ _ _ ->
+        Change.PlaceholderPointer _ _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" 42
