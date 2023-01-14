@@ -2,7 +2,7 @@ port module Main exposing (Msg(..), StoredRON, Temp, ViewState, emptyViewState, 
 
 import Activity.Activity as Activity
 import Activity.Switch as Switch exposing (Switch(..))
-import Activity.Timeline as Timeline exposing (Timeline)
+import Activity.Timeline as Timeline
 import Browser
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
@@ -17,32 +17,28 @@ import Environment exposing (..)
 import External.Commands exposing (..)
 import Html as PlainHtml
 import Html.Attributes as HA
-import Html.Styled as H exposing (Html, a, div, li, ol, p, toUnstyled)
-import Html.Styled.Attributes as Attr exposing (class, href)
+import Html.Styled as H exposing (Html, li, toUnstyled)
+import Html.Styled.Attributes exposing (class, href)
 import Html.Styled.Events as HtmlEvents
 import Incubator.Todoist as Todoist
-import IntDict
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Json.Decode as ClassicDecode
-import Json.Decode.Exploration as Decode exposing (..)
-import Json.Encode as Encode
-import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Log
+import Json.Decode.Exploration exposing (..)
+import List.Nonempty exposing (Nonempty(..))
 import NativeScript.Commands exposing (..)
-import NativeScript.Notification as Notif exposing (Notification)
-import Parser
+import NativeScript.Notification as Notif
 import Profile exposing (..)
-import Replicated.Change as Change exposing (Change, Frame)
-import Replicated.Codec as Codec exposing (Codec, decodeFromNode)
+import Replicated.Change as Change exposing (Frame)
+import Replicated.Codec
 import Replicated.Framework as Framework
-import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Node.Node
+import Replicated.Op.OpID
 import Replicated.Reducer.RepDb as RepDb
-import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
-import SmartTime.Human.Moment as HumanMoment exposing (Zone)
-import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.Duration as Duration
+import SmartTime.Human.Duration exposing (HumanDuration(..))
+import SmartTime.Human.Moment
+import SmartTime.Moment as Moment
 import Task as Job
 import Task.AssignedAction as Instance
 import TaskList
@@ -92,39 +88,11 @@ subscriptions { replica, temp } =
 
 
 
-{- The goal here is to get (mouse x / window width) on each mouse event. So if
-   the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
-   Getting the mouse x is not too hard, but getting window width is a bit tricky.
-   We want the window.innerWidth value, which happens to be available at:
-       event.currentTarget.defaultView.innerWidth
-   The value at event.currentTarget is the document in these cases, but this will
-   not work if you have a <section> or a <div> with a normal elm/html event handler.
-   So if currentTarget is NOT the document, you should instead get the value at:
-       event.currentTarget.ownerDocument.defaultView.innerWidth
-                           ^^^^^^^^^^^^^
--}
-
-
-decodeFraction : ClassicDecode.Decoder Float
-decodeFraction =
-    ClassicDecode.map2 (/)
-        (ClassicDecode.field "pageX" ClassicDecode.float)
-        (ClassicDecode.at [ "currentTarget", "defaultView", "innerWidth" ] ClassicDecode.float)
 
 
 
-{- What happens when the user is dragging, but the "mouse up" occurs outside
-   the browser window? We need to stop listening for mouse movement and end the
-   drag. We use MouseEvent.buttons to detect this:
-       https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
-   The "buttons" value is 1 when "left-click" is pressed, so we use that to
-   detect zombie drags.
--}
 
 
-decodeButtons : ClassicDecode.Decoder Bool
-decodeButtons =
-    ClassicDecode.field "buttons" (ClassicDecode.map (\buttons -> buttons == 1) ClassicDecode.int)
 
 
 port setStorage : String -> Cmd msg
@@ -144,7 +112,7 @@ type alias StoredRON =
 
 
 initGraphical : () -> Url.Url -> Nav.Key -> Profile -> ( List Frame, Temp, Cmd Msg )
-initGraphical maybeJson url key =
+initGraphical _ url key =
     init url (Just key)
 
 
@@ -233,7 +201,7 @@ view { replica, temp } =
         openPanels =
             List.filterMap identity
                 [ case temp.viewState.taskList of
-                    OpenPanel position state ->
+                    OpenPanel _ state ->
                         Just
                             { title = "Projects"
                             , body = H.map TaskListMsg (TaskList.view state replica temp.environment)
@@ -242,7 +210,7 @@ view { replica, temp } =
                     _ ->
                         Nothing
                 , case temp.viewState.timeTracker of
-                    OpenPanel position state ->
+                    OpenPanel _ state ->
                         Just
                             { title = "Time Tracker"
                             , body = H.map TimeTrackerMsg (TimeTracker.view state replica temp.environment)
@@ -251,7 +219,7 @@ view { replica, temp } =
                     _ ->
                         Nothing
                 , case temp.viewState.timeflow of
-                    OpenPanel position state ->
+                    OpenPanel _ state ->
                         Just
                             { title = "Timeflow"
                             , body = H.map TimeflowMsg (Timeflow.view state replica temp.environment)
@@ -260,7 +228,7 @@ view { replica, temp } =
                     _ ->
                         Nothing
                 , case temp.viewState.devTools of
-                    OpenPanel position state ->
+                    OpenPanel _ state ->
                         Just
                             { title = "Dev Tools"
                             , body = H.map DevToolsMsg (DevTools.view state replica temp.environment)
@@ -442,7 +410,7 @@ trackingDisplay replica env =
 
 trackingTaskCompletionSlider instance =
     let
-        blue =
+        _ =
             Element.rgb255 238 238 238
     in
     Input.slider
@@ -514,19 +482,7 @@ infoFooter =
         ]
 
 
-errorList : List String -> Html Msg
-errorList stringList =
-    let
-        descWithBreaks desc =
-            String.split "\n" desc
 
-        asLi desc =
-            li [ HtmlEvents.onDoubleClick ClearErrors ] (List.map asP (descWithBreaks desc))
-
-        asP sub =
-            H.div [ class "error-line" ] [ H.text sub ]
-    in
-    H.ol [] (List.map asLi stringList)
 
 
 
@@ -575,7 +531,7 @@ type ThirdPartyResponse
 
 
 update : Msg -> Model -> ( List Change.Frame, Temp, Cmd Msg )
-update msg { temp, replica, now } =
+update msg { temp, replica } =
     let
         viewState =
             temp.viewState
@@ -625,7 +581,7 @@ update msg { temp, replica, now } =
 
         ThirdPartyServerResponded (TodoistServer response) ->
             let
-                ( newAppData, whatHappened ) =
+                ( _, whatHappened ) =
                     Integrations.Todoist.handle response replica
 
                 syncStatusChannel =
@@ -647,10 +603,10 @@ update msg { temp, replica, now } =
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
-                ( newProfile1WithItems, whatHappened, nextStep ) =
+                ( _, whatHappened, nextStep ) =
                     Marvin.handle (RepDb.size replica.taskClasses + 1000) replica environment response
 
-                newProfile2WithErrors =
+                _ =
                     Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)
 
                 syncStatusChannel =
@@ -918,7 +874,7 @@ handleUrlTriggers rawUrl replica temp =
                     Nothing
 
         -- Top level: run parser on parseList
-        parsed =
+        _ =
             P.parse (P.oneOf parseList) normalizedUrl
 
         -- Create list of Normal parsers from our query-only parsers
@@ -974,7 +930,7 @@ handleUrlTriggers rawUrl replica temp =
                      External.Commands.toast problemText
                     )
 
-                ( Just triggerMsg, Nothing ) ->
+                ( Just _, Nothing ) ->
                     let
                         problemText =
                             "Handle URL Triggers: impossible situation. No query (Nothing) but we still successfully parsed it!"
@@ -1004,6 +960,4 @@ handleUrlTriggers rawUrl replica temp =
                     )
 
 
-nerfUrl : Url.Url -> Url.Url
-nerfUrl original =
-    { original | path = "" }
+

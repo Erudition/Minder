@@ -1108,13 +1108,19 @@ closedChunksToFrameText : List ClosedChunk -> FrameString
 closedChunksToFrameText chunkList =
     let
         perChunk opsInChunk =
-            List.Extra.mapAccuml perOp Nothing opsInChunk
-                |> Tuple.second
-                |> String.join " ,\n"
-                |> (\s -> s ++ " ;\n\n")
+            case opsInChunk of
+                [] ->
+                    ""
+
+                _ ->               
+                    List.Extra.mapAccuml perOp Nothing (opsInChunk)
+                        |> Tuple.second
+                        |> String.join " ,\n"
+                        |> (\s -> s ++ " ;\n\n")
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
+            -- ( Just thisOp, closedOpToString (ClosedOps) thisOp )
     in
     case chunkList of
         [] ->

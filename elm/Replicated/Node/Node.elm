@@ -8,7 +8,7 @@ import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ChangeAtom)
+import Replicated.Change as Change exposing (Change, ChangeAtom, pendingObjectLocationToString)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -16,7 +16,6 @@ import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import Set exposing (Set)
 import SmartTime.Moment exposing (Moment)
-
 
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
@@ -322,14 +321,13 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
         frameStartCounter =
             OpID.highestCounter fallbackCounter nextUnseenCounter
 
-
         changesToOps givenChanges inCounter inMapping alreadyDoneChunks inNode =
             let
                 ( counterAfterThisRound, generatedOutputsList ) =
                     List.mapAccuml (oneChangeToOpChunks inNode inMapping) inCounter givenChanges
 
                 finishedOpChunks =
-                    alreadyDoneChunks ++ (List.concatMap .outChunks generatedOutputsList)
+                    alreadyDoneChunks ++ List.concatMap .outChunks generatedOutputsList
 
                 finishedMapping =
                     List.foldl Dict.union Dict.empty (List.map .outMapping generatedOutputsList)
@@ -337,17 +335,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
                 extraChangesToMake =
                     List.concatMap .extraChanges generatedOutputsList |> Change.normalizeChanges
             in
-            case extraChangesToMake of
-                [] -> 
-                    finishedOpChunks
-
-                moreChangesToMake ->
-                    let
-                        opsAddedNode =
-                            updateWithClosedOps node (List.concat finishedOpChunks)
-                    in
-                    
-                    changesToOps (Debug.log "bonus" moreChangesToMake) counterAfterThisRound finishedMapping finishedOpChunks opsAddedNode
+            finishedOpChunks
 
         allGeneratedChunks =
             changesToOps normalizedChanges frameStartCounter Dict.empty [] node
@@ -465,7 +453,7 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
             List.map .thisObjectOp processedChanges
 
         allExtraChanges =
-            externalUpdates ++ (List.concatMap .extraChanges processedChanges)    
+            externalUpdates ++ List.concatMap .extraChanges processedChanges
 
         { reducerID, objectID, lastSeen, initOps, postInitCounter2 } =
             getOrInitObject node postPrereqCounter1 postPrereqMapping1 target
@@ -510,13 +498,17 @@ chunkToOps node ( inCounter0, ( inMapping0, _ ) ) { target, objectChanges, exter
             [ Log.logMessageOnly (logOps "init" initOps) initOps ++ Log.logMessageOnly (logOps "change" objectChangeOps) objectChangeOps ]
 
         allOpsInDependencyOrder =
-            Log.logMessageOnly prereqLogMsg allPrereqChunks
-                ++ thisObjectChunk
+            case Log.logMessageOnly prereqLogMsg allPrereqChunks ++ thisObjectChunk of
+                [] ->
+                    Debug.todo <| "Generated empty Chunk when running chunkToOps on " ++ Debug.toString target ++ " with object changes " ++ Debug.toString objectChanges
+
+                someOps ->
+                    someOps
     in
     ( ( counterAfterObjectChanges3
       , { outMapping = postInitMapping2
         , affectedObject = Just objectID
-        , extraChanges = allExtraChanges 
+        , extraChanges = allExtraChanges
         }
       )
     , allOpsInDependencyOrder
@@ -565,7 +557,7 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
                                     [ Op.IDPointerAtom objectID ]
 
                                 Nothing ->
-                                    []
+                                    Log.crashInDev ("Unknown reference to " ++ Log.dump reducer ++ " at location " ++ pendingObjectLocationToString location) []
                     in
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ atomInList
@@ -581,11 +573,13 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
                                 ( accumulated.counter, ( accumulated.mapping, Nothing ) )
                                 chunkDetails
 
-                        pointerPayload =
-                            Maybe.map Op.IDPointerAtom affectedObject
-
                         pointerPayloadAsList =
-                            List.filterMap identity [ pointerPayload ]
+                            case affectedObject of
+                                Just outputObject ->
+                                    [ Op.IDPointerAtom outputObject ]
+
+                                Nothing ->
+                                    Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump chunkDetails) []
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
@@ -622,8 +616,17 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
             let
                 { counter, prerequisiteChunks, piecesSoFar, mapping, extraChanges } =
                     Nonempty.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteChunks = [], mapping = inMapping, extraChanges = [] } pieceList
+
+                tempCounter =
+                    -- REMOVE
+                    case piecesSoFar of
+                        [] ->
+                            Debug.todo <| "no atoms output to encode for this objectChange: " ++ Debug.toString objectChange
+
+                        foundSome ->
+                            counter
             in
-            ( counter
+            ( tempCounter
             , { prerequisiteChunks = prerequisiteChunks
               , thisObjectOp =
                     { reference = reference
@@ -682,26 +685,26 @@ getOrInitObject node inCounter inMapping targetObject =
                     }
 
         Change.PlaceholderPointer pendingID _ ->
-            case Dict.get (pendingID.reducer, Change.pendingObjectLocationToString pendingID.location) inMapping of
-                        Just foundObjectID ->
-                            { reducerID = pendingID.reducer
-                            , objectID = foundObjectID
-                            , lastSeen = foundObjectID
-                            , initOps = []
-                            , postInitCounter2 = inCounter
-                            }
+            case Dict.get ( pendingID.reducer, Change.pendingObjectLocationToString pendingID.location ) inMapping of
+                Just foundObjectID ->
+                    { reducerID = pendingID.reducer
+                    , objectID = foundObjectID
+                    , lastSeen = foundObjectID
+                    , initOps = []
+                    , postInitCounter2 = inCounter
+                    }
 
-                        Nothing ->  
-                            let
-                                ( newID, outCounter ) =
-                                    OpID.generate inCounter node.identity False
-                            in
-                            { reducerID = pendingID.reducer
-                            , objectID = newID
-                            , lastSeen = newID
-                            , initOps = [ Op.initObject pendingID.reducer newID ]
-                            , postInitCounter2 = outCounter
-                            }
+                Nothing ->
+                    let
+                        ( newID, outCounter ) =
+                            OpID.generate inCounter node.identity False
+                    in
+                    { reducerID = pendingID.reducer
+                    , objectID = newID
+                    , lastSeen = newID
+                    , initOps = [ Op.initObject pendingID.reducer newID ]
+                    , postInitCounter2 = outCounter
+                    }
 
 
 {-| Build an object out of the matching ops in the replica - or a placeholder.
@@ -719,7 +722,17 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
         foundSome ->
             let
                 matchingOp opID op =
-                    beforeCutoff opID && correctObject op
+                    case ( beforeCutoff opID && correctObject op, Op.reducer op == reducer ) of
+                        ( False, _ ) ->
+                            False
+
+                        ( True, True ) ->
+                            True
+
+                        ( True, False ) ->
+                            Log.crashInDev
+                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ String.join " " (Nonempty.toList position) ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducer op))
+                                False
 
                 beforeCutoff opID =
                     case cutoff of

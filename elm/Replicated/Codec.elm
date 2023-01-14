@@ -2896,7 +2896,7 @@ buildRegisterFieldDictionary object =
                     Dict.update fieldSlot (addUpdate ( eventID, fieldPayload )) buildingDict
 
                 Err problem ->
-                    Log.logSeparate ("WARNING " ++ problem) (Object.eventPayload event) buildingDict
+                    Log.logSeparate ("WARNING addFieldEntry on op " ++ OpID.toString eventID ++ ": " ++ problem) (Object.eventPayload event) buildingDict
 
         addUpdate : ( OpID, FieldPayload ) -> Maybe FieldHistoryBackwards -> Maybe FieldHistoryBackwards
         addUpdate newUpdate existingUpdatesMaybe =

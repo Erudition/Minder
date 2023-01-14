@@ -515,7 +515,7 @@ nodeWithModifiedNestedStressTest =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 concatOldAndNewFrame =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText ((Debug.log "second output frame ops" applied.outputFrame))
 
                 reInitialized =
                     Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.log (Console.colorsInverted <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
