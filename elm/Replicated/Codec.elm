@@ -59,6 +59,7 @@ import Bytes
 import Bytes.Decode as BD
 import Bytes.Encode as BE
 import Console
+import Css exposing (None)
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
 import ID exposing (ID)
@@ -69,7 +70,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (ChangeAtom(..), Change(..), Changer, ObjectChange, Parent(..), Pointer(..), changeToChangePayload, genesisPointer)
+import Replicated.Change as Change exposing (Change(..), ChangeAtom(..), Changer, MaybeSkippableChange(..), ObjectChange, Parent(..), Pointer(..), changeToChangePayload, genesisPointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -96,8 +97,8 @@ type Codec e s a
         , bytesDecoder : BD.Decoder (Result (Error e) a)
         , jsonEncoder : a -> JE.Value
         , jsonDecoder : JD.Decoder (Result (Error e) a)
-        , nodeEncoder : Maybe (NodeEncoder a)
-        , nodeDecoder : Maybe (NodeDecoder e a)
+        , nodeEncoder : NodeEncoder a
+        , nodeDecoder : NodeDecoder e a
         , init : Initializer s a
         }
 
@@ -149,7 +150,6 @@ type alias NodeEncoderInputs a =
 type ThingToEncode fieldType
     = EncodeThis fieldType
     | EncodeObjectOrThis (Nonempty ObjectID) fieldType -- so that naked registers have something to fall back on
-    | JustEncodeDefaultsIfNeeded
 
 
 type alias NodeEncoderInputsNoVariable =
@@ -175,7 +175,7 @@ defaultEncodeMode =
 
 
 type alias NodeEncoder a =
-    NodeEncoderInputs a -> Change.PotentialPayload
+    NodeEncoderInputs a -> Change.MaybeSkippableChange
 
 
 type alias NodeDecoder e a =
@@ -355,13 +355,7 @@ getJsonDecoder (Codec m) =
 -}
 getNodeDecoder : Codec e i a -> NodeDecoder e a
 getNodeDecoder (Codec m) =
-    case m.nodeDecoder of
-        Nothing ->
-            -- formerly JD.oneOf [ m.jsonDecoder, JD.string |> JD.andThen unwrapString ]
-            \_ -> m.jsonDecoder
-
-        Just nodeDecoder ->
-            nodeDecoder
+    m.nodeDecoder
 
 
 {-| Run a `Codec` to turn a sequence of bytes into an Elm value.
@@ -482,21 +476,7 @@ getBytesEncoder (Codec m) =
 -}
 getNodeEncoder : Codec e s a -> NodeEncoder a
 getNodeEncoder (Codec m) inputs =
-    case m.nodeEncoder of
-        Just nativeRonEncoder ->
-            nativeRonEncoder inputs
-
-        Nothing ->
-            case inputs.thingToEncode of
-                EncodeThis thing ->
-                    List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
-
-                EncodeObjectOrThis _ thing ->
-                    List.singleton <| Change.JsonValueAtom <| m.jsonEncoder thing
-
-                JustEncodeDefaultsIfNeeded ->
-                    -- no need to encode defaults for primitive encoders
-                    []
+    m.nodeEncoder inputs
 
 
 {-| Extracts the json encoding function contained inside the `Codec`.
@@ -575,14 +555,14 @@ replaceForUrl =
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
 Useful for spitting out test data, and seeing the whole heirarchy of your types.
 -}
-encodeDefaults : Node -> Codec e s a -> Change
+encodeDefaults : Node -> WrappedOrSkelCodec e s a -> Change
 encodeDefaults node rootCodec =
     let
-        ronPayload =
+        changePayload =
             getNodeEncoder rootCodec
                 { node = node
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
-                , thingToEncode = JustEncodeDefaultsIfNeeded
+                , thingToEncode = EncodeThis <| new rootCodec (ParentContext Change.genesisPointer)
                 , parent = Change.genesisPointer
                 , position = Nonempty.singleton "encodeDefaults"
                 }
@@ -590,8 +570,8 @@ encodeDefaults node rootCodec =
         bogusChange =
             Change.ChangeSet { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
     in
-    case ronPayload of
-        [ Change.QuoteNestedObject change ] ->
+    case Change.unwrapSkippability changePayload of
+        Nonempty (Change.QuoteNestedObject change) [] ->
             change
 
         _ ->
@@ -600,31 +580,29 @@ encodeDefaults node rootCodec =
 
 {-| Generates naked Changes from a Codec's default values. Passes in a test node, not for production
 -}
-encodeDefaultsForTesting : Codec e s a -> Change
+encodeDefaultsForTesting : WrappedOrSkelCodec e s a -> Change
 encodeDefaultsForTesting rootCodec =
     encodeDefaults Node.testNode rootCodec
 
 
 
 -- BASE
-
-
-buildUnnestableCodec :
-    (a -> BE.Encoder)
-    -> BD.Decoder (Result (Error e) a)
-    -> (a -> JE.Value)
-    -> JD.Decoder (Result (Error e) a)
-    -> FlatCodec e a
-buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
-    Codec
-        { bytesEncoder = encoder_
-        , bytesDecoder = decoder_
-        , jsonEncoder = jsonEncoder
-        , jsonDecoder = jsonDecoder
-        , nodeEncoder = Nothing
-        , nodeDecoder = Nothing
-        , init = flatInit
-        }
+-- buildUnnestableCodec :
+--     (a -> BE.Encoder)
+--     -> BD.Decoder (Result (Error e) a)
+--     -> (a -> JE.Value)
+--     -> JD.Decoder (Result (Error e) a)
+--     -> FlatCodec e a
+-- buildUnnestableCodec encoder_ decoder_ jsonEncoder jsonDecoder =
+--     Codec
+--         { bytesEncoder = encoder_
+--         , bytesDecoder = decoder_
+--         , jsonEncoder = jsonEncoder
+--         , jsonDecoder = jsonDecoder
+--         , nodeEncoder = Nothing
+--         , nodeDecoder = Nothing
+--         , init = flatInit
+--         }
 
 
 buildNestableCodec :
@@ -632,17 +610,17 @@ buildNestableCodec :
     -> BD.Decoder (Result (Error e) a)
     -> (a -> JE.Value)
     -> JD.Decoder (Result (Error e) a)
-    -> Maybe (NodeEncoder a)
-    -> Maybe (NodeDecoder e a)
+    -> NodeEncoder a
+    -> NodeDecoder e a
     -> Codec e a a
-buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ronDecoderMaybe =
+buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecoder =
     Codec
         { bytesEncoder = encoder_
         , bytesDecoder = decoder_
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
-        , nodeEncoder = ronEncoderMaybe
-        , nodeDecoder = ronDecoderMaybe
+        , nodeEncoder = ronEncoder
+        , nodeDecoder = ronDecoder
         , init = flatInit
         }
 
@@ -650,6 +628,16 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoderMaybe ron
 flatInit : Initializer a a
 flatInit { seed } =
     seed
+
+
+getEncodedPrimitive : ThingToEncode a -> a
+getEncodedPrimitive thingToEncode =
+    case thingToEncode of
+        EncodeThis thing ->
+            thing
+
+        EncodeObjectOrThis _ thing ->
+            Log.crashInDev "primitive encoder was passed an objectID to encode?" thing
 
 
 {-| Codec for serializing a `String`
@@ -670,15 +658,8 @@ string =
         , jsonEncoder = JE.string
         , jsonDecoder = JD.string |> JD.map Ok
         , nodeEncoder =
-            Just <|
-                \inputs ->
-                    case inputs.thingToEncode of
-                        EncodeThis stringToEncode ->
-                            List.singleton <| Change.RonAtom <| Op.StringAtom stringToEncode
-
-                        _ ->
-                            Log.crashInDev ("Codec.string.nodeEncoder: tried to node-encode with string encoder but not passed a flat string value. Instead I was passed: `" ++ Log.dump inputs.thingToEncode ++ "` from my parent (" ++ Log.dump inputs.parent ++ ")") []
-        , nodeDecoder = Nothing
+            \inputs -> Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.StringAtom <| getEncodedPrimitive inputs.thingToEncode
+        , nodeDecoder = \_ -> JD.string |> JD.map Ok
         , init = flatInit
         }
 
@@ -723,15 +704,9 @@ id =
         , jsonEncoder = toString >> JE.string
         , jsonDecoder = JD.string |> JD.map (fromString >> Ok)
         , nodeEncoder =
-            Just <|
-                \inputs ->
-                    case inputs.thingToEncode of
-                        EncodeThis idToEncode ->
-                            List.singleton <| toChangeAtom idToEncode
-
-                        _ ->
-                            Log.crashInDev ("Codec.string.nodeEncoder: tried to node-encode with string encoder but not passed a flat string value. Instead I was passed: `" ++ Log.dump inputs.thingToEncode ++ "` from my parent (" ++ Log.dump inputs.parent ++ ")") []
-        , nodeDecoder = Nothing
+            \inputs ->
+                Necessary <| Nonempty.singleton <| toChangeAtom (getEncodedPrimitive inputs.thingToEncode)
+        , nodeDecoder = \_ -> JD.string |> JD.map (fromString >> Ok)
         , init = flatInit
         }
 
@@ -743,15 +718,11 @@ bool =
     let
         boolNodeEncoder : NodeEncoder Bool
         boolNodeEncoder { thingToEncode } =
-            case thingToEncode of
-                EncodeThis True ->
-                    [ Change.RonAtom <| Op.NakedStringAtom "true" ]
+            if getEncodedPrimitive thingToEncode then
+                Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.NakedStringAtom "true"
 
-                EncodeThis False ->
-                    [ Change.RonAtom <| Op.NakedStringAtom "false" ]
-
-                _ ->
-                    []
+            else
+                Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.NakedStringAtom "false"
 
         boolNodeDecoder : NodeDecoder e Bool
         boolNodeDecoder _ =
@@ -799,42 +770,38 @@ bool =
         )
         JE.bool
         (JD.bool |> JD.map Ok)
-        (Just boolNodeEncoder)
-        (Just boolNodeDecoder)
+        boolNodeEncoder
+        boolNodeDecoder
 
 
 {-| Codec for serializing an `Int`
 -}
 int : FlatCodec e Int
 int =
-    let
-        intNodeEncoder : NodeEncoder Int
-        intNodeEncoder { thingToEncode } =
-            case thingToEncode of
-                EncodeThis givenInt ->
-                    [ Change.RonAtom <| Op.IntegerAtom givenInt ]
-
-                _ ->
-                    []
-    in
     buildNestableCodec
         (toFloat >> BE.float64 endian)
         (BD.float64 endian |> BD.map (round >> Ok))
         JE.int
         (JD.int |> JD.map Ok)
-        (Just intNodeEncoder)
-        Nothing
+        (\{ thingToEncode } ->
+            Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.IntegerAtom <| getEncodedPrimitive thingToEncode
+        )
+        (\_ -> JD.int |> JD.map Ok)
 
 
 {-| Codec for serializing a `Float`
 -}
 float : FlatCodec e Float
 float =
-    buildUnnestableCodec
+    buildNestableCodec
         (BE.float64 endian)
         (BD.float64 endian |> BD.map Ok)
         JE.float
         (JD.float |> JD.map Ok)
+        (\{ thingToEncode } ->
+            Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.FloatAtom <| getEncodedPrimitive thingToEncode
+        )
+        (\_ -> JD.float |> JD.map Ok)
 
 
 {-| Codec for serializing a `Char`
@@ -848,7 +815,7 @@ char =
                 , BE.string text
                 ]
     in
-    buildUnnestableCodec
+    buildNestableCodec
         (String.fromChar >> charEncode)
         (BD.unsignedInt32 endian
             |> BD.andThen (\charCount -> BD.string charCount)
@@ -873,6 +840,19 @@ char =
                         Nothing ->
                             Err DataCorrupted
                 )
+        )
+        (\{ thingToEncode } -> Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.StringAtom <| String.fromChar <| getEncodedPrimitive thingToEncode)
+        (\_ ->
+            JD.string
+                |> JD.map
+                    (\text ->
+                        case String.toList text |> List.head of
+                            Just char_ ->
+                                Ok char_
+
+                            Nothing ->
+                                Err DataCorrupted
+                    )
         )
 
 
@@ -926,13 +906,15 @@ repList memberCodec =
             let
                 memberNodeEncoded : Change.PotentialPayload
                 memberNodeEncoded =
-                    getNodeEncoder memberCodec
-                        { mode = Maybe.withDefault defaultEncodeMode modeMaybe
-                        , node = node
-                        , thingToEncode = EncodeThis newMemberValue
-                        , parent = parent
-                        , position = Nonempty.singleton ("repList item #" ++ memberIndex)
-                        }
+                    Change.unwrapSkippability <|
+                        -- because we have to track it even if it's default
+                        getNodeEncoder memberCodec
+                            { mode = Maybe.withDefault defaultEncodeMode modeMaybe
+                            , node = node
+                            , thingToEncode = EncodeThis newMemberValue
+                            , parent = parent
+                            , position = Nonempty.singleton ("repList item #" ++ memberIndex)
+                            }
             in
             case newRefMaybe of
                 Just givenRef ->
@@ -979,24 +961,26 @@ repList memberCodec =
                         ( allObjectChanges, externalChanges ) =
                             extractInitChanges (RepList.getPointer existingRepList) (RepList.getInit existingRepList)
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = RepList.getPointer existingRepList
-                            , objectChanges = allObjectChanges
-                            , externalUpdates = externalChanges
-                            }
+                    Necessary <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = RepList.getPointer existingRepList
+                                , objectChanges = allObjectChanges
+                                , externalUpdates = externalChanges
+                                }
 
                 _ ->
                     let
                         repListPointer =
                             Change.newPointer { parent = parent, position = position, reducerID = RepList.reducerID }
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = repListPointer
-                            , objectChanges = []
-                            , externalUpdates = []
-                            }
+                    Skippable <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = repListPointer
+                                , objectChanges = []
+                                , externalUpdates = []
+                                }
 
         initializer : Initializer (Changer (RepList memberType)) (RepList memberType)
         initializer { parent, position, seed } =
@@ -1021,8 +1005,8 @@ repList memberCodec =
             BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
-        , nodeEncoder = Just repListRonEncoder
-        , nodeDecoder = Just repListRonDecoder
+        , nodeEncoder = repListRonEncoder
+        , nodeDecoder = repListRonDecoder
         , init = initializer
         }
 
@@ -1051,6 +1035,44 @@ primitiveList codec =
                         )
                         (Ok [])
                     )
+
+        nodeEncoder : NodeEncoder (List a)
+        nodeEncoder inputs =
+            case getEncodedPrimitive inputs.thingToEncode of
+                [] ->
+                    Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.NakedStringAtom "[]"
+
+                headItem :: moreItems ->
+                    let
+                        memberNodeEncoded : Int -> a -> Change.PotentialPayload
+                        memberNodeEncoded index item =
+                            Change.unwrapSkippability <|
+                                -- because we have to track it even if it's default
+                                getNodeEncoder codec
+                                    { mode = inputs.mode
+                                    , node = inputs.node
+                                    , thingToEncode = EncodeThis item
+                                    , parent = inputs.parent
+                                    , position = Nonempty.singleton ("primitiveList item #" ++ String.fromInt index)
+                                    }
+                    in
+                    Necessary <| Nonempty.concat <| Nonempty.indexedMap memberNodeEncoded (Nonempty headItem moreItems)
+
+        nodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e) (List a))
+        nodeDecoder _ =
+            JD.oneOf
+                [ JD.andThen
+                    (\v ->
+                        -- TODO what if someone encodes a list like ["[]"]
+                        if v == "[]" then
+                            JD.succeed (Ok [])
+
+                        else
+                            JD.fail "Not empty"
+                    )
+                    JD.string
+                , normalJsonDecoder
+                ]
     in
     Codec
         { bytesEncoder = listEncode (getBytesEncoder codec)
@@ -1060,8 +1082,8 @@ primitiveList codec =
                     (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = normalJsonDecoder
-        , nodeEncoder = Nothing
-        , nodeDecoder = Nothing
+        , nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
         , init = \{ seed } -> seed
         }
 
@@ -1122,6 +1144,8 @@ repDb memberCodec =
                 , parent = parent
                 , position = Nonempty.singleton "repDbContainer"
                 }
+                |> Change.unwrapSkippability
+                -- because we have to track it even if it's default
                 |> Change.NewPayload
 
         memberRonDecoder : { node : Node, parent : Pointer, cutoff : Maybe Moment } -> JE.Value -> Maybe memberType
@@ -1156,24 +1180,26 @@ repDb memberCodec =
                         ( allObjectChanges, externalChanges ) =
                             extractInitChanges (RepDb.getPointer existingRepDb) (RepDb.getInit existingRepDb)
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = RepDb.getPointer existingRepDb
-                            , objectChanges = allObjectChanges
-                            , externalUpdates = externalChanges
-                            }
+                    Necessary <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = RepDb.getPointer existingRepDb
+                                , objectChanges = allObjectChanges
+                                , externalUpdates = externalChanges
+                                }
 
                 _ ->
                     let
                         placeholderPointer =
                             Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID }
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = placeholderPointer
-                            , objectChanges = []
-                            , externalUpdates = []
-                            }
+                    Skippable <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = placeholderPointer
+                                , objectChanges = []
+                                , externalUpdates = []
+                                }
 
         initializer : InitializerInputs (Changer (RepDb memberType)) -> RepDb memberType
         initializer { parent, position, seed } =
@@ -1197,8 +1223,8 @@ repDb memberCodec =
         , bytesDecoder = BD.fail
         , jsonEncoder = \input -> JE.list (getJsonEncoder memberCodec) (RepDb.listValues input)
         , jsonDecoder = JD.fail "no repdb"
-        , nodeEncoder = Just repDbNodeEncoder
-        , nodeDecoder = Just repDbNodeDecoder
+        , nodeEncoder = repDbNodeEncoder
+        , nodeDecoder = repDbNodeDecoder
         , init = initializer
         }
 
@@ -1227,29 +1253,33 @@ repDict keyCodec valueCodec =
         entryRonEncoder node encodeModeMaybe parent entryPosition newEntry =
             let
                 keyEncoder givenKey =
-                    getNodeEncoder keyCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
-                        , node = node
-                        , thingToEncode = EncodeThis givenKey
-                        , parent = parent
-                        , position = Nonempty entryPosition [ "key" ]
-                        }
+                    Change.unwrapSkippability <|
+                        -- keys can never be "default" anyway
+                        getNodeEncoder keyCodec
+                            { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                            , node = node
+                            , thingToEncode = EncodeThis givenKey
+                            , parent = parent
+                            , position = Nonempty entryPosition [ "key" ]
+                            }
 
                 valueEncoder givenValue =
-                    getNodeEncoder valueCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
-                        , node = node
-                        , thingToEncode = EncodeThis givenValue
-                        , parent = parent
-                        , position = Nonempty entryPosition [ "value" ]
-                        }
+                    Change.unwrapSkippability <|
+                        -- because we have to track it even if it's default
+                        getNodeEncoder valueCodec
+                            { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                            , node = node
+                            , thingToEncode = EncodeThis givenValue
+                            , parent = parent
+                            , position = Nonempty entryPosition [ "value" ]
+                            }
             in
             case newEntry of
                 RepDict.Cleared key ->
                     keyEncoder key
 
                 RepDict.Present key value ->
-                    keyEncoder key ++ valueEncoder value
+                    Nonempty.append (keyEncoder key) (valueEncoder value)
 
         entryChanger node encodeModeMaybe parent entryPosition newEntry =
             Change.NewPayload (entryRonEncoder node encodeModeMaybe parent entryPosition newEntry)
@@ -1309,20 +1339,22 @@ repDict keyCodec valueCodec =
                         ( allObjectChanges, externalChanges ) =
                             extractInitChanges (RepDict.getPointer existingRepDict) (RepDict.getInit existingRepDict)
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = RepDict.getPointer existingRepDict
-                            , objectChanges = allObjectChanges
-                            , externalUpdates = externalChanges
-                            }
+                    Necessary <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = RepDict.getPointer existingRepDict
+                                , objectChanges = allObjectChanges
+                                , externalUpdates = externalChanges
+                                }
 
                 _ ->
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
-                            , objectChanges = []
-                            , externalUpdates = []
-                            }
+                    Skippable <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
+                                , objectChanges = []
+                                , externalUpdates = []
+                                }
 
         initializer : InitializerInputs (Changer (RepDict k v)) -> RepDict k v
         initializer { parent, position, seed } =
@@ -1340,8 +1372,8 @@ repDict keyCodec valueCodec =
         , bytesDecoder = BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = JD.fail "no repdict"
-        , nodeEncoder = Just repDictRonEncoder
-        , nodeDecoder = Just repDictRonDecoder
+        , nodeEncoder = repDictRonEncoder
+        , nodeDecoder = repDictRonDecoder
         , init = initializer
         }
 
@@ -1373,15 +1405,17 @@ repStore keyCodec valueCodec =
         entryNodeEncodeWrapper node encodeModeMaybe parent entryPosition keyToSet childValueChange =
             let
                 keyEncoder givenKey =
-                    getNodeEncoder keyCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
-                        , node = node
-                        , thingToEncode = EncodeThis givenKey
-                        , parent = parent
-                        , position = Nonempty entryPosition [ "key" ] -- value encoder uses 2
-                        }
+                    Change.unwrapSkippability <|
+                        -- because we have to track it even if it's default
+                        getNodeEncoder keyCodec
+                            { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                            , node = node
+                            , thingToEncode = EncodeThis givenKey
+                            , parent = parent
+                            , position = Nonempty entryPosition [ "key" ] -- value encoder uses 2
+                            }
             in
-            keyEncoder keyToSet ++ changeToChangePayload childValueChange
+            Nonempty.append (keyEncoder keyToSet) (changeToChangePayload childValueChange)
 
         entryNodeDecoder : Node -> Pointer -> Maybe Moment -> JE.Value -> Maybe (RepStore.RepStoreEntry k v)
         entryNodeDecoder node parent cutoff encodedEntry =
@@ -1473,20 +1507,22 @@ repStore keyCodec valueCodec =
                         ( allObjectChanges, externalChanges ) =
                             extractInitChanges (RepStore.getPointer existingRepStore) (RepStore.getInit existingRepStore)
                     in
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = RepStore.getPointer existingRepStore
-                            , objectChanges = allObjectChanges
-                            , externalUpdates = externalChanges
-                            }
+                    Necessary <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = RepStore.getPointer existingRepStore
+                                , objectChanges = allObjectChanges
+                                , externalUpdates = externalChanges
+                                }
 
                 _ ->
-                    changeToChangePayload <|
-                        ChangeSet
-                            { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
-                            , objectChanges = []
-                            , externalUpdates = []
-                            }
+                    Skippable <|
+                        changeToChangePayload <|
+                            ChangeSet
+                                { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
+                                , objectChanges = []
+                                , externalUpdates = []
+                                }
 
         initializer : InitializerInputs (Changer (RepStore k v)) -> RepStore k v
         initializer { parent, position, seed } =
@@ -1497,8 +1533,8 @@ repStore keyCodec valueCodec =
         , bytesDecoder = BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = JD.fail "no repstore"
-        , nodeEncoder = Just repStoreNodeEncoder
-        , nodeDecoder = Just repStoreNodeDecoder
+        , nodeEncoder = repStoreNodeEncoder
+        , nodeDecoder = repStoreNodeDecoder
         , init = initializer
         }
 
@@ -1532,11 +1568,13 @@ primitiveSet codec =
 -}
 unit : FlatCodec e ()
 unit =
-    buildUnnestableCodec
+    buildNestableCodec
         (always (BE.sequence []))
         (BD.succeed (Ok ()))
         (\_ -> JE.int 0)
         (JD.succeed (Ok ()))
+        (\_ -> Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.IntegerAtom 0)
+        (\_ -> JD.succeed (Ok ()))
 
 
 {-| Codec for serializing a tuple with 2 elements
@@ -1629,7 +1667,7 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
 -}
 bytes : FlatCodec e Bytes.Bytes
 bytes =
-    buildUnnestableCodec
+    buildNestableCodec
         (\bytes_ ->
             BE.sequence
                 [ BE.unsignedInt32 endian (Bytes.width bytes_)
@@ -1648,6 +1686,19 @@ bytes =
                         Nothing ->
                             Err DataCorrupted
                 )
+        )
+        (\inputs -> Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.StringAtom <| replaceBase64Chars <| getEncodedPrimitive inputs.thingToEncode)
+        (\_ ->
+            JD.string
+                |> JD.map
+                    (\text ->
+                        case decodeStringToBytes text of
+                            Just bytes_ ->
+                                Ok bytes_
+
+                            Nothing ->
+                                Err DataCorrupted
+                    )
         )
 
 
@@ -1676,11 +1727,13 @@ So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 -}
 byte : FlatCodec e Int
 byte =
-    buildUnnestableCodec
+    buildNestableCodec
         BE.unsignedInt8
         (BD.unsignedInt8 |> BD.map Ok)
         (modBy 256 >> JE.int)
         (JD.int |> JD.map Ok)
+        (\{ thingToEncode } -> Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.IntegerAtom <| modBy 256 <| getEncodedPrimitive thingToEncode)
+        (\_ -> JD.int |> JD.map Ok)
 
 
 {-| A fragile^ codec for serializing an item from a list of possible items.
@@ -1730,20 +1783,15 @@ quickEnum defaultItem items =
 
         intNodeEncoder : NodeEncoder a
         intNodeEncoder { thingToEncode } =
-            case thingToEncode of
-                EncodeThis givenInt ->
-                    [ Change.RonAtom <| Op.IntegerAtom (getIndex givenInt) ]
-
-                _ ->
-                    []
+            Necessary <| Nonempty.singleton <| Change.RonAtom <| Op.IntegerAtom <| getIndex <| getEncodedPrimitive <| thingToEncode
     in
     buildNestableCodec
         (getIndex >> BE.unsignedInt32 endian)
         (BD.unsignedInt32 endian |> BD.map getItem)
         (getIndex >> JE.int)
         (JD.int |> JD.map getItem)
-        (Just intNodeEncoder)
-        Nothing
+        intNodeEncoder
+        (\_ -> JD.int |> JD.map getItem)
 
 
 getAt : Int -> List a -> Maybe a
@@ -2508,8 +2556,8 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
             allFieldsCodec.jsonArrayDecoder
     in
     Codec
-        { nodeEncoder = Just nodeEncoder
-        , nodeDecoder = Just nodeDecoder
+        { nodeEncoder =  nodeEncoder
+        , nodeDecoder =  nodeDecoder
         , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2614,8 +2662,8 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
             allFieldsCodec.jsonArrayDecoder
     in
     Codec
-        { nodeEncoder = Just nodeEncoder
-        , nodeDecoder = Just nodeDecoder
+        { nodeEncoder =  nodeEncoder
+        , nodeDecoder =  nodeDecoder
         , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2719,8 +2767,8 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             JD.succeed <| Ok <| tempEmpty
     in
     Codec
-        { nodeEncoder = Just nodeEncoder
-        , nodeDecoder = Just nodeDecoder
+        { nodeEncoder =  nodeEncoder
+        , nodeDecoder =  nodeDecoder
         , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2824,8 +2872,8 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             JD.fail "Need to add decoder to reptype"
     in
     Codec
-        { nodeEncoder = Just nodeEncoder
-        , nodeDecoder = Just nodeDecoder
+        { nodeEncoder =  nodeEncoder
+        , nodeDecoder =  nodeDecoder
         , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2880,12 +2928,11 @@ extractFieldEventFromObjectPayload payload =
             Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
 
 
-encodeFieldPayloadAsObjectPayload : FieldIdentifier -> List Change.ChangeAtom -> List Change.ChangeAtom
+encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.PotentialPayload -> Change.PotentialPayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
-    [ Change.RonAtom (Op.IntegerAtom fieldSlot)
-    , Change.RonAtom (Op.NakedStringAtom fieldName)
-    ]
-        ++ fieldPayload
+    Nonempty.append
+        (Nonempty (Change.RonAtom (Op.IntegerAtom fieldSlot)) [ Change.RonAtom (Op.NakedStringAtom fieldName) ])
+        fieldPayload
 
 
 {-| Register field fetch - will combine nested objectIDs if found
@@ -2919,12 +2966,14 @@ getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
 
 
-buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.ChangeAtom) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.MaybeSkippableChange) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     let
         nestedChange newValue =
-            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
+                (Change.unwrapSkippability (nestedRonEncoder newValue))
 
+        -- since we're asked to write it, whether it's skippable or not
         setter setValue =
             Change.ChangeSet
                 { target = targetObject
@@ -2937,11 +2986,14 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     }
 
 
-buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> List Change.ChangeAtom) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.MaybeSkippableChange) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
     let
         nestedChange newValue =
-            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (nestedRonEncoder newValue)
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
+                (Change.unwrapSkippability (nestedRonEncoder newValue))
+
+        -- since we're asked to write it, whether it's skippable or not
     in
     { get = latestValue
     , set = \newValue -> Change.ChangeSet { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
@@ -2966,11 +3018,11 @@ extractInitChanges givenPointer initChanges =
                         -- collect external changes that need to go elsewhere
                         ( sameObjectChanges, externalChanges ++ [ givenChange ] )
 
-        (allLocal, allExternal) =    
+        ( allLocal, allExternal ) =
             List.foldl extractObjectChange ( [], [] ) initChanges
-
     in
-    (allLocal, allExternal)
+    ( allLocal, allExternal )
+
 
 {-| Encodes an register as a list of Changes (which generate Ops):
 -- The Op encoding the register comes last in the list, as the preceding Ops create registers that it depends on.
@@ -2986,7 +3038,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.PotentialPayload
+registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.MaybeSkippableChange
 registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -2999,9 +3051,6 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
 
                 EncodeObjectOrThis objectIDs reg ->
                     ( Just reg, Just <| Reg.latest reg )
-
-                JustEncodeDefaultsIfNeeded ->
-                    ( Nothing, Nothing )
 
         ( registerPointer, history, initChanges ) =
             case regMaybe of
@@ -3048,21 +3097,32 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
+
+        allObjectChanges =
+            subChanges ++ extractedInitChanges
+
+        isSkippable =
+            if List.isEmpty allObjectChanges then
+                Skippable
+
+            else
+                Necessary
     in
-    List.singleton
-        (Change.QuoteNestedObject
-            (ChangeSet
-                { target = registerPointer
-                , objectChanges = subChanges ++ extractedInitChanges
-                , externalUpdates = externalInitChanges
-                }
+    isSkippable <|
+        Nonempty.singleton
+            (Change.QuoteNestedObject
+                (ChangeSet
+                    { target = registerPointer
+                    , objectChanges = allObjectChanges
+                    , externalUpdates = externalInitChanges
+                    }
+                )
             )
-        )
 
 
 {-| Encodes a naked record
 -}
-recordNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs full -> Change.PotentialPayload
+recordNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs full -> Change.MaybeSkippableChange
 recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -3075,9 +3135,6 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
 
                 EncodeObjectOrThis objectIDs nakedRecord ->
                     ( Just nakedRecord, fallbackObject (Nonempty.toList objectIDs) )
-
-                JustEncodeDefaultsIfNeeded ->
-                    ( Nothing, fallbackObject [] )
 
         updateMePostChildInit fieldChangedPayload =
             Change.ChangeSet
@@ -3113,16 +3170,24 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
+
+        isSkippable =
+            if List.isEmpty subChanges then
+                Skippable
+
+            else
+                Necessary
     in
-    List.singleton
-        (Change.QuoteNestedObject
-            (ChangeSet
-                { target = Object.getPointer object
-                , objectChanges = subChanges
-                , externalUpdates = []
-                }
+    isSkippable <|
+        Nonempty.singleton
+            (Change.QuoteNestedObject
+                (ChangeSet
+                    { target = Object.getPointer object
+                    , objectChanges = subChanges
+                    , externalUpdates = []
+                    }
+                )
             )
-        )
 
 
 {-| Does nothing but remind you not to reuse historical slots
@@ -3189,45 +3254,26 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                 _ ->
                     Nothing
 
-        isExistingSameAsDefault =
-            case ( fieldFallback, existingValMaybe, getPayloadIfSet ) of
-                -- (HardcodedSeed _, _, Nothing) ->
-                -- The goal here is to target Unset rep-objects only. They will not be == to defaults as they contain functions and are not comparable. (Must also be unseeded/preseeded rep-objects, as seeded inits must be committed immediately)
-                -- True -- TODO too aggressive, skips some necessary stuff
-                -- TODO what if unseeded reg contains a seeded reg?
-                _ ->
-                    -- everything else should be comparable to the default
-                    existingValMaybe == fieldDefaultMaybe fieldFallback
-
         explicitDefaultIfNeeded val =
-            case ( mode.setDefaultsExplicitly, mode.initializeUnusedObjects, isExistingSameAsDefault ) of
-                ( True, _, _ ) ->
-                    -- we were asked to encode all defaults
-                    EncodeThisField <| Change.NewPayload (encodedDefault val)
+            case ( mode.setDefaultsExplicitly, encodedDefault val ) of
+                ( _, Necessary defaultVal ) ->
+                    -- field encoder said it's necessary to encode now
+                    EncodeThisField <| Change.NewPayload defaultVal
 
-                ( _, _, False ) ->
-                    -- it's set to non-default (may be seeded), must encode
-                    EncodeThisField <| Change.NewPayload (encodedDefault val)
+                ( True, Skippable defaultVal ) ->
+                    -- unnecessary but we were asked to encode all defaults
+                    EncodeThisField <| Change.NewPayload defaultVal
 
-                ( _, True, _ ) ->
-                    -- we were asked to always initialize objects
-                    case encodedDefault val of
-                        [ Change.QuoteNestedObject subChange ] ->
-                            -- looks like it was a nested object, let it initialize
-                            EncodeThisField <| Change.NewPayload (encodedDefault val)
-
-                        _ ->
-                            SkipThisField
-
-                _ ->
+                ( False, Skippable _ ) ->
+                    -- field encoder said we can skip this one
                     SkipThisField
 
-        encodedDefault : fieldType -> Change.PotentialPayload
+        encodedDefault : fieldType -> Change.MaybeSkippableChange
         encodedDefault val =
             let
                 wrapper =
-                    encodeFieldPayloadAsObjectPayload
-                        ( fieldSlot, fieldName )
+                    Change.mapSkippability
+                        (encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ))
             in
             -- EncodeThis because this only gets used on default value
             wrapper (runFieldNodeEncoder (EncodeThis val))
@@ -3243,13 +3289,13 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
 
                 Just foundPreviousValue ->
                     -- it's been set before. even if set to default (e.g. Nothing) we will honor this
-                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom foundPreviousValue
+                    EncodeThisField <| Change.NewPayload <| Nonempty.map Change.RonAtom foundPreviousValue
 
         Nothing ->
             -- we have no default to fall back to, this is for nested objects or core fields
             case getPayloadIfSet of
                 Nothing ->
-                    -- no default, no seed, no pre-existing object.. can't encode defaults even if we wanted to
+                    -- no default, no seed, no pre-existing object.. can't encode defaults even if we wanted to. Should only occur with naked records
                     SkipThisField
 
                 Just latestPayload ->
@@ -3257,14 +3303,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     case fieldDecodedMaybe latestPayload of
                         Nothing ->
                             -- give up! spit back out what we already had in the register.
-                            EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom latestPayload
+                            EncodeThisField <| Change.NewPayload <|  Nonempty.map Change.RonAtom latestPayload
 
                         Just fieldValue ->
                             -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
                             case extractQuotedObjects (Nonempty.toList latestPayload) of
                                 [] ->
                                     -- give up! spit back out what we already had in the register.
-                                    EncodeThisField <| Change.NewPayload <| Nonempty.toList <| Nonempty.map Change.RonAtom latestPayload
+                                    EncodeThisField <| Change.NewPayload <|  Nonempty.map Change.RonAtom latestPayload
 
                                 firstFoundObjectID :: moreFoundObjectIDs ->
                                     let
@@ -3273,7 +3319,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                                                 |> runFieldNodeEncoder
                                     in
                                     -- encode not only this field (set to this object), but also grab any encoder output from that object
-                                    EncodeThisField <| Change.NewPayload runNestedEncoder
+                                    EncodeThisField <| Change.NewPayload (Change.unwrapSkippability runNestedEncoder)
 
 
 {-| For getting the list of pointers out of the stored ops - perhaps even a bunch of ops, whose atoms can be concatenated (to merge all concurrent inits)
@@ -3347,17 +3393,14 @@ mapHelper fromBytes_ toBytes_ codec =
 
                 EncodeObjectOrThis objectIDs fieldVal ->
                     EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
-
-                JustEncodeDefaultsIfNeeded ->
-                    JustEncodeDefaultsIfNeeded
     in
     buildNestableCodec
         (\v -> toBytes_ v |> getBytesEncoder codec)
         (getBytesDecoder codec |> BD.map fromBytes_)
         (\v -> toBytes_ v |> getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map fromBytes_)
-        (Just (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
-        (Just wrappedNodeDecoder)
+        ( (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
+        ( wrappedNodeDecoder)
 
 
 {-| Map from one codec to another codec in a way that can potentially fail when decoding.
@@ -3407,9 +3450,6 @@ mapValid fromBytes_ toBytes_ codec =
                 EncodeObjectOrThis objectIDs fieldVal ->
                     EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
 
-                JustEncodeDefaultsIfNeeded ->
-                    JustEncodeDefaultsIfNeeded
-
         wrapCustomError value =
             case value of
                 Ok ok ->
@@ -3427,8 +3467,8 @@ mapValid fromBytes_ toBytes_ codec =
         (getJsonDecoder codec
             |> JD.map wrapCustomError
         )
-        (Just (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
-        (Just wrappedNodeDecoder)
+        ( (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
+        ( wrappedNodeDecoder)
 
 
 {-| Map errors generated by `mapValid`.
@@ -3445,8 +3485,8 @@ mapError mapFunc codec =
         (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
         (getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map (mapErrorHelper mapFunc))
-        (Just (getNodeEncoder codec))
-        (Just wrappedNodeDecoder)
+        ( (getNodeEncoder codec))
+        ( wrappedNodeDecoder)
 
 
 mapErrorHelper : (e -> a) -> Result (Error e) b -> Result (Error a) b
@@ -3518,8 +3558,8 @@ lazy f =
         , bytesDecoder = BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ()))
         , jsonEncoder = \value -> getJsonEncoder (f ()) value
         , jsonDecoder = JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()))
-        , nodeEncoder = Just lazyNodeEncoder
-        , nodeDecoder = Just lazyNodeDecoder
+        , nodeEncoder =  lazyNodeEncoder
+        , nodeDecoder =  lazyNodeDecoder
         , init = \inputs -> getInitializer (f ()) inputs
         }
 
@@ -3533,8 +3573,8 @@ todo bogusValue =
         , bytesDecoder = BD.fail
         , jsonEncoder = \_ -> JE.null
         , jsonDecoder = JD.fail "TODO"
-        , nodeEncoder = Nothing
-        , nodeDecoder = Nothing
+        , nodeEncoder = \_ -> Skippable <| Nonempty.singleton <| Change.RonAtom <| Op.IntegerAtom 0
+        , nodeDecoder = \_ -> JD.fail "TODO"
         , init = \_ -> bogusValue
         }
 
@@ -3616,14 +3656,14 @@ type VariantEncoder
     = VariantEncoder
         { bytes : BE.Encoder
         , json : JE.Value
-        , node : NodeEncoderInputsNoVariable -> List Change.ChangeAtom
+        , node : VariantNodeEncoder
         }
 
 
 {-| Normal Node encoders spit out NodeENcoderOutput, but since we need to iteratively build up a variant encoder from scratch, we modify encoders to just produce a list which can be empty. The "from scratch" actually starts with []
 -}
 type alias VariantNodeEncoder =
-    NodeEncoderInputsNoVariable -> List Change.ChangeAtom
+    NodeEncoderInputsNoVariable -> Change.PotentialPayload
 
 
 variantBuilder :
@@ -3645,7 +3685,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.unsignedInt16 endian tagNum :: variantPieces |> BE.sequence
                 , json = JE.null
-                , node = \_ -> []
+                , node = \_ -> Nonempty.singleton (Change.NestedAtoms (Nonempty.singleton nodeTag))
                 }
 
         wrapJE : List JE.Value -> VariantEncoder
@@ -3653,7 +3693,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.string (String.fromInt tagNum ++ "_" ++ tagName) :: variantPieces |> JE.list identity
-                , node = \_ -> []
+                , node = \_ -> Nonempty.singleton (Change.NestedAtoms (Nonempty.singleton nodeTag))
                 }
 
         wrapNE : List VariantNodeEncoder -> VariantEncoder
@@ -3661,10 +3701,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             let
                 piecesApplied inputs =
                     List.indexedMap (applyIndexedInputs inputs) variantEncoders
-                        |> List.concat
-
-                tag =
-                    Change.RonAtom <| Op.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
+                        |> List.concatMap Nonempty.toList
 
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
@@ -3673,8 +3710,11 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
             VariantEncoder
                 { bytes = BE.sequence []
                 , json = JE.null
-                , node = \inputs -> List.singleton (Change.NestedAtoms (tag :: piecesApplied inputs))
+                , node = \inputs -> Nonempty.singleton (Change.NestedAtoms (Nonempty nodeTag (piecesApplied inputs)))
                 }
+
+        nodeTag =
+             Change.RonAtom <| Op.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
         unwrapBD tagNumToDecode orElse =
@@ -4507,20 +4547,13 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
                 nodeMatcher : VariantEncoder
                 nodeMatcher =
-                    case nodeEncoderInputs.thingToEncode of
-                        EncodeThis encodeThisThing ->
-                            priorVariants.nodeMatcher encodeThisThing
-
-                        EncodeObjectOrThis _ encodeThisThing ->
-                            priorVariants.nodeMatcher encodeThisThing
-
-                        _ ->
-                            Log.crashInDev "Should never happen: VariantEncoder was passed a ThingToEncode that did not contain any thing to encode..." <| VariantEncoder { bytes = BE.unsignedInt8 0, json = JE.null, node = \_ -> [] }
+                    priorVariants.nodeMatcher (getEncodedPrimitive nodeEncoderInputs.thingToEncode)
 
                 getNodeVariantEncoder (VariantEncoder encoders) =
                     encoders.node newInputs
             in
-            getNodeVariantEncoder nodeMatcher
+            -- Variants must necessarily be encoded
+            Necessary <| getNodeVariantEncoder nodeMatcher
 
         nodeDecoder : NodeDecoder e a
         nodeDecoder inputs =
@@ -4552,8 +4585,8 @@ finishCustomType (CustomTypeCodec priorVariants) =
                     priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
-        (Just nodeEncoder)
-        (Just nodeDecoder)
+        ( nodeEncoder)
+        ( nodeDecoder)
 
 
 {-| Specifically for variant encoders, we must
@@ -4576,4 +4609,5 @@ getNodeEncoderModifiedForVariants codec thingToEncode =
             , parent = modifiedEncoder.parent
             }
     in
-    \altInputs -> getNodeEncoder codec (finishInputs altInputs)
+    -- Skippable or not, we have to have something to wrap
+    \altInputs -> Change.unwrapSkippability <| getNodeEncoder codec (finishInputs altInputs)

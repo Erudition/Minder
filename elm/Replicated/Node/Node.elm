@@ -597,7 +597,7 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
                 Change.NestedAtoms nestedChangeAtoms ->
                     let
                         outputAtoms =
-                            List.foldl perPiece
+                            Nonempty.foldl perPiece
                                 { counter = accumulated.counter
                                 , piecesSoFar = []
                                 , prerequisiteChunks = []
@@ -621,7 +621,7 @@ objectChangeToUnstampedOp node inMapping inCounter objectChange =
         outputHelper pieceList reference =
             let
                 { counter, prerequisiteChunks, piecesSoFar, mapping, extraChanges } =
-                    List.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteChunks = [], mapping = inMapping, extraChanges = [] } pieceList
+                    Nonempty.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteChunks = [], mapping = inMapping, extraChanges = [] } pieceList
             in
             ( counter
             , { prerequisiteChunks = prerequisiteChunks

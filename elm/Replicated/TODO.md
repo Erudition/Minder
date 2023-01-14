@@ -1,5 +1,7 @@
 # Now
-- [ ] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
+- [ ] Prescribe all node encoders and decoders, no maybe fallbacks
+- [X] Wrap all encoded values in type saying whether the encoding can be skipped
+- [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
 - [ ] Get only non-default register values to encode
 - [ ] Test post-init substitutions (above)
 - [ ] Move Codec.new functionality to individual reptypes - allows blocking naked record pre-changes. But how to init wrapped types?

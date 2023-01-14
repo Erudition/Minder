@@ -681,7 +681,6 @@ opIDFromReference givenRef =
 
 
 type alias OpPayloadAtoms =
-    -- TODO make Nonempty?
     List OpPayloadAtom
 
 

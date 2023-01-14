@@ -27,6 +27,23 @@ type MaybeSkippableChange =
     Skippable PotentialPayload
     | Necessary PotentialPayload
 
+mapSkippability mapper wrapped =
+    case wrapped of 
+        Skippable payload ->
+            Skippable (mapper payload)
+
+        Necessary payload ->
+            Necessary (mapper payload)
+
+
+unwrapSkippability wrapped =         
+    case wrapped of 
+        Skippable payload ->
+            payload
+
+        Necessary payload ->
+            payload 
+
 -- type alias ChangeSet =
 --     { existingObjectChanges : AnyDict OpID.ObjectIDString ObjectID (List ObjectChange)
 --     , objectsToCreate : AnyDict PendingIDString PendingID CreationInstructions
@@ -51,10 +68,10 @@ type alias Creator a =
     Parent -> a
 
 
-{-| Tried having this as a Nonempty. Made it way more complicated to skip encoding where needed. Back to List...
+{-| Atoms to use in the final change
 -}
 type alias PotentialPayload =
-    List ChangeAtom
+    Nonempty ChangeAtom
 
 
 type ObjectChange
@@ -79,7 +96,7 @@ type ChangeAtom
 
 compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
 compareToRonPayload changePayload ronPayload =
-    case ( changePayload, ronPayload ) of
+    case ( Nonempty.toList changePayload, ronPayload ) of
         ( [ JsonValueAtom valueJE ], [ ronAtom ] ) ->
             Op.atomToJsonValue ronAtom == valueJE
 
@@ -106,7 +123,7 @@ compareToRonPayload changePayload ronPayload =
 
 changeToChangePayload : Change -> PotentialPayload
 changeToChangePayload change =
-    [ QuoteNestedObject change ]
+    Nonempty.singleton (QuoteNestedObject change)
 
 
 {-| This only needs to be called once, when changes are saved. calling any other place is redundant

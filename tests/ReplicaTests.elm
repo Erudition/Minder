@@ -526,7 +526,7 @@ nodeWithModifiedNestedStressTest =
                             nodeAndSuch
 
                         Err err ->
-                            Debug.todo "failed to init"
+                            Debug.todo ("failed to init becuase " ++ Debug.toString err)
 
                 -- (Op.toFrame applied.ops)
                 logOps =
