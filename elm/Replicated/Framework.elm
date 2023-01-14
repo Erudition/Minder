@@ -247,18 +247,21 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                     let
                         replicator =
                             {oldReplicator | now = newTime}
-                    in
-                    case (userUpdate userMsg replicator) of
-                        ( [], temp, newCmds ) ->
-                            ( UserRunning { replicator | temp = temp }, Cmd.map (\m -> U m newTime) newCmds )
 
-                        ( framesToApply, temp, newCmds ) ->
+                        ( framesToApply, temp, cmds ) =
+                            (userUpdate userMsg replicator)
+                    in
+                    case ( Change.nonEmptyFrames framesToApply, temp, cmds ) of
+                        ( [], newTemp, newCmds ) ->
+                            ( UserRunning { replicator | temp = newTemp }, Cmd.map (\m -> U m newTime) newCmds )
+
+                        ( filledFramesToApply, newTemp, newCmds ) ->
                             let
                                 modelWithTimeTemp =
-                                    { replicator | temp = temp }
+                                    { replicator | temp = newTemp }
 
                                 ( replicatorWithUpdates, finalOutputFrame ) =
-                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) framesToApply
+                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) (Debug.log "filledFramesToApply" filledFramesToApply)
 
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
@@ -270,7 +273,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                             case Codec.decodeFromNode userReplicaCodec replicatorWithUpdates.node of
                                 Ok updatedUserReplica ->
                                     ( UserRunning { replicatorWithUpdates | replica = updatedUserReplica }
-                                    , Log.logSeparate "Saving with new frame" finalOutputFrame <| Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
+                                    , Log.logSeparate "Framework saving with new frame" finalOutputFrame <| Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
                                     )
 
                                 Err problem ->
@@ -285,7 +288,6 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                     let
                         startNode =
                             Maybe.withDefault (Node.startNewNode (Just now) []).newNode restoredNode
-
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode

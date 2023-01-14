@@ -183,13 +183,12 @@ none =
 
 isEmpty : Frame -> Bool
 isEmpty (Frame { normalizedChanges }) =
-    case normalizedChanges of
-        [] ->
-            True
+    List.isEmpty normalizedChanges
 
-        _ ->
-            False
 
+nonEmptyFrames : List Frame -> List Frame
+nonEmptyFrames frames =
+    List.filter (not << isEmpty) frames
 
 {-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
 
