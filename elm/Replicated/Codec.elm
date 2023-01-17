@@ -70,7 +70,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change(..), ChangeAtom(..), Changer, MaybeSkippableChange(..), ObjectChange, Parent(..), Pointer(..), changeToChangePayload, genesisPointer)
+import Replicated.Change as Change exposing (Change(..), ChangeAtom(..), Changer, ChangeWithNecessity(..), ObjectChange, Parent(..), Pointer(..), payloadFromNested, genesisPointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (I, Object, Placeholder)
 import Replicated.Op.Op as Op exposing (Op)
@@ -175,7 +175,7 @@ defaultEncodeMode =
 
 
 type alias NodeEncoder a =
-    NodeEncoderInputs a -> Change.MaybeSkippableChange
+    NodeEncoderInputs a -> Change.ChangeWithNecessity
 
 
 type alias NodeDecoder e a =
@@ -568,7 +568,7 @@ encodeDefaults node rootCodec =
                 }
 
         bogusChange =
-            Change.ChangeSet { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
+            Change.changeSetFromOldChange { target = Change.genesisPointer, objectChanges = [], externalUpdates = [] }
     in
     case Change.unwrapSkippability changePayload of
         Nonempty (Change.QuoteNestedObject change) [] ->
@@ -956,15 +956,17 @@ repList memberCodec =
         repListRonEncoder : NodeEncoder (RepList memberType)
         repListRonEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis existingRepList ->
+                EncodeThis givenRepList ->
                     let
                         ( allObjectChanges, externalChanges ) =
-                            extractInitChanges (RepList.getPointer existingRepList) (RepList.getInit existingRepList)
+                            extractInitChanges (RepList.getPointer givenRepList) (RepList.getInit givenRepList)
+
+                        unchanged = List.isEmpty allObjectChanges && List.isEmpty externalChanges    
                     in
-                    Necessary <|
-                        changeToChangePayload <|
-                            ChangeSet
-                                { target = RepList.getPointer existingRepList
+                    Change.skippableIf unchanged <|
+                        payloadFromNested (RepList.getPointer givenRepList) <|
+                            changeSetFromOldChange
+                                { target = RepList.getPointer givenRepList
                                 , objectChanges = allObjectChanges
                                 , externalUpdates = externalChanges
                                 }
@@ -975,8 +977,8 @@ repList memberCodec =
                             Change.newPointer { parent = parent, position = position, reducerID = RepList.reducerID }
                     in
                     Skippable <|
-                        changeToChangePayload <|
-                            ChangeSet
+                        payloadFromNested repListPointer <|
+                            changeSetFromOldChange
                                 { target = repListPointer
                                 , objectChanges = []
                                 , externalUpdates = []
@@ -1175,15 +1177,17 @@ repDb memberCodec =
         repDbNodeEncoder : NodeEncoder (RepDb memberType)
         repDbNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis existingRepDb ->
+                EncodeThis givenRepDb ->
                     let
                         ( allObjectChanges, externalChanges ) =
-                            extractInitChanges (RepDb.getPointer existingRepDb) (RepDb.getInit existingRepDb)
+                            extractInitChanges (RepDb.getPointer givenRepDb) (RepDb.getInit givenRepDb)
+
+                        unchanged = List.isEmpty allObjectChanges && List.isEmpty externalChanges    
                     in
-                    Necessary <|
-                        changeToChangePayload <|
-                            ChangeSet
-                                { target = RepDb.getPointer existingRepDb
+                    Change.skippableIf unchanged <|
+                        payloadFromNested <|
+                            changeSetFromOldChange
+                                { target = RepDb.getPointer givenRepDb
                                 , objectChanges = allObjectChanges
                                 , externalUpdates = externalChanges
                                 }
@@ -1194,8 +1198,8 @@ repDb memberCodec =
                             Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID }
                     in
                     Skippable <|
-                        changeToChangePayload <|
-                            ChangeSet
+                        payloadFromNested <|
+                            changeSetFromOldChange
                                 { target = placeholderPointer
                                 , objectChanges = []
                                 , externalUpdates = []
@@ -1334,23 +1338,25 @@ repDict keyCodec valueCodec =
         repDictRonEncoder : NodeEncoder (RepDict k v)
         repDictRonEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis existingRepDict ->
+                EncodeThis givenRepDict ->
                     let
                         ( allObjectChanges, externalChanges ) =
-                            extractInitChanges (RepDict.getPointer existingRepDict) (RepDict.getInit existingRepDict)
+                            extractInitChanges (RepDict.getPointer givenRepDict) (RepDict.getInit givenRepDict)
+
+                        unchanged = List.isEmpty allObjectChanges && List.isEmpty externalChanges
                     in
-                    Necessary <|
-                        changeToChangePayload <|
-                            ChangeSet
-                                { target = RepDict.getPointer existingRepDict
+                    Change.skippableIf unchanged <|
+                        payloadFromNested <|
+                            changeSetFromOldChange
+                                { target = RepDict.getPointer givenRepDict
                                 , objectChanges = allObjectChanges
                                 , externalUpdates = externalChanges
                                 }
 
                 _ ->
                     Skippable <|
-                        changeToChangePayload <|
-                            ChangeSet
+                        payloadFromNested <|
+                            changeSetFromOldChange
                                 { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                                 , objectChanges = []
                                 , externalUpdates = []
@@ -1415,7 +1421,7 @@ repStore keyCodec valueCodec =
                             , position = Nonempty entryPosition [ "key" ] -- value encoder uses 2
                             }
             in
-            Nonempty.append (keyEncoder keyToSet) (changeToChangePayload childValueChange)
+            Nonempty.append (keyEncoder keyToSet) (payloadFromNested childValueChange)
 
         entryNodeDecoder : Node -> Pointer -> Maybe Moment -> JE.Value -> Maybe (RepStore.RepStoreEntry k v)
         entryNodeDecoder node parent cutoff encodedEntry =
@@ -1490,7 +1496,7 @@ repStore keyCodec valueCodec =
                     Change.updateChildChangeWrapper parent (wrapNewChildValue key)
 
                 wrapNewChildValue key changeToWrap =
-                    Change.ChangeSet
+                    Change.changeSetFromOldChange
                         { target = parent
                         , objectChanges =
                             [ Change.NewPayload (entryNodeEncodeWrapper node Nothing parent "value" key changeToWrap) ]
@@ -1502,23 +1508,24 @@ repStore keyCodec valueCodec =
         repStoreNodeEncoder : NodeEncoder (RepStore k v)
         repStoreNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis existingRepStore ->
+                EncodeThis givenRepStore ->
                     let
                         ( allObjectChanges, externalChanges ) =
-                            extractInitChanges (RepStore.getPointer existingRepStore) (RepStore.getInit existingRepStore)
+                            extractInitChanges (RepStore.getPointer givenRepStore) (RepStore.getInit givenRepStore)
+                        unchanged = List.isEmpty allObjectChanges && List.isEmpty externalChanges    
                     in
-                    Necessary <|
-                        changeToChangePayload <|
-                            ChangeSet
-                                { target = RepStore.getPointer existingRepStore
+                    Change.skippableIf unchanged <|
+                        payloadFromNested <|
+                            changeSetFromOldChange
+                                { target = RepStore.getPointer givenRepStore
                                 , objectChanges = allObjectChanges
                                 , externalUpdates = externalChanges
                                 }
 
                 _ ->
                     Skippable <|
-                        changeToChangePayload <|
-                            ChangeSet
+                        payloadFromNested <|
+                            changeSetFromOldChange
                                 { target = Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID }
                                 , objectChanges = []
                                 , externalUpdates = []
@@ -2342,10 +2349,10 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 -}
 updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change -> Change
 updateRegisterPostChildInit parentPointer fieldIdentifier ((ChangeSet deets) as changeToWrap) =
-    Change.ChangeSet
+    Change.changeSetFromOldChange
         { target = parentPointer
         , objectChanges =
-            [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (changeToChangePayload changeToWrap)) ]
+            [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (payloadFromNested changeToWrap)) ]
         , externalUpdates = []
         }
 
@@ -2556,8 +2563,8 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
             allFieldsCodec.jsonArrayDecoder
     in
     Codec
-        { nodeEncoder =  nodeEncoder
-        , nodeDecoder =  nodeDecoder
+        { nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
         , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2662,8 +2669,8 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
             allFieldsCodec.jsonArrayDecoder
     in
     Codec
-        { nodeEncoder =  nodeEncoder
-        , nodeDecoder =  nodeDecoder
+        { nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
         , bytesEncoder = allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2767,8 +2774,8 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             JD.succeed <| Ok <| tempEmpty
     in
     Codec
-        { nodeEncoder =  nodeEncoder
-        , nodeDecoder =  nodeDecoder
+        { nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
         , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2872,8 +2879,8 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             JD.fail "Need to add decoder to reptype"
     in
     Codec
-        { nodeEncoder =  nodeEncoder
-        , nodeDecoder =  nodeDecoder
+        { nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
         , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
@@ -2966,7 +2973,7 @@ getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
 
 
-buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.MaybeSkippableChange) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.ChangeWithNecessity) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     let
         nestedChange newValue =
@@ -2975,7 +2982,7 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
 
         -- since we're asked to write it, whether it's skippable or not
         setter setValue =
-            Change.ChangeSet
+            Change.changeSetFromOldChange
                 { target = targetObject
                 , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
                 , externalUpdates = []
@@ -2986,7 +2993,7 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     }
 
 
-buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.MaybeSkippableChange) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> Change.ChangeWithNecessity) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
     let
         nestedChange newValue =
@@ -2996,7 +3003,7 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
         -- since we're asked to write it, whether it's skippable or not
     in
     { get = latestValue
-    , set = \newValue -> Change.ChangeSet { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
+    , set = \newValue -> Change.changeSetFromOldChange { target = targetObject, objectChanges = [ Change.NewPayload (nestedChange newValue) ], externalUpdates = [] }
     , history = rest
     }
 
@@ -3038,7 +3045,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.MaybeSkippableChange
+registerNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs (Reg full) -> Change.ChangeWithNecessity
 registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -3061,7 +3068,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
 
         updateMePostChildInit fieldChangedPayload =
-            Change.ChangeSet
+            Change.changeSetFromOldChange
                 { target = registerPointer
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
                 , externalUpdates = []
@@ -3101,17 +3108,13 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         allObjectChanges =
             subChanges ++ extractedInitChanges
 
-        isSkippable =
-            if List.isEmpty allObjectChanges then
-                Skippable
+        unchanged = List.isEmpty allObjectChanges
 
-            else
-                Necessary
     in
-    isSkippable <|
+    Change.skippableIf unchanged <|
         Nonempty.singleton
             (Change.QuoteNestedObject
-                (ChangeSet
+                (changeSetFromOldChange
                     { target = registerPointer
                     , objectChanges = allObjectChanges
                     , externalUpdates = externalInitChanges
@@ -3122,7 +3125,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
 
 {-| Encodes a naked record
 -}
-recordNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs full -> Change.MaybeSkippableChange
+recordNodeEncoder : PartialRegister errs i full full -> NodeEncoderInputs full -> Change.ChangeWithNecessity
 recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -3137,7 +3140,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
                     ( Just nakedRecord, fallbackObject (Nonempty.toList objectIDs) )
 
         updateMePostChildInit fieldChangedPayload =
-            Change.ChangeSet
+            Change.changeSetFromOldChange
                 { target = Object.getPointer object
                 , objectChanges = [ Change.NewPayload fieldChangedPayload ]
                 , externalUpdates = []
@@ -3171,17 +3174,12 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
                 |> List.map runSubEncoder
                 |> List.filterMap identity
 
-        isSkippable =
-            if List.isEmpty subChanges then
-                Skippable
-
-            else
-                Necessary
+        unchanged = List.isEmpty subChanges
     in
-    isSkippable <|
+    Change.skippableIf unchanged <|
         Nonempty.singleton
             (Change.QuoteNestedObject
-                (ChangeSet
+                (changeSetFromOldChange
                     { target = Object.getPointer object
                     , objectChanges = subChanges
                     , externalUpdates = []
@@ -3219,7 +3217,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     updateRegisterAfterChildInit
                         (encodeFieldPayloadAsObjectPayload
                             ( fieldSlot, fieldName )
-                            (changeToChangePayload changeToWrap)
+                            (payloadFromNested changeToWrap)
                         )
             in
             getNodeEncoder fieldCodec
@@ -3256,23 +3254,35 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
 
         explicitDefaultIfNeeded val =
             case ( mode.setDefaultsExplicitly, encodedDefault val ) of
-                ( _, Necessary defaultVal ) ->
-                    -- field encoder said it's necessary to encode now
-                    EncodeThisField <| Change.NewPayload defaultVal
-
                 ( True, Skippable defaultVal ) ->
                     -- unnecessary but we were asked to encode all defaults
                     EncodeThisField <| Change.NewPayload defaultVal
 
+                ( True, Necessary defaultVal ) ->
+                    -- field encoder said it's necessary to encode now
+                    EncodeThisField <| Change.NewPayload defaultVal
+
                 ( False, Skippable _ ) ->
                     -- field encoder said we can skip this one
-                    SkipThisField
+                    SkipThisField                    
 
-        encodedDefault : fieldType -> Change.MaybeSkippableChange
+                ( False, Necessary defaultVal ) ->
+                    if isExistingSameAsDefault defaultVal then
+                    -- it's equivalent to default, must be primitive val?
+                    SkipThisField
+                    else
+                    -- Nested objects are never equal to default, respect their necessity
+                    EncodeThisField <| Change.NewPayload defaultVal
+                
+        isExistingSameAsDefault defaultVal =
+            Maybe.map ((==) defaultVal) (fieldDecodedMaybe getPayloadIfSet)
+
+
+        encodedDefault : fieldType -> Change.ChangeWithNecessity
         encodedDefault val =
             let
                 wrapper =
-                    Change.mapSkippability
+                    Change.mapNecessity
                         (encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ))
             in
             -- EncodeThis because this only gets used on default value
@@ -3303,14 +3313,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback ((Code
                     case fieldDecodedMaybe latestPayload of
                         Nothing ->
                             -- give up! spit back out what we already had in the register.
-                            EncodeThisField <| Change.NewPayload <|  Nonempty.map Change.RonAtom latestPayload
+                            EncodeThisField <| Change.NewPayload <| Nonempty.map Change.RonAtom latestPayload
 
                         Just fieldValue ->
                             -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
                             case extractQuotedObjects (Nonempty.toList latestPayload) of
                                 [] ->
                                     -- give up! spit back out what we already had in the register.
-                                    EncodeThisField <| Change.NewPayload <|  Nonempty.map Change.RonAtom latestPayload
+                                    EncodeThisField <| Change.NewPayload <| Nonempty.map Change.RonAtom latestPayload
 
                                 firstFoundObjectID :: moreFoundObjectIDs ->
                                     let
@@ -3399,8 +3409,8 @@ mapHelper fromBytes_ toBytes_ codec =
         (getBytesDecoder codec |> BD.map fromBytes_)
         (\v -> toBytes_ v |> getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map fromBytes_)
-        ( (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
-        ( wrappedNodeDecoder)
+        (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec)
+        wrappedNodeDecoder
 
 
 {-| Map from one codec to another codec in a way that can potentially fail when decoding.
@@ -3467,8 +3477,8 @@ mapValid fromBytes_ toBytes_ codec =
         (getJsonDecoder codec
             |> JD.map wrapCustomError
         )
-        ( (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec))
-        ( wrappedNodeDecoder)
+        (\inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec)
+        wrappedNodeDecoder
 
 
 {-| Map errors generated by `mapValid`.
@@ -3485,8 +3495,8 @@ mapError mapFunc codec =
         (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
         (getJsonEncoder codec)
         (getJsonDecoder codec |> JD.map (mapErrorHelper mapFunc))
-        ( (getNodeEncoder codec))
-        ( wrappedNodeDecoder)
+        (getNodeEncoder codec)
+        wrappedNodeDecoder
 
 
 mapErrorHelper : (e -> a) -> Result (Error e) b -> Result (Error a) b
@@ -3558,8 +3568,8 @@ lazy f =
         , bytesDecoder = BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ()))
         , jsonEncoder = \value -> getJsonEncoder (f ()) value
         , jsonDecoder = JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()))
-        , nodeEncoder =  lazyNodeEncoder
-        , nodeDecoder =  lazyNodeDecoder
+        , nodeEncoder = lazyNodeEncoder
+        , nodeDecoder = lazyNodeDecoder
         , init = \inputs -> getInitializer (f ()) inputs
         }
 
@@ -3714,7 +3724,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 }
 
         nodeTag =
-             Change.RonAtom <| Op.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
+            Change.RonAtom <| Op.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
 
         unwrapBD : Int -> BD.Decoder (Result (Error error) v) -> BD.Decoder (Result (Error error) v)
         unwrapBD tagNumToDecode orElse =
@@ -4585,8 +4595,8 @@ finishCustomType (CustomTypeCodec priorVariants) =
                     priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
                 )
         )
-        ( nodeEncoder)
-        ( nodeDecoder)
+        nodeEncoder
+        nodeDecoder
 
 
 {-| Specifically for variant encoders, we must

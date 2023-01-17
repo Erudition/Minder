@@ -1,13 +1,13 @@
 module Replicated.Change exposing (..)
 
 import Console
+import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
-import Dict.Any exposing (AnyDict)
 
 
 {-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
@@ -16,19 +16,85 @@ Outputs a Chunk - Chunks are same-object changes within a Frame.
 
 -}
 type Change
-    = ChangeSet
-        { target : Pointer
-        , objectChanges : List ObjectChange
-        , externalUpdates : List Change -- gets put into 
+    = Change ChangeSet
+
+
+changeSetFromOldChange :
+    Op.ReducerID ->
+    { target : Pointer
+    , objectChanges : List ObjectChange
+    , externalUpdates : List Change
+    }
+    -> Change
+changeSetFromOldChange reducerID { target, objectChanges, externalUpdates } =
+    let
+        withExternalChanges thisSet =
+            List.foldl mergeChangeSets thisSet externalUpdates
+    in
+    case target of
+        ExistingObjectPointer objectID installer ->
+            Change
+                { existingObjectChanges = AnyDict.singleton (reducerID, objectID) objectChanges (existingObjectToComparable)
+                , objectsToCreate = AnyDict.empty pendingToComparable
+                , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
+                }
+                |> withExternalChanges
+
+        PlaceholderPointer pendingID installer ->
+            let
+                creationInstructions =
+                    { objectChanges = objectChanges
+                    , afterCreation = \_ -> Debug.todo "afterCreation"
+                    }
+            in
+            Change
+                { existingObjectChanges = AnyDict.empty existingObjectToComparable
+                , objectsToCreate = AnyDict.singleton pendingID creationInstructions pendingToComparable
+                , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
+                }
+                |> withExternalChanges
+
+existingObjectToComparable : (Op.ReducerID, ObjectID) -> String
+existingObjectToComparable (reducerID, objectID) = 
+    reducerID ++ OpID.toString objectID
+
+pendingToComparable : PendingID -> (Op.ReducerID, PendingLocationString)
+pendingToComparable pID =
+    ( pID.reducer, pendingObjectLocationToString pID.location )
+
+mergeChangeSets : Change -> Change -> Change
+mergeChangeSets (Change changeSetA) (Change changeSetB) =
+    Change
+        { existingObjectChanges = AnyDict.union changeSetA.existingObjectChanges changeSetB.existingObjectChanges
+        , objectsToCreate = AnyDict.union changeSetA.objectsToCreate changeSetB.objectsToCreate
+        , opsToRepeat = AnyDict.union changeSetA.opsToRepeat changeSetB.opsToRepeat
         }
 
 
-type MaybeSkippableChange =
-    Skippable PotentialPayload
+type alias ChangeSet =
+    { objectsToCreate : AnyDict ( Op.ReducerID, PendingLocationString ) PendingID ObjectCreation
+    , existingObjectChanges : AnyDict String (Op.ReducerID, ObjectID) (List ObjectChange)
+    , opsToRepeat : OpDb
+    }
+
+
+type alias ObjectCreation =
+    { objectChanges : List ObjectChange
+    , afterCreation : ObjectID -> Change
+    }
+
+
+type ChangeWithNecessity
+    = Skippable PotentialPayload
     | Necessary PotentialPayload
 
-mapSkippability mapper wrapped =
-    case wrapped of 
+skippableIf : Bool -> PotentialPayload -> ChangeWithNecessity
+skippableIf unchanged =
+    if unchanged then Skippable else Necessary
+ 
+
+mapNecessity mapper wrapped =
+    case wrapped of
         Skippable payload ->
             Skippable (mapper payload)
 
@@ -36,25 +102,14 @@ mapSkippability mapper wrapped =
             Necessary (mapper payload)
 
 
-unwrapSkippability wrapped =         
-    case wrapped of 
+unwrapSkippability wrapped =
+    case wrapped of
         Skippable payload ->
             payload
 
         Necessary payload ->
-            payload 
+            payload
 
--- type alias ChangeSet =
---     { existingObjectChanges : AnyDict OpID.ObjectIDString ObjectID (List ObjectChange)
---     , objectsToCreate : AnyDict PendingIDString PendingID CreationInstructions
---     , opsToRepeat : OpDb
---     }
-
-
--- type alias CreationInstructions =
---         { changes: List ObjectChange
---         , afterCreation : Change
---         }
 
 type alias OpDb =
     AnyDict OpID.OpIDSortable OpID Op
@@ -80,82 +135,82 @@ type ObjectChange
     | RevertOp OpID
 
 
-
 type alias PendingID =
     { reducer : Op.ReducerID
     , location : PendingObjectLocation
     }
 
+
 type ChangeAtom
     = JsonValueAtom JE.Value
     | RonAtom Op.OpPayloadAtom
-    | QuoteNestedObject Change
+    | QuoteNestedObject Pointer Change
     | NestedAtoms PotentialPayload
     | PendingObjectReferenceAtom PendingID
 
 
-compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
-compareToRonPayload changePayload ronPayload =
-    case ( Nonempty.toList changePayload, ronPayload ) of
-        ( [ JsonValueAtom valueJE ], [ ronAtom ] ) ->
-            Op.atomToJsonValue ronAtom == valueJE
+-- compareToRonPayload : PotentialPayload -> Op.OpPayloadAtoms -> Bool
+-- compareToRonPayload changePayload ronPayload =
+--     case ( Nonempty.toList changePayload, ronPayload ) of
+--         ( [ JsonValueAtom valueJE ], [ ronAtom ] ) ->
+--             Op.atomToJsonValue ronAtom == valueJE
 
-        ( [ RonAtom ronAtom1 ], [ ronAtom2 ] ) ->
-            ronAtom1 == ronAtom2
+--         ( [ RonAtom ronAtom1 ], [ ronAtom2 ] ) ->
+--             ronAtom1 == ronAtom2
 
-        ( [ QuoteNestedObject (ChangeSet { target, objectChanges }) ], [ ronAtom ] ) ->
-            case ( target, objectChanges ) of
-                ( ExistingObjectPointer objectID _, [] ) ->
-                    -- see if it's just a ref to the same object. TODO: necessary?
-                    String.contains (OpID.toString objectID) (Op.atomToRonString ronAtom)
+--         ( [ QuoteNestedObject (ChangeSet { target, objectChanges }) ], [ ronAtom ] ) ->
+--             case ( target, objectChanges ) of
+--                 ( ExistingObjectPointer objectID _, [] ) ->
+--                     -- see if it's just a ref to the same object. TODO: necessary?
+--                     String.contains (OpID.toString objectID) (Op.atomToRonString ronAtom)
 
-                _ ->
-                    -- can't match if object does not exist yet, or there are changes to make.
-                    False
+--                 _ ->
+--                     -- can't match if object does not exist yet, or there are changes to make.
+--                     False
 
-        ( [ NestedAtoms payload ], _ ) ->
-            False
+--         ( [ NestedAtoms payload ], _ ) ->
+--             False
 
-        -- TODO
-        ( unhandledChange, unhandledOpPayload ) ->
-            Debug.todo <| "When updating a register I needed to check if " ++ Debug.toString unhandledChange ++ " was equivalent to " ++ Debug.toString unhandledOpPayload ++ " to see if the change is the default value - but you unimaginatively did not handle that case, go add it..."
-
-
-changeToChangePayload : Change -> PotentialPayload
-changeToChangePayload change =
-    Nonempty.singleton (QuoteNestedObject change)
+--         -- TODO
+--         ( unhandledChange, unhandledOpPayload ) ->
+--             Debug.todo <| "When updating a register I needed to check if " ++ Debug.toString unhandledChange ++ " was equivalent to " ++ Debug.toString unhandledOpPayload ++ " to see if the change is the default value - but you unimaginatively did not handle that case, go add it..."
 
 
-{-| This only needs to be called once, when changes are saved. calling any other place is redundant
--}
-combineChangesOfSameTarget changeList =
-    -- bundle together changes that have the same target object
-    List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
+payloadFromNested : Pointer -> Change -> PotentialPayload
+payloadFromNested pointer change =
+    Nonempty.singleton (QuoteNestedObject pointer change)
 
 
-sameTarget (ChangeSet a) (ChangeSet b) =
-    equalPointers a.target b.target
+-- {-| This only needs to be called once, when changes are saved. calling any other place is redundant
+-- -}
+-- combineChangesOfSameTarget changeList =
+--     -- bundle together changes that have the same target object
+--     List.map groupCombiner (List.Extra.groupWhile sameTarget changeList)
 
 
-groupCombiner ( firstChange, moreChanges ) =
-    -- for each grouping, fold multiple changes together
-    case moreChanges of
-        [] ->
-            firstChange
-
-        rest ->
-            -- can't use foldR because it reverses the whole list EXCEPT the head, shuffling the change order. instead we preserve the backwards order and reverse subchanges in mergeSameTargetChanges if need be.
-            List.foldl mergeSameTargetChanges firstChange rest
+-- sameTarget (ChangeSet a) (ChangeSet b) =
+--     equalPointers a.target b.target
 
 
-{-| Combine chunks known to be changing the same object.
--}
-mergeSameTargetChanges (ChangeSet change1Details) (ChangeSet change2Details) =
-    ChangeSet
-        { target = change1Details.target
-        , objectChanges = change2Details.objectChanges ++ change1Details.objectChanges -- reverses subchanges again.
-        , externalUpdates = change2Details.externalUpdates ++ change1Details.externalUpdates
-        }
+-- groupCombiner ( firstChange, moreChanges ) =
+--     -- for each grouping, fold multiple changes together
+--     case moreChanges of
+--         [] ->
+--             firstChange
+
+--         rest ->
+--             -- can't use foldR because it reverses the whole list EXCEPT the head, shuffling the change order. instead we preserve the backwards order and reverse subchanges in mergeSameTargetChanges if need be.
+--             List.foldl mergeSameTargetChanges firstChange rest
+
+
+-- {-| Combine chunks known to be changing the same object.
+-- -}
+-- mergeSameTargetChanges (ChangeSet change1Details) (ChangeSet change2Details) =
+--     ChangeSet
+--         { target = change1Details.target
+--         , objectChanges = change2Details.objectChanges ++ change1Details.objectChanges -- reverses subchanges again.
+--         , externalUpdates = change2Details.externalUpdates ++ change1Details.externalUpdates
+--         }
 
 
 
@@ -171,7 +226,7 @@ type Frame
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Log.log (Console.blue "Saving Changes:") <| Frame { normalizedChanges = normalizeChanges changes, description = description }
+    Log.log (Console.blue "Saving Changes:") <| Frame { normalizedChanges = changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.
@@ -190,44 +245,47 @@ nonEmptyFrames : List Frame -> List Frame
 nonEmptyFrames frames =
     List.filter (not << isEmpty) frames
 
-{-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
 
-We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
+-- {-| Since the user can get changes from anywhere and batch them together, we need to make sure that the same object isn't changed multiple times in separate entries, to optimize RON chain output (all same-object changes should be in a row). So we add them to a Dict to make sure all chunks are unique, combining contents if need be.
 
--}
-normalizeChanges : List Change -> List Change
-normalizeChanges changesToNormalize =
-    combineChangesOfSameTarget (changesToNormalize)
-        |> List.map wrapInParentNotifier
-        |> combineChangesOfSameTarget -- so that changes wrapped in same parent notifier are merged too
+-- We also may have a change that targets a placeholder, and needs to modify the parent, and maybe the parent's parent, etc to include the nested object once initialized. This should also be merged with other disparate changes to those parent objects, so we add them to the dictionary at the highest level (the object that actually exists is the change, wrapping all nested changes). This causes placeholders to properly notify their parents, while also making sure the dict merges changes at the same level. Otherwise, given changes A, B, C, C, D where B contains a nested change to D, the C changes will merge but the D changes will not.
+
+-- -}
+-- normalizeChanges : List Change -> List Change
+-- normalizeChanges changesToNormalize =
+--     combineChangesOfSameTarget changesToNormalize
+--         |> List.map wrapInParentNotifier
+--         |> combineChangesOfSameTarget
 
 
-wrapInParentNotifier : Change -> Change
-wrapInParentNotifier ((ChangeSet chunkDetails) as originalChange) =
-    case chunkDetails.target of
-        ExistingObjectPointer objectID installer ->
-            let
-                changeWithoutNotifier =
-                    -- to make sure we never wrap twice for some reason
-                    ChangeSet {chunkDetails | target = ExistingObjectPointer objectID identity }
-                
-                wrappedChange =
-                    (installer changeWithoutNotifier)
-                
-            in
-            wrappedChange
 
-        PlaceholderPointer pendingID installer ->
-            let
-                changeWithoutNotifier =
-                    -- to make sure we never wrap twice for some reason
-                    ChangeSet {chunkDetails | target = PlaceholderPointer pendingID identity }
-                
-                wrappedChange =
-                    (installer changeWithoutNotifier)
-                
-            in
-            wrappedChange
+
+
+-- wrapInParentNotifier : Change -> Change
+-- wrapInParentNotifier ((ChangeSet chunkDetails) as originalChange) =
+--     case chunkDetails.target of
+--         ExistingObjectPointer objectID installer ->
+--             let
+--                 changeWithoutNotifier =
+--                     -- to make sure we never wrap twice for some reason
+--                     ChangeSet { chunkDetails | target = ExistingObjectPointer objectID identity }
+
+--                 wrappedChange =
+--                     installer changeWithoutNotifier
+--             in
+--             wrappedChange
+
+--         PlaceholderPointer pendingID installer ->
+--             let
+--                 changeWithoutNotifier =
+--                     -- to make sure we never wrap twice for some reason
+--                     ChangeSet { chunkDetails | target = PlaceholderPointer pendingID identity }
+
+--                 wrappedChange =
+--                     installer changeWithoutNotifier
+--             in
+--             wrappedChange
+
 
 
 -- POINTERS
@@ -283,21 +341,22 @@ type PendingObjectLocation
     | ParentIsRoot
 
 
-type alias PendingIDString = String
+type alias PendingLocationString =
+    String
 
-pendingObjectLocationToString : PendingObjectLocation -> PendingIDString
+
+pendingObjectLocationToString : PendingObjectLocation -> PendingLocationString
 pendingObjectLocationToString pendingID =
     case pendingID of
         ParentExists objectID _ ->
             OpID.toString objectID
 
         ParentPending reducerID siblings ->
-            reducerID ++ (String.join " " (Nonempty.toList siblings) )
+            reducerID ++ String.join " " (Nonempty.toList siblings)
 
         ParentIsRoot ->
             "root"
 
-        
 
 type alias SiblingIndex =
     String
@@ -316,30 +375,30 @@ newPointer { parent, position, reducerID } =
 
         PlaceholderPointer pendingID installer ->
             case pendingID.location of
-                (ParentExists parentObjectID parentPosition) ->
+                ParentExists parentObjectID parentPosition ->
                     PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer (Nonempty.append position parentPosition))) installer
 
-                (ParentPending grandparentReducerID parentPosition) ->
+                ParentPending grandparentReducerID parentPosition ->
                     PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer (Nonempty.append position parentPosition))) installer
 
                 ParentIsRoot ->
-                    PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer position)) (installer)
+                    PlaceholderPointer (PendingID reducerID (ParentPending pendingID.reducer position)) installer
 
 
 genesisPointer : Pointer
 genesisPointer =
-    PlaceholderPointer (PendingID "genesis" (ParentIsRoot)) identity
+    PlaceholderPointer (PendingID "genesis" ParentIsRoot) identity
 
 
 updateChildChangeWrapper : Pointer -> Installer -> Pointer
 updateChildChangeWrapper pointer newWrapper =
     case pointer of
         ExistingObjectPointer objectID installer ->
-            ExistingObjectPointer objectID (\change -> installer ( newWrapper change) )
+            ExistingObjectPointer objectID (\change -> installer (newWrapper change))
 
         PlaceholderPointer pendingID installer ->
             -- oops, careful, this was backwards before, the new wrapper needs to be inserted before the outer parent wrapper
-            PlaceholderPointer pendingID (\change -> installer ( newWrapper change) )
+            PlaceholderPointer pendingID (\change -> installer (newWrapper change))
 
 
 type Parent
