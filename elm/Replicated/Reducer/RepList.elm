@@ -188,7 +188,7 @@ attachmentPointHelper containerPointer insertionPoint =
             Just opID
 
         First ->
-            Maybe.map .object (Change.getPointerObjectID containerPointer)
+            (Change.getPointerObjectID containerPointer)
 
 
 {-| Insert an item at the given location.

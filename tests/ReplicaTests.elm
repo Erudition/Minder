@@ -41,7 +41,7 @@ nodeFromCodec profileCodec =
             Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
-            Node.startNewNode Nothing [addEncodedDefaults]
+            Node.startNewNode Nothing [ addEncodedDefaults ]
 
         addEncodedDefaults =
             Codec.encodeDefaults Node.testNode profileCodec
@@ -515,10 +515,10 @@ nodeWithModifiedNestedStressTest =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 concatOldAndNewFrame =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText ((Debug.log "second output frame ops" applied.outputFrame))
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText (Debug.log "second output frame ops" applied.outputFrame)
 
                 reInitialized =
-                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.log (Console.colorsInverted <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
+                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.logMessageOnly (Console.green <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
 
                 reInitializedNodeAndSuch =
                     case reInitialized of
@@ -584,7 +584,7 @@ modifiedNestedStressTestIntegrityCheck =
             decodedNSTReg
                 |> Result.map Reg.latest
 
-        generatedRepListObjectID : Result (Codec.Error e) OpID.ObjectID
+        generatedRepListObjectID : OpID.ObjectID
         generatedRepListObjectID =
             Result.map (\root -> Change.getPointerObjectID (RepList.getPointer root.listOfNestedRecords)) decodedNST
                 |> Result.map (Maybe.withDefault (OpID.fromStringForced "was not initialized"))

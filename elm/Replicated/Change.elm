@@ -207,7 +207,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                         , objectsToCreate = AnyDict.singleton pendingID objectChanges pendingToComparable
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
-                        |> mergeMaybeChange ancestorsInstallChangeMaybe
+                        -- |> mergeMaybeChange ancestorsInstallChangeMaybe
                         |> withExternalChanges
     in
     { toReference = target

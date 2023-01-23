@@ -2439,11 +2439,10 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 -}
 updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change
 updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
-    Change.changeObjectWithExternal
+    Change.changeObject
         { target = parentPointer
         , objectChanges =
             [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)) ]
-        , externalUpdates = []
         }
         |> .change
 
