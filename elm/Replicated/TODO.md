@@ -1,10 +1,10 @@
 # Now
-- [ ] Prescribe all node encoders and decoders, no maybe fallbacks
+- [X] Refactor codebase around Changes that contain any-object changes
+- [X] Prescribe all node encoders and decoders, no maybe fallbacks
 - [X] Wrap all encoded values in type saying whether the encoding can be skipped
 - [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
-- [ ] Get only non-default register values to encode
+- [X] Get only non-default register values to encode
 - [ ] Test post-init substitutions (above)
-- [ ] Move Codec.new functionality to individual reptypes - allows blocking naked record pre-changes. But how to init wrapped types?
 
 
 
@@ -19,6 +19,7 @@
 
 
 # Later
+- switch elm/parser to the-sett/parser-recoverable so that bad ops can be skipped without crashing
 - Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
 - spit out warnings for nested errors
 - tolerate double-quote strings as well

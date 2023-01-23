@@ -12,7 +12,7 @@ import Log
 import Replicated.Change as Change exposing (Change, Changer)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (EventPayload, I, Object, Placeholder)
+import Replicated.Object as Object
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import SmartTime.Moment as Moment exposing (Moment)

@@ -101,8 +101,8 @@ read (ID pointer) =
 toString : ID userType -> String
 toString (ID pointer) =
     case pointer of
-        Change.ExistingObjectPointer objectID _ ->
-            OpID.toString objectID
+        Change.ExistingObjectPointer existingID  ->
+            OpID.toString existingID.object
 
         Change.PlaceholderPointer _ _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" "Placeholder Pointer: Object Not Yet Initialized"
@@ -110,8 +110,8 @@ toString (ID pointer) =
 toInt : ID userType -> Int
 toInt (ID pointer) =
     case pointer of
-        Change.ExistingObjectPointer objectID _ ->
-            OpID.toInt objectID
+        Change.ExistingObjectPointer existingID  ->
+            OpID.toInt existingID.object
 
         Change.PlaceholderPointer _ _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" 42

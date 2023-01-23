@@ -50,7 +50,7 @@ type alias AssignedActionSkel =
     }
 
 
-codec : Codec String (ActionClassID, Changer (Reg AssignedActionSkel)) (Reg AssignedActionSkel)
+codec : Codec String (ActionClassID, Changer (Reg AssignedActionSkel)) Codec.SoloObject (Reg AssignedActionSkel)
 codec =
     Codec.record AssignedActionSkel
         |> Codec.coreRW ( 1, "classID" ) .classID Codec.id identity

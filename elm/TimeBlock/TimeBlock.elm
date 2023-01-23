@@ -39,7 +39,7 @@ type alias TimeBlockSeed =
     }
 
 
-codec : Codec String TimeBlockSeed TimeBlock
+codec : Codec String TimeBlockSeed Codec.SoloObject TimeBlock
 codec =
     Codec.record TimeBlock
         |> Codec.coreRW ( 1, "focus" ) .focus focusCodec .focus
@@ -49,7 +49,7 @@ codec =
         |> Codec.finishSeededRecord
 
 
-focusCodec : FlatCodec String Focus
+focusCodec : Codec.NullCodec String Focus
 focusCodec =
     Codec.customType
         (\activityEncoder tagEncoder value ->

@@ -13,10 +13,11 @@ import Log
 import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (I, Object, Placeholder)
+import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
+import Maybe.Extra
 
 
 {-| A replicated database.
@@ -63,13 +64,13 @@ buildFromReplicaDb object payloadToMember memberAdder init =
         memberDict =
             case Object.getCreationID object of
                 Just objectID ->
-                    AnyDict.filterMap (eventToKeyMemberPairMaybe objectID) (Object.getEvents object)
+                    AnyDict.filterMap (eventToKeyMemberPairMaybe (Change.ExistingID reducerID objectID)) (Object.getEvents object)
 
                 Nothing ->
                     AnyDict.empty OpID.toSortablePrimitives
 
-        eventToKeyMemberPairMaybe : ObjectID -> InclusionOpID -> Object.Event -> Maybe (Member memberType)
-        eventToKeyMemberPairMaybe containerObjectID eventID event =
+        eventToKeyMemberPairMaybe : Change.ExistingID -> InclusionOpID -> Object.Event -> Maybe (Member memberType)
+        eventToKeyMemberPairMaybe containerExistingID eventID event =
             case
                 ( Object.extractOpIDFromEventPayload event
                 , payloadToMember (Object.eventPayloadAsJson event)
@@ -77,20 +78,20 @@ buildFromReplicaDb object payloadToMember memberAdder init =
             of
                 ( Just memberObjectID, Just memberValue ) ->
                     Just
-                        { id = ID.tag (Change.ExistingObjectPointer memberObjectID identity)
+                        { id = ID.tag (Change.ExistingObjectPointer containerExistingID )
                         , value = memberValue
-                        , remove = remover containerObjectID eventID
+                        , remove = remover containerExistingID eventID
                         }
 
                 _ ->
                     Nothing
 
         remover containerObjectID inclusionEventID =
-            Change.ChangeSet
-                { target = Change.ExistingObjectPointer containerObjectID identity
+            Change.changeObjectWithExternal
+                { target = Change.ExistingObjectPointer containerObjectID 
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 , externalUpdates = []
-                }
+                }  |> .change
     in
     RepDb
         { pointer = Object.getPointer object
@@ -108,8 +109,8 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
     case ID.read givenID of
-        Change.ExistingObjectPointer objectID _ ->
-            AnyDict.get (objectID) repDbRecord.members
+        Change.ExistingObjectPointer existingID   ->
+            AnyDict.get existingID.object repDbRecord.members
             |> Maybe.map .value
 
         _ ->
@@ -119,8 +120,8 @@ get givenID (RepDb repDbRecord) =
 getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
     case ID.read givenID of
-        Change.ExistingObjectPointer objectID _ ->
-            AnyDict.get (objectID) repDbRecord.members
+        Change.ExistingObjectPointer existingID  ->
+            AnyDict.get existingID.object repDbRecord.members
 
         _ ->
             Nothing
@@ -150,26 +151,26 @@ addNew : Creator memberType -> RepDb memberType -> Change
 addNew newMemberCreator (RepDb record) =
     let
         newMember =
-            newMemberCreator (ParentContext record.pointer)
+            -- No need to pass creation change, will happen as part of change below
+            newMemberCreator (Change.becomeInstantParent record.pointer)
     in
-    Change.ChangeSet
+    Change.changeObjectWithExternal 
         { target = record.pointer
-        , objectChanges = [ record.memberAdder newMember ]
+        , objectChanges = [(record.memberAdder newMember)]
         , externalUpdates = []
-        }
+        }  |> .change
 
 
 addMultipleNew : Creator (List memberType) -> RepDb memberType -> Change
 addMultipleNew newMembersCreator (RepDb record) =
     let
         newMembers =
-            newMembersCreator (ParentContext record.pointer)
+            newMembersCreator (Change.becomeInstantParent record.pointer)
     in
-    Change.ChangeSet
+    Change.changeObject
         { target = record.pointer
         , objectChanges = List.map record.memberAdder newMembers
-        , externalUpdates = []
-        }
+        }  |> .change
 
 
 getInit : RepDb memberType -> List Change

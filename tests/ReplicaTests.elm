@@ -10,7 +10,7 @@ import List.Extra
 import Log
 import Maybe.Extra
 import Replicated.Change as Change exposing (Creator, Parent)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
+import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
@@ -580,11 +580,11 @@ modifiedNestedStressTestIntegrityCheck =
         decodedNSTReg =
             Codec.decodeFromNode nestedStressTestCodec subject
 
-        -- |> Debug.log (Console.bgRed "decodedNST")
         decodedNST =
             decodedNSTReg
                 |> Result.map Reg.latest
 
+        generatedRepListObjectID : Result (Codec.Error e) OpID.ObjectID
         generatedRepListObjectID =
             Result.map (\root -> Change.getPointerObjectID (RepList.getPointer root.listOfNestedRecords)) decodedNST
                 |> Result.map (Maybe.withDefault (OpID.fromStringForced "was not initialized"))

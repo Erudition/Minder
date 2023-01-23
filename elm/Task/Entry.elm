@@ -26,6 +26,7 @@ import Replicated.Reducer.Register exposing (Reg)
 import Task.ActionClass exposing (ActionClassDb)
 import Replicated.Codec exposing (SkelCodec)
 import Replicated.Codec exposing (WrappedCodec)
+import Replicated.Codec exposing (NullCodec)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -116,7 +117,7 @@ type SuperProjectChild
     | ProjectIsHere (Reg ProjectClass)
 
 
-superProjectChildCodec : FlatCodec String SuperProjectChild
+superProjectChildCodec : Codec.NullCodec String SuperProjectChild
 superProjectChildCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->
@@ -171,7 +172,7 @@ type TaskClassChild
     | Nested TaskClass
 
 
-taskClassChildCodec : FlatCodec String TaskClassChild
+taskClassChildCodec : NullCodec String TaskClassChild
 taskClassChildCodec =
     Codec.customType
         (\singleton nested value ->

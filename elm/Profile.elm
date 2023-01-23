@@ -15,8 +15,8 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (SkelCodec, Codec, FlatCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register as Register exposing (RW)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, SkelCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Reducer.Register as Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
@@ -24,17 +24,13 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import Task.ActionClass
-import Task.AssignedAction
+import Task.ActionClass exposing (ActionClassDb)
+import Task.AssignedAction exposing (AssignedActionDb)
 import Task.Entry
 import Task.Progress exposing (..)
 import Task.Session
-import Incubator.Todoist
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
-import Replicated.Reducer.Register exposing (Reg)
-import Task.AssignedAction exposing (AssignedActionDb)
-import Task.ActionClass exposing (ActionClassDb)
 
 
 {-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
@@ -66,7 +62,7 @@ codec =
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
-        |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> Codec.todo emptyTodoistIntegrationData))
+        |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
         |> Codec.finishRecord
 
@@ -85,8 +81,6 @@ todoistIntegrationDataCodec =
         |> Codec.maybeR ( 2, "parentProjectID" ) .parentProjectID Codec.int
         |> Codec.field ( 3, "activityProjectIDs" ) .activityProjectIDs (Codec.intDict Activity.idCodec) IntDict.empty
         |> Codec.finishRecord
-
-
 
 
 emptyTodoistIntegrationData : TodoistIntegrationData

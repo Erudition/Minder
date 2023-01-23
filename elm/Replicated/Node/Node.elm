@@ -9,7 +9,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ChangeAtom, PendingID, pendingObjectLocationToString)
+import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, pendingObjectLocationToString)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -311,7 +311,7 @@ Always supply the current time (`Just moment`).
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
 apply : Maybe Moment -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
-apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
+apply timeMaybe node (Change.Frame { changes, description }) =
     let
         nextUnseenCounter =
             OpID.importCounter (node.highestSeenClock + 1)
@@ -326,13 +326,13 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
         frameStartMapping : UpdatesSoFar
         frameStartMapping =
             { assignedIDs = AnyDict.empty Change.pendingToComparable
-            , lastSeen  = AnyDict.empty OpID.toString
+            , lastSeen = AnyDict.empty OpID.toString
             }
 
         changesToOps givenChanges inCounter inMapping alreadyDoneChunks inNode =
             let
-                ( (finalCounter, finalMapping), generatedOutputsList ) =
-                    List.mapAccuml (oneChangeToOpChunks inNode ) (inCounter, inMapping) givenChanges
+                ( ( finalCounter, finalMapping ), generatedOutputsList ) =
+                    List.mapAccuml (oneChangeToOpChunks inNode) ( inCounter, inMapping ) givenChanges
 
                 finishedOpChunks =
                     alreadyDoneChunks ++ List.concat generatedOutputsList
@@ -340,7 +340,7 @@ apply timeMaybe node (Change.Frame { normalizedChanges, description }) =
             finishedOpChunks
 
         allGeneratedChunks =
-            changesToOps normalizedChanges frameStartCounter frameStartMapping [] node
+            changesToOps changes frameStartCounter frameStartMapping [] node
 
         allGeneratedOps =
             List.concat allGeneratedChunks
@@ -424,9 +424,9 @@ oneChangeToOpChunks node ( inCounter, inMapping ) (Change.Change changeSet) =
                 ( postObjectsCreatedCounter, postObjectsCreatedMapping, List.concat objectsCreatedChunks )
                 changeSet.existingObjectChanges
 
-        singleChunkToOps ( reducerID, objectID ) objectChanges ( counter, mapping, chunksSoFar ) =
+        singleChunkToOps existingID objectChanges ( counter, mapping, chunksSoFar ) =
             -- foldl function, so takes k -> v -> acc
-            objectChangeChunkToOps node Nothing reducerID objectID objectChanges ( counter, mapping, chunksSoFar )
+            objectChangeChunkToOps node Nothing existingID.reducer existingID.object objectChanges ( counter, mapping, chunksSoFar )
 
         -- TODO Step 3. collect ops to repeat
         --
@@ -445,26 +445,27 @@ in mapAccuml form
 objectCreationOps :
     Node
     -> ( InCounter, UpdatesSoFar ) -- accumulator
-    -> ( PendingID, Change.ObjectCreation ) -- toBeCreated
+    -> ( PendingID, List Change.ObjectChange ) -- toBeCreated
     -> ( ( OutCounter, UpdatesSoFar ), List Op.ClosedChunk )
-objectCreationOps node ( inCounter, inMapping ) ( toCreate, creationInstructions ) =
+objectCreationOps node ( inCounter, inMapping ) ( toCreate, objectChanges ) =
     let
         -- Step 1. Header Op: initialize the object, if it wasn't created already
         { objectID, initOpMaybe, postInitCounter, postInitMapping } =
             createPendingObject node inCounter inMapping toCreate
 
         -- Step 2. Event Ops: add object changes (header op is tacked on)
-        (  postChunkCounter, postChunkMapping , objectChunks ) =
-            objectChangeChunkToOps node initOpMaybe toCreate.reducer objectID creationInstructions.objectChanges ( postInitCounter, postInitMapping, [] ) 
+        ( postChunkCounter, postChunkMapping, objectChunks ) =
+            objectChangeChunkToOps node initOpMaybe toCreate.reducer objectID objectChanges ( postInitCounter, postInitMapping, [] )
 
-        -- Step 3. After Creation Ops: recursively add changes after creation
-        ( ( finalCounter, finalMapping ), postChunks ) =
-            oneChangeToOpChunks node ( postChunkCounter, postChunkMapping ) (creationInstructions.afterCreation objectID)
+        -- NO LONGER NEEDED? No more afterCreation
+        -- -- Step 3. After Creation Ops: recursively add changes after creation
+        -- ( ( finalCounter, finalMapping ), postChunks ) =
+        --     oneChangeToOpChunks node ( postChunkCounter, postChunkMapping ) creationInstructions.afterCreation
     in
-    ( ( finalCounter
-      , finalMapping
+    ( ( postChunkCounter
+      , postChunkMapping
       )
-    , objectChunks ++ postChunks
+    , objectChunks
     )
 
 
@@ -540,21 +541,21 @@ objectChangeToUnstampedOp : Node -> ( InCounter, UpdatesSoFar ) -> Change.Object
 objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
     let
         perPiece :
-            ChangeAtom
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar}
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar}
+            ComplexAtom
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar }
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar }
         perPiece piece accumulated =
             case piece of
-                Change.JsonValueAtom value ->
+                Change.FromPrimitiveAtom primitiveAtom ->
                     { counter = accumulated.counter
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.StringAtom (JE.encode 0 value) ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ Change.primitiveAtomToRonAtom primitiveAtom ]
                     , prerequisiteChunks = accumulated.prerequisiteChunks
                     , mapping = accumulated.mapping
                     }
 
-                Change.RonAtom atom ->
+                Change.ExistingObjectReferenceAtom objectID ->
                     { counter = accumulated.counter
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ atom ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.IDPointerAtom objectID ]
                     , prerequisiteChunks = accumulated.prerequisiteChunks
                     , mapping = accumulated.mapping
                     }
@@ -578,15 +579,15 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                     , mapping = accumulated.mapping
                     }
 
-                Change.QuoteNestedObject pointer nestedChange ->
+                Change.QuoteNestedObject soloObject ->
                     let
                         ( ( postPrereqCounter, outMapping ), newPrereqChunks ) =
-                            oneChangeToOpChunks node (accumulated.counter, accumulated.mapping) nestedChange
+                            oneChangeToOpChunks node ( accumulated.counter, accumulated.mapping ) soloObject.change
 
                         pointerPayloadAsList =
-                            case pointer of
-                                Change.ExistingObjectPointer objectID _ ->
-                                    [ Op.IDPointerAtom objectID ]
+                            case soloObject.toReference of
+                                Change.ExistingObjectPointer existingID ->
+                                    [ Op.IDPointerAtom existingID.object ]
 
                                 Change.PlaceholderPointer pendingID _ ->
                                     case AnyDict.get pendingID outMapping.assignedIDs of
@@ -594,7 +595,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                             [ Op.IDPointerAtom outputObject ]
 
                                         Nothing ->
-                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump nestedChange) []
+                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.change) []
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
@@ -628,9 +629,8 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
             let
                 { counter, prerequisiteChunks, piecesSoFar, mapping } =
                     Nonempty.foldl perPiece { counter = inCounter, piecesSoFar = [], prerequisiteChunks = [], mapping = inMapping } pieceList
-
             in
-            ( (counter, mapping)
+            ( ( counter, mapping )
             , { prerequisiteChunks = prerequisiteChunks
               , thisUnstampedOp =
                     { reference = reference
@@ -648,7 +648,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
             outputHelper payload (Just ref)
 
         Change.RevertOp opIDToRevert ->
-            ( (inCounter, inMapping)
+            ( ( inCounter, inMapping )
             , { prerequisiteChunks = []
               , thisUnstampedOp = { reference = Just opIDToRevert, payload = [], reversion = True }
               }
@@ -692,7 +692,15 @@ createPendingObject node inCounter inMapping pendingID =
 
 {-| Build an object out of the matching ops in the replica - or a placeholder.
 -}
-getObject : { node : Node, cutoff : Maybe Moment, foundIDs : List OpID.ObjectID, parent : Change.Pointer, reducer : ReducerID, position : Nonempty Change.SiblingIndex } -> Object
+getObject :
+    { node : Node
+    , cutoff : Maybe Moment
+    , foundIDs : List OpID.ObjectID
+    , parent : Change.Parent
+    , reducer : ReducerID
+    , position : Nonempty Change.SiblingIndex
+    }
+    -> Object
 getObject { node, cutoff, foundIDs, parent, reducer, position } =
     let
         uninitializedObject =

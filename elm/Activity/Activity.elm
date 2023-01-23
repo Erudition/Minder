@@ -14,18 +14,17 @@ import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
 import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW, SkelCodec)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, NullCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
-import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import SmartTime.Duration exposing (..)
 import SmartTime.Human.Duration exposing (..)
 import SmartTime.Moment exposing (..)
 import Svg.Styled exposing (..)
 import Time.Extra exposing (..)
-import Replicated.Codec exposing (WrappedCodec)
 
 
 {-| Opaque type for an activity, with everything inside necessary to get any detail
@@ -40,7 +39,7 @@ type ActivityID
     | CustomActivityID Template (ID CustomActivitySkel)
 
 
-idCodec : FlatCodec String ActivityID
+idCodec : NullCodec String ActivityID
 idCodec =
     Codec.customType
         (\builtInActivity customActivity value ->
@@ -115,7 +114,7 @@ type alias CustomActivitySkel =
     }
 
 
-customActivitySkelCodec : Codec String Template CustomActivitySkel
+customActivitySkelCodec : Codec String Template SoloObject CustomActivitySkel
 customActivitySkelCodec =
     Codec.record CustomActivitySkel
         |> coreR ( 0, "template" ) .template Template.codec identity
@@ -142,7 +141,7 @@ type Excusable
     | IndefinitelyExcused
 
 
-excusableCodec : FlatCodec String Excusable
+excusableCodec : NullCodec String Excusable
 excusableCodec =
     Codec.customType
         (\neverExcused temporarilyExcused indefinitelyExcused value ->
@@ -173,7 +172,7 @@ type alias DurationPerPeriod =
     ( HumanDuration, HumanDuration )
 
 
-durationPerPeriodCodec : FlatCodec String DurationPerPeriod
+durationPerPeriodCodec : NullCodec String DurationPerPeriod
 durationPerPeriodCodec =
     Codec.pair Codec.humanDuration Codec.humanDuration
 
@@ -188,7 +187,7 @@ type Icon
     | Emoji String
 
 
-iconCodec : FlatCodec e Icon
+iconCodec : NullCodec e Icon
 iconCodec =
     Codec.customType
         (\file ion other emoji value ->
@@ -770,7 +769,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( Hours 2, Days 1 )
+            , maxTime = ( Hours 8, Days 1 )
             , hidden = False
             , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
@@ -784,7 +783,7 @@ defaults startWith =
             , evidence = []
             , category = Slacking
             , backgroundable = False
-            , maxTime = ( Hours 2, Days 1 )
+            , maxTime = ( Hours 3, Days 1 )
             , hidden = False
             , id = BuiltInActivityID startWith
             , externalIDs = Dict.empty
@@ -1267,8 +1266,7 @@ getByID : ActivityID -> Store -> Activity
 getByID activityID ( builtins, customs ) =
     case activityID of
         BuiltInActivityID template ->
-            BuiltIn template (RepStore.get template builtins) 
-                
+            BuiltIn template (RepStore.get template builtins)
 
         CustomActivityID template customSkelID ->
             case RepDb.get customSkelID customs of

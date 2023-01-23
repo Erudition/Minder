@@ -58,7 +58,7 @@ newActionClassSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 
-codec : Codec String ( String, Changer (Reg ActionClassSkel) ) (Reg ActionClassSkel)
+codec : Codec String ( String, Changer (Reg ActionClassSkel) ) Codec.SoloObject (Reg ActionClassSkel)
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
@@ -153,7 +153,7 @@ type RelativeTiming
     | FromToday Duration
 
 
-relativeTimingCodec : FlatCodec String RelativeTiming
+relativeTimingCodec : Codec.NullCodec String RelativeTiming
 relativeTimingCodec =
     Codec.customType
         (\fromDeadline fromToday value ->

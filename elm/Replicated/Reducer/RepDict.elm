@@ -11,7 +11,7 @@ import Log
 import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (I, Object, Placeholder)
+import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -69,31 +69,31 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
         eventsAsMemberPairs =
             case Object.getCreationID targetObject of
                 Just objectID ->
-                    List.filterMap (eventToMemberPair objectID) (AnyDict.toList (Object.getEvents targetObject))
+                    List.filterMap (eventToMemberPair (Change.ExistingID reducerID objectID)) (AnyDict.toList (Object.getEvents targetObject))
 
                 Nothing ->
                     []
 
-        eventToMemberPair : ObjectID -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
-        eventToMemberPair containerObjectID ( eventID, event ) =
+        eventToMemberPair : Change.ExistingID -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
+        eventToMemberPair containerExistingID ( eventID, event ) =
             case ( payloadToEntry (Object.eventPayloadAsJson event), Object.eventReverted event ) of
                 ( Just (Present key val), False ) ->
                     Just
                         ( key
                         , { value = val
-                          , remove = remover containerObjectID eventID
+                          , remove = remover containerExistingID eventID
                           }
                         )
 
                 _ ->
                     Nothing
 
-        remover containerObjectID inclusionEventID =
-            Change.ChangeSet
-                { target = Change.ExistingObjectPointer containerObjectID identity
+        remover containerExistingID inclusionEventID =
+            Change.changeObjectWithExternal
+                { target = Change.ExistingObjectPointer containerExistingID 
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
                 , externalUpdates = []
-                }
+                }  |> .change
     in
     RepDict
         { pointer = Object.getPointer targetObject
@@ -123,11 +123,11 @@ insert newKey newValue (RepDict record) =
         newItemToObjectChange =
             record.memberAdder "singleInsert" (Present newKey newValue)
     in
-    Change.ChangeSet
+    Change.changeObjectWithExternal
         { target = record.pointer
         , objectChanges = [ newItemToObjectChange ]
         , externalUpdates = []
-        }
+        }  |> .change
 
 
 {-| Bulk insert entries into a replicated dictionary of primitives, via a list of (key, value) tuples.
@@ -139,11 +139,11 @@ bulkInsert newItems (RepDict record) =
         newItemToObjectChange index ( newKey, newValue ) =
             record.memberAdder ("bulkInsert#" ++ String.fromInt index) (Present newKey newValue)
     in
-    Change.ChangeSet
+    Change.changeObjectWithExternal
         { target = record.pointer
         , objectChanges = List.indexedMap newItemToObjectChange newItems
         , externalUpdates = []
-        }
+        }  |> .change
 
 
 {-| Insert an entry whose value needs a context clue for initialization.
@@ -156,14 +156,14 @@ insertNew : k -> Creator v -> RepDict k v -> Change
 insertNew key newValueFromContext (RepDict repDictRecord) =
     let
         newValue =
-            newValueFromContext (Change.ParentContext repDictRecord.pointer)
+            newValueFromContext (Change.becomeInstantParent repDictRecord.pointer)
     in
-    Change.ChangeSet
+    Change.changeObjectWithExternal
         { target = repDictRecord.pointer
         , objectChanges =
             [ repDictRecord.memberAdder "insertNew" (Present key newValue) ]
         , externalUpdates = []
-        }
+        }  |> .change
 
 
 {-| Get your RepDict as a read-only List.
@@ -225,11 +225,10 @@ update key updater ((RepDict record) as repDict) =
         newMemberAsObjectChange =
             record.memberAdder "update" updatedEntry
     in
-    Change.ChangeSet
+    Change.changeObject
         { target = record.pointer
         , objectChanges = [ newMemberAsObjectChange ]
-        , externalUpdates = []
-        }
+        }  |> .change
 
 
 size : RepDict k v -> Int
