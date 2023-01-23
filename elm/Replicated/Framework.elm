@@ -1,4 +1,4 @@
-module Replicated.Framework exposing (Replicator, Program, browserApplication)
+module Replicated.Framework exposing (Program, Replicator, browserApplication)
 
 import Browser
 import Browser.Navigation exposing (Key)
@@ -91,15 +91,13 @@ browserApplication userApp =
         }
 
 
-
-
 subscriptionsWrapper : (Replicator userReplica temp -> Sub userMsg) -> Model userFlags userMsg userReplica temp -> Sub (Msg userMsg)
 subscriptionsWrapper userSubs model =
     case model of
         UserRunning replicator ->
             userSubs replicator
-            -- Tick means every sub will run with an updated clock
-            |> Sub.map (\userMsg -> Tick userMsg)
+                -- Tick means every sub will run with an updated clock
+                |> Sub.map (\userMsg -> Tick userMsg)
 
         _ ->
             Sub.none
@@ -192,7 +190,7 @@ type alias UserInit userFlags userReplica temp userMsg =
 
 
 initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> Url -> Key -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
-initWrapper userInit  wrappedFlags url key =
+initWrapper userInit wrappedFlags url key =
     let
         { storedNodeMaybe, startWarnings } =
             case wrappedFlags.storedRonMaybe of
@@ -211,7 +209,7 @@ initWrapper userInit  wrappedFlags url key =
         startupCmd =
             Job.perform identity (Job.map2 FrameworkInit HumanMoment.localZone Moment.now)
     in
-    ( PreInit 
+    ( PreInit
         { restoredNode = storedNodeMaybe
         , warnings = [] -- TODO
         , flags = wrappedFlags
@@ -241,15 +239,15 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
             case toReplicator wrappedModel of
                 Nothing ->
                     -- TODO handle unhappy-path better
-                    (wrappedModel, Cmd.none)
+                    ( wrappedModel, Cmd.none )
 
                 Just oldReplicator ->
                     let
                         replicator =
-                            {oldReplicator | now = newTime}
+                            { oldReplicator | now = newTime }
 
                         ( framesToApply, temp, cmds ) =
-                            (userUpdate userMsg replicator)
+                            userUpdate userMsg replicator
                     in
                     case ( Change.nonEmptyFrames framesToApply, temp, cmds ) of
                         ( [], newTemp, newCmds ) ->
@@ -284,7 +282,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
         FrameworkInit zone now ->
             case wrappedModel of
-                PreInit {restoredNode, warnings, key, url, flags, userInit} ->
+                PreInit { restoredNode, warnings, key, url, flags, userInit } ->
                     let
                         startNode =
                             Maybe.withDefault (Node.startNewNode (Just now) []).newNode restoredNode
@@ -311,11 +309,11 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
                 _ ->
                     -- never possible
-                    (Log.crashInDev "FrameworkInit when model wasn't PreInit" wrappedModel, Cmd.none)
+                    ( Log.crashInDev "FrameworkInit when model wasn't PreInit" wrappedModel, Cmd.none )
 
         UserInit ->
             case wrappedModel of
-                FrameworkReady {userInit, userFlags, url, key, userReplica, node, now, zone} ->
+                FrameworkReady { userInit, userFlags, url, key, userReplica, node, now, zone } ->
                     let
                         ( userInitFrames, temp, userInitCmds ) =
                             userInit userFlags url key userReplica
@@ -329,7 +327,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         }
                     , Cmd.map (\cmds -> U cmds now) userInitCmds
                     )
-                
+
                 _ ->
                     -- never possible
-                    (Log.crashInDev "UserInit when model wasn't FrameworkReady" wrappedModel, Cmd.none)
+                    ( Log.crashInDev "UserInit when model wasn't FrameworkReady" wrappedModel, Cmd.none )
