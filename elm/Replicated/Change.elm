@@ -46,12 +46,31 @@ pendingIDToString : PendingID -> String
 pendingIDToString pendingID =
     String.join " -> " (pendingIDToComparable pendingID)
 
+{-| A helper to union two AnyDicts of Lists, by concatenating the Lists on collision rather than overwriting.
+-}
+unionCombine : AnyDict comparable k (List v) -> AnyDict comparable k (List v) -> AnyDict comparable k (List v) -> AnyDict comparable k (List v)
+unionCombine empty dictA dictB =
+    AnyDict.merge
+        (AnyDict.insert)
+        (\key a b -> AnyDict.insert key ((a ++ b)))
+        (AnyDict.insert)
+        dictA
+        dictB
+        empty
+
+{-| Helper to merge two Changes. Put the later change first, earlier change last (pipelining) for proper duplicate handling.
+-}
 mergeChanges : Change -> Change -> Change
-mergeChanges (Change changeSetA) (Change changeSetB) =
+mergeChanges (Change changeSetLater) (Change changeSetEarlier) =
     Change
-        { existingObjectChanges = AnyDict.union changeSetA.existingObjectChanges changeSetB.existingObjectChanges
-        , objectsToCreate = AnyDict.union changeSetA.objectsToCreate changeSetB.objectsToCreate
-        , opsToRepeat = AnyDict.union changeSetA.opsToRepeat changeSetB.opsToRepeat
+        { existingObjectChanges =
+            -- later-specified changes should be added at bottom of list for correct precedence
+            unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
+        , objectsToCreate = 
+            unionCombine emptyObjectsToCreate changeSetEarlier.objectsToCreate changeSetLater.objectsToCreate
+        , opsToRepeat = 
+            -- on collision, preference is given to later set, though ops should never differ
+            AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
         }
 
 
@@ -72,13 +91,26 @@ type alias ChangeSet =
     }
 
 
+
 emptyChange : Change
 emptyChange =
     Change <|
-        { existingObjectChanges = AnyDict.empty existingIDToComparable
-        , objectsToCreate = AnyDict.empty pendingIDToComparable
-        , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
+        { existingObjectChanges = emptyExistingObjectChanges
+        , objectsToCreate = emptyObjectsToCreate
+        , opsToRepeat = emptyOpsToRepeat
         }
+
+
+emptyOpsToRepeat : AnyDict OpID.OpIDSortable OpID Op
+emptyOpsToRepeat =
+    AnyDict.empty OpID.toSortablePrimitives
+
+emptyExistingObjectChanges =
+    AnyDict.empty existingIDToComparable
+
+emptyObjectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
+emptyObjectsToCreate =
+    AnyDict.empty pendingIDToComparable
 
 
 type alias OpDb =
@@ -265,7 +297,7 @@ type Frame
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Log.log (Console.blue "Saving Changes:") <| Frame { changes = changes, description = description }
+    Frame { changes = changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.

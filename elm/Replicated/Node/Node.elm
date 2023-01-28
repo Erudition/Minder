@@ -9,7 +9,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, pendingIDToString)
+import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, Pointer(..), pendingIDToString)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -17,8 +17,6 @@ import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
 import Set exposing (Set)
 import SmartTime.Moment exposing (Moment)
-import Replicated.Change exposing (Pointer)
-import Replicated.Change exposing (Pointer(..))
 
 
 {-| Represents this one instance in the user's network of instances, with its own ID and log of ops.
@@ -92,7 +90,7 @@ type InitError
 
 firstSessionEver : NodeID
 firstSessionEver =
-    NodeID.generate { primus = 0, peer = 0, client = 0, session = 0 }
+    NodeID.generate { agent = 0, device = 0, client = 0, session = 0 }
 
 
 testNode : Node
@@ -171,7 +169,7 @@ updateWithRon old inputRon =
                     { old | warnings = old.warnings ++ [ EmptyChunk ] }
 
                 foundFrames ->
-                    updateWithMultipleFrames (Debug.log "PARSED FRAMES:" <| parsedRonFrames) old
+                    updateWithMultipleFrames parsedRonFrames old
 
         Err parseDeadEnds ->
             { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }
@@ -195,7 +193,7 @@ updateWithMultipleFrames newFrames old =
 
                         newRoot =
                             -- last object created in first frame should always be the root
-                            List.last (Log.log (Console.bgYellow "new objects") output.newObjects)
+                            List.last output.newObjects
 
                         newNode =
                             { oldNode | root = newRoot }
@@ -205,7 +203,7 @@ updateWithMultipleFrames newFrames old =
         updateWithRootFinder frame oldInfo =
             assumeRootIfNeeded (update frame oldInfo)
     in
-    List.foldl updateWithRootFinder old (Log.logSeparate (Console.green "newFrames ") (List.length newFrames |> String.fromInt) newFrames)
+    List.foldl updateWithRootFinder old newFrames
 
 
 {-| Update a node with some Ops in a Frame.
@@ -323,7 +321,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
 
         -- the frame shall start with this counter.
         frameStartCounter =
-            (OpID.highestCounter fallbackCounter nextUnseenCounter)
+            OpID.highestCounter fallbackCounter nextUnseenCounter
 
         frameStartMapping : UpdatesSoFar
         frameStartMapping =
@@ -395,7 +393,7 @@ creationOpsToObjectIDs ops =
 Use with Change.pendingIDToString
 -}
 type alias UpdatesSoFar =
-    { assignedIDs : AnyDict ( List String ) Change.PendingID ObjectID
+    { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
     }
 
@@ -413,11 +411,11 @@ oneChangeToOpChunks :
 oneChangeToOpChunks node ( inCounter, inMapping ) (Change.Change changeSet) =
     let
         -- Step 1. Create pending objects
-        ( postObjectsCreatedCounter, postObjectsCreatedMapping , objectsCreatedChunks ) =
+        ( postObjectsCreatedCounter, postObjectsCreatedMapping, objectsCreatedChunks ) =
             AnyDict.foldl
                 singlePendingChunkToOps
                 ( inCounter, inMapping, [] )
-                (changeSet.objectsToCreate)
+                changeSet.objectsToCreate
 
         singlePendingChunkToOps pendingID objectChanges ( counter, mapping, chunksSoFar ) =
             objectChangeChunkToOps node (PlaceholderPointer pendingID Nothing) objectChanges ( counter, mapping, chunksSoFar )
@@ -443,7 +441,6 @@ oneChangeToOpChunks node ( inCounter, inMapping ) (Change.Change changeSet) =
     )
 
 
-
 {-| Turns a change Chunk (same-object changes) into finalized ops.
 -}
 objectChangeChunkToOps :
@@ -463,16 +460,17 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
         ---------- collect prereq chunks of pre-stamped ops
         allPrereqChunks =
             List.concatMap .prerequisiteChunks subChangesOutput
+
         ---------- collect all the objectChanges turned unstamped-ops
         allUnstampedChunkOps =
             List.map .thisUnstampedOp subChangesOutput
 
-       -- Step 2. Header Op: initialize the object, if it wasn't created already
+        -- Step 2. Header Op: initialize the object, if it wasn't created already
         { objectID, reducerID, initOpMaybe, postInitCounter, postInitMapping } =
             case pointer of
-                Change.ExistingObjectPointer {reducer, object} ->
+                Change.ExistingObjectPointer { reducer, object } ->
                     -- Existed at start of frame, so no-op.
-                    {objectID = object, reducerID = reducer, initOpMaybe = Nothing, postInitCounter = postUnstampedOpCounter, postInitMapping = postUnstampedOpMapping}
+                    { objectID = object, reducerID = reducer, initOpMaybe = Nothing, postInitCounter = postUnstampedOpCounter, postInitMapping = postUnstampedOpMapping }
 
                 Change.PlaceholderPointer pendingID _ ->
                     -- May need creating, check mapping first, then create

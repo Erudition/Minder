@@ -34,8 +34,8 @@ suite =
         ]
 
 
-nodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
-nodeFromCodec profileCodec =
+testNodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+testNodeFromCodec profileCodec =
     let
         logOps chunks =
             Op.closedChunksToFrameText chunks
@@ -55,8 +55,9 @@ nodeFromCodec profileCodec =
                 , [ "Output Frame:" ]
                 , [ Op.closedChunksToFrameText startFrame ]
                 ]
+
     in
-    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+    { startNode = {newNode | identity = NodeID.bumpSessionID newNode.identity}, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
 type alias ReadOnlyObject =
@@ -125,7 +126,7 @@ readOnlyObjectEncodeThenDecode =
         \_ ->
             let
                 { result } =
-                    nodeFromCodec readOnlyObjectCodec
+                    testNodeFromCodec readOnlyObjectCodec
             in
             result
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
@@ -197,7 +198,7 @@ writableObjectEncodeThenDecode =
                 -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
                 -- disabled because forced default op generation is overruled by codec defaults
                 ]
-                (Result.map Reg.latest (nodeFromCodec writableObjectCodec).result)
+                (Result.map Reg.latest (testNodeFromCodec writableObjectCodec).result)
 
 
 
@@ -207,7 +208,7 @@ writableObjectEncodeThenDecode =
 changeList =
     -- designed to allow changes in place
     [ ( \obj -> obj.number.set 7, expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7 )
-    , ( \obj -> Log.log (Console.bgCyan "changes to make") <| obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
+    , ( \obj -> obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
     , ( \obj -> obj.minor.set True, expectOkAndEqualWhenMapped (\obj -> obj.minor.get) True )
     ]
 
@@ -215,7 +216,7 @@ changeList =
 nodeModifications =
     let
         { startNode, outputMaybe, result } =
-            nodeFromCodec writableObjectCodec
+            testNodeFromCodec writableObjectCodec
 
         beforeNode =
             startNode
@@ -282,7 +283,7 @@ fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
     let
         { startNode, result } =
-            nodeFromCodec simpleListCodec
+            testNodeFromCodec simpleListCodec
 
         addChanges repList =
             RepList.append RepList.Last simpleList repList
@@ -308,7 +309,7 @@ repListEncodeThenDecode =
         \_ ->
             let
                 generatedRepList =
-                    Codec.decodeFromNode simpleListCodec (Log.log (Console.bgYellow "repListEncodeThenDecode: node after applying") <| fakeNodeWithSimpleList)
+                    Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList
             in
             Result.map RepList.listValues generatedRepList |> Expect.equal (Ok simpleList)
 
@@ -457,7 +458,7 @@ nestedStressTestIntegrityCheck =
         \_ ->
             Expect.all
                 expectations
-                (Result.map Reg.latest (nodeFromCodec nestedStressTestCodec).result)
+                (Result.map Reg.latest (testNodeFromCodec nestedStressTestCodec).result)
 
 
 
@@ -468,7 +469,7 @@ nodeWithModifiedNestedStressTest : { original : Node, serialized : Node, warning
 nodeWithModifiedNestedStressTest =
     let
         { startNode, result, startFrame } =
-            nodeFromCodec nestedStressTestCodec
+            testNodeFromCodec nestedStressTestCodec
     in
     case Result.map Reg.latest result of
         Ok nestedStressTest ->
@@ -485,10 +486,9 @@ nodeWithModifiedNestedStressTest =
 
 
                 changes =
-                    Debug.log "round 2 changes"
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertNew RepList.Last blankWritable repListOfWritables |> Debug.log (Console.magenta "blankWritable adding to list")
-                    , RepList.insertNew RepList.Last newWritable repListOfWritables |> Debug.log (Console.magenta "newWritable adding to list")
+                    , RepList.insertNew RepList.Last blankWritable repListOfWritables 
+                    , RepList.insertNew RepList.Last newWritable repListOfWritables 
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -521,7 +521,7 @@ nodeWithModifiedNestedStressTest =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 concatOldAndNewFrame =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText (Debug.log "second output frame ops" applied.outputFrame)
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText (applied.outputFrame)
 
                 reInitialized =
                     Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.logMessageOnly (Console.green <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
@@ -572,7 +572,7 @@ testRon =
 modifiedNestedStressTestIntegrityCheck =
     let
         { startNode, result } =
-            nodeFromCodec nestedStressTestCodec
+            testNodeFromCodec nestedStressTestCodec
 
         eventListSize givenID givenNode =
             List.length (getObjectEventList givenID givenNode)
@@ -597,7 +597,7 @@ modifiedNestedStressTestIntegrityCheck =
                 |> Result.withDefault (OpID.fromStringForced "decode NST fail")
 
         opsToFlush =
-            (nodeFromCodec nestedStressTestCodec).startFrame
+            (testNodeFromCodec nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
         [ test "the NST Register has been initialized and its ID is not a placeholder" <|
