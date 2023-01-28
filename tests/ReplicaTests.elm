@@ -479,10 +479,16 @@ nodeWithModifiedNestedStressTest =
                 deepestRecordAddress =
                     nestedStressTest.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |> .recordWithRecord |> Reg.latest |> .address
 
+
+                blankWritable =
+                    (Codec.new writableObjectCodec)
+
+
                 changes =
+                    Debug.log "round 2 changes"
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertNew RepList.Last (Codec.new writableObjectCodec) repListOfWritables
-                    , RepList.insertNew RepList.Last newWritable repListOfWritables
+                    , RepList.insertNew RepList.Last blankWritable repListOfWritables |> Debug.log (Console.magenta "blankWritable adding to list")
+                    , RepList.insertNew RepList.Last newWritable repListOfWritables |> Debug.log (Console.magenta "newWritable adding to list")
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -500,7 +506,7 @@ nodeWithModifiedNestedStressTest =
                             , obj.number.set 999
                             , obj.minor.set False
                             , obj.kids.set (newKidsList c)
-                            , nestedStressTest.lastField.set "externally updating nst within newWritable"
+                            , nestedStressTest.lastField.set ("externally updating nst within newWritable")
                             ]
                     in
                     Codec.newWithChanges writableObjectCodec c woChanges
@@ -615,7 +621,7 @@ modifiedNestedStressTestIntegrityCheck =
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getPointer o.listOfNestedRecords)) False decodedNST
             ]
-        , test "checking the decoded nested mess has the changes" <|
+        , test "checking the decoded nested mess has the changes from round 2" <|
             \_ ->
                 Expect.all
                     [ expectOkAndEqualWhenMapped (\o -> List.map (Reg.latest >> .address >> .get) <| RepList.listValues o.listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first

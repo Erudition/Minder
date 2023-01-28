@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), Changer, ComplexAtom(..), ComplexPayload, Creator, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, complexFromSolo, emptyChange, genesisParent, genesisPointer, getPointerObjectID, newPointer, nonEmptyFrames, none, pendingObjectLocationToString, pendingToComparable, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, isPlaceholder)
+module Replicated.Change exposing (Change(..), Changer, ComplexAtom(..), ComplexPayload, Creator, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, complexFromSolo, emptyChange, genesisParent, genesisPointer, getPointerObjectID, newPointer, nonEmptyFrames, none, pendingIDToComparable, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, isPlaceholder, pendingIDToString)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -20,15 +20,31 @@ type Change
     = Change ChangeSet
 
 
-existingIDToComparable : ExistingID -> String
+existingIDToComparable : ExistingID -> (Op.ReducerID, OpID.ObjectIDString)
 existingIDToComparable { reducer, object } =
-    reducer ++ OpID.toString object
+    (reducer, OpID.toString object)
 
 
-pendingToComparable : PendingID -> ( Op.ReducerID, PendingLocationString )
-pendingToComparable pID =
-    ( pID.reducer, pendingObjectLocationToString pID.location )
+pendingIDToComparable : PendingID -> List String
+pendingIDToComparable pendingID =
+    let 
+        (parent, ancestors) =
+            case pendingID.location of
+                ParentExists objectID siblings ->
+                    (OpID.toString objectID, Nonempty.toList siblings)
 
+                ParentPending reducerID siblings ->
+                    (reducerID, (Nonempty.toList siblings))
+
+                ParentIsRoot ->
+                    ("root", [])
+    in
+    [ pendingID.reducer, parent ] ++ List.reverse ancestors
+
+
+pendingIDToString : PendingID -> String
+pendingIDToString pendingID =
+    String.join " -> " (pendingIDToComparable pendingID)
 
 mergeChanges : Change -> Change -> Change
 mergeChanges (Change changeSetA) (Change changeSetB) =
@@ -50,8 +66,8 @@ mergeMaybeChange maybeChange change =
 
 
 type alias ChangeSet =
-    { objectsToCreate : AnyDict ( Op.ReducerID, PendingLocationString ) PendingID (List ObjectChange)
-    , existingObjectChanges : AnyDict String ExistingID (List ObjectChange)
+    { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
+    , existingObjectChanges : AnyDict (Op.ReducerID, OpID.ObjectIDString) ExistingID (List ObjectChange)
     , opsToRepeat : OpDb
     }
 
@@ -60,7 +76,7 @@ emptyChange : Change
 emptyChange =
     Change <|
         { existingObjectChanges = AnyDict.empty existingIDToComparable
-        , objectsToCreate = AnyDict.empty pendingToComparable
+        , objectsToCreate = AnyDict.empty pendingIDToComparable
         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
         }
 
@@ -196,7 +212,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                 ExistingObjectPointer existingID ->
                     Change
                         { existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
-                        , objectsToCreate = AnyDict.empty pendingToComparable
+                        , objectsToCreate = AnyDict.empty pendingIDToComparable
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
@@ -204,7 +220,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                 PlaceholderPointer pendingID ancestorsInstallChangeMaybe ->
                     Change
                         { existingObjectChanges = AnyDict.empty existingIDToComparable
-                        , objectsToCreate = AnyDict.singleton pendingID objectChanges pendingToComparable
+                        , objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         -- |> mergeMaybeChange ancestorsInstallChangeMaybe
@@ -338,17 +354,7 @@ type alias PendingLocationString =
     String
 
 
-pendingObjectLocationToString : PendingObjectLocation -> PendingLocationString
-pendingObjectLocationToString pendingID =
-    case pendingID of
-        ParentExists objectID _ ->
-            OpID.toString objectID
 
-        ParentPending reducerID siblings ->
-            reducerID ++ String.join " " (Nonempty.toList siblings)
-
-        ParentIsRoot ->
-            "root"
 
 
 type alias SiblingIndex =

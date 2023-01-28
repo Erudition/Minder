@@ -9,7 +9,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, pendingObjectLocationToString)
+import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, pendingIDToString)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -327,7 +327,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
 
         frameStartMapping : UpdatesSoFar
         frameStartMapping =
-            { assignedIDs = AnyDict.empty Change.pendingToComparable
+            { assignedIDs = AnyDict.empty Change.pendingIDToComparable
             , lastSeen = AnyDict.empty OpID.toString
             }
 
@@ -395,7 +395,7 @@ creationOpsToObjectIDs ops =
 Use with Change.pendingIDToString
 -}
 type alias UpdatesSoFar =
-    { assignedIDs : AnyDict ( Op.ReducerID, String ) Change.PendingID ObjectID
+    { assignedIDs : AnyDict ( List String ) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
     }
 
@@ -556,16 +556,14 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                 Nothing ->
                                     Log.logSeparate
                                         (Console.bgRed <|
-                                            "Node.objectChangeToUnstampedOp: Unknown PendingObjectReferenceAtom reference to a pending "
-                                                ++ pendingID.reducer
-                                                ++ " object at location "
-                                                ++ pendingObjectLocationToString pendingID.location
+                                            "Node.objectChangeToUnstampedOp: Unknown PendingObjectReferenceAtom reference to a pending object: "
+                                                ++ pendingIDToString pendingID
                                                 ++ " when processing the objectChange "
                                                 ++ Debug.toString objectChange
                                                 ++ "with this in the mapping so far"
                                         )
                                         (AnyDict.toList accumulated.mapping.assignedIDs)
-                                        [ Op.NakedStringAtom <| pendingObjectLocationToString pendingID.location ]
+                                        [ Op.NakedStringAtom <| pendingIDToString pendingID ]
                     in
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ atomInList
