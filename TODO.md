@@ -4,8 +4,8 @@
 
 
 # Replicator Framework
-- Why do certain .set changes get ignored in tests
-- Why is parent init change not required
+- Why do certain .set changes get ignored in tests?
+- Why is parent init change not required?
 - Put showstopper RON debugger in place
 
 
