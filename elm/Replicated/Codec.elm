@@ -377,6 +377,12 @@ new : Codec e (s -> List Change) o repType -> Context -> repType
 new (Codec codecDetails) context =
     codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = nonChanger }
 
+{-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context. 
+If the Codecs are different, you can just use new. If they aren't, using new multiple times will create references to a single object rather than multiple distinct objects. So be sure to use a different number for each usage of newN.
+-}
+newN : Int -> Codec e (s -> List Change) o repType -> Context -> repType
+newN nth (Codec codecDetails) context =
+    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty (String.fromInt nth) [(Change.contextDifferentiatorString context)], seed = nonChanger }
 
 newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
@@ -3167,6 +3173,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
+                |> List.reverse -- TODO so we set them in slot-increasing order.
 
         allObjectChanges =
             subChanges
@@ -3225,6 +3232,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
+                |> List.reverse -- TODO so we set them in slot-increasing order.
     in
     soloOut
         (Change.changeObject
@@ -4693,8 +4701,9 @@ getNodeEncoderModifiedForVariants index codec thingToEncode =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
             , thingToEncode = EncodeThis thingToEncode
-            , position = Nonempty.cons ("variantArg" ++ String.fromInt index) (modifiedEncoder.position)
+            , position = Nonempty.cons ("variantArg#" ++ String.fromInt index) (modifiedEncoder.position)
             , parent = modifiedEncoder.parent
             }
+            
     in
     \altInputs -> (getNodeEncoder codec (finishInputs altInputs)).complex

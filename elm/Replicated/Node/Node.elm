@@ -110,7 +110,7 @@ startNewNode nowMaybe givenStartChanges =
             []
 
         firstChangeFrame =
-            Change.saveChanges "Node initialized" (startChanges ++ givenStartChanges)
+            Change.saveChanges "Node initialized" (givenStartChanges ++ startChanges)
 
         { updatedNode, created, outputFrame } =
             apply nowMaybe testNode firstChangeFrame
@@ -346,15 +346,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
             List.concat allGeneratedChunks
 
         updatedNode =
-            let
-                opsAdded =
-                    updateWithClosedOps node allGeneratedOps
-            in
-            if node.root == Nothing then
-                { opsAdded | root = List.last newObjectsCreated }
-
-            else
-                opsAdded
+            updateWithClosedOps node allGeneratedOps
 
         newObjectsCreated =
             creationOpsToObjectIDs allGeneratedOps

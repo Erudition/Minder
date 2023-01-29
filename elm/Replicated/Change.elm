@@ -255,7 +255,7 @@ changeObjectWithExternal :
 changeObjectWithExternal { target, objectChanges, externalUpdates } =
     let
         withExternalChanges thisSet =
-            mergeChanges thisSet externalUpdates
+            mergeChanges externalUpdates thisSet 
 
         finalChangeSet =
             case target of

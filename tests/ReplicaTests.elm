@@ -9,7 +9,7 @@ import GraphicSVG exposing (GraphicSVG)
 import List.Extra
 import Log
 import Maybe.Extra
-import Replicated.Change as Change exposing (Creator, Parent)
+import Replicated.Change as Change exposing (Creator, Parent, Change)
 import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -41,7 +41,7 @@ testNodeFromCodec profileCodec =
             Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
-            Node.startNewNode Nothing [ addEncodedDefaults ]
+            Node.startNewNode Nothing [ Change.WithFrameIndex (\_ -> addEncodedDefaults) ]
 
         addEncodedDefaults =
             Codec.encodeDefaults Node.testNode profileCodec
@@ -487,8 +487,8 @@ nodeWithModifiedNestedStressTest =
 
                 changes =
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertMultipleNew RepList.Last blankWritable repListOfWritables 
-                    , RepList.insertNew RepList.Last newWritable repListOfWritables 
+                    , RepList.insertNew RepList.Last [blankWritable] repListOfWritables 
+                    , RepList.insertNew RepList.Last [newWritable] repListOfWritables 
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -512,7 +512,7 @@ nodeWithModifiedNestedStressTest =
                     Codec.newWithChanges writableObjectCodec c woChanges
 
                 newKidsList p =
-                    SomeOfBoth (Codec.new (Codec.repList exampleSubObjectCodec) p) (Codec.new (Codec.repList exampleSubObjectCodec) p)
+                    SomeOfBoth (Codec.newN 1 (Codec.repList exampleSubObjectCodec) p) (Codec.newN 2 (Codec.repList exampleSubObjectCodec) p)
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
@@ -615,7 +615,7 @@ modifiedNestedStressTestIntegrityCheck =
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Node.objectCount subject |> Expect.equal 11
+                    Node.objectCount subject |> Expect.equal 10
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> eventListSize generatedRepListObjectID subject |> Expect.equal 3
             , test "the repList has been initialized and its ID is not a placeholder" <|
