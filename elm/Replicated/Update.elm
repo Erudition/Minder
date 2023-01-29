@@ -43,7 +43,7 @@ Modeling the `update` tuple as a Monad similar to `Writer`
 
 -}
 
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Node.Node exposing (Node)
 import SmartTime.Moment exposing (Moment, zero)
 import Tuple
@@ -59,7 +59,7 @@ type SuperModel state profile env
 
 {-| -}
 type alias Update msg model =
-    ( model, List Change, Cmd msg )
+    ( model, List ChangeSet, Cmd msg )
 
 
 {-| -}
@@ -223,7 +223,7 @@ andThen f ( model, changes, cmd ) =
 
 {-| Construct a new `Update` from parts
 -}
-update : model -> List Change -> Cmd msg -> Update msg model
+update : model -> List ChangeSet -> Cmd msg -> Update msg model
 update a changes b =
     identity ( a, changes, b )
 

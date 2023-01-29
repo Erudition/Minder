@@ -9,7 +9,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ComplexAtom, PendingID, Pointer(..), pendingIDToString)
+import Replicated.Change as Change exposing (ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString, Change)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -329,18 +329,18 @@ apply timeMaybe node (Change.Frame { changes, description }) =
             , lastSeen = AnyDict.empty OpID.toString
             }
 
-        changesToOps givenChanges inCounter inMapping alreadyDoneChunks inNode =
-            let
-                ( ( finalCounter, finalMapping ), generatedOutputsList ) =
-                    List.mapAccuml (oneChangeToOpChunks inNode) ( inCounter, inMapping ) givenChanges
+        -- changesToOps givenChanges inCounter inMapping alreadyDoneChunks inNode =
+        --     let
+        --         ( ( finalCounter, finalMapping ), generatedOutputsList ) =
+        --             List.mapAccuml (oneChangeSetToOpChunks inNode) ( inCounter, inMapping ) givenChanges
 
-                finishedOpChunks =
-                    alreadyDoneChunks ++ List.concat generatedOutputsList
-            in
-            finishedOpChunks
+        --         finishedOpChunks =
+        --             alreadyDoneChunks ++ List.concat generatedOutputsList
+        --     in
+        --     finishedOpChunks
 
-        allGeneratedChunks =
-            changesToOps changes frameStartCounter frameStartMapping [] node
+        ( ( finalCounter, finalMapping ), allGeneratedChunks ) =
+            oneChangeSetToOpChunks node (frameStartCounter, frameStartMapping) changes
 
         allGeneratedOps =
             List.concat allGeneratedChunks
@@ -400,15 +400,15 @@ type alias UpdatesSoFar =
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
-oneChangeToOpChunks :
+oneChangeSetToOpChunks :
     Node
     -> ( InCounter, UpdatesSoFar ) -- the accumulator
-    -> Change
+    -> ChangeSet
     ->
         ( ( OutCounter, UpdatesSoFar ) -- the accumulator
         , List Op.ClosedChunk
         )
-oneChangeToOpChunks node ( inCounter, inMapping ) (Change.Change changeSet) =
+oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
     let
         -- Step 1. Create pending objects
         ( postObjectsCreatedCounter, postObjectsCreatedMapping, objectsCreatedChunks ) =
@@ -572,7 +572,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                 Change.QuoteNestedObject soloObject ->
                     let
                         ( ( postPrereqCounter, outMapping ), newPrereqChunks ) =
-                            oneChangeToOpChunks node ( accumulated.counter, accumulated.mapping ) soloObject.change
+                            oneChangeSetToOpChunks node ( accumulated.counter, accumulated.mapping ) soloObject.changeSet
 
                         pointerPayloadAsList =
                             case soloObject.toReference of
@@ -585,7 +585,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                             [ Op.IDPointerAtom outputObject ]
 
                                         Nothing ->
-                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.change) []
+                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) []
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks

@@ -487,7 +487,7 @@ nodeWithModifiedNestedStressTest =
 
                 changes =
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertNew RepList.Last blankWritable repListOfWritables 
+                    , RepList.insertMultipleNew RepList.Last blankWritable repListOfWritables 
                     , RepList.insertNew RepList.Last newWritable repListOfWritables 
                     ]
 
@@ -511,8 +511,8 @@ nodeWithModifiedNestedStressTest =
                     in
                     Codec.newWithChanges writableObjectCodec c woChanges
 
-                newKidsList c =
-                    SomeOfBoth (Codec.new (Codec.repList exampleSubObjectCodec) c) (Codec.new (Codec.repList exampleSubObjectCodec) c)
+                newKidsList p =
+                    SomeOfBoth (Codec.new (Codec.repList exampleSubObjectCodec) p) (Codec.new (Codec.repList exampleSubObjectCodec) p)
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)

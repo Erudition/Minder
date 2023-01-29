@@ -846,7 +846,7 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
         Just foundAssignment ->
             case Dict.get foundAssignment activityLookup of
                 Nothing ->
-                    [ RepList.insertNew RepList.Last (buildWithTag foundAssignment) profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last [(buildWithTag foundAssignment)] profile.timeBlocks ]
 
                 Just foundActivity ->
-                    [ RepList.insertNew RepList.Last (buildWithActivity foundActivity) profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last [(buildWithActivity foundActivity)] profile.timeBlocks ]

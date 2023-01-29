@@ -70,7 +70,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change(..), Changer, ComplexAtom(..), ObjectChange, Parent(..), Pointer(..), genesisPointer)
+import Replicated.Change as Change exposing (ChangeSet(..), Changer, ComplexAtom(..), ObjectChange, Parent(..), Pointer(..), genesisPointer, Context, Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
@@ -282,7 +282,7 @@ justInit placeholderPointer =
         soloObject : Change.SoloObjectEncoded
         soloObject =
             { toReference = placeholderPointer
-            , change = Change.emptyChange
+            , changeSet = Change.emptyChangeSet
             , skippable = True
             }
     in
@@ -360,7 +360,7 @@ forceDecodeFromNode rootCodec node =
                 |> Maybe.withDefault "\"[]\""
 
         fromScratch =
-            new rootCodec Change.genesisParent
+            new rootCodec Change.genesisContext
     in
     case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
         Ok (Ok success) ->
@@ -373,25 +373,25 @@ forceDecodeFromNode rootCodec node =
             ( fromScratch, Debug.todo "nested error - come up with nicer presentation" )
 
 
-new : Codec e (s -> List Change) o repType -> Parent -> repType
-new (Codec codecDetails) parent =
-    codecDetails.init { parent = parent, position = Nonempty.singleton "new", seed = nonChanger }
+new : Codec e (s -> List Change) o repType -> Context -> repType
+new (Codec codecDetails) context =
+    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = nonChanger }
 
 
-newWithChanges : WrappedCodec e repType -> Parent -> Changer repType -> repType
-newWithChanges (Codec codecDetails) parent changer =
+newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
+newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
-    codecDetails.init { parent = parent, position = Nonempty.singleton "newWithChanges", seed = changer }
+    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton ((Change.contextDifferentiatorString context)), seed = changer }
 
 
-seededNew : Codec e s o repType -> Parent -> s -> repType
-seededNew (Codec codecDetails) parent seed =
-    codecDetails.init { parent = parent, position = Nonempty.singleton "seededNew", seed = seed }
+seededNew : Codec e s o repType -> Context -> s -> repType
+seededNew (Codec codecDetails) context seed =
+    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = seed }
 
 
-seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Parent -> s -> Changer repType -> repType
-seededNewWithChanges (Codec codecDetails) parent seed changer =
-    codecDetails.init { parent = parent, position = Nonempty.singleton "seededNewWithChanges", seed = ( seed, changer ) }
+seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context -> s -> Changer repType -> repType
+seededNewWithChanges (Codec codecDetails) context seed changer =
+    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = ( seed, changer ) }
 
 
 nonChanger _ =
@@ -648,24 +648,24 @@ replaceForUrl =
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
 Useful for spitting out test data, and seeing the whole heirarchy of your types.
 -}
-encodeDefaults : Node -> WrappedOrSkelCodec e s a -> Change
+encodeDefaults : Node -> WrappedOrSkelCodec e s a -> ChangeSet
 encodeDefaults node rootCodec =
     let
         rootEncoderOutput =
             getSoloNodeEncoder rootCodec
                 { node = node
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
-                , thingToEncode = EncodeThis <| new rootCodec Change.genesisParent
+                , thingToEncode = EncodeThis <| new rootCodec Change.genesisContext
                 , parent = Change.genesisParent
                 , position = Nonempty.singleton "encodeDefaults"
                 }
     in
-    rootEncoderOutput.nested.change
+    rootEncoderOutput.nested.changeSet
 
 
 {-| Generates naked Changes from a Codec's default values. Passes in a test node, not for production
 -}
-encodeDefaultsForTesting : WrappedOrSkelCodec e s a -> Change
+encodeDefaultsForTesting : WrappedOrSkelCodec e s a -> ChangeSet
 encodeDefaultsForTesting rootCodec =
     encodeDefaults Node.testNode rootCodec
 
@@ -1280,7 +1280,7 @@ repDb memberCodec =
                 { target = myPointer
                 , objectChanges = [ Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID) ]
                 }
-                |> .change
+                |> .changeSet
 
         repDbNodeDecoder : NodeDecoder e (RepDb memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
@@ -1602,7 +1602,8 @@ repStore keyCodec valueCodec =
                         |> Maybe.withDefault (createObjectAt key)
 
                 createObjectAt key =
-                    new valueCodec (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key))
+                    -- TODO FrameIndex needed?
+                    new valueCodec (Change.Context [] (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
 
                 wrapNewPendingChild key pendingChild =
                     Change.changeObject
@@ -1610,7 +1611,7 @@ repStore keyCodec valueCodec =
                         , objectChanges =
                             [ Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild) ]
                         }
-                        |> .change
+                        |> .changeSet
             in
             RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
 
@@ -2439,14 +2440,14 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
 -}
-updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> ChangeSet
 updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
     Change.changeObject
         { target = parentPointer
         , objectChanges =
             [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)) ]
         }
-        |> .change
+        |> .changeSet
 
 
 {-| RON what to do when decoding a (potentially nested!) object field.
@@ -3077,10 +3078,10 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
                 { target = targetObject
                 , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
                 }
-                |> .change
+                |> .changeSet
     in
     { get = latestValue
-    , set = setter
+    , set = \setValue -> Change.WithFrameIndex (\_ -> setter setValue)
     }
 
 
@@ -3096,10 +3097,10 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
                 { target = targetObject
                 , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
                 }
-                |> .change
+                |> .changeSet
     in
     { get = latestValue
-    , set = setter
+    , set = \setValue -> Change.WithFrameIndex (\_ -> setter setValue)
     , history = rest
     }
 
@@ -3132,13 +3133,13 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                 EncodeObjectOrThis objectIDs reg ->
                     ( Just reg, Just <| Reg.latest reg )
 
-        ( registerPointer, history, initChanges ) =
+        ( registerPointer, history, initChangeSet ) =
             case regMaybe of
                 Just ((Register regDetails) as reg) ->
-                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
+                    ( regDetails.pointer, regDetails.history, Change.collapseChangesToChangeSet [](regDetails.init reg) )
 
                 Nothing ->
-                    ( Object.getPointer (fallbackObject []), Dict.empty, [] )
+                    ( Object.getPointer (fallbackObject []), Dict.empty, Change.emptyChangeSet )
 
         subChanges : List Change.ObjectChange
         subChanges =
@@ -3174,7 +3175,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         (Change.changeObjectWithExternal
             { target = registerPointer
             , objectChanges = allObjectChanges
-            , externalUpdates = initChanges
+            , externalUpdates = initChangeSet
             }
         )
 
@@ -3885,7 +3886,7 @@ variant1 tag ctor codec1 =
         )
         (\wrapper v ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v
+                [ getNodeEncoderModifiedForVariants 1 codec1 v
                 ]
         )
         (BD.map (result1 ctor) (getBytesDecoder codec1))
@@ -3933,8 +3934,8 @@ variant2 tag ctor codec1 codec2 =
         )
         (\wrapper v1 v2 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
                 ]
         )
         (BD.map2
@@ -4000,9 +4001,9 @@ variant3 tag ctor codec1 codec2 codec3 =
         )
         (\wrapper v1 v2 v3 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
                 ]
         )
         (BD.map3
@@ -4078,10 +4079,10 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
         )
         (\wrapper v1 v2 v3 v4 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
-                , getNodeEncoderModifiedForVariants codec4 v4
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
+                , getNodeEncoderModifiedForVariants 4 codec4 v4
                 ]
         )
         (BD.map4
@@ -4167,11 +4168,11 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
         )
         (\wrapper v1 v2 v3 v4 v5 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
-                , getNodeEncoderModifiedForVariants codec4 v4
-                , getNodeEncoderModifiedForVariants codec5 v5
+                [ getNodeEncoderModifiedForVariants 1  codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
+                , getNodeEncoderModifiedForVariants 4 codec4 v4
+                , getNodeEncoderModifiedForVariants 5 codec5 v5
                 ]
         )
         (BD.map5
@@ -4267,12 +4268,12 @@ variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
         )
         (\wrapper v1 v2 v3 v4 v5 v6 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
-                , getNodeEncoderModifiedForVariants codec4 v4
-                , getNodeEncoderModifiedForVariants codec5 v5
-                , getNodeEncoderModifiedForVariants codec6 v6
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
+                , getNodeEncoderModifiedForVariants 4 codec4 v4
+                , getNodeEncoderModifiedForVariants 5 codec5 v5
+                , getNodeEncoderModifiedForVariants 6 codec6 v6
                 ]
         )
         (BD.map5
@@ -4383,13 +4384,13 @@ variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
         )
         (\wrapper v1 v2 v3 v4 v5 v6 v7 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
-                , getNodeEncoderModifiedForVariants codec4 v4
-                , getNodeEncoderModifiedForVariants codec5 v5
-                , getNodeEncoderModifiedForVariants codec6 v6
-                , getNodeEncoderModifiedForVariants codec7 v7
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
+                , getNodeEncoderModifiedForVariants 4 codec4 v4
+                , getNodeEncoderModifiedForVariants 5 codec5 v5
+                , getNodeEncoderModifiedForVariants 6 codec6 v6
+                , getNodeEncoderModifiedForVariants 7 codec7 v7
                 ]
         )
         (BD.map5
@@ -4515,14 +4516,14 @@ variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
         )
         (\wrapper v1 v2 v3 v4 v5 v6 v7 v8 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants codec1 v1
-                , getNodeEncoderModifiedForVariants codec2 v2
-                , getNodeEncoderModifiedForVariants codec3 v3
-                , getNodeEncoderModifiedForVariants codec4 v4
-                , getNodeEncoderModifiedForVariants codec5 v5
-                , getNodeEncoderModifiedForVariants codec6 v6
-                , getNodeEncoderModifiedForVariants codec7 v7
-                , getNodeEncoderModifiedForVariants codec8 v8
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
+                , getNodeEncoderModifiedForVariants 2 codec2 v2
+                , getNodeEncoderModifiedForVariants 3 codec3 v3
+                , getNodeEncoderModifiedForVariants 4 codec4 v4
+                , getNodeEncoderModifiedForVariants 5 codec5 v5
+                , getNodeEncoderModifiedForVariants 6 codec6 v6
+                , getNodeEncoderModifiedForVariants 7 codec7 v7
+                , getNodeEncoderModifiedForVariants 8 codec8 v8
                 ]
         )
         (BD.map5
@@ -4684,15 +4685,15 @@ Hence, inputs are modified to NodeEncoderInputsNoVariable and outputs are just L
 The input type variable is taken care of early on, and the output type is converted to NodeENcoderOutput in the last mile.
 
 -}
-getNodeEncoderModifiedForVariants : Codec e ia o a -> a -> VariantNodeEncoder
-getNodeEncoderModifiedForVariants codec thingToEncode =
+getNodeEncoderModifiedForVariants : Int -> Codec e ia o a -> a -> VariantNodeEncoder
+getNodeEncoderModifiedForVariants index codec thingToEncode =
     let
         finishInputs : NodeEncoderInputsNoVariable -> NodeEncoderInputs a
         finishInputs modifiedEncoder =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
             , thingToEncode = EncodeThis thingToEncode
-            , position = modifiedEncoder.position
+            , position = Nonempty.cons ("variantArg" ++ String.fromInt index) (modifiedEncoder.position)
             , parent = modifiedEncoder.parent
             }
     in

@@ -4,7 +4,7 @@ import Browser
 import Html as PlainHtml
 import Profile exposing (..)
 
-import Replicated.Change as Change exposing (Change, Frame)
+import Replicated.Change as Change exposing (ChangeSet, Frame)
 import Html.Styled exposing (node, toUnstyled)
 import Main exposing (StoredRON, Temp, Msg)
 import Url

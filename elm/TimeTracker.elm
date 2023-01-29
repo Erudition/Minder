@@ -27,7 +27,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Profile exposing (..)
 import Refocus
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)

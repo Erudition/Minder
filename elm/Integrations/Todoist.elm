@@ -21,7 +21,7 @@ import List.Nonempty exposing (Nonempty)
 import Maybe.Extra as Maybe
 import Parser exposing ((|.), (|=), Parser, float, spaces, symbol)
 import Profile exposing (Profile, TodoistIntegrationData, saveError)
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (ChangeSet)
 import Set
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)

@@ -257,7 +257,7 @@ addActionToClass actionClassID classToModify =
     in
     RepList.insert RepList.Last taskClassChild classToModify.children
 
-initWithClass : Change.Parent -> Entry
+initWithClass : Change.Creator Entry
 initWithClass parent = 
     let
         taskClassInit : Change.Creator TaskClass
@@ -268,7 +268,7 @@ initWithClass parent =
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
-            [ RepList.insertNew RepList.Last taskClassInit (Reg.latest newProject).children
+            [ RepList.insertNew RepList.Last [taskClassInit] (Reg.latest newProject).children
             ]
 
         entryChildInit subparent =
@@ -281,7 +281,7 @@ initWithClass parent =
 
         childrenChanger : RepList SuperProjectChild -> List Change
         childrenChanger newChildren =
-            [ RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2)) newChildren
+            [ RepList.insertNew RepList.Last [(\c2 -> ProjectIsHere (entryChildInit c2))] newChildren
             ]
     in
     { properties = Codec.newWithChanges parentPropertiesCodec parent parentPropertiesChanger

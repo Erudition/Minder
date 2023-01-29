@@ -9,7 +9,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Parent(..), Pointer)
+import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..), Pointer, Creator)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -195,13 +195,17 @@ attachmentPointHelper containerPointer insertionPoint =
 -}
 insert : InsertionPoint -> memberType -> RepList memberType -> Change
 insert insertionPoint newItem (RepList repSetRecord) =
-    Change.changeObjectWithExternal
-        { target = repSetRecord.pointer
-        , objectChanges =
-            [ repSetRecord.memberAdder "insert" newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
-        , externalUpdates = []
-        }
-        |> .change
+    let
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = repSetRecord.pointer
+                , objectChanges =
+                    [ repSetRecord.memberAdder ("insert" ++ Change.frameIndexString frameIndex) newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
+                }
+                |> .changeSet
+    in
+    Change.WithFrameIndex finalChangeSet
+
 
 
 {-| Add items at the given location.
@@ -209,28 +213,33 @@ insert insertionPoint newItem (RepList repSetRecord) =
 append : InsertionPoint -> List memberType -> RepList memberType -> Change
 append insertionPoint newItems (RepList record) =
     let
-        newItemToObjectChange newIndex newItem =
-            record.memberAdder ("append#" ++ String.fromInt newIndex) newItem (attachmentPointHelper record.pointer insertionPoint)
+        newItemToObjectChange frameIndex newIndex newItem =
+            record.memberAdder (Change.frameIndexString frameIndex ++  "append#" ++ String.fromInt newIndex) newItem (attachmentPointHelper record.pointer insertionPoint)
+    
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = List.indexedMap (newItemToObjectChange frameIndex) newItems
+                }
+                |> .changeSet
     in
-    Change.changeObjectWithExternal
-        { target = record.pointer
-        , objectChanges = List.indexedMap newItemToObjectChange newItems
-        , externalUpdates = []
-        }
-         |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
 {-| Remove an item with the given handle.
 -}
 remove : Handle -> RepList memberType -> Change
 remove (Handle itemToRemove) (RepList record) =
-    Change.changeObjectWithExternal
-        { target = record.pointer
-        , objectChanges =
-            [ Change.RevertOp itemToRemove ]
-        , externalUpdates = []
-        }
-         |> .change
+    let
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges =
+                    [ Change.RevertOp itemToRemove ]
+                }
+         |> .changeSet
+    in
+    Change.WithFrameIndex finalChangeSet
 
 
 {-| How many saved items are in this replist?
@@ -240,33 +249,40 @@ length (RepList record) =
     List.length record.members
 
 
-getInit : RepList memberType -> List Change
+getInit : RepList memberType -> ChangeSet
 getInit ((RepList record) as repList) =
     record.startWith repList
+    |> Change.collapseChangesToChangeSet []
 
 
-{-| Insert an item at the given location, that must be created anew with a context clue.
-The new item will be generated from the function you pass, which has the `Context` as its input.
+{-| Insert items at the given location, which must be created anew with a context clue.
+The new items will be generated from the Creator you pass, which has the `Context` as its input.
 
     - If you don't need a context (e.g. you are addding an already-saved reptype), just use `insert`.
 
 -}
-insertNew : InsertionPoint -> (Parent -> memberType) -> RepList memberType -> Change
-insertNew insertionPoint newItemFromContext (RepList record) =
+insertNew : InsertionPoint -> List (Creator memberType) -> RepList memberType -> Change
+insertNew insertionPoint newItemCreators (RepList record) =
     let
-        newItem =
-            newItemFromContext (Change.becomeInstantParent record.pointer)
+        newItem frameIndex index creator =
+            creator (Change.Context (index :: frameIndex) (Change.becomeInstantParent record.pointer))
 
-        memberToObjectChange =
-            record.memberAdder "insertNew" newItem refMaybe
+
+        newItems frameIndex =
+            List.indexedMap (newItem frameIndex) newItemCreators
+
+
+        memberToObjectChange item =
+            record.memberAdder "insertNew" item refMaybe
 
         refMaybe =
             attachmentPointHelper record.pointer insertionPoint
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = List.map (memberToObjectChange) (newItems frameIndex)
+                }
+                |> .changeSet
     in
-    Change.changeObjectWithExternal
-        { target = record.pointer
-        , objectChanges =
-            [ memberToObjectChange ]
-        , externalUpdates = []
-        }
-         |> .change
+    WithFrameIndex finalChangeSet

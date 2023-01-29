@@ -859,7 +859,7 @@ update msg state profile env =
                             Entry.initWithClass parent
 
                         -- make a new ActionClass from Reg Skel
-                        newClassInit : Parent -> Reg Class.ActionClassSkel
+                        newClassInit : Change.Creator (Reg Class.ActionClassSkel)
                         newClassInit c =
                             Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
 
@@ -875,7 +875,7 @@ update msg state profile env =
 
                         finalChanges =
                             [ RepList.insert RepList.Last newTaskTitle profile.errors
-                            , RepList.insertNew RepList.Last newEntryInit profile.taskEntries
+                            , RepList.insertNew RepList.Last [newEntryInit] profile.taskEntries
                             , RepDb.addNew newClassInit profile.taskClasses
                             ]
                     in

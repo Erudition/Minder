@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), Changer, ComplexAtom(..), ComplexPayload, Creator, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, complexFromSolo, emptyChange, genesisParent, genesisPointer, getPointerObjectID, newPointer, nonEmptyFrames, none, pendingIDToComparable, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, isPlaceholder, pendingIDToString)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Creator, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, complexFromSolo, emptyChangeSet, genesisParent, genesisPointer, getPointerObjectID, newPointer, nonEmptyFrames, none, pendingIDToComparable, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, isPlaceholder, pendingIDToString, Context(..), genesisContext, getContextParent, contextDifferentiatorString, collapseChangesToChangeSet, isEmptyChangeSet, frameIndexString)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -16,9 +16,27 @@ import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 Outputs a Chunk - Chunks are same-object changes within a Frame.
 
 -}
-type Change
-    = Change ChangeSet
+type ChangeSet
+    = ChangeSet ChangeSetDetails
 
+
+type Change = WithFrameIndex (FrameIndex -> ChangeSet)
+
+type alias FrameIndex = List Int
+
+
+
+collapseChangesToChangeSet : FrameIndex -> List Change -> ChangeSet
+collapseChangesToChangeSet context changes =
+    let
+        supplyIndexToChange index (WithFrameIndex toChangeSet) =
+            toChangeSet (index :: context)
+
+        listOfChangeSets =
+            List.indexedMap supplyIndexToChange changes
+    in
+    List.foldl mergeChanges emptyChangeSet listOfChangeSets
+    
 
 existingIDToComparable : ExistingID -> (Op.ReducerID, OpID.ObjectIDString)
 existingIDToComparable { reducer, object } =
@@ -60,9 +78,9 @@ unionCombine empty dictA dictB =
 
 {-| Helper to merge two Changes. Put the later change first, earlier change last (pipelining) for proper duplicate handling.
 -}
-mergeChanges : Change -> Change -> Change
-mergeChanges (Change changeSetLater) (Change changeSetEarlier) =
-    Change
+mergeChanges : ChangeSet -> ChangeSet -> ChangeSet
+mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
+    ChangeSet
         { existingObjectChanges =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
@@ -74,7 +92,7 @@ mergeChanges (Change changeSetLater) (Change changeSetEarlier) =
         }
 
 
-mergeMaybeChange : Maybe Change -> Change -> Change
+mergeMaybeChange : Maybe ChangeSet -> ChangeSet -> ChangeSet
 mergeMaybeChange maybeChange change =
     case maybeChange of
         Just changeToMerge ->
@@ -84,7 +102,7 @@ mergeMaybeChange maybeChange change =
             change
 
 
-type alias ChangeSet =
+type alias ChangeSetDetails =
     { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict (Op.ReducerID, OpID.ObjectIDString) ExistingID (List ObjectChange)
     , opsToRepeat : OpDb
@@ -92,9 +110,9 @@ type alias ChangeSet =
 
 
 
-emptyChange : Change
-emptyChange =
-    Change <|
+emptyChangeSet : ChangeSet
+emptyChangeSet =
+    ChangeSet <|
         { existingObjectChanges = emptyExistingObjectChanges
         , objectsToCreate = emptyObjectsToCreate
         , opsToRepeat = emptyOpsToRepeat
@@ -122,7 +140,7 @@ type alias Changer o =
 
 
 type alias Creator a =
-    Parent -> a
+    Context -> a
 
 
 type ObjectChange
@@ -209,7 +227,7 @@ If there are no changes to make yet (only an object to init), we can indicate to
 -}
 type alias SoloObjectEncoded =
     { toReference : Pointer
-    , change : Change
+    , changeSet : ChangeSet
     , skippable : Bool
     }
 
@@ -225,24 +243,24 @@ changeObject :
     }
     -> SoloObjectEncoded
 changeObject { target, objectChanges } =
-    changeObjectWithExternal { target = target, objectChanges = objectChanges, externalUpdates = [] }
+    changeObjectWithExternal { target = target, objectChanges = objectChanges, externalUpdates = emptyChangeSet }
 
 
 changeObjectWithExternal :
     { target : Pointer
     , objectChanges : List ObjectChange
-    , externalUpdates : List Change
+    , externalUpdates : ChangeSet
     }
     -> SoloObjectEncoded
 changeObjectWithExternal { target, objectChanges, externalUpdates } =
     let
         withExternalChanges thisSet =
-            List.foldl mergeChanges thisSet externalUpdates
+            mergeChanges thisSet externalUpdates
 
-        finalChange =
+        finalChangeSet =
             case target of
                 ExistingObjectPointer existingID ->
-                    Change
+                    ChangeSet
                         { existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
                         , objectsToCreate = AnyDict.empty pendingIDToComparable
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
@@ -250,7 +268,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                         |> withExternalChanges
 
                 PlaceholderPointer pendingID ancestorsInstallChangeMaybe ->
-                    Change
+                    ChangeSet
                         { existingObjectChanges = AnyDict.empty existingIDToComparable
                         , objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
@@ -259,10 +277,13 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                         |> withExternalChanges
     in
     { toReference = target
-    , change = finalChange
-    , skippable = List.isEmpty objectChanges && List.isEmpty externalUpdates
+    , changeSet = finalChangeSet
+    , skippable = isEmptyChangeSet finalChangeSet
     }
 
+isEmptyChangeSet : ChangeSet -> Bool
+isEmptyChangeSet (ChangeSet details) =
+    AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && AnyDict.isEmpty details.opsToRepeat
 
 
 -- COMPLEX PAYLOADS ---------------------------------------
@@ -290,26 +311,26 @@ type alias ComplexPayload =
 
 type Frame
     = Frame
-        { changes : List Change
+        { changes : ChangeSet
         , description : String
         }
 
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Frame { changes = changes, description = description }
+    Frame { changes = collapseChangesToChangeSet [] changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.
 -}
 none : Frame
 none =
-    Frame { changes = [], description = "Empty Frame" }
+    Frame { changes = emptyChangeSet, description = "Empty Frame" }
 
 
 isEmpty : Frame -> Bool
 isEmpty (Frame { changes }) =
-    List.isEmpty changes
+    isEmptyChangeSet changes
 
 
 nonEmptyFrames : List Frame -> List Frame
@@ -332,7 +353,7 @@ For future (placeholder) objects, there is a change built in, allowing us to kee
 -}
 type Pointer
     = ExistingObjectPointer ExistingID
-    | PlaceholderPointer PendingID (Maybe Change)
+    | PlaceholderPointer PendingID (Maybe ChangeSet)
 
 
 equalPointers pointer1 pointer2 =
@@ -368,7 +389,7 @@ getPointerObjectID pointer =
 {-| When an object contains nested objects, it may not need to know about them until they need to be created. When they do, this Change tells us how to "install" the nested object (given its PendingID) in its proper place in the containing object.
 -}
 type alias ChildInstaller =
-    PendingID -> Change
+    PendingID -> ChangeSet
 
 
 type PendingCounter
@@ -407,7 +428,7 @@ newPointer { parent, position, reducerID } =
                 newPendingID =
                     PendingID reducerID (ParentExists objectID.object position)
 
-                childInstallChangeMaybe : Maybe Change
+                childInstallChangeMaybe : Maybe ChangeSet
                 childInstallChangeMaybe =
                     -- install the new child in the existing parent.
                     Maybe.map (\f -> f newPendingID) childInstallerMaybe
@@ -416,12 +437,12 @@ newPointer { parent, position, reducerID } =
 
         Parent (PlaceholderPointer parentPendingID ancestorInstallChangeMaybe) childInstallerMaybe ->
             let
-                childInstallChangeMaybe : Maybe Change
+                childInstallChangeMaybe : Maybe ChangeSet
                 childInstallChangeMaybe =
                     -- install the new child in the pending parent.
                     Maybe.map (\f -> f newPendingID) childInstallerMaybe
 
-                finalInstallChangeMaybe : Maybe Change
+                finalInstallChangeMaybe : Maybe ChangeSet
                 finalInstallChangeMaybe =
                     case ( childInstallChangeMaybe, ancestorInstallChangeMaybe ) of
                         ( Just childInstallChange, Just ancestorInstallChange ) ->
@@ -462,6 +483,22 @@ genesisParent : Parent
 genesisParent =
     Parent genesisPointer Nothing
 
+genesisContext : Context
+genesisContext =
+    Context [] genesisParent
+
+getContextParent : Context -> Parent
+getContextParent (Context _ parent) =
+    parent
+
+contextDifferentiatorString : Context -> String
+contextDifferentiatorString (Context frameIndex parent) =
+    List.map String.fromInt frameIndex
+    |> String.join "<"
+
+frameIndexString frameIndex =
+    List.map String.fromInt frameIndex
+    |> String.join "<"
 
 
 -- addInstaller : Pointer -> Installer -> Pointer
@@ -478,6 +515,11 @@ genesisParent =
 
 type Parent
     = Parent Pointer (Maybe ChildInstaller)
+
+
+type Context =
+    Context FrameIndex Parent
+
 
 
 {-| A delayed Parent is capable of hosting child objects that can stay in pending form until they are first modified. This keeps the data store lean, so most objects should be delayed Parents if possible.

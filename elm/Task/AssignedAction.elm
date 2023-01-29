@@ -10,7 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Context)
 import Replicated.Codec as Codec exposing (Codec, FlatCodec)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -72,9 +72,9 @@ type alias AssignedActionID =
 type alias AssignedActionDb = RepDb (Reg AssignedActionSkel)
 
 
-initWithClass : ActionClassID -> Change.Parent -> (Reg AssignedActionSkel)
-initWithClass actionClassID parent = 
-    Codec.seededNew codec parent (actionClassID, \_ -> [])
+initWithClass : ActionClassID -> Context -> (Reg AssignedActionSkel)
+initWithClass actionClassID context = 
+    Codec.seededNew codec context (actionClassID, \_ -> [])
 
 
 

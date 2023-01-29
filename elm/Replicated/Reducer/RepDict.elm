@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
+import Replicated.Change as Change exposing (ChangeSet, Changer, Parent(..), Creator, Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -42,7 +42,7 @@ type RepDictEntry k v
 
 type alias Member v =
     { value : v
-    , remove : Change
+    , remove : ChangeSet
     }
 
 
@@ -89,11 +89,10 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
                     Nothing
 
         remover containerExistingID inclusionEventID =
-            Change.changeObjectWithExternal
+            Change.changeObject
                 { target = Change.ExistingObjectPointer containerExistingID 
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
-                , externalUpdates = []
-                }  |> .change
+                }  |> .changeSet
     in
     RepDict
         { pointer = Object.getPointer targetObject
@@ -120,14 +119,16 @@ get key repDict =
 insert : k -> v -> RepDict k v -> Change
 insert newKey newValue (RepDict record) =
     let
-        newItemToObjectChange =
-            record.memberAdder "singleInsert" (Present newKey newValue)
+        newItemToObjectChange frameIndex =
+            record.memberAdder ("singleInsert" ++ Change.frameIndexString frameIndex) (Present newKey newValue)
+
+        finalChangeSet frameIndex =
+                Change.changeObject
+                { target = record.pointer
+                , objectChanges = [ newItemToObjectChange frameIndex ]
+                }  |> .changeSet
     in
-    Change.changeObjectWithExternal
-        { target = record.pointer
-        , objectChanges = [ newItemToObjectChange ]
-        , externalUpdates = []
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
 {-| Bulk insert entries into a replicated dictionary of primitives, via a list of (key, value) tuples.
@@ -136,14 +137,16 @@ Only works with dictionaries with primitives.
 bulkInsert : List ( k, v ) -> RepDict k v -> Change
 bulkInsert newItems (RepDict record) =
     let
-        newItemToObjectChange index ( newKey, newValue ) =
-            record.memberAdder ("bulkInsert#" ++ String.fromInt index) (Present newKey newValue)
+        newItemToObjectChange frameIndex index ( newKey, newValue ) =
+            record.memberAdder (Change.frameIndexString frameIndex ++  "bulkInsert#" ++ String.fromInt index) (Present newKey newValue)
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = List.indexedMap (newItemToObjectChange frameIndex) newItems
+                }  |> .changeSet
     in
-    Change.changeObjectWithExternal
-        { target = record.pointer
-        , objectChanges = List.indexedMap newItemToObjectChange newItems
-        , externalUpdates = []
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
 {-| Insert an entry whose value needs a context clue for initialization.
@@ -155,15 +158,17 @@ The new value will be generated from the function you pass, which has the `Conte
 insertNew : k -> Creator v -> RepDict k v -> Change
 insertNew key newValueFromContext (RepDict repDictRecord) =
     let
-        newValue =
-            newValueFromContext (Change.becomeInstantParent repDictRecord.pointer)
+        newValue frameIndex =
+            newValueFromContext (Change.Context frameIndex (Change.becomeInstantParent repDictRecord.pointer))
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = repDictRecord.pointer
+                , objectChanges =
+                    [ repDictRecord.memberAdder "insertNew" (Present key (newValue frameIndex)) ]
+                }  |> .changeSet
     in
-    Change.changeObjectWithExternal
-        { target = repDictRecord.pointer
-        , objectChanges =
-            [ repDictRecord.memberAdder "insertNew" (Present key newValue) ]
-        , externalUpdates = []
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
 {-| Get your RepDict as a read-only List.
@@ -224,11 +229,14 @@ update key updater ((RepDict record) as repDict) =
 
         newMemberAsObjectChange =
             record.memberAdder "update" updatedEntry
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = [ newMemberAsObjectChange ]
+                }  |> .changeSet
     in
-    Change.changeObject
-        { target = record.pointer
-        , objectChanges = [ newMemberAsObjectChange ]
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
 size : RepDict k v -> Int
@@ -236,6 +244,7 @@ size (RepDict record) =
     AnyDict.size record.members
 
 
-getInit : RepDict k v -> List Change
+getInit : RepDict k v -> ChangeSet
 getInit ((RepDict record) as repDict) =
     record.startWith repDict
+    |> Change.collapseChangesToChangeSet []

@@ -10,7 +10,7 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Parent(..), Creator)
+import Replicated.Change as Change exposing (ChangeSet, Changer, Parent(..), Creator, Change)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -80,18 +80,17 @@ buildFromReplicaDb object payloadToMember memberAdder init =
                     Just
                         { id = ID.tag (Change.ExistingObjectPointer containerExistingID )
                         , value = memberValue
-                        , remove = remover containerExistingID eventID
+                        , remove = Change.WithFrameIndex (\_ -> (remover containerExistingID eventID))
                         }
 
                 _ ->
                     Nothing
 
         remover containerObjectID inclusionEventID =
-            Change.changeObjectWithExternal
+            Change.changeObject
                 { target = Change.ExistingObjectPointer containerObjectID 
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
-                , externalUpdates = []
-                }  |> .change
+                }  |> .changeSet
     in
     RepDb
         { pointer = Object.getPointer object
@@ -150,29 +149,38 @@ size (RepDb record) =
 addNew : Creator memberType -> RepDb memberType -> Change
 addNew newMemberCreator (RepDb record) =
     let
-        newMember =
+        newMember index =
             -- No need to pass creation change, will happen as part of change below
-            newMemberCreator (Change.becomeInstantParent record.pointer)
+            newMemberCreator (Change.Context index (Change.becomeInstantParent record.pointer))
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = [(record.memberAdder (newMember frameIndex))]
+                }  |> .changeSet
     in
-    Change.changeObjectWithExternal 
-        { target = record.pointer
-        , objectChanges = [(record.memberAdder newMember)]
-        , externalUpdates = []
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
-addMultipleNew : Creator (List memberType) -> RepDb memberType -> Change
-addMultipleNew newMembersCreator (RepDb record) =
+addMultipleNew : List (Creator memberType) -> RepDb memberType -> Change
+addMultipleNew newMemberCreators (RepDb record) =
     let
-        newMembers =
-            newMembersCreator (Change.becomeInstantParent record.pointer)
+        createWithContext frameIndex index creator =
+            creator (Change.Context (index :: frameIndex) (Change.becomeInstantParent record.pointer))
+
+        newMembers frameIndex =
+            List.indexedMap (createWithContext frameIndex) newMemberCreators 
+
+        finalChangeSet frameIndex =
+            Change.changeObject
+                { target = record.pointer
+                , objectChanges = List.map record.memberAdder (newMembers frameIndex)
+                }  |> .changeSet
     in
-    Change.changeObject
-        { target = record.pointer
-        , objectChanges = List.map record.memberAdder newMembers
-        }  |> .change
+    Change.WithFrameIndex finalChangeSet
 
 
-getInit : RepDb memberType -> List Change
+getInit : RepDb memberType -> ChangeSet
 getInit ((RepDb record) as repDb) =
     record.startWith repDb
+    |> Change.collapseChangesToChangeSet []
