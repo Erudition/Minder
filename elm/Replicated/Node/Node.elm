@@ -112,8 +112,16 @@ startNewNode nowMaybe givenStartChanges =
         firstChangeFrame =
             Change.saveChanges "Node initialized" (givenStartChanges ++ startChanges)
 
+        startNode =
+            { identity = firstSessionEver
+            , peers = []
+            , ops = AnyDict.empty OpID.toSortablePrimitives
+            , root = Nothing
+            , highestSeenClock = 0
+            }
+
         { updatedNode, created, outputFrame } =
-            apply nowMaybe testNode firstChangeFrame
+            apply nowMaybe startNode firstChangeFrame
 
         newRoot =
             List.last created
@@ -339,11 +347,25 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         --     in
         --     finishedOpChunks
 
-        ( ( finalCounter, finalMapping ), allGeneratedChunks ) =
+        ( ( postEarlyChangesCounter, postEarlyChangesMapping ), earlyChunks ) =
             oneChangeSetToOpChunks node (frameStartCounter, frameStartMapping) changes
 
+        (Change.ChangeSet changeSetDetails) =
+            changes
+
+        ( (outCounter, outMapping), lateChunks ) =
+            case changeSetDetails.later of
+                Just laterChanges ->
+                    oneChangeSetToOpChunks node ( postEarlyChangesCounter, postEarlyChangesMapping ) (laterChanges)
+
+                Nothing ->
+                    ((postEarlyChangesCounter, postEarlyChangesMapping), [])
+
+        allGeneratedChunks =
+            (earlyChunks ++ lateChunks)
+
         allGeneratedOps =
-            List.concat allGeneratedChunks
+            List.concat (allGeneratedChunks)
 
         updatedNode =
             updateWithClosedOps node allGeneratedOps
@@ -428,7 +450,7 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
         --     List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
         --         |> String.concat
     in
-    ( ( outCounter, outMapping )
+    ( ( outCounter, Debug.log "outMapping" outMapping )
     , generatedChunks
     )
 

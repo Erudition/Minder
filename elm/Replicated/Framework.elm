@@ -284,14 +284,30 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
             case wrappedModel of
                 PreInit { restoredNode, warnings, key, url, flags, userInit } ->
                     let
-                        startNode =
-                            Maybe.withDefault (Node.startNewNode (Just now) []).newNode restoredNode
+                        (startNode, startFrame) =
+                            case restoredNode of
+                                Just restoredNodeFound ->
+                                    (restoredNodeFound, [])
+
+                                Nothing ->
+                                    let
+                                        tempDefaultChanges =
+                                            [Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec)]
+
+                                        startNewNode =
+                                            Node.startNewNode (Just now) tempDefaultChanges
+                                    in
+                                    (startNewNode.newNode, startNewNode.startFrame)
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode
 
                         userStartupCmd =
                             Job.perform (\_ -> UserInit) (Job.succeed ())
+
+                        saveNodeCmd =
+                            setStorage (Op.closedChunksToFrameText startFrame)
+                            |> Cmd.map (\m -> U m now)
                     in
                     ( FrameworkReady
                         { node = startNode
@@ -304,7 +320,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , userFlags = flags.userFlags
                         , userInit = userInit
                         }
-                    , userStartupCmd
+                    , Cmd.batch [saveNodeCmd, userStartupCmd]
                     )
 
                 _ ->

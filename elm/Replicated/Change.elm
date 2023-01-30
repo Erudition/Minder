@@ -81,11 +81,27 @@ unionCombine empty dictA dictB =
 mergeChanges : ChangeSet -> ChangeSet -> ChangeSet
 mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
     ChangeSet
-        { existingObjectChanges =
+        { objectsToCreate = 
+            unionCombine emptyObjectsToCreate changeSetEarlier.objectsToCreate changeSetLater.objectsToCreate
+            
+        , existingObjectChanges =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
-        , objectsToCreate = 
-            unionCombine emptyObjectsToCreate changeSetEarlier.objectsToCreate changeSetLater.objectsToCreate
+
+        , later = 
+            case (changeSetEarlier.later, changeSetLater.later) of
+                (Just lateChangeSet, Nothing) ->
+                    Just lateChangeSet
+                
+                (Nothing, Just lateChangeSet) ->
+                    Just lateChangeSet
+
+                (Just lateChangeSet1, Just lateChangeSet2) ->
+                    Just <| mergeChanges lateChangeSet1 lateChangeSet2
+
+                (Nothing, Nothing) ->
+                    Nothing
+
         , opsToRepeat = 
             -- on collision, preference is given to later set, though ops should never differ
             AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
@@ -96,7 +112,7 @@ mergeMaybeChange : Maybe ChangeSet -> ChangeSet -> ChangeSet
 mergeMaybeChange maybeChange change =
     case maybeChange of
         Just changeToMerge ->
-            mergeChanges changeToMerge change
+            mergeChanges change changeToMerge
 
         Nothing ->
             change
@@ -105,6 +121,7 @@ mergeMaybeChange maybeChange change =
 type alias ChangeSetDetails =
     { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict (Op.ReducerID, OpID.ObjectIDString) ExistingID (List ObjectChange)
+    , later : Maybe ChangeSet
     , opsToRepeat : OpDb
     }
 
@@ -113,8 +130,9 @@ type alias ChangeSetDetails =
 emptyChangeSet : ChangeSet
 emptyChangeSet =
     ChangeSet <|
-        { existingObjectChanges = emptyExistingObjectChanges
-        , objectsToCreate = emptyObjectsToCreate
+        { objectsToCreate = emptyObjectsToCreate
+        , existingObjectChanges = emptyExistingObjectChanges
+        , later = Nothing
         , opsToRepeat = emptyOpsToRepeat
         }
 
@@ -261,19 +279,20 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
             case target of
                 ExistingObjectPointer existingID ->
                     ChangeSet
-                        { existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
-                        , objectsToCreate = AnyDict.empty pendingIDToComparable
+                        { objectsToCreate = AnyDict.empty pendingIDToComparable
+                        ,   existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
+                        , later = Nothing
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
 
                 PlaceholderPointer pendingID ancestorsInstallChangeMaybe ->
                     ChangeSet
-                        { existingObjectChanges = AnyDict.empty existingIDToComparable
-                        , objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
+                        { objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
+                        , existingObjectChanges = AnyDict.empty existingIDToComparable
+                        , later = ancestorsInstallChangeMaybe
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
-                        -- |> mergeMaybeChange ancestorsInstallChangeMaybe
                         |> withExternalChanges
     in
     { toReference = target
