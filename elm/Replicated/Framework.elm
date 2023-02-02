@@ -295,7 +295,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                             [Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec)]
 
                                         startNewNode =
-                                            Node.startNewNode (Just now) tempDefaultChanges
+                                            Node.startNewNode (Just now) []--tempDefaultChanges
                                     in
                                     (startNewNode.newNode, startNewNode.startFrame)
 

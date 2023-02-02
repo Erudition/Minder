@@ -62,6 +62,7 @@ import Console
 import Css exposing (None)
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
+import Html exposing (input, th)
 import ID exposing (ID)
 import Json.Decode as JD
 import Json.Encode as JE
@@ -70,7 +71,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (ChangeSet(..), Changer, ComplexAtom(..), ObjectChange, Parent(..), Pointer(..), genesisPointer, Context, Change)
+import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..), genesisPointer)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
@@ -83,8 +84,6 @@ import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
-import Html exposing (th)
-import Html exposing (input)
 
 
 
@@ -375,29 +374,31 @@ forceDecodeFromNode rootCodec node =
 
 new : Codec e (s -> List Change) o repType -> Context -> repType
 new (Codec codecDetails) context =
-    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = nonChanger }
+    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = nonChanger }
 
-{-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context. 
+
+{-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context.
 If the Codecs are different, you can just use new. If they aren't, using new multiple times will create references to a single object rather than multiple distinct objects. So be sure to use a different number for each usage of newN.
 -}
 newN : Int -> Codec e (s -> List Change) o repType -> Context -> repType
 newN nth (Codec codecDetails) context =
-    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty (String.fromInt nth) [(Change.contextDifferentiatorString context)], seed = nonChanger }
+    codecDetails.init { parent = Change.getContextParent context, position = Nonempty (String.fromInt nth) [ Change.contextDifferentiatorString context ], seed = nonChanger }
+
 
 newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
-    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton ((Change.contextDifferentiatorString context)), seed = changer }
+    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = changer }
 
 
 seededNew : Codec e s o repType -> Context -> s -> repType
 seededNew (Codec codecDetails) context seed =
-    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = seed }
+    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = seed }
 
 
 seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context -> s -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) context seed changer =
-    codecDetails.init { parent = (Change.getContextParent context), position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = ( seed, changer ) }
+    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = ( seed, changer ) }
 
 
 nonChanger _ =
@@ -1282,11 +1283,8 @@ repDb memberCodec =
                     Nothing
 
         childInstaller myPointer childPendingID =
-            Change.changeObject
-                { target = myPointer
-                , objectChanges = [ Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID) ]
-                }
-                |> .changeSet
+            Change.delayedChangeObject myPointer
+                [ Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID) ]
 
         repDbNodeDecoder : NodeDecoder e (RepDb memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
@@ -1612,12 +1610,8 @@ repStore keyCodec valueCodec =
                     new valueCodec (Change.Context [] (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
 
                 wrapNewPendingChild key pendingChild =
-                    Change.changeObject
-                        { target = repStorePointer
-                        , objectChanges =
-                            [ Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild) ]
-                        }
-                        |> .changeSet
+                    Change.delayedChangeObject repStorePointer
+                        [ Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild) ]
             in
             RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
 
@@ -2446,14 +2440,10 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
 -}
-updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> ChangeSet
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change.DelayedChangeSet
 updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
-    Change.changeObject
-        { target = parentPointer
-        , objectChanges =
-            [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)) ]
-        }
-        |> .changeSet
+    Change.delayedChangeObject parentPointer
+        [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)) ]
 
 
 {-| RON what to do when decoding a (potentially nested!) object field.
@@ -3142,7 +3132,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         ( registerPointer, history, initChangeSet ) =
             case regMaybe of
                 Just ((Register regDetails) as reg) ->
-                    ( regDetails.pointer, regDetails.history, Change.collapseChangesToChangeSet [](regDetails.init reg) )
+                    ( regDetails.pointer, regDetails.history, Change.collapseChangesToChangeSet [] (regDetails.init reg) )
 
                 Nothing ->
                     ( Object.getPointer (fallbackObject []), Dict.empty, Change.emptyChangeSet )
@@ -3173,8 +3163,9 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
-                |> List.reverse -- TODO so we set them in slot-increasing order.
+                |> List.reverse
 
+        -- TODO so we set them in slot-increasing order.
         allObjectChanges =
             subChanges
     in
@@ -3232,7 +3223,9 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
-                |> List.reverse -- TODO so we set them in slot-increasing order.
+                |> List.reverse
+
+        -- TODO so we set them in slot-increasing order.
     in
     soloOut
         (Change.changeObject
@@ -4176,7 +4169,7 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
         )
         (\wrapper v1 v2 v3 v4 v5 ->
             wrapper
-                [ getNodeEncoderModifiedForVariants 1  codec1 v1
+                [ getNodeEncoderModifiedForVariants 1 codec1 v1
                 , getNodeEncoderModifiedForVariants 2 codec2 v2
                 , getNodeEncoderModifiedForVariants 3 codec3 v3
                 , getNodeEncoderModifiedForVariants 4 codec4 v4
@@ -4701,9 +4694,8 @@ getNodeEncoderModifiedForVariants index codec thingToEncode =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
             , thingToEncode = EncodeThis thingToEncode
-            , position = Nonempty.cons ("variantArg#" ++ String.fromInt index) (modifiedEncoder.position)
+            , position = Nonempty.cons ("variantArg#" ++ String.fromInt index) modifiedEncoder.position
             , parent = modifiedEncoder.parent
             }
-            
     in
     \altInputs -> (getNodeEncoder codec (finishInputs altInputs)).complex

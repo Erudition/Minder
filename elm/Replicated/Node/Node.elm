@@ -9,7 +9,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString, Change)
+import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -335,37 +335,25 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         frameStartMapping =
             { assignedIDs = AnyDict.empty Change.pendingIDToComparable
             , lastSeen = AnyDict.empty OpID.toString
+            , later = Change.emptyDelayedChangeSet
             }
 
-        -- changesToOps givenChanges inCounter inMapping alreadyDoneChunks inNode =
-        --     let
-        --         ( ( finalCounter, finalMapping ), generatedOutputsList ) =
-        --             List.mapAccuml (oneChangeSetToOpChunks inNode) ( inCounter, inMapping ) givenChanges
+        -- STEP 1. Process this ChangeSet
+        ( ( step1OutCounter, step1OutMapping ), step1OutChunks ) =
+            oneChangeSetToOpChunks node ( frameStartCounter, frameStartMapping ) changes
 
-        --         finishedOpChunks =
-        --             alreadyDoneChunks ++ List.concat generatedOutputsList
-        --     in
-        --     finishedOpChunks
+        delayedRemainingAsChangeSet =
+            Change.delayedToChangeSet step1OutMapping.later
 
-        ( ( postEarlyChangesCounter, postEarlyChangesMapping ), earlyChunks ) =
-            oneChangeSetToOpChunks node (frameStartCounter, frameStartMapping) changes
+        -- STEP 2. Process delayed changes
+        ( ( step2OutCounter, step2OutMapping ), step2OutChunks ) =
+            oneChangeSetToOpChunks node ( step1OutCounter, step1OutMapping ) delayedRemainingAsChangeSet
 
-        (Change.ChangeSet changeSetDetails) =
-            changes
-
-        ( (outCounter, outMapping), lateChunks ) =
-            case changeSetDetails.later of
-                Just laterChanges ->
-                    oneChangeSetToOpChunks node ( postEarlyChangesCounter, postEarlyChangesMapping ) (laterChanges)
-
-                Nothing ->
-                    ((postEarlyChangesCounter, postEarlyChangesMapping), [])
-
-        allGeneratedChunks =
-            (earlyChunks ++ lateChunks)
+        outChunks =
+            step1OutChunks ++ step2OutChunks
 
         allGeneratedOps =
-            List.concat (allGeneratedChunks)
+            List.concat outChunks
 
         updatedNode =
             updateWithClosedOps node allGeneratedOps
@@ -379,11 +367,11 @@ apply timeMaybe node (Change.Frame { changes, description }) =
                 , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
                 , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
                 , [ "Output Frame:" ]
-                , [ Op.closedChunksToFrameText allGeneratedChunks ]
+                , [ Op.closedChunksToFrameText outChunks ]
                 ]
     in
     -- Log.logMessageOnly logApplyResults
-    { outputFrame = allGeneratedChunks
+    { outputFrame = outChunks
     , updatedNode = updatedNode
     , created = newObjectsCreated
     }
@@ -409,7 +397,12 @@ Use with Change.pendingIDToString
 type alias UpdatesSoFar =
     { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
+    , later : Change.DelayedChangeSet
     }
+
+
+keepChangeSetIfNonempty changeSetMaybe =
+    Maybe.Extra.filter (not << Change.isEmptyChangeSet) changeSetMaybe
 
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
@@ -432,17 +425,53 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
                 changeSet.objectsToCreate
 
         singlePendingChunkToOps pendingID objectChanges ( counter, mapping, chunksSoFar ) =
-            objectChangeChunkToOps node (PlaceholderPointer pendingID Nothing) objectChanges ( counter, mapping, chunksSoFar )
+            let
+                delayedChanges =
+                    -- now's a great time to get later changes that match this pointer
+                    Maybe.andThen (\dcs -> AnyDict.get pendingID dcs.objectsToCreate) changeSet.delayed
+                        |> Maybe.withDefault []
+                        |> List.filterNot (\oc -> Debug.log "was already there" List.member oc objectChanges)
+
+                -- discard late objectChanges that we were going to say anyway
+                removeLateChanges delayedChangeSet =
+                    { delayedChangeSet | objectsToCreate = AnyDict.remove pendingID delayedChangeSet.objectsToCreate }
+
+                mappingWithoutDelayedChanges =
+                    { mapping | later = removeLateChanges mapping.later }
+            in
+            objectChangeChunkToOps node (PlaceholderPointer pendingID Nothing) (objectChanges ++ delayedChanges) ( counter, mappingWithoutDelayedChanges, chunksSoFar )
 
         -- Step 2. Change existing objects
-        ( outCounter, outMapping, generatedChunks ) =
+        ( outCounter, postExistingMapping, generatedChunks ) =
             AnyDict.foldl
                 singleExistingChunkToOps
                 ( postObjectsCreatedCounter, postObjectsCreatedMapping, objectsCreatedChunks )
                 changeSet.existingObjectChanges
 
         singleExistingChunkToOps existingID objectChanges ( counter, mapping, chunksSoFar ) =
-            objectChangeChunkToOps node (ExistingObjectPointer existingID) objectChanges ( counter, mapping, chunksSoFar )
+            let
+                delayedChanges =
+                    -- now's a great time to get later changes that match this pointer
+                    Maybe.andThen (\dcs -> AnyDict.get existingID dcs.existingObjectChanges) changeSet.delayed
+                        |> Maybe.withDefault []
+                        |> List.filterNot (\oc -> List.member oc objectChanges)
+
+                -- discard late objectChanges that we were going to say anyway
+                removeLateChanges delayedChangeSet =
+                    { delayedChangeSet | existingObjectChanges = AnyDict.remove existingID delayedChangeSet.existingObjectChanges }
+
+                mappingWithoutDelayedChanges =
+                    { mapping | later = removeLateChanges mapping.later }
+            in
+            objectChangeChunkToOps node (ExistingObjectPointer existingID) (objectChanges ++ delayedChanges) ( counter, mappingWithoutDelayedChanges, chunksSoFar )
+
+        outMapping =
+            case changeSet.delayed of
+                Just laterChangesHere ->
+                    { postExistingMapping | later = Change.mergeDelayed laterChangesHere postExistingMapping.later }
+
+                Nothing ->
+                    postExistingMapping
 
         -- TODO Step 3. collect ops to repeat
         --
@@ -450,7 +479,7 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
         --     List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
         --         |> String.concat
     in
-    ( ( outCounter, Debug.log "outMapping" outMapping )
+    ( ( outCounter, outMapping )
     , generatedChunks
     )
 
@@ -480,11 +509,11 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
             List.map .thisUnstampedOp subChangesOutput
 
         -- Step 2. Header Op: initialize the object, if it wasn't created already
-        { objectID, reducerID, initOpMaybe, postInitCounter, postInitMapping } =
+        { objectID, reducerID, initOps, postInitCounter, postInitMapping } =
             case pointer of
                 Change.ExistingObjectPointer { reducer, object } ->
                     -- Existed at start of frame, so no-op.
-                    { objectID = object, reducerID = reducer, initOpMaybe = Nothing, postInitCounter = postUnstampedOpCounter, postInitMapping = postUnstampedOpMapping }
+                    { objectID = object, reducerID = reducer, initOps = [], postInitCounter = postUnstampedOpCounter, postInitMapping = postUnstampedOpMapping }
 
                 Change.PlaceholderPointer pendingID _ ->
                     -- May need creating, check mapping first, then create
@@ -518,7 +547,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
             String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
 
         allOpsInDependencyOrder =
-            allPrereqChunks ++ [ Maybe.Extra.toList initOpMaybe ++ objectChangeOps ]
+            allPrereqChunks ++ [ initOps ++ objectChangeOps ]
     in
     ( counterAfterObjectChanges3
     , finalMapping
@@ -669,7 +698,7 @@ createPendingObject :
     ->
         { objectID : ObjectID
         , reducerID : Op.ReducerID
-        , initOpMaybe : Maybe Op
+        , initOps : List Op
         , postInitCounter : OutCounter
         , postInitMapping : UpdatesSoFar
         }
@@ -679,21 +708,24 @@ createPendingObject node inCounter inMapping pendingID =
             -- oops, we created this object already
             { objectID = assigned
             , reducerID = pendingID.reducer
-            , initOpMaybe = Nothing
+            , initOps = []
             , postInitCounter = inCounter
             , postInitMapping = inMapping
             }
 
         Nothing ->
             let
-                ( newID, outCounter ) =
+                ( newID, postInitCounter ) =
                     OpID.generate inCounter node.identity False
+
+                postInitMapping =
+                    { inMapping | assignedIDs = AnyDict.insert pendingID newID inMapping.assignedIDs }
             in
             { objectID = newID
             , reducerID = pendingID.reducer
-            , initOpMaybe = Just <| Op.initObject pendingID.reducer newID
-            , postInitCounter = outCounter
-            , postInitMapping = { inMapping | assignedIDs = AnyDict.insert pendingID newID inMapping.assignedIDs }
+            , initOps = [ Op.initObject pendingID.reducer newID ]
+            , postInitCounter = postInitCounter
+            , postInitMapping = postInitMapping
             }
 
 

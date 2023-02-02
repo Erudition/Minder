@@ -5,6 +5,10 @@
 - [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
 - [X] Get only non-default register values to encode
 - [ ] Test post-init substitutions (above)
+- [ ] Figure out how to encode empty flatlists, or allow [] to parse
+- [ ] Get late installers to work
+- [ ] Write test for late installers
+- [ ] Write test for divergent nodes
 
 
 
