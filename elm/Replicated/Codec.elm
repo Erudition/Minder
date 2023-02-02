@@ -1956,7 +1956,7 @@ type alias FieldValue =
 
 type FieldFallback parentSeed fieldSeed fieldType
     = HardcodedDefault fieldType
-    | HardcodedSeed fieldSeed
+    | PlaceholderDefault fieldSeed
     | InitWithParentSeed (parentSeed -> fieldSeed)
     | DefaultFromParentSeed (parentSeed -> fieldType)
     | DefaultAndInitWithParentSeed fieldType (parentSeed -> fieldSeed)
@@ -2007,7 +2007,7 @@ fieldDefaultMaybe fallback =
         InitWithParentSeed _ ->
             Nothing
 
-        HardcodedSeed seed ->
+        PlaceholderDefault seed ->
             Nothing
 
         DefaultFromParentSeed _ ->
@@ -2072,7 +2072,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                         HardcodedDefault fieldType ->
                             fieldType
 
-                        HardcodedSeed fieldSeed ->
+                        PlaceholderDefault fieldSeed ->
                             fieldInit fieldSeed
 
                         InitWithParentSeed parentSeedToFieldSeed ->
@@ -2182,7 +2182,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                         HardcodedDefault fieldType ->
                             fieldType
 
-                        HardcodedSeed fieldSeed ->
+                        PlaceholderDefault fieldSeed ->
                             fieldInit fieldSeed
 
                         InitWithParentSeed parentSeedToFieldSeed ->
@@ -2257,7 +2257,7 @@ field ( fieldSlot, fieldName ) fieldGetter fieldCodec fieldDefault soFar =
 -}
 fieldReg : FieldIdentifier -> (full -> fieldType) -> WrappedOrSkelCodec errs s fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldReg ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed (\_ -> [])) soFar
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (PlaceholderDefault nonChanger) soFar
 
 
 {-| Read a field containing a nested record, using an auto-generated default.
@@ -2268,7 +2268,7 @@ fieldReg ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
 -}
 fieldRec : FieldIdentifier -> (full -> fieldType) -> SkelCodec errs fieldType -> PartialRegister errs i full (fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRec ( fieldSlot, fieldName ) fieldGetter fieldCodec soFar =
-    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (HardcodedSeed (\_ -> [])) soFar
+    readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec (PlaceholderDefault nonChanger) soFar
 
 
 {-| Read a `Maybe something` field without adding the `maybe` codec. Default is Nothing.
@@ -2291,7 +2291,7 @@ maybeR fieldID fieldGetter fieldCodec recordBuilt =
 -}
 fieldList : FieldIdentifier -> (full -> RepList memberType) -> Codec errs o memberSeed memberType -> PartialRegister errs i full (RepList memberType -> remaining) -> PartialRegister errs i full remaining
 fieldList fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repList fieldCodec) (HardcodedSeed nonChanger) recordBuilt
+    readableHelper fieldID fieldGetter (repList fieldCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
 {-| Read a `RepDict` field without adding the `repDict` codec. Default is an empty `RepDict`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
@@ -2304,7 +2304,7 @@ fieldList fieldID fieldGetter fieldCodec recordBuilt =
 -}
 fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( PrimitiveCodec errs keyType, Codec errs valInit o valueType ) -> PartialRegister errs i full (RepDict keyType valueType -> remaining) -> PartialRegister errs i full remaining
 fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
-    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (HardcodedSeed nonChanger) recordBuilt
+    readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
 {-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
@@ -2315,7 +2315,7 @@ fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
 -}
 fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec errs memberSeed SoloObject memberType -> PartialRegister errs i full (RepDb memberType -> remaining) -> PartialRegister errs i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
-    readableHelper fieldID fieldGetter (repDb fieldCodec) (HardcodedSeed nonChanger) recordBuilt
+    readableHelper fieldID fieldGetter (repDb fieldCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
 {-| Read a record field wrapped with `RW`. This makes the field writable.
@@ -2466,7 +2466,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
         generatedDefaultMaybe =
             case fallback of
-                HardcodedSeed fieldSeed ->
+                PlaceholderDefault fieldSeed ->
                     Just <| getInitializer fieldCodec { parent = regAsParent, seed = fieldSeed, position = position }
 
                 _ ->
@@ -3287,34 +3287,57 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                 Ok (Ok fieldValue) ->
                     Just fieldValue
 
-                _ ->
-                    Nothing
+                problem ->
+                    Log.crashInDev ("fieldDecodedMaybe: Failed to decode from register memory, got " ++ Log.dump problem) Nothing
 
         explicitDefaultIfNeeded val =
-            case ( mode.setDefaultsExplicitly, encodedDefault val ) of
-                ( True, defaultOut ) ->
-                    -- unnecessary but we were asked to encode all defaults
-                    EncodeThisField <| Change.NewPayload defaultOut
+            if mode.setDefaultsExplicitly then
+                -- unnecessary but we were asked to encode all defaults
+                EncodeThisField <| Change.NewPayload <| encodedDefault val
 
-                ( False, (Nonempty (Change.QuoteNestedObject { skippable }) []) as defaultOut ) ->
-                    if skippable then
-                        -- field encoder said we can skip this one
-                        SkipThisField
+            else
+                case encodedDefault val of
+                    (Nonempty (Change.QuoteNestedObject { skippable }) []) as defaultOut ->
+                        -- payload must be a single nested object with no other atoms
+                        if skippable then
+                            -- field encoder said we can skip this one
+                            SkipThisField
 
-                    else
-                        EncodeThisField <| Change.NewPayload defaultOut
+                        else
+                            EncodeThisField <| Change.NewPayload defaultOut
 
-                ( False, defaultOut ) ->
-                    if isExistingSameAsDefault then
-                        -- it's equivalent to default, must be primitive val?
-                        SkipThisField
+                    defaultOut ->
+                        if isExistingSameAsDefault then
+                            -- it's equivalent to default, must be primitive val?
+                            SkipThisField
 
-                    else
-                        -- Nested objects are never equal to default, respect their necessity
-                        EncodeThisField <| Change.NewPayload defaultOut
+                        else
+                            -- Nested objects are never equal to default, respect their necessity
+                            EncodeThisField <| Change.NewPayload defaultOut
 
         isExistingSameAsDefault =
-            Maybe.andThen fieldDecodedMaybe getPayloadIfSet == fieldDefaultMaybe fieldFallback
+            case ( fieldDefaultMaybe fieldFallback, Maybe.andThen fieldDecodedMaybe getPayloadIfSet ) of
+                ( Just fieldDefault, Just existingValue ) ->
+                    -- is the calculated default the same as the existing/placeholder value?
+                    fieldDefault == existingValue
+
+                (Just _, Nothing) ->
+                    -- no existing val in memory, so equal to default unless it's seeded
+                    True
+
+                ( Nothing, Nothing) ->
+                    case fieldFallback of
+                        PlaceholderDefault _ ->
+                            -- we can figure out how to init this
+                            True
+
+                        _ ->
+                            -- guess it must require a seed
+                            False
+
+                _ ->
+                    -- if there's no default, and not placeholder, it can't be equal. (seeded)
+                    False
 
         encodedDefault : fieldType -> Change.ComplexPayload
         encodedDefault val =

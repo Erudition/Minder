@@ -430,7 +430,7 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
                     -- now's a great time to get later changes that match this pointer
                     Maybe.andThen (\dcs -> AnyDict.get pendingID dcs.objectsToCreate) changeSet.delayed
                         |> Maybe.withDefault []
-                        |> List.filterNot (\oc -> Debug.log "was already there" List.member oc objectChanges)
+                        |> List.filterNot (\oc -> List.member oc objectChanges)
 
                 -- discard late objectChanges that we were going to say anyway
                 removeLateChanges delayedChangeSet =

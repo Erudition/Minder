@@ -4,9 +4,11 @@
 - [X] Wrap all encoded values in type saying whether the encoding can be skipped
 - [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
 - [X] Get only non-default register values to encode
-- [ ] Test post-init substitutions (above)
+- [X] Test post-init substitutions (above)
 - [ ] Figure out how to encode empty flatlists, or allow [] to parse
-- [ ] Get late installers to work
+- [X] Get late installers to work
+- [X] Skip empty naked record field encoding
+- [ ] Detect Node root on first run
 - [ ] Write test for late installers
 - [ ] Write test for divergent nodes
 

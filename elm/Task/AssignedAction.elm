@@ -28,6 +28,7 @@ import Task.Series exposing (Series, SeriesID)
 import Task.SessionSkel as Session exposing (UserPlannedSession, decodeSession, encodeSession)
 import ZoneHistory exposing (ZoneHistory)
 import Replicated.Change exposing (Changer)
+import Log
 
 
 
