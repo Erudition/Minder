@@ -713,7 +713,7 @@ atomToJsonValue atom =
             JE.string string
 
         IDPointerAtom opID ->
-            JE.string (OpID.toPointerString opID)
+            JE.string (OpID.toRonPointerString opID)
 
         OtherUUIDAtom uuid ->
             JE.string uuid
@@ -745,7 +745,7 @@ atomToRonString atom =
             string
 
         IDPointerAtom opID ->
-            OpID.toPointerString opID
+            OpID.toRonPointerString opID
 
         IntegerAtom int ->
             String.fromInt int

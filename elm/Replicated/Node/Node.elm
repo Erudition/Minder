@@ -122,14 +122,8 @@ startNewNode nowMaybe givenStartChanges =
 
         { updatedNode, created, outputFrame } =
             apply nowMaybe startNode firstChangeFrame
-
-        newRoot =
-            List.last created
-
-        newNode =
-            { updatedNode | root = newRoot }
     in
-    { newNode = newNode, startFrame = outputFrame }
+    { newNode = updatedNode, startFrame = outputFrame }
 
 
 {-| Update a node with some Ops.
@@ -361,6 +355,13 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         newObjectsCreated =
             creationOpsToObjectIDs allGeneratedOps
 
+        finalNode =
+            if updatedNode.root == Nothing then
+                { updatedNode | root = List.last newObjectsCreated }
+
+            else
+                updatedNode
+
         logApplyResults =
             Log.proseToString
                 [ [ "Node.apply:" ]
@@ -372,7 +373,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
     in
     -- Log.logMessageOnly logApplyResults
     { outputFrame = outChunks
-    , updatedNode = updatedNode
+    , updatedNode = finalNode
     , created = newObjectsCreated
     }
 

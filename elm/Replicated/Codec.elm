@@ -787,7 +787,12 @@ id =
         fromString nodeMaybe asString =
             let
                 opID =
-                    (OpID.fromStringForced asString)
+                    case OpID.fromRonPointerString asString of
+                        Just goodOpID ->
+                            goodOpID
+
+                        Nothing ->
+                            Log.crashInDev ("Failed to sucessfully un-serialize OpID " ++ asString ++ ", is it in ron pointer form?") OpID.fromStringForced asString
 
                 finalPointer reducerID =
                      ID.tag (ExistingObjectPointer (Change.ExistingID reducerID opID))
