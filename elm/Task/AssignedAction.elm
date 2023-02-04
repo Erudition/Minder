@@ -10,7 +10,8 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Change as Change exposing (Change, Context)
+import Log
+import Replicated.Change as Change exposing (Change, Changer, Context)
 import Replicated.Codec as Codec exposing (Codec, FlatCodec)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -27,8 +28,6 @@ import Task.Progress as Progress exposing (..)
 import Task.Series exposing (Series, SeriesID)
 import Task.SessionSkel as Session exposing (UserPlannedSession, decodeSession, encodeSession)
 import ZoneHistory exposing (ZoneHistory)
-import Replicated.Change exposing (Changer)
-import Log
 
 
 
@@ -51,7 +50,7 @@ type alias AssignedActionSkel =
     }
 
 
-codec : Codec String (ActionClassID, Changer (Reg AssignedActionSkel)) Codec.SoloObject (Reg AssignedActionSkel)
+codec : Codec String ( ActionClassID, Changer (Reg AssignedActionSkel) ) Codec.SoloObject (Reg AssignedActionSkel)
 codec =
     Codec.record AssignedActionSkel
         |> Codec.coreRW ( 1, "classID" ) .classID Codec.id identity
@@ -70,12 +69,14 @@ codec =
 type alias AssignedActionID =
     ID (Reg AssignedActionSkel)
 
-type alias AssignedActionDb = RepDb (Reg AssignedActionSkel)
+
+type alias AssignedActionDb =
+    RepDb (Reg AssignedActionSkel)
 
 
-initWithClass : ActionClassID -> Context -> (Reg AssignedActionSkel)
-initWithClass actionClassID context = 
-    Codec.seededNew codec context (actionClassID, \_ -> [])
+initWithClass : ActionClassID -> Context -> Reg AssignedActionSkel
+initWithClass actionClassID context =
+    Codec.seededNew codec context ( actionClassID, \_ -> [] )
 
 
 
@@ -86,8 +87,8 @@ initWithClass actionClassID context =
 -}
 type alias AssignedAction =
     { parents : List (Reg ParentProperties)
-    , class : (Reg ActionClassSkel)
-    , instance : (Reg AssignedActionSkel)
+    , class : Reg ActionClassSkel
+    , instance : Reg AssignedActionSkel
     , index : Int
     , instanceID : AssignedActionID
     , classID : ActionClassID
@@ -125,8 +126,8 @@ assignedActionsOfClass ( zoneHistory, relevantPeriod ) instanceDb fullClass =
 
         toFull : Int -> RepDb.Member (Reg AssignedActionSkel) -> AssignedAction
         toFull indexFromZero instanceSkelMember =
-            { parents = (fullClass.parents)
-            , class = (fullClass.class)
+            { parents = fullClass.parents
+            , class = fullClass.class
             , instance = instanceSkelMember.value
             , index = indexFromZero + 1
             , instanceID = instanceSkelMember.id
@@ -292,12 +293,12 @@ getActivityID instance =
 
 getActivityIDString : AssignedAction -> Maybe String
 getActivityIDString instance =
-    Maybe.map Activity.idToString  (Reg.latest instance.class).activity.get
+    Maybe.map Activity.idToString (Reg.latest instance.class).activity.get
 
 
 getProgress : AssignedAction -> Progress
 getProgress instance =
-    ( (Reg.latest instance.instance).completion.get,  (Reg.latest instance.class).completionUnits.get )
+    ( (Reg.latest instance.instance).completion.get, (Reg.latest instance.class).completionUnits.get )
 
 
 setCompletion : Portion -> AssignedAction -> Change
@@ -307,7 +308,7 @@ setCompletion newPortion instance =
 
 getProgressMaxInt : AssignedAction -> Portion
 getProgressMaxInt instance =
-    Progress.unitMax  (Reg.latest instance.class).completionUnits.get
+    Progress.unitMax (Reg.latest instance.class).completionUnits.get
 
 
 getCompletionInt : AssignedAction -> Int
@@ -317,7 +318,7 @@ getCompletionInt instance =
 
 getImportance : AssignedAction -> Float
 getImportance instance =
-     (Reg.latest instance.class).importance.get
+    (Reg.latest instance.class).importance.get
 
 
 getRelevanceStarts : AssignedAction -> Maybe FuzzyMoment
@@ -334,19 +335,20 @@ getExternalDeadline : AssignedAction -> Maybe FuzzyMoment
 getExternalDeadline instance =
     (Reg.latest instance.instance).externalDeadline.get
 
+
 getMinEffort : AssignedAction -> Duration
 getMinEffort instance =
-     (Reg.latest instance.class).minEffort.get
+    (Reg.latest instance.class).minEffort.get
 
 
 getPredictedEffort : AssignedAction -> Duration
 getPredictedEffort instance =
-     (Reg.latest instance.class).predictedEffort.get
+    (Reg.latest instance.class).predictedEffort.get
 
 
 getMaxEffort : AssignedAction -> Duration
 getMaxEffort instance =
-     (Reg.latest instance.class).maxEffort.get
+    (Reg.latest instance.class).maxEffort.get
 
 
 getExtra : String -> AssignedAction -> Maybe String

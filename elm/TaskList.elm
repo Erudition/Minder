@@ -124,7 +124,7 @@ view state profile env =
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
                 [ section
                     [ class "todoapp" ]
-                    [ div [] [text ((String.fromInt <| List.length allFullTaskInstances) ++ " instances")]
+                    [ div [] [ text ((String.fromInt <| List.length allFullTaskInstances) ++ " instances") ]
                     , lazy viewInput field
                     , Html.Styled.Lazy.lazy4 viewTasks env activeFilter trackedTaskMaybe sortedTasks
                     , lazy2 viewControls filters allFullTaskInstances
@@ -866,8 +866,8 @@ update msg state profile env =
                         -- add new entry and instance to profile
                         newClassChanger : Reg Class.ActionClassSkel -> List Change
                         newClassChanger newClass =
-                            [  -- Quoting the ID works!!
-                            RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
+                            [ -- Quoting the ID works!!
+                              RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
                             ]
 
                         frameDescription =
@@ -875,7 +875,7 @@ update msg state profile env =
 
                         finalChanges =
                             [ RepList.insert RepList.Last newTaskTitle profile.errors
-                            , RepList.insertNew RepList.Last [newEntryInit] profile.taskEntries
+                            , RepList.insertNew RepList.Last [ newEntryInit ] profile.taskEntries
                             , RepDb.addNew newClassInit profile.taskClasses
                             ]
                     in
