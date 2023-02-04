@@ -1,17 +1,16 @@
 # Now
+- [ ] Detect Node root on first run
+- [ ] Figure out how to encode empty flatlists, or allow [] to parse
+- [ ] Write test for late installers
+- [ ] Write test for divergent nodes
 - [X] Refactor codebase around Changes that contain any-object changes
 - [X] Prescribe all node encoders and decoders, no maybe fallbacks
 - [X] Wrap all encoded values in type saying whether the encoding can be skipped
 - [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
 - [X] Get only non-default register values to encode
 - [X] Test post-init substitutions (above)
-- [ ] Figure out how to encode empty flatlists, or allow [] to parse
 - [X] Get late installers to work
 - [X] Skip empty naked record field encoding
-- [ ] Detect Node root on first run
-- [ ] Write test for late installers
-- [ ] Write test for divergent nodes
-
 
 
 # Soon

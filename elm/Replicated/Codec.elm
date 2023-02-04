@@ -759,7 +759,8 @@ string =
         , init = flatInit
         }
 
-
+{-| An ID is a Pointer that's meant to be more user-facing. It has a type variable so it can be used for constraining a wrapped reptype for type safety, unlike a Pointer. It also can only be gotten from already Saved Objects, or objects that are about to be saved in the same frame as the ID reference, so we can guarantee that the ID points to something that exists, anywhere it's used. Placeholder Pointers will always be resolved to real object IDs by the time of serialization, so it's serialized as simply an object ID.
+-}
 id : Codec e (ID userType) {} (ID userType)
 id =
     let
@@ -769,7 +770,7 @@ id =
                     existingID.object
 
                 placeholderPointer ->
-                    -- Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer)
+                    Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer)
                     OpID.fromStringForced ("Uninitialized! " ++ Log.dump placeholderPointer)
 
         toChangeAtom givenID =
@@ -783,8 +784,30 @@ id =
         toString givenID =
             OpID.toString (toObjectID givenID)
 
-        fromString asString =
-            ID.tag (ExistingObjectPointer (Change.ExistingID (Debug.todo "need reducer info for ID tagging?") (OpID.fromStringForced asString)))
+        fromString nodeMaybe asString =
+            let
+                opID =
+                    (OpID.fromStringForced asString)
+
+                finalPointer reducerID =
+                     ID.tag (ExistingObjectPointer (Change.ExistingID reducerID opID))
+            in
+            case nodeMaybe of
+                Nothing ->
+                    -- TODO should only happen with other serialization types
+                    finalPointer ""
+
+                Just node ->
+                    case Node.lookupObject node opID of
+                        Err _ ->
+                            Log.crashInDev 
+                                ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!") 
+                                ID.tag (ExistingObjectPointer (Change.ExistingID "error" opID))
+
+                        Ok (reducerID, objectID) ->
+                            -- TODO should we use the OpID instead? For versioning?
+                            -- Or is this better to switch to canonical ObjectIDs
+                            ID.tag (ExistingObjectPointer (Change.ExistingID reducerID objectID))
 
         nodeEncoder : NodeEncoderInputs (ID userType) -> EncoderOutput {}
         nodeEncoder inputs =
@@ -800,11 +823,11 @@ id =
         , bytesDecoder =
             BD.unsignedInt32 endian
                 |> BD.andThen
-                    (\charCount -> BD.string charCount |> BD.map (fromString >> Ok))
+                    (\charCount -> BD.string charCount |> BD.map (fromString (Nothing) >> Ok))
         , jsonEncoder = toString >> JE.string
-        , jsonDecoder = JD.string |> JD.map (fromString >> Ok)
+        , jsonDecoder = JD.string |> JD.map (fromString (Nothing) >> Ok)
         , nodeEncoder = nodeEncoder
-        , nodeDecoder = \_ -> JD.string |> JD.map (fromString >> Ok)
+        , nodeDecoder = \inputs -> JD.string |> JD.map (fromString (Just inputs.node) >> Ok)
         , init = flatInit
         }
 
