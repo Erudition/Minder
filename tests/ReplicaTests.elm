@@ -9,8 +9,8 @@ import GraphicSVG exposing (GraphicSVG)
 import List.Extra
 import Log
 import Maybe.Extra
-import Replicated.Change as Change exposing (Creator, Parent)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
+import Replicated.Change as Change exposing (Creator, Parent, Change)
+import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.Op as Op exposing (Op)
@@ -34,14 +34,14 @@ suite =
         ]
 
 
-nodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
-nodeFromCodec profileCodec =
+testNodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+testNodeFromCodec profileCodec =
     let
         logOps chunks =
             Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
-            Node.startNewNode Nothing [addEncodedDefaults]
+            Node.startNewNode Nothing [ Change.WithFrameIndex (\_ -> addEncodedDefaults) ]
 
         addEncodedDefaults =
             Codec.encodeDefaults Node.testNode profileCodec
@@ -55,8 +55,9 @@ nodeFromCodec profileCodec =
                 , [ "Output Frame:" ]
                 , [ Op.closedChunksToFrameText startFrame ]
                 ]
+
     in
-    { startNode = newNode, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+    { startNode = {newNode | identity = NodeID.bumpSessionID newNode.identity}, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
 type alias ReadOnlyObject =
@@ -125,7 +126,7 @@ readOnlyObjectEncodeThenDecode =
         \_ ->
             let
                 { result } =
-                    nodeFromCodec readOnlyObjectCodec
+                    testNodeFromCodec readOnlyObjectCodec
             in
             result
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
@@ -197,7 +198,7 @@ writableObjectEncodeThenDecode =
                 -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
                 -- disabled because forced default op generation is overruled by codec defaults
                 ]
-                (Result.map Reg.latest (nodeFromCodec writableObjectCodec).result)
+                (Result.map Reg.latest (testNodeFromCodec writableObjectCodec).result)
 
 
 
@@ -207,7 +208,7 @@ writableObjectEncodeThenDecode =
 changeList =
     -- designed to allow changes in place
     [ ( \obj -> obj.number.set 7, expectOkAndEqualWhenMapped (\obj -> obj.number.get) 7 )
-    , ( \obj -> Log.log (Console.bgCyan "changes to make") <| obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
+    , ( \obj -> obj.address.set "CaNdYlAnE", expectOkAndEqualWhenMapped (\obj -> obj.address.get) "CaNdYlAnE" )
     , ( \obj -> obj.minor.set True, expectOkAndEqualWhenMapped (\obj -> obj.minor.get) True )
     ]
 
@@ -215,7 +216,7 @@ changeList =
 nodeModifications =
     let
         { startNode, outputMaybe, result } =
-            nodeFromCodec writableObjectCodec
+            testNodeFromCodec writableObjectCodec
 
         beforeNode =
             startNode
@@ -282,7 +283,7 @@ fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
     let
         { startNode, result } =
-            nodeFromCodec simpleListCodec
+            testNodeFromCodec simpleListCodec
 
         addChanges repList =
             RepList.append RepList.Last simpleList repList
@@ -308,7 +309,7 @@ repListEncodeThenDecode =
         \_ ->
             let
                 generatedRepList =
-                    Codec.decodeFromNode simpleListCodec (Log.log (Console.bgYellow "repListEncodeThenDecode: node after applying") <| fakeNodeWithSimpleList)
+                    Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList
             in
             Result.map RepList.listValues generatedRepList |> Expect.equal (Ok simpleList)
 
@@ -457,7 +458,7 @@ nestedStressTestIntegrityCheck =
         \_ ->
             Expect.all
                 expectations
-                (Result.map Reg.latest (nodeFromCodec nestedStressTestCodec).result)
+                (Result.map Reg.latest (testNodeFromCodec nestedStressTestCodec).result)
 
 
 
@@ -468,7 +469,7 @@ nodeWithModifiedNestedStressTest : { original : Node, serialized : Node, warning
 nodeWithModifiedNestedStressTest =
     let
         { startNode, result, startFrame } =
-            nodeFromCodec nestedStressTestCodec
+            testNodeFromCodec nestedStressTestCodec
     in
     case Result.map Reg.latest result of
         Ok nestedStressTest ->
@@ -479,10 +480,15 @@ nodeWithModifiedNestedStressTest =
                 deepestRecordAddress =
                     nestedStressTest.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |> .recordWithRecord |> Reg.latest |> .address
 
+
+                blankWritable =
+                    (Codec.new writableObjectCodec)
+
+
                 changes =
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertNew RepList.Last (Codec.new writableObjectCodec) repListOfWritables
-                    , RepList.insertNew RepList.Last newWritable repListOfWritables
+                    , RepList.insertNew RepList.Last [blankWritable] repListOfWritables 
+                    , RepList.insertNew RepList.Last [newWritable] repListOfWritables 
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -500,13 +506,13 @@ nodeWithModifiedNestedStressTest =
                             , obj.number.set 999
                             , obj.minor.set False
                             , obj.kids.set (newKidsList c)
-                            , nestedStressTest.lastField.set "externally updating nst within newWritable"
+                            , nestedStressTest.lastField.set ("externally updating nst within newWritable")
                             ]
                     in
                     Codec.newWithChanges writableObjectCodec c woChanges
 
-                newKidsList c =
-                    SomeOfBoth (Codec.new (Codec.repList exampleSubObjectCodec) c) (Codec.new (Codec.repList exampleSubObjectCodec) c)
+                newKidsList p =
+                    SomeOfBoth (Codec.newN 1 (Codec.repList exampleSubObjectCodec) p) (Codec.newN 2 (Codec.repList exampleSubObjectCodec) p)
 
                 applied =
                     Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
@@ -515,10 +521,10 @@ nodeWithModifiedNestedStressTest =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 concatOldAndNewFrame =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText (applied.outputFrame)
 
                 reInitialized =
-                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.log (Console.colorsInverted <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
+                    Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.logMessageOnly (Console.green <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
 
                 reInitializedNodeAndSuch =
                     case reInitialized of
@@ -526,7 +532,7 @@ nodeWithModifiedNestedStressTest =
                             nodeAndSuch
 
                         Err err ->
-                            Debug.todo "failed to init"
+                            Debug.todo ("failed to init becuase " ++ Debug.toString err)
 
                 -- (Op.toFrame applied.ops)
                 logOps =
@@ -566,7 +572,7 @@ testRon =
 modifiedNestedStressTestIntegrityCheck =
     let
         { startNode, result } =
-            nodeFromCodec nestedStressTestCodec
+            testNodeFromCodec nestedStressTestCodec
 
         eventListSize givenID givenNode =
             List.length (getObjectEventList givenID givenNode)
@@ -580,18 +586,18 @@ modifiedNestedStressTestIntegrityCheck =
         decodedNSTReg =
             Codec.decodeFromNode nestedStressTestCodec subject
 
-        -- |> Debug.log (Console.bgRed "decodedNST")
         decodedNST =
             decodedNSTReg
                 |> Result.map Reg.latest
 
+        generatedRepListObjectID : OpID.ObjectID
         generatedRepListObjectID =
             Result.map (\root -> Change.getPointerObjectID (RepList.getPointer root.listOfNestedRecords)) decodedNST
                 |> Result.map (Maybe.withDefault (OpID.fromStringForced "was not initialized"))
                 |> Result.withDefault (OpID.fromStringForced "decode NST fail")
 
         opsToFlush =
-            (nodeFromCodec nestedStressTestCodec).startFrame
+            (testNodeFromCodec nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
         [ test "the NST Register has been initialized and its ID is not a placeholder" <|
@@ -609,13 +615,13 @@ modifiedNestedStressTestIntegrityCheck =
         , describe "Checking the node has changed in correct places"
             [ test "the node should have more initialized objects in it." <|
                 \_ ->
-                    Node.objectCount subject |> Expect.equal 11
+                    Node.objectCount subject |> Expect.equal 10
             , test "the replist object should have n more events, with n being the number of new changes to the replist object" <|
                 \_ -> eventListSize generatedRepListObjectID subject |> Expect.equal 3
             , test "the repList has been initialized and its ID is not a placeholder" <|
                 \_ -> expectOkAndEqualWhenMapped (\o -> Change.isPlaceholder (RepList.getPointer o.listOfNestedRecords)) False decodedNST
             ]
-        , test "checking the decoded nested mess has the changes" <|
+        , test "checking the decoded nested mess has the changes from round 2" <|
             \_ ->
                 Expect.all
                     [ expectOkAndEqualWhenMapped (\o -> List.map (Reg.latest >> .address >> .get) <| RepList.listValues o.listOfNestedRecords) [ "default address 2", "3 bologna street" ] -- default object is first

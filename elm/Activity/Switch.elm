@@ -32,10 +32,10 @@ type alias SwitchSkel =
     }
 
 
-codec : FlatCodec String Switch
+codec : Codec String Switch Codec.SoloObject Switch
 codec =
     let
-        skelCodec : Codec String SwitchSkel SwitchSkel
+        skelCodec : Codec String SwitchSkel Codec.SoloObject SwitchSkel
         skelCodec =
             Codec.record SwitchSkel
                 |> coreR ( 1, "moment" ) .moment Codec.moment .moment

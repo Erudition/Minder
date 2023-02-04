@@ -25,7 +25,7 @@ import IntDict exposing (IntDict)
 import List.Extra as List
 import Profile exposing (..)
 import Refocus
-import Replicated.Change as Change exposing (Change, Frame)
+import Replicated.Change as Change exposing (ChangeSet, Frame)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)

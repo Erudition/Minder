@@ -101,9 +101,9 @@ cacheCodec : SkelCodec e Cache
 cacheCodec =
     Codec.record Cache
     |> Codec.field ( 1, "nextSync" ) .nextSync (Codec.string |> Codec.map IncrementalSyncToken (\(IncrementalSyncToken t) -> t)) (IncrementalSyncToken "*")
-    |> Codec.field ( 2, "items" ) .items (Debug.todo "items codec") IntDict.empty
-    |> Codec.field ( 3, "projects" ) .projects (Debug.todo "items codec") IntDict.empty
-    |> Codec.field (4, "pendingCommands") .pendingCommands (Codec.primitiveList Codec.string) []
+    |> Codec.field ( 2, "items" ) .items (Codec.todo IntDict.empty) IntDict.empty
+    |> Codec.field ( 3, "projects" ) .projects (Codec.todo IntDict.empty) IntDict.empty
+    |> Codec.field (4, "pendingCommands") .pendingCommands (Codec.list Codec.string) []
     |> Codec.finishRecord
 
 -- syncUrl : IncrementalSyncToken  -> Url.Url

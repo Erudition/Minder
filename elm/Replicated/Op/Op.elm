@@ -681,7 +681,6 @@ opIDFromReference givenRef =
 
 
 type alias OpPayloadAtoms =
-    -- TODO make Nonempty?
     List OpPayloadAtom
 
 
@@ -714,7 +713,7 @@ atomToJsonValue atom =
             JE.string string
 
         IDPointerAtom opID ->
-            JE.string (OpID.toPointerString opID)
+            JE.string (OpID.toRonPointerString opID)
 
         OtherUUIDAtom uuid ->
             JE.string uuid
@@ -746,7 +745,7 @@ atomToRonString atom =
             string
 
         IDPointerAtom opID ->
-            OpID.toPointerString opID
+            OpID.toRonPointerString opID
 
         IntegerAtom int ->
             String.fromInt int
@@ -1109,13 +1108,19 @@ closedChunksToFrameText : List ClosedChunk -> FrameString
 closedChunksToFrameText chunkList =
     let
         perChunk opsInChunk =
-            List.Extra.mapAccuml perOp Nothing opsInChunk
-                |> Tuple.second
-                |> String.join " ,\n"
-                |> (\s -> s ++ " ;\n\n")
+            case opsInChunk of
+                [] ->
+                    ""
+
+                _ ->               
+                    List.Extra.mapAccuml perOp Nothing (opsInChunk)
+                        |> Tuple.second
+                        |> String.join " ,\n"
+                        |> (\s -> s ++ " ;\n\n")
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
+            -- ( Just thisOp, closedOpToString (ClosedOps) thisOp )
     in
     case chunkList of
         [] ->

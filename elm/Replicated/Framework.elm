@@ -1,4 +1,4 @@
-module Replicated.Framework exposing (Replicator, Program, browserApplication)
+module Replicated.Framework exposing (Program, Replicator, browserApplication)
 
 import Browser
 import Browser.Navigation exposing (Key)
@@ -91,15 +91,13 @@ browserApplication userApp =
         }
 
 
-
-
 subscriptionsWrapper : (Replicator userReplica temp -> Sub userMsg) -> Model userFlags userMsg userReplica temp -> Sub (Msg userMsg)
 subscriptionsWrapper userSubs model =
     case model of
         UserRunning replicator ->
             userSubs replicator
-            -- Tick means every sub will run with an updated clock
-            |> Sub.map (\userMsg -> Tick userMsg)
+                -- Tick means every sub will run with an updated clock
+                |> Sub.map (\userMsg -> Tick userMsg)
 
         _ ->
             Sub.none
@@ -192,7 +190,7 @@ type alias UserInit userFlags userReplica temp userMsg =
 
 
 initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> Url -> Key -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
-initWrapper userInit  wrappedFlags url key =
+initWrapper userInit wrappedFlags url key =
     let
         { storedNodeMaybe, startWarnings } =
             case wrappedFlags.storedRonMaybe of
@@ -211,7 +209,7 @@ initWrapper userInit  wrappedFlags url key =
         startupCmd =
             Job.perform identity (Job.map2 FrameworkInit HumanMoment.localZone Moment.now)
     in
-    ( PreInit 
+    ( PreInit
         { restoredNode = storedNodeMaybe
         , warnings = [] -- TODO
         , flags = wrappedFlags
@@ -241,24 +239,27 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
             case toReplicator wrappedModel of
                 Nothing ->
                     -- TODO handle unhappy-path better
-                    (wrappedModel, Cmd.none)
+                    ( wrappedModel, Cmd.none )
 
                 Just oldReplicator ->
                     let
                         replicator =
-                            {oldReplicator | now = newTime}
-                    in
-                    case (userUpdate userMsg replicator) of
-                        ( [], temp, newCmds ) ->
-                            ( UserRunning { replicator | temp = temp }, Cmd.map (\m -> U m newTime) newCmds )
+                            { oldReplicator | now = newTime }
 
-                        ( framesToApply, temp, newCmds ) ->
+                        ( framesToApply, temp, cmds ) =
+                            userUpdate userMsg replicator
+                    in
+                    case ( Change.nonEmptyFrames framesToApply, temp, cmds ) of
+                        ( [], newTemp, newCmds ) ->
+                            ( UserRunning { replicator | temp = newTemp }, Cmd.map (\m -> U m newTime) newCmds )
+
+                        ( filledFramesToApply, newTemp, newCmds ) ->
                             let
                                 modelWithTimeTemp =
-                                    { replicator | temp = temp }
+                                    { replicator | temp = newTemp }
 
                                 ( replicatorWithUpdates, finalOutputFrame ) =
-                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) framesToApply
+                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) (Debug.log "filledFramesToApply" filledFramesToApply)
 
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
@@ -270,7 +271,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                             case Codec.decodeFromNode userReplicaCodec replicatorWithUpdates.node of
                                 Ok updatedUserReplica ->
                                     ( UserRunning { replicatorWithUpdates | replica = updatedUserReplica }
-                                    , Log.logSeparate "Saving with new frame" finalOutputFrame <| Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
+                                    , Log.logSeparate "Framework saving with new frame" finalOutputFrame <| Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
                                     )
 
                                 Err problem ->
@@ -281,17 +282,32 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
         FrameworkInit zone now ->
             case wrappedModel of
-                PreInit {restoredNode, warnings, key, url, flags, userInit} ->
+                PreInit { restoredNode, warnings, key, url, flags, userInit } ->
                     let
-                        startNode =
-                            Maybe.withDefault (Node.startNewNode (Just now) []).newNode restoredNode
+                        (startNode, startFrame) =
+                            case restoredNode of
+                                Just restoredNodeFound ->
+                                    (restoredNodeFound, [])
 
+                                Nothing ->
+                                    let
+                                        tempDefaultChanges =
+                                            [Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec)]
+
+                                        startNewNode =
+                                            Node.startNewNode (Just now) []--tempDefaultChanges
+                                    in
+                                    (startNewNode.newNode, startNewNode.startFrame)
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode
 
                         userStartupCmd =
                             Job.perform (\_ -> UserInit) (Job.succeed ())
+
+                        saveNodeCmd =
+                            setStorage (Op.closedChunksToFrameText startFrame)
+                            |> Cmd.map (\m -> U m now)
                     in
                     ( FrameworkReady
                         { node = startNode
@@ -304,16 +320,16 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , userFlags = flags.userFlags
                         , userInit = userInit
                         }
-                    , userStartupCmd
+                    , Cmd.batch [saveNodeCmd, userStartupCmd]
                     )
 
                 _ ->
                     -- never possible
-                    (Log.crashInDev "FrameworkInit when model wasn't PreInit" wrappedModel, Cmd.none)
+                    ( Log.crashInDev "FrameworkInit when model wasn't PreInit" wrappedModel, Cmd.none )
 
         UserInit ->
             case wrappedModel of
-                FrameworkReady {userInit, userFlags, url, key, userReplica, node, now, zone} ->
+                FrameworkReady { userInit, userFlags, url, key, userReplica, node, now, zone } ->
                     let
                         ( userInitFrames, temp, userInitCmds ) =
                             userInit userFlags url key userReplica
@@ -327,7 +343,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         }
                     , Cmd.map (\cmds -> U cmds now) userInitCmds
                     )
-                
+
                 _ ->
                     -- never possible
-                    (Log.crashInDev "UserInit when model wasn't FrameworkReady" wrappedModel, Cmd.none)
+                    ( Log.crashInDev "UserInit when model wasn't FrameworkReady" wrappedModel, Cmd.none )

@@ -12,7 +12,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import NativeScript.Notification exposing (Action)
-import Replicated.Change as Change exposing (Change, Changer, Parent)
+import Replicated.Change as Change exposing (Change, Changer, Context)
 import Replicated.Codec as Codec exposing (Codec, FlatCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -53,12 +53,12 @@ type alias ActionClassSkel =
     }
 
 
-newActionClassSkel : Parent -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
+newActionClassSkel : Context -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
 newActionClassSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 
-codec : Codec String ( String, Changer (Reg ActionClassSkel) ) (Reg ActionClassSkel)
+codec : Codec String ( String, Changer (Reg ActionClassSkel) ) Codec.SoloObject (Reg ActionClassSkel)
 codec =
     Codec.record ActionClassSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
@@ -153,7 +153,7 @@ type RelativeTiming
     | FromToday Duration
 
 
-relativeTimingCodec : FlatCodec String RelativeTiming
+relativeTimingCodec : Codec.NullCodec String RelativeTiming
 relativeTimingCodec =
     Codec.customType
         (\fromDeadline fromToday value ->

@@ -6,7 +6,7 @@ import Dict.Any as AnyDict exposing (AnyDict)
 import Json.Encode as JE
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -27,15 +27,6 @@ type alias SavedObject =
     , aliases : List ObjectID
     , version : OpID.ObjectVersion
     }
-
-
-type Placeholder
-    = Placeholder
-
-
-type I
-    = Initialized
-
 
 type alias OpDict =
     AnyDict OpID.OpIDSortable OpID Op
@@ -144,7 +135,7 @@ type ObjectBuildWarning
 
 type alias UnsavedObject =
     { reducer : Op.ReducerID
-    , parent : Change.Pointer
+    , parent : Change.Parent
     , position : Nonempty Change.SiblingIndex
     }
 
@@ -160,10 +151,10 @@ getCreationID object =
 
 
 getPointer : Object -> Change.Pointer
-getPointer object =
+getPointer object  =
     case object of
         Saved savedObject ->
-            Change.ExistingObjectPointer savedObject.creation identity
+            Change.ExistingObjectPointer (Change.ExistingID savedObject.reducer savedObject.creation )
 
         Unsaved unsavedObject ->
             Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }

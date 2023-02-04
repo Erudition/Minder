@@ -5,7 +5,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, coreRW, fieldList, fieldRW)
+import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, coreRW, fieldList, fieldRW)
 
 
 type Evidence
@@ -13,7 +13,7 @@ type Evidence
     | StepCountPace StepsPerMinute
 
 
-codec : FlatCodec e Evidence
+codec : Codec.NullCodec e Evidence
 codec =
     Codec.customType
         (\usingApp stepCountPace value ->
@@ -35,7 +35,7 @@ type alias AppDescriptor =
     }
 
 
-appDescriptorCodec : Codec e ( String, String ) AppDescriptor
+appDescriptorCodec : Codec e ( String, String ) Codec.SoloObject AppDescriptor
 appDescriptorCodec =
     Codec.record AppDescriptor
         |> Codec.coreR ( 1, "package" ) .package Codec.string (\( p, n ) -> p)

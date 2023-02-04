@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toPointerString, toSortablePrimitives, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromRonPointerString, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toRonPointerString, toSortablePrimitives, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser.Advanced as Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -136,9 +136,15 @@ fromPrimitives clock reversion nodeName =
         )
 
 
-toPointerString : OpID -> String
-toPointerString (OpID string) =
+toRonPointerString : OpID -> String
+toRonPointerString (OpID string) =
     ">" ++ string
+
+
+fromRonPointerString : String -> Maybe OpID
+fromRonPointerString inString =
+    -- get rid of the ">"
+    fromString (String.dropLeft 1 inString)
 
 
 type alias OpIDParser a =

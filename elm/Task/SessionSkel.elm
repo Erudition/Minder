@@ -24,7 +24,7 @@ type alias UserPlannedSession =
     ( FuzzyMoment, Duration )
 
 
-codec : FlatCodec String UserPlannedSession
+codec : Codec.NullCodec String UserPlannedSession
 codec =
     Codec.pair Codec.fuzzyMoment Codec.duration
 

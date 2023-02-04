@@ -10,8 +10,8 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec)
-import Replicated.Reducer.Register as Reg exposing (RW)
+import Replicated.Codec as Codec exposing (Codec, FlatCodec, NullCodec, SkelCodec, WrappedCodec)
+import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Result.Extra as Result
@@ -19,13 +19,9 @@ import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
-import Task.ActionClass exposing (ActionClass, ActionClassID, ActionClassSkel, ParentProperties, makeFullActionClass, parentPropertiesCodec)
+import Task.ActionClass exposing (ActionClass, ActionClassDb, ActionClassID, ActionClassSkel, ParentProperties, makeFullActionClass, parentPropertiesCodec)
 import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
-import Replicated.Reducer.Register exposing (Reg)
-import Task.ActionClass exposing (ActionClassDb)
-import Replicated.Codec exposing (SkelCodec)
-import Replicated.Codec exposing (WrappedCodec)
 
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
@@ -80,7 +76,7 @@ Parents that contain only a single task are transparently unwrapped to appear li
 
 -}
 type alias ProjectClass =
-    { properties : (Reg ParentProperties)
+    { properties : Reg ParentProperties
     , recurrenceRules : RW (Maybe Series)
     , children : RepList TaskClass
     }
@@ -98,7 +94,7 @@ projectCodec =
 {-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
 -}
 type alias SuperProject =
-    { properties : (Reg ParentProperties)
+    { properties : Reg ParentProperties
     , children : RepList SuperProjectChild
     }
 
@@ -116,7 +112,7 @@ type SuperProjectChild
     | ProjectIsHere (Reg ProjectClass)
 
 
-superProjectChildCodec : FlatCodec String SuperProjectChild
+superProjectChildCodec : Codec.NullCodec String SuperProjectChild
 superProjectChildCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->
@@ -138,7 +134,7 @@ Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedP
 
 -}
 type alias TaskClass =
-    { properties : (Reg ParentProperties)
+    { properties : Reg ParentProperties
     , children : RepList TaskClassChild
     }
 
@@ -171,7 +167,7 @@ type TaskClassChild
     | Nested TaskClass
 
 
-taskClassChildCodec : FlatCodec String TaskClassChild
+taskClassChildCodec : NullCodec String TaskClassChild
 taskClassChildCodec =
     Codec.customType
         (\singleton nested value ->
@@ -208,7 +204,7 @@ getClassesFromEntries ( entries, classDb ) =
 
         traverseWrapperParent : List (Reg ParentProperties) -> SuperProject -> List (Result Warning ActionClass)
         traverseWrapperParent accumulator parent =
-            List.concatMap (traverseWrapperChild accumulator) (RepList.listValues (parent).children)
+            List.concatMap (traverseWrapperChild accumulator) (RepList.listValues parent.children)
 
         traverseLeaderParent : List (Reg ParentProperties) -> Reg ProjectClass -> List (Result Warning ActionClass)
         traverseLeaderParent accumulator leaderParent =
@@ -217,7 +213,7 @@ getClassesFromEntries ( entries, classDb ) =
         traverseFollowerParent : List (Reg ParentProperties) -> Maybe Series -> TaskClass -> List (Result Warning ActionClass)
         traverseFollowerParent accumulator recurrenceRules class =
             -- TODO do we need to collect props here
-            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.listValues (class).children)
+            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.listValues class.children)
 
         traverseFollowerChild : List (Reg ParentProperties) -> Maybe Series -> TaskClassChild -> List (Result Warning ActionClass)
         traverseFollowerChild accumulator recurrenceRules child =
@@ -248,6 +244,7 @@ getClassesFromEntries ( entries, classDb ) =
 type Warning
     = LookupFailure ActionClassID
 
+
 addActionToClass : ActionClassID -> TaskClass -> Change
 addActionToClass actionClassID classToModify =
     let
@@ -256,31 +253,32 @@ addActionToClass actionClassID classToModify =
     in
     RepList.insert RepList.Last taskClassChild classToModify.children
 
-initWithClass : Change.Parent -> Entry
-initWithClass parent = 
+
+initWithClass : Change.Creator Entry
+initWithClass parent =
     let
         taskClassInit : Change.Creator TaskClass
         taskClassInit subparent =
             { properties = Codec.new parentPropertiesCodec subparent
-            , children =  Codec.new (Codec.repList taskClassChildCodec) subparent
+            , children = Codec.new (Codec.repList taskClassChildCodec) subparent
             }
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
-            [ RepList.insertNew RepList.Last taskClassInit (Reg.latest newProject).children
+            [ RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children
             ]
 
         entryChildInit subparent =
             Codec.newWithChanges projectCodec subparent projectChanger
 
-        parentPropertiesChanger : (Reg ParentProperties) -> List Change
+        parentPropertiesChanger : Reg ParentProperties -> List Change
         parentPropertiesChanger newParentProperties =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
 
         childrenChanger : RepList SuperProjectChild -> List Change
         childrenChanger newChildren =
-            [ RepList.insertNew RepList.Last (\c2 -> ProjectIsHere (entryChildInit c2)) newChildren
+            [ RepList.insertNew RepList.Last [ \c2 -> ProjectIsHere (entryChildInit c2) ] newChildren
             ]
     in
     { properties = Codec.newWithChanges parentPropertiesCodec parent parentPropertiesChanger

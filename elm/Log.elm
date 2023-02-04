@@ -69,13 +69,13 @@ log label item =
             logger label item
 
 
-logSeparate label separateThing attachmentItem =
+logSeparate label thingToLog thingToIgnore =
     case runningEnvironment of
         Production ->
-            attachmentItem
+            thingToIgnore
 
         Dev logger todo _ ->
-            Tuple.second ( logger label separateThing, attachmentItem )
+            Tuple.second ( logger label thingToLog, thingToIgnore )
 
 
 crashInDev : String -> prodFallbackValue -> prodFallbackValue

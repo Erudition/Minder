@@ -3,7 +3,7 @@ port module Headless exposing (main)
 import Json.Decode.Exploration exposing (..)
 import Main exposing (..)
 import Platform exposing (worker)
-import Replicated.Change as Change exposing (Change, Frame)
+import Replicated.Change as Change exposing (ChangeSet, Frame)
 import Profile exposing (..)
 
 import Url

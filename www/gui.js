@@ -25,14 +25,22 @@ try { // Errors out if undeclared
     elmStartedWithTasker(app);
     }
 } catch (error) { // not inTasker
-    Storage.get({ key: browserStorageKey }).then((found) => {
-        let app = Elm.Main.init({ flags: 
-            { storedRonMaybe : (found.value ? found.value : null) 
-            , userFlags : null
-            }
-        });
-        elmStartedWithoutTasker(app);
+    const currentlyStored = localStorage.getItem(browserStorageKey);
+    let app = Elm.Main.init({ flags: 
+        { storedRonMaybe : (currentlyStored ? currentlyStored : null) 
+        , userFlags : null
+        }
     });
+    elmStartedWithoutTasker(app);
+    // Use Capacitor storage
+    // Storage.get({ key: browserStorageKey }).then((found) => {
+    //     let app = Elm.Main.init({ flags: 
+    //         { storedRonMaybe : (found.value ? found.value : null) 
+    //         , userFlags : null
+    //         }
+    //     });
+    //     elmStartedWithoutTasker(app);
+    // });
 
     // Try to make it persistent
     if (navigator.storage && navigator.storage.persist)
@@ -95,20 +103,26 @@ function elmStartedWithoutTasker(app) {
     app.ports.setStorage.subscribe(function(state) {
         // TODO does this account for localStorage disabled/unavailable?
         // https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
-        Storage.get({ key: browserStorageKey }).then((found) => {
-            Storage.set({
-                key: browserStorageKey,
-                value: (found.value ? found.value : "") + state
-               });
-        });
+        
+        // This was to use Capacitor storage, but it removes linebreaks
+        // Storage.get({ key: browserStorageKey }).then((found) => {
+        //     Storage.set({
+        //         key: browserStorageKey,
+        //         value: (found.value ? found.value : "") + state
+        //        });
+        // });
+        const currentlyStored = localStorage.getItem(browserStorageKey);
+        localStorage.setItem(browserStorageKey, (currentlyStored ? currentlyStored : "") + state);
+
     });
 
     // LISTEN TO STORAGE
     // Capacitor Storage api doesn't seem to have this yet
     // https://github.com/ionic-team/capacitor/blob/master/core/src/web/storage.ts
     // So let's subscribe to localStorage ourselves
-    window.addEventListener('storage', function(e) {
-        if (e.key == Storage.KEY_PREFIX + browserStorageKey) {
+    window.addEventListener('storage', function (e) {
+        // if (e.key == Storage.KEY_PREFIX + browserStorageKey) { //Capacitor
+        if (e.key == browserStorageKey) {
             app.ports.storageChangedElsewhere.send(e.newValue);
         } else {
             console.log("localStorage changed elsewhere, but the key was different.")

@@ -1,7 +1,7 @@
 module Replicated.Reducer.RepStore exposing ( RepStore, buildFromReplicaDb, get, getInit,  getPointer, reducerID, listModified, RepStoreEntry(..))
 
 import List.Nonempty exposing (Nonempty(..))
-import Replicated.Change as Change exposing (Change, Changer, Parent(..))
+import Replicated.Change as Change exposing (ChangeSet, Changer, Parent(..), Change(..))
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 
@@ -63,8 +63,9 @@ listModified (Store store) =
 
 
 
-getInit : RepStore k v -> List Change
+getInit : RepStore k v -> ChangeSet
 getInit ((Store record) as store) =
     record.startWith store
+    |> Change.collapseChangesToChangeSet []
 
 
