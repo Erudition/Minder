@@ -1090,12 +1090,19 @@ repList memberCodec =
                     let
                         externalChanges =
                             RepList.getInit givenRepList
+
+                        logIf input =
+                            if Change.isEmptyChangeSet externalChanges then
+                                input
+
+                            else
+                                Debug.log "Initializing replist with a member" input
                     in
                     soloOut <|
                         Change.changeObjectWithExternal
                             { target = RepList.getPointer givenRepList
                             , objectChanges = []
-                            , externalUpdates = externalChanges
+                            , externalUpdates = logIf externalChanges
                             }
 
                 _ ->
@@ -3194,9 +3201,9 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
             allFieldsCodec.nodeEncoders
                 |> List.map runSubEncoder
                 |> List.filterMap identity
+                -- TODO so we set them in slot-increasing order.
                 |> List.reverse
 
-        -- TODO so we set them in slot-increasing order.
         allObjectChanges =
             subChanges
     in
@@ -3323,28 +3330,31 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
         explicitDefaultIfNeeded val =
             if mode.setDefaultsExplicitly then
-                -- unnecessary but we were asked to encode all defaults
-                EncodeThisField <| Change.NewPayload <| encodedDefault val
+                -- we were asked to encode all defaults
+                EncodeThisField <| Change.NewPayload <| wrappedOutput val
 
             else
-                case encodedDefault val of
-                    (Nonempty (Change.QuoteNestedObject { skippable }) []) as defaultOut ->
+                case encodeVal val of
+                    (Nonempty (Change.QuoteNestedObject { skippable }) []) as encodedVal ->
                         -- payload must be a single nested object with no other atoms
                         if skippable then
                             -- field encoder said we can skip this one
                             SkipThisField
 
                         else
-                            EncodeThisField <| Change.NewPayload defaultOut
+                            Log.logSeparate (fieldName ++ " was supposedly not skippable.") encodedVal <|
+                                EncodeThisField <|
+                                    Change.NewPayload <|
+                                        wrappedOutput val
 
-                    defaultOut ->
+                    _ ->
                         if isExistingSameAsDefault then
-                            -- it's equivalent to default, must be primitive val?
+                            -- it's equivalent to default
                             SkipThisField
 
                         else
                             -- Nested objects are never equal to default, respect their necessity
-                            EncodeThisField <| Change.NewPayload defaultOut
+                            EncodeThisField <| Change.NewPayload <| wrappedOutput val
 
         isExistingSameAsDefault =
             case ( fieldDefaultMaybe fieldFallback, Maybe.andThen fieldDecodedMaybe getPayloadIfSet ) of
@@ -3370,14 +3380,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     -- if there's no default, and not placeholder, it can't be equal. (seeded)
                     False
 
-        encodedDefault : fieldType -> Change.ComplexPayload
-        encodedDefault val =
-            let
-                wrapper =
-                    encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
-            in
+        encodeVal : fieldType -> Change.ComplexPayload
+        encodeVal val =
             -- EncodeThis because this only gets used on default value
-            wrapper (runFieldNodeEncoder (EncodeThis val)).complex
+            (runFieldNodeEncoder (EncodeThis val)).complex
+
+        wrappedOutput : fieldType -> Change.ComplexPayload
+        wrappedOutput val =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (encodeVal val)
     in
     case Maybe.Extra.or existingValMaybe (fieldDefaultMaybe fieldFallback) of
         Just valToEncode ->
@@ -3389,9 +3399,10 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     explicitDefaultIfNeeded valToEncode
 
                 Just foundPreviousValue ->
-                    -- -- it's been set before. even if set to default (e.g. Nothing) we will honor this
-                    -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom foundPreviousValue
-                    SkipThisField
+                    -- it's been set before. even if set to default (e.g. Nothing) we will honor this
+                    -- EncodeThisField <| Change.NewPayload <| encodeVal foundPreviousValue
+                    Debug.todo "what to do here?"
+                    
 
         Nothing ->
             -- we have no default to fall back to, this is for SEEDED nested objects only

@@ -605,7 +605,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                                 ++ "with this in the mapping so far"
                                         )
                                         (AnyDict.toList accumulated.mapping.assignedIDs)
-                                        [ Op.NakedStringAtom <| pendingIDToString pendingID ]
+                                        [ Op.StringAtom <| pendingIDToString pendingID ]
                     in
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ atomInList

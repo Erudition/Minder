@@ -264,7 +264,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
                                         { outputFrame, updatedNode } =
-                                            Node.apply (Just newTime) givenModel.node (Log.log "Changes to save" givenFrame)
+                                            Node.apply (Nothing) givenModel.node (Log.log "Changes to save" givenFrame)
                                     in
                                     ( { givenModel | node = updatedNode }, outputsSoFar ++ outputFrame )
                             in
@@ -295,7 +295,8 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                             [Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec)]
 
                                         startNewNode =
-                                            Node.startNewNode (Just now) []--tempDefaultChanges
+                                            -- Node.startNewNode (Just now) []
+                                            Node.startNewNode (Nothing) []--tempDefaultChanges
                                     in
                                     (startNewNode.newNode, startNewNode.startFrame)
 

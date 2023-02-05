@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove, Item)
 
 import Array exposing (Array)
 import Console

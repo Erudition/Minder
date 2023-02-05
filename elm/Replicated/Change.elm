@@ -152,7 +152,7 @@ emptyObjectsToCreate =
 
 
 
--- DELAYED CHANGE SETS
+-- DELAYED CHANGE SETS -----------------------------
 
 
 type alias DelayedChangeSet =
@@ -363,6 +363,10 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
         withExternalChanges thisSet =
             mergeChanges externalUpdates thisSet
 
+        skippable =
+        -- skippable if we ONLY make the object, not change it (or change anything else)
+            (List.isEmpty objectChanges && isEmptyChangeSet externalUpdates)
+
         finalChangeSet =
             case target of
                 ExistingObjectPointer existingID ->
@@ -385,7 +389,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
     in
     { toReference = target
     , changeSet = finalChangeSet
-    , skippable = isEmptyChangeSet finalChangeSet
+    , skippable = skippable
     }
 
 
@@ -395,35 +399,6 @@ isEmptyChangeSet (ChangeSet details) =
 
 
 
--- {-| Get the delayed changes' nested delayed changes... and collapse it all down into one changeset with no delayed changes left.
--- -}
--- collapseDelayed ((ChangeSet details) as changeSet) =
---     let
---         mergeChangesClobber : ChangeSet -> ChangeSet -> ChangeSet
---         mergeChangesClobber (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
---             ChangeSet
---                 { objectsToCreate =
---                     unionCombine emptyObjectsToCreate changeSetEarlier.objectsToCreate changeSetLater.objectsToCreate
---                 , existingObjectChanges =
---                     unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
---                 , later =
---                     case (changeSetEarlier.later, changeSetLater.later) of
---                         (Just lateChangeSet, Nothing) ->
---                             Just lateChangeSet
---                         (Nothing, Just lateChangeSet) ->
---                             Just lateChangeSet
---                         (Just lateChangeSet1, Just lateChangeSet2) ->
---                             Just <| mergeChanges lateChangeSet1 lateChangeSet2
---                         (Nothing, Nothing) ->
---                             Nothing
---                 , opsToRepeat = AnyDict.empty
---                 }
---     in
---     case details.later of
---         Nothing ->
---             changeSet
---         Just delayedChangeSet ->
---             mergeChanges (collapseDelayed delayedChangeSet) (ChangeSet {details | later = Nothing})
 -- COMPLEX PAYLOADS ---------------------------------------
 
 

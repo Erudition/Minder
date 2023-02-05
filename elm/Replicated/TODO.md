@@ -1,5 +1,5 @@
 # Now
-- [ ] Detect Node root on first run
+- [X] Detect Node root on first run
 - [ ] Figure out how to encode empty flatlists, or allow [] to parse
 - [ ] Write test for late installers
 - [ ] Write test for divergent nodes
@@ -14,7 +14,7 @@
 
 
 # Soon
-- always startNewNode with a root object 
+- always startNewNode with a root object, the master replica
 - change register to use label_3 naked string format (like variants) rather than separate Int
 - do single quotes get properly escaped on output?
 - Parse OpIDs upfront and store in proper record form
