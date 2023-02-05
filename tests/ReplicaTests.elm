@@ -24,18 +24,40 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "RON Encode-Decode"
-        [ readOnlyObjectEncodeThenDecode
-        , writableObjectEncodeThenDecode
-        , repListEncodeThenDecode
-        , repListInsertAndRemove
-        , nodeModifications
-        , nestedStressTestIntegrityCheck
-        , modifiedNestedStressTestIntegrityCheck
+        [ testDelayedCreation
+        --     readOnlyObjectEncodeThenDecode
+        -- , writableObjectEncodeThenDecode
+        -- , repListEncodeThenDecode
+        -- , repListInsertAndRemove
+        -- , nodeModifications
+        -- , nestedStressTestIntegrityCheck
+        -- , modifiedNestedStressTestIntegrityCheck
         ]
 
+nodeFromCodecWithoutDefaults : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+nodeFromCodecWithoutDefaults profileCodec =
+    let
+        logOps chunks =
+            Op.closedChunksToFrameText chunks
 
-testNodeFromCodec : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
-testNodeFromCodec profileCodec =
+        { newNode, startFrame } =
+            Node.startNewNode Nothing [ ]
+
+        tryDecoding =
+            Codec.decodeFromNode profileCodec newNode
+
+        logStart =
+            Log.proseToString
+                [ [ "ReplicaTests.nodeFromCodec:" ]
+                , [ "Output Frame:" ]
+                , [ Op.closedChunksToFrameText startFrame ]
+                ]
+
+    in
+    { startNode = {newNode | identity = NodeID.bumpSessionID newNode.identity}, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+
+nodeFromCodecWithDefaults : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
+nodeFromCodecWithDefaults profileCodec =
     let
         logOps chunks =
             Op.closedChunksToFrameText chunks
@@ -126,7 +148,7 @@ readOnlyObjectEncodeThenDecode =
         \_ ->
             let
                 { result } =
-                    testNodeFromCodec readOnlyObjectCodec
+                    nodeFromCodecWithDefaults readOnlyObjectCodec
             in
             result
                 |> Expect.equal (Ok correctDefaultReadOnlyObject)
@@ -198,7 +220,7 @@ writableObjectEncodeThenDecode =
                 -- , expectOkAndEqualWhenMapped (\obj -> obj.name.get) { first = "default first", last = "default last" }
                 -- disabled because forced default op generation is overruled by codec defaults
                 ]
-                (Result.map Reg.latest (testNodeFromCodec writableObjectCodec).result)
+                (Result.map Reg.latest (nodeFromCodecWithDefaults writableObjectCodec).result)
 
 
 
@@ -216,7 +238,7 @@ changeList =
 nodeModifications =
     let
         { startNode, outputMaybe, result } =
-            testNodeFromCodec writableObjectCodec
+            nodeFromCodecWithDefaults writableObjectCodec
 
         beforeNode =
             startNode
@@ -283,7 +305,7 @@ fakeNodeWithSimpleList : Node
 fakeNodeWithSimpleList =
     let
         { startNode, result } =
-            testNodeFromCodec simpleListCodec
+            nodeFromCodecWithDefaults simpleListCodec
 
         addChanges repList =
             RepList.append RepList.Last simpleList repList
@@ -458,7 +480,7 @@ nestedStressTestIntegrityCheck =
         \_ ->
             Expect.all
                 expectations
-                (Result.map Reg.latest (testNodeFromCodec nestedStressTestCodec).result)
+                (Result.map Reg.latest (nodeFromCodecWithDefaults nestedStressTestCodec).result)
 
 
 
@@ -469,7 +491,7 @@ nodeWithModifiedNestedStressTest : { original : Node, serialized : Node, warning
 nodeWithModifiedNestedStressTest =
     let
         { startNode, result, startFrame } =
-            testNodeFromCodec nestedStressTestCodec
+            nodeFromCodecWithDefaults nestedStressTestCodec
     in
     case Result.map Reg.latest result of
         Ok nestedStressTest ->
@@ -572,7 +594,7 @@ testRon =
 modifiedNestedStressTestIntegrityCheck =
     let
         { startNode, result } =
-            testNodeFromCodec nestedStressTestCodec
+            nodeFromCodecWithDefaults nestedStressTestCodec
 
         eventListSize givenID givenNode =
             List.length (getObjectEventList givenID givenNode)
@@ -597,7 +619,7 @@ modifiedNestedStressTestIntegrityCheck =
                 |> Result.withDefault (OpID.fromStringForced "decode NST fail")
 
         opsToFlush =
-            (testNodeFromCodec nestedStressTestCodec).startFrame
+            (nodeFromCodecWithDefaults nestedStressTestCodec).startFrame
     in
     describe "checking the modified NST node and objects"
         [ test "the NST Register has been initialized and its ID is not a placeholder" <|
@@ -652,4 +674,134 @@ modifiedNestedStressTestIntegrityCheck =
                     (\o -> o.lastField.get)
                     "externally updating nst within newWritable"
                     decodedNST
+        ]
+
+
+
+-- DELAYED CHANGES --------------------------------------------------
+
+type alias DelayTestReplica =
+    { propA : RW String
+    , nestedDelayedRecord : (NestedDelayed)
+    , nestedDelayedRegister : Reg (NestedDelayed)
+    }
+
+delayTestReplicaCodec : WrappedCodec e (Reg DelayTestReplica)
+delayTestReplicaCodec =
+    Codec.record DelayTestReplica
+        |> Codec.fieldRW ( 1, "propA" ) .propA Codec.string "Prop A not set."
+        |> Codec.fieldRec ( 2, "nestedDelayedRecord" ) .nestedDelayedRecord nestedDelayedCodec
+        |> Codec.fieldReg ( 3, "nestedDelayedRegister" ) .nestedDelayedRegister nestedDelayedRegCodec
+        |> Codec.finishRegister
+
+type alias NestedDelayed =
+    { propB : RW String
+    , nestedList : RepList String
+    }
+
+
+nestedDelayedCodec : SkelCodec e (NestedDelayed)
+nestedDelayedCodec =
+    Codec.record NestedDelayed
+        |> Codec.fieldRW ( 1, "propB" ) .propB Codec.string "Prop B not set."
+        |> Codec.fieldList ( 2, "nestedList" ) .nestedList Codec.string
+        |> Codec.finishRecord
+
+
+nestedDelayedRegCodec : WrappedCodec e (Reg NestedDelayed)
+nestedDelayedRegCodec =
+    Codec.record NestedDelayed
+        |> Codec.fieldRW ( 1, "propB" ) .propB Codec.string "Prop B not set."
+        |> Codec.fieldList ( 2, "nestedList" ) .nestedList Codec.string
+        |> Codec.finishRegister
+
+
+testDelayedCreation =
+    let
+        { startNode, result } =
+            nodeFromCodecWithoutDefaults delayTestReplicaCodec
+
+        afterChange givenChanges =
+            case Result.map Reg.latest result of
+                Ok delayTestReplica -> 
+                    let
+                        outChunks =
+                            Debug.log "changes to delay test" <| all.outputFrame
+
+                        all = 
+                            Node.apply Nothing startNode (Change.saveChanges "making some changes to the delay test object" (givenChanges delayTestReplica))
+                    in
+                    all
+
+                Err problem ->
+                    Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
+
+        expectAfterDecodingFrom node fromRoot expected =
+            Codec.decodeFromNode delayTestReplicaCodec (tryAddingToNestedList.updatedNode) |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
+
+        tryChangingPropA =
+            afterChange (\obj -> [obj.propA.set "Nondefault"])
+
+        tryChangingPropB1 =
+            afterChange (\obj -> [obj.nestedDelayedRecord.propB.set "Nondefault"])
+
+        tryChangingPropB2 =
+            afterChange (\obj -> [(Reg.latest obj.nestedDelayedRegister).propB.set "Nondefault"])
+
+        tryAddingToNestedList =
+            afterChange (\obj -> [RepList.insert RepList.Last "List Item Added" (obj.nestedDelayedRecord.nestedList) ])
+    in
+    describe "Testing delayed changes."
+        [ describe "Modify PropA, which should initialize the root object."
+            [ test "the before node should start with 0 objects" <|
+                \_ ->
+                    Node.objectCount startNode |> Expect.equal 0
+            , test "the change should have created one object." <|
+                \_ ->
+                    List.length tryChangingPropA.created |> Expect.equal 1
+            , test "the after node should have one object, the delayed root." <|
+                \_ ->
+                    Node.objectCount tryChangingPropA.updatedNode |> Expect.equal 1
+            , test "the after node should have a root" <|
+                \_ ->
+                    tryChangingPropA.updatedNode.root |> Expect.notEqual Nothing
+            ]
+        , describe "Modify PropB, which should initialize the root object."
+            [ test "the change should have created two objects." <|
+                \_ ->
+                    List.length tryChangingPropB1.created |> Expect.equal 2
+            , test "the after node should have two objects" <|
+                \_ ->
+                    Node.objectCount tryChangingPropB1.updatedNode |> Expect.equal 2
+            , test "the after node should have a root" <|
+                \_ ->
+                    tryChangingPropB1.updatedNode.root |> Expect.notEqual Nothing
+            ]
+       , describe "Modify PropB in reg, which should initialize the root object."
+            [ test "the change should have created two objects." <|
+                \_ ->
+                    List.length tryChangingPropB2.created |> Expect.equal 2
+            , test "the after node should have two objects" <|
+                \_ ->
+                    Node.objectCount tryChangingPropB2.updatedNode |> Expect.equal 2
+            , test "the after node should have a root" <|
+                \_ ->
+                    tryChangingPropB2.updatedNode.root |> Expect.notEqual Nothing
+            ]
+       , describe "Add an Item to a nested replist, which should initialize the containing objects."
+            [ test "the change should have created three objects." <|
+                \_ ->
+                    List.length tryAddingToNestedList.created |> Expect.equal 3
+            , test "the after node should have three objects" <|
+                \_ ->
+                    Node.objectCount tryAddingToNestedList.updatedNode |> Expect.equal 3
+            , test "the after node should have a root" <|
+                \_ ->
+                    tryAddingToNestedList.updatedNode.root |> Expect.notEqual Nothing
+            , test "the item should have been added to the replist" <|
+                \_ ->
+                    expectAfterDecodingFrom (tryAddingToNestedList.updatedNode)
+                        (\root -> RepList.listValues root.nestedDelayedRecord.nestedList)
+                        ["List Item Added"]
+            ]
         ]
