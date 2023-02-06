@@ -1322,7 +1322,7 @@ repDb memberCodec =
 
         childInstaller myPointer childPendingID =
             Change.delayedChangeObject myPointer
-                [ Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID) ]
+                (Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID))
 
         repDbNodeDecoder : NodeDecoder e (RepDb memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
@@ -1649,7 +1649,7 @@ repStore keyCodec valueCodec =
 
                 wrapNewPendingChild key pendingChild =
                     Change.delayedChangeObject repStorePointer
-                        [ Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild) ]
+                        (Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild))
             in
             RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
 
@@ -2478,10 +2478,10 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
 -}
-updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change.DelayedChangeSet
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change.DelayedChange
 updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
     Change.delayedChangeObject parentPointer
-        [ Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)) ]
+        (Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)))
 
 
 {-| RON what to do when decoding a (potentially nested!) object field.
@@ -3402,7 +3402,6 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     -- it's been set before. even if set to default (e.g. Nothing) we will honor this
                     -- EncodeThisField <| Change.NewPayload <| encodeVal foundPreviousValue
                     Debug.todo "what to do here?"
-                    
 
         Nothing ->
             -- we have no default to fall back to, this is for SEEDED nested objects only

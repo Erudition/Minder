@@ -725,8 +725,8 @@ testDelayedCreation =
             case Result.map Reg.latest result of
                 Ok delayTestReplica -> 
                     let
-                        outChunks =
-                            Debug.log "changes to delay test" <| all.outputFrame
+                        -- outChunks =
+                        --     Debug.log "changes to delay test" <| all.outputFrame
 
                         all = 
                             Node.apply Nothing startNode (Change.saveChanges "making some changes to the delay test object" (givenChanges delayTestReplica))

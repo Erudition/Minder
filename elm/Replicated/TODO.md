@@ -1,7 +1,10 @@
 # Now
+- [ ] Determine why delayed changes need to be reversed
+- [ ] Stop producing redundant delayed changes. Join adjacent same-object changes
+- [X] Refactor late installers to be ordered
 - [X] Detect Node root on first run
 - [ ] Figure out how to encode empty flatlists, or allow [] to parse
-- [ ] Write test for late installers
+- [X] Write test for late installers
 - [ ] Write test for divergent nodes
 - [X] Refactor codebase around Changes that contain any-object changes
 - [X] Prescribe all node encoders and decoders, no maybe fallbacks

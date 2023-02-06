@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChangeSet, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedToChangeSet, emptyChangeSet, emptyDelayedChangeSet, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeDelayed, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedToChangeSet, emptyChangeSet,  frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, changeSetDebug, equalPointers)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -43,6 +43,11 @@ collapseChangesToChangeSet context changes =
 existingIDToComparable : ExistingID -> ( Op.ReducerID, OpID.ObjectIDString )
 existingIDToComparable { reducer, object } =
     ( reducer, OpID.toString object )
+
+
+existingIDToString : ExistingID -> String
+existingIDToString { reducer, object } =
+    reducer ++ OpID.toString object
 
 
 pendingIDToComparable : PendingID -> List String
@@ -90,19 +95,7 @@ mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
         , existingObjectChanges =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
-        , delayed =
-            case ( changeSetEarlier.delayed, changeSetLater.delayed ) of
-                ( Just lateChangeSet, Nothing ) ->
-                    Just lateChangeSet
-
-                ( Nothing, Just lateChangeSet ) ->
-                    Just lateChangeSet
-
-                ( Just lateChangeSet1, Just lateChangeSet2 ) ->
-                    Just <| mergeDelayed lateChangeSet1 lateChangeSet2
-
-                ( Nothing, Nothing ) ->
-                    Nothing
+        , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed
         , opsToRepeat =
             -- on collision, preference is given to later set, though ops should never differ
             AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
@@ -122,7 +115,7 @@ mergeMaybeChange maybeChange change =
 type alias ChangeSetDetails =
     { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
-    , delayed : Maybe DelayedChangeSet
+    , delayed : List DelayedChange
     , opsToRepeat : OpDb
     }
 
@@ -132,7 +125,7 @@ emptyChangeSet =
     ChangeSet <|
         { objectsToCreate = emptyObjectsToCreate
         , existingObjectChanges = emptyExistingObjectChanges
-        , delayed = Nothing
+        , delayed = []
         , opsToRepeat = emptyOpsToRepeat
         }
 
@@ -151,86 +144,121 @@ emptyObjectsToCreate =
     AnyDict.empty pendingIDToComparable
 
 
+changeSetDebug : Int -> ChangeSet -> String
+changeSetDebug indent (ChangeSet changeSetToDebug) =
+    let
+        ifNonemptyConcat list =
+            if List.isEmpty list then
+                Nothing
+
+            else
+                Just <| String.join "\n" list
+
+        sayObjectsToCreate =
+            List.map sayObjectToCreate (AnyDict.toList changeSetToDebug.objectsToCreate)
+                |> ifNonemptyConcat
+
+        sayExistingObjectChanges =
+            List.map sayExistingObject (AnyDict.toList changeSetToDebug.existingObjectChanges)
+                |> ifNonemptyConcat
+
+        sayObjectToCreate ( pendingID, objectChangeList ) =
+            Console.bold ("Pending " ++ (Console.underline <| pendingIDToString pendingID)) ++ " changes: [" ++ String.join "," (List.map sayObjectChange objectChangeList) ++ "]"
+
+
+        sayExistingObject ( existingID, objectChangeList ) =
+            Console.bold ("Existing " ++ (Console.underline <| existingIDToString existingID)) ++ " changes: [" ++ String.join "," (List.map sayObjectChange objectChangeList) ++ "]"
+
+        sayObjectChange objectChange =
+            case objectChange of
+                NewPayload complexPayload ->
+                    sayComplexPayload complexPayload
+
+                NewPayloadWithRef {payload} ->
+                    sayComplexPayload payload
+
+                RevertOp opID ->
+                    "Reverting op " ++ (OpID.toString opID)
+
+        sayComplexPayload complexPayload =
+            Nonempty.map sayComplexAtom complexPayload
+                    |> Nonempty.toList
+                    |> String.join " "
+
+        sayComplexAtom complexAtom =
+            case complexAtom of
+                FromPrimitiveAtom primitiveAtom ->
+                    primitiveAtomToString primitiveAtom
+
+                PendingObjectReferenceAtom {reducer} ->
+                    "<pending " ++ (reducer) ++ " ref>"
+
+                ExistingObjectReferenceAtom objectID ->
+                    "<" ++ (Console.underline <| OpID.toString objectID) ++ ">"
+
+                QuoteNestedObject {toReference, changeSet, skippable } ->
+                    let
+                        saySkippable =
+                            if skippable then "a skippable" else "an unskippable"
+
+                        sayInstaller installer =
+                            if installer == [] then "without parent installer" else "with parent installer"
+
+                        sayNestedChangeSet =
+                            "\n" ++ (changeSetDebug (indent + 4) changeSet)
+                    in
+                    case toReference of
+                        ExistingObjectPointer {reducer, object} ->
+                            "{" ++ saySkippable ++ " nested existing?! " ++ reducer ++ ": " ++ OpID.toString object ++ "}" ++ sayNestedChangeSet
+
+                        PlaceholderPointer {reducer} installers ->
+                            "{" ++ saySkippable ++ " nested pending " ++ reducer ++ ", " ++ sayInstaller installers ++ "}" ++ sayNestedChangeSet
+
+                NestedAtoms complexPayload ->
+                    "Nested Atoms: " ++ sayComplexPayload complexPayload
+
+        allOuts =
+            [ sayObjectsToCreate
+            , sayExistingObjectChanges
+            ]
+                |> List.filterMap identity
+    in
+    String.join "\n" allOuts
+
+
 
 -- DELAYED CHANGE SETS -----------------------------
 
 
-type alias DelayedChangeSet =
-    { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
-    , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
-    }
+type alias DelayedChange = (Pointer, ObjectChange)
 
 
-{-| Helper to merge two Changes. Put the later change first, earlier change last (pipelining) for proper duplicate handling.
--}
-mergeDelayed : DelayedChangeSet -> DelayedChangeSet -> DelayedChangeSet
-mergeDelayed changeSetLater changeSetEarlier =
-    { objectsToCreate =
-        unionCombineDedupe emptyObjectsToCreate changeSetEarlier.objectsToCreate changeSetLater.objectsToCreate
-    , existingObjectChanges =
-        unionCombineDedupe emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
-    }
+delayedToChangeSet : DelayedChange -> ChangeSet
+delayedToChangeSet (target, objectChange) =
+    case target of
+        ExistingObjectPointer existingID ->
+            ChangeSet <|
+                { objectsToCreate = AnyDict.empty pendingIDToComparable
+                , existingObjectChanges = AnyDict.singleton existingID [objectChange] existingIDToComparable
+                , delayed = []
+                , opsToRepeat = emptyOpsToRepeat
+                }
 
-
-{-| A helper to union two AnyDicts of Lists, by deduplicating and then concatenating the Lists on collision, rather than overwriting.
--}
-unionCombineDedupe : AnyDict comparable k (List v) -> AnyDict comparable k (List v) -> AnyDict comparable k (List v) -> AnyDict comparable k (List v)
-unionCombineDedupe empty dictA dictB =
-    let
-        dedupeCombine listA listB =
-            -- TODO Find nice library function for this? optimize?
-            listA ++ List.Extra.filterNot (\i -> List.member i listA) listB
-    in
-    AnyDict.merge
-        AnyDict.insert
-        (\key a b -> AnyDict.insert key (dedupeCombine a b))
-        AnyDict.insert
-        dictA
-        dictB
-        empty
-
-
-emptyDelayedChangeSet : DelayedChangeSet
-emptyDelayedChangeSet =
-    { objectsToCreate = emptyObjectsToCreate
-    , existingObjectChanges = emptyExistingObjectChanges
-    }
-
-
-delayedToChangeSet : DelayedChangeSet -> ChangeSet
-delayedToChangeSet delayed =
-    ChangeSet <|
-        { objectsToCreate = delayed.objectsToCreate
-        , existingObjectChanges = delayed.existingObjectChanges
-        , delayed = Nothing
-        , opsToRepeat = emptyOpsToRepeat
-        }
+        PlaceholderPointer pendingID _ ->
+            ChangeSet <|
+                { objectsToCreate = AnyDict.singleton pendingID [objectChange] pendingIDToComparable
+                , existingObjectChanges = AnyDict.empty existingIDToComparable
+                , delayed = []
+                , opsToRepeat = emptyOpsToRepeat
+                }
 
 
 delayedChangeObject :
     Pointer
-    -> List ObjectChange
-    -> DelayedChangeSet
-delayedChangeObject target objectChanges =
-    case target of
-        ExistingObjectPointer existingID ->
-            { objectsToCreate = AnyDict.empty pendingIDToComparable
-            , existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
-            }
-
-        PlaceholderPointer pendingID ancestorsInstallMaybe ->
-            let
-                thisDelayed =
-                    { objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
-                    , existingObjectChanges = AnyDict.empty existingIDToComparable
-                    }
-            in
-            case ancestorsInstallMaybe of
-                Just ancestorInstall ->
-                    mergeDelayed thisDelayed ancestorInstall
-
-                Nothing ->
-                    thisDelayed
+    -> ObjectChange
+    -> DelayedChange
+delayedChangeObject target objectChange =
+    (target, objectChange)
 
 
 
@@ -364,8 +392,8 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
             mergeChanges externalUpdates thisSet
 
         skippable =
-        -- skippable if we ONLY make the object, not change it (or change anything else)
-            (List.isEmpty objectChanges && isEmptyChangeSet externalUpdates)
+            -- skippable if we ONLY make the object, not change it (nor change anything else)
+            List.isEmpty objectChanges && isEmptyChangeSet externalUpdates
 
         finalChangeSet =
             case target of
@@ -373,16 +401,16 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                     ChangeSet
                         { objectsToCreate = AnyDict.empty pendingIDToComparable
                         , existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
-                        , delayed = Nothing
+                        , delayed = []
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
 
-                PlaceholderPointer pendingID ancestorsInstallChangeMaybe ->
+                PlaceholderPointer pendingID ancestorsInstallChanges ->
                     ChangeSet
                         { objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
                         , existingObjectChanges = AnyDict.empty existingIDToComparable
-                        , delayed = ancestorsInstallChangeMaybe
+                        , delayed = ancestorsInstallChanges
                         , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
@@ -466,7 +494,7 @@ For future (placeholder) objects, there is a change built in, allowing us to kee
 -}
 type Pointer
     = ExistingObjectPointer ExistingID
-    | PlaceholderPointer PendingID (Maybe DelayedChangeSet)
+    | PlaceholderPointer PendingID (List DelayedChange)
 
 
 equalPointers pointer1 pointer2 =
@@ -502,7 +530,7 @@ getPointerObjectID pointer =
 {-| When an object contains nested objects, it may not need to know about them until they need to be created. When they do, this Change tells us how to "install" the nested object (given its PendingID) in its proper place in the containing object.
 -}
 type alias ChildInstaller =
-    PendingID -> DelayedChangeSet
+    PendingID -> DelayedChange
 
 
 type PendingCounter
@@ -538,36 +566,31 @@ newPointer { parent, position, reducerID } =
                 newPendingID =
                     PendingID reducerID (ParentExists objectID.object position)
 
-                childInstallChangeMaybe : Maybe DelayedChangeSet
-                childInstallChangeMaybe =
+                childInstallChanges : List DelayedChange
+                childInstallChanges =
                     -- install the new child in the existing parent.
                     Maybe.map (\f -> f newPendingID) childInstallerMaybe
+                    |> Maybe.Extra.toList
             in
-            PlaceholderPointer newPendingID childInstallChangeMaybe
+            PlaceholderPointer newPendingID childInstallChanges
 
-        Parent (PlaceholderPointer parentPendingID ancestorInstallChangeMaybe) childInstallerMaybe ->
+        Parent (PlaceholderPointer parentPendingID ancestorInstallChanges) childInstallerMaybe ->
             let
-                childInstallChangeMaybe : Maybe DelayedChangeSet
+                childInstallChangeMaybe : Maybe DelayedChange
                 childInstallChangeMaybe =
                     -- install the new child in the pending parent.
                     Maybe.map (\f -> f newPendingID) childInstallerMaybe
 
-                finalInstallChangeMaybe : Maybe DelayedChangeSet
-                finalInstallChangeMaybe =
-                    case ( childInstallChangeMaybe, ancestorInstallChangeMaybe ) of
-                        ( Just childInstallChange, Just ancestorInstallChange ) ->
+                finalInstallChanges : List DelayedChange
+                finalInstallChanges =
+                    case childInstallChangeMaybe of
+                        ( Just childInstallChange ) ->
                             -- merge the new child install Change with the ancestor installers Change.
-                            Just <| mergeDelayed ancestorInstallChange childInstallChange
+                            ancestorInstallChanges ++ [childInstallChange]
 
-                        ( Just _, Nothing ) ->
-                            childInstallChangeMaybe
-
-                        ( Nothing, Just _ ) ->
-                            -- TODO does this case make sense? if we had ancestors to install, why wouldn't we have to install the new child too?
-                            ancestorInstallChangeMaybe
-
-                        ( Nothing, Nothing ) ->
-                            Nothing
+                        ( Nothing ) ->
+                            -- perhaps this pointer is an InstantParent, even if ancestors are not
+                            ancestorInstallChanges
 
                 newPendingID : PendingID
                 newPendingID =
@@ -581,12 +604,12 @@ newPointer { parent, position, reducerID } =
                         ParentIsRoot ->
                             PendingID reducerID (ParentPending parentPendingID.reducer position)
             in
-            PlaceholderPointer newPendingID finalInstallChangeMaybe
+            PlaceholderPointer newPendingID finalInstallChanges
 
 
 genesisPointer : Pointer
 genesisPointer =
-    PlaceholderPointer (PendingID "genesis" ParentIsRoot) Nothing
+    PlaceholderPointer (PendingID "genesis" ParentIsRoot) []
 
 
 genesisParent : Parent

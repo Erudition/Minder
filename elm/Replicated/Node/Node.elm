@@ -329,22 +329,27 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         frameStartMapping =
             { assignedIDs = AnyDict.empty Change.pendingIDToComparable
             , lastSeen = AnyDict.empty OpID.toString
-            , later = Change.emptyDelayedChangeSet
+            , later = []
             }
 
         -- STEP 1. Process this ChangeSet
         ( ( step1OutCounter, step1OutMapping ), step1OutChunks ) =
             oneChangeSetToOpChunks node ( frameStartCounter, frameStartMapping ) changes
 
-        delayedRemainingAsChangeSet =
-            Change.delayedToChangeSet step1OutMapping.later
+        delayedChangeSets =
+            let
+                asChangeSetList =
+                    List.map Change.delayedToChangeSet step1OutMapping.later
+                    |> List.reverse -- TODO WHYYY
+            in
+            Log.logMessageOnly ("\n" ++ (String.join "\n" <| List.map ( Change.changeSetDebug 0)  asChangeSetList) ++ "\n") asChangeSetList
 
         -- STEP 2. Process delayed changes
         ( ( step2OutCounter, step2OutMapping ), step2OutChunks ) =
-            oneChangeSetToOpChunks node ( step1OutCounter, step1OutMapping ) delayedRemainingAsChangeSet
+            List.mapAccuml (oneChangeSetToOpChunks node) ( step1OutCounter, step1OutMapping ) delayedChangeSets
 
         outChunks =
-            step1OutChunks ++ step2OutChunks
+            step1OutChunks ++ (List.concat step2OutChunks)
 
         allGeneratedOps =
             List.concat outChunks
@@ -368,10 +373,12 @@ apply timeMaybe node (Change.Frame { changes, description }) =
                 , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
                 , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
                 , [ "Output Frame:" ]
-                , [ Op.closedChunksToFrameText outChunks ]
+                , [ Op.closedChunksToFrameText step1OutChunks ]
+                , [ "Delayed Updates:"]
+                , [ Op.closedChunksToFrameText (List.concat step2OutChunks) ] 
                 ]
     in
-    -- Log.logMessageOnly logApplyResults
+    Log.logMessageOnly logApplyResults
     { outputFrame = outChunks
     , updatedNode = finalNode
     , created = newObjectsCreated
@@ -398,7 +405,7 @@ Use with Change.pendingIDToString
 type alias UpdatesSoFar =
     { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
-    , later : Change.DelayedChangeSet
+    , later : List Change.DelayedChange
     }
 
 
@@ -427,20 +434,13 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
 
         singlePendingChunkToOps pendingID objectChanges ( counter, mapping, chunksSoFar ) =
             let
-                delayedChanges =
-                    -- now's a great time to get later changes that match this pointer
-                    Maybe.andThen (\dcs -> AnyDict.get pendingID dcs.objectsToCreate) changeSet.delayed
-                        |> Maybe.withDefault []
-                        |> List.filterNot (\oc -> List.member oc objectChanges)
+                asPointer =
+                    (PlaceholderPointer pendingID [])
 
-                -- discard late objectChanges that we were going to say anyway
-                removeLateChanges delayedChangeSet =
-                    { delayedChangeSet | objectsToCreate = AnyDict.remove pendingID delayedChangeSet.objectsToCreate }
-
-                mappingWithoutDelayedChanges =
-                    { mapping | later = removeLateChanges mapping.later }
+                { safeToDoNow, processedMapping } =
+                    processDelayedInMapping asPointer objectChanges mapping
             in
-            objectChangeChunkToOps node (PlaceholderPointer pendingID Nothing) (objectChanges ++ delayedChanges) ( counter, mappingWithoutDelayedChanges, chunksSoFar )
+            objectChangeChunkToOps node asPointer (objectChanges ++ safeToDoNow) ( counter, processedMapping, chunksSoFar )
 
         -- Step 2. Change existing objects
         ( outCounter, postExistingMapping, generatedChunks ) =
@@ -451,28 +451,16 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
 
         singleExistingChunkToOps existingID objectChanges ( counter, mapping, chunksSoFar ) =
             let
-                delayedChanges =
-                    -- now's a great time to get later changes that match this pointer
-                    Maybe.andThen (\dcs -> AnyDict.get existingID dcs.existingObjectChanges) changeSet.delayed
-                        |> Maybe.withDefault []
-                        |> List.filterNot (\oc -> List.member oc objectChanges)
+                asPointer =
+                    (ExistingObjectPointer existingID)
 
-                -- discard late objectChanges that we were going to say anyway
-                removeLateChanges delayedChangeSet =
-                    { delayedChangeSet | existingObjectChanges = AnyDict.remove existingID delayedChangeSet.existingObjectChanges }
-
-                mappingWithoutDelayedChanges =
-                    { mapping | later = removeLateChanges mapping.later }
+                { safeToDoNow, processedMapping } =
+                    processDelayedInMapping asPointer objectChanges mapping
             in
-            objectChangeChunkToOps node (ExistingObjectPointer existingID) (objectChanges ++ delayedChanges) ( counter, mappingWithoutDelayedChanges, chunksSoFar )
+            objectChangeChunkToOps node asPointer (objectChanges ++ safeToDoNow) ( counter, processedMapping, chunksSoFar )
 
         outMapping =
-            case changeSet.delayed of
-                Just laterChangesHere ->
-                    { postExistingMapping | later = Change.mergeDelayed laterChangesHere postExistingMapping.later }
-
-                Nothing ->
-                    postExistingMapping
+            { postExistingMapping | later = postExistingMapping.later ++ changeSet.delayed }
 
         -- TODO Step 3. collect ops to repeat
         --
@@ -483,6 +471,65 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
     ( ( outCounter, outMapping )
     , generatedChunks
     )
+
+processDelayedInMapping : Change.Pointer -> List Change.ObjectChange -> UpdatesSoFar -> { safeToDoNow : List Change.ObjectChange, processedMapping : UpdatesSoFar }
+processDelayedInMapping inPointer inObjectChanges inMapping =
+    let
+        {doNow, keep} =
+            List.foldl processDelayedChange {doNow = [], keep = []} inMapping.later
+
+        processDelayedChange : (Change.DelayedChange) -> {doNow : List Change.ObjectChange, keep : List Change.DelayedChange} -> {doNow : List Change.ObjectChange, keep : List Change.DelayedChange}
+        processDelayedChange ((delayedPointer, delayedObjectChange) as delayedChange) acc =
+            if Change.equalPointers inPointer delayedPointer then
+                if List.member delayedObjectChange inObjectChanges then
+                    -- we're already doing this objectChange now, remove it from delayed
+                    {doNow = acc.doNow, keep = acc.keep}
+
+                else
+                    if canDoNow delayedObjectChange then
+                     -- we made sure this has no unresolved refs, do it now!
+                            {doNow = acc.doNow ++ [delayedObjectChange], keep = acc.keep}
+                    else
+                            --not ready to do now, keep delayed
+                            {doNow = acc.doNow, keep = acc.keep ++ [delayedChange]}
+
+                           
+            else
+                -- irrelevant to this object, move along
+                {doNow = acc.doNow, keep = acc.keep ++ [delayedChange]}
+
+        canDoNow delayedObjectChange =
+            let
+                objectChangeAsPayload =
+                    case delayedObjectChange of
+                        Change.NewPayload complexPayload ->
+                            Nonempty.toList complexPayload
+
+                        Change.NewPayloadWithRef {payload} ->
+                            Nonempty.toList payload
+
+                        Change.RevertOp _ ->
+                            []
+                    
+                checkComplexAtom complexAtom =
+                    -- check eack atom for unresolvable references
+                    case complexAtom of
+                        Change.PendingObjectReferenceAtom pendingID ->
+                            -- see if it's already been assigned
+                            AnyDict.member pendingID inMapping.assignedIDs
+
+                        Change.QuoteNestedObject _ ->
+                            Log.crashInDev "ew! there was a QuoteNestedObject in a delayed object change somehow?" False
+                        
+                        Change.NestedAtoms complexPayload ->
+                            List.all checkComplexAtom (Nonempty.toList complexPayload)
+
+                        _ ->
+                            True
+            in
+            List.all checkComplexAtom objectChangeAsPayload
+    in
+    { safeToDoNow = doNow, processedMapping = { inMapping | later = keep } }
 
 
 {-| Turns a change Chunk (same-object changes) into finalized ops.
