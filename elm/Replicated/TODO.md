@@ -1,4 +1,6 @@
 # Now
+- [ ] Determine what parts of Node.processDelayedInMapping is now unneeded
+- [ ] Test delayed changes getting pulled into later object init rather than done last
 - [ ] Determine why delayed changes need to be reversed
 - [X] Stop producing redundant delayed changes. Join adjacent same-object changes
 - [X] Refactor late installers to be ordered
