@@ -339,7 +339,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         delayedChangeSets =
             let
                 asChangeSetList =
-                    List.map Change.delayedToChangeSet step1OutMapping.later
+                    Change.delayedChangesToSets (step1OutMapping.later)
                     |> List.reverse -- TODO WHYYY
             in
             Log.logMessageOnly ("\n" ++ (String.join "\n" <| List.map ( Change.changeSetDebug 0)  asChangeSetList) ++ "\n") asChangeSetList
@@ -472,6 +472,19 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
     , generatedChunks
     )
 
+unique : List a -> List a
+unique list =
+    List.foldl
+        (\a uniques ->
+            if List.member a uniques then
+                uniques
+
+            else
+                uniques ++ [ a ]
+        )
+        []
+        list
+
 processDelayedInMapping : Change.Pointer -> List Change.ObjectChange -> UpdatesSoFar -> { safeToDoNow : List Change.ObjectChange, processedMapping : UpdatesSoFar }
 processDelayedInMapping inPointer inObjectChanges inMapping =
     let
@@ -481,14 +494,14 @@ processDelayedInMapping inPointer inObjectChanges inMapping =
         processDelayedChange : (Change.DelayedChange) -> {doNow : List Change.ObjectChange, keep : List Change.DelayedChange} -> {doNow : List Change.ObjectChange, keep : List Change.DelayedChange}
         processDelayedChange ((delayedPointer, delayedObjectChange) as delayedChange) acc =
             if Change.equalPointers inPointer delayedPointer then
-                if List.member delayedObjectChange inObjectChanges then
-                    -- we're already doing this objectChange now, remove it from delayed
-                    {doNow = acc.doNow, keep = acc.keep}
+                if (List.member delayedObjectChange inObjectChanges) || (List.member delayedChange acc.keep) then
+                    -- we're already doing this now, or did previously, remove it from delayed
+                    Log.logSeparate "Pruning a delayed change that's redundant!" delayedObjectChange {doNow = acc.doNow, keep = acc.keep}
 
                 else
                     if canDoNow delayedObjectChange then
                      -- we made sure this has no unresolved refs, do it now!
-                            {doNow = acc.doNow ++ [delayedObjectChange], keep = acc.keep}
+                            Log.logSeparate "Doing a delayed change early, nice!" delayedChange {doNow = acc.doNow ++ [delayedObjectChange], keep = acc.keep}
                     else
                             --not ready to do now, keep delayed
                             {doNow = acc.doNow, keep = acc.keep ++ [delayedChange]}

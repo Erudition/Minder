@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedToChangeSet, emptyChangeSet,  frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, changeSetDebug, equalPointers)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet,  frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, changeSetDebug, equalPointers)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -95,12 +95,25 @@ mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
         , existingObjectChanges =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
-        , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed
+        , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed |> unique
         , opsToRepeat =
             -- on collision, preference is given to later set, though ops should never differ
             AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
         }
 
+
+unique : List a -> List a
+unique list =
+    List.foldl
+        (\a uniques ->
+            if List.member a uniques then
+                uniques
+
+            else
+                uniques ++ [ a ]
+        )
+        []
+        list
 
 mergeMaybeChange : Maybe ChangeSet -> ChangeSet -> ChangeSet
 mergeMaybeChange maybeChange change =
@@ -233,24 +246,50 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
 type alias DelayedChange = (Pointer, ObjectChange)
 
 
-delayedToChangeSet : DelayedChange -> ChangeSet
-delayedToChangeSet (target, objectChange) =
-    case target of
-        ExistingObjectPointer existingID ->
-            ChangeSet <|
-                { objectsToCreate = AnyDict.empty pendingIDToComparable
-                , existingObjectChanges = AnyDict.singleton existingID [objectChange] existingIDToComparable
-                , delayed = []
-                , opsToRepeat = emptyOpsToRepeat
-                }
+delayedChangesToSets : List DelayedChange -> List ChangeSet
+delayedChangesToSets delayed =
+    let
+        uniqueDelayedChanges : List DelayedChange
+        uniqueDelayedChanges  =
+            -- drop later changes that already appeared earlier
+            List.foldl
+                (\a uniques ->
+                    if List.member a uniques then
+                        uniques
 
-        PlaceholderPointer pendingID _ ->
-            ChangeSet <|
-                { objectsToCreate = AnyDict.singleton pendingID [objectChange] pendingIDToComparable
-                , existingObjectChanges = AnyDict.empty existingIDToComparable
-                , delayed = []
-                , opsToRepeat = emptyOpsToRepeat
-                }
+                    else
+                        uniques ++ [ a ]
+                )
+                []
+                delayed
+
+        groupedByPointer =
+            List.Extra.groupWhile (\(p1, _) (p2, _) -> equalPointers p1 p2) uniqueDelayedChanges
+
+        delayedGroupToChangeSet : (DelayedChange, List DelayedChange) -> ChangeSet
+        delayedGroupToChangeSet (((target, _) as head), tail) =
+            let
+                givenObjectChanges = List.map Tuple.second (head :: tail)
+            in
+            case target of
+                ExistingObjectPointer existingID ->
+                    ChangeSet <|
+                        { objectsToCreate = AnyDict.empty pendingIDToComparable
+                        , existingObjectChanges = AnyDict.singleton existingID givenObjectChanges existingIDToComparable
+                        , delayed = []
+                        , opsToRepeat = emptyOpsToRepeat
+                        }
+
+                PlaceholderPointer pendingID _ ->
+                    ChangeSet <|
+                        { objectsToCreate = AnyDict.singleton pendingID givenObjectChanges pendingIDToComparable
+                        , existingObjectChanges = AnyDict.empty existingIDToComparable
+                        , delayed = []
+                        , opsToRepeat = emptyOpsToRepeat
+                        }
+    in
+    List.map delayedGroupToChangeSet groupedByPointer
+ 
 
 
 delayedChangeObject :

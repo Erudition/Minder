@@ -1,6 +1,6 @@
 # Now
 - [ ] Determine why delayed changes need to be reversed
-- [ ] Stop producing redundant delayed changes. Join adjacent same-object changes
+- [X] Stop producing redundant delayed changes. Join adjacent same-object changes
 - [X] Refactor late installers to be ordered
 - [X] Detect Node root on first run
 - [ ] Figure out how to encode empty flatlists, or allow [] to parse
@@ -31,7 +31,6 @@
 - Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
 - spit out warnings for nested errors
 - tolerate double-quote strings as well
-- if object changes are nested in a parent object change, they cannot be grouped together properly (thus each creating their own object) because it would be difficult and inefficient to recurse the whole nest change list every time we saveChanges (every frame). So we regroup at every level we can, such as in the replist adder. But we could move away from needing to use a function wrapper from the parent frame, and instead just have a change include a list of parent notifiers (as a flat custom type that indicated how to wrap it) and it would be easy to group them by same values in same places in that list.
 - To format RON Ops that have been stripped of newlines, regex replace "[,|;|.]" with "$0\n" (vscodium format)
 
 
@@ -63,3 +62,4 @@
 - [X] Track Placeholder<->ObjectID coorespondence when initializing so substitutions can be made
 - [X] Deal with prechanges that affect some other object (externalChanges)
 - [X] Get naked records read-only enforced
+- [X] if object changes are nested in a parent object change, they cannot be grouped together properly (thus each creating their own object) because it would be difficult and inefficient to recurse the whole nest change list every time we saveChanges (every frame). So we regroup at every level we can, such as in the replist adder. But we could move away from needing to use a function wrapper from the parent frame, and instead just have a change include a list of parent notifiers (as a flat custom type that indicated how to wrap it) and it would be easy to group them by same values in same places in that list. DONE - all changes are now Sets, ChangeSets.
