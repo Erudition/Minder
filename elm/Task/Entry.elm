@@ -254,14 +254,19 @@ addActionToClass actionClassID classToModify =
     RepList.insert RepList.Last taskClassChild classToModify.children
 
 
-initWithClass : Change.Creator Entry
-initWithClass parent =
+initWithClass : ActionClassID -> Change.Creator Entry
+initWithClass classID parent =
     let
         taskClassInit : Change.Creator TaskClass
         taskClassInit subparent =
             { properties = Codec.new parentPropertiesCodec subparent
-            , children = Codec.new (Codec.repList taskClassChildCodec) subparent
+            , children = Codec.newWithChanges (Codec.repList taskClassChildCodec) subparent taskClassChildrenChanger
             }
+
+        taskClassChildrenChanger : RepList TaskClassChild -> List Change
+        taskClassChildrenChanger newChildren =
+            [ RepList.insert RepList.Last (Singleton classID) newChildren
+            ]
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
@@ -276,13 +281,13 @@ initWithClass parent =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
 
-        childrenChanger : RepList SuperProjectChild -> List Change
-        childrenChanger newChildren =
+        superProjectChildrenChanger : RepList SuperProjectChild -> List Change
+        superProjectChildrenChanger newChildren =
             [ RepList.insertNew RepList.Last [ \c2 -> ProjectIsHere (entryChildInit c2) ] newChildren
             ]
     in
     { properties = Codec.newWithChanges parentPropertiesCodec parent parentPropertiesChanger
-    , children = Codec.newWithChanges (Codec.repList superProjectChildCodec) parent childrenChanger
+    , children = Codec.newWithChanges (Codec.repList superProjectChildCodec) parent superProjectChildrenChanger
     }
 
 
