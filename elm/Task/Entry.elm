@@ -270,11 +270,13 @@ initWithClass classID parent =
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
-            [ RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children
+            [ RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children |> Debug.log "project changer"
             ]
 
         entryChildInit subparent =
+            -- new init is working, but not changer
             Codec.newWithChanges projectCodec subparent projectChanger
+                |> Debug.log "new project class"
 
         parentPropertiesChanger : Reg ParentProperties -> List Change
         parentPropertiesChanger newParentProperties =

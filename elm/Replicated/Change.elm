@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet,  frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges, changeSetDebug, equalPointers)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -115,6 +115,7 @@ unique list =
         []
         list
 
+
 mergeMaybeChange : Maybe ChangeSet -> ChangeSet -> ChangeSet
 mergeMaybeChange maybeChange change =
     case maybeChange of
@@ -160,12 +161,15 @@ emptyObjectsToCreate =
 changeSetDebug : Int -> ChangeSet -> String
 changeSetDebug indent (ChangeSet changeSetToDebug) =
     let
+        indentHere =
+            String.repeat (indent * 4) " "
+
         ifNonemptyConcat list =
             if List.isEmpty list then
                 Nothing
 
             else
-                Just <| String.join "\n" list
+                Just <| String.join ("\n" ++ indentHere) list
 
         sayObjectsToCreate =
             List.map sayObjectToCreate (AnyDict.toList changeSetToDebug.objectsToCreate)
@@ -176,55 +180,69 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
                 |> ifNonemptyConcat
 
         sayObjectToCreate ( pendingID, objectChangeList ) =
-            Console.bold ("Pending " ++ (Console.underline <| pendingIDToString pendingID)) ++ " changes: [" ++ String.join "," (List.map sayObjectChange objectChangeList) ++ "]"
-
+            Console.bold ("Pending " ++ (Console.underline <| pendingIDToString pendingID)) ++ " changes: [" ++ sayObjectChangeList objectChangeList ++ "]"
 
         sayExistingObject ( existingID, objectChangeList ) =
-            Console.bold ("Existing " ++ (Console.underline <| existingIDToString existingID)) ++ " changes: [" ++ String.join "," (List.map sayObjectChange objectChangeList) ++ "]"
+            Console.bold ("Existing " ++ (Console.underline <| existingIDToString existingID)) ++ " changes:[" ++ sayObjectChangeList objectChangeList ++ "]"
+
+        sayObjectChangeList objectChangeList =
+            if List.isEmpty objectChangeList then
+                "none"
+
+            else
+                "\n    " ++ indentHere ++ String.join (",\n" ++ indentHere ++ "    ") (List.map sayObjectChange objectChangeList)
 
         sayObjectChange objectChange =
             case objectChange of
                 NewPayload complexPayload ->
                     sayComplexPayload complexPayload
 
-                NewPayloadWithRef {payload} ->
+                NewPayloadWithRef { payload } ->
                     sayComplexPayload payload
 
                 RevertOp opID ->
-                    "Reverting op " ++ (OpID.toString opID)
+                    "Reverting op " ++ OpID.toString opID
 
         sayComplexPayload complexPayload =
             Nonempty.map sayComplexAtom complexPayload
-                    |> Nonempty.toList
-                    |> String.join " "
+                |> Nonempty.toList
+                |> String.join " "
 
         sayComplexAtom complexAtom =
             case complexAtom of
                 FromPrimitiveAtom primitiveAtom ->
                     primitiveAtomToString primitiveAtom
 
-                PendingObjectReferenceAtom {reducer} ->
-                    "<pending " ++ (reducer) ++ " ref>"
+                PendingObjectReferenceAtom { reducer } ->
+                    "<pending " ++ reducer ++ " ref>"
 
                 ExistingObjectReferenceAtom objectID ->
                     "<" ++ (Console.underline <| OpID.toString objectID) ++ ">"
 
-                QuoteNestedObject {toReference, changeSet, skippable } ->
+                QuoteNestedObject { toReference, changeSet, skippable } ->
                     let
                         saySkippable =
-                            if skippable then "a skippable" else "an unskippable"
+                            if skippable then
+                                "a skippable"
+
+                            else
+                                "an unskippable"
 
                         sayInstaller installer =
-                            if installer == [] then "without parent installer" else "with parent installer"
+                            if installer == [] then
+                                "without parent installer"
+
+                            else
+                                "with parent installer"
 
                         sayNestedChangeSet =
-                            "\n" ++ (changeSetDebug (indent + 4) changeSet)
+                            "\n" ++ indentHere ++ changeSetDebug (indent + 2) changeSet
                     in
                     case toReference of
-                        ExistingObjectPointer {reducer, object} ->
+                        ExistingObjectPointer { reducer, object } ->
                             "{" ++ saySkippable ++ " nested existing?! " ++ reducer ++ ": " ++ OpID.toString object ++ "}" ++ sayNestedChangeSet
 
-                        PlaceholderPointer {reducer} installers ->
+                        PlaceholderPointer { reducer } installers ->
                             "{" ++ saySkippable ++ " nested pending " ++ reducer ++ ", " ++ sayInstaller installers ++ "}" ++ sayNestedChangeSet
 
                 NestedAtoms complexPayload ->
@@ -236,21 +254,22 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
             ]
                 |> List.filterMap identity
     in
-    String.join "\n" allOuts
+    indentHere ++ String.join ("\n" ++ indentHere) allOuts
 
 
 
 -- DELAYED CHANGE SETS -----------------------------
 
 
-type alias DelayedChange = (Pointer, ObjectChange)
+type alias DelayedChange =
+    ( Pointer, ObjectChange )
 
 
 delayedChangesToSets : List DelayedChange -> List ChangeSet
 delayedChangesToSets delayed =
     let
         uniqueDelayedChanges : List DelayedChange
-        uniqueDelayedChanges  =
+        uniqueDelayedChanges =
             -- drop later changes that already appeared earlier
             List.foldl
                 (\a uniques ->
@@ -264,12 +283,13 @@ delayedChangesToSets delayed =
                 delayed
 
         groupedByPointer =
-            List.Extra.groupWhile (\(p1, _) (p2, _) -> equalPointers p1 p2) uniqueDelayedChanges
+            List.Extra.groupWhile (\( p1, _ ) ( p2, _ ) -> equalPointers p1 p2) uniqueDelayedChanges
 
-        delayedGroupToChangeSet : (DelayedChange, List DelayedChange) -> ChangeSet
-        delayedGroupToChangeSet (((target, _) as head), tail) =
+        delayedGroupToChangeSet : ( DelayedChange, List DelayedChange ) -> ChangeSet
+        delayedGroupToChangeSet ( ( target, _ ) as head, tail ) =
             let
-                givenObjectChanges = List.map Tuple.second (head :: tail)
+                givenObjectChanges =
+                    List.map Tuple.second (head :: tail)
             in
             case target of
                 ExistingObjectPointer existingID ->
@@ -289,7 +309,6 @@ delayedChangesToSets delayed =
                         }
     in
     List.map delayedGroupToChangeSet groupedByPointer
- 
 
 
 delayedChangeObject :
@@ -297,7 +316,7 @@ delayedChangeObject :
     -> ObjectChange
     -> DelayedChange
 delayedChangeObject target objectChange =
-    (target, objectChange)
+    ( target, objectChange )
 
 
 
@@ -609,7 +628,7 @@ newPointer { parent, position, reducerID } =
                 childInstallChanges =
                     -- install the new child in the existing parent.
                     Maybe.map (\f -> f newPendingID) childInstallerMaybe
-                    |> Maybe.Extra.toList
+                        |> Maybe.Extra.toList
             in
             PlaceholderPointer newPendingID childInstallChanges
 
@@ -623,11 +642,11 @@ newPointer { parent, position, reducerID } =
                 finalInstallChanges : List DelayedChange
                 finalInstallChanges =
                     case childInstallChangeMaybe of
-                        ( Just childInstallChange ) ->
+                        Just childInstallChange ->
                             -- merge the new child install Change with the ancestor installers Change.
-                            ancestorInstallChanges ++ [childInstallChange]
+                            ancestorInstallChanges ++ [ childInstallChange ]
 
-                        ( Nothing ) ->
+                        Nothing ->
                             -- perhaps this pointer is an InstantParent, even if ancestors are not
                             ancestorInstallChanges
 

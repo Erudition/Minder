@@ -1,4 +1,5 @@
 # Now
+- [ ] If new object is wrapped in custom type, it will be ref'd and init without its changes
 - [ ] Determine what parts of Node.processDelayedInMapping is now unneeded
 - [ ] Test delayed changes getting pulled into later object init rather than done last
 - [ ] Determine why delayed changes need to be reversed

@@ -1,7 +1,7 @@
 module Log exposing (..)
 
-import Debug
 import Console
+import Debug
 import DebugToJson
 
 
@@ -33,8 +33,9 @@ type alias Logger a =
 type alias Crasher a =
     String -> a
 
+
 type alias Stringifier a =
-     a -> String
+    a -> String
 
 
 logMessageOnly : String -> a -> a
@@ -87,9 +88,11 @@ crashInDev crashMessage a =
         Dev logger todo _ ->
             todo crashMessage
 
+
 crashInDevProse : Prose -> prodFallbackValue -> prodFallbackValue
 crashInDevProse prose =
     crashInDev (proseToString prose)
+
 
 dump : a -> String
 dump thing =
@@ -99,23 +102,27 @@ dump thing =
 
         Dev _ _ stringifier ->
             stringifier thing
-            |> DebugToJson.pp
+                |> DebugToJson.pp
 
 
-type alias Prose = List (List (String))
+type alias Prose =
+    List (List String)
 
-proseToString : Prose  -> String
+
+proseToString : Prose -> String
 proseToString prose =
-    String.join " \n        " (List.map (String.join " ") prose)
+    String.join " \n" (List.map (String.join " ") prose)
 
 
 int : Int -> String
 int i =
     String.fromInt i
 
+
 length : List a -> String
 length l =
     String.fromInt <| List.length l
+
 
 {-| Lets you specify a bad length to show up in red
 -}
@@ -125,8 +132,11 @@ lengthWithBad bad list =
         foundLength =
             List.length list
 
-        output = String.fromInt foundLength
+        output =
+            String.fromInt foundLength
     in
     if List.length list == bad then
-    Console.bgRed output else
-    Console.green output
+        Console.bgRed output
+
+    else
+        Console.green output

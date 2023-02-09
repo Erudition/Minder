@@ -1102,7 +1102,7 @@ repList memberCodec =
                         Change.changeObjectWithExternal
                             { target = RepList.getPointer givenRepList
                             , objectChanges = []
-                            , externalUpdates = logIf externalChanges
+                            , externalUpdates = externalChanges
                             }
 
                 _ ->
@@ -3342,10 +3342,9 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                             SkipThisField
 
                         else
-                            Log.logSeparate (fieldName ++ " was supposedly not skippable.") encodedVal <|
-                                EncodeThisField <|
-                                    Change.NewPayload <|
-                                        wrappedOutput val
+                            EncodeThisField <|
+                                Change.NewPayload <|
+                                    wrappedOutput val
 
                     _ ->
                         if isExistingSameAsDefault then

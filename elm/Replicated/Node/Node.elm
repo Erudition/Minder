@@ -372,6 +372,8 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         logApplyResults =
             Log.proseToString
                 [ [ "Node.apply:" ]
+                , [ "ChangeSet:" ]
+                , [ Change.changeSetDebug 0 changes ]
                 , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
                 , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
                 , [ "Output Frame:" ]
@@ -473,7 +475,6 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
     ( ( outCounter, outMapping )
     , generatedChunks
     )
-
 
 
 processDelayedInMapping : Change.Pointer -> List Change.ObjectChange -> UpdatesSoFar -> { safeToDoNow : List Change.ObjectChange, processedMapping : UpdatesSoFar }

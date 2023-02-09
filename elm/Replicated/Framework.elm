@@ -259,19 +259,19 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                     { replicator | temp = newTemp }
 
                                 ( replicatorWithUpdates, finalOutputFrame ) =
-                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) (Debug.log "filledFramesToApply" filledFramesToApply)
+                                    List.foldl applyFrame ( modelWithTimeTemp, [] ) filledFramesToApply
 
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
                                         { outputFrame, updatedNode } =
-                                            Node.apply (Nothing) givenModel.node (Log.log "Changes to save" givenFrame)
+                                            Node.apply Nothing givenModel.node givenFrame
                                     in
                                     ( { givenModel | node = updatedNode }, outputsSoFar ++ outputFrame )
                             in
                             case Codec.decodeFromNode userReplicaCodec replicatorWithUpdates.node of
                                 Ok updatedUserReplica ->
                                     ( UserRunning { replicatorWithUpdates | replica = updatedUserReplica }
-                                    , Log.logSeparate "Framework saving with new frame" finalOutputFrame <| Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
+                                    , Cmd.batch [ Cmd.map (\m -> U m newTime) <| setStorage (Op.closedChunksToFrameText finalOutputFrame), Cmd.map (\m -> U m newTime) newCmds ]
                                     )
 
                                 Err problem ->
@@ -284,21 +284,23 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
             case wrappedModel of
                 PreInit { restoredNode, warnings, key, url, flags, userInit } ->
                     let
-                        (startNode, startFrame) =
+                        ( startNode, startFrame ) =
                             case restoredNode of
                                 Just restoredNodeFound ->
-                                    (restoredNodeFound, [])
+                                    ( restoredNodeFound, [] )
 
                                 Nothing ->
                                     let
                                         tempDefaultChanges =
-                                            [Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec)]
+                                            [ Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec) ]
 
                                         startNewNode =
                                             -- Node.startNewNode (Just now) []
-                                            Node.startNewNode (Nothing) []--tempDefaultChanges
+                                            Node.startNewNode Nothing []
+
+                                        --tempDefaultChanges
                                     in
-                                    (startNewNode.newNode, startNewNode.startFrame)
+                                    ( startNewNode.newNode, startNewNode.startFrame )
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode
@@ -308,7 +310,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
                         saveNodeCmd =
                             setStorage (Op.closedChunksToFrameText startFrame)
-                            |> Cmd.map (\m -> U m now)
+                                |> Cmd.map (\m -> U m now)
                     in
                     ( FrameworkReady
                         { node = startNode
@@ -321,7 +323,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , userFlags = flags.userFlags
                         , userInit = userInit
                         }
-                    , Cmd.batch [saveNodeCmd, userStartupCmd]
+                    , Cmd.batch [ saveNodeCmd, userStartupCmd ]
                     )
 
                 _ ->
