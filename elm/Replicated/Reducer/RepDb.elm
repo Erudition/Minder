@@ -25,7 +25,7 @@ import Maybe.Extra
 type RepDb memberType
     = RepDb
         { pointer : Change.Pointer
-        , members : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
+        , members : AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         , included : Object.InclusionInfo
         , memberAdder : memberType -> Change.ObjectChange
         , startWith : Changer (RepDb memberType)
@@ -60,31 +60,32 @@ reducerID =
 buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Change.ObjectChange) -> Changer (RepDb memberType) -> RepDb memberType
 buildFromReplicaDb object payloadToMember memberAdder init =
     let
-        memberDict : AnyDict OpID.OpIDSortable InclusionOpID (Member memberType)
+        memberDict : AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         memberDict =
             case Object.getCreationID object of
                 Just objectID ->
-                    AnyDict.filterMap (eventToKeyMemberPairMaybe (Change.ExistingID reducerID objectID)) (Object.getEvents object)
+                    AnyDict.foldl (addMemberFromEvent (Change.ExistingID reducerID objectID)) (AnyDict.empty OpID.toSortablePrimitives) (Object.getEvents object)
 
                 Nothing ->
                     AnyDict.empty OpID.toSortablePrimitives
 
-        eventToKeyMemberPairMaybe : Change.ExistingID -> InclusionOpID -> Object.Event -> Maybe (Member memberType)
-        eventToKeyMemberPairMaybe containerExistingID eventID event =
+        addMemberFromEvent : Change.ExistingID -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)  -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
+        addMemberFromEvent containerExistingID inclusionEventID event accumulatedDict =
             case
                 ( Object.extractOpIDFromEventPayload event
                 , payloadToMember (Object.eventPayloadAsJson event)
                 )
             of
                 ( Just memberObjectID, Just memberValue ) ->
-                    Just
-                        { id = ID.tag (Change.ExistingObjectPointer containerExistingID )
+                    AnyDict.insert memberObjectID
+                        { id = ID.tag (Change.ExistingObjectPointer (Change.ExistingID "TODO" memberObjectID) )
                         , value = memberValue
-                        , remove = Change.WithFrameIndex (\_ -> (remover containerExistingID eventID))
+                        , remove = Change.WithFrameIndex (\_ -> (remover containerExistingID inclusionEventID))
                         }
+                        accumulatedDict
 
                 _ ->
-                    Nothing
+                    accumulatedDict
 
         remover containerObjectID inclusionEventID =
             Change.changeObject
