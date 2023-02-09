@@ -863,9 +863,9 @@ update msg state profile env =
                         newClassChanger : Reg Class.ActionClassSkel -> List Change
                         newClassChanger newClass =
                             [ -- Quoting the ID works!!
-                              RepDb.addNew (Instance.initWithClass (ID.tag (Reg.getPointer newClass))) profile.taskInstances
+                              RepDb.addNew (Instance.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                               , RepList.insertNew RepList.Last 
-                                [ (\c -> Entry.initWithClass (Reg.getPointer newClass |> ID.tag) c) ] profile.taskEntries
+                                [ (\c -> Entry.initWithClass (Reg.getPointer newClass |> ID.fromPointer) c) ] profile.taskEntries
                             ]
 
                         frameDescription =

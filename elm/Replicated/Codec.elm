@@ -766,17 +766,17 @@ id : Codec e (ID userType) {} (ID userType)
 id =
     let
         toObjectID givenID =
-            case ID.read givenID of
-                ExistingObjectPointer existingID ->
-                    existingID.object
+            case ID.getObjectID givenID of
+                Just objectID ->
+                    objectID
 
-                placeholderPointer ->
-                    Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID for pointer " ++ Log.dump placeholderPointer)
+                Nothing ->
+                    Log.crashInDev ("ID should always be ObjectID before serializing. Tried to serialize the ID " ++ Log.dump givenID)
                         OpID.fromStringForced
-                        ("Uninitialized! " ++ Log.dump placeholderPointer)
+                        ("Uninitialized! " ++ Log.dump givenID)
 
         toChangeAtom givenID =
-            case ID.read givenID of
+            case ID.toPointer "bogus reducer unused" givenID of
                 ExistingObjectPointer existingID ->
                     Change.ExistingObjectReferenceAtom existingID.object
 
@@ -797,7 +797,7 @@ id =
                             Log.crashInDev ("Failed to sucessfully un-serialize OpID " ++ asString ++ ", is it in ron pointer form?") OpID.fromStringForced asString
 
                 finalPointer reducerID =
-                    ID.tag (ExistingObjectPointer (Change.ExistingID reducerID opID))
+                    ID.fromPointer (ExistingObjectPointer (Change.ExistingID reducerID opID))
             in
             case nodeMaybe of
                 Nothing ->
@@ -809,13 +809,13 @@ id =
                         Err _ ->
                             Log.crashInDev
                                 ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!")
-                                ID.tag
+                                ID.fromPointer
                                 (ExistingObjectPointer (Change.ExistingID "error" opID))
 
                         Ok ( reducerID, objectID ) ->
                             -- TODO should we use the OpID instead? For versioning?
                             -- Or is this better to switch to canonical ObjectIDs
-                            ID.tag (ExistingObjectPointer (Change.ExistingID reducerID objectID))
+                            ID.fromPointer (ExistingObjectPointer (Change.ExistingID reducerID objectID))
 
         nodeEncoder : NodeEncoderInputs (ID userType) -> EncoderOutput {}
         nodeEncoder inputs =

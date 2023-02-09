@@ -78,7 +78,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
             of
                 ( Just memberObjectID, Just memberValue ) ->
                     AnyDict.insert memberObjectID
-                        { id = ID.tag (Change.ExistingObjectPointer (Change.ExistingID "TODO" memberObjectID) )
+                        { id = ID.fromObjectID memberObjectID
                         , value = memberValue
                         , remove = Change.WithFrameIndex (\_ -> (remover containerExistingID inclusionEventID))
                         }
@@ -108,9 +108,9 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 
 get : ID memberType -> RepDb memberType -> Maybe memberType
 get givenID (RepDb repDbRecord) =
-    case ID.read givenID of
-        Change.ExistingObjectPointer existingID   ->
-            AnyDict.get existingID.object repDbRecord.members
+    case ID.getObjectID givenID of
+        Just objectID ->
+            AnyDict.get objectID repDbRecord.members
             |> Maybe.map .value
 
         _ ->
@@ -119,9 +119,9 @@ get givenID (RepDb repDbRecord) =
 
 getMember : ID memberType -> RepDb memberType -> Maybe (Member memberType)
 getMember givenID (RepDb repDbRecord) =
-    case ID.read givenID of
-        Change.ExistingObjectPointer existingID  ->
-            AnyDict.get existingID.object repDbRecord.members
+    case ID.getObjectID givenID of
+        Just objectID ->
+            AnyDict.get objectID repDbRecord.members
 
         _ ->
             Nothing

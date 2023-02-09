@@ -1,6 +1,6 @@
 module ID exposing
-    ( ID(..)
-    , read, tag, toString, toInt
+    ( ID
+    , getObjectID, fromPointer, toInt, toPointer, toString, fromObjectID
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -75,43 +75,70 @@ type User
 
 import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Replicated.Op.OpID as OpID exposing (OpID)
-import Replicated.Change as Change exposing (Pointer)
 import Log
+import Replicated.Change as Change exposing (Pointer)
+import Replicated.Op.OpID as OpID exposing (OpID)
 
 
 type ID userType
-    = ID Pointer
+    = IDFromExisting OpID.ObjectID
+    | IDFromPlaceholder Change.PendingID
 
 
 {-| Tag a pointer, making it a type-constrained ID!
 -}
-tag : Pointer -> ID userType
-tag pointer =
-    ID pointer
+fromPointer : Pointer -> ID userType
+fromPointer pointer =
+    case pointer of
+        Change.ExistingObjectPointer existingID ->
+            IDFromExisting existingID.object
+
+        Change.PlaceholderPointer pendingID _ ->
+            IDFromPlaceholder pendingID
+
+
+{-| Tag an ObjectID, making it a type-constrained ID!
+-}
+fromObjectID : OpID.ObjectID -> ID userType
+fromObjectID objectID =
+    IDFromExisting objectID
 
 
 {-| Read an ID!
 -}
-read : ID userType -> Pointer
-read (ID pointer) =
-    pointer
+toPointer reducer givenID =
+    case givenID of
+        IDFromExisting objectID ->
+            Change.ExistingObjectPointer (Change.ExistingID reducer objectID)
+
+        IDFromPlaceholder pendingID ->
+            Change.PlaceholderPointer pendingID []
+
+
+getObjectID givenID =
+    case givenID of
+        IDFromExisting objectID ->
+            Just objectID
+
+        IDFromPlaceholder _ ->
+            Nothing
 
 
 toString : ID userType -> String
-toString (ID pointer) =
-    case pointer of
-        Change.ExistingObjectPointer existingID  ->
-            OpID.toString existingID.object
+toString givenID =
+    case givenID of
+        IDFromExisting objectID ->
+            OpID.toString objectID
 
-        Change.PlaceholderPointer _ _ ->
+        IDFromPlaceholder _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" "Placeholder Pointer: Object Not Yet Initialized"
 
-toInt : ID userType -> Int
-toInt (ID pointer) =
-    case pointer of
-        Change.ExistingObjectPointer existingID  ->
-            OpID.toInt existingID.object
 
-        Change.PlaceholderPointer _ _ ->
+toInt : ID userType -> Int
+toInt givenID =
+    case givenID of
+        IDFromExisting objectID ->
+            OpID.toInt objectID
+
+        IDFromPlaceholder _ ->
             Log.crashInDev "Supposed to be impossible: toString called on an ID when the wrapped pointer was for a placeholder. All IDs should represent existing Objects with ObjectIDs" 42
