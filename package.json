@@ -42,7 +42,7 @@
     "@nativescript/core": "~8.1.5",
     "@nativescript/local-notifications": "file:../nativescript-plugins/packages/local-notifications",
     "assert": "^2.0.0",
-    "ava": "^3.15.0",
+    "ava": "^5.2.0",
     "browserify-zlib": "^0.2.0",
     "bufferutil": "^4.0.6",
     "circular-dependency-plugin": "^5.2.2",
