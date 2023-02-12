@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, saveChanges)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -95,25 +95,11 @@ mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
         , existingObjectChanges =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
-        , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed |> unique
+        , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed
         , opsToRepeat =
             -- on collision, preference is given to later set, though ops should never differ
             AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
         }
-
-
-unique : List a -> List a
-unique list =
-    List.foldl
-        (\a uniques ->
-            if List.member a uniques then
-                uniques
-
-            else
-                uniques ++ [ a ]
-        )
-        []
-        list
 
 
 mergeMaybeChange : Maybe ChangeSet -> ChangeSet -> ChangeSet
@@ -236,7 +222,7 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
                                 "with parent installer"
 
                         sayNestedChangeSet =
-                            "\n" ++ indentHere ++ changeSetDebug (indent + 2) changeSet
+                            "\n" ++ changeSetDebug (indent + 2) changeSet
                     in
                     case toReference of
                         ExistingObjectPointer { reducer, object } ->
@@ -481,7 +467,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
 
 isEmptyChangeSet : ChangeSet -> Bool
 isEmptyChangeSet (ChangeSet details) =
-    AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && AnyDict.isEmpty details.opsToRepeat
+    AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && AnyDict.isEmpty details.opsToRepeat && List.isEmpty details.delayed
 
 
 
@@ -502,6 +488,49 @@ type ComplexAtom
 -}
 type alias ComplexPayload =
     Nonempty ComplexAtom
+
+
+{-| Determine whether the first object change is redundant and can be discarded, assuming the second object change will stay regardless. If they are equal, the answer is yes, but the first can also be redundant by having a simple pointer to an object, while the second contains a nested object with the same pointer.
+
+Currently needed only when node encoder defaults mode is on, where installers would be redundant with generated defaults (but not equivalent, as the latter is the real nested object).
+
+-}
+redundantObjectChange : ObjectChange -> ObjectChange -> Bool
+redundantObjectChange possiblyRedundantObjectChange canonicalObjectChange =
+    let
+        payloadEquivalence payload1 payload2 =
+            payload1 == Nonempty.map convertQuotesToRefs payload2
+
+        convertQuotesToRefs : ComplexAtom -> ComplexAtom
+        convertQuotesToRefs complexAtom =
+            case complexAtom of
+                NestedAtoms nestedComplexPayload ->
+                    NestedAtoms (Nonempty.map convertQuotesToRefs nestedComplexPayload)
+
+                QuoteNestedObject solo ->
+                    case solo.toReference of
+                        ExistingObjectPointer existingID ->
+                            ExistingObjectReferenceAtom existingID.object
+
+                        PlaceholderPointer pendingID _ ->
+                            PendingObjectReferenceAtom pendingID
+
+                otherAtom ->
+                    otherAtom
+    in
+    if possiblyRedundantObjectChange == canonicalObjectChange then
+        True
+
+    else
+        case ( possiblyRedundantObjectChange, canonicalObjectChange ) of
+            ( NewPayload payload1, NewPayload payload2 ) ->
+                payloadEquivalence payload1 payload2
+
+            ( NewPayloadWithRef first, NewPayloadWithRef second ) ->
+                payloadEquivalence first.payload second.payload
+
+            _ ->
+                False
 
 
 

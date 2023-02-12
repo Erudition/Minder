@@ -1,5 +1,5 @@
 # Now
-- [ ] If new object is wrapped in custom type, it will be ref'd and init without its changes
+- [ ] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix and write test
 - [ ] Determine what parts of Node.processDelayedInMapping is now unneeded
 - [ ] Test delayed changes getting pulled into later object init rather than done last
 - [ ] Determine why delayed changes need to be reversed
@@ -20,6 +20,7 @@
 
 
 # Soon
+- use Codec.new as defaults for reg fields, so that seeded is the only time default is missing. Try to pass in Encoder with Context so we can benefit from proper EncoderInputs
 - always startNewNode with a root object, the master replica
 - change register to use label_3 naked string format (like variants) rather than separate Int
 - do single quotes get properly escaped on output?

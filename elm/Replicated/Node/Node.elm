@@ -329,7 +329,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         frameStartMapping =
             { assignedIDs = AnyDict.empty Change.pendingIDToComparable
             , lastSeen = AnyDict.empty OpID.toString
-            , later = []
+            , delayed = []
             }
 
         -- STEP 1. Process this ChangeSet
@@ -339,16 +339,15 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         delayedChangeSets =
             let
                 asChangeSetList =
-                    Change.delayedChangesToSets step1OutMapping.later
+                    Change.delayedChangesToSets step1OutMapping.delayed
+                        -- TODO why must we reverse
                         |> List.reverse
-
-                -- TODO WHYYY
             in
-            Log.logMessageOnly ("\n" ++ (String.join "\n" <| List.map (Change.changeSetDebug 0) asChangeSetList) ++ "\n") asChangeSetList
+            asChangeSetList
 
         -- STEP 2. Process delayed changes
         ( ( step2OutCounter, step2OutMapping ), step2OutChunks ) =
-            List.mapAccuml (oneChangeSetToOpChunks node) ( step1OutCounter, step1OutMapping ) delayedChangeSets
+            List.mapAccuml (oneChangeSetToOpChunks node) ( step1OutCounter, { step1OutMapping | delayed = [] } ) delayedChangeSets
 
         outChunks =
             step1OutChunks ++ List.concat step2OutChunks
@@ -372,8 +371,10 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         logApplyResults =
             Log.proseToString
                 [ [ "Node.apply:" ]
-                , [ "ChangeSet:" ]
+                , [ "Main ChangeSet:" ]
                 , [ Change.changeSetDebug 0 changes ]
+                , [ "Delayed ChangeSets (", String.fromInt (List.length delayedChangeSets), "):" ]
+                , [ List.map (Change.changeSetDebug 0) delayedChangeSets |> String.join "\n" ]
                 , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
                 , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
                 , [ "Output Frame:" ]
@@ -409,7 +410,7 @@ Use with Change.pendingIDToString
 type alias UpdatesSoFar =
     { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
-    , later : List Change.DelayedChange
+    , delayed : List Change.DelayedChange
     }
 
 
@@ -440,11 +441,8 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
             let
                 asPointer =
                     PlaceholderPointer pendingID []
-
-                { safeToDoNow, processedMapping } =
-                    processDelayedInMapping asPointer objectChanges mapping
             in
-            objectChangeChunkToOps node asPointer (objectChanges ++ safeToDoNow) ( counter, processedMapping, chunksSoFar )
+            objectChangeChunkToOps node asPointer objectChanges ( counter, mapping, chunksSoFar )
 
         -- Step 2. Change existing objects
         ( outCounter, postExistingMapping, generatedChunks ) =
@@ -457,14 +455,11 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
             let
                 asPointer =
                     ExistingObjectPointer existingID
-
-                { safeToDoNow, processedMapping } =
-                    processDelayedInMapping asPointer objectChanges mapping
             in
-            objectChangeChunkToOps node asPointer (objectChanges ++ safeToDoNow) ( counter, processedMapping, chunksSoFar )
+            objectChangeChunkToOps node asPointer objectChanges ( counter, mapping, chunksSoFar )
 
         outMapping =
-            { postExistingMapping | later = postExistingMapping.later ++ changeSet.delayed }
+            { postExistingMapping | delayed = postExistingMapping.delayed ++ changeSet.delayed }
 
         -- TODO Step 3. collect ops to repeat
         --
@@ -481,22 +476,28 @@ processDelayedInMapping : Change.Pointer -> List Change.ObjectChange -> UpdatesS
 processDelayedInMapping inPointer inObjectChanges inMapping =
     let
         { doNow, keep } =
-            List.foldl processDelayedChange { doNow = [], keep = [] } inMapping.later
+            List.foldl processDelayedChange
+                { doNow = [], keep = [] }
+                inMapping.delayed
 
         processDelayedChange : Change.DelayedChange -> { doNow : List Change.ObjectChange, keep : List Change.DelayedChange } -> { doNow : List Change.ObjectChange, keep : List Change.DelayedChange }
         processDelayedChange (( delayedPointer, delayedObjectChange ) as delayedChange) acc =
             if Change.equalPointers inPointer delayedPointer then
-                if List.member delayedObjectChange inObjectChanges || List.member delayedChange acc.keep then
+                let
+                    foundSame =
+                        List.find (Change.redundantObjectChange delayedObjectChange) inObjectChanges
+                in
+                if Maybe.Extra.isJust foundSame || List.member delayedChange acc.keep then
                     -- we're already doing this now, or did previously, remove it from delayed
-                    Log.logSeparate "Pruning a delayed change that's redundant!" delayedObjectChange { doNow = acc.doNow, keep = acc.keep }
+                    { doNow = acc.doNow, keep = acc.keep }
 
                 else if canDoNow delayedObjectChange then
                     -- we made sure this has no unresolved refs, do it now!
-                    Log.logSeparate "Doing a delayed change early, nice!" delayedChange { doNow = acc.doNow ++ [ delayedObjectChange ], keep = acc.keep }
+                    Log.logSeparate "Doing a delayed change early, nice!" delayedObjectChange { doNow = acc.doNow ++ [ delayedObjectChange ], keep = acc.keep }
 
                 else
                     --not ready to do now, keep delayed
-                    { doNow = acc.doNow, keep = acc.keep ++ [ delayedChange ] }
+                    Log.logSeparate "Not ready to do this objectChange" delayedChange { doNow = acc.doNow, keep = acc.keep ++ [ delayedChange ] }
 
             else
                 -- irrelevant to this object, move along
@@ -533,7 +534,7 @@ processDelayedInMapping inPointer inObjectChanges inMapping =
             in
             List.all checkComplexAtom objectChangeAsPayload
     in
-    { safeToDoNow = doNow, processedMapping = { inMapping | later = keep } }
+    { safeToDoNow = doNow, processedMapping = { inMapping | delayed = keep } }
 
 
 {-| Turns a change Chunk (same-object changes) into finalized ops.
@@ -548,32 +549,39 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
     let
         -- I'm pretty proud of this concotion, it took me DAYS to figure a concise way to get the prereqs all stamped BEFORE the object initialization op and the object changes (the prereqs are nested in the object that doesn't exist yet).
         --
-        -- Step 1. Turn all objectChanges into Unstamped Ops, get nested prereq Ops stamped
-        ( ( postUnstampedOpCounter, postUnstampedOpMapping ), subChangesOutput ) =
+        -- Step 1a. Turn all objectChanges into Unstamped Ops, get nested prereq Ops stamped
+        ( ( postUnstampedOpCounter1a, postUnstampedOpMapping1a ), subChanges1aOutput ) =
             List.mapAccuml (objectChangeToUnstampedOp node) ( inCounter, inMapping ) objectChanges
+
+        { safeToDoNow, processedMapping } =
+            processDelayedInMapping pointer objectChanges postUnstampedOpMapping1a
+
+        -- -- Step 1b. Do the same for delayed changes that we can do now instead
+        ( ( postUnstampedOpCounter1b, postUnstampedOpMapping1b ), subChanges1bOutput ) =
+            List.mapAccuml (objectChangeToUnstampedOp node) ( postUnstampedOpCounter1a, processedMapping ) safeToDoNow
 
         ---------- collect prereq chunks of pre-stamped ops
         allPrereqChunks =
-            List.concatMap .prerequisiteChunks subChangesOutput
+            List.concatMap .prerequisiteChunks subChanges1aOutput ++ List.concatMap .prerequisiteChunks subChanges1bOutput
 
         ---------- collect all the objectChanges turned unstamped-ops
         allUnstampedChunkOps =
-            List.map .thisUnstampedOp subChangesOutput
+            List.map .thisUnstampedOp subChanges1aOutput ++ List.map .thisUnstampedOp subChanges1bOutput
 
         -- Step 2. Header Op: initialize the object, if it wasn't created already
         { objectID, reducerID, initOps, postInitCounter, postInitMapping } =
             case pointer of
                 Change.ExistingObjectPointer { reducer, object } ->
                     -- Existed at start of frame, so no-op.
-                    { objectID = object, reducerID = reducer, initOps = [], postInitCounter = postUnstampedOpCounter, postInitMapping = postUnstampedOpMapping }
+                    { objectID = object, reducerID = reducer, initOps = [], postInitCounter = postUnstampedOpCounter1b, postInitMapping = postUnstampedOpMapping1b }
 
                 Change.PlaceholderPointer pendingID _ ->
                     -- May need creating, check mapping first, then create
-                    createPendingObject node postUnstampedOpCounter postUnstampedOpMapping pendingID
+                    createPendingObject node postUnstampedOpCounter1b postUnstampedOpMapping1b pendingID
 
         --------- find out when this object was last seen, for stamping
         lastOpSeen =
-            AnyDict.get objectID postUnstampedOpMapping.lastSeen
+            AnyDict.get objectID postUnstampedOpMapping1b.lastSeen
                 |> Maybe.withDefault (getLastSeen node objectID)
 
         -- Step 3. Stamp all ops with an incremental ID
@@ -669,23 +677,23 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                         ( ( postPrereqCounter, outMapping ), newPrereqChunks ) =
                             oneChangeSetToOpChunks node ( accumulated.counter, accumulated.mapping ) soloObject.changeSet
 
-                        pointerPayloadAsList =
+                        ( pointerPayloadAsList, installers ) =
                             case soloObject.toReference of
                                 Change.ExistingObjectPointer existingID ->
-                                    [ Op.IDPointerAtom existingID.object ]
+                                    ( [ Op.IDPointerAtom existingID.object ], [] )
 
-                                Change.PlaceholderPointer pendingID _ ->
+                                Change.PlaceholderPointer pendingID nestedInstallers ->
                                     case AnyDict.get pendingID outMapping.assignedIDs of
                                         Just outputObject ->
-                                            [ Op.IDPointerAtom outputObject ]
+                                            ( [ Op.IDPointerAtom outputObject ], nestedInstallers )
 
                                         Nothing ->
-                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) []
+                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) ( [], [] )
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
                     , piecesSoFar = accumulated.piecesSoFar ++ pointerPayloadAsList
-                    , mapping = outMapping
+                    , mapping = { outMapping | delayed = outMapping.delayed }
                     }
 
                 Change.NestedAtoms nestedChangeAtoms ->

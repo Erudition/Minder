@@ -18,7 +18,6 @@ import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-
 {-| Parsed out of an ObjectLog tree, when reducer is set to the Register Record type of this module. Requires a creation op to exist - from which the `origin` field is filled. Any other Ops must be FieldEvents, though there may be none.
 -}
 type Reg userType
@@ -43,10 +42,14 @@ type alias FieldHistoryDict =
     Dict FieldSlot FieldHistoryBackwards
 
 
-
 getPointer : Reg userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer
+
+
+getContext : Reg userType -> Change.Context
+getContext (Register register) =
+    Change.Context [] (Change.becomeInstantParent register.pointer)
 
 
 type alias FieldIdentifier =
@@ -66,11 +69,13 @@ type alias RW fieldVal =
     , set : fieldVal -> Change
     }
 
+
 type alias RWH fieldVal =
     { get : fieldVal
     , set : fieldVal -> Change
     , history : List ( OpID, fieldVal )
     }
+
 
 registerReducerID : Op.ReducerID
 registerReducerID =

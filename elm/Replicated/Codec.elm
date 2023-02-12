@@ -3339,7 +3339,10 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                         -- payload must be a single nested object with no other atoms
                         if skippable then
                             -- field encoder said we can skip this one
-                            SkipThisField
+                            EncodeThisField <|
+                                Change.NewPayload <|
+                                    wrappedOutput val
+                            -- SkipThisField
 
                         else
                             EncodeThisField <|
