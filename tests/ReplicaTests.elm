@@ -9,7 +9,7 @@ import GraphicSVG exposing (GraphicSVG)
 import List.Extra
 import Log
 import Maybe.Extra
-import Replicated.Change as Change exposing (Creator, Parent, Change)
+import Replicated.Change as Change exposing (Change, Creator, Parent)
 import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -25,7 +25,10 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ testDelayedCreation
-        --     readOnlyObjectEncodeThenDecode
+
+        --testSpawning
+        --
+        -- , readOnlyObjectEncodeThenDecode
         -- , writableObjectEncodeThenDecode
         -- , repListEncodeThenDecode
         -- , repListInsertAndRemove
@@ -34,6 +37,7 @@ suite =
         -- , modifiedNestedStressTestIntegrityCheck
         ]
 
+
 nodeFromCodecWithoutDefaults : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodecWithoutDefaults profileCodec =
     let
@@ -41,7 +45,7 @@ nodeFromCodecWithoutDefaults profileCodec =
             Op.closedChunksToFrameText chunks
 
         { newNode, startFrame } =
-            Node.startNewNode Nothing [ ]
+            Node.startNewNode Nothing []
 
         tryDecoding =
             Codec.decodeFromNode profileCodec newNode
@@ -52,9 +56,9 @@ nodeFromCodecWithoutDefaults profileCodec =
                 , [ "Output Frame:" ]
                 , [ Op.closedChunksToFrameText startFrame ]
                 ]
-
     in
-    { startNode = {newNode | identity = NodeID.bumpSessionID newNode.identity}, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+    { startNode = { newNode | identity = NodeID.bumpSessionID newNode.identity }, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+
 
 nodeFromCodecWithDefaults : WrappedOrSkelCodec e s profile -> { startNode : Node, result : Result (Codec.Error e) profile, outputMaybe : Maybe profile, startFrame : List Op.ClosedChunk }
 nodeFromCodecWithDefaults profileCodec =
@@ -77,9 +81,8 @@ nodeFromCodecWithDefaults profileCodec =
                 , [ "Output Frame:" ]
                 , [ Op.closedChunksToFrameText startFrame ]
                 ]
-
     in
-    { startNode = {newNode | identity = NodeID.bumpSessionID newNode.identity}, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
+    { startNode = { newNode | identity = NodeID.bumpSessionID newNode.identity }, result = tryDecoding, outputMaybe = Result.toMaybe tryDecoding, startFrame = startFrame }
 
 
 type alias ReadOnlyObject =
@@ -502,15 +505,13 @@ nodeWithModifiedNestedStressTest =
                 deepestRecordAddress =
                     nestedStressTest.recordOf3Records |> Reg.latest |> .recordOf2Records |> Reg.latest |> .recordWithRecord |> Reg.latest |> .address
 
-
                 blankWritable =
-                    (Codec.new writableObjectCodec)
-
+                    Codec.new writableObjectCodec
 
                 changes =
                     [ deepestRecordAddress.set "Updated address"
-                    , RepList.insertNew RepList.Last [blankWritable] repListOfWritables 
-                    , RepList.insertNew RepList.Last [newWritable] repListOfWritables 
+                    , RepList.insertNew RepList.Last [ blankWritable ] repListOfWritables
+                    , RepList.insertNew RepList.Last [ newWritable ] repListOfWritables
                     ]
 
                 newWritable : Change.Creator (Reg WritableObject)
@@ -528,7 +529,7 @@ nodeWithModifiedNestedStressTest =
                             , obj.number.set 999
                             , obj.minor.set False
                             , obj.kids.set (newKidsList c)
-                            , nestedStressTest.lastField.set ("externally updating nst within newWritable")
+                            , nestedStressTest.lastField.set "externally updating nst within newWritable"
                             ]
                     in
                     Codec.newWithChanges writableObjectCodec c woChanges
@@ -543,7 +544,7 @@ nodeWithModifiedNestedStressTest =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
 
                 concatOldAndNewFrame =
-                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText (applied.outputFrame)
+                    Op.closedChunksToFrameText startFrame ++ Op.closedChunksToFrameText applied.outputFrame
 
                 reInitialized =
                     Node.initFromSaved { sameSession = True, storedNodeID = NodeID.toString applied.updatedNode.identity } (Log.logMessageOnly (Console.green <| "RON DATA: \n" ++ ronData) concatOldAndNewFrame)
@@ -680,11 +681,13 @@ modifiedNestedStressTestIntegrityCheck =
 
 -- DELAYED CHANGES --------------------------------------------------
 
+
 type alias DelayTestReplica =
     { propA : RW String
-    , nestedDelayedRecord : (NestedDelayed)
-    , nestedDelayedRegister : Reg (NestedDelayed)
+    , nestedDelayedRecord : NestedDelayed
+    , nestedDelayedRegister : Reg NestedDelayed
     }
+
 
 delayTestReplicaCodec : WrappedCodec e (Reg DelayTestReplica)
 delayTestReplicaCodec =
@@ -694,13 +697,14 @@ delayTestReplicaCodec =
         |> Codec.fieldReg ( 3, "nestedDelayedRegister" ) .nestedDelayedRegister nestedDelayedRegCodec
         |> Codec.finishRegister
 
+
 type alias NestedDelayed =
     { propB : RW String
     , nestedList : RepList String
     }
 
 
-nestedDelayedCodec : SkelCodec e (NestedDelayed)
+nestedDelayedCodec : SkelCodec e NestedDelayed
 nestedDelayedCodec =
     Codec.record NestedDelayed
         |> Codec.fieldRW ( 1, "propB" ) .propB Codec.string "Prop B not set."
@@ -723,12 +727,11 @@ testDelayedCreation =
 
         afterChange givenChanges =
             case Result.map Reg.latest result of
-                Ok delayTestReplica -> 
+                Ok delayTestReplica ->
                     let
                         -- outChunks =
                         --     Debug.log "changes to delay test" <| all.outputFrame
-
-                        all = 
+                        all =
                             Node.apply Nothing startNode (Change.saveChanges "making some changes to the delay test object" (givenChanges delayTestReplica))
                     in
                     all
@@ -737,19 +740,19 @@ testDelayedCreation =
                     Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         expectAfterDecodingFrom node fromRoot expected =
-            Codec.decodeFromNode delayTestReplicaCodec (tryAddingToNestedList.updatedNode) |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
+            Codec.decodeFromNode delayTestReplicaCodec tryAddingToNestedList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
 
         tryChangingPropA =
-            afterChange (\obj -> [obj.propA.set "Nondefault"])
+            afterChange (\obj -> [ obj.propA.set "Nondefault" ])
 
         tryChangingPropB1 =
-            afterChange (\obj -> [obj.nestedDelayedRecord.propB.set "Nondefault"])
+            afterChange (\obj -> [ obj.nestedDelayedRecord.propB.set "Nondefault" ])
 
         tryChangingPropB2 =
-            afterChange (\obj -> [(Reg.latest obj.nestedDelayedRegister).propB.set "Nondefault"])
+            afterChange (\obj -> [ (Reg.latest obj.nestedDelayedRegister).propB.set "Nondefault" ])
 
         tryAddingToNestedList =
-            afterChange (\obj -> [RepList.insert RepList.Last "List Item Added" (obj.nestedDelayedRecord.nestedList) ])
+            afterChange (\obj -> [ RepList.insert RepList.Last "List Item Added" obj.nestedDelayedRecord.nestedList ])
     in
     describe "Testing delayed changes."
         [ describe "Modify PropA, which should initialize the root object."
@@ -777,7 +780,7 @@ testDelayedCreation =
                 \_ ->
                     tryChangingPropB1.updatedNode.root |> Expect.notEqual Nothing
             ]
-       , describe "Modify PropB in reg, which should initialize the root object."
+        , describe "Modify PropB in reg, which should initialize the root object."
             [ test "the change should have created two objects." <|
                 \_ ->
                     List.length tryChangingPropB2.created |> Expect.equal 2
@@ -788,7 +791,7 @@ testDelayedCreation =
                 \_ ->
                     tryChangingPropB2.updatedNode.root |> Expect.notEqual Nothing
             ]
-       , describe "Add an Item to a nested replist, which should initialize the containing objects."
+        , describe "Add an Item to a nested replist, which should initialize the containing objects."
             [ test "the change should have created three objects." <|
                 \_ ->
                     List.length tryAddingToNestedList.created |> Expect.equal 3
@@ -800,8 +803,99 @@ testDelayedCreation =
                     tryAddingToNestedList.updatedNode.root |> Expect.notEqual Nothing
             , test "the item should have been added to the replist" <|
                 \_ ->
-                    expectAfterDecodingFrom (tryAddingToNestedList.updatedNode)
+                    expectAfterDecodingFrom tryAddingToNestedList.updatedNode
                         (\root -> RepList.listValues root.nestedDelayedRecord.nestedList)
-                        ["List Item Added"]
+                        [ "List Item Added" ]
+            ]
+        ]
+
+
+
+-- CODEC.NEW SPAWN TESTS ----------------------------------------------------------------
+
+
+type alias SpawnTestReplica =
+    { maybeRepList : RW (Maybe (RepList (Reg WritableObject)))
+    , maybeSeeded : RW (Maybe SeededRec)
+    }
+
+
+spawnTestReplicaCodec : WrappedCodec e (Reg SpawnTestReplica)
+spawnTestReplicaCodec =
+    Codec.record SpawnTestReplica
+        |> Codec.maybeRW ( 1, "maybeRepList" ) .maybeRepList (Codec.repList writableObjectCodec)
+        |> Codec.maybeRW ( 2, "maybeSeeded" ) .maybeSeeded seededRecCodec
+        |> Codec.finishRegister
+
+
+type alias SeededRec =
+    { propA : String
+    }
+
+
+seededRecCodec : Codec e String Codec.SoloObject SeededRec
+seededRecCodec =
+    Codec.record SeededRec
+        |> Codec.coreR ( 1, "propA" ) .propA Codec.string (\parentSeed -> parentSeed)
+        |> Codec.finishSeededRecord
+
+
+testSpawning =
+    let
+        { startNode, result } =
+            nodeFromCodecWithoutDefaults spawnTestReplicaCodec
+
+        afterChange : (Reg SpawnTestReplica -> List Change) -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List OpID.ObjectID }
+        afterChange givenChanges =
+            case result of
+                Ok spawnTestReplica ->
+                    let
+                        -- outChunks =
+                        --     Debug.log "changes to delay test" <| all.outputFrame
+                        all =
+                            Node.apply Nothing startNode (Change.saveChanges "making some changes to the spawn test object" (givenChanges spawnTestReplica))
+                    in
+                    all
+
+                Err problem ->
+                    Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
+
+        expectAfterDecodingFrom node fromRoot expected =
+            Codec.decodeFromNode spawnTestReplicaCodec tryAddingItemToRepList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
+
+        tryAddingItemToRepList : { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List OpID.ObjectID }
+        tryAddingItemToRepList =
+            let
+                newRepList context =
+                    Codec.newWithChanges (Codec.repList writableObjectCodec) context addNewItemToRepList
+
+                addNewItemToRepList repList =
+                    [ RepList.insertNew RepList.Last [ newItem ] repList ]
+
+                newItem context =
+                    Codec.newWithChanges writableObjectCodec context newItemChanger
+
+                newItemChanger writableObjectReg =
+                    [ (Reg.latest writableObjectReg).address.set "Spawned Item Address" ]
+
+                setMaybeRepList : Reg SpawnTestReplica -> List Change
+                setMaybeRepList obj =
+                    [ (Reg.latest obj).maybeRepList.set (Just (newRepList (Reg.getContext obj))) ]
+            in
+            afterChange setMaybeRepList
+    in
+    describe "Testing spawn functions."
+        [ describe "Initialize the Maybe-wrapped RepList, adding an item with sub changes."
+            [ test "the before node should start with 0 objects" <|
+                \_ ->
+                    Node.objectCount startNode |> Expect.equal 0
+            , test "the after node should have three objects" <|
+                \_ ->
+                    Node.objectCount tryAddingItemToRepList.updatedNode |> Expect.equal 3
+            , test "the item should have been added to the replist" <|
+                \_ ->
+                    expectAfterDecodingFrom tryAddingItemToRepList.updatedNode
+                        (\root -> Maybe.map RepList.length root.maybeRepList.get)
+                        (Just 1)
             ]
         ]
