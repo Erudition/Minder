@@ -270,11 +270,7 @@ initWithClass classID parent =
 
         projectChanger : Change.Changer (Reg ProjectClass)
         projectChanger newProject =
-            [ (Reg.latest newProject).recurrenceRules.set Nothing
-            , RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children
-
-            -- so the above line creates the replist and modifies it, but fails to install it.
-            , (Reg.latest newProject).recurrenceRules.set Nothing -- changer test. WORKS.
+            [ RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children
             ]
 
         entryChildInit subparent =

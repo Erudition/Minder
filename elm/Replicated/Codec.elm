@@ -3167,13 +3167,13 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                 EncodeObjectOrThis objectIDs reg ->
                     ( Just reg, Just <| Reg.latest reg )
 
-        ( registerPointer, history, initChangeSet ) =
+        ( registerPointer, history, initChanges ) =
             case regMaybe of
                 Just ((Register regDetails) as reg) ->
-                    ( regDetails.pointer, regDetails.history, Change.collapseChangesToChangeSet [] (regDetails.init reg) )
+                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
 
                 Nothing ->
-                    ( Object.getPointer (fallbackObject []), Dict.empty, Change.emptyChangeSet )
+                    ( Object.getPointer (fallbackObject []), Dict.empty, [] )
 
         subChanges : List Change.ObjectChange
         subChanges =
@@ -3204,16 +3204,28 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                 -- TODO so we set them in slot-increasing order.
                 |> List.reverse
 
+        -- { earlier, mine, later } =
+        --     -- TODO optimizes op order, but should be unnecessary.
+        --     -- mine currently broken as it leaves a pending ref
+        --     Change.extractOwnSubChanges registerPointer initChanges
         allObjectChanges =
             subChanges
+
+        -- outputWithoutEarlyChanges =
+        --     Change.changeObjectWithExternal
+        --         { target = registerPointer
+        --         , objectChanges = allObjectChanges
+        --         , externalUpdates = later
+        --         }
+        -- outputWithEarlyChanges =
+        --     { outputWithoutEarlyChanges | changeSet = Change.mergeChanges outputWithoutEarlyChanges.changeSet (Log.logMessageOnly (Change.changeSetDebug 0 earlier) earlier) }
     in
-    soloOut
-        (Change.changeObjectWithExternal
+    soloOut <|
+        Change.changeObjectWithExternal
             { target = registerPointer
             , objectChanges = allObjectChanges
-            , externalUpdates = initChangeSet
+            , externalUpdates = Change.collapseChangesToChangeSet [] initChanges
             }
-        )
 
 
 {-| Encodes a naked record
@@ -3339,10 +3351,10 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                         -- payload must be a single nested object with no other atoms
                         if skippable then
                             -- field encoder said we can skip this one
-                            EncodeThisField <|
-                                Change.NewPayload <|
-                                    wrappedOutput val
-                            -- SkipThisField
+                            -- EncodeThisField <|
+                            --     Change.NewPayload <|
+                            --         wrappedOutput val
+                            SkipThisField
 
                         else
                             EncodeThisField <|

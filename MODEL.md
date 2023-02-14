@@ -1,0 +1,4 @@
+# GOALS
+- meets a need of a Care. same as need?
+- has (List Exemptions). Exemptions are not the same as excuses, they disable the goal entirely while the user has a certain status, such as being ill, or vacationing. If an exemption is included for a goal, it need not be considered in the implementation intentions plan.
+- has a PLAN (from WOOP) / GAME PLAN (colloquial, more specific) / STRATEGY for meeting (inner) OBSTACLES and (outer obstacles) BLOCKERs. A complete game plan is one where none of the branches end in "give up", but all have a solution (PROJECT) that satisfies the goal under the given circumstances. There is also UNPLANNED (wing it) endpoints for rare occasions that aren't worth planning in advance for (e.g. laptop is broken).

@@ -1,7 +1,8 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getObjectChanges, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
+import Html exposing (del)
 import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
@@ -9,6 +10,7 @@ import Log
 import Maybe.Extra
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
+import Result.Extra
 
 
 {-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
@@ -120,6 +122,18 @@ type alias ChangeSetDetails =
     }
 
 
+getObjectChanges : Pointer -> ChangeSet -> List ObjectChange
+getObjectChanges pointer (ChangeSet changeSet) =
+    case pointer of
+        ExistingObjectPointer existingID ->
+            AnyDict.get existingID changeSet.existingObjectChanges
+                |> Maybe.withDefault []
+
+        PlaceholderPointer pendingID _ ->
+            AnyDict.get pendingID changeSet.objectsToCreate
+                |> Maybe.withDefault []
+
+
 emptyChangeSet : ChangeSet
 emptyChangeSet =
     ChangeSet <|
@@ -219,7 +233,7 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
                                 "without parent installer"
 
                             else
-                                "with parent installer"
+                                "with " ++ String.fromInt (List.length installer) ++ " parent installers"
 
                         sayNestedChangeSet =
                             "\n" ++ changeSetDebug (indent + 2) changeSet
@@ -239,8 +253,11 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
             , sayExistingObjectChanges
             ]
                 |> List.filterMap identity
+
+        delayedCount =
+            String.fromInt (List.length changeSetToDebug.delayed)
     in
-    indentHere ++ String.join ("\n" ++ indentHere) allOuts
+    indentHere ++ ("ChangeSet with " ++ delayedCount ++ " delayed:" ++ "\n" ++ indentHere) ++ String.join ("\n" ++ indentHere) allOuts
 
 
 
@@ -468,6 +485,52 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
 isEmptyChangeSet : ChangeSet -> Bool
 isEmptyChangeSet (ChangeSet details) =
     AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && AnyDict.isEmpty details.opsToRepeat && List.isEmpty details.delayed
+
+
+extractOwnSubChanges : Pointer -> List Change -> { earlier : ChangeSet, mine : List ObjectChange, later : ChangeSet }
+extractOwnSubChanges pointer changeList =
+    -- TODO FIXME
+    -- ideally this would find changes that directly modify nested objects, and turn them into QuoteNestedObject references, with full nested contents, rather than just a pending ref and a delayed installer for the object that's already being created anyway. this optimizes op order.
+    let
+        supplyIndexToChange index (WithFrameIndex toChangeSet) =
+            toChangeSet [ index ]
+
+        listOfChangeSets =
+            List.indexedMap supplyIndexToChange changeList
+
+        getMyInitAndDescendents : ChangeSet -> Result ChangeSet ( ObjectChange, ChangeSet )
+        getMyInitAndDescendents ((ChangeSet givenChangeSetDetails) as inChangeSet) =
+            let
+                myInstallerMaybe =
+                    List.Extra.find objectChangeOfMine givenChangeSetDetails.delayed
+                        |> Maybe.map Tuple.second
+
+                objectChangeOfMine ( delayedPointer, delayedObjectChange ) =
+                    delayedPointer == pointer
+            in
+            case myInstallerMaybe of
+                Nothing ->
+                    Err inChangeSet
+
+                Just installerFound ->
+                    Ok ( installerFound, inChangeSet )
+
+        checkAllChangeSets =
+            List.map getMyInitAndDescendents listOfChangeSets
+
+        ( mySubChangeSetsAndInstallers, otherChangeSets ) =
+            Result.Extra.partition checkAllChangeSets
+
+        myObjectChanges =
+            List.map Tuple.first mySubChangeSetsAndInstallers
+
+        mySubChangeSets =
+            List.map Tuple.second mySubChangeSetsAndInstallers
+    in
+    { earlier = List.foldl mergeChanges emptyChangeSet mySubChangeSets
+    , mine = myObjectChanges
+    , later = List.foldl mergeChanges emptyChangeSet otherChangeSets
+    }
 
 
 

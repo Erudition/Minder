@@ -556,7 +556,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
         { safeToDoNow, processedMapping } =
             processDelayedInMapping pointer objectChanges postUnstampedOpMapping1a
 
-        -- -- Step 1b. Do the same for delayed changes that we can do now instead
+        -- -- Step 1b. Do the same for delayed changes that we can do now instead - if any
         ( ( postUnstampedOpCounter1b, postUnstampedOpMapping1b ), subChanges1bOutput ) =
             List.mapAccuml (objectChangeToUnstampedOp node) ( postUnstampedOpCounter1a, processedMapping ) safeToDoNow
 
@@ -581,7 +581,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
 
         --------- find out when this object was last seen, for stamping
         lastOpSeen =
-            AnyDict.get objectID postUnstampedOpMapping1b.lastSeen
+            AnyDict.get objectID postInitMapping.lastSeen
                 |> Maybe.withDefault (getLastSeen node objectID)
 
         -- Step 3. Stamp all ops with an incremental ID
@@ -677,23 +677,23 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                         ( ( postPrereqCounter, outMapping ), newPrereqChunks ) =
                             oneChangeSetToOpChunks node ( accumulated.counter, accumulated.mapping ) soloObject.changeSet
 
-                        ( pointerPayloadAsList, installers ) =
+                        pointerPayloadAsList =
                             case soloObject.toReference of
                                 Change.ExistingObjectPointer existingID ->
-                                    ( [ Op.IDPointerAtom existingID.object ], [] )
+                                    [ Op.IDPointerAtom existingID.object ]
 
                                 Change.PlaceholderPointer pendingID nestedInstallers ->
                                     case AnyDict.get pendingID outMapping.assignedIDs of
                                         Just outputObject ->
-                                            ( [ Op.IDPointerAtom outputObject ], nestedInstallers )
+                                            [ Op.IDPointerAtom outputObject ]
 
                                         Nothing ->
-                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) ( [], [] )
+                                            Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) []
                     in
                     { counter = postPrereqCounter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ newPrereqChunks
                     , piecesSoFar = accumulated.piecesSoFar ++ pointerPayloadAsList
-                    , mapping = { outMapping | delayed = outMapping.delayed }
+                    , mapping = outMapping
                     }
 
                 Change.NestedAtoms nestedChangeAtoms ->
@@ -715,7 +715,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
 
                     -- TODO below may get multi-atom values confused with multiple values
                     , piecesSoFar = accumulated.piecesSoFar ++ finalNestedPayloadAsString
-                    , mapping = accumulated.mapping
+                    , mapping = outputAtoms.mapping
                     }
 
         outputHelper pieceList reference =
