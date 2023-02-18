@@ -24,50 +24,59 @@ import Task.AssignedAction exposing (AssignedAction)
 import Task.Series exposing (Series(..))
 
 
+
+--  TOPMOST LAYERS: ENTRIES & CONTAINERS OF ASSIGNABLES -------------------------------
+
+
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
-
-We could eliminate all the redundant wrapper containers, but for now it's easier to just say:
-
-  - Every "Entry" is a WrapperContainer.
-  - Every TaskClass is in a FollowerContainer, no matter what
-
 -}
-type alias Entry =
-    SuperProject
+type alias RootEntry =
+    NestedOrAssignable
 
 
 codec =
-    superProjectCodec
+    nestedOrAssignableCodec
 
 
-decodeEntry : Decoder Entry
-decodeEntry =
-    customDecoder Decode.value (Result.mapError (\e -> "") << Codec.decodeFromJson superProjectCodec)
-
-
-encodeEntry entry =
-    Codec.encodeToJson superProjectCodec entry
-
-
-
--- ...etc
-{- type alias TaskTemplate =
-   { title : String
-   , completion : Progress
-   , id : TaskTemplateID
-   , minEffort : Duration
-   , predictedEffort : Duration
-   , maxEffort : Duration
-   , tags : List TagId
-   , activity : Maybe ActivityID -- ActionClass
-   , deadline : Maybe FuzzyMoment -- ActionClass
-   , plannedStart : Maybe FuzzyMoment -- PlannedSession
-   , plannedFinish : Maybe FuzzyMoment -- PlannedSession
-   , relevanceStarts : Maybe FuzzyMoment -- ActionClass, but relative? & Instance, absolute
-   , relevanceEnds : Maybe FuzzyMoment -- ActionClass, but relative? & Instance, absolute
-   , importance : Float -- ActionClass
-   }
+{-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
 -}
+type alias ContainerOfAssignables =
+    { properties : Reg ParentProperties
+    , children : RepList NestedOrAssignable
+    }
+
+
+containerOfAssignablesCodec : SkelCodec String ContainerOfAssignables
+containerOfAssignablesCodec =
+    Codec.record ContainerOfAssignables
+        |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
+        |> Codec.fieldList ( 2, "children" ) .children nestedOrAssignableCodec
+        |> Codec.finishRecord
+
+
+type NestedOrAssignable
+    = AssignableIsDeeper ContainerOfAssignables
+    | AssignableIsHere (Reg Assignable)
+
+
+nestedOrAssignableCodec : Codec.NullCodec String NestedOrAssignable
+nestedOrAssignableCodec =
+    Codec.customType
+        (\leaderIsDeeper leaderIsHere value ->
+            case value of
+                AssignableIsDeeper wrapperParent ->
+                    leaderIsDeeper wrapperParent
+
+                AssignableIsHere leaderParent ->
+                    leaderIsHere leaderParent
+        )
+        |> Codec.variant1 ( 1, "AssignableIsDeeper" ) AssignableIsDeeper (Codec.lazy (\_ -> containerOfAssignablesCodec))
+        |> Codec.variant1 ( 2, "AssignableIsHere" ) AssignableIsHere assignableCodec
+        |> Codec.finishCustomType
+
+
+
+--  MIDDLE LAYER: ASSIGNABLES -------------------------------
 
 
 {-| A "Parent" task is actually a container of subtasks. A RecurringParent contains tasks (or a single task!) that repeat, all at the same time and by the same pattern. Since it doesn't make sense for individual tasks to recur in a different way from their siblings, all recurrence behavior of tasks comes from this type of parent.
@@ -75,57 +84,22 @@ encodeEntry entry =
 Parents that contain only a single task are transparently unwrapped to appear like single tasks - in this case, with recurrence applied. Since it doesn't make sense for a bundle of tasks that recur on some schedule to contain other bundles of tasks with their own schedule and instances, all children of RecurringParents are considered "Constrained" and cannot contain recurrence information. This ensures that only one ancestor of a task dictates its recurrence pattern.
 
 -}
-type alias ProjectClass =
+type alias Assignable =
     { properties : Reg ParentProperties
     , recurrenceRules : RW (Maybe Series)
-    , children : RepList TaskClass
+
+    -- children can't be just a NestedOrAction (though that would make the single case simpler) because retroedits that add a sibling would overwrite the whole thing
+    , children : RepList NestedOrAction
     }
 
 
-projectCodec : WrappedCodec String (Reg ProjectClass)
-projectCodec =
-    Codec.record ProjectClass
+assignableCodec : WrappedCodec String (Reg Assignable)
+assignableCodec =
+    Codec.record Assignable
         |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
         |> Codec.fieldRW ( 2, "recurrenceRules" ) .recurrenceRules (Codec.maybe (Codec.quickEnum Series [])) Nothing
-        |> Codec.fieldList ( 3, "children" ) .children taskClassCodec
+        |> Codec.fieldList ( 3, "children" ) .children nestedOrActionCodec
         |> Codec.finishRegister
-
-
-{-| An "Unconstrained" group of tasks has no recurrence rules, but one or more of its children may be containers that do (RecurringParents). UnconstrainedParents may contain infinitely nested UnconstrainedParents, until the level at which a RecurringParent appears.
--}
-type alias SuperProject =
-    { properties : Reg ParentProperties
-    , children : RepList SuperProjectChild
-    }
-
-
-superProjectCodec : SkelCodec String SuperProject
-superProjectCodec =
-    Codec.record SuperProject
-        |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
-        |> Codec.fieldList ( 2, "children" ) .children superProjectChildCodec
-        |> Codec.finishRecord
-
-
-type SuperProjectChild
-    = ProjectIsDeeper SuperProject
-    | ProjectIsHere (Reg ProjectClass)
-
-
-superProjectChildCodec : Codec.NullCodec String SuperProjectChild
-superProjectChildCodec =
-    Codec.customType
-        (\leaderIsDeeper leaderIsHere value ->
-            case value of
-                ProjectIsDeeper wrapperParent ->
-                    leaderIsDeeper wrapperParent
-
-                ProjectIsHere leaderParent ->
-                    leaderIsHere leaderParent
-        )
-        |> Codec.variant1 ( 1, "ProjectIsDeeper" ) ProjectIsDeeper (Codec.lazy (\_ -> superProjectCodec))
-        |> Codec.variant1 ( 2, "ProjectIsHere" ) ProjectIsHere projectCodec
-        |> Codec.finishCustomType
 
 
 {-| A "constrained" group of tasks has already had its recurrence rules set by one of it's ancestors, or does not recur at all. Since a task can only be in one RecurrenceParent container, its children (ConstrainedParents) can not have recurrence rules of its own (nor can any of its descendants).
@@ -133,162 +107,147 @@ superProjectChildCodec =
 Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedParents.
 
 -}
-type alias TaskClass =
+type alias ContainerOfActions =
     { properties : Reg ParentProperties
-    , children : RepList TaskClassChild
+    , children : RepList NestedOrAction
     }
 
 
-taskClassCodec : SkelCodec String TaskClass
-taskClassCodec =
-    Codec.record TaskClass
+containerOfActionsCodec : SkelCodec String ContainerOfActions
+containerOfActionsCodec =
+    Codec.record ContainerOfActions
         |> Codec.fieldReg ( 1, "properties" ) .properties parentPropertiesCodec
-        |> Codec.fieldList ( 2, "children" ) .children taskClassChildCodec
+        |> Codec.fieldList ( 2, "children" ) .children nestedOrActionCodec
         |> Codec.finishRecord
 
 
 
-{- every task must be wrapped in a parent, even if it's alone
-   parents have instances, not tasks
-   ...but then how to track the completion of the subtasks?
-   by storing the subtask instances in a separate Dict, each tagged with the parent's instance ID.
-    A failed lookup just means an incomplete task, defaults used for everything
+--  BOTTOM LAYER: ACTIONS --------------------------------------
 
-   How can we let parents have parents?
-   Well, we still only want one set of instances/recurrence in a given tree, so let's make "subparents" that still function as containers but have no recurrence rules or instances. Then any parent can contain either a subtask, or a subparent.
 
-   ...Yeah, but the problem with that, is what if you want recurrence to happen at the level of one of the subparents? Say you have a project that is one-time but one of the sub-projects is supposed to repeat.
+{-| every task must be wrapped in a parent, even if it's alone
+parents have instances, tasks do not
+...but then how to track the completion of the subtasks?
+by storing the subtask instances in a separate Dict, each tagged with the parent's instance ID.
+A failed lookup just means an incomplete task, defaults used for everything
+
+How can we let parents have parents?
+Well, we still only want one set of instances/recurrence in a given tree, so let's make "subparents" that still function as containers but have no recurrence rules or instances. Then any parent can contain either a subtask, or a subparent.
+
+...Yeah, but the problem with that, is what if you want recurrence to happen at the level of one of the subparents? Say you have a project that is one-time but one of the sub-projects is supposed to repeat.
 
 -}
+type NestedOrAction
+    = ActionIsHere (Reg ActionClassSkel)
+    | ActionIsDeeper ContainerOfActions
 
 
-type TaskClassChild
-    = Singleton ActionClassID
-    | Nested TaskClass
-
-
-taskClassChildCodec : NullCodec String TaskClassChild
-taskClassChildCodec =
+nestedOrActionCodec : NullCodec String NestedOrAction
+nestedOrActionCodec =
     Codec.customType
         (\singleton nested value ->
             case value of
-                Singleton classID ->
-                    singleton classID
+                ActionIsHere action ->
+                    singleton action
 
-                Nested followerParent ->
+                ActionIsDeeper followerParent ->
                     nested followerParent
         )
-        -- Note that removing a variant, inserting a variant before an existing one, or swapping two variants will prevent you from decoding any data you've previously encoded.
-        |> Codec.variant1 ( 1, "Singleton" ) Singleton Codec.id
-        |> Codec.variant1 ( 2, "Nested" ) Nested (Codec.lazy (\_ -> taskClassCodec))
+        |> Codec.variant1 ( 1, "ActionIsHere" ) ActionIsHere Task.ActionClass.codec
+        |> Codec.variant1 ( 2, "ActionIsDeeper" ) ActionIsDeeper (Codec.lazy (\_ -> containerOfActionsCodec))
         |> Codec.finishCustomType
 
 
-{-| Take all the Entries and flatten them into a list of Classes
+
+--  TRAVERSE & FLATTEN LAYERS --------------------------------------
+
+
+{-| Take all the Entries and flatten them into a list of Actions
 -}
-getClassesFromEntries : ( RepList Entry, ActionClassDb ) -> ( List ActionClass, List Warning )
-getClassesFromEntries ( entries, classDb ) =
+flattenEntriesToActions : RepList RootEntry -> List ActionClass
+flattenEntriesToActions entries =
+    List.concatMap traverseEntries (RepList.listValues entries)
+
+
+traverseEntries : NestedOrAssignable -> List ActionClass
+traverseEntries entry =
+    insideContainerOfAssignables [] entry
+
+
+traverseContainerOfAssignables : List (Reg ParentProperties) -> ContainerOfAssignables -> List ActionClass
+traverseContainerOfAssignables accumulator parent =
+    List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
+
+
+insideContainerOfAssignables : List (Reg ParentProperties) -> NestedOrAssignable -> List ActionClass
+insideContainerOfAssignables accumulator child =
+    case child of
+        AssignableIsDeeper parent ->
+            traverseContainerOfAssignables (parent.properties :: accumulator) parent
+
+        AssignableIsHere leaderClass ->
+            traverseAssignable ((Reg.latest leaderClass).properties :: accumulator) leaderClass
+
+
+traverseAssignable : List (Reg ParentProperties) -> Reg Assignable -> List ActionClass
+traverseAssignable accumulator leaderParent =
+    List.concatMap (insideContainerOfActions accumulator (Reg.latest leaderParent).recurrenceRules.get) (RepList.listValues (Reg.latest leaderParent).children)
+
+
+traverseContainerOfActions : List (Reg ParentProperties) -> Maybe Series -> ContainerOfActions -> List ActionClass
+traverseContainerOfActions accumulator recurrenceRules class =
+    -- TODO do we need to collect props here
+    List.concatMap (insideContainerOfActions accumulator recurrenceRules) (RepList.listValues class.children)
+
+
+insideContainerOfActions : List (Reg ParentProperties) -> Maybe Series -> NestedOrAction -> List ActionClass
+insideContainerOfActions accumulator recurrenceRules child =
+    case child of
+        ActionIsHere action ->
+            -- we've reached the bottom
+            List.singleton <| makeFullActionClass accumulator recurrenceRules action
+
+        ActionIsDeeper followerParent ->
+            traverseContainerOfActions (followerParent.properties :: accumulator) recurrenceRules followerParent
+
+
+
+-- addActionToClass : ActionClassID -> ContainerOfActions -> Change
+-- addActionToClass actionClassID classToModify =
+--     let
+--         taskClassChild =
+--             ActionIsHere actionClassID
+--     in
+--     RepList.insert RepList.Last taskClassChild classToModify.children
+
+
+initWithClass : Reg ActionClassSkel -> Change.Creator RootEntry
+initWithClass actionSkelReg parent =
     let
-        traverseRootWrappers : SuperProject -> List (Result Warning ActionClass)
-        traverseRootWrappers entry =
-            traverseWrapperParent (appendPropsIfMeaningful [] entry.properties) entry
-
-        -- flatten the hierarchy if a container serves no purpose
-        appendPropsIfMeaningful : List (Reg ParentProperties) -> Reg ParentProperties -> List (Reg ParentProperties)
-        appendPropsIfMeaningful oldList newParentProps =
-            if (Reg.latest newParentProps).title.get /= Nothing then
-                newParentProps :: oldList
-
-            else
-                oldList
-
-        traverseWrapperParent : List (Reg ParentProperties) -> SuperProject -> List (Result Warning ActionClass)
-        traverseWrapperParent accumulator parent =
-            List.concatMap (traverseWrapperChild accumulator) (RepList.listValues parent.children)
-
-        traverseLeaderParent : List (Reg ParentProperties) -> Reg ProjectClass -> List (Result Warning ActionClass)
-        traverseLeaderParent accumulator leaderParent =
-            List.concatMap (traverseFollowerParent accumulator (Reg.latest leaderParent).recurrenceRules.get) (RepList.listValues (Reg.latest leaderParent).children)
-
-        traverseFollowerParent : List (Reg ParentProperties) -> Maybe Series -> TaskClass -> List (Result Warning ActionClass)
-        traverseFollowerParent accumulator recurrenceRules class =
-            -- TODO do we need to collect props here
-            List.concatMap (traverseFollowerChild accumulator recurrenceRules) (RepList.listValues class.children)
-
-        traverseFollowerChild : List (Reg ParentProperties) -> Maybe Series -> TaskClassChild -> List (Result Warning ActionClass)
-        traverseFollowerChild accumulator recurrenceRules child =
-            case child of
-                Singleton classID ->
-                    case RepDb.getMember classID classDb of
-                        Just classSkelReg ->
-                            List.singleton <| Ok <| makeFullActionClass accumulator recurrenceRules classSkelReg
-
-                        Nothing ->
-                            List.singleton <| Err <| LookupFailure classID
-
-                Nested followerParent ->
-                    traverseFollowerParent (appendPropsIfMeaningful accumulator followerParent.properties) recurrenceRules followerParent
-
-        traverseWrapperChild : List (Reg ParentProperties) -> SuperProjectChild -> List (Result Warning ActionClass)
-        traverseWrapperChild accumulator child =
-            case child of
-                ProjectIsDeeper parent ->
-                    traverseWrapperParent (appendPropsIfMeaningful accumulator parent.properties) parent
-
-                ProjectIsHere leaderClass ->
-                    traverseLeaderParent (appendPropsIfMeaningful accumulator (Reg.latest leaderClass).properties) leaderClass
-    in
-    Result.partition <| List.concatMap traverseRootWrappers (RepList.listValues entries)
-
-
-type Warning
-    = LookupFailure ActionClassID
-
-
-addActionToClass : ActionClassID -> TaskClass -> Change
-addActionToClass actionClassID classToModify =
-    let
-        taskClassChild =
-            Singleton actionClassID
-    in
-    RepList.insert RepList.Last taskClassChild classToModify.children
-
-
-initWithClass : ActionClassID -> Change.Creator Entry
-initWithClass classID parent =
-    let
-        taskClassInit : Change.Creator TaskClass
-        taskClassInit subparent =
+        initContainerOfActions : Change.Creator ContainerOfActions
+        initContainerOfActions subparent =
             { properties = Codec.new parentPropertiesCodec subparent
-            , children = Codec.newWithChanges (Codec.repList taskClassChildCodec) subparent taskClassChildrenChanger
+            , children = Codec.newWithChanges (Codec.repList nestedOrActionCodec) subparent taskClassChildrenChanger
             }
 
-        taskClassChildrenChanger : RepList TaskClassChild -> List Change
+        taskClassChildrenChanger : RepList NestedOrAction -> List Change
         taskClassChildrenChanger newChildren =
-            [ RepList.insert RepList.Last (Singleton classID) newChildren
+            [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
             ]
 
-        projectChanger : Change.Changer (Reg ProjectClass)
-        projectChanger newProject =
-            [ RepList.insertNew RepList.Last [ taskClassInit ] (Reg.latest newProject).children
-            ]
+        assignableChanger : Change.Changer (Reg Assignable)
+        assignableChanger newAssignable =
+            taskClassChildrenChanger (Reg.latest newAssignable).children
 
-        entryChildInit subparent =
-            Codec.newWithChanges projectCodec subparent projectChanger
+        assignableInit subparent =
+            Codec.newWithChanges assignableCodec subparent assignableChanger
 
         parentPropertiesChanger : Reg ParentProperties -> List Change
         parentPropertiesChanger newParentProperties =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
-
-        superProjectChildrenChanger : RepList SuperProjectChild -> List Change
-        superProjectChildrenChanger newChildren =
-            [ RepList.insertNew RepList.Last [ \c2 -> ProjectIsHere (entryChildInit c2) ] newChildren
-            ]
     in
-    { properties = Codec.newWithChanges parentPropertiesCodec parent parentPropertiesChanger
-    , children = Codec.newWithChanges (Codec.repList superProjectChildCodec) parent superProjectChildrenChanger
-    }
+    AssignableIsHere (assignableInit parent)
 
 
 

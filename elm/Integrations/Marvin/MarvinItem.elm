@@ -15,10 +15,10 @@ import Profile exposing (Profile)
 import Regex
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration(..))
 import SmartTime.Human.Calendar exposing (CalendarDate(..))
 import SmartTime.Human.Calendar.Month exposing (Month(..))
@@ -387,8 +387,8 @@ projectToDocketActivity activities marvinCategory =
 toDocketTask : Profile -> MarvinItem -> List Change
 toDocketTask profile marvinItem =
     let
-        ( existingClasses, _ ) =
-            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+        existingClasses =
+            Task.Entry.flattenEntriesToActions profile.taskEntries
 
         existingClassesWithMarvinLink =
             Dict.fromList <| List.filterMap pairClassWithMarvinIDMaybe existingClasses
@@ -434,7 +434,7 @@ toDocketTask profile marvinItem =
             Dict.fromList <| List.filterMap pairInstanceWithMarvinIDMaybe (RepDb.members profile.taskInstances)
 
         pairInstanceWithMarvinIDMaybe member =
-            case RepDict.get "marvinID" ((Reg.latest member.value).extra) of
+            case RepDict.get "marvinID" (Reg.latest member.value).extra of
                 Just marvinID ->
                     Just ( marvinID, member.id )
 
@@ -846,7 +846,7 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
         Just foundAssignment ->
             case Dict.get foundAssignment activityLookup of
                 Nothing ->
-                    [ RepList.insertNew RepList.Last [(buildWithTag foundAssignment)] profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last [ buildWithTag foundAssignment ] profile.timeBlocks ]
 
                 Just foundActivity ->
-                    [ RepList.insertNew RepList.Last [(buildWithActivity foundActivity)] profile.timeBlocks ]
+                    [ RepList.insertNew RepList.Last [ buildWithActivity foundActivity ] profile.timeBlocks ]

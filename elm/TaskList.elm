@@ -854,27 +854,24 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle ->
                     let
-                        -- make a new ActionClass from Reg Skel
-                        newClassInit : Change.Creator (Reg Class.ActionClassSkel)
-                        newClassInit c =
-                            Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
-
-                        -- add new entry and instance to profile
-                        newClassChanger : Reg Class.ActionClassSkel -> List Change
-                        newClassChanger newClass =
-                            [ -- Quoting the ID works!!
-                              RepDb.addNew (Instance.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
-                            , RepList.insertNew RepList.Last
-                                [ \c -> Entry.initWithClass (Reg.getPointer newClass |> ID.fromPointer) c ]
-                                profile.taskEntries
-                            ]
+                        newAction : Change.Creator (Reg Class.ActionClassSkel)
+                        newAction c =
+                            let
+                                newClassChanger : Reg Class.ActionClassSkel -> List Change
+                                newClassChanger newClass =
+                                    [ RepDb.addNew (Instance.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                    ]
+                            in
+                            Class.newActionClassSkel c (Class.normalizeTitle ("Action: " ++ newTaskTitle)) newClassChanger
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
 
                         finalChanges =
-                            [ RepList.insert RepList.Last newTaskTitle profile.errors
-                            , RepDb.addNew newClassInit profile.taskClasses
+                            [ RepList.insert RepList.Last ("Added item: " ++ newTaskTitle) profile.errors
+                            , RepList.insertNew RepList.Last
+                                [ \c -> Entry.initWithClass (newAction c) c ]
+                                profile.taskEntries
                             ]
                     in
                     ( Normal filters Nothing ""

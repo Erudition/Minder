@@ -108,17 +108,15 @@ type alias ActionClass =
     , recurrence : Maybe Task.Series.Series
     , class : Reg ActionClassSkel
     , classID : ActionClassID
-    , remove : Change
     }
 
 
-makeFullActionClass : List (Reg ParentProperties) -> Maybe Task.Series.Series -> RepDb.Member (Reg ActionClassSkel) -> ActionClass
-makeFullActionClass parentPropsRegList recurrenceRules classSkelMember =
+makeFullActionClass : List (Reg ParentProperties) -> Maybe Task.Series.Series -> Reg ActionClassSkel -> ActionClass
+makeFullActionClass parentPropsRegList recurrenceRules action =
     { parents = parentPropsRegList
     , recurrence = recurrenceRules
-    , class = classSkelMember.value
-    , classID = classSkelMember.id
-    , remove = classSkelMember.remove
+    , class = action
+    , classID = ID.fromPointer (Reg.getPointer action)
     }
 
 

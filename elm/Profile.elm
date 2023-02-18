@@ -41,7 +41,7 @@ type alias AppInstance =
 
 type alias Profile =
     { errors : RepList String
-    , taskEntries : RepList Task.Entry.Entry
+    , taskEntries : RepList Task.Entry.RootEntry
     , taskClasses : ActionClassDb
     , taskInstances : AssignedActionDb
     , activities : Activity.Store
@@ -116,8 +116,8 @@ saveError appData error =
 instanceListNow : Profile -> Environment -> List Task.AssignedAction.AssignedAction
 instanceListNow profile env =
     let
-        ( fullClasses, warnings ) =
-            Task.Entry.getClassesFromEntries ( profile.taskEntries, profile.taskClasses )
+        fullClasses =
+            Task.Entry.flattenEntriesToActions profile.taskEntries
 
         zoneHistory =
             -- TODO
