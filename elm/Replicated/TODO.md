@@ -1,6 +1,8 @@
 # Now
-- [ ] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix and write test
-- [ ] Determine what parts of Node.processDelayedInMapping is now unneeded
+- [ ] Fix case where pointers merge for some reason
+- [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix 
+- [ ] write test for above
+- [ ] Determine what parts of Node.processDelayedInMapping are now unneeded
 - [ ] Test delayed changes getting pulled into later object init rather than done last
 - [ ] Determine why delayed changes need to be reversed
 - [X] Stop producing redundant delayed changes. Join adjacent same-object changes
