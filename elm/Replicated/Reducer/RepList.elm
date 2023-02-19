@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove, Item)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), Item, RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -9,7 +9,8 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..), Pointer, Creator)
+import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Creator, Parent(..), Pointer)
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -25,7 +26,7 @@ type RepList memberType
         { pointer : Pointer
         , members : List (Item memberType)
         , included : Object.InclusionInfo
-        , memberAdder : Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange
+        , memberAdder : Location -> memberType -> Maybe OpID -> Change.ObjectChange
         , startWith : Changer (RepList memberType)
         }
 
@@ -68,7 +69,7 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> RepList memberType
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Location -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> RepList memberType
 buildFromReplicaDb targetObject payloadToMember memberAdder init =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
@@ -188,7 +189,7 @@ attachmentPointHelper containerPointer insertionPoint =
             Just opID
 
         First ->
-            (Change.getPointerObjectID containerPointer)
+            Change.getPointerObjectID containerPointer
 
 
 {-| Insert an item at the given location.
@@ -200,12 +201,11 @@ insert insertionPoint newItem (RepList repSetRecord) =
             Change.changeObject
                 { target = repSetRecord.pointer
                 , objectChanges =
-                    [ repSetRecord.memberAdder ("insert" ++ Change.frameIndexString frameIndex) newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
+                    [ repSetRecord.memberAdder (Location.nestSingle frameIndex "insert") newItem (attachmentPointHelper repSetRecord.pointer insertionPoint) ]
                 }
                 |> .changeSet
     in
     Change.WithFrameIndex finalChangeSet
-
 
 
 {-| Add items at the given location.
@@ -214,8 +214,8 @@ append : InsertionPoint -> List memberType -> RepList memberType -> Change
 append insertionPoint newItems (RepList record) =
     let
         newItemToObjectChange frameIndex newIndex newItem =
-            record.memberAdder (Change.frameIndexString frameIndex ++  "append#" ++ String.fromInt newIndex) newItem (attachmentPointHelper record.pointer insertionPoint)
-    
+            record.memberAdder (Location.nest frameIndex "append" newIndex) newItem (attachmentPointHelper record.pointer insertionPoint)
+
         finalChangeSet frameIndex =
             Change.changeObject
                 { target = record.pointer
@@ -237,7 +237,7 @@ remove (Handle itemToRemove) (RepList record) =
                 , objectChanges =
                     [ Change.RevertOp itemToRemove ]
                 }
-         |> .changeSet
+                |> .changeSet
     in
     Change.WithFrameIndex finalChangeSet
 
@@ -252,7 +252,7 @@ length (RepList record) =
 getInit : RepList memberType -> ChangeSet
 getInit ((RepList record) as repList) =
     record.startWith repList
-    |> Change.collapseChangesToChangeSet []
+        |> Change.collapseChangesToChangeSet "RepListInit"
 
 
 {-| Insert items at the given location, which must be created anew with a context clue.
@@ -265,15 +265,14 @@ insertNew : InsertionPoint -> List (Creator memberType) -> RepList memberType ->
 insertNew insertionPoint newItemCreators (RepList record) =
     let
         newItem frameIndex index creator =
-            creator (Change.Context (index :: frameIndex) (Change.becomeInstantParent record.pointer))
-
+            creator (Change.Context (Location.nest frameIndex "repListInsertNew" index) (Change.becomeInstantParent record.pointer))
 
         newItems frameIndex =
             List.indexedMap (newItem frameIndex) newItemCreators
 
-
-        memberToObjectChange item =
-            record.memberAdder "insertNew" item refMaybe
+        memberToObjectChange frameIndex item =
+            -- the child# is only passed to the frameIndex of the child creator
+            record.memberAdder (Location.nestSingle frameIndex "insertNew") item refMaybe
 
         refMaybe =
             attachmentPointHelper record.pointer insertionPoint
@@ -281,7 +280,7 @@ insertNew insertionPoint newItemCreators (RepList record) =
         finalChangeSet frameIndex =
             Change.changeObject
                 { target = record.pointer
-                , objectChanges = List.map (memberToObjectChange) (newItems frameIndex)
+                , objectChanges = List.map (memberToObjectChange frameIndex) (newItems frameIndex)
                 }
                 |> .changeSet
     in

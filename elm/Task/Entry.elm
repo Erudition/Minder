@@ -222,7 +222,7 @@ insideContainerOfActions accumulator recurrenceRules child =
 
 
 initWithClass : Reg ActionClassSkel -> Change.Creator RootEntry
-initWithClass actionSkelReg parent =
+initWithClass actionSkelReg entryListParent =
     let
         initContainerOfActions : Change.Creator ContainerOfActions
         initContainerOfActions subparent =
@@ -232,7 +232,7 @@ initWithClass actionSkelReg parent =
 
         taskClassChildrenChanger : RepList NestedOrAction -> List Change
         taskClassChildrenChanger newChildren =
-            [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
+            [ RepList.insert RepList.Last (ActionIsHere (Debug.log "ActionSkelReg" actionSkelReg)) newChildren
             ]
 
         assignableChanger : Change.Changer (Reg Assignable)
@@ -247,7 +247,7 @@ initWithClass actionSkelReg parent =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
     in
-    AssignableIsHere (assignableInit parent)
+    AssignableIsHere (Debug.log "assignable" <| assignableInit entryListParent)
 
 
 

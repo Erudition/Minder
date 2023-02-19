@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SiblingIndex, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, frameIndexString, genesisContext, genesisParent, genesisPointer, getContextParent, getObjectChanges, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -8,6 +8,7 @@ import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
+import Replicated.Change.Location as Location exposing (Location, toString)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Result.Extra
@@ -23,18 +24,14 @@ type ChangeSet
 
 
 type Change
-    = WithFrameIndex (FrameIndex -> ChangeSet)
+    = WithFrameIndex (Location -> ChangeSet)
 
 
-type alias FrameIndex =
-    List Int
-
-
-collapseChangesToChangeSet : FrameIndex -> List Change -> ChangeSet
-collapseChangesToChangeSet context changes =
+collapseChangesToChangeSet : String -> List Change -> ChangeSet
+collapseChangesToChangeSet layerName changes =
     let
-        supplyIndexToChange index (WithFrameIndex toChangeSet) =
-            toChangeSet (index :: context)
+        supplyIndexToChange newIndex (WithFrameIndex toChangeSet) =
+            toChangeSet (Location.new layerName newIndex)
 
         listOfChangeSets =
             List.indexedMap supplyIndexToChange changes
@@ -52,26 +49,14 @@ existingIDToString { reducer, object } =
     reducer ++ OpID.toString object
 
 
-pendingIDToComparable : PendingID -> List String
+pendingIDToComparable : PendingID -> List Int
 pendingIDToComparable pendingID =
-    let
-        ( parent, ancestors ) =
-            case pendingID.location of
-                ParentExists objectID siblings ->
-                    ( OpID.toString objectID, Nonempty.toList siblings )
-
-                ParentPending reducerID siblings ->
-                    ( reducerID, Nonempty.toList siblings )
-
-                ParentIsRoot ->
-                    ( "root", [] )
-    in
-    [ pendingID.reducer, parent ] ++ List.reverse ancestors
+    Location.toComparable (pendingObjectGlobalLocation pendingID)
 
 
 pendingIDToString : PendingID -> String
 pendingIDToString pendingID =
-    String.join " -> " (pendingIDToComparable pendingID)
+    Location.toString (pendingObjectGlobalLocation pendingID)
 
 
 {-| A helper to union two AnyDicts of Lists, by concatenating the Lists on collision rather than overwriting.
@@ -115,7 +100,7 @@ mergeMaybeChange maybeChange change =
 
 
 type alias ChangeSetDetails =
-    { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
+    { objectsToCreate : AnyDict (List Int) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
     , delayed : List DelayedChange
     , opsToRepeat : OpDb
@@ -153,7 +138,7 @@ emptyExistingObjectChanges =
     AnyDict.empty existingIDToComparable
 
 
-emptyObjectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
+emptyObjectsToCreate : AnyDict (List Int) PendingID (List ObjectChange)
 emptyObjectsToCreate =
     AnyDict.empty pendingIDToComparable
 
@@ -346,7 +331,8 @@ type ObjectChange
 
 type alias PendingID =
     { reducer : Op.ReducerID
-    , location : PendingObjectLocation
+    , myLocation : Location
+    , parentLocation : Maybe Location
     }
 
 
@@ -493,7 +479,7 @@ extractOwnSubChanges pointer changeList =
     -- ideally this would find changes that directly modify nested objects, and turn them into QuoteNestedObject references, with full nested contents, rather than just a pending ref and a delayed installer for the object that's already being created anyway. this optimizes op order.
     let
         supplyIndexToChange index (WithFrameIndex toChangeSet) =
-            toChangeSet [ index ]
+            toChangeSet (Location.new "extractOwnSubChanges" index)
 
         listOfChangeSets =
             List.indexedMap supplyIndexToChange changeList
@@ -609,7 +595,7 @@ type Frame
 
 saveChanges : String -> List Change -> Frame
 saveChanges description changes =
-    Frame { changes = collapseChangesToChangeSet [] changes, description = description }
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = description }
 
 
 {-| An empty Frame, for when you have no changes to save.
@@ -653,7 +639,7 @@ equalPointers pointer1 pointer2 =
             objectID1 == objectID2
 
         ( PlaceholderPointer pendingID1 _, PlaceholderPointer pendingID2 _ ) ->
-            pendingID1.reducer == pendingID2.reducer && pendingLocationMatch pendingID1.location pendingID2.location
+            pendingID1 == pendingID2
 
         _ ->
             False
@@ -683,38 +669,27 @@ type alias ChildInstaller =
     PendingID -> DelayedChange
 
 
-type PendingCounter
-    = PendingCounter (List SiblingIndex)
-    | PendingWildcard
+pendingObjectGlobalLocation : PendingID -> Location
+pendingObjectGlobalLocation { reducer, myLocation, parentLocation } =
+    case parentLocation of
+        Nothing ->
+            Location.nestSingle myLocation reducer
+
+        Just foundParentLoc ->
+            Location.wrap foundParentLoc myLocation reducer
 
 
-type PendingObjectLocation
-    = ParentExists ObjectID (Nonempty SiblingIndex)
-    | ParentPending Op.ReducerID (Nonempty SiblingIndex)
-    | ParentIsRoot
-
-
-type alias PendingLocationString =
-    String
-
-
-type alias SiblingIndex =
-    String
-
-
-pendingLocationMatch : PendingObjectLocation -> PendingObjectLocation -> Bool
-pendingLocationMatch pendingID1 pendingID2 =
-    pendingID1 == pendingID2
-
-
-newPointer : { parent : Parent, position : Nonempty SiblingIndex, reducerID : Op.ReducerID } -> Pointer
+newPointer : { parent : Parent, position : Location, reducerID : Op.ReducerID } -> Pointer
 newPointer { parent, position, reducerID } =
     case parent of
-        Parent (ExistingObjectPointer objectID) childInstallerMaybe ->
+        Parent (ExistingObjectPointer { object }) childInstallerMaybe ->
             let
                 newPendingID : PendingID
                 newPendingID =
-                    PendingID reducerID (ParentExists objectID.object position)
+                    { reducer = reducerID
+                    , myLocation = position
+                    , parentLocation = Just <| Location.newSingle (OpID.toString object)
+                    }
 
                 childInstallChanges : List DelayedChange
                 childInstallChanges =
@@ -744,32 +719,22 @@ newPointer { parent, position, reducerID } =
 
                 newPendingID : PendingID
                 newPendingID =
-                    case parentPendingID.location of
-                        ParentExists parentObjectID parentPosition ->
-                            PendingID reducerID (ParentPending parentPendingID.reducer (Nonempty.append position parentPosition))
-
-                        ParentPending grandparentReducerID parentPosition ->
-                            PendingID reducerID (ParentPending parentPendingID.reducer (Nonempty.append position parentPosition))
-
-                        ParentIsRoot ->
-                            PendingID reducerID (ParentPending parentPendingID.reducer position)
+                    { reducer = reducerID
+                    , myLocation = position
+                    , parentLocation = Just <| pendingObjectGlobalLocation parentPendingID
+                    }
             in
             PlaceholderPointer newPendingID finalInstallChanges
 
 
-genesisPointer : Pointer
-genesisPointer =
-    PlaceholderPointer (PendingID "genesis" ParentIsRoot) []
+genesisParent : String -> Parent
+genesisParent whereWeStarted =
+    Parent (PlaceholderPointer (PendingID (whereWeStarted ++ "-root") Location.none Nothing) []) Nothing
 
 
-genesisParent : Parent
-genesisParent =
-    Parent genesisPointer Nothing
-
-
-genesisContext : Context
-genesisContext =
-    Context [] genesisParent
+startContext : String -> Context
+startContext reasonForNewContext =
+    Context Location.none (genesisParent reasonForNewContext)
 
 
 getContextParent : Context -> Parent
@@ -777,15 +742,14 @@ getContextParent (Context _ parent) =
     parent
 
 
+getContextLocation : Context -> Location
+getContextLocation (Context location parent) =
+    location
+
+
 contextDifferentiatorString : Context -> String
 contextDifferentiatorString (Context frameIndex parent) =
-    List.map String.fromInt frameIndex
-        |> String.join "<"
-
-
-frameIndexString frameIndex =
-    List.map String.fromInt frameIndex
-        |> String.join "<"
+    "⌔" ++ toString frameIndex
 
 
 
@@ -806,7 +770,7 @@ type Parent
 
 
 type Context
-    = Context FrameIndex Parent
+    = Context Location Parent
 
 
 {-| A delayed Parent is capable of hosting child objects that can stay in pending form until they are first modified. This keeps the data store lean, so most objects should be delayed Parents if possible.

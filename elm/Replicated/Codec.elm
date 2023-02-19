@@ -71,7 +71,8 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..), genesisPointer)
+import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op)
@@ -140,7 +141,7 @@ type alias Initializer i a =
 
 type alias InitializerInputs seed =
     { parent : Change.Parent
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     , seed : seed
     }
 
@@ -184,7 +185,7 @@ type alias NodeEncoderInputs a =
     , mode : ChangesToGenerate
     , thingToEncode : ThingToEncode a
     , parent : Parent
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     }
 
 
@@ -198,7 +199,7 @@ type alias NodeEncoderInputsNoVariable =
     { node : Node
     , mode : ChangesToGenerate
     , parent : Parent
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     }
 
 
@@ -227,7 +228,7 @@ type alias NodeDecoder e a =
 type alias NodeDecoderInputs =
     { node : Node
     , parent : Parent
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     , cutoff : Maybe Moment
     }
 
@@ -339,7 +340,7 @@ decodeFromNode rootCodec node =
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
     in
-    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
+    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none }) (prepDecoder rootEncoded) of
         Ok value ->
             value
 
@@ -359,9 +360,9 @@ forceDecodeFromNode rootCodec node =
                 |> Maybe.withDefault "\"[]\""
 
         fromScratch =
-            new rootCodec Change.genesisContext
+            new rootCodec (Change.startContext "fDFN")
     in
-    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent, cutoff = Nothing, position = Nonempty.singleton "nodeRoot" }) (prepDecoder rootEncoded) of
+    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "fDFN", cutoff = Nothing, position = Location.none }) (prepDecoder rootEncoded) of
         Ok (Ok success) ->
             ( success, Nothing )
 
@@ -374,7 +375,7 @@ forceDecodeFromNode rootCodec node =
 
 new : Codec e (s -> List Change) o repType -> Context -> repType
 new (Codec codecDetails) context =
-    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = nonChanger }
+    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = nonChanger }
 
 
 {-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context.
@@ -382,23 +383,23 @@ If the Codecs are different, you can just use new. If they aren't, using new mul
 -}
 newN : Int -> Codec e (s -> List Change) o repType -> Context -> repType
 newN nth (Codec codecDetails) context =
-    codecDetails.init { parent = Change.getContextParent context, position = Nonempty (String.fromInt nth) [ Change.contextDifferentiatorString context ], seed = nonChanger }
+    codecDetails.init { parent = Change.getContextParent context, position = Location.nest (Change.getContextLocation context) "newN" nth, seed = nonChanger }
 
 
 newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
-    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = changer }
+    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = changer }
 
 
 seededNew : Codec e s o repType -> Context -> s -> repType
 seededNew (Codec codecDetails) context seed =
-    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = seed }
+    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = seed }
 
 
 seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context -> s -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) context seed changer =
-    codecDetails.init { parent = Change.getContextParent context, position = Nonempty.singleton (Change.contextDifferentiatorString context), seed = ( seed, changer ) }
+    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = ( seed, changer ) }
 
 
 nonChanger _ =
@@ -574,7 +575,7 @@ getPrimitiveNodeEncoder : Codec e s Primitive a -> (a -> PrimitiveEncoderOutput)
 getPrimitiveNodeEncoder (Codec m) primitiveToEncode =
     let
         bogusInputs =
-            NodeEncoderInputs Node.testNode defaultEncodeMode (EncodeThis primitiveToEncode) Change.genesisParent (Nonempty.singleton "never used")
+            NodeEncoderInputs Node.testNode defaultEncodeMode (EncodeThis primitiveToEncode) (Change.genesisParent "getPrimitiveNodeEncoder - never used") Location.none
     in
     m.nodeEncoder bogusInputs
 
@@ -662,9 +663,9 @@ encodeDefaults node rootCodec =
             getSoloNodeEncoder rootCodec
                 { node = node
                 , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
-                , thingToEncode = EncodeThis <| new rootCodec Change.genesisContext
-                , parent = Change.genesisParent
-                , position = Nonempty.singleton "encodeDefaults"
+                , thingToEncode = EncodeThis <| new rootCodec (Change.startContext "eD")
+                , parent = Change.genesisParent "eD"
+                , position = Location.none
                 }
     in
     rootEncoderOutput.nested.changeSet
@@ -1029,7 +1030,7 @@ repList memberCodec =
         bytesEncoder input =
             listEncode (getBytesEncoder memberCodec) (RepList.listValues input)
 
-        memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Change.Parent } -> Change.SiblingIndex -> memberType -> Maybe OpID -> Change.ObjectChange
+        memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Change.Parent } -> Location -> memberType -> Maybe OpID -> Change.ObjectChange
         memberChanger { node, modeMaybe, parent } memberIndex newMemberValue newRefMaybe =
             let
                 memberNodeEncoded : Change.ComplexPayload
@@ -1039,7 +1040,7 @@ repList memberCodec =
                         , node = node
                         , thingToEncode = EncodeThis newMemberValue
                         , parent = parent
-                        , position = Nonempty.singleton ("repList item #" ++ memberIndex)
+                        , position = memberIndex
                         }
                         |> .complex
             in
@@ -1052,7 +1053,7 @@ repList memberCodec =
 
         memberRonDecoder : { node : Node, parent : Parent, cutoff : Maybe Moment } -> JE.Value -> Maybe memberType
         memberRonDecoder { node, parent, cutoff } encodedMember =
-            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = parent, position = Nonempty.singleton "repListContainer", cutoff = cutoff }) encodedMember of
+            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = parent, position = Location.newSingle "repListContainer", cutoff = cutoff }) encodedMember of
                 Ok (Ok member) ->
                     Just member
 
@@ -1185,7 +1186,7 @@ list codec =
                                 , node = inputs.node
                                 , thingToEncode = EncodeThis item
                                 , parent = inputs.parent -- not quite.
-                                , position = Nonempty.singleton ("primitiveList item #" ++ String.fromInt index)
+                                , position = Location.new "primitiveListItem" index
                                 }
                                 |> .complex
                     in
@@ -1306,14 +1307,14 @@ repDb memberCodec =
                 , node = node
                 , thingToEncode = EncodeThis newValue
                 , parent = asParent
-                , position = Nonempty.singleton "repDbContainer"
+                , position = Location.newSingle "repDbContainer"
                 }
                 |> .complex
                 |> Change.NewPayload
 
         memberRonDecoder : { node : Node, asParent : Parent, cutoff : Maybe Moment } -> JE.Value -> Maybe memberType
         memberRonDecoder { node, asParent, cutoff } encodedMember =
-            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = asParent, position = Nonempty.singleton "repDbMember", cutoff = cutoff }) encodedMember of
+            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = asParent, position = Location.newSingle "repDbMember", cutoff = cutoff }) encodedMember of
                 Ok (Ok member) ->
                     Just member
 
@@ -1411,7 +1412,7 @@ repDict keyCodec valueCodec =
         bytesEncoder input =
             getBytesEncoder flatDictListCodec (RepDict.list input)
 
-        entryRonEncoder : Node -> Maybe ChangesToGenerate -> Pointer -> Change.SiblingIndex -> RepDict.RepDictEntry k v -> Change.ComplexPayload
+        entryRonEncoder : Node -> Maybe ChangesToGenerate -> Pointer -> Location -> RepDict.RepDictEntry k v -> Change.ComplexPayload
         entryRonEncoder node encodeModeMaybe parent entryPosition newEntry =
             let
                 keyEncoder givenKey =
@@ -1420,7 +1421,7 @@ repDict keyCodec valueCodec =
                         , node = node
                         , thingToEncode = EncodeThis givenKey
                         , parent = Change.becomeInstantParent parent
-                        , position = Nonempty entryPosition [ "key" ]
+                        , position = Location.nestSingle entryPosition ("repDictKey(" ++ keyToString givenKey ++ ")")
                         }
 
                 valueEncoder givenValue =
@@ -1429,7 +1430,7 @@ repDict keyCodec valueCodec =
                         , node = node
                         , thingToEncode = EncodeThis givenValue
                         , parent = Change.becomeInstantParent parent
-                        , position = Nonempty entryPosition [ "value" ]
+                        , position = Location.nestSingle entryPosition "repDictVal"
                         }
             in
             case newEntry of
@@ -1446,16 +1447,21 @@ repDict keyCodec valueCodec =
         entryRonDecoder node parent cutoff encodedEntry =
             let
                 decodeKey encodedKey =
-                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Nonempty.singleton "key", parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedKey
+                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Location.newSingle "repDictKey", parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedKey
 
-                decodeValue encodedValue =
-                    JD.decodeValue (getNodeDecoder valueCodec { node = node, position = Nonempty.singleton "value", parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedValue
+                decodeValue key encodedValue =
+                    JD.decodeValue (getNodeDecoder valueCodec { node = node, position = Location.newSingle (keyToString key), parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedValue
             in
             case JD.decodeValue (JD.list JD.value) encodedEntry of
                 Ok (keyEncoded :: [ valueEncoded ]) ->
-                    case ( decodeKey keyEncoded, decodeValue valueEncoded ) of
-                        ( Ok (Ok key), Ok (Ok value) ) ->
-                            Just (Present key value)
+                    case decodeKey keyEncoded of
+                        Ok (Ok key) ->
+                            case decodeValue key valueEncoded of
+                                Ok (Ok value) ->
+                                    Just (Present key value)
+
+                                _ ->
+                                    Log.crashInDev ("entryRonDecoder : found key " ++ keyToString key ++ " and decoded it, but not able to decode the value") Nothing
 
                         _ ->
                             Log.crashInDev "entryRonDecoder : found key and value but not able to decode them?" Nothing
@@ -1553,7 +1559,7 @@ repStore keyCodec valueCodec =
         bytesEncoder input =
             getBytesEncoder flatDictListCodec (RepStore.listModified input)
 
-        entryNodeEncodeWrapper : Node -> Maybe ChangesToGenerate -> Parent -> Change.SiblingIndex -> k -> Change.PendingID -> Change.ComplexPayload
+        entryNodeEncodeWrapper : Node -> Maybe ChangesToGenerate -> Parent -> Location -> k -> Change.PendingID -> Change.ComplexPayload
         entryNodeEncodeWrapper node encodeModeMaybe parent entryPosition keyToSet childPendingID =
             let
                 keyEncoder givenKey =
@@ -1562,7 +1568,7 @@ repStore keyCodec valueCodec =
                         , node = node
                         , thingToEncode = EncodeThis givenKey
                         , parent = parent
-                        , position = Nonempty entryPosition [ "key" ] -- value encoder uses 2
+                        , position = Location.nestSingle entryPosition (keyToString keyToSet)
                         }
             in
             Nonempty.append (keyEncoder keyToSet).complex (Nonempty.singleton (Change.PendingObjectReferenceAtom childPendingID))
@@ -1571,13 +1577,13 @@ repStore keyCodec valueCodec =
         entryNodeDecoder node parent cutoff encodedEntry =
             let
                 decodeKey encodedKey =
-                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Nonempty.singleton "key", parent = parent, cutoff = cutoff }) encodedKey
+                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Location.newSingle "key", parent = parent, cutoff = cutoff }) encodedKey
 
-                decodeValue encodedValue =
+                decodeValue key encodedValue =
                     JD.decodeValue
                         (getNodeDecoder valueCodec
                             { node = node
-                            , position = Nonempty.singleton "value"
+                            , position = Location.newSingle (keyToString key)
                             , parent = parent -- no need to wrap child changes as decoding entries means they already exist
                             , cutoff = cutoff
                             }
@@ -1586,9 +1592,14 @@ repStore keyCodec valueCodec =
             in
             case JD.decodeValue (JD.list JD.value) encodedEntry of
                 Ok (keyEncoded :: [ valueEncoded ]) ->
-                    case ( decodeKey keyEncoded, decodeValue valueEncoded ) of
-                        ( Ok (Ok key), Ok (Ok value) ) ->
-                            Just (RepStore.RepStoreEntry key value)
+                    case decodeKey keyEncoded of
+                        Ok (Ok key) ->
+                            case decodeValue key valueEncoded of
+                                Ok (Ok value) ->
+                                    Just (RepStore.RepStoreEntry key value)
+
+                                _ ->
+                                    Log.crashInDev ("storeEntryNodeDecoder : found key " ++ keyToString key ++ " and value but not able to decode the value") Nothing
 
                         _ ->
                             Log.crashInDev "storeEntryNodeDecoder : found key and value but not able to decode them?" Nothing
@@ -1645,11 +1656,11 @@ repStore keyCodec valueCodec =
 
                 createObjectAt key =
                     -- TODO FrameIndex needed?
-                    new valueCodec (Change.Context [] (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
+                    new valueCodec (Change.Context (Location.newSingle "repStoreNew") (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
 
                 wrapNewPendingChild key pendingChild =
                     Change.delayedChangeObject repStorePointer
-                        (Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent "value" key pendingChild))
+                        (Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent (Location.newSingle "repStoreVal") key pendingChild))
             in
             RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
 
@@ -2052,6 +2063,11 @@ fieldDefaultMaybe fallback =
             Nothing
 
 
+fieldLocationLabel : String -> Int -> String
+fieldLocationLabel fieldName fieldSlot =
+    "." ++ fieldName ++ String.fromInt fieldSlot
+
+
 {-| Not exposed - for all `readable` functions
 -}
 readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec errs fieldSeed o fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
@@ -2102,7 +2118,11 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
                 fieldInit : fieldSeed -> fieldType
                 fieldInit fieldSeed =
-                    getInitializer fieldCodec { parent = Change.becomeDelayedParent regPointer (updateRegisterPostChildInit regPointer ( fieldSlot, fieldName )), position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = fieldSeed }
+                    getInitializer fieldCodec
+                        { parent = Change.becomeDelayedParent regPointer (updateRegisterPostChildInit regPointer ( fieldSlot, fieldName ))
+                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) newFieldIndex
+                        , seed = fieldSeed
+                        }
 
                 fieldValue : fieldType
                 fieldValue =
@@ -2212,7 +2232,11 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
                 fieldInit : fieldSeed -> fieldType
                 fieldInit seed =
-                    getInitializer fieldCodec { parent = asParent regPointer, position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot), seed = seed }
+                    getInitializer fieldCodec
+                        { parent = asParent regPointer
+                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) newFieldIndex
+                        , seed = seed
+                        }
 
                 fieldValue : fieldType
                 fieldValue =
@@ -2242,7 +2266,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                         , mode = defaultEncodeMode
                         , thingToEncode = EncodeThis newValue
                         , parent = asParent regPointer
-                        , position = Nonempty.singleton (String.fromInt newFieldIndex ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) newFieldIndex
                         }
             in
             applyToRemaining (wrapRW fieldValue)
@@ -2493,7 +2517,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
             Change.becomeDelayedParent inputs.regPointer (updateRegisterPostChildInit inputs.regPointer fieldIdentifier)
 
         position =
-            Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+            Location.new (fieldLocationLabel fieldName fieldSlot) index
 
         runFieldDecoder thingToDecode =
             JD.decodeValue
@@ -2549,7 +2573,7 @@ registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                 , mode = defaultEncodeMode
                 , thingToEncode = EncodeThis newValue
                 , parent = regAsParent
-                , position = Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+                , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
                 }
 
         wrapRW : Change.Pointer -> fieldType -> RW fieldType
@@ -2888,7 +2912,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = seed }
 
         tempEmpty =
-            emptyRegister { parent = Change.genesisParent, seed = nonChanger, position = Nonempty.singleton "flatTodo" }
+            emptyRegister { parent = Change.genesisParent "flatTodo", seed = nonChanger, position = Location.none }
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
@@ -3224,7 +3248,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         Change.changeObjectWithExternal
             { target = registerPointer
             , objectChanges = allObjectChanges
-            , externalUpdates = Change.collapseChangesToChangeSet [] initChanges
+            , externalUpdates = Change.collapseChangesToChangeSet "registerInit" initChanges
             }
 
 
@@ -3313,7 +3337,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                 , node = node
                 , thingToEncode = valueToEncode
                 , parent = regAsParent
-                , position = Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+                , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
                 }
 
         getPayloadIfSet =
@@ -3326,7 +3350,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     JD.decodeValue
                         (getNodeDecoder fieldCodec
                             { node = node
-                            , position = Nonempty.singleton (String.fromInt index ++ "." ++ fieldName ++ "_" ++ String.fromInt fieldSlot)
+                            , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
                             , parent = regAsParent
                             , cutoff = Nothing
                             }
@@ -3872,7 +3896,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                             | parent =
                                 Change.becomeInstantParent <|
                                     Change.newPointer
-                                        { parent = inputs.parent, position = Nonempty.cons (String.fromInt index ++ "." ++ tagName ++ "_" ++ String.fromInt tagNum) inputs.position, reducerID = "variant" }
+                                        { parent = inputs.parent, position = Location.nest inputs.position (tagName ++ "(" ++ String.fromInt tagNum ++ ")") index, reducerID = "variant" }
                         }
             in
             VariantEncoder
@@ -3940,7 +3964,7 @@ variant0 tag ctor =
 
 passNDInputs : Int -> NodeDecoderInputs -> NodeDecoderInputs
 passNDInputs pieceNum inputsND =
-    { inputsND | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Nonempty.cons (String.fromInt pieceNum) inputsND.position, reducerID = "variant" } }
+    { inputsND | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" } }
 
 
 {-| Define a variantBuilder with 1 parameters for a custom type.
@@ -4772,7 +4796,7 @@ getNodeEncoderModifiedForVariants index codec thingToEncode =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
             , thingToEncode = EncodeThis thingToEncode
-            , position = Nonempty.cons ("variantArg#" ++ String.fromInt index) modifiedEncoder.position
+            , position = Location.nest modifiedEncoder.position "variantArg#" index
             , parent = modifiedEncoder.parent
             }
     in

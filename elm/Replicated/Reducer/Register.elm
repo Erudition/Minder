@@ -10,6 +10,7 @@ import Json.Encode as JE exposing (Value)
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Change as Change exposing (Change, Changer)
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object
@@ -49,7 +50,8 @@ getPointer (Register register) =
 
 getContext : Reg userType -> Change.Context
 getContext (Register register) =
-    Change.Context [] (Change.becomeInstantParent register.pointer)
+    -- TODO this function is a hack, no?
+    Change.Context (Location.newSingle "RegLateFieldInit") (Change.becomeInstantParent register.pointer)
 
 
 type alias FieldIdentifier =

@@ -1,14 +1,15 @@
-module Replicated.Reducer.RepStore exposing ( RepStore, buildFromReplicaDb, get, getInit,  getPointer, reducerID, listModified, RepStoreEntry(..))
+module Replicated.Reducer.RepStore exposing (RepStore, RepStoreEntry(..), buildFromReplicaDb, get, getInit, getPointer, listModified, reducerID)
 
 import List.Nonempty exposing (Nonempty(..))
-import Replicated.Change as Change exposing (ChangeSet, Changer, Parent(..), Change(..))
+import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..))
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 
 
 {-| A Rep.Store maps custom keys to reptype values, but you don't explicitly add/remove/update entries - instead the store presents a "read-only" interface and you modify the objects in the store instead. Values must have a seedless Codec, because the defaults are used when there is no object yet at that key. Unlike dictionaries, this guarantees you always get a value for a given key - no `Maybe`!
 
-- Since all entries "already exist" (are generated on the fly if missing) for each possible key, there are no library functions to add, remove, or update entries - just `get`.
+  - Since all entries "already exist" (are generated on the fly if missing) for each possible key, there are no library functions to add, remove, or update entries - just `get`.
+
 -}
 type RepStore k v
     = Store
@@ -35,8 +36,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : {object : Object, fetcher : (k -> v), start : Changer (RepStore k v) } -> RepStore k v
-buildFromReplicaDb {object, fetcher, start} =
+buildFromReplicaDb : { object : Object, fetcher : k -> v, start : Changer (RepStore k v) } -> RepStore k v
+buildFromReplicaDb { object, fetcher, start } =
     Store
         { entryFetcher = fetcher
         , included = Object.getIncluded object
@@ -47,6 +48,7 @@ buildFromReplicaDb {object, fetcher, start} =
 
 
 -- ACCESSORS
+
 
 {-| Get the stored item at the given key. The return value is guaranteed - no `Maybe` - that's the best part of a `Rep.Store`!
 -}
@@ -62,10 +64,7 @@ listModified (Store store) =
     Debug.todo "List store entries?"
 
 
-
 getInit : RepStore k v -> ChangeSet
 getInit ((Store record) as store) =
     record.startWith store
-    |> Change.collapseChangesToChangeSet []
-
-
+        |> Change.collapseChangesToChangeSet "RepStoreInit"

@@ -10,6 +10,7 @@ import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
 import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString)
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
@@ -408,7 +409,7 @@ creationOpsToObjectIDs ops =
 Use with Change.pendingIDToString
 -}
 type alias UpdatesSoFar =
-    { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
+    { assignedIDs : AnyDict (List Int) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
     , delayed : List Change.DelayedChange
     }
@@ -797,7 +798,7 @@ getObject :
     , foundIDs : List OpID.ObjectID
     , parent : Change.Parent
     , reducer : ReducerID
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     }
     -> Object
 getObject { node, cutoff, foundIDs, parent, reducer, position } =
@@ -821,7 +822,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
 
                         ( True, False ) ->
                             Log.crashInDev
-                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ String.join " " (Nonempty.toList position) ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducer op))
+                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ Location.toString position ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducer op))
                                 False
 
                 beforeCutoff opID =

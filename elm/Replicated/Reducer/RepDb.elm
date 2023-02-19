@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size, addMultipleNew)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addMultipleNew, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size)
 
 import Array exposing (Array)
 import Console
@@ -10,14 +10,15 @@ import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
-import Replicated.Change as Change exposing (ChangeSet, Changer, Parent(..), Creator, Change)
+import Maybe.Extra
+import Replicated.Change as Change exposing (Change, ChangeSet, Changer, Creator, Parent(..))
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
-import Maybe.Extra
 
 
 {-| A replicated database.
@@ -69,7 +70,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
                 Nothing ->
                     AnyDict.empty OpID.toSortablePrimitives
 
-        addMemberFromEvent : Change.ExistingID -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)  -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
+        addMemberFromEvent : Change.ExistingID -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType) -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         addMemberFromEvent containerExistingID inclusionEventID event accumulatedDict =
             case
                 ( Object.extractOpIDFromEventPayload event
@@ -80,7 +81,7 @@ buildFromReplicaDb object payloadToMember memberAdder init =
                     AnyDict.insert memberObjectID
                         { id = ID.fromObjectID memberObjectID
                         , value = memberValue
-                        , remove = Change.WithFrameIndex (\_ -> (remover containerExistingID inclusionEventID))
+                        , remove = Change.WithFrameIndex (\_ -> remover containerExistingID inclusionEventID)
                         }
                         accumulatedDict
 
@@ -89,9 +90,10 @@ buildFromReplicaDb object payloadToMember memberAdder init =
 
         remover containerObjectID inclusionEventID =
             Change.changeObject
-                { target = Change.ExistingObjectPointer containerObjectID 
+                { target = Change.ExistingObjectPointer containerObjectID
                 , objectChanges = [ Change.RevertOp inclusionEventID ]
-                }  |> .changeSet
+                }
+                |> .changeSet
     in
     RepDb
         { pointer = Object.getPointer object
@@ -111,7 +113,7 @@ get givenID (RepDb repDbRecord) =
     case ID.getObjectID givenID of
         Just objectID ->
             AnyDict.get objectID repDbRecord.members
-            |> Maybe.map .value
+                |> Maybe.map .value
 
         _ ->
             Nothing
@@ -157,8 +159,9 @@ addNew newMemberCreator (RepDb record) =
         finalChangeSet frameIndex =
             Change.changeObject
                 { target = record.pointer
-                , objectChanges = [(record.memberAdder (newMember frameIndex))]
-                }  |> .changeSet
+                , objectChanges = [ record.memberAdder (newMember frameIndex) ]
+                }
+                |> .changeSet
     in
     Change.WithFrameIndex finalChangeSet
 
@@ -167,16 +170,17 @@ addMultipleNew : List (Creator memberType) -> RepDb memberType -> Change
 addMultipleNew newMemberCreators (RepDb record) =
     let
         createWithContext frameIndex index creator =
-            creator (Change.Context (index :: frameIndex) (Change.becomeInstantParent record.pointer))
+            creator (Change.Context (Location.nest frameIndex "addMultipleNew" index) (Change.becomeInstantParent record.pointer))
 
         newMembers frameIndex =
-            List.indexedMap (createWithContext frameIndex) newMemberCreators 
+            List.indexedMap (createWithContext frameIndex) newMemberCreators
 
         finalChangeSet frameIndex =
             Change.changeObject
                 { target = record.pointer
                 , objectChanges = List.map record.memberAdder (newMembers frameIndex)
-                }  |> .changeSet
+                }
+                |> .changeSet
     in
     Change.WithFrameIndex finalChangeSet
 
@@ -184,4 +188,4 @@ addMultipleNew newMemberCreators (RepDb record) =
 getInit : RepDb memberType -> ChangeSet
 getInit ((RepDb record) as repDb) =
     record.startWith repDb
-    |> Change.collapseChangesToChangeSet []
+        |> Change.collapseChangesToChangeSet "repDbInitFrame"

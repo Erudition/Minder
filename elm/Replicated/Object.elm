@@ -7,6 +7,7 @@ import Json.Encode as JE
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
 import Replicated.Change as Change exposing (ChangeSet)
+import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
 import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -27,6 +28,7 @@ type alias SavedObject =
     , aliases : List ObjectID
     , version : OpID.ObjectVersion
     }
+
 
 type alias OpDict =
     AnyDict OpID.OpIDSortable OpID Op
@@ -136,7 +138,7 @@ type ObjectBuildWarning
 type alias UnsavedObject =
     { reducer : Op.ReducerID
     , parent : Change.Parent
-    , position : Nonempty Change.SiblingIndex
+    , position : Location
     }
 
 
@@ -151,10 +153,10 @@ getCreationID object =
 
 
 getPointer : Object -> Change.Pointer
-getPointer object  =
+getPointer object =
     case object of
         Saved savedObject ->
-            Change.ExistingObjectPointer (Change.ExistingID savedObject.reducer savedObject.creation )
+            Change.ExistingObjectPointer (Change.ExistingID savedObject.reducer savedObject.creation)
 
         Unsaved unsavedObject ->
             Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }

@@ -25,16 +25,14 @@ suite : Test
 suite =
     describe "RON Encode-Decode"
         [ testDelayedCreation
-
-        --testSpawning
-        --
-        -- , readOnlyObjectEncodeThenDecode
-        -- , writableObjectEncodeThenDecode
-        -- , repListEncodeThenDecode
-        -- , repListInsertAndRemove
-        -- , nodeModifications
-        -- , nestedStressTestIntegrityCheck
-        -- , modifiedNestedStressTestIntegrityCheck
+        , testSpawning
+        , readOnlyObjectEncodeThenDecode
+        , writableObjectEncodeThenDecode
+        , repListEncodeThenDecode
+        , repListInsertAndRemove
+        , nodeModifications
+        , nestedStressTestIntegrityCheck
+        , modifiedNestedStressTestIntegrityCheck
         ]
 
 
