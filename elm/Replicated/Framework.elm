@@ -264,7 +264,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
                                         { outputFrame, updatedNode } =
-                                            Node.apply Nothing Nothing givenModel.node givenFrame
+                                            Node.apply Nothing False givenModel.node givenFrame
                                     in
                                     ( { givenModel | node = updatedNode }, outputsSoFar ++ outputFrame )
                             in
@@ -291,13 +291,13 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
                                 Nothing ->
                                     let
-                                        newNode =
+                                        ( newNode, startChunks ) =
                                             -- Node.startNewNode (Just now) []
                                             Codec.startNodeFromRoot Nothing userReplicaCodec
 
                                         --tempDefaultChanges
                                     in
-                                    ( newNode, [] )
+                                    ( newNode, startChunks )
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode

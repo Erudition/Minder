@@ -656,7 +656,7 @@ replaceForUrl =
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
 Useful for spitting out test data, and seeing the whole heirarchy of your types.
 -}
-startNodeFromRoot : Maybe Moment -> WrappedOrSkelCodec e s a -> Node
+startNodeFromRoot : Maybe Moment -> WrappedOrSkelCodec e s a -> ( Node, List Op.ClosedChunk )
 startNodeFromRoot maybeMoment rootCodec =
     let
         rootEncoderOutput =
@@ -668,10 +668,33 @@ startNodeFromRoot maybeMoment rootCodec =
                 , position = Location.none
                 }
 
-        encodeRootChange =
-            Change.WithFrameIndex (\_ -> rootEncoderOutput.nested.changeSet)
+        rootPointer =
+            rootEncoderOutput.nested.toReference
+
+        startNode =
+            (Node.startNewNode maybeMoment False []).newNode
     in
-    (Node.startNewNode maybeMoment (Just rootEncoderOutput.nested.toReference) []).newNode
+    if startNode.root == Nothing then
+        case rootPointer of
+            Change.ExistingObjectPointer existingID ->
+                -- weird. why would it be existing already?
+                ( { startNode | root = Just existingID.object }, [] )
+
+            Change.PlaceholderPointer pendingID _ ->
+                let
+                    ( rootOpID, finalCounter ) =
+                        OpID.generate (OpID.importCounter 0) startNode.identity False
+
+                    rootInitOp =
+                        Op.initObject pendingID.reducer rootOpID
+
+                    nodeWithRoot =
+                        Node.updateWithClosedOps startNode [ rootInitOp ]
+                in
+                ( { nodeWithRoot | root = Just rootOpID }, [ [ rootInitOp ] ] )
+
+    else
+        ( startNode, [] )
 
 
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
