@@ -264,7 +264,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
                                         { outputFrame, updatedNode } =
-                                            Node.apply Nothing givenModel.node givenFrame
+                                            Node.apply Nothing Nothing givenModel.node givenFrame
                                     in
                                     ( { givenModel | node = updatedNode }, outputsSoFar ++ outputFrame )
                             in
@@ -291,16 +291,13 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
                                 Nothing ->
                                     let
-                                        tempDefaultChanges =
-                                            [ Change.WithFrameIndex (\_ -> Codec.encodeDefaultsForTesting userReplicaCodec) ]
-
-                                        startNewNode =
+                                        newNode =
                                             -- Node.startNewNode (Just now) []
-                                            Node.startNewNode Nothing []
+                                            Codec.startNodeFromRoot Nothing userReplicaCodec
 
                                         --tempDefaultChanges
                                     in
-                                    ( startNewNode.newNode, startNewNode.startFrame )
+                                    ( newNode, [] )
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode

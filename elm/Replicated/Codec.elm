@@ -101,7 +101,7 @@ type Codec e s o a
         , jsonDecoder : JD.Decoder (Result (Error e) a)
         , nodeEncoder : NodeEncoder a o
         , nodeDecoder : NodeDecoder e a
-        , init : Initializer s a
+        , nodePlaceholder : PlaceholderGenerator s a
         }
 
 
@@ -135,11 +135,11 @@ type alias WrappedSeededCodec e s a =
     Codec e ( s, Changer a ) SoloObject a
 
 
-type alias Initializer i a =
-    InitializerInputs i -> a
+type alias PlaceholderGenerator i a =
+    PlaceholderInputs i -> a
 
 
-type alias InitializerInputs seed =
+type alias PlaceholderInputs seed =
     { parent : Change.Parent
     , position : Location
     , seed : seed
@@ -375,7 +375,7 @@ forceDecodeFromNode rootCodec node =
 
 new : Codec e (s -> List Change) o repType -> Context -> repType
 new (Codec codecDetails) context =
-    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = nonChanger }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "new", seed = nonChanger }
 
 
 {-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context.
@@ -383,32 +383,32 @@ If the Codecs are different, you can just use new. If they aren't, using new mul
 -}
 newN : Int -> Codec e (s -> List Change) o repType -> Context -> repType
 newN nth (Codec codecDetails) context =
-    codecDetails.init { parent = Change.getContextParent context, position = Location.nest (Change.getContextLocation context) "newN" nth, seed = nonChanger }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nest (Change.getContextLocation context) "newN" nth, seed = nonChanger }
 
 
 newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
-    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = changer }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "newWC", seed = changer }
 
 
 seededNew : Codec e s o repType -> Context -> s -> repType
 seededNew (Codec codecDetails) context seed =
-    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = seed }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "sNew", seed = seed }
 
 
 seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context -> s -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) context seed changer =
-    codecDetails.init { parent = Change.getContextParent context, position = Change.getContextLocation context, seed = ( seed, changer ) }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "sNewWC", seed = ( seed, changer ) }
 
 
 nonChanger _ =
     []
 
 
-getInitializer : Codec e i o repType -> Initializer i repType
+getInitializer : Codec e i o repType -> PlaceholderGenerator i repType
 getInitializer (Codec codecDetails) inputs =
-    codecDetails.init
+    codecDetails.nodePlaceholder
         { parent = inputs.parent
         , position = inputs.position
         , seed = inputs.seed
@@ -656,6 +656,27 @@ replaceForUrl =
 {-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
 Useful for spitting out test data, and seeing the whole heirarchy of your types.
 -}
+startNodeFromRoot : Maybe Moment -> WrappedOrSkelCodec e s a -> Node
+startNodeFromRoot maybeMoment rootCodec =
+    let
+        rootEncoderOutput =
+            getSoloNodeEncoder rootCodec
+                { node = Node.testNode
+                , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
+                , thingToEncode = EncodeThis <| new rootCodec (Change.startContext "eD")
+                , parent = Change.genesisParent "eD"
+                , position = Location.none
+                }
+
+        encodeRootChange =
+            Change.WithFrameIndex (\_ -> rootEncoderOutput.nested.changeSet)
+    in
+    (Node.startNewNode maybeMoment (Just rootEncoderOutput.nested.toReference) []).newNode
+
+
+{-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
+Useful for spitting out test data, and seeing the whole heirarchy of your types.
+-}
 encodeDefaults : Node -> WrappedOrSkelCodec e s a -> ChangeSet
 encodeDefaults node rootCodec =
     let
@@ -714,11 +735,11 @@ buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecod
         , jsonDecoder = jsonDecoder
         , nodeEncoder = ronEncoder
         , nodeDecoder = ronDecoder
-        , init = flatInit
+        , nodePlaceholder = flatInit
         }
 
 
-flatInit : Initializer a a
+flatInit : PlaceholderGenerator a a
 flatInit { seed } =
     seed
 
@@ -757,7 +778,7 @@ string =
         , jsonDecoder = JD.string |> JD.map Ok
         , nodeEncoder = nodeEncoder
         , nodeDecoder = \_ -> JD.string |> JD.map Ok
-        , init = flatInit
+        , nodePlaceholder = flatInit
         }
 
 
@@ -837,7 +858,7 @@ id =
         , jsonDecoder = JD.string |> JD.map (fromString Nothing >> Ok)
         , nodeEncoder = nodeEncoder
         , nodeDecoder = \inputs -> JD.string |> JD.map (fromString (Just inputs.node) >> Ok)
-        , init = flatInit
+        , nodePlaceholder = flatInit
         }
 
 
@@ -1091,13 +1112,6 @@ repList memberCodec =
                     let
                         externalChanges =
                             RepList.getInit givenRepList
-
-                        logIf input =
-                            if Change.isEmptyChangeSet externalChanges then
-                                input
-
-                            else
-                                Debug.log "Initializing replist with a member" input
                     in
                     soloOut <|
                         Change.changeObjectWithExternal
@@ -1113,7 +1127,7 @@ repList memberCodec =
                     in
                     justInit repListPointer
 
-        initializer : Initializer (Changer (RepList memberType)) (RepList memberType)
+        initializer : PlaceholderGenerator (Changer (RepList memberType)) (RepList memberType)
         initializer { parent, position, seed } =
             let
                 object =
@@ -1141,7 +1155,7 @@ repList memberCodec =
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = repListRonEncoder
         , nodeDecoder = repListRonDecoder
-        , init = initializer
+        , nodePlaceholder = initializer
         }
 
 
@@ -1218,7 +1232,7 @@ list codec =
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = nodeEncoder
         , nodeDecoder = nodeDecoder
-        , init = \{ seed } -> seed
+        , nodePlaceholder = \{ seed } -> seed
         }
 
 
@@ -1258,7 +1272,7 @@ nonempty wrappedCodec =
                 |> JD.map nonemptyFromList
         , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder listCodec
         , nodeDecoder = \inputs -> getNodeDecoder listCodec inputs |> JD.map nonemptyFromList
-        , init = flatInit
+        , nodePlaceholder = flatInit
         }
 
 
@@ -1361,7 +1375,7 @@ repDb memberCodec =
                 _ ->
                     justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID })
 
-        initializer : InitializerInputs (Changer (RepDb memberType)) -> RepDb memberType
+        initializer : PlaceholderInputs (Changer (RepDb memberType)) -> RepDb memberType
         initializer { parent, position, seed } =
             let
                 object =
@@ -1388,7 +1402,7 @@ repDb memberCodec =
         , jsonDecoder = JD.fail "no repdb"
         , nodeEncoder = repDbNodeEncoder
         , nodeDecoder = repDbNodeDecoder
-        , init = initializer
+        , nodePlaceholder = initializer
         }
 
 
@@ -1513,7 +1527,7 @@ repDict keyCodec valueCodec =
                 _ ->
                     justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID })
 
-        initializer : InitializerInputs (Changer (RepDict k v)) -> RepDict k v
+        initializer : PlaceholderInputs (Changer (RepDict k v)) -> RepDict k v
         initializer { parent, position, seed } =
             let
                 object =
@@ -1531,7 +1545,7 @@ repDict keyCodec valueCodec =
         , jsonDecoder = JD.fail "no repdict"
         , nodeEncoder = repDictRonEncoder
         , nodeDecoder = repDictRonDecoder
-        , init = initializer
+        , nodePlaceholder = initializer
         }
 
 
@@ -1676,9 +1690,9 @@ repStore keyCodec valueCodec =
                             }
 
                 _ ->
-                    justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID })
+                    justInit (Change.newPointer { parent = parent, position = position, reducerID = RepStore.reducerID })
 
-        initializer : InitializerInputs (Changer (RepStore k v)) -> RepStore k v
+        initializer : PlaceholderInputs (Changer (RepStore k v)) -> RepStore k v
         initializer { parent, position, seed } =
             repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } seed []
     in
@@ -1689,7 +1703,7 @@ repStore keyCodec valueCodec =
         , jsonDecoder = JD.fail "no repstore"
         , nodeEncoder = repStoreNodeEncoder
         , nodeDecoder = repStoreNodeDecoder
-        , init = initializer
+        , nodePlaceholder = initializer
         }
 
 
@@ -2700,7 +2714,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         nodeEncoder inputs =
             recordNodeEncoder partial inputs
 
-        emptyRegister : Initializer Skel full
+        emptyRegister : PlaceholderGenerator Skel full
         emptyRegister { parent, position } =
             let
                 object =
@@ -2723,7 +2737,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
-        , init = emptyRegister
+        , nodePlaceholder = emptyRegister
         }
 
 
@@ -2806,7 +2820,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
         nodeEncoder inputs =
             recordNodeEncoder partial inputs
 
-        emptyRegister : Initializer s full
+        emptyRegister : PlaceholderGenerator s full
         emptyRegister { parent, position, seed } =
             let
                 object =
@@ -2829,7 +2843,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
-        , init = emptyRegister
+        , nodePlaceholder = emptyRegister
         }
 
 
@@ -2931,7 +2945,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
-        , init = emptyRegister
+        , nodePlaceholder = emptyRegister
         }
 
 
@@ -3036,7 +3050,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
-        , init = emptyRegister
+        , nodePlaceholder = emptyRegister
         }
 
 
@@ -3163,6 +3177,23 @@ buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest
     }
 
 
+interceptPlaceholderLocation : Pointer -> Pointer -> Pointer
+interceptPlaceholderLocation givenObjectPointer freshPointerFromEncoder =
+    case ( givenObjectPointer, freshPointerFromEncoder ) of
+        ( Change.PlaceholderPointer oldPendingID _, Change.PlaceholderPointer freshPendingID _ ) ->
+            if oldPendingID == freshPendingID then
+                -- no difference, leave it alone
+                givenObjectPointer
+
+            else
+                Debug.log ("old pointer was " ++ Change.pendingIDToString oldPendingID ++ " and new pointer is " ++ Change.pendingIDToString freshPendingID) freshPointerFromEncoder
+
+        ( _, _ ) ->
+            -- existing objects don't need to be intercepted,
+            -- and the fresh pointer given should always be a placeholder
+            givenObjectPointer
+
+
 {-| Encodes an register as a list of Changes (which generate Ops):
 -- The Op encoding the register comes last in the list, as the preceding Ops create registers that it depends on.
 For each field:
@@ -3194,7 +3225,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         ( registerPointer, history, initChanges ) =
             case regMaybe of
                 Just ((Register regDetails) as reg) ->
-                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
+                    ( interceptPlaceholderLocation regDetails.pointer (Object.getPointer (fallbackObject [])), regDetails.history, regDetails.init reg )
 
                 Nothing ->
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
@@ -3526,9 +3557,9 @@ map fromAtoB fromBtoA codec =
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map fromResultData
 
-        wrappedInitializer : InitializerInputs b -> b
+        wrappedInitializer : PlaceholderInputs b -> b
         wrappedInitializer inputs =
-            getInitializer codec (InitializerInputs inputs.parent inputs.position (fromBtoA inputs.seed))
+            getInitializer codec (PlaceholderInputs inputs.parent inputs.position (fromBtoA inputs.seed))
                 |> fromAtoB
 
         mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
@@ -3551,7 +3582,7 @@ map fromAtoB fromBtoA codec =
         , jsonDecoder = getJsonDecoder codec |> JD.map fromResultData
         , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
         , nodeDecoder = wrappedNodeDecoder
-        , init = wrappedInitializer
+        , nodePlaceholder = wrappedInitializer
         }
 
 
@@ -3654,7 +3685,7 @@ mapValid fromBytes_ toBytes_ codec =
                 |> JD.map wrapCustomError
         , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
         , nodeDecoder = wrappedNodeDecoder
-        , init = flatInit -- required, cant't have initializer returning an error
+        , nodePlaceholder = flatInit -- required, cant't have initializer returning an error
         }
 
 
@@ -3747,7 +3778,7 @@ lazy f =
         , jsonDecoder = JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()))
         , nodeEncoder = lazyNodeEncoder
         , nodeDecoder = lazyNodeDecoder
-        , init = \inputs -> getInitializer (f ()) inputs
+        , nodePlaceholder = \inputs -> getInitializer (f ()) inputs
         }
 
 
@@ -3762,7 +3793,7 @@ todo bogusValue =
         , jsonDecoder = JD.fail "TODO"
         , nodeEncoder = \_ -> singlePrimitiveOut <| Change.StringAtom "TODO"
         , nodeDecoder = \_ -> JD.fail "TODO"
-        , init = \_ -> bogusValue
+        , nodePlaceholder = \_ -> bogusValue
         }
 
 
@@ -3893,10 +3924,12 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 applyIndexedInputs inputs index encoderFunction =
                     encoderFunction
                         { inputs
-                            | parent =
-                                Change.becomeInstantParent <|
-                                    Change.newPointer
-                                        { parent = inputs.parent, position = Location.nest inputs.position (tagName ++ "(" ++ String.fromInt tagNum ++ ")") index, reducerID = "variant" }
+                          -- | parent =
+                          --     Change.becomeInstantParent <|
+                          --         Change.newPointer
+                          --             { parent = inputs.parent, position = Location.nest inputs.position (tagName ++ "(" ++ String.fromInt tagNum ++ ")") index, reducerID = "variant" }
+                            | position =
+                                Location.nest inputs.position (tagName ++ "(" ++ String.fromInt tagNum ++ ")") index
                         }
             in
             VariantEncoder
@@ -3964,7 +3997,10 @@ variant0 tag ctor =
 
 passNDInputs : Int -> NodeDecoderInputs -> NodeDecoderInputs
 passNDInputs pieceNum inputsND =
-    { inputsND | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" } }
+    { inputsND
+        | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" }
+        , position = Location.nest inputsND.position "piece" pieceNum
+    }
 
 
 {-| Define a variantBuilder with 1 parameters for a custom type.
@@ -4761,23 +4797,25 @@ finishCustomType (CustomTypeCodec priorVariants) =
             -- allow non-array input for variant0s
             JD.oneOf [ JD.index 0 JD.string |> JD.andThen checkTag, JD.string |> JD.andThen checkTag ]
     in
-    buildNestableCodec
-        (priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes))
-        (BD.unsignedInt16 endian
-            |> BD.andThen
-                (\tag ->
-                    priorVariants.bytesDecoder tag (BD.succeed (Err DataCorrupted))
-                )
-        )
-        (priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json))
-        (JD.index 0 JD.int
-            |> JD.andThen
-                (\tag ->
-                    priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
-                )
-        )
-        nodeEncoder
-        nodeDecoder
+    Codec
+        { bytesEncoder = priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes)
+        , bytesDecoder =
+            BD.unsignedInt16 endian
+                |> BD.andThen
+                    (\tag ->
+                        priorVariants.bytesDecoder tag (BD.succeed (Err DataCorrupted))
+                    )
+        , jsonEncoder = priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json)
+        , jsonDecoder =
+            JD.index 0 JD.int
+                |> JD.andThen
+                    (\tag ->
+                        priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
+                    )
+        , nodeEncoder = nodeEncoder
+        , nodeDecoder = nodeDecoder
+        , nodePlaceholder = \inputs -> inputs.seed -- hmm, we could process the init as well, giving proper locations to the Codec.new instances... would that matter?
+        }
 
 
 {-| Specifically for variant encoders, we must
@@ -4796,7 +4834,7 @@ getNodeEncoderModifiedForVariants index codec thingToEncode =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
             , thingToEncode = EncodeThis thingToEncode
-            , position = Location.nest modifiedEncoder.position "variantArg#" index
+            , position = Location.nest modifiedEncoder.position "piece" index
             , parent = modifiedEncoder.parent
             }
     in

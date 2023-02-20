@@ -33,12 +33,22 @@ nest (AncestryBackwards backwardsLayerList) layerName layerIndex =
 toString : Location -> String
 toString (AncestryBackwards backwardsLayers) =
     let
-        listString =
+        forwardsLayers =
             List.reverse backwardsLayers
-                |> List.map layerToString
+
+        cleanedList =
+            case forwardsLayers of
+                (NestSingle rootLayer) :: (NestSingle secondLayer) :: otherLayers ->
+                    NestSingle (rootLayer ++ "(" ++ secondLayer ++ ")") :: otherLayers
+
+                _ ->
+                    forwardsLayers
+
+        finalListString =
+            List.map layerToString cleanedList
                 |> String.join " ‣ "
     in
-    "〖" ++ listString ++ "〗"
+    "〖" ++ finalListString ++ "〗"
 
 
 toComparable : Location -> List Int
@@ -77,7 +87,7 @@ wrap : Location -> Location -> String -> Location
 wrap (AncestryBackwards backwardsLayerListOld) (AncestryBackwards backwardsLayerListNew) middleItem =
     case backwardsLayerListNew of
         (NestMultiple childName childIndex) :: restOfNewLocationWrapper ->
-            AncestryBackwards ((NestMultiple (childName ++ ":" ++ middleItem) childIndex :: restOfNewLocationWrapper) ++ backwardsLayerListOld)
+            AncestryBackwards ((NestMultiple (childName ++ "(" ++ middleItem ++ ")") childIndex :: restOfNewLocationWrapper) ++ backwardsLayerListOld)
 
         _ ->
             AncestryBackwards (backwardsLayerListNew ++ NestSingle middleItem :: backwardsLayerListOld)

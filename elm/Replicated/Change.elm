@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, saveChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -661,6 +661,15 @@ getPointerObjectID pointer =
 
         ExistingObjectPointer existingID ->
             Just existingID.object
+
+
+getPointerReducer pointer =
+    case pointer of
+        PlaceholderPointer { reducer } _ ->
+            reducer
+
+        ExistingObjectPointer { reducer } ->
+            reducer
 
 
 {-| When an object contains nested objects, it may not need to know about them until they need to be created. When they do, this Change tells us how to "install" the nested object (given its PendingID) in its proper place in the containing object.

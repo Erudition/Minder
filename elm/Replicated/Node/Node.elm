@@ -104,8 +104,8 @@ testNode =
     }
 
 
-startNewNode : Maybe Moment -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
-startNewNode nowMaybe givenStartChanges =
+startNewNode : Maybe Moment -> Maybe Pointer -> List Change -> { newNode : Node, startFrame : List Op.ClosedChunk }
+startNewNode nowMaybe rootPointerMaybe givenStartChanges =
     let
         startChanges =
             []
@@ -122,7 +122,7 @@ startNewNode nowMaybe givenStartChanges =
             }
 
         { updatedNode, created, outputFrame } =
-            apply nowMaybe startNode firstChangeFrame
+            apply nowMaybe rootPointerMaybe startNode firstChangeFrame
     in
     { newNode = updatedNode, startFrame = outputFrame }
 
@@ -313,8 +313,8 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
-apply timeMaybe node (Change.Frame { changes, description }) =
+apply : Maybe Moment -> Maybe Change.Pointer -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
+apply timeMaybe rootPointerMaybe node (Change.Frame { changes, description }) =
     let
         nextUnseenCounter =
             OpID.importCounter (node.highestSeenClock + 1)
@@ -326,6 +326,7 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         frameStartCounter =
             OpID.highestCounter fallbackCounter nextUnseenCounter
 
+        -- create the object passed in -header only!!
         frameStartMapping : UpdatesSoFar
         frameStartMapping =
             { assignedIDs = AnyDict.empty Change.pendingIDToComparable
@@ -362,9 +363,30 @@ apply timeMaybe node (Change.Frame { changes, description }) =
         newObjectsCreated =
             creationOpsToObjectIDs allGeneratedOps
 
+        -- STEP 3. Init the root if needed
         finalNode =
             if updatedNode.root == Nothing then
-                { updatedNode | root = List.last newObjectsCreated }
+                case rootPointerMaybe of
+                    Just (Change.ExistingObjectPointer existingID) ->
+                        -- weird. why would it be existing already?
+                        { updatedNode | root = Just existingID.object }
+
+                    Just (Change.PlaceholderPointer pendingID _) ->
+                        let
+                            ( rootOpID, finalCounter ) =
+                                OpID.generate step2OutCounter updatedNode.identity False
+
+                            rootInitOp =
+                                Op.initObject pendingID.reducer rootOpID
+
+                            nodeWithRoot =
+                                updateWithClosedOps node [ rootInitOp ]
+                        in
+                        { nodeWithRoot | root = Just rootOpID }
+
+                    Nothing ->
+                        -- uh oh. still no root?
+                        Log.crashInDev "No Root Established!" updatedNode
 
             else
                 updatedNode
