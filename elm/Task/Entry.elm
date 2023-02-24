@@ -232,22 +232,23 @@ initWithClass actionSkelReg entryListParent =
 
         taskClassChildrenChanger : RepList NestedOrAction -> List Change
         taskClassChildrenChanger newChildren =
-            [ RepList.insert RepList.Last (ActionIsHere (Debug.log "ActionSkelReg" actionSkelReg)) newChildren
+            [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
+            , RepList.insert RepList.Last 9 orphanList
             ]
 
         assignableChanger : Change.Changer (Reg Assignable)
         assignableChanger newAssignable =
             taskClassChildrenChanger (Reg.latest newAssignable).children
 
-        assignableInit subparent =
-            Codec.newWithChanges assignableCodec subparent assignableChanger
-
         parentPropertiesChanger : Reg ParentProperties -> List Change
         parentPropertiesChanger newParentProperties =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
+
+        orphanList =
+            Codec.new (Codec.repList Codec.int) entryListParent
     in
-    AssignableIsHere (Debug.log "assignable" <| assignableInit entryListParent)
+    AssignableIsHere (Codec.newWithChanges assignableCodec entryListParent assignableChanger)
 
 
 

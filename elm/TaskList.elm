@@ -870,7 +870,7 @@ update msg state profile env =
                         finalChanges =
                             [ RepList.insert RepList.Last ("Added item: " ++ newTaskTitle) profile.errors
                             , RepList.insertNew RepList.Last
-                                [ \c -> Entry.initWithClass (newAction c) c ]
+                                [ \c -> Entry.initWithClass (newAction (Change.reuseContext "action" c)) c ]
                                 profile.taskEntries
                             ]
                     in

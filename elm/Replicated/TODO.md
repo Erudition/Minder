@@ -1,5 +1,6 @@
 # Now
-- [ ] Fix case where pointers merge for some reason
+- [ ] Figure out if Contexts are needed
+- [X] Fix case where pointers merge for some reason
 - [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix 
 - [ ] write test for above
 - [ ] Determine what parts of Node.processDelayedInMapping are now unneeded
@@ -55,6 +56,36 @@
 - (-) Reducers currently supported are only LWW and RGA (replist).
 - (-) Only the nominal text format (open and closed!) are currently supported. Binary is planned.
 - (!) RGA uses the "replist" reducer ID instead of "rga" for now
+
+
+# Design Changes
+
+## Contexts
+Are Contexts really necessary? turns out they can't fully identify their children uniquely without assuming the user only uses each once - which we can't enforce, and sometimes is the only option without awkwardly adding unique numbers or strings just for differentiating new objects (or contexts). Meanwhile the encoder pass doesn't have this problem, can uniquely identify everything. The only reason pre-encoded objects need valid unique pointers is so they can be referenced elsewhere (workaround?) and for sub changes.
+
+Workarounds for external references:
+- have a `Codec.newUnique` for objects that need to be referenced elsewhere, taking a user-supplied string they will need to make sure is unique among all changes in the current frame - use this as the pointer, and newUnique returns an ID that can be used then
+
+Workarounds for newWithChanges producing global changes with the pre-encoded pointer (not unique) instead of the encoder-designated pointer
+- manually recurse among subchanges, swapping old pointers with the new one. Difficult with pointers/changes possibly nested in various deep places.
+
+Benefits of Contexts
+- means that the output of Codec.new cannot be used just anywhere, which would allow changes to be made (to a potentially ill-specified object) in arbitrary places, instead we force that all changes must be in the newWithChanges list. Do we need this? not unless there's a benefit
+
+-IDEA: add type variable to Context. Can't force it to be used only once, but can make sure it's used on the type the parent expects (child type). Most importantly, in a custom type, it must first pass through the custom type codec. TODO test passing through custom type codec. TODO what ways can a context still be reused.
+-IDEA: Node encode custom types as flat enumerations with records - each piece of the variant is a reg field. merging is done already, 
+
+## Change library design goals
+- allow object creation and changes only for objects that will be attached to the tree somewhere
+- disallow cycles by default, but model can form any DAG
+
+
+# Changes to objects before saving
+Ideally we would allow all changes to all objects regardless of save state, but that requires the objects to already be ready to go, as far as making generic changes to them anywhere - it requires them to have a fully unique pointer. 
+Since it seems that having a fully unique pointer is hard to guarantee, perhaps impossible in some places (nested in custom types) without threading Contexts everywhere, we could also just try to restrict Change making on all placeholder objects in general.
+Then we allow a limited subset of changes to the placeholder objects, that make sense and don't require Changes, like starting a RepList with a plain list of seed values.
+
+- what if we relied on encoders for all pointers, but still required contexts for all init (must attach somewhere), but eliminated early change lists so there's nowhere to misplace external-object changes?
 
 
 

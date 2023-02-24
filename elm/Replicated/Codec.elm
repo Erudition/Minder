@@ -373,6 +373,9 @@ forceDecodeFromNode rootCodec node =
             ( fromScratch, Debug.todo "nested error - come up with nicer presentation" )
 
 
+{-| Create something new, from its Codec!
+Be sure to pass in a `Context`, which you can get from its parent.
+-}
 new : Codec e (s -> List Change) o repType -> Context -> repType
 new (Codec codecDetails) context =
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "new", seed = nonChanger }
@@ -3248,7 +3251,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
         ( registerPointer, history, initChanges ) =
             case regMaybe of
                 Just ((Register regDetails) as reg) ->
-                    ( interceptPlaceholderLocation regDetails.pointer (Object.getPointer (fallbackObject [])), regDetails.history, regDetails.init reg )
+                    ( regDetails.pointer, regDetails.history, regDetails.init reg )
 
                 Nothing ->
                     ( Object.getPointer (fallbackObject []), Dict.empty, [] )
