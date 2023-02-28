@@ -808,7 +808,7 @@ timesUpdater : Profile -> Task.AssignedAction.AssignedActionID -> String
 timesUpdater profile instanceID =
     let
         timesList =
-            Timeline.getInstanceTimes profile.timeline instanceID
+            Timeline.instanceUniqueMomentsList profile.timeline instanceID
     in
     Encode.encode 0 (Encode.list encodeUnixTimestamp timesList)
 

@@ -1,7 +1,7 @@
 module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Switch exposing (Switch(..), newSwitch, switchToActivity)
+import Activity.Session as Session exposing (Session, new)
 import Activity.Timeline as Timeline exposing (Timeline)
 import Environment exposing (..)
 import External.Commands as Commands
@@ -17,8 +17,8 @@ import Profile exposing (Profile)
 import Random
 import Replicated.Change as Change exposing (Change)
 import Replicated.Op.OpID as OpID
-import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Replicated.Reducer.Register as Reg exposing (Reg)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Human.Moment as HumanMoment
@@ -141,28 +141,33 @@ refreshTracking profile env =
 
 
 switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment -> ( List Change, Cmd msg )
-switchTracking newActivityID newInstanceIDMaybe oldProfile env =
+switchTracking newActivityID newInstanceIDMaybe profile env =
     let
-        addNewSwitch =
-            RepList.append RepList.Last [ newSwitch env.time newActivityID newInstanceIDMaybe ] oldProfile.timeline
+        switchChanges =
+            case newInstanceIDMaybe of
+                Just newInstanceID ->
+                    Timeline.startTask env.time newActivityID newInstanceID profile.timeline
+
+                Nothing ->
+                    Timeline.startActivity env.time newActivityID profile.timeline
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
+            Timeline.currentInstanceID profile.timeline
     in
     if
-        (Profile.currentActivityID oldProfile == newActivityID)
+        (Profile.currentActivityID profile == newActivityID)
             && (newInstanceIDMaybe == oldInstanceIDMaybe)
     then
         -- we didn't change what we were tracking
         ( [], Cmd.none )
 
     else
-        -- we actually changed tracking, add switch to timeline
-        -- TODO RUN reactToNewSwitch AFTER CHANGE
-        ( [ addNewSwitch ], Cmd.none )
+        -- we actually changed tracking, add session to timeline
+        -- TODO RUN reactToNewSession AFTER CHANGE
+        ( switchChanges, Cmd.none )
 
 
-reactToNewSwitch newActivityID newInstanceIDMaybe updatedProfile env oldProfile =
+reactToNewSession newActivityID newInstanceIDMaybe updatedProfile env oldProfile =
     let
         ( newStatusDetails, newFocusStatus ) =
             determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile env
@@ -202,7 +207,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
             Profile.currentActivityID oldProfile
 
         oldInstanceIDMaybe =
-            Activity.Switch.getInstanceID (Timeline.latestSwitch oldProfile.timeline)
+            Timeline.currentInstanceID oldProfile.timeline
 
         allTasks =
             Profile.instanceListNow newProfile env
@@ -219,11 +224,14 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
             { now = env.time
             , zone = env.timeZone
             , oldActivity = Activity.getByID oldActivityID newProfile.activities
-            , lastSession = Maybe.withDefault Duration.zero <| Timeline.lastSession newProfile.timeline oldActivityID
+            , lastSession =
+                Maybe.withDefault Duration.zero <|
+                    Maybe.map Session.duration <|
+                        Timeline.mostRecentHistorySessionOfActivity newProfile.timeline oldActivityID
             , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
             , newActivity = Activity.getByID newActivityID newProfile.activities
             , newActivityTodayTotal =
-                Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
+                Timeline.activityTotalDurationLive env.time newProfile.timeline newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
             }
     in
@@ -260,8 +268,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
-                            -- TODO is this the time spent on the task?
-                            Timeline.totalLive env.time (RepList.listValues newProfile.timeline) newActivityID
+                            Timeline.activityTotalDurationLive env.time newProfile.timeline newActivityID
 
                         maxTimeRemaining =
                             Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent
@@ -381,7 +388,7 @@ reactToStatusChange isExtrapolated status focusStatus profile =
 newlyFreeReaction : StatusDetails -> Cmd msg
 newlyFreeReaction status =
     Cmd.batch
-        [ switchToast status "Liesure time"
+        [ sessionToast status "Liesure time"
         , notify <| freeSticky status
         , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
         ]
@@ -390,7 +397,7 @@ newlyFreeReaction status =
 newlyTractionReaction : StatusDetails -> TractionDetails -> Cmd msg
 newlyTractionReaction status traction =
     Cmd.batch
-        [ switchToast status "✔️"
+        [ sessionToast status "✔️"
         , notify <|
             tractionSticky status traction Duration.zero
                 ++ scheduleTractionReminders status traction
@@ -405,7 +412,7 @@ newlyExcusedReaction isExtrapolated status excused =
                 ++ scheduleExcusedReminders status excused
         ]
             ++ (if not isExtrapolated then
-                    [ switchToast status "❌ Not W.I.N. Excused."
+                    [ sessionToast status "❌ Not W.I.N. Excused."
                     , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
                     ]
 
@@ -418,7 +425,7 @@ newlyDistractionReaction isExtrapolated status distraction =
     let
         realTimeOnly =
             if not isExtrapolated then
-                [ switchToast status "❌ Not W.I.N. "
+                [ sessionToast status "❌ Not W.I.N. "
                 , cancelAll (distractionReminderIDs ++ tractionReminderIDs ++ excusedReminderIDs) -- TODO safe to cancel first reminder at same time as scheduling it?
                 ]
 
@@ -433,8 +440,8 @@ newlyDistractionReaction isExtrapolated status distraction =
                ]
 
 
-switchToast : StatusDetails -> String -> Cmd msg
-switchToast status addedText =
+sessionToast : StatusDetails -> String -> Cmd msg
+sessionToast status addedText =
     multiLineToast
         [ [ getName status.oldActivity, "stopped after", writeDur status.lastSession ]
         , [ getName status.oldActivity, "➤", getName status.newActivity ]
@@ -1149,7 +1156,7 @@ suggestedTasks profile env =
 
 taskClassNotifID : ActionClassID -> Int
 taskClassNotifID classID =
-    (ID.toInt classID)
+    ID.toInt classID
 
 
 

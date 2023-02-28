@@ -1,6 +1,7 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
+import Activity.Session as Session exposing (Session)
 import Activity.Template
 import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
@@ -119,7 +120,7 @@ viewActivity : Profile -> Environment -> Activity -> Html Msg
 viewActivity app env activity =
     let
         describeSession sesh =
-            Timeline.inHoursMinutes sesh ++ "\n"
+            Timeline.inHoursMinutes (Session.duration sesh) ++ "\n"
     in
     li
         [ class "activity" ]
@@ -127,7 +128,7 @@ viewActivity app env activity =
             [ class "activity-button"
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessions (RepList.listValues app.timeline) (Activity.getID activity)))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessionsOfActivity app.timeline (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []
@@ -184,7 +185,7 @@ writeActivityUsage app env activity =
             Timeline.relevantTimeline app.timeline env.time period
 
         total =
-            Timeline.totalLive env.time (RepList.listValues lastPeriod) (Activity.getID activity)
+            Timeline.activityTotalDurationLive env.time lastPeriod (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total

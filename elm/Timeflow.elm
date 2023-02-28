@@ -1,7 +1,8 @@
-module Timeflow exposing (ViewState, init, routeView, subscriptions, update, view, Msg(..))
+module Timeflow exposing (Msg(..), ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Timeline
+import Activity.Session as Session exposing (Session)
+import Activity.Timeline as Timeline
 import Color exposing (Color)
 import Date
 import Dict exposing (Dict)
@@ -828,11 +829,11 @@ historyBlobs : Environment -> Profile -> Period -> List FlowBlob
 historyBlobs env profile displayPeriod =
     let
         historyList =
-            Activity.Timeline.switchListLiveToPeriods env.time (RepList.listValues profile.timeline)
+            Timeline.historyLive env.time profile.timeline
     in
     List.map (makeHistoryBlob env profile.activities displayPeriod)
         (List.takeWhile
-            (\( _, _, m ) -> Period.haveOverlap displayPeriod m)
+            (\sesh -> Period.haveOverlap displayPeriod (Session.getPeriod sesh))
             historyList
         )
 
@@ -900,23 +901,23 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Environment -> Activity.Store -> Period -> ( Activity.ActivityID, Maybe Task.AssignedActionID, Period ) -> FlowBlob
-makeHistoryBlob env activityStore displayPeriod ( activityID, instanceIDMaybe, sessionPeriod ) =
+makeHistoryBlob : Environment -> Activity.Store -> Period -> Session -> FlowBlob
+makeHistoryBlob env activityStore displayPeriod session =
     let
         -- sessionPositions =
         --     getPositionInDay day.rowLength day.period sessionPeriod
         ( ( startDate, startTime ), ( endDate, endTime ) ) =
-            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
-            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
+            ( HumanMoment.humanize env.timeZone (Session.getStart session)
+            , HumanMoment.humanize env.timeZone (Session.getEnd session)
             )
 
         describeTiming =
-            String.fromInt (round <| Duration.inMinutes (Period.length sessionPeriod))
+            String.fromInt (round <| Duration.inMinutes (Period.length (Session.getPeriod session)))
                 ++ "m "
                 ++ activityName
 
         sessionActivity =
-            Activity.getByID activityID activityStore
+            Activity.getByID (Session.getActivityID session) activityStore
 
         activityName =
             Activity.getName sessionActivity
@@ -945,10 +946,10 @@ makeHistoryBlob env activityStore displayPeriod ( activityID, instanceIDMaybe, s
                 |> HSLuv.toColor
 
         croppedSessionPeriod =
-            Period.crop displayPeriod sessionPeriod
+            Period.crop displayPeriod (Session.getPeriod session)
 
         stringID =
-            HumanMoment.toStandardString (Period.start sessionPeriod)
+            HumanMoment.toStandardString (Session.getStart session)
     in
     FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor describeTiming stringID
 

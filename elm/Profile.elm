@@ -1,7 +1,7 @@
 module Profile exposing (AppInstance, Profile, TodoistIntegrationData, codec, currentActivityID, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Switch
+import Activity.Session
 import Activity.Timeline exposing (Timeline)
 import Environment exposing (Environment)
 import ExtraCodecs as Codec
@@ -61,7 +61,7 @@ codec =
         |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
         |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
-        |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.Switch.codec
+        |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
         |> Codec.finishRecord

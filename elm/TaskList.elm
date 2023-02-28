@@ -1,7 +1,7 @@
 module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Activity.Activity exposing (ActivityID)
-import Activity.Switch
+import Activity.Session
 import Activity.Timeline
 import Browser
 import Browser.Dom
@@ -118,7 +118,7 @@ view state profile env =
                     Instance.prioritize env.time env.timeZone allFullTaskInstances
 
                 trackedTaskMaybe =
-                    Activity.Switch.getInstanceID (Activity.Timeline.latestSwitch profile.timeline)
+                    Activity.Timeline.currentInstanceID profile.timeline
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
@@ -1031,17 +1031,17 @@ update msg state profile env =
 
         StartTracking instanceID activityID ->
             -- let
-            --     ( addSwitch, switchCommands ) =
+            --     ( addSession, sessionCommands ) =
             --         Refocus.switchTracking activityID (Just instanceID) profile env
             --
             --     ( newProfile2WithMarvinTimes, marvinCmds ) =
-            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env (Just instanceID) True
+            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env (Just instanceID) True
             -- in
             -- ( state
             -- , newProfile2WithMarvinTimes
             -- , Cmd.batch
             --     [ Cmd.map MarvinServerResponse <| marvinCmds
-            --     , switchCommands
+            --     , sessionCommands
             --     ]
             -- )
             Debug.todo "start tracking"
@@ -1054,15 +1054,15 @@ update msg state profile env =
             --     instanceToStop =
             --         Activity.Timeline.currentInstanceID profile.timeline
             --
-            --     ( newProfile1WithSwitch, switchCommands ) =
+            --     ( newProfile1WithSession, sessionCommands ) =
             --         Refocus.switchTracking activityToContinue Nothing profile env
             --
             --     ( newProfile2WithMarvinTimes, marvinCmds ) =
-            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSwitch env instanceToStop False
+            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env instanceToStop False
             -- in
             -- ( state
             -- , newProfile2WithMarvinTimes
-            -- , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, switchCommands ]
+            -- , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, sessionCommands ]
             -- )
             Debug.todo "stop tracking"
 

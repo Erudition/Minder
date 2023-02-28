@@ -1,7 +1,7 @@
 port module Main exposing (Msg(..), StoredRON, Temp, ViewState, emptyViewState, infoFooter, init, main, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
-import Activity.Switch as Switch exposing (Switch(..))
+import Activity.Session as Session exposing (Session(..))
 import Activity.Timeline as Timeline
 import Browser
 import Browser.Events
@@ -39,6 +39,7 @@ import SmartTime.Duration as Duration
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment
 import SmartTime.Moment as Moment
+import SmartTime.Period as Period exposing (Period)
 import Task as Job
 import Task.AssignedAction as Instance
 import TaskList
@@ -85,14 +86,6 @@ subscriptions { replica, temp } =
                     _ ->
                         []
                )
-
-
-
-
-
-
-
-
 
 
 port setStorage : String -> Cmd msg
@@ -362,12 +355,8 @@ trackingDisplay replica env =
         currentActivity =
             Timeline.currentActivity replica.activities replica.timeline
 
-        latestSwitch =
-            -- Log.logMessageOnly ("latest switch at " ++ HumanMoment.toStandardString (Switch.getMoment (Timeline.latestSwitch replica.timeline)))
-            Timeline.latestSwitch replica.timeline
-
         currentInstanceIDMaybe =
-            Switch.getInstanceID latestSwitch
+            Timeline.currentInstanceID replica.timeline
 
         allInstances =
             Profile.instanceListNow replica env
@@ -375,8 +364,8 @@ trackingDisplay replica env =
         currentInstanceMaybe currentInstanceID =
             List.head (List.filter (\t -> Instance.getID t == currentInstanceID) allInstances)
 
-        timeSinceSwitch =
-            Moment.difference (Switch.getMoment latestSwitch) env.time
+        timeSinceSession =
+            Period.length (Timeline.currentAsPeriod env.time replica.timeline)
 
         tracking_for_string thing time =
             "Tracking "
@@ -390,7 +379,7 @@ trackingDisplay replica env =
                 [ el [] <| text "O"
                 , el [ centerX ] <|
                     text
-                        (tracking_for_string (Activity.getName currentActivity) timeSinceSwitch)
+                        (tracking_for_string (Activity.getName currentActivity) timeSinceSession)
                 ]
 
         Just currentInstance ->
@@ -401,7 +390,7 @@ trackingDisplay replica env =
                 , behindContent
                     (row [ width fill, height fill ]
                         [ el [] <| text "O"
-                        , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSwitch))
+                        , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSession))
                         ]
                     )
                 ]
@@ -480,9 +469,6 @@ infoFooter =
             , H.a [ href "http://todomvc.com" ] [ H.text "TodoMVC" ]
             ]
         ]
-
-
-
 
 
 
@@ -958,6 +944,3 @@ handleUrlTriggers rawUrl replica temp =
                     (-- TODO { model | replica = saveError replica problemText }
                      External.Commands.toast problemText
                     )
-
-
-
