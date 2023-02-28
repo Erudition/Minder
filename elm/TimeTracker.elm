@@ -34,6 +34,8 @@ import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Human.Moment as HumanMoment
+import SmartTime.Moment as Moment exposing (Moment)
+import SmartTime.Period as Period exposing (Period)
 import Task as Job
 import Time
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
@@ -121,6 +123,9 @@ viewActivity app env activity =
     let
         describeSession sesh =
             Timeline.inHoursMinutes (Session.duration sesh) ++ "\n"
+
+        filterPeriod =
+            Period.between Moment.zero env.time
     in
     li
         [ class "activity" ]
@@ -128,7 +133,7 @@ viewActivity app env activity =
             [ class "activity-button"
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessionsOfActivity app.timeline (Activity.getID activity)))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessionsOfActivity filterPeriod app.timeline (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []
@@ -178,20 +183,20 @@ viewIcon getIcon =
 writeActivityUsage : Profile -> Environment -> Activity -> String
 writeActivityUsage app env activity =
     let
-        period =
+        maxTimeDenominator =
             Tuple.second (Activity.getMaxTime activity)
 
         lastPeriod =
-            Timeline.relevantTimeline app.timeline env.time period
+            Period.fromEnd env.time (dur maxTimeDenominator)
 
         total =
-            Timeline.activityTotalDurationLive env.time lastPeriod (Activity.getID activity)
+            Timeline.activityTotalDurationLive lastPeriod env.time app.timeline (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total
     in
     if inMs total > 0 then
-        String.fromInt totalMinutes ++ "/" ++ String.fromInt (inMinutesRounded (toDuration period)) ++ "m"
+        String.fromInt totalMinutes ++ "/" ++ String.fromInt (inMinutesRounded (toDuration maxTimeDenominator)) ++ "m"
 
     else
         ""

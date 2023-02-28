@@ -220,6 +220,9 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                 Just instanceID ->
                     List.head <| List.filter (.instanceID >> (==) instanceID) allTasks
 
+        filterPeriod =
+            Period.between Moment.zero env.time
+
         statusDetails =
             { now = env.time
             , zone = env.timeZone
@@ -227,11 +230,11 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
             , lastSession =
                 Maybe.withDefault Duration.zero <|
                     Maybe.map Session.duration <|
-                        Timeline.mostRecentHistorySessionOfActivity newProfile.timeline oldActivityID
+                        Timeline.mostRecentHistorySessionOfActivity filterPeriod newProfile.timeline oldActivityID
             , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
             , newActivity = Activity.getByID newActivityID newProfile.activities
             , newActivityTodayTotal =
-                Timeline.activityTotalDurationLive env.time newProfile.timeline newActivityID
+                Timeline.activityTotalDurationLive filterPeriod env.time newProfile.timeline newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
             }
     in
@@ -268,7 +271,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
-                            Timeline.activityTotalDurationLive env.time newProfile.timeline newActivityID
+                            Timeline.activityTotalDurationLive filterPeriod env.time newProfile.timeline newActivityID
 
                         maxTimeRemaining =
                             Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent

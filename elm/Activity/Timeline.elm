@@ -1,4 +1,4 @@
-module Activity.Timeline exposing (Timeline, activityTotalDuration, activityTotalDurationLive, backfill, codec, currentActivity, currentActivityID, currentAsPeriod, currentInstanceID, currentToHistory, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, historyLive, inHoursMinutes, insertExternalSession, instanceUniqueMomentsList, justTodayTotal, limitedTimeline, mostRecentHistorySessionOfActivity, onlyToday, periodsLive, periodsOfActivity, periodsOfActivityLive, periodsOfInstance, periodsOfInstanceLive, relevantTimeline, sessionsOfActivity, sessionsOfInstance, startActivity, startTask)
+module Activity.Timeline exposing (Timeline, activityTotalDuration, activityTotalDurationLive, backfill, codec, currentActivity, currentActivityID, currentAsPeriod, currentInstanceID, currentToHistory, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, historyBackByHumanDuration, historyBackByHumanDurationLive, historyLive, inHoursMinutes, insertExternalSession, instanceUniqueMomentsList, justTodayTotal, limitedHistory, limitedHistoryLive, mostRecentHistorySessionOfActivity, onlyToday, periodsLive, periodsOfActivity, periodsOfActivityLive, periodsOfInstance, periodsOfInstanceLive, sessionsOfActivity, sessionsOfInstance, startActivity, startTask)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Evidence exposing (..)
@@ -101,9 +101,9 @@ historyLive now ((Timeline timeline) as wrappedTimeline) =
             currentSesh :: RepList.listValues timeline.history
 
 
-sessionsOfActivity : Timeline -> ActivityID -> List Session
-sessionsOfActivity ((Timeline timeline) as wrappedTimeline) activityId =
-    List.filter (Session.activityMatches activityId) (RepList.listValues timeline.history)
+sessionsOfActivity : Period -> Timeline -> ActivityID -> List Session
+sessionsOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activityId =
+    List.filter (Session.activityMatches activityId) (limitedHistory wrappedTimeline filterPeriod)
 
 
 currentInstanceID : Timeline -> Maybe AssignedActionID
@@ -119,35 +119,74 @@ sessionsOfInstance ((Timeline timeline) as wrappedTimeline) instance =
 {-| Narrow a timeline down to a given time frame.
 This function takes two Moments (now and the point in history up to which we want to keep). It will cap off the list with a fake session at the end, set for the pastLimit, so that sessions that span the threshold still have their relevant portion counted.
 -}
-limitedTimeline : Timeline -> Moment -> Moment -> Timeline
-limitedTimeline ((Timeline timeline) as wrappedTimeline) now pastLimit =
-    -- let
-    --     sessionActivityID session =
-    --         Session.getActivityID session
-    --
-    --     recentEnough session =
-    --         Moment.compare (Session.getMoment session) pastLimit == Later
-    --
-    --     ( pass, fail ) =
-    --         List.partition recentEnough timeline
-    --
-    --     justMissedId =
-    --         Maybe.withDefault Activity.unknown <| Maybe.map sessionActivityID (List.head fail)
-    --
-    --     fakeEndSession =
-    --         sessionToActivity pastLimit justMissedId
-    -- in
-    -- pass ++ [ fakeEndSession ]
-    Debug.todo "timeline limit"
+limitedHistoryLive : Timeline -> Period -> Moment -> List Session
+limitedHistoryLive ((Timeline timeline) as wrappedTimeline) filterPeriod now =
+    let
+        history =
+            limitedHistory wrappedTimeline filterPeriod
+    in
+    case currentAsFakeHistorySession now wrappedTimeline of
+        Nothing ->
+            history
+
+        Just currentSesh ->
+            currentSesh :: history
 
 
-relevantTimeline : Timeline -> Moment -> HumanDuration -> Timeline
-relevantTimeline ((Timeline timeline) as wrappedTimeline) now duration =
-    limitedTimeline wrappedTimeline now (Moment.past now (dur duration))
+limitedHistory : Timeline -> Period -> List Session
+limitedHistory (Timeline timeline) filterPeriod =
+    let
+        withinFilter givenMoment =
+            Period.isWithin filterPeriod givenMoment
+
+        keepWithinLimits : Session -> Maybe Session
+        keepWithinLimits sesh =
+            case ( withinFilter (Session.getStart sesh), withinFilter (Session.getEnd sesh) ) of
+                ( True, True ) ->
+                    -- totally within our horizon
+                    Just sesh
+
+                ( True, False ) ->
+                    -- session starts within filter, but ends after it.
+                    -- cut off from the end
+                    Session.new
+                        { start = Session.getStart sesh
+                        , end = Period.end filterPeriod
+                        , activity = Session.getActivityID sesh
+                        , action = Session.getInstanceID sesh
+                        }
+                        |> Just
+
+                ( False, True ) ->
+                    -- session ends within filter, but starts before it.
+                    -- cut off from the beginning
+                    Session.new
+                        { start = Period.start filterPeriod
+                        , end = Session.getEnd sesh
+                        , activity = Session.getActivityID sesh
+                        , action = Session.getInstanceID sesh
+                        }
+                        |> Just
+
+                ( False, False ) ->
+                    -- out of bounds
+                    Nothing
+    in
+    List.filterMap keepWithinLimits (RepList.listValues timeline.history)
 
 
-onlyToday : Timeline -> ( Moment, Zone ) -> Timeline
-onlyToday ((Timeline timeline) as wrappedTimeline) ( now, zone ) =
+historyBackByHumanDuration : Timeline -> Moment -> HumanDuration -> List Session
+historyBackByHumanDuration ((Timeline timeline) as wrappedTimeline) now duration =
+    limitedHistory wrappedTimeline (Period.fromEnd now (dur duration))
+
+
+historyBackByHumanDurationLive : Timeline -> Moment -> HumanDuration -> List Session
+historyBackByHumanDurationLive ((Timeline timeline) as wrappedTimeline) now duration =
+    limitedHistoryLive wrappedTimeline (Period.fromEnd now (dur duration)) now
+
+
+onlyToday : ( Moment, Zone ) -> Period
+onlyToday ( now, zone ) =
     let
         threeAM =
             Duration.fromHours 3
@@ -155,12 +194,12 @@ onlyToday ((Timeline timeline) as wrappedTimeline) ( now, zone ) =
         last3am =
             HumanMoment.clockTurnBack threeAM zone now
     in
-    limitedTimeline wrappedTimeline now last3am
+    Period.between now last3am
 
 
-mostRecentHistorySessionOfActivity : Timeline -> ActivityID -> Maybe Session
-mostRecentHistorySessionOfActivity ((Timeline timeline) as wrappedTimeline) activity =
-    List.head (sessionsOfActivity wrappedTimeline activity)
+mostRecentHistorySessionOfActivity : Period -> Timeline -> ActivityID -> Maybe Session
+mostRecentHistorySessionOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activity =
+    List.head (sessionsOfActivity filterPeriod wrappedTimeline activity)
 
 
 {-| internal only
@@ -282,17 +321,17 @@ periodsOfInstanceLive now ((Timeline timeline) as wrappedTimeline) givenInstance
         historyPeriods
 
 
-periodsOfActivity : Timeline -> ActivityID -> List Period
-periodsOfActivity ((Timeline timeline) as wrappedTimeline) activityID =
-    sessionsOfActivity wrappedTimeline activityID
+periodsOfActivity : Period -> Timeline -> ActivityID -> List Period
+periodsOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activityID =
+    sessionsOfActivity filterPeriod wrappedTimeline activityID
         |> Session.listAsPeriods
 
 
-periodsOfActivityLive : Moment -> Timeline -> ActivityID -> List Period
-periodsOfActivityLive now ((Timeline timeline) as wrappedTimeline) activityID =
+periodsOfActivityLive : Period -> Moment -> Timeline -> ActivityID -> List Period
+periodsOfActivityLive filterPeriod now ((Timeline timeline) as wrappedTimeline) activityID =
     let
         historyPeriods =
-            periodsOfActivity wrappedTimeline activityID
+            periodsOfActivity filterPeriod wrappedTimeline activityID
     in
     if Maybe.map .activity timeline.current.get == Just activityID then
         currentAsPeriod now wrappedTimeline :: historyPeriods
@@ -311,25 +350,26 @@ periodsLive now ((Timeline timeline) as wrappedTimeline) =
 -- rely on Period functions first
 
 
-activityTotalDuration : Timeline -> ActivityID -> Duration
-activityTotalDuration ((Timeline timeline) as wrappedTimeline) activityId =
-    Duration.combine (List.map Period.length (periodsOfActivity wrappedTimeline activityId))
+activityTotalDuration : Period -> Timeline -> ActivityID -> Duration
+activityTotalDuration filterPeriod ((Timeline timeline) as wrappedTimeline) activityId =
+    Duration.combine (List.map Period.length (periodsOfActivity filterPeriod wrappedTimeline activityId))
 
 
-activityTotalDurationLive : Moment -> Timeline -> ActivityID -> Duration
-activityTotalDurationLive now ((Timeline timeline) as wrappedTimeline) activityID =
-    Duration.combine (List.map Period.length (periodsOfActivityLive now wrappedTimeline activityID))
+activityTotalDurationLive : Period -> Moment -> Timeline -> ActivityID -> Duration
+activityTotalDurationLive filterPeriod now ((Timeline timeline) as wrappedTimeline) activityID =
+    Duration.combine (List.map Period.length (periodsOfActivityLive filterPeriod now wrappedTimeline activityID))
+
+
+activityTotalDurationLimitedLive : Period -> Moment -> Timeline -> ActivityID -> Duration
+activityTotalDurationLimitedLive period now ((Timeline timeline) as wrappedTimeline) activityID =
+    Duration.combine (List.map Period.length (periodsOfActivityLive period now wrappedTimeline activityID))
 
 
 {-| Total time used within the excused window.
 -}
 excusedUsage : Timeline -> Moment -> ( ActivityID, Activity ) -> Duration
 excusedUsage ((Timeline timeline) as wrappedTimeline) now ( activityID, activity ) =
-    let
-        lastExcusablePeriodTimeline =
-            relevantTimeline wrappedTimeline now (Tuple.first (Activity.excusableRatio activity))
-    in
-    activityTotalDurationLive now lastExcusablePeriodTimeline activityID
+    activityTotalDurationLive (Period.fromEnd now (dur (Tuple.first (Activity.excusableRatio activity)))) now wrappedTimeline activityID
 
 
 {-| Amount of time allowed to be Excused (within window)
@@ -355,11 +395,7 @@ excusedLeft ((Timeline timeline) as wrappedTimeline) now ( activityID, activity 
 
 justTodayTotal : Timeline -> Environment -> ActivityID -> Duration
 justTodayTotal ((Timeline timeline) as wrappedTimeline) env activityID =
-    let
-        onlyTodayTimeline =
-            onlyToday wrappedTimeline ( env.time, env.timeZone )
-    in
-    activityTotalDurationLive env.time onlyTodayTimeline activityID
+    activityTotalDurationLive (onlyToday ( env.time, env.timeZone )) env.time wrappedTimeline activityID
 
 
 

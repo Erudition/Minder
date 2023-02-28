@@ -2718,7 +2718,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                                     success
 
                                 ( recovered, errors ) ->
-                                    Log.crashInDev ("regToRecordByDecoding returned errors!" ++ Log.dump errors) recovered
+                                    Log.log ("regToRecordByDecoding returned errors! " ++ Log.dump errors ++ " while decoding record at " ++ Location.toString position) recovered
 
                         regToRecordByInit =
                             allFieldsCodec.nodeInitializer
@@ -3612,10 +3612,11 @@ map fromAtoB fromBtoA codec =
         }
 
 
-{-| Make a record Codec an opaque type by wrapping it with an opaque type constructor.
+{-| Make a record Codec an opaque type by wrapping it with an opaque type constructor. Seed does not change type.
 -}
 makeOpaque : (a -> b) -> (b -> a) -> Codec e i o a -> Codec e i o b
 makeOpaque fromAtoB fromBtoA codec =
+    -- TODO reduce duplicate code
     let
         fromResultData value =
             case value of

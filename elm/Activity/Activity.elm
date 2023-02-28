@@ -79,7 +79,7 @@ type alias BuiltInActivitySkel =
     , taskOptional : RW (Maybe Bool)
     , evidence : RepList Evidence
     , backgroundable : RW (Maybe Bool)
-    , maxTime : RW (Maybe DurationPerPeriod)
+    , maxTime : RW (Maybe DurationPerDuration)
     , hidden : RW Bool
     , externalIDs : RepDict String String
     }
@@ -108,7 +108,7 @@ type alias CustomActivitySkel =
     , taskOptional : RW (Maybe Bool)
     , evidence : RepList Evidence
     , backgroundable : RW (Maybe Bool)
-    , maxTime : RW (Maybe DurationPerPeriod)
+    , maxTime : RW (Maybe DurationPerDuration)
     , hidden : RW Bool
     , externalIDs : RepDict String String
     }
@@ -137,7 +137,7 @@ unknown =
 
 type Excusable
     = NeverExcused
-    | TemporarilyExcused DurationPerPeriod
+    | TemporarilyExcused DurationPerDuration
     | IndefinitelyExcused
 
 
@@ -168,11 +168,11 @@ Making Invalid States Unrepresentable: is there anyway to guarantee (via the typ
 Using a Custom type instead of a type alias: considering it, but it'd just have one value, meaning a tag that you'd always need to tack on, and there's not likely to be another type out there with the same structure that it could get mixed up with.
 
 -}
-type alias DurationPerPeriod =
+type alias DurationPerDuration =
     ( HumanDuration, HumanDuration )
 
 
-durationPerPeriodCodec : NullCodec String DurationPerPeriod
+durationPerPeriodCodec : NullCodec String DurationPerDuration
 durationPerPeriodCodec =
     Codec.pair Codec.humanDuration Codec.humanDuration
 
@@ -234,7 +234,7 @@ type alias TemplateDefaults =
     , evidence : List Evidence
     , category : Category
     , backgroundable : Bool
-    , maxTime : DurationPerPeriod
+    , maxTime : DurationPerDuration
     , hidden : Bool -- The user can hide any of the "stock" activities they don't use
     , externalIDs : Dict String String
     }
@@ -1148,7 +1148,7 @@ getExcusable act =
                 |> Maybe.withDefault (defaults template).excusable
 
 
-excusableRatio : Activity -> DurationPerPeriod
+excusableRatio : Activity -> DurationPerDuration
 excusableRatio act =
     case getExcusable act of
         NeverExcused ->
@@ -1205,7 +1205,7 @@ setBackgroundable newSetting act =
             customSkel.backgroundable.set (Just newSetting)
 
 
-getMaxTime : Activity -> DurationPerPeriod
+getMaxTime : Activity -> DurationPerDuration
 getMaxTime act =
     case act of
         BuiltIn template builtInSkel ->
@@ -1217,7 +1217,7 @@ getMaxTime act =
                 |> Maybe.withDefault (defaults template).maxTime
 
 
-setMaxTime : DurationPerPeriod -> Activity -> Change
+setMaxTime : DurationPerDuration -> Activity -> Change
 setMaxTime newSetting act =
     case act of
         BuiltIn template builtInSkel ->

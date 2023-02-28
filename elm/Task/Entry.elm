@@ -233,7 +233,6 @@ initWithClass actionSkelReg entryListParent =
         taskClassChildrenChanger : RepList NestedOrAction -> List Change
         taskClassChildrenChanger newChildren =
             [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
-            , RepList.insert RepList.Last 9 orphanList
             ]
 
         assignableChanger : Change.Changer (Reg Assignable)
