@@ -3612,6 +3612,52 @@ map fromAtoB fromBtoA codec =
         }
 
 
+{-| Make a record Codec an opaque type by wrapping it with an opaque type constructor.
+-}
+makeOpaque : (a -> b) -> (b -> a) -> Codec e i o a -> Codec e i o b
+makeOpaque fromAtoB fromBtoA codec =
+    let
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    fromAtoB ok |> Ok
+
+                Err err ->
+                    Err err
+
+        wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e) b)
+        wrappedNodeDecoder inputs =
+            getNodeDecoder codec inputs |> JD.map fromResultData
+
+        wrappedInitializer : PlaceholderInputs i -> b
+        wrappedInitializer inputs =
+            getInitializer codec (PlaceholderInputs inputs.parent inputs.position inputs.seed)
+                |> fromAtoB
+
+        mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
+        mapNodeEncoderInputs inputs =
+            NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+
+        mapThingToEncode : ThingToEncode b -> ThingToEncode a
+        mapThingToEncode original =
+            case original of
+                EncodeThis a ->
+                    EncodeThis (fromBtoA a)
+
+                EncodeObjectOrThis objectIDs fieldVal ->
+                    EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
+    in
+    Codec
+        { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
+        , bytesDecoder = getBytesDecoder codec |> BD.map fromResultData
+        , jsonEncoder = \v -> fromBtoA v |> getJsonEncoder codec
+        , jsonDecoder = getJsonDecoder codec |> JD.map fromResultData
+        , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
+        , nodeDecoder = wrappedNodeDecoder
+        , nodePlaceholder = wrappedInitializer
+        }
+
+
 
 -- mapHelper : (Result (Error e) a -> Result (Error e) b) -> (b -> a) -> Codec e a o a -> Codec e b o b
 -- mapHelper fromResultAtoResultB fromBtoA codec =

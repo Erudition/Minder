@@ -94,12 +94,6 @@ port setStorage : String -> Cmd msg
 port storageChangedElsewhere : (String -> msg) -> Sub msg
 
 
-log : String -> a -> a
-log label valueToLog =
-    -- Debug.log label valueToLog
-    valueToLog
-
-
 type alias StoredRON =
     String
 
