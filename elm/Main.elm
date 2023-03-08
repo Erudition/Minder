@@ -69,10 +69,12 @@ subscriptions { replica, temp } =
     Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          --   HumanMoment.everyMinuteOnTheMinute temp.environment.time
+          --   SmartTime.Human.Moment.everyMinuteOnTheMinute temp.environment.time
           --     temp.environment.timeZone
           --     (\_ -> NoOp)
-          -- Debug.log "starting interval" (Moment.every Duration.aMinute (Tock NoOp))
+          -- Debug.log
+          -- "starting interval"
+          -- (Moment.every Duration.aMinute (\_ -> NoOp))
           Browser.Events.onVisibilityChange (\_ -> NoOp)
 
         -- , storageChangedElsewhere NewAppData
@@ -86,6 +88,42 @@ subscriptions { replica, temp } =
                     _ ->
                         []
                )
+
+
+
+{- The goal here is to get (mouse x / window width) on each mouse event. So if
+   the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
+   Getting the mouse x is not too hard, but getting window width is a bit tricky.
+   We want the window.innerWidth value, which happens to be available at:
+       event.currentTarget.defaultView.innerWidth
+   The value at event.currentTarget is the document in these cases, but this will
+   not work if you have a <section> or a <div> with a normal elm/html event handler.
+   So if currentTarget is NOT the document, you should instead get the value at:
+       event.currentTarget.ownerDocument.defaultView.innerWidth
+                           ^^^^^^^^^^^^^
+-}
+
+
+decodeFraction : ClassicDecode.Decoder Float
+decodeFraction =
+    ClassicDecode.map2 (/)
+        (ClassicDecode.field "pageX" ClassicDecode.float)
+        (ClassicDecode.at [ "currentTarget", "defaultView", "innerWidth" ] ClassicDecode.float)
+
+
+
+{- What happens when the user is dragging, but the "mouse up" occurs outside
+   the browser window? We need to stop listening for mouse movement and end the
+   drag. We use MouseEvent.buttons to detect this:
+       https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
+   The "buttons" value is 1 when "left-click" is pressed, so we use that to
+   detect zombie drags.
+-}
+
+
+decodeButtons : ClassicDecode.Decoder Bool
+decodeButtons =
+    ClassicDecode.field "buttons" (ClassicDecode.map (\buttons -> buttons == 1) ClassicDecode.int)
 
 
 port setStorage : String -> Cmd msg
@@ -340,11 +378,11 @@ globalLayout viewState replica env innerStuff =
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ footerLinks
                 ]
-            , trackingDisplay replica env
+            , trackingDisplay replica env.time env.launchTime env.timeZone
             ]
 
 
-trackingDisplay replica env =
+trackingDisplay replica time launchTime timeZone =
     let
         currentActivity =
             Timeline.currentActivity replica.activities replica.timeline
@@ -353,19 +391,19 @@ trackingDisplay replica env =
             Timeline.currentInstanceID replica.timeline
 
         allInstances =
-            Profile.instanceListNow replica env
+            Profile.instanceListNow replica ( launchTime, timeZone )
 
         currentInstanceMaybe currentInstanceID =
             List.head (List.filter (\t -> Instance.getID t == currentInstanceID) allInstances)
 
         timeSinceSession =
-            Period.length (Timeline.currentAsPeriod env.time replica.timeline)
+            Period.length (Timeline.currentAsPeriod time replica.timeline)
 
-        tracking_for_string thing time =
+        tracking_for_string thing givenTime =
             "Tracking "
                 ++ thing
                 ++ " for "
-                ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits time ]
+                ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits givenTime ]
     in
     case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
         Nothing ->
@@ -494,10 +532,7 @@ type Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
     | DevToolsMsg DevTools.Msg
-
-
-
--- | MouseMoved Bool Float
+    | MouseMoved Bool Float
 
 
 type ThirdPartyService
@@ -529,6 +564,12 @@ update msg { temp, replica } =
             ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        MouseMoved _ _ ->
+            ( []
+            , temp
+            , Cmd.none
+            )
+
         NoOp ->
             ( []
             , temp
@@ -584,7 +625,7 @@ update msg { temp, replica } =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( _, whatHappened, nextStep ) =
-                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica environment response
+                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica ( environment.time, environment.timeZone ) response
 
                 _ =
                     Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)
@@ -666,7 +707,7 @@ update msg { temp, replica } =
                     getPanelViewState viewState.timeTracker TimeTracker.defaultView
 
                 ( newFrame, newPanelState, newCommand ) =
-                    TimeTracker.update subMsg oldPanelState replica environment
+                    TimeTracker.update subMsg oldPanelState replica ( environment.time, environment.timeZone )
 
                 newViewState =
                     { viewState | timeTracker = OpenPanel position newPanelState }
@@ -871,7 +912,7 @@ handleUrlTriggers rawUrl replica temp =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers replica temp.environment)
+            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers replica ( temp.environment.time, temp.environment.timeZone ))
                 ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers replica)
                 ++ [ ( "sync"
                      , Dict.fromList

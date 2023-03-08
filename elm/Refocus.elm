@@ -99,20 +99,20 @@ type WINUrgency
     | Strong
 
 
-prioritizeTasks : Profile -> Environment -> List AssignedAction
-prioritizeTasks profile env =
-    Task.AssignedAction.prioritize env.time env.timeZone <|
+prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List AssignedAction
+prioritizeTasks profile ( time, timeZone ) =
+    Task.AssignedAction.prioritize time timeZone <|
         List.filter (Task.AssignedAction.completed >> not) <|
-            Profile.instanceListNow profile env
+            Profile.instanceListNow profile ( time, timeZone )
 
 
-whatsImportantNow : Profile -> Environment -> Maybe ( FocusItem, WINUrgency )
-whatsImportantNow profile env =
+whatsImportantNow : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )
+whatsImportantNow profile ( time, timeZone ) =
     let
         prioritized =
             -- Must have an activity to tell
             List.filter (\i -> (Reg.latest i.class).activity.get /= Nothing)
-                (prioritizeTasks profile env)
+                (prioritizeTasks profile ( time, timeZone ))
 
         -- TODO allow activities to be WIN
         topPickMaybe =
@@ -130,26 +130,26 @@ whatsImportantNow profile env =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : ActivityID -> Profile -> Environment -> ( List Change, Cmd msg )
-switchActivity newActivityID profile env =
-    switchTracking newActivityID Nothing profile env
+switchActivity : ActivityID -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchActivity newActivityID profile ( time, timeZone ) =
+    switchTracking newActivityID Nothing profile ( time, timeZone )
 
 
-refreshTracking : Profile -> Environment -> ( List Change, Cmd msg )
-refreshTracking profile env =
-    switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile env
+refreshTracking : Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+refreshTracking profile ( time, timeZone ) =
+    switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile ( time, timeZone )
 
 
-switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> Environment -> ( List Change, Cmd msg )
-switchTracking newActivityID newInstanceIDMaybe profile env =
+switchTracking : ActivityID -> Maybe AssignedActionID -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchTracking newActivityID newInstanceIDMaybe profile ( time, timeZone ) =
     let
         switchChanges =
             case newInstanceIDMaybe of
                 Just newInstanceID ->
-                    Timeline.startTask env.time newActivityID newInstanceID profile.timeline
+                    Timeline.startTask time newActivityID newInstanceID profile.timeline
 
                 Nothing ->
-                    Timeline.startActivity env.time newActivityID profile.timeline
+                    Timeline.startActivity time newActivityID profile.timeline
 
         oldInstanceIDMaybe =
             Timeline.currentInstanceID profile.timeline
@@ -167,10 +167,10 @@ switchTracking newActivityID newInstanceIDMaybe profile env =
         ( switchChanges, Cmd.none )
 
 
-reactToNewSession newActivityID newInstanceIDMaybe updatedProfile env oldProfile =
+reactToNewSession newActivityID newInstanceIDMaybe updatedProfile ( time, timeZone ) oldProfile =
     let
         ( newStatusDetails, newFocusStatus ) =
-            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile env
+            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile ( time, timeZone )
 
         ( reactionNow, checkbackTimeMaybe ) =
             reactToStatusChange False newStatusDetails newFocusStatus updatedProfile
@@ -184,18 +184,18 @@ reactToNewSession newActivityID newInstanceIDMaybe updatedProfile env oldProfile
                     let
                         -- everything stays the same, just in the future
                         ( futureStatusDetails, futureFocusStatus ) =
-                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile { env | time = checkbackTime }
+                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile ( checkbackTime, timeZone )
                     in
                     Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus updatedProfile)
 
         suggestions =
-            suggestedTasks oldProfile env
+            suggestedTasks oldProfile ( time, timeZone )
     in
     ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
-determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> Profile -> Environment -> ( StatusDetails, FocusStatus )
-determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile env =
+determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
+determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile ( time, timeZone ) =
     let
         newActivity =
             Profile.getActivityByID newProfile newActivityID
@@ -210,7 +210,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
             Timeline.currentInstanceID oldProfile.timeline
 
         allTasks =
-            Profile.instanceListNow newProfile env
+            Profile.instanceListNow newProfile ( time, timeZone )
 
         trackingTask =
             case newInstanceIDMaybe of
@@ -221,24 +221,24 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     List.head <| List.filter (.instanceID >> (==) instanceID) allTasks
 
         filterPeriod =
-            Period.between Moment.zero env.time
+            Period.between Moment.zero time
 
         statusDetails =
-            { now = env.time
-            , zone = env.timeZone
+            { now = time
+            , zone = timeZone
             , oldActivity = Activity.getByID oldActivityID newProfile.activities
             , lastSession =
                 Maybe.withDefault Duration.zero <|
                     Maybe.map Session.duration <|
                         Timeline.mostRecentHistorySessionOfActivity filterPeriod newProfile.timeline oldActivityID
-            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile env) oldInstanceIDMaybe
+            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile ( time, timeZone )) oldInstanceIDMaybe
             , newActivity = Activity.getByID newActivityID newProfile.activities
             , newActivityTodayTotal =
-                Timeline.activityTotalDurationLive filterPeriod env.time newProfile.timeline newActivityID
+                Timeline.activityTotalDurationLive filterPeriod time newProfile.timeline newActivityID
             , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
             }
     in
-    case whatsImportantNow newProfile env of
+    case whatsImportantNow newProfile ( time, timeZone ) of
         Nothing ->
             -- ALL DONE
             ( statusDetails, Free )
@@ -251,10 +251,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                     writeDur <| excusedUsage
 
                 excusedUsage =
-                    Timeline.excusedUsage newProfile.timeline env.time ( newActivityID, newActivity )
+                    Timeline.excusedUsage newProfile.timeline time ( newActivityID, newActivity )
 
                 excusedLeft =
-                    Timeline.excusedLeft newProfile.timeline env.time ( newActivityID, Activity.getByID newActivityID newProfile.activities )
+                    Timeline.excusedLeft newProfile.timeline time ( newActivityID, Activity.getByID newActivityID newProfile.activities )
 
                 isThisTheRightNextTask =
                     case ( newInstanceIDMaybe, Maybe.map Task.AssignedAction.getID nextInstanceMaybe ) of
@@ -265,13 +265,13 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getInstanceByID newProfile env) newInstanceIDMaybe
+                    Maybe.andThen (Profile.getInstanceByID newProfile ( time, timeZone )) newInstanceIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
-                            Timeline.activityTotalDurationLive filterPeriod env.time newProfile.timeline newActivityID
+                            Timeline.activityTotalDurationLive filterPeriod time newProfile.timeline newActivityID
 
                         maxTimeRemaining =
                             Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent
@@ -285,7 +285,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
 
                         targetIfApplicable =
                             if intendToFinishDuringThisSession then
-                                Just (future env.time remainingToTarget)
+                                Just (future time remainingToTarget)
 
                             else
                                 Nothing
@@ -303,7 +303,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile e
 
                             -- TODO
                             , limit = maxTimeRemaining
-                            , until = future env.time maxTimeRemaining
+                            , until = future time maxTimeRemaining
                             , target = targetIfApplicable
                             }
                     in
@@ -1140,11 +1140,11 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
     }
 
 
-suggestedTasks : Profile -> Environment -> List Notification
-suggestedTasks profile env =
+suggestedTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Notification
+suggestedTasks profile ( time, timeZone ) =
     let
         actionableTasks =
-            List.filterMap withActivityID (prioritizeTasks profile env)
+            List.filterMap withActivityID (prioritizeTasks profile ( time, timeZone ))
 
         withActivityID task =
             case Task.AssignedAction.getActivityID task of
@@ -1154,7 +1154,7 @@ suggestedTasks profile env =
                 Just hasActivityID ->
                     Just ( task, hasActivityID )
     in
-    List.map (suggestedTaskNotif env.time) (List.take 3 actionableTasks)
+    List.map (suggestedTaskNotif time) (List.take 3 actionableTasks)
 
 
 taskClassNotifID : ActionClassID -> Int
@@ -1208,11 +1208,11 @@ cleanupTaskNotif now ( taskInstance, needs ) =
     }
 
 
-cleanupTasks : Profile -> Environment -> List Notification
-cleanupTasks profile env =
+cleanupTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Notification
+cleanupTasks profile ( time, timeZone ) =
     let
         tasksToCleanup =
-            List.filterMap needsCleanup (prioritizeTasks profile env)
+            List.filterMap needsCleanup (prioritizeTasks profile ( time, timeZone ))
 
         needsCleanup task =
             case Task.AssignedAction.getActivityID task of
@@ -1222,7 +1222,7 @@ cleanupTasks profile env =
                 Just hasActivityID ->
                     Nothing
     in
-    List.map (cleanupTaskNotif env.time) (List.take 3 tasksToCleanup)
+    List.map (cleanupTaskNotif time) (List.take 3 tasksToCleanup)
 
 
 currentTaskNotif : Moment -> AssignedAction -> Notification

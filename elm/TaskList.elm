@@ -33,6 +33,7 @@ import Maybe.Extra as Maybe
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change, Parent)
+import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -112,21 +113,31 @@ view state profile env =
                     Maybe.withDefault AllTasks (List.head filters)
 
                 allFullTaskInstances =
-                    Profile.instanceListNow profile env
+                    Profile.instanceListNow profile ( env.launchTime, env.timeZone )
+
+                lastChangeEnv =
+                    { time = env.launchTime -- for lazy optimization??
+                    , navkey = env.navkey
+                    , timeZone = env.timeZone
+                    , launchTime = env.launchTime
+                    }
 
                 sortedTasks =
-                    Instance.prioritize env.time env.timeZone allFullTaskInstances
+                    Instance.prioritize env.launchTime env.timeZone allFullTaskInstances
 
                 trackedTaskMaybe =
                     Activity.Timeline.currentInstanceID profile.timeline
+
+                temporaryInstanceCountText instanceList =
+                    div [] [ text ((String.fromInt <| List.length instanceList) ++ " instances") ]
             in
             div
                 [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
                 [ section
                     [ class "todoapp" ]
-                    [ div [] [ text ((String.fromInt <| List.length allFullTaskInstances) ++ " instances") ]
+                    [ lazy temporaryInstanceCountText allFullTaskInstances
                     , lazy viewInput field
-                    , Html.Styled.Lazy.lazy4 viewTasks env activeFilter trackedTaskMaybe sortedTasks
+                    , Html.Styled.Lazy.lazy4 viewTasks ( env.launchTime, env.timeZone ) activeFilter trackedTaskMaybe sortedTasks
                     , lazy2 viewControls filters allFullTaskInstances
                     ]
                 ]
@@ -167,8 +178,8 @@ onEnter msg =
 -- viewTasks : String -> List AssignedAction -> Html Msg
 
 
-viewTasks : Environment -> Filter -> Maybe AssignedActionID -> List AssignedAction -> Html Msg
-viewTasks env filter trackedTaskMaybe tasks =
+viewTasks : ( Moment, HumanMoment.Zone ) -> Filter -> Maybe AssignedActionID -> List AssignedAction -> Html Msg
+viewTasks ( time, timeZone ) filter trackedTaskMaybe tasks =
     let
         isVisible task =
             case filter of
@@ -179,7 +190,7 @@ viewTasks env filter trackedTaskMaybe tasks =
                     not (completed task)
 
                 AllRelevantTasks ->
-                    not (completed task) && isRelevantNow task env.time env.timeZone
+                    not (completed task) && isRelevantNow task time timeZone
 
                 _ ->
                     True
@@ -200,7 +211,7 @@ viewTasks env filter trackedTaskMaybe tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask env trackedTaskMaybe) (List.filter isVisible tasks)
+            List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible tasks)
         ]
 
 
@@ -208,17 +219,17 @@ viewTasks env filter trackedTaskMaybe tasks =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : Environment -> Maybe AssignedActionID -> AssignedAction -> ( String, Html Msg )
-viewKeyedTask env trackedTaskMaybe task =
-    ( Instance.getIDString task, lazy3 viewTask env trackedTaskMaybe task )
+viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> AssignedAction -> ( String, Html Msg )
+viewKeyedTask ( time, timeZone ) trackedTaskMaybe task =
+    ( Instance.getIDString task, lazy3 viewTask ( time, timeZone ) trackedTaskMaybe task )
 
 
 
 -- viewTask : AssignedAction -> Html Msg
 
 
-viewTask : Environment -> Maybe AssignedActionID -> AssignedAction -> Html Msg
-viewTask env trackedTaskMaybe task =
+viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> AssignedAction -> Html Msg
+viewTask ( time, timeZone ) trackedTaskMaybe task =
     li
         [ class "task-entry"
         , classList [ ( "completed", completed task ), ( "editing", False ) ]
@@ -253,7 +264,7 @@ viewTask env trackedTaskMaybe task =
                     ]
                 , div
                     [ class "task-bubble"
-                    , title (taskTooltip env task)
+                    , title (taskTooltip ( time, timeZone ) task)
                     , css
                         [ Css.height (rem 2)
                         , Css.width (rem 2)
@@ -303,7 +314,7 @@ viewTask env trackedTaskMaybe task =
                     [ span [ class "task-title-text" ] [ text <| Instance.getTitle task ]
                     , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
                     ]
-                , timingInfo env task
+                , timingInfo ( time, timeZone ) task
                 ]
             , div
                 [ class "sessions"
@@ -316,7 +327,7 @@ viewTask env trackedTaskMaybe task =
                     , textAlign center
                     ]
                 ]
-                (plannedSessions env task)
+                (plannedSessions ( time, timeZone ) task)
             , div [ class "task-controls" ]
                 (List.filterMap
                     identity
@@ -428,7 +439,8 @@ activityColor task =
             }
 
 
-taskTooltip env task =
+taskTooltip : ( Moment, HumanMoment.Zone ) -> Instance.AssignedAction -> String
+taskTooltip ( time, timeZone ) task =
     -- hover tooltip
     String.concat <|
         List.intersperse "\n" <|
@@ -438,8 +450,8 @@ taskTooltip env task =
                  , Maybe.map (String.append "activity ID: ") (Instance.getActivityIDString task)
                  , Just ("importance: " ++ String.fromFloat (Instance.getImportance task))
                  , Just ("progress: " ++ Task.Progress.toString (Instance.getProgress task))
-                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance starts: ") (Instance.getRelevanceStarts task)
-                 , Maybe.map (HumanMoment.fuzzyDescription env.time env.timeZone >> String.append "relevance ends: ") (Instance.getRelevanceEnds task)
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Instance.getRelevanceStarts task)
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Instance.getRelevanceEnds task)
                  ]
                     ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
                 )
@@ -514,8 +526,8 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : Environment -> AssignedAction -> Html Msg
-timingInfo env task =
+timingInfo : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Html Msg
+timingInfo ( time, timeZone ) task =
     let
         effortDescription =
             describeEffort task
@@ -528,22 +540,22 @@ timingInfo env task =
             uniquePrefix ++ "due-date-field"
 
         dueDate_editable =
-            editableDateLabel env
+            editableDateLabel ( time, timeZone )
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy env.timeZone) (Instance.getExternalDeadline task))
-                (attemptDateChange env task (Instance.getExternalDeadline task) "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy timeZone) (Instance.getExternalDeadline task))
+                (attemptDateChange ( time, timeZone ) task (Instance.getExternalDeadline task) "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
 
         dueTime_editable =
-            editableTimeLabel env
+            editableTimeLabel ( time, timeZone )
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange env task (Instance.getExternalDeadline task) "Due")
+                (attemptTimeChange ( time, timeZone ) task (Instance.getExternalDeadline task) "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy env.timeZone) (Instance.getExternalDeadline task) of
+            case Maybe.map (HumanMoment.timeFromFuzzy timeZone) (Instance.getExternalDeadline task) of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -555,12 +567,12 @@ timingInfo env task =
         ([ text effortDescription ] ++ dueDate_editable ++ dueTime_editable)
 
 
-editableDateLabel : Environment -> String -> Maybe CalendarDate -> (String -> msg) -> List (Html msg)
-editableDateLabel env uniqueName givenDateMaybe changeEvent =
+editableDateLabel : ( Moment, HumanMoment.Zone ) -> String -> Maybe CalendarDate -> (String -> msg) -> List (Html msg)
+editableDateLabel ( time, timeZone ) uniqueName givenDateMaybe changeEvent =
     let
         dateRelativeDescription =
             Maybe.withDefault "whenever" <|
-                Maybe.map (Calendar.describeVsToday (HumanMoment.extractDate env.timeZone env.time)) givenDateMaybe
+                Maybe.map (Calendar.describeVsToday (HumanMoment.extractDate timeZone time)) givenDateMaybe
 
         dateFormValue =
             Maybe.withDefault "" <|
@@ -588,7 +600,7 @@ editableDateLabel env uniqueName givenDateMaybe changeEvent =
     ]
 
 
-editableTimeLabel : Environment -> String -> Maybe TimeOfDay -> (String -> msg) -> List (Html msg)
+editableTimeLabel : ( Moment, HumanMoment.Zone ) -> String -> Maybe TimeOfDay -> (String -> msg) -> List (Html msg)
 editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     let
         timeDescription =
@@ -650,15 +662,15 @@ describeTaskMoment now zone dueMoment =
     HumanMoment.fuzzyDescription now zone dueMoment
 
 
-describeTaskPlan : Environment -> Task.Session.FullSession -> String
-describeTaskPlan env fullSession =
-    HumanMoment.fuzzyDescription env.time env.timeZone (Task.Session.start fullSession)
+describeTaskPlan : ( Moment, HumanMoment.Zone ) -> Task.Session.FullSession -> String
+describeTaskPlan ( time, timeZone ) fullSession =
+    HumanMoment.fuzzyDescription time timeZone (Task.Session.start fullSession)
 
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : Environment -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
-attemptDateChange env task oldFuzzyMaybe field input =
+attemptDateChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange ( time, timeZone ) task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
             case oldFuzzyMaybe of
@@ -672,7 +684,7 @@ attemptDateChange env task oldFuzzyMaybe field input =
                     UpdateTaskDate task field (Just (Floating ( newDate, oldTime )))
 
                 Just (Global oldMoment) ->
-                    UpdateTaskDate task field (Just (Global (HumanMoment.setDate newDate env.timeZone oldMoment)))
+                    UpdateTaskDate task field (Just (Global (HumanMoment.setDate newDate timeZone oldMoment)))
 
         Err msg ->
             NoOp
@@ -681,8 +693,8 @@ attemptDateChange env task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : Environment -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
-attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
+attemptTimeChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange ( time, timeZone ) task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
             case oldFuzzyMaybe of
@@ -698,7 +710,7 @@ attemptTimeChange env task oldFuzzyMaybe whichTimeField input =
                     UpdateTaskDate task whichTimeField (Just (Floating ( oldDate, newTime )))
 
                 Just (Global oldMoment) ->
-                    UpdateTaskDate task whichTimeField (Just (Global (HumanMoment.setTime newTime env.timeZone oldMoment)))
+                    UpdateTaskDate task whichTimeField (Just (Global (HumanMoment.setTime newTime timeZone oldMoment)))
 
         Err _ ->
             NoOp
@@ -1070,11 +1082,11 @@ update msg state profile env =
             ( state, Change.saveChanges "Simple change" [ change ], Cmd.none )
 
 
-urlTriggers : Profile -> Environment -> List ( String, Dict.Dict String Msg )
-urlTriggers profile env =
+urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
+urlTriggers profile ( time, timeZone ) =
     let
         allFullTaskInstances =
-            instanceListNow profile env
+            instanceListNow profile ( time, timeZone )
 
         tasksIDsWithDoneMsg =
             List.map doneTriggerEntry allFullTaskInstances

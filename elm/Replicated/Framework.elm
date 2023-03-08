@@ -17,6 +17,10 @@ import Task as Job
 import Url exposing (Url)
 
 
+testMode =
+    False
+
+
 type alias Program userFlags userReplica temp userMsg =
     Platform.Program (Flags userFlags) (Model userFlags userMsg userReplica temp) (Msg userMsg)
 
@@ -261,10 +265,17 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                 ( replicatorWithUpdates, finalOutputFrame ) =
                                     List.foldl applyFrame ( modelWithTimeTemp, [] ) filledFramesToApply
 
+                                maybeTime =
+                                    if testMode then
+                                        Nothing
+
+                                    else
+                                        Just newTime
+
                                 applyFrame givenFrame ( givenModel, outputsSoFar ) =
                                     let
                                         { outputFrame, updatedNode } =
-                                            Node.apply Nothing False givenModel.node givenFrame
+                                            Node.apply maybeTime False givenModel.node givenFrame
                                     in
                                     ( { givenModel | node = updatedNode }, outputsSoFar ++ outputFrame )
                             in
@@ -291,9 +302,16 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
                                 Nothing ->
                                     let
+                                        maybeTime =
+                                            if testMode then
+                                                Nothing
+
+                                            else
+                                                Just now
+
                                         ( newNode, startChunks ) =
                                             -- Node.startNewNode (Just now) []
-                                            Codec.startNodeFromRoot Nothing userReplicaCodec
+                                            Codec.startNodeFromRoot maybeTime userReplicaCodec
 
                                         --tempDefaultChanges
                                     in

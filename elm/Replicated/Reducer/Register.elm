@@ -25,7 +25,10 @@ type Reg userType
     = Register
         { pointer : Change.Pointer
         , included : Object.InclusionInfo
-        , toRecord : Maybe Moment -> userType
+        , latest : userType
+
+        -- since toRecord with Moment parameter meant late re-evaluation of entire decoder
+        , older : Moment -> userType
         , history : FieldHistoryDict
         , init : Changer (Reg userType)
         }
@@ -85,5 +88,10 @@ registerReducerID =
 
 
 latest : Reg record -> record
-latest ((Register registerDetails) as reg) =
-    registerDetails.toRecord Nothing
+latest (Register registerDetails) =
+    registerDetails.latest
+
+
+asOf : Moment -> Reg record -> record
+asOf cutoff (Register registerDetails) =
+    registerDetails.older cutoff

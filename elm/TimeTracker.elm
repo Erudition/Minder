@@ -83,7 +83,7 @@ view state app env =
                 []
                 [ section
                     [ class "activity-screen" ]
-                    [ lazy2 viewActivities env app
+                    [ lazy2 viewActivities ( env.time, env.timeZone ) app
                     ]
                 , section [ css [ opacity (num 0.1) ] ]
                     [ text "Quite Ambitious."
@@ -91,12 +91,12 @@ view state app env =
                 ]
 
 
-viewActivities : Environment -> Profile -> Html Msg
-viewActivities env app =
+viewActivities : ( Moment, HumanMoment.Zone ) -> Profile -> Html Msg
+viewActivities ( time, timeZone ) app =
     section
         [ class "main" ]
         [ ul [ class "activity-list" ] <|
-            List.map (viewActivity app env) (Activity.allUnhidden app.activities)
+            List.map (viewActivity app ( time, timeZone )) (Activity.allUnhidden app.activities)
         ]
 
 
@@ -118,14 +118,14 @@ viewActivities env app =
 --     ( key, viewActivity app env activity )
 
 
-viewActivity : Profile -> Environment -> Activity -> Html Msg
-viewActivity app env activity =
+viewActivity : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> Html Msg
+viewActivity app ( time, timeZone ) activity =
     let
         describeSession sesh =
             Timeline.inHoursMinutes (Session.duration sesh) ++ "\n"
 
         filterPeriod =
-            Period.between Moment.zero env.time
+            Period.between Moment.zero time
     in
     li
         [ class "activity" ]
@@ -137,10 +137,10 @@ viewActivity app env activity =
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []
-                [ text (writeActivityUsage app env activity)
+                [ text (writeActivityUsage app ( time, timeZone ) activity)
                 ]
             , div []
-                [ text (writeActivityToday app env activity)
+                [ text (writeActivityToday app ( time, timeZone ) activity)
                 ]
             , label
                 []
@@ -180,17 +180,17 @@ viewIcon getIcon =
             text singleEmoji
 
 
-writeActivityUsage : Profile -> Environment -> Activity -> String
-writeActivityUsage app env activity =
+writeActivityUsage : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> String
+writeActivityUsage app ( time, timeZone ) activity =
     let
         maxTimeDenominator =
             Tuple.second (Activity.getMaxTime activity)
 
         lastPeriod =
-            Period.fromEnd env.time (dur maxTimeDenominator)
+            Period.fromEnd time (dur maxTimeDenominator)
 
         total =
-            Timeline.activityTotalDurationLive lastPeriod env.time app.timeline (Activity.getID activity)
+            Timeline.activityTotalDurationLive lastPeriod time app.timeline (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total
@@ -202,19 +202,19 @@ writeActivityUsage app env activity =
         ""
 
 
-writeActivityToday : Profile -> Environment -> Activity -> String
-writeActivityToday app env activity =
-    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline env (Activity.getID activity))
+writeActivityToday : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> String
+writeActivityToday app ( time, timeZone ) activity =
+    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline ( time, timeZone ) (Activity.getID activity))
 
 
-exportActivityViewModel : Profile -> Environment -> Encode.Value
-exportActivityViewModel appData environment =
+exportActivityViewModel : Profile -> ( Moment, HumanMoment.Zone ) -> Encode.Value
+exportActivityViewModel appData ( time, timeZone ) =
     let
         encodeActivityVM activity =
             Encode.object
                 [ ( "name", Encode.string <| Activity.getName activity )
-                , ( "excusedUsage", Encode.string <| writeActivityUsage appData environment activity )
-                , ( "totalToday", Encode.string <| writeActivityUsage appData environment activity )
+                , ( "excusedUsage", Encode.string <| writeActivityUsage appData ( time, timeZone ) activity )
+                , ( "totalToday", Encode.string <| writeActivityUsage appData ( time, timeZone ) activity )
                 ]
     in
     Encode.list encodeActivityVM <|
@@ -237,8 +237,8 @@ type Msg
     | ExportVM
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( Change.Frame, ViewState, Cmd Msg )
-update msg state app env =
+update : Msg -> ViewState -> Profile -> ( Moment, HumanMoment.Zone ) -> ( Change.Frame, ViewState, Cmd Msg )
+update msg state app ( time, timeZone ) =
     case msg of
         NoOp ->
             ( Change.none
@@ -249,7 +249,7 @@ update msg state app env =
         StartTracking activityId ->
             let
                 ( changes, cmds ) =
-                    Refocus.switchActivity activityId app env
+                    Refocus.switchActivity activityId app ( time, timeZone )
             in
             ( Change.saveChanges "Started tracking" changes
             , state
@@ -263,7 +263,7 @@ update msg state app env =
         ExportVM ->
             ( Change.none
             , state
-            , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app env )
+            , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app ( time, timeZone ) )
             )
 
 

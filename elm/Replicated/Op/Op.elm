@@ -637,18 +637,63 @@ quotedStringHelp piecesReversed =
 
 isUninteresting : Char -> Bool
 isUninteresting char =
-    char /= '\\' && char /= '\''
+    -- was: char /= '\\' && char /= '\''
+    -- use case, in case Char == check is still unoptimized in compiler
+    case char of
+        '\\' ->
+            False
+
+        '\'' ->
+            False
+
+        _ ->
+            True
 
 
 sameLineSpaces : RonParser ()
 sameLineSpaces =
     -- DEPRECATED Pretty sure ron should be line-agnostic
-    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\u{000D}')
+    let
+        isSameLineSpace c =
+            -- use case, in case Char == check is still unoptimized in compiler
+            case c of
+                ' ' ->
+                    True
+
+                '\t' ->
+                    True
+
+                '\u{000D}' ->
+                    True
+
+                _ ->
+                    False
+    in
+    Parser.chompWhile isSameLineSpace
 
 
 whitespace : RonParser ()
 whitespace =
-    Parser.chompWhile (\c -> c == ' ' || c == '\t' || c == '\u{000D}' || c == '\u{000D}' || c == '\n')
+    let
+        isWhitespace c =
+            -- use case, in case Char == check is still unoptimized in compiler
+            case c of
+                ' ' ->
+                    True
+
+                '\t' ->
+                    True
+
+                '\u{000D}' ->
+                    True
+
+                '\n' ->
+                    True
+
+                _ ->
+                    False
+    in
+    Parser.chompWhile isWhitespace
 
 
 
@@ -1112,15 +1157,16 @@ closedChunksToFrameText chunkList =
                 [] ->
                     ""
 
-                _ ->               
-                    List.Extra.mapAccuml perOp Nothing (opsInChunk)
+                _ ->
+                    List.Extra.mapAccuml perOp Nothing opsInChunk
                         |> Tuple.second
                         |> String.join " ,\n"
                         |> (\s -> s ++ " ;\n\n")
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
-            -- ( Just thisOp, closedOpToString (ClosedOps) thisOp )
+
+        -- ( Just thisOp, closedOpToString (ClosedOps) thisOp )
     in
     case chunkList of
         [] ->

@@ -865,11 +865,11 @@ dragOffsetDur display ( startX, startY ) =
     Duration.scale display.settings.hourRowSize (yOffsetInRowsRounded - xOffsetAsPortion)
 
 
-timeLabelSidebar : ViewSettings -> Profile -> Environment -> Period -> Element Msg
-timeLabelSidebar state profile env rowPeriod =
+timeLabelSidebar : ViewSettings -> Profile -> ( Moment, HumanMoment.Zone ) -> Period -> Element Msg
+timeLabelSidebar state profile ( time, timeZone ) rowPeriod =
     let
         startZone =
-            Profile.userTimeZoneAtMoment profile env startMoment
+            Profile.userTimeZoneAtMoment profile ( time, timeZone ) startMoment
 
         startMoment =
             Period.start rowPeriod

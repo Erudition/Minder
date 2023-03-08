@@ -790,7 +790,7 @@ contextDifferentiatorString (Context frameIndex parent) =
 
 
 
--- addInstaller : Pointer -> Installer -> Pointer
+-- addInstaller : Parent -> Installer -> Pointer
 -- addInstaller pointer newInstaller =
 --     case pointer of
 --         ExistingObjectPointer objectID ->

@@ -1,5 +1,7 @@
 # Now
-- [ ] Figure out if Contexts are needed
+- [X] Fix update lag with no change frames: Reg.latest is no longer a function, so view full of Regs is not recalculated every view
+- [ ] Cannot delayed-init regs that are wrapped in something, like Just
+- [ ] Give Contexts a type variable
 - [X] Fix case where pointers merge for some reason
 - [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix 
 - [ ] write test for above

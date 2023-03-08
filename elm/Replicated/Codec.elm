@@ -342,7 +342,7 @@ decodeFromNode rootCodec node =
     in
     case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none }) (prepDecoder rootEncoded) of
         Ok value ->
-            value
+            Log.logMessageOnly "Decoding Node again." value
 
         Err jdError ->
             Err (FailedToDecodeRoot <| JD.errorToString jdError)
@@ -367,7 +367,7 @@ forceDecodeFromNode rootCodec node =
             ( success, Nothing )
 
         Err jdError ->
-            ( fromScratch, Just (FailedToDecodeRoot <| JD.errorToString jdError) )
+            ( fromScratch, Just (FailedToDecodeRoot <| Debug.log "forceDecodeFromNode: forcing success, but there was an error... " <| JD.errorToString jdError) )
 
         Ok (Err err) ->
             ( fromScratch, Debug.todo "nested error - come up with nicer presentation" )
@@ -1040,7 +1040,7 @@ char =
 
 import Serialize as S
 
-maybeIntCodec : S.Codec e (Maybe Int)
+maybeIntCodec : Codec e (Maybe Int)
 maybeIntCodec =
 S.maybe S.int
 
@@ -2143,7 +2143,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                             Just <| remainingRecordConstructor thisFieldValue
 
                         ( Nothing, _ ) ->
-                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: " ++ fieldName ++ " field decoded to nothing.. error was " ++ Debug.toString thisFieldErrors) Nothing
+                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: '" ++ fieldName ++ "' field decoded to nothing.. error was " ++ Debug.toString thisFieldErrors ++ " for the object at " ++ Debug.toString inputs.regPointer) Nothing
 
                         ( _, Nothing ) ->
                             Log.crashInDev ("Codec.readableHelper.nodeDecoder: " ++ fieldName ++ " field was missing prior constructor, error was " ++ Debug.toString thisFieldErrors) Nothing
@@ -2221,8 +2221,8 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
 {-| Not exposed - for all `writable` functions
 -}
-writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed o fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
-writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
+writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed o fieldType -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
+writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelayable (PartialRegister recordCodecSoFar) =
     let
         newFieldIndex =
             recordCodecSoFar.fieldIndex + 1
@@ -2240,13 +2240,19 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
             ( jsonObjectFieldKey, getJsonEncoder fieldCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
         asParent regPointer =
-            Change.becomeDelayedParent regPointer (updateRegisterPostChildInit regPointer ( fieldSlot, fieldName ))
+            -- make instant? this is for using .set on RWs, which should never need to init their parents.
+            -- there may be a wrapper between the object and the parent (such as Just) which would be missing from the delayed init change anyway, causing errors.
+            if isDelayable then
+                Change.becomeDelayedParent regPointer (updateRegisterPostChildInit regPointer ( fieldSlot, fieldName ))
+
+            else
+                Change.becomeInstantParent regPointer
 
         nodeDecoder : RegisterFieldDecoder errs remaining
         nodeDecoder inputs =
             let
                 ( thisFieldValueMaybe, thisFieldErrors ) =
-                    registerWritableFieldDecoder newFieldIndex ( fieldSlot, fieldName ) fallback fieldCodec inputs
+                    registerWritableFieldDecoder newFieldIndex ( fieldSlot, fieldName ) fallback isDelayable fieldCodec inputs
 
                 ( remainingRecordConstructorMaybe, soFarErrors ) =
                     recordCodecSoFar.nodeDecoder inputs
@@ -2433,7 +2439,7 @@ The last argument specifies a default value, which is used when initializing the
 -}
 maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldSeed o fieldType -> PartialRegister errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister errs i full remaining
 maybeRW fieldIdentifier fieldGetter fieldCodec soFar =
-    writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) soFar
+    writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) False soFar
 
 
 {-| Read a `Maybe` record field wrapped with `RW`. This makes the field writable.
@@ -2449,7 +2455,7 @@ The last argument specifies a default value, which is used when initializing the
 -}
 fieldRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldType o fieldType -> fieldType -> PartialRegister errs i full (RW fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRW fieldIdentifier fieldGetter fieldCodec fieldDefault soFar =
-    writableHelper fieldIdentifier fieldGetter fieldCodec (HardcodedDefault fieldDefault) soFar
+    writableHelper fieldIdentifier fieldGetter fieldCodec (HardcodedDefault fieldDefault) False soFar
 
 
 {-| Read a field that is required, yet has no sensible default. Use sparingly.
@@ -2475,7 +2481,7 @@ Including any core fields in your register will force you to pass in a "seed" an
 -}
 coreRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed o fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
 coreRW fieldID fieldGetter fieldCodec seeder recordBuilt =
-    writableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) recordBuilt
+    writableHelper fieldID fieldGetter fieldCodec (InitWithParentSeed seeder) False recordBuilt
 
 
 {-| Read a field that needs a seed.
@@ -2499,7 +2505,7 @@ Pass in a `(\parentSeed -> fieldSeed)` function, which gives you access to the p
 -}
 seededRW : FieldIdentifier -> (full -> RW fieldType) -> Codec errs fieldSeed o fieldType -> fieldType -> (parentSeed -> fieldSeed) -> PartialRegister errs parentSeed full (RW fieldType -> remaining) -> PartialRegister errs parentSeed full remaining
 seededRW fieldID fieldGetter fieldCodec default seeder recordBuilt =
-    writableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) recordBuilt
+    writableHelper fieldID fieldGetter fieldCodec (DefaultAndInitWithParentSeed default seeder) False recordBuilt
 
 
 {-| Helper for mapping over 2 decoders, since they contain Results. If one fails, the combined decoder fails.
@@ -2601,11 +2607,15 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                     ( default, [ JDError jsonDecodeError ] )
 
 
-registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List (Error e) )
-registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
+registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> Codec e fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List (Error e) )
+registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback isDelayable fieldCodec inputs =
     let
         regAsParent =
-            Change.becomeDelayedParent inputs.regPointer (updateRegisterPostChildInit inputs.regPointer fieldIdentifier)
+            if isDelayable then
+                Change.becomeDelayedParent inputs.regPointer (updateRegisterPostChildInit inputs.regPointer ( fieldSlot, fieldName ))
+
+            else
+                Change.becomeInstantParent inputs.regPointer
 
         fieldEncoder newValue =
             getNodeEncoder fieldCodec
@@ -2881,7 +2891,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         encodeAsJsonObject (Register regDetails) =
             let
                 fullRecord =
-                    regDetails.toRecord Nothing
+                    regDetails.latest
 
                 passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
                     ( fieldKey, fieldEncoder fullRecord )
@@ -2930,7 +2940,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                                 Nothing ->
                                     regToRecordByInit () regPointer
                     in
-                    JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, toRecord = regToRecord, history = history, init = nonChanger }
+                    JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord Nothing, older = Just >> regToRecord, history = history, init = nonChanger }
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
@@ -2938,6 +2948,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         nodeEncoder inputs =
             registerNodeEncoder partialRegister inputs
 
+        emptyRegister : PlaceholderGenerator (Changer (Reg full)) (Reg full)
         emptyRegister { parent, position, seed } =
             let
                 object =
@@ -2946,10 +2957,10 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 history =
                     buildRegisterFieldDictionary object
 
-                regToRecord cutoff =
+                regToRecord =
                     allFieldsCodec.nodeInitializer () (Object.getPointer object)
             in
-            Register { pointer = Object.getPointer object, included = Object.All, toRecord = regToRecord, history = history, init = seed }
+            Register { pointer = Object.getPointer object, included = Object.All, latest = regToRecord, older = \_ -> regToRecord, history = history, init = seed }
 
         tempEmpty =
             emptyRegister { parent = Change.genesisParent "flatTodo", seed = nonChanger, position = Location.none }
@@ -2967,7 +2978,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     Codec
         { nodeEncoder = nodeEncoder
         , nodeDecoder = nodeDecoder
-        , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
+        , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) regDetails.latest
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder
@@ -2983,7 +2994,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         encodeAsJsonObject (Register regDetails) =
             let
                 fullRecord =
-                    regDetails.toRecord Nothing
+                    regDetails.latest
 
                 passFullRecordToFieldEncoder ( fieldKey, fieldEncoder ) =
                     ( fieldKey, fieldEncoder fullRecord )
@@ -3032,7 +3043,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     in
                     case wrongCutoffRegToRecordByDecoding of
                         Just regCanBeBuilt ->
-                            JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, toRecord = regToRecord regCanBeBuilt, history = history, init = nonChanger }
+                            JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord regCanBeBuilt Nothing, older = Just >> regToRecord regCanBeBuilt, history = history, init = nonChanger }
 
                         Nothing ->
                             JD.succeed <| Err DataCorrupted
@@ -3054,10 +3065,10 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 history =
                     buildRegisterFieldDictionary object
 
-                regToRecord cutoff =
+                regToRecord =
                     allFieldsCodec.nodeInitializer (Tuple.first seed) regPointer
             in
-            Register { pointer = regPointer, included = Object.All, toRecord = regToRecord, history = history, init = Tuple.second seed }
+            Register { pointer = regPointer, included = Object.All, latest = regToRecord, older = \_ -> regToRecord, history = history, init = Tuple.second seed }
 
         bytesDecoder : BD.Decoder (Result (Error errs) (Reg full))
         bytesDecoder =
@@ -3072,7 +3083,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
     Codec
         { nodeEncoder = nodeEncoder
         , nodeDecoder = nodeDecoder
-        , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) (regDetails.toRecord Nothing)
+        , bytesEncoder = \(Register regDetails) -> (allFieldsCodec.bytesEncoder >> List.reverse >> BE.sequence) regDetails.latest
         , bytesDecoder = bytesDecoder
         , jsonEncoder = encodeAsJsonObject
         , jsonDecoder = jsonDecoder

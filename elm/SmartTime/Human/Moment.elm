@@ -124,7 +124,7 @@ everyMinuteOnTheMinute now zone tagger =
                 ++ HumanDuration.singleLetterSpaced (HumanDuration.breakdownNonzero waitingTime)
 
         fallbackTicker =
-            Moment.every Duration.aSecond tagger
+            Moment.every Duration.aMinute tagger
     in
     if Moment.compare now Moment.zero == Moment.Later then
         Moment.every waitingTime tagger

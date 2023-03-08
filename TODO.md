@@ -9,6 +9,9 @@
 - Put showstopper RON debugger in place
 
 
+# Task list
+- "////" in title causes slow/infinite loop - properly escape?
+
 # Timeflow
 - Take widget out of dictionary, we'll probably only need a pre-known amount
 - Responsive screen sizing

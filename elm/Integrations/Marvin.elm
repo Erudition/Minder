@@ -283,8 +283,8 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> Environment -> Msg -> ( Change.Frame, String, Cmd Msg )
-handle classCounter profile env response =
+handle : Int -> Profile -> ( Moment, HumanMoment.Zone ) -> Msg -> ( Change.Frame, String, Cmd Msg )
+handle classCounter profile ( time, timeZone ) response =
     case response of
         TestResult result ->
             case result of
@@ -383,7 +383,7 @@ handle classCounter profile env response =
                 Ok timesList ->
                     let
                         updatedTimeline =
-                            Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile env) timesList)
+                            Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile ( time, timeZone )) timesList)
 
                         updatedProfile =
                             -- TODO how to get this to incorprate changes in profile
@@ -392,7 +392,7 @@ handle classCounter profile env response =
                         ( refocusChanges, refocusCmds ) =
                             Refocus.refreshTracking
                                 updatedProfile
-                                env
+                                ( time, timeZone )
                     in
                     ( Change.saveChanges "Backfilled timeline with Marvin data" refocusChanges
                     , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
@@ -422,7 +422,7 @@ handle classCounter profile env response =
                         asSessions =
                             case itemIDMaybe of
                                 Just itemID ->
-                                    trackTruthToTimelineSessions profile env (TrackTruthItem itemID timesList)
+                                    trackTruthToTimelineSessions profile ( time, timeZone ) (TrackTruthItem itemID timesList)
 
                                 Nothing ->
                                     Log.crashInDev "wha??? no task?? " []
@@ -430,11 +430,11 @@ handle classCounter profile env response =
                         updateTimeline =
                             Timeline.backfill profile.timeline asSessions
 
-                        newestReport time =
-                            HumanDuration.say (Moment.difference env.time time)
+                        newestReport givenTime =
+                            HumanDuration.say (Moment.difference time givenTime)
 
                         logMsg =
-                            "got timetrack acknowledgement at " ++ HumanMoment.toStandardString env.time ++ " my time, newest marvin time was off by " ++ (Maybe.withDefault "none" <| Maybe.map newestReport (List.last timesList))
+                            "got timetrack acknowledgement at " ++ HumanMoment.toStandardString time ++ " my time, newest marvin time was off by " ++ (Maybe.withDefault "none" <| Maybe.map newestReport (List.last timesList))
                     in
                     ( Change.saveChanges "Got Marvin tracking acknowledgement" updateTimeline
                     , logMsg
@@ -461,7 +461,7 @@ handle classCounter profile env response =
                             Timeline.currentInstanceID profile.timeline
 
                         activeInstanceMaybe =
-                            Maybe.andThen (Profile.getInstanceByID profile env) activeInstanceIDMaybe
+                            Maybe.andThen (Profile.getInstanceByID profile ( time, timeZone )) activeInstanceIDMaybe
 
                         activeMarvinIDMaybe =
                             Maybe.andThen (Task.AssignedAction.getExtra "marvinID") activeInstanceMaybe
@@ -775,9 +775,9 @@ timeTrack secret taskID starting =
         }
 
 
-marvinUpdateCurrentlyTracking : Profile -> Environment -> Maybe Task.AssignedAction.AssignedActionID -> Bool -> ( List Change, Cmd Msg )
-marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
-    case Maybe.andThen (Profile.getInstanceByID profile env) instanceIDMaybe of
+marvinUpdateCurrentlyTracking : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.AssignedAction.AssignedActionID -> Bool -> ( List Change, Cmd Msg )
+marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe starting =
+    case Maybe.andThen (Profile.getInstanceByID profile ( time, timeZone )) instanceIDMaybe of
         Just instanceNowTracking ->
             case Task.AssignedAction.getExtra "marvinID" instanceNowTracking of
                 Nothing ->
@@ -796,7 +796,7 @@ marvinUpdateCurrentlyTracking profile env instanceIDMaybe starting =
 
                         updateTimesCmd =
                             -- TODO should we wait till after the instance changes frame is saved to run this command?
-                            updateDocOfItem env.time [ "times" ] instanceNowTracking
+                            updateDocOfItem time [ "times" ] instanceNowTracking
                     in
                     ( [ updateInstance ], Cmd.batch [ trackCmd ] )
 
@@ -848,14 +848,14 @@ decodeTrackTruthItem =
         )
 
 
-trackTruthToTimelineSessions : Profile -> Environment -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.AssignedAction.AssignedActionID, Period )
-trackTruthToTimelineSessions profile env truthItem =
+trackTruthToTimelineSessions : Profile -> ( Moment, HumanMoment.Zone ) -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.AssignedAction.AssignedActionID, Period )
+trackTruthToTimelineSessions profile ( time, timeZone ) truthItem =
     let
         isCorrectInstance instance =
             Just truthItem.task == Task.AssignedAction.getExtra "marvinID" instance
 
         matchingInstance =
-            List.find isCorrectInstance (Profile.instanceListNow profile env)
+            List.find isCorrectInstance (Profile.instanceListNow profile ( time, timeZone ))
 
         indexedTimes =
             List.indexedMap Tuple.pair truthItem.times
@@ -880,7 +880,7 @@ trackTruthToTimelineSessions profile env truthItem =
 
                 False ->
                     -- odd means never stopped tracking, use current time
-                    List.filterMap (keepEvenOdd 1) (List.indexedMap Tuple.pair (truthItem.times ++ [ env.time ]))
+                    List.filterMap (keepEvenOdd 1) (List.indexedMap Tuple.pair (truthItem.times ++ [ time ]))
     in
     case matchingInstance of
         Nothing ->

@@ -113,31 +113,31 @@ saveError appData error =
 
 {-| All instances that are not expired or finished.
 -}
-instanceListNow : Profile -> Environment -> List Task.AssignedAction.AssignedAction
-instanceListNow profile env =
+instanceListNow : Profile -> ( Moment, HumanMoment.Zone ) -> List Task.AssignedAction.AssignedAction
+instanceListNow profile ( time, timeZone ) =
     let
         fullClasses =
             Task.Entry.flattenEntriesToActions profile.taskEntries
 
         zoneHistory =
             -- TODO
-            ZoneHistory.init env.time env.timeZone
+            ZoneHistory.init time timeZone
 
         rightNow =
-            Period.instantaneous env.time
+            Period.instantaneous time
     in
     Task.AssignedAction.listAllAssignedActions fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
-trackedInstance : Profile -> Environment -> Maybe Task.AssignedAction.AssignedAction
-trackedInstance profile env =
-    Maybe.andThen (getInstanceByID profile env) (Activity.Timeline.currentInstanceID profile.timeline)
+trackedInstance : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.AssignedAction.AssignedAction
+trackedInstance profile ( time, timeZone ) =
+    Maybe.andThen (getInstanceByID profile ( time, timeZone )) (Activity.Timeline.currentInstanceID profile.timeline)
 
 
-getInstanceByID : Profile -> Environment -> Task.AssignedAction.AssignedActionID -> Maybe Task.AssignedAction.AssignedAction
-getInstanceByID profile env instanceID =
+getInstanceByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.AssignedAction.AssignedActionID -> Maybe Task.AssignedAction.AssignedAction
+getInstanceByID profile ( time, timeZone ) instanceID =
     -- TODO optimize
-    List.head (List.filter (\i -> Task.AssignedAction.getID i == instanceID) (instanceListNow profile env))
+    List.head (List.filter (\i -> Task.AssignedAction.getID i == instanceID) (instanceListNow profile ( time, timeZone )))
 
 
 getActivityByID : Profile -> ActivityID -> Activity
@@ -156,15 +156,15 @@ exportExcusedLeftSeconds app now ( activityID, activity ) =
     String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedLeft app.timeline now ( activityID, activity ))
 
 
-userTimeZoneAtMoment : Profile -> Environment -> Moment -> Zone
-userTimeZoneAtMoment profile env givenMoment =
-    if Moment.isSameOrEarlier givenMoment env.time then
+userTimeZoneAtMoment : Profile -> ( Moment, HumanMoment.Zone ) -> Moment -> Zone
+userTimeZoneAtMoment profile ( time, timeZone ) givenMoment =
+    if Moment.isSameOrEarlier givenMoment time then
         -- TODO look at past history to see where User last moved before this moment
-        env.timeZone
+        timeZone
 
     else
         -- TODO look at future plans to see where the User will likely be at this moment
-        env.timeZone
+        timeZone
 
 
 currentActivityID : Profile -> ActivityID

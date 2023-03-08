@@ -39,8 +39,8 @@ codec =
     Codec.record SessionSkel
         |> coreR ( 1, "start" ) .start Codec.moment .start
         |> coreR ( 2, "end" ) .end Codec.moment .end
-        |> coreR ( 2, "activity" ) .activity Activity.Activity.idCodec .activity
-        |> Codec.seededR ( 3, "action" ) .action (Codec.maybe Codec.id) Nothing .action
+        |> coreR ( 3, "activity" ) .activity Activity.Activity.idCodec .activity
+        |> Codec.seededR ( 4, "action" ) .action (Codec.maybe Codec.id) Nothing .action
         |> Codec.finishSeededRecord
         |> Codec.map Session (\(Session skel) -> skel)
 

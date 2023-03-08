@@ -393,9 +393,9 @@ excusedLeft ((Timeline timeline) as wrappedTimeline) now ( activityID, activity 
     Duration.difference (excusableLimit activity) (excusedUsage wrappedTimeline now ( activityID, activity ))
 
 
-justTodayTotal : Timeline -> Environment -> ActivityID -> Duration
-justTodayTotal ((Timeline timeline) as wrappedTimeline) env activityID =
-    activityTotalDurationLive (onlyToday ( env.time, env.timeZone )) env.time wrappedTimeline activityID
+justTodayTotal : Timeline -> ( Moment, HumanMoment.Zone ) -> ActivityID -> Duration
+justTodayTotal ((Timeline timeline) as wrappedTimeline) ( time, timeZone ) activityID =
+    activityTotalDurationLive (onlyToday ( time, timeZone )) time wrappedTimeline activityID
 
 
 
