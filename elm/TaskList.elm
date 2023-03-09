@@ -29,6 +29,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
+import Log
 import Maybe.Extra as Maybe
 import Profile exposing (..)
 import Refocus
@@ -104,43 +105,32 @@ type alias NewTaskField =
     String
 
 
+allFullTaskInstances profile ( launchTime, zone ) =
+    Profile.instanceListNow profile ( launchTime, zone )
+        |> Instance.prioritize launchTime zone
+
+
 view : ViewState -> Profile -> Environment -> Html Msg
 view state profile env =
-    case state of
-        Normal filters expanded field ->
-            let
-                activeFilter =
-                    Maybe.withDefault AllTasks (List.head filters)
-
-                allFullTaskInstances =
-                    Profile.instanceListNow profile ( env.launchTime, env.timeZone )
-
-                lastChangeEnv =
-                    { time = env.launchTime -- for lazy optimization??
-                    , navkey = env.navkey
-                    , timeZone = env.timeZone
-                    , launchTime = env.launchTime
-                    }
-
-                sortedTasks =
-                    Instance.prioritize env.launchTime env.timeZone allFullTaskInstances
-
-                trackedTaskMaybe =
-                    Activity.Timeline.currentInstanceID profile.timeline
-
-                temporaryInstanceCountText instanceList =
-                    div [] [ text ((String.fromInt <| List.length instanceList) ++ " instances") ]
-            in
-            div
-                [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
-                [ section
-                    [ class "todoapp" ]
-                    [ lazy temporaryInstanceCountText allFullTaskInstances
-                    , lazy viewInput field
-                    , Html.Styled.Lazy.lazy4 viewTasks ( env.launchTime, env.timeZone ) activeFilter trackedTaskMaybe sortedTasks
-                    , lazy2 viewControls filters allFullTaskInstances
-                    ]
-                ]
+    let
+        renderView lazyState lazyProfile launchTime zone =
+            case state of
+                Normal filters expanded field ->
+                    let
+                        activeFilter =
+                            Maybe.withDefault AllTasks (List.head filters)
+                    in
+                    div
+                        [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
+                        [ section
+                            [ class "todoapp" ]
+                            [ lazy viewInput field
+                            , Html.Styled.Lazy.lazy4 viewTasks env.launchTime env.timeZone activeFilter profile
+                            , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
+                            ]
+                        ]
+    in
+    Html.Styled.Lazy.lazy4 renderView state profile env.launchTime env.timeZone
 
 
 viewInput : String -> Html Msg
@@ -178,9 +168,16 @@ onEnter msg =
 -- viewTasks : String -> List AssignedAction -> Html Msg
 
 
-viewTasks : ( Moment, HumanMoment.Zone ) -> Filter -> Maybe AssignedActionID -> List AssignedAction -> Html Msg
-viewTasks ( time, timeZone ) filter trackedTaskMaybe tasks =
+viewTasks : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
+viewTasks time timeZone filter profile =
     let
+        trackedTaskMaybe =
+            Activity.Timeline.currentInstanceID profile.timeline
+
+        sortedTasks =
+            allFullTaskInstances profile ( time, timeZone )
+                |> Log.logMessageOnly "recalculating task list!"
+
         isVisible task =
             case filter of
                 CompleteTasksOnly ->
@@ -196,7 +193,7 @@ viewTasks ( time, timeZone ) filter trackedTaskMaybe tasks =
                     True
 
         allCompleted =
-            List.all completed tasks
+            List.all completed sortedTasks
     in
     section
         [ class "main" ]
@@ -211,7 +208,7 @@ viewTasks ( time, timeZone ) filter trackedTaskMaybe tasks =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible tasks)
+            List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible sortedTasks)
         ]
 
 
@@ -716,18 +713,21 @@ attemptTimeChange ( time, timeZone ) task oldFuzzyMaybe whichTimeField input =
             NoOp
 
 
-viewControls : List Filter -> List AssignedAction -> Html Msg
-viewControls visibilityFilters tasks =
+viewControls : List Filter -> Moment -> HumanMoment.Zone -> Profile -> Html Msg
+viewControls visibilityFilters time zone profile =
     let
+        sortedTasks =
+            allFullTaskInstances profile ( time, zone )
+
         tasksCompleted =
-            List.length (List.filter Instance.completed tasks)
+            List.length (List.filter Instance.completed sortedTasks)
 
         tasksLeft =
-            List.length tasks - tasksCompleted
+            List.length sortedTasks - tasksCompleted
     in
     footer
         [ class "footer"
-        , Attr.hidden (List.isEmpty tasks)
+        , Attr.hidden (List.isEmpty sortedTasks)
         ]
         [ Html.Styled.Lazy.lazy viewControlsCount tasksLeft
         , Html.Styled.Lazy.lazy viewControlsFilters visibilityFilters
@@ -1085,21 +1085,21 @@ update msg state profile env =
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
 urlTriggers profile ( time, timeZone ) =
     let
-        allFullTaskInstances =
+        fullTaskInstances =
             instanceListNow profile ( time, timeZone )
 
         tasksIDsWithDoneMsg =
-            List.map doneTriggerEntry allFullTaskInstances
+            List.map doneTriggerEntry fullTaskInstances
 
         doneTriggerEntry fullInstance =
             ( ID.toString (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.getProgress fullInstance)) )
 
         taskIDsWithStartMsg =
-            List.filterMap startTriggerEntry allFullTaskInstances
+            List.filterMap startTriggerEntry fullTaskInstances
                 |> List.map (\( entryID, entryStart, _ ) -> ( entryID, entryStart ))
 
         taskIDsWithStopMsg =
-            List.filterMap startTriggerEntry allFullTaskInstances
+            List.filterMap startTriggerEntry fullTaskInstances
                 |> List.map (\( entryID, _, entryStop ) -> ( entryID, entryStop ))
 
         startTriggerEntry fullInstance =
