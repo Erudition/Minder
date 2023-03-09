@@ -379,7 +379,7 @@ globalLayout viewState replica env innerStuff =
                 , el [ centerX ] <| text "Minder - pre-alpha prototype"
                 , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
                 ]
-            , row [ width fill, height (fillPortion 20), clip, scrollbarY ]
+            , row [ width fill, height (fillPortion 20), clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
                 [ html innerStuff ]
             , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ footerLinks
@@ -837,7 +837,7 @@ navigate url =
             List.filterMap identity
                 [ case finalViewState.timeflow of
                     OpenPanel _ _ ->
-                        Just <| Job.perform (\_ -> TimeflowMsg Timeflow.MouseUp) (Job.succeed ())
+                        Just <| Job.perform (\_ -> TimeflowMsg Timeflow.Refresh) (Job.succeed ())
 
                     _ ->
                         Nothing

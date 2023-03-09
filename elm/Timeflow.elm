@@ -3,6 +3,7 @@ module Timeflow exposing (Msg(..), ViewState, init, routeView, subscriptions, up
 import Activity.Activity as Activity exposing (..)
 import Activity.Session as Session exposing (Session)
 import Activity.Timeline as Timeline
+import Browser.Dom as Dom
 import Color exposing (Color)
 import Date
 import Dict exposing (Dict)
@@ -24,6 +25,7 @@ import ID
 import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import List.Extra as List
+import Log
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (ChangeSet, Frame)
@@ -975,6 +977,7 @@ type Msg
     | PointerMove ( Float, Float )
     | MouseDownAt String ( Float, Float )
     | MouseUp
+    | Refresh
 
 
 type alias Pointer =
@@ -1042,12 +1045,33 @@ update msg stateMaybe profile env =
                     , Cmd.none
                     )
 
+                Refresh ->
+                    ( Change.none
+                    , { state | dragging = Nothing }
+                    , scrollToCenterCmd
+                    )
+
         Nothing ->
             let
                 ( initState, initCmd ) =
                     init profile env
             in
-            ( Change.none, initState, initCmd )
+            ( Change.none, initState, Cmd.batch [ initCmd, scrollToCenterCmd ] )
+
+
+scrollToCenterCmd =
+    let
+        outcomeToMsg result =
+            case result of
+                Ok () ->
+                    MouseUp
+
+                Err err ->
+                    Tuple.second ( Log.log "problem scrolling to center!" err, MouseUp )
+    in
+    Dom.getViewportOf "page-viewport"
+        |> Job.andThen (\info -> Dom.setViewportOf "page-viewport" 0 (info.scene.height * 0.384))
+        |> Job.attempt outcomeToMsg
 
 
 subscriptions : Profile -> Environment -> ViewState -> Sub Msg
