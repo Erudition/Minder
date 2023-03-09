@@ -75,14 +75,15 @@ subscriptions { replica, temp } =
           -- Debug.log
           -- "starting interval"
           -- (Moment.every Duration.aMinute (\_ -> NoOp))
-          Browser.Events.onVisibilityChange (\_ -> NoOp)
+          Browser.Events.onVisibilityChange
+            (\_ -> NoOp)
 
         -- , storageChangedElsewhere NewAppData
-        -- , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
-        --, Moment.every (Duration.fromSeconds (1 / 5)) (Tock NoOp)
+        , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
+        , Moment.every (Duration.fromSeconds (1 / 5)) (\_ -> NoOp)
         ]
             ++ (case temp.viewState.timeflow of
-                    OpenPanel _ subState ->
+                    OpenPanel _ (Just subState) ->
                         [ Sub.map TimeflowMsg (Timeflow.subscriptions replica temp.environment subState) ]
 
                     _ ->
@@ -196,7 +197,7 @@ type PanelPosition
 type alias ViewState =
     { taskList : Panel TaskList.ViewState
     , timeTracker : Panel TimeTracker.ViewState
-    , timeflow : Panel Timeflow.ViewState
+    , timeflow : Panel (Maybe Timeflow.ViewState)
     , devTools : Panel DevTools.ViewState
     }
 
@@ -244,7 +245,7 @@ view { replica, temp } =
                     _ ->
                         Nothing
                 , case temp.viewState.timeflow of
-                    OpenPanel _ state ->
+                    OpenPanel _ (Just state) ->
                         Just
                             { title = "Timeflow"
                             , body = H.map TimeflowMsg (Timeflow.view state replica temp.environment)
@@ -374,7 +375,8 @@ globalLayout viewState replica env innerStuff =
     <|
         column [ width fill, height fill ]
             [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                [ el [ centerX ] <| text "Minder - pre-alpha prototype"
+                [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
+                , el [ centerX ] <| text "Minder - pre-alpha prototype"
                 , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
                 ]
             , row [ width fill, height (fillPortion 20), clip, scrollbarY ]
@@ -550,16 +552,23 @@ type ThirdPartyResponse
 
 
 update : Msg -> Model -> ( List Change.Frame, Temp, Cmd Msg )
-update msg { temp, replica } =
+update msg { temp, replica, now } =
     let
+        newTemp =
+            { temp | environment = environment }
+
         viewState =
             temp.viewState
 
         environment =
-            temp.environment
+            let
+                oldEnv =
+                    temp.environment
+            in
+            { oldEnv | time = now }
 
         justRunCommand command =
-            ( [], temp, command )
+            ( [], newTemp, command )
 
         noOp =
             ( [], temp, Cmd.none )
@@ -570,19 +579,19 @@ update msg { temp, replica } =
     case msg of
         MouseMoved _ _ ->
             ( []
-            , temp
+            , newTemp
             , Cmd.none
             )
 
         NoOp ->
             ( []
-            , temp
+            , newTemp
             , Cmd.none
             )
 
         ClearErrors ->
             ( []
-            , temp
+            , newTemp
               -- TODO Model viewState { replica | errors = [] } environment
             , Cmd.none
             )
@@ -682,7 +691,7 @@ update msg { temp, replica } =
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( [], { temp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
+            ( [], { newTemp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
 
         TaskListMsg subMsg ->
             case subMsg of
@@ -701,7 +710,7 @@ update msg { temp, replica } =
                             { viewState | taskList = OpenPanel position newPanelState }
                     in
                     ( [ newFrame ]
-                    , { temp | viewState = newViewState }
+                    , { newTemp | viewState = newViewState }
                     , Cmd.map TaskListMsg newCommand
                     )
 
@@ -717,7 +726,7 @@ update msg { temp, replica } =
                     { viewState | timeTracker = OpenPanel position newPanelState }
             in
             ( [ newFrame ]
-            , { temp | viewState = newViewState }
+            , { newTemp | viewState = newViewState }
             , Cmd.map TimeTrackerMsg newCommand
             )
 
@@ -725,10 +734,10 @@ update msg { temp, replica } =
             let
                 ( panelState, position, initCmdIfNeeded ) =
                     case viewState.timeflow of
-                        OpenPanel oldPosition oldState ->
+                        OpenPanel oldPosition (Just oldState) ->
                             ( oldState, oldPosition, Cmd.none )
 
-                        ClosedPanel oldPosition oldState ->
+                        ClosedPanel oldPosition (Just oldState) ->
                             ( oldState, oldPosition, Cmd.none )
 
                         _ ->
@@ -739,13 +748,13 @@ update msg { temp, replica } =
                             ( freshState, FullScreen, initCmds )
 
                 ( newFrame, newPanelState, newCommand ) =
-                    Timeflow.update subMsg panelState replica environment
+                    Timeflow.update subMsg (Just panelState) replica environment
 
                 newViewState =
-                    { viewState | timeflow = OpenPanel position newPanelState }
+                    { viewState | timeflow = OpenPanel position (Just newPanelState) }
             in
             ( [ newFrame ]
-            , { temp | viewState = newViewState }
+            , { newTemp | viewState = newViewState }
             , Cmd.map TimeflowMsg (Cmd.batch [ initCmdIfNeeded, newCommand ])
             )
 
@@ -773,7 +782,7 @@ update msg { temp, replica } =
                     { viewState | devTools = OpenPanel position newPanelState }
             in
             ( [ newFrame ]
-            , { temp | viewState = newViewState }
+            , { newTemp | viewState = newViewState }
             , Cmd.map DevToolsMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
             )
 
@@ -848,12 +857,7 @@ routeParser =
             { emptyViewState | taskList = OpenPanel FullScreen subView }
 
         openTimeflow subViewMaybe =
-            case subViewMaybe of
-                Just subView ->
-                    { emptyViewState | timeflow = OpenPanel FullScreen subView }
-
-                Nothing ->
-                    emptyViewState
+            { emptyViewState | timeflow = OpenPanel FullScreen subViewMaybe }
 
         openDevTools subView =
             { emptyViewState | devTools = OpenPanel FullScreen subView }

@@ -133,7 +133,7 @@ updateViewSettings profile env =
             Duration.fromMinutes 30
 
         rowHeight =
-            2
+            3
 
         rowCount =
             List.length (Period.divide timePerRow chosenPeriod) * rowHeight
@@ -190,7 +190,7 @@ view vState profile env =
                         ]
                     , column [ width fill, height fill ]
                         [ row
-                            [ width fill, height (px <| 10 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip, htmlAttribute (HA.style "flex-shrink" "1") ]
+                            [ width fill, height (px <| 10 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip ]
                             (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                         ]
                     ]
@@ -222,15 +222,13 @@ view vState profile env =
 
 
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
-    H.div [ HA.width 100, HA.height 1000 ]
-        [ Widget.view
-            widgetState
-            [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
-            , group (allShapes state profile env)
-                |> move ( 0, 200 )
-                |> notifyMouseMoveAt PointerMove
-                |> notifyMouseUp MouseUp
-            ]
+    Widget.view
+        widgetState
+        [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
+        , group (allShapes state profile env)
+            |> move ( 0, 200 )
+            |> notifyMouseMoveAt PointerMove
+            |> notifyMouseUp MouseUp
         ]
 
 
@@ -853,13 +851,13 @@ dragOffsetDur display ( startX, startY ) =
             yOffset / rowHeightInMouseCoords
 
         yOffsetInRowsRounded =
-            toFloat <| truncate yOffsetInRows
+            yOffsetInRows
 
         rowHeightInMouseCoords =
-            toFloat display.settings.rowHeight * 18
+            toFloat display.settings.rowHeight * 1
 
         xOffsetAsPortion =
-            xOffset / 1000
+            xOffset / 100
     in
     -- TODO
     Duration.scale display.settings.hourRowSize (yOffsetInRowsRounded - xOffsetAsPortion)
@@ -985,62 +983,71 @@ type alias Pointer =
     }
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( Frame, ViewState, Cmd Msg )
-update msg state profile env =
-    case Debug.log "timeflow update" msg of
-        ChangeTimeWindow newStart newFinish ->
-            let
-                withoutNewPeriodToRender =
-                    updateViewSettings profile env
-
-                withNewPeriodToRender =
-                    { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
-            in
-            ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
-
-        WidgetMsg widgetID widgetMsg ->
-            case Dict.get widgetID state.widgets of
-                Nothing ->
-                    Debug.todo "Tried to update a widget that has no stored state"
-
-                Just ( oldWidgetState, widgetInitCmd ) ->
+update : Msg -> Maybe ViewState -> Profile -> Environment -> ( Frame, ViewState, Cmd Msg )
+update msg stateMaybe profile env =
+    case stateMaybe of
+        Just state ->
+            case msg of
+                ChangeTimeWindow newStart newFinish ->
                     let
-                        ( newWidgetState, widgetOutCmds ) =
-                            Widget.update widgetMsg oldWidgetState
+                        withoutNewPeriodToRender =
+                            updateViewSettings profile env
 
-                        newWidgetDict =
-                            Dict.insert widgetID ( newWidgetState, widgetInitCmd ) state.widgets
+                        withNewPeriodToRender =
+                            { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
+                    in
+                    ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
+
+                WidgetMsg widgetID widgetMsg ->
+                    case Dict.get widgetID state.widgets of
+                        Nothing ->
+                            Debug.todo "Tried to update a widget that has no stored state"
+
+                        Just ( oldWidgetState, widgetInitCmd ) ->
+                            let
+                                ( newWidgetState, widgetOutCmds ) =
+                                    Widget.update widgetMsg oldWidgetState
+
+                                newWidgetDict =
+                                    Dict.insert widgetID ( newWidgetState, widgetInitCmd ) state.widgets
+                            in
+                            ( Change.none
+                            , { state | widgets = newWidgetDict }
+                            , Cmd.map (WidgetMsg widgetID) widgetOutCmds
+                            )
+
+                PointerMove ( x, y ) ->
+                    let
+                        oldPointer =
+                            state.pointer
+
+                        newPointer =
+                            { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
+                    in
+                    ( Change.none, { state | pointer = newPointer }, Cmd.none )
+
+                MouseDownAt itemID startPoint ->
+                    let
+                        dragState =
+                            DraggingStarted { id = itemID, start = startPoint, current = startPoint }
                     in
                     ( Change.none
-                    , { state | widgets = newWidgetDict }
-                    , Cmd.map (WidgetMsg widgetID) widgetOutCmds
+                    , { state | dragging = Just dragState }
+                    , Cmd.none
                     )
 
-        PointerMove ( x, y ) ->
+                MouseUp ->
+                    ( Change.none
+                    , { state | dragging = Nothing }
+                    , Cmd.none
+                    )
+
+        Nothing ->
             let
-                oldPointer =
-                    state.pointer
-
-                newPointer =
-                    { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
+                ( initState, initCmd ) =
+                    init profile env
             in
-            ( Change.none, { state | pointer = newPointer }, Cmd.none )
-
-        MouseDownAt itemID startPoint ->
-            let
-                dragState =
-                    DraggingStarted { id = itemID, start = startPoint, current = startPoint }
-            in
-            ( Change.none
-            , { state | dragging = Just dragState }
-            , Cmd.none
-            )
-
-        MouseUp ->
-            ( Change.none
-            , { state | dragging = Nothing }
-            , Cmd.none
-            )
+            ( Change.none, initState, initCmd )
 
 
 subscriptions : Profile -> Environment -> ViewState -> Sub Msg
