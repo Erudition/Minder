@@ -367,7 +367,11 @@ globalLayout viewState replica env innerStuff =
                 , ( isPanelOpen viewState.devTools, devToolsLink )
                 ]
     in
-    layoutWith elmUIOptions [ width fill, htmlAttribute (HA.style "max-height" "100vh") ] <|
+    layoutWith elmUIOptions
+        [ width fill
+        , htmlAttribute (HA.style "max-height" "100vh")
+        ]
+    <|
         column [ width fill, height fill ]
             [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ el [ centerX ] <| text "Minder - pre-alpha prototype"

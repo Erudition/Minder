@@ -1,5 +1,6 @@
 # Now
 - [X] Fix update lag with no change frames: Reg.latest is no longer a function, so view full of Regs is not recalculated every view
+- [ ] Consider node object "subscriptions": on new ops, surgically update model
 - [ ] Cannot delayed-init regs that are wrapped in something, like Just
 - [ ] Give Contexts a type variable
 - [X] Fix case where pointers merge for some reason

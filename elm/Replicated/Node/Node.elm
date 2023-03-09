@@ -24,7 +24,7 @@ import SmartTime.Moment exposing (Moment)
 -}
 type alias Node =
     { identity : NodeID
-    , ops : () -> OpDb
+    , ops : OpDb
     , root : Maybe ObjectID
     , highestSeenClock : Int
     , peers : List Peer
@@ -62,7 +62,7 @@ initFromSaved { sameSession, storedNodeID } inputRon =
         startNode oldNodeID =
             { identity = newIdentity oldNodeID
             , peers = []
-            , ops = \_ -> AnyDict.empty OpID.toSortablePrimitives
+            , ops = AnyDict.empty OpID.toSortablePrimitives
             , root = Nothing
             , highestSeenClock = 0
             }
@@ -98,7 +98,7 @@ testNode : Node
 testNode =
     { identity = firstSessionEver
     , peers = []
-    , ops = \_ -> AnyDict.empty OpID.toSortablePrimitives
+    , ops = AnyDict.empty OpID.toSortablePrimitives
     , root = Nothing
     , highestSeenClock = 0
     }
@@ -116,7 +116,7 @@ startNewNode nowMaybe testMode givenStartChanges =
         startNode =
             { identity = firstSessionEver
             , peers = []
-            , ops = \_ -> AnyDict.empty OpID.toSortablePrimitives
+            , ops = AnyDict.empty OpID.toSortablePrimitives
             , root = Nothing
             , highestSeenClock = 0
             }
@@ -136,7 +136,7 @@ updateWithClosedOps node newOps =
             case alreadyHaveThisOp newOp of
                 Nothing ->
                     { node
-                        | ops = \_ -> AnyDict.insert (Op.id newOp) newOp (nodeToUpdate.ops ())
+                        | ops = AnyDict.insert (Op.id newOp) newOp nodeToUpdate.ops
                         , highestSeenClock = max nodeToUpdate.highestSeenClock (OpID.getClock (Op.id newOp))
                     }
 
@@ -144,7 +144,7 @@ updateWithClosedOps node newOps =
                     Debug.todo ("Already have op " ++ OpID.toString (Op.id newOp) ++ "as an object..")
 
         alreadyHaveThisOp op =
-            AnyDict.get (Op.id op) (node.ops ())
+            AnyDict.get (Op.id op) node.ops
     in
     List.foldl updatedNodeWithOp node newOps
 
@@ -282,7 +282,7 @@ First we compare against object creation IDs, then the stored "last seen" IDs, s
 -}
 lookupObject : Node -> OpID -> Result OpImportWarning ( ReducerID, ObjectID )
 lookupObject node opIDToFind =
-    case AnyDict.get opIDToFind (node.ops ()) of
+    case AnyDict.get opIDToFind node.ops of
         -- will even find objects by middle ops (version references)
         Just foundOp ->
             Ok ( Op.reducer foundOp, Op.object foundOp )
@@ -295,7 +295,7 @@ lookupObject node opIDToFind =
 -}
 objectCount : Node -> Int
 objectCount node =
-    List.map (Op.object >> OpID.toSortablePrimitives) (AnyDict.values (node.ops ()))
+    List.map (Op.object >> OpID.toSortablePrimitives) (AnyDict.values node.ops)
         |> Set.fromList
         |> Set.size
 
@@ -304,7 +304,7 @@ objectCount node =
 -}
 objects : Node -> List ObjectID
 objects node =
-    List.map Op.object (AnyDict.values (node.ops ()))
+    List.map Op.object (AnyDict.values node.ops)
         |> List.uniqueBy OpID.toSortablePrimitives
 
 
@@ -839,7 +839,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
                     List.member (Op.object op) foundSome
 
                 findMatchingOps =
-                    AnyDict.filter matchingOp (node.ops ())
+                    AnyDict.filter matchingOp node.ops
             in
             case Object.buildSavedObject findMatchingOps of
                 ( Just finalObject, [] ) ->
@@ -853,7 +853,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
                         [ [ "Node.getObject:" ]
                         , [ "object builder was tasked with building an object that should exist but found nothing. The existing object(s) supposedly had ID(s):" ]
                         , [ Log.dump foundSome ]
-                        , [ "Matched", Log.int (AnyDict.size findMatchingOps), "out of", Log.int (AnyDict.size (node.ops ())), "total ops (correct object and pre-cutoff)." ]
+                        , [ "Matched", Log.int (AnyDict.size findMatchingOps), "out of", Log.int (AnyDict.size node.ops), "total ops (correct object and pre-cutoff)." ]
                         , [ "The builder produced these warnings:" ]
                         , [ Log.dump warnings ]
                         ]
@@ -875,7 +875,7 @@ getLastSeen node objectIDToFind =
                 Nothing
 
         findMatchingOps =
-            List.filterMap correctObject (AnyDict.values (node.ops ()))
+            List.filterMap correctObject (AnyDict.values node.ops)
     in
     List.last findMatchingOps
         |> Maybe.withDefault objectIDToFind
