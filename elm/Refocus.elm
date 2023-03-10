@@ -164,7 +164,7 @@ switchTracking newActivityID newInstanceIDMaybe profile ( time, timeZone ) =
     else
         -- we actually changed tracking, add session to timeline
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges, Cmd.none )
+        ( switchChanges, Commands.toast "Switched to a new activity" )
 
 
 reactToNewSession newActivityID newInstanceIDMaybe updatedProfile ( time, timeZone ) oldProfile =

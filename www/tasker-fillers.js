@@ -43,7 +43,10 @@ this.tk = {
     encryptFile: function(a1,a2,a3,a4){return true;},
     enterKey: function(a1,a2,a3,a4,a5,a6,a7){return true;},
     exit: function(){console.log("\x1b[31m", "Tasker would have EXIT here.", "\x1b[0m")},
-    flash: function(a1){console.log("Tasker would have flashed: \n", "\x1b[33m", a1, "\x1b[0m");},
+    flash: function(a1){Notification.requestPermission().then((result) => {
+        new Notification("Minder", { body: a1 });
+        console.log("Flash (", result, "): ", a1);
+      });},
     flashLong: function(a1){},
     filterImage: function(a1,a2){return true;},
     flipImage: function(a1){return true;},

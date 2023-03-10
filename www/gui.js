@@ -91,7 +91,7 @@ function elmStartedWithTasker(app) {
 
 function elmStartedWithoutTasker(app) {
 
-    tk.flash("Tasker does not appear to be here!" + tk.global( 'sdk' ))
+    //tk.flash("Tasker does not appear to be here!" + tk.global( 'sdk' ))
     // hide the splash screen
     SplashScreen.hide().catch((err) => {
         console.log("No Capacitor splash screen to hide.");
@@ -187,21 +187,21 @@ function elmStartedWithoutTasker(app) {
       // });
 
 
-      //WORKS
-      // LocalNotifications.schedule({
-      //   notifications: [
-      //     {
-      //       title: "Title",
-      //       body: "Body",
-      //       id: 1,
-      //       schedule: { at: new Date(Date.now() + 1000 * 5) },
-      //       sound: null,
-      //       attachments: null,
-      //       actionTypeId: "",
-      //       extra: null
-      //     }
-      //   ]
-      // });
+    //   WORKS
+      LocalNotifications.schedule({
+        notifications: [
+          {
+            title: "Title",
+            body: "Body",
+            id: 1,
+            schedule: { at: new Date(Date.now() + 1000 * 5) },
+            sound: null,
+            attachments: null,
+            actionTypeId: "",
+            extra: null
+          }
+        ]
+      });
 
 
 

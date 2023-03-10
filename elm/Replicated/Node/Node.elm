@@ -25,6 +25,8 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , ops : OpDb
+
+    -- , objects : Dict OpID.OpIDSortable
     , root : Maybe ObjectID
     , highestSeenClock : Int
     , peers : List Peer

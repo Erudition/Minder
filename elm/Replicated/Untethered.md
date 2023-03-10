@@ -69,7 +69,7 @@ Benefits of Contexts
 - disallow cycles by default, but model can form any DAG
 
 
-# Changes to objects before saving
+# Changes to objects while they're still placeholders
 Ideally we would allow all changes to all objects regardless of save state, but that requires the objects to already be ready to go, as far as making generic changes to them anywhere - it requires them to have a fully unique pointer. 
 Since it seems that having a fully unique pointer is hard to guarantee, perhaps impossible in some places (nested in custom types) without threading Contexts everywhere, we could also just try to restrict Change making on all placeholder objects in general.
 Then we allow a limited subset of changes to the placeholder objects, that make sense and don't require Changes, like starting a RepList with a plain list of seed values.
@@ -77,7 +77,38 @@ Then we allow a limited subset of changes to the placeholder objects, that make 
 - what if we relied on encoders for all pointers, but still required contexts for all init (must attach somewhere), but eliminated early change lists so there's nowhere to misplace external-object changes?
 
 
+# Updating the replica when ops/changes come in
+Decoding the whole model upon startup is inevitable, but at time of writing we also decode the whole model over again every time changes are made anywhere. When the model has 1000+ ops (tested with ~200 tasks and such) this causes the UI to hang for half a second or more! Elm is immutable so it will recreate every object in the model unless we specifically hand it the old ones and tell it what to change.
 
+But how to change it surgically? Possible ideas:
+1. Require every Codec to have both a getter and a setter (wrapped in parent setters) that operates on the whole model and changes only the specific object - then bundle this in the Change and update the model with these setters on every change (never decode again)
+    - Really complicates Codecs to have to specify `\oldObject newValue -> {oldObject | changedField = newValue}` in every field of every Codec... 
+    - worse, they will need yet another type variable for their parent, so the decoder can accept the parent's accessor function...
+    - Also the Node, or what ever holds the Object dict, now needs a type variable for the userModel since the objects hold functions that act on it.
+    - Still doesn't handle Ops coming in from outside systems, fall back to decoding whole model again? That would suck for collaborative editing, at a minimum
+2. Object "subscriptions": Same setters as the first idea, but store them in the node objects. When Ops come in for a particular object, run those setters on the model to surgically update the appropriate values.
+    - same downsides regarding everyone having to specify a setter
+    - works with naked registers, since the subscription is generated once at decode time
+3. When decoding the model, allow passing in the existing object, the decoder will reference-equality check the node object it's built from, and if it's the same (no new ops) it returns the original item instead of running the decoder.
+    - if object didn't change, but contains children which did, how do we tell the children to check themselves? Then how do we update the object with only the changed children?
+    - naked registers must be removed (else we re-decode them every time) because they can't remember their own objectIDs
+4. Each Codec gets a function which takes in the new ops/objects, and personally checks if it's affected by them.
+    - allows us to in-place update the objects with only the new ops, not redecoding e.g. a whole huge list just to add one item
+    - Running the check is cheaper than re-decoding, but we still need to do it for every thing on every branch of the model
+    - somehow we need to run this function inside every RepType in a list
+5. Redesign all reptypes to be a function of the node, and pass the node around the whole app at all times
+    - requiring node everywhere is ewwww
+    - does allow intuitive use of Html.lazy
+    - makes back-in-time functionality trivial
+
+## Conclusion
+Despite requiring setters everywhere, option 2 seems to be the only one that works with any nested object, doesn't require changing the usage interface, and gives maximum performance benefits. 
+Implementation plan:
+    - give all Codecs an Accessor from bChiquet/elm-accessors
+        - record codecs can just have this in place of the already-required getter, but defining Codecs will get a lot bulkier
+        - use a 1:1 Accessor for each item in a collection
+    - make all nodeDecoders return a `List ObjectEventSubscription` as well as their normal value. All nodeDecoders will now need to collect their children's subscriptions and include them in their own return list.
+    - an ObjectEventSubscription is a function from model to model, but needs a Node input (in case new children need it for their decoders) and also includes a ObjectEventSubscription list in the output (new children may have their own subscriptions)
 
 
 # Before
