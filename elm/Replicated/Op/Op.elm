@@ -622,9 +622,10 @@ quotedString =
 
 quotedStringHelp : List String -> RonParser (Parser.Step (List String) String)
 quotedStringHelp piecesReversed =
+    -- TODO this function may get stuck in an infinite loop if input terminates unexpectedly
     Parser.oneOf
         [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
-            |= Parser.keyword escapedSingleQuote
+            |= Parser.symbol escapedSingleQuote
 
         -- ^When we detect an escaped quote, don't stop parsing this atom
         , succeed (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
@@ -633,6 +634,15 @@ quotedStringHelp piecesReversed =
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
         ]
+
+
+checkNonEmpty : List a -> Parser.Parser Context String ()
+checkNonEmpty list =
+    if List.isEmpty list then
+        Parser.problem "Looping without consuming characters!"
+
+    else
+        succeed ()
 
 
 isUninteresting : Char -> Bool

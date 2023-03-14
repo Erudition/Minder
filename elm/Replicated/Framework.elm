@@ -5,6 +5,7 @@ import Browser.Navigation exposing (Key)
 import Console
 import Html
 import Log
+import Process
 import Replicated.Change as Change exposing (Frame)
 import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
 import Replicated.Node.Node as Node exposing (Node)
@@ -53,6 +54,7 @@ type Model userFlags userMsg userReplica temp
         , url : Url
         , key : Key
         , userInit : UserInit userFlags userReplica temp userMsg
+        , loadProgress : ( Int, Int )
         }
     | UserRunning (Replicator userReplica temp)
 
@@ -126,10 +128,11 @@ viewWrapper userView premodel =
                     ++ List.map Html.text warnings
             }
 
-        FrameworkReady { node, now, zone, userReplica, warnings, userFlags, url } ->
+        FrameworkReady { node, now, zone, userReplica, warnings, userFlags, url, loadProgress } ->
             { title = "Crashed."
             , body =
                 [ Html.text "FrameworkReady Replicator Failure"
+                , Html.text ("Loaded frame " ++ String.fromInt (Tuple.first loadProgress) ++ " of " ++ String.fromInt (Tuple.second loadProgress))
                 ]
                     ++ List.map Html.text warnings
             }
@@ -362,6 +365,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , url = url
                         , userFlags = flags.userFlags
                         , userInit = userInit
+                        , loadProgress = ( 1, List.length remainingRon )
                         }
                     , Cmd.batch startCmds
                     )
@@ -385,10 +389,14 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                 ( FrameworkReady ({ node } as frameworkReady), nextRonFrame :: moreRonFrames ) ->
                     let
                         updated =
-                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } nextRonFrame
+                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } (Log.logMessageOnly ("Importing RON frame: \n" ++ nextRonFrame) nextRonFrame)
                     in
-                    ( FrameworkReady { frameworkReady | node = updated.node }
-                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
+                    ( FrameworkReady
+                        { frameworkReady
+                            | node = updated.node
+                            , loadProgress = ( List.length moreRonFrames, Tuple.second frameworkReady.loadProgress )
+                        }
+                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Process.sleep 10000)
                     )
 
                 ( UserRunning replicator, [] ) ->

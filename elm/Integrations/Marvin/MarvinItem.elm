@@ -569,10 +569,10 @@ toDocketTask profile marvinItem =
                             let
                                 newClassChanger : Reg Task.ActionClass.ActionClassSkel -> List Change
                                 newClassChanger newClass =
-                                    RepDb.addNew (\c2 -> Task.AssignedAction.initWithClassAndChanges (ID.fromPointer (Reg.getPointer newClass)) instanceChanges (Change.reuseContext marvinItem.title c2)) profile.taskInstances
+                                    RepDb.addNew (\c2 -> Task.AssignedAction.initWithClassAndChanges (ID.fromPointer (Reg.getPointer newClass)) instanceChanges (Change.reuseContext marvinItem.id c2)) profile.taskInstances
                                         :: classChanges (Reg.latest newClass)
                             in
-                            Task.ActionClass.newActionClassSkel (Change.reuseContext marvinItem.title c) marvinItem.title newClassChanger
+                            Task.ActionClass.newActionClassSkel (Change.reuseContext marvinItem.id c) marvinItem.title newClassChanger
                     in
                     [ RepList.insertNew RepList.Last [ newEntry ] profile.taskEntries
                     ]
