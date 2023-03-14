@@ -53,7 +53,7 @@ type alias ActionClassSkel =
     }
 
 
-newActionClassSkel : Context -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
+newActionClassSkel : Context (Reg ActionClassSkel) -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
 newActionClassSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 

@@ -21,6 +21,7 @@ import Maybe.Extra as Maybe
 import Profile exposing (Profile)
 import Refocus
 import Replicated.Change as Change exposing (Change)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Set
 import SmartTime.Duration as Duration
 import SmartTime.Human.Duration as HumanDuration
@@ -289,13 +290,13 @@ handle classCounter profile ( time, timeZone ) response =
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( Change.none
+                    ( Change.saveChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin TestResult: " ++ serversays) profile.errors ]
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , describeError err
                     , Cmd.none
                     )
@@ -303,13 +304,13 @@ handle classCounter profile ( time, timeZone ) response =
         AuthResult result ->
             case result of
                 Ok serversays ->
-                    ( Change.none
+                    ( Change.saveChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin AuthResult: " ++ serversays) profile.errors ]
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , describeError err
                     , Cmd.none
                     )
@@ -327,7 +328,7 @@ handle classCounter profile ( time, timeZone ) response =
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , "when getting items: " ++ describeError err
                     , Cmd.none
                     )
@@ -596,9 +597,9 @@ getTasks secret =
                     [ ( "selector"
                       , Encode.object
                             [ ( "db", Encode.string "Tasks" )
+                            , ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
+                            , ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
 
-                            --, ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
-                            --, ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
                             --, ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
                             , ( "labelIds", Encode.object [ ( "$not", Encode.object [ ( "$size", Encode.int 0 ) ] ) ] )
                             ]

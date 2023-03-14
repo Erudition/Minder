@@ -2,6 +2,7 @@ module Replicated.Framework exposing (Program, Replicator, browserApplication)
 
 import Browser
 import Browser.Navigation exposing (Key)
+import Console
 import Html
 import Log
 import Replicated.Change as Change exposing (Frame)
@@ -18,7 +19,7 @@ import Url exposing (Url)
 
 
 testMode =
-    False
+    True
 
 
 type alias Program userFlags userReplica temp userMsg =
@@ -26,7 +27,8 @@ type alias Program userFlags userReplica temp userMsg =
 
 
 type Msg userMsg
-    = FrameworkInit Zone Moment -- Tick built in
+    = FrameworkInit (List String) Zone Moment -- Tick built in
+    | LoadMoreData (List String)
     | UserInit
     | Tick userMsg
     | U userMsg Moment -- short name, userMsg first param, all to maximize visibility in Elm Debugger
@@ -109,19 +111,36 @@ subscriptionsWrapper userSubs model =
 
 viewWrapper : (Replicator userReplica temp -> Browser.Document userMsg) -> Model userFlags userMsg userReplica temp -> Browser.Document (Msg userMsg)
 viewWrapper userView premodel =
-    case toReplicator premodel of
-        Just replicator ->
+    let
+        objectsImportedString node =
+            "Objects imported: " ++ String.fromInt (Node.objectCount node)
+    in
+    case premodel of
+        PreInit { restoredNode, warnings, flags, url, key, userInit } ->
+            { title = "Crashed."
+            , body =
+                [ Html.text "PreInit Replicator Failure"
+                , Html.text <| Maybe.withDefault "No stored RON." flags.storedRonMaybe
+                , Html.text <| Maybe.withDefault "No ops imported." (Maybe.map objectsImportedString restoredNode)
+                ]
+                    ++ List.map Html.text warnings
+            }
+
+        FrameworkReady { node, now, zone, userReplica, warnings, userFlags, url } ->
+            { title = "Crashed."
+            , body =
+                [ Html.text "FrameworkReady Replicator Failure"
+                ]
+                    ++ List.map Html.text warnings
+            }
+
+        UserRunning replicator ->
             let
                 { title, body } =
                     userView replicator
             in
             { title = title
             , body = List.map (Html.map Tick) body
-            }
-
-        Nothing ->
-            { title = "Replicator Failure"
-            , body = [ Html.text "Replicator Failure" ]
             }
 
 
@@ -196,22 +215,28 @@ type alias UserInit userFlags userReplica temp userMsg =
 initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> Url -> Key -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
 initWrapper userInit wrappedFlags url key =
     let
-        { storedNodeMaybe, startWarnings } =
+        { storedNodeMaybe, startWarnings, loadAfter } =
             case wrappedFlags.storedRonMaybe of
                 Just foundRon ->
-                    case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } foundRon of
-                        Ok { node, warnings } ->
-                            { storedNodeMaybe = Just node, startWarnings = warnings }
+                    -- case [ String.dropRight 1 foundRon ] of
+                    case String.split "❃" foundRon of
+                        [] ->
+                            { storedNodeMaybe = Nothing, startWarnings = [], loadAfter = [] }
 
-                        Err initError ->
-                            -- TODO pass initError as warning
-                            Log.crashInDev ("TODO pass initError as warning: " ++ Log.dump initError) { storedNodeMaybe = Nothing, startWarnings = [] }
+                        firstFrame :: moreFrames ->
+                            case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } firstFrame of
+                                Ok { node, warnings } ->
+                                    { storedNodeMaybe = Just node, startWarnings = warnings, loadAfter = moreFrames }
+
+                                Err initError ->
+                                    -- TODO pass initError as warning
+                                    Log.crashInDev ("TODO pass initError as warning: " ++ Log.dump initError ++ "\n InitError was from ron:\n" ++ firstFrame) { storedNodeMaybe = Nothing, startWarnings = [], loadAfter = moreFrames }
 
                 Nothing ->
-                    { storedNodeMaybe = Nothing, startWarnings = [] }
+                    { storedNodeMaybe = Nothing, startWarnings = [], loadAfter = [] }
 
-        startupCmd =
-            Job.perform identity (Job.map2 FrameworkInit HumanMoment.localZone Moment.now)
+        userInitNext =
+            Job.perform identity (Job.map2 (FrameworkInit loadAfter) HumanMoment.localZone Moment.now)
     in
     ( PreInit
         { restoredNode = storedNodeMaybe
@@ -221,7 +246,7 @@ initWrapper userInit wrappedFlags url key =
         , key = key
         , userInit = userInit
         }
-    , Cmd.batch [ startupCmd ]
+    , userInitNext
     )
 
 
@@ -286,19 +311,20 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                     )
 
                                 Err problem ->
-                                    -- TODO error handling. ops are still added to node of model even if decode fails. Revert temp changes?
-                                    ( Log.logSeparate "Failed to decodeFromNode! Reverting update!" problem (UserRunning replicatorWithUpdates)
+                                    ( Log.logSeparate (Console.bgRed "Failed to decodeFromNode! Reverting update! Ops:\n" ++ Console.colorsInverted (Op.closedChunksToFrameText finalOutputFrame) ++ "\nProblem: ") problem wrappedModel
                                     , Cmd.map (\m -> U m newTime) newCmds
                                     )
 
-        FrameworkInit zone now ->
+        FrameworkInit remainingRon zone now ->
             case wrappedModel of
                 PreInit { restoredNode, warnings, key, url, flags, userInit } ->
                     let
-                        ( startNode, startFrame ) =
+                        ( startNode, startCmds ) =
                             case restoredNode of
                                 Just restoredNodeFound ->
-                                    ( restoredNodeFound, [] )
+                                    ( restoredNodeFound
+                                    , [ Job.perform (\_ -> LoadMoreData remainingRon) (Job.succeed ()) ]
+                                    )
 
                                 Nothing ->
                                     let
@@ -314,18 +340,17 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                             Codec.startNodeFromRoot maybeTime userReplicaCodec
 
                                         --tempDefaultChanges
+                                        saveNodeCmd =
+                                            setStorage (Op.closedChunksToFrameText startChunks)
+                                                |> Cmd.map (\m -> U m now)
+
+                                        userStartupCmd =
+                                            Job.perform (\_ -> UserInit) (Job.succeed ())
                                     in
-                                    ( newNode, startChunks )
+                                    ( newNode, [ saveNodeCmd, userStartupCmd ] )
 
                         ( startuserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec startNode
-
-                        userStartupCmd =
-                            Job.perform (\_ -> UserInit) (Job.succeed ())
-
-                        saveNodeCmd =
-                            setStorage (Op.closedChunksToFrameText startFrame)
-                                |> Cmd.map (\m -> U m now)
                     in
                     ( FrameworkReady
                         { node = startNode
@@ -338,12 +363,48 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , userFlags = flags.userFlags
                         , userInit = userInit
                         }
-                    , Cmd.batch [ saveNodeCmd, userStartupCmd ]
+                    , Cmd.batch startCmds
                     )
 
                 _ ->
                     -- never possible
                     ( Log.crashInDev "FrameworkInit when model wasn't PreInit" wrappedModel, Cmd.none )
+
+        LoadMoreData remainingRonFrames ->
+            case ( wrappedModel, remainingRonFrames ) of
+                ( FrameworkReady ({ userReplica, node } as frameworkReady), [] ) ->
+                    -- no more RON frames to process
+                    let
+                        ( startuserReplica, userReplicaDecodeWarnings ) =
+                            Codec.forceDecodeFromNode userReplicaCodec node
+                    in
+                    ( FrameworkReady { frameworkReady | userReplica = startuserReplica }
+                    , Job.perform (\_ -> UserInit) (Job.succeed ())
+                    )
+
+                ( FrameworkReady ({ node } as frameworkReady), nextRonFrame :: moreRonFrames ) ->
+                    let
+                        updated =
+                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } nextRonFrame
+                    in
+                    ( FrameworkReady { frameworkReady | node = updated.node }
+                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
+                    )
+
+                ( UserRunning replicator, [] ) ->
+                    ( wrappedModel, Cmd.none )
+
+                ( UserRunning ({ node } as replicator), nextRonFrame :: moreRonFrames ) ->
+                    let
+                        updated =
+                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } (nextRonFrame ++ ".")
+                    in
+                    ( UserRunning { replicator | node = updated.node }
+                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
+                    )
+
+                ( PreInit _, _ ) ->
+                    ( Log.crashInDev "LoadMoreData when model was PreInit" wrappedModel, Cmd.none )
 
         UserInit ->
             case wrappedModel of

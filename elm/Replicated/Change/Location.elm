@@ -51,10 +51,10 @@ toString (AncestryBackwards backwardsLayers) =
     "〖" ++ finalListString ++ "〗"
 
 
-toComparable : Location -> List Int
+toComparable : Location -> List String
 toComparable (AncestryBackwards backwardsLayers) =
     List.reverse backwardsLayers
-        |> List.map layerToInt
+        |> List.map layerToString
 
 
 {-| Local helper
@@ -70,6 +70,7 @@ layerToString layer =
 
 
 {-| Local helper
+Warning: not unique
 -}
 layerToInt : Layer -> Int
 layerToInt layer =

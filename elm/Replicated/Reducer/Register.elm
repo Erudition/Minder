@@ -51,8 +51,8 @@ getPointer (Register register) =
     register.pointer
 
 
-getContext : Reg userType -> Change.Context
-getContext (Register register) =
+getContext : Reg recordType -> (Reg recordType -> fieldType) -> Change.Context fieldType
+getContext (Register register) _ =
     -- TODO this function is a hack, no?
     Change.Context (Location.newSingle "RegLateFieldInit") (Change.becomeInstantParent register.pointer)
 

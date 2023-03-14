@@ -49,7 +49,7 @@ existingIDToString { reducer, object } =
     reducer ++ OpID.toString object
 
 
-pendingIDToComparable : PendingID -> List Int
+pendingIDToComparable : PendingID -> List String
 pendingIDToComparable pendingID =
     Location.toComparable (pendingObjectGlobalLocation pendingID)
 
@@ -100,7 +100,7 @@ mergeMaybeChange maybeChange change =
 
 
 type alias ChangeSetDetails =
-    { objectsToCreate : AnyDict (List Int) PendingID (List ObjectChange)
+    { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
     , delayed : List DelayedChange
     , opsToRepeat : OpDb
@@ -138,7 +138,7 @@ emptyExistingObjectChanges =
     AnyDict.empty existingIDToComparable
 
 
-emptyObjectsToCreate : AnyDict (List Int) PendingID (List ObjectChange)
+emptyObjectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
 emptyObjectsToCreate =
     AnyDict.empty pendingIDToComparable
 
@@ -320,7 +320,7 @@ type alias Changer o =
 
 
 type alias Creator a =
-    Context -> a
+    Context a -> a
 
 
 type ObjectChange
@@ -741,17 +741,17 @@ genesisParent whereWeStarted =
     Parent (PlaceholderPointer (PendingID (whereWeStarted ++ "-root") Location.none Nothing) []) Nothing
 
 
-startContext : String -> Context
+startContext : String -> Context child
 startContext reasonForNewContext =
     Context Location.none (genesisParent reasonForNewContext)
 
 
-getContextParent : Context -> Parent
+getContextParent : Context child -> Parent
 getContextParent (Context _ parent) =
     parent
 
 
-getContextLocation : Context -> Location
+getContextLocation : Context child -> Location
 getContextLocation (Context location parent) =
     location
 
@@ -779,12 +779,12 @@ Ways to mitigate this:
 \*We'd also need to go into any nested changes and recursively swap out the old pendingIDs, ugh.
 
 -}
-reuseContext : String -> Context -> Context
+reuseContext : String -> Context childType -> Context a
 reuseContext uniqueString (Context location parent) =
     Context (Location.nestSingle location uniqueString) parent
 
 
-contextDifferentiatorString : Context -> String
+contextDifferentiatorString : Context childType -> String
 contextDifferentiatorString (Context frameIndex parent) =
     "⌔" ++ toString frameIndex
 
@@ -806,7 +806,7 @@ type Parent
     = Parent Pointer (Maybe ChildInstaller)
 
 
-type Context
+type Context childType
     = Context Location Parent
 
 

@@ -224,12 +224,11 @@ insideContainerOfActions accumulator recurrenceRules child =
 initWithClass : Reg ActionClassSkel -> Change.Creator RootEntry
 initWithClass actionSkelReg entryListParent =
     let
-        initContainerOfActions : Change.Creator ContainerOfActions
-        initContainerOfActions subparent =
-            { properties = Codec.new parentPropertiesCodec subparent
-            , children = Codec.newWithChanges (Codec.repList nestedOrActionCodec) subparent taskClassChildrenChanger
-            }
-
+        -- initContainerOfActions : Change.Creator ContainerOfActions
+        -- initContainerOfActions container =
+        --     { properties = Codec.new parentPropertiesCodec container
+        --     , children = Codec.newWithChanges (Codec.repList nestedOrActionCodec) container taskClassChildrenChanger
+        --     }
         taskClassChildrenChanger : RepList NestedOrAction -> List Change
         taskClassChildrenChanger newChildren =
             [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
@@ -243,11 +242,8 @@ initWithClass actionSkelReg entryListParent =
         parentPropertiesChanger newParentProperties =
             [ (Reg.latest newParentProperties).title.set <| Just "Entry title"
             ]
-
-        orphanList =
-            Codec.new (Codec.repList Codec.int) entryListParent
     in
-    AssignableIsHere (Codec.newWithChanges assignableCodec entryListParent assignableChanger)
+    AssignableIsHere (Codec.newWithChanges assignableCodec (Change.reuseContext "AssignableIsHere" entryListParent) assignableChanger)
 
 
 

@@ -377,7 +377,7 @@ globalLayout viewState replica env innerStuff =
             [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
                 , el [ centerX ] <| text "Minder - pre-alpha prototype"
-                , link [ alignRight ] { url = "?sync=marvin", label = text "SM" }
+                , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
                 ]
             , row [ width fill, height (fillPortion 20), clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
                 [ html innerStuff ]
@@ -615,7 +615,7 @@ update msg { temp, replica, now } =
 
         ThirdPartyServerResponded (TodoistServer response) ->
             let
-                ( _, whatHappened ) =
+                ( marvinChangeFrame, whatHappened ) =
                     Integrations.Todoist.handle response replica
 
                 syncStatusChannel =
@@ -632,12 +632,14 @@ update msg { temp, replica, now } =
                         |> Notif.setBody whatHappened
                         |> Notif.setBigTextStyle True
             in
-            -- TODO Model viewState newAppData environment
-            justRunCommand (notify [ notification ])
+            ( [ marvinChangeFrame ]
+            , newTemp
+            , Cmd.batch [ notify [ notification ], External.Commands.toast whatHappened ]
+            )
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
-                ( _, whatHappened, nextStep ) =
+                ( marvinChanges, whatHappened, nextStep ) =
                     Marvin.handle (RepDb.size replica.taskClasses + 1000) replica ( environment.time, environment.timeZone ) response
 
                 _ =
@@ -659,12 +661,14 @@ update msg { temp, replica, now } =
                         |> Notif.setAccentColor "green"
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
-            -- TODO update appdata
-            justRunCommand <|
-                Cmd.batch
-                    [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
-                    , notify [ notification ]
-                    ]
+            ( [ marvinChanges ]
+            , newTemp
+            , Cmd.batch
+                [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
+                , notify [ notification ]
+                , External.Commands.toast whatHappened
+                ]
+            )
 
         Link urlRequest ->
             case urlRequest of

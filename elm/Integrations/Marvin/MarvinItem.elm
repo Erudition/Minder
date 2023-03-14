@@ -149,7 +149,7 @@ type alias MarvinItem =
     , taskTime : Maybe TimeOfDay
     , pinId : Maybe String
     , recurringTaskId : Maybe String
-    , masterRank : Int
+    , masterRank : Float
     , createdAt : Moment
     , doneAt : Maybe Moment
     , updatedAt : Maybe Moment
@@ -193,7 +193,7 @@ encodeMarvinItem task =
         , normal ( "db", Encode.string task.db )
         , omittableList ( "times", encodeUnixTimestamp, task.times )
         , omittable ( "taskTime", encodeTimeOfDay, task.taskTime )
-        , omittableNum ( "masterRank", Encode.int, task.masterRank )
+        , omittableNum ( "masterRank", Encode.float, task.masterRank )
         , normal ( "createdAt", encodeUnixTimestamp task.createdAt )
         , omittable ( "doneAt", encodeUnixTimestamp, task.doneAt )
         , omittable ( "updatedAt", encodeUnixTimestamp, task.updatedAt )
@@ -239,7 +239,7 @@ decodeMarvinItem =
         |> optional "taskTime" (nullable timeOfDayDecoder) Nothing
         |> optional "pinID" (nullable string) Nothing
         |> optional "recurringTaskId" (nullable string) Nothing
-        |> optional "masterRank" int 0
+        |> optional "masterRank" float 0
         |> required "createdAt" decodeUnixTimestamp
         |> optional "doneAt" (nullable decodeUnixTimestamp) Nothing
         |> optional "updatedAt" (nullable decodeUnixTimestamp) Nothing
@@ -505,15 +505,19 @@ toDocketTask profile marvinItem =
                 , Maybe.map (\d -> ( "marvinTaskTime", SmartTime.Human.Clock.toStandardString d )) marvinItem.taskTime
                 , Maybe.map (\p -> ( "marvinPinID", p )) marvinItem.pinId
                 , Maybe.map (\p -> ( "marvinRecurringTaskID", p )) marvinItem.recurringTaskId
-                , Just ( "marvinMasterRank", String.fromInt marvinItem.masterRank )
+                , Just ( "marvinMasterRank", String.fromFloat marvinItem.masterRank )
                 , Just ( "marvinCreatedAt", SmartTime.Human.Moment.toStandardString marvinItem.createdAt )
                 , Maybe.map (\d -> ( "marvinDoneAt", SmartTime.Human.Moment.toStandardString d )) marvinItem.doneAt
                 , Just ( "marvinFieldUpdates", Encode.encode 0 (Encode.dict identity encodeUnixTimestamp marvinItem.fieldUpdates) )
                 , Just ( "marvinTimes", Encode.encode 0 (Encode.list encodeUnixTimestamp marvinItem.times) )
                 ]
 
-        instanceChanges : Task.AssignedAction.AssignedActionSkel -> List Change
-        instanceChanges instance =
+        instanceChanges : Reg Task.AssignedAction.AssignedActionSkel -> List Change
+        instanceChanges assignment =
+            let
+                instance =
+                    Reg.latest assignment
+            in
             [ instance.completion.set <|
                 if marvinItem.done then
                     100
@@ -545,20 +549,32 @@ toDocketTask profile marvinItem =
         finalInstanceChanges =
             case Maybe.andThen (\instanceID -> RepDb.get instanceID profile.taskInstances) existingInstanceIDMaybe of
                 Just existingInstance ->
-                    instanceChanges (Reg.latest existingInstance)
+                    Debug.log "It thinks we have an existing instance!!" <| instanceChanges existingInstance
 
                 Nothing ->
-                    [ Debug.todo "RepDb.spawnWithChanges instanceChanges profile.taskInstances" ]
+                    []
 
         finalEntryAndClassChanges =
             case Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe of
                 Just existingClass ->
-                    classChanges (Reg.latest existingClass)
+                    Debug.log "it thinks we already have an existing taskClass!!" (classChanges (Reg.latest existingClass))
 
                 Nothing ->
-                    [ -- TODO how to add class to entry before class exists?
-                      -- RepList.spawnWithChanges (Task.Entry.initWithClass existingClassID) profile.taskEntries
-                      Debug.todo "RepDb.spawnWithChanges classChanges profile.taskClasses"
+                    let
+                        newEntry c =
+                            Task.Entry.initWithClass (newAction (Change.reuseContext "action" c)) c
+
+                        newAction : Change.Creator (Reg Task.ActionClass.ActionClassSkel)
+                        newAction c =
+                            let
+                                newClassChanger : Reg Task.ActionClass.ActionClassSkel -> List Change
+                                newClassChanger newClass =
+                                    RepDb.addNew (\c2 -> Task.AssignedAction.initWithClassAndChanges (ID.fromPointer (Reg.getPointer newClass)) instanceChanges (Change.reuseContext marvinItem.title c2)) profile.taskInstances
+                                        :: classChanges (Reg.latest newClass)
+                            in
+                            Task.ActionClass.newActionClassSkel (Change.reuseContext marvinItem.title c) marvinItem.title newClassChanger
+                    in
+                    [ RepList.insertNew RepList.Last [ newEntry ] profile.taskEntries
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges
@@ -620,7 +636,7 @@ fromDocket instance =
                 , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinTaskTime" instance
                 , pinId = Task.AssignedAction.getExtra "marvinPinID" instance
                 , recurringTaskId = Task.AssignedAction.getExtra "recurringTaskID" instance
-                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.AssignedAction.getExtra "marvinMasterRank" instance
+                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toFloat <| Task.AssignedAction.getExtra "marvinMasterRank" instance
                 , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinCreatedAt" instance
                 , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinDoneAt" instance
                 , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.AssignedAction.getExtra "marvinUpdatedAt" instance
@@ -727,9 +743,7 @@ labelToDocketActivity activities label =
         toChanges =
             case firstActivityMatch of
                 Just activity ->
-                    -- TODO add Changes for:
-                    -- Dict.insert "marvinLabel" label.id activity.externalIDs
-                    []
+                    [ Activity.setExternalID "marvinLabel" label.id activity ]
 
                 Nothing ->
                     []

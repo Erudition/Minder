@@ -376,7 +376,7 @@ forceDecodeFromNode rootCodec node =
 {-| Create something new, from its Codec!
 Be sure to pass in a `Context`, which you can get from its parent.
 -}
-new : Codec e (s -> List Change) o repType -> Context -> repType
+new : Codec e (s -> List Change) o repType -> Context repType -> repType
 new (Codec codecDetails) context =
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "new", seed = nonChanger }
 
@@ -384,23 +384,23 @@ new (Codec codecDetails) context =
 {-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context.
 If the Codecs are different, you can just use new. If they aren't, using new multiple times will create references to a single object rather than multiple distinct objects. So be sure to use a different number for each usage of newN.
 -}
-newN : Int -> Codec e (s -> List Change) o repType -> Context -> repType
+newN : Int -> Codec e (s -> List Change) o repType -> Context repType -> repType
 newN nth (Codec codecDetails) context =
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nest (Change.getContextLocation context) "newN" nth, seed = nonChanger }
 
 
-newWithChanges : WrappedCodec e repType -> Context -> Changer repType -> repType
+newWithChanges : WrappedCodec e repType -> Context repType -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "newWC", seed = changer }
 
 
-seededNew : Codec e s o repType -> Context -> s -> repType
+seededNew : Codec e s o repType -> Context repType -> s -> repType
 seededNew (Codec codecDetails) context seed =
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "sNew", seed = seed }
 
 
-seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context -> s -> Changer repType -> repType
+seededNewWithChanges : Codec e ( s, Changer repType ) o repType -> Context repType -> s -> Changer repType -> repType
 seededNewWithChanges (Codec codecDetails) context seed changer =
     codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "sNewWC", seed = ( seed, changer ) }
 
@@ -2263,7 +2263,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
                             Just <| remainingRecordConstructor thisFieldValue
 
                         ( Nothing, _ ) ->
-                            Log.crashInDev ("Codec.writableHelper.nodeDecoder:" ++ fieldName ++ " field decoded to nothing...") Nothing
+                            Log.crashInDev ("Codec.writableHelper.nodeDecoder: '" ++ fieldName ++ "' field decoded to nothing.. error was " ++ Debug.toString thisFieldErrors ++ " for the object at " ++ Debug.toString inputs.regPointer ++ " with history " ++ Debug.toString (Dict.get fieldSlot inputs.history)) Nothing
 
                         ( _, Nothing ) ->
                             Log.crashInDev ("Codec.writableHelper.nodeDecoder:" ++ fieldName ++ " field was missing prior constructor..") Nothing

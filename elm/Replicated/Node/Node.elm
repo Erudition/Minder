@@ -170,8 +170,9 @@ updateWithRon old inputRon =
         Ok parsedRonFrames ->
             case parsedRonFrames of
                 [] ->
-                    --make sure we don't pretend to succeed when we didn't actually get anything
-                    { old | warnings = old.warnings ++ [ EmptyChunk ] }
+                    Log.crashInDev ("parsed 0 frames from input ron: " ++ inputRon)
+                        --make sure we don't pretend to succeed when we didn't actually get anything
+                        { old | warnings = old.warnings ++ [ EmptyChunk ] }
 
                 foundFrames ->
                     updateWithMultipleFrames parsedRonFrames old
@@ -217,7 +218,8 @@ update : Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 update newFrame old =
     case newFrame.chunks of
         [] ->
-            { old | warnings = old.warnings ++ [ EmptyChunk ] }
+            Log.crashInDev "Node.update: got an OpenTextRonFrame with no Chunks!"
+                { old | warnings = old.warnings ++ [ EmptyChunk ] }
 
         someChunks ->
             List.foldl updateNodeWithChunk old someChunks
@@ -413,7 +415,7 @@ creationOpsToObjectIDs ops =
 Use with Change.pendingIDToString
 -}
 type alias UpdatesSoFar =
-    { assignedIDs : AnyDict (List Int) Change.PendingID ObjectID
+    { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
     , delayed : List Change.DelayedChange
     }

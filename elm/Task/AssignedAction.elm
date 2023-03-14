@@ -74,9 +74,14 @@ type alias AssignedActionDb =
     RepDb (Reg AssignedActionSkel)
 
 
-initWithClass : ActionClassID -> Context -> Reg AssignedActionSkel
+initWithClass : ActionClassID -> Context (Reg AssignedActionSkel) -> Reg AssignedActionSkel
 initWithClass actionClassID context =
     Codec.seededNew codec context ( actionClassID, \_ -> [] )
+
+
+initWithClassAndChanges : ActionClassID -> Change.Changer (Reg AssignedActionSkel) -> Context (Reg AssignedActionSkel) -> Reg AssignedActionSkel
+initWithClassAndChanges actionClassID changer context =
+    Codec.seededNew codec context ( actionClassID, changer )
 
 
 

@@ -149,7 +149,7 @@ size (RepDb record) =
     AnyDict.size record.members
 
 
-addNew : Creator memberType -> RepDb memberType -> Change
+addNew : Creator member -> RepDb member -> Change
 addNew newMemberCreator (RepDb record) =
     let
         newMember index =
@@ -166,7 +166,7 @@ addNew newMemberCreator (RepDb record) =
     Change.WithFrameIndex finalChangeSet
 
 
-addMultipleNew : List (Creator memberType) -> RepDb memberType -> Change
+addMultipleNew : List (Creator member) -> RepDb member -> Change
 addMultipleNew newMemberCreators (RepDb record) =
     let
         createWithContext frameIndex index creator =

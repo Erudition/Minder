@@ -1175,4 +1175,4 @@ closedChunksToFrameText chunkList =
         chunks ->
             List.map perChunk chunks
                 |> String.concat
-                |> (\s -> s ++ ".\n")
+                |> (\s -> s ++ ".❃\n")
