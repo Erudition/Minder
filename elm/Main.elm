@@ -61,6 +61,7 @@ main =
         , onUrlRequest = Link
         , replicaCodec = Profile.codec
         , portSetStorage = setStorage
+        , portIncomingChanges = incomingFramesFromElsewhere
         }
 
 
@@ -89,6 +90,9 @@ subscriptions { replica, temp } =
                     _ ->
                         []
                )
+
+
+port incomingFramesFromElsewhere : (String -> msg) -> Sub msg
 
 
 
@@ -128,9 +132,6 @@ decodeButtons =
 
 
 port setStorage : String -> Cmd msg
-
-
-port storageChangedElsewhere : (String -> msg) -> Sub msg
 
 
 type alias StoredRON =

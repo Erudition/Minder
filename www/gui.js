@@ -2,7 +2,30 @@
 const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
 
 
+// import IPFS from 'ipfs'
+// import OrbitDB from 'orbit-db'
 
+// (async function () {
+//   const ipfs = await IPFS.create()
+//   const orbitdb = await OrbitDB.createInstance(ipfs)
+
+//   // Create / Open a database
+//   const db = await orbitdb.log("hello")
+//   await db.load()
+
+//   // Listen for updates from peers
+//   db.events.on("replicated", address => {
+//     console.log(db.iterator({ limit: -1 }).collect())
+//   })
+
+//   // Add an entry
+//   const hash = await db.add("world")
+//   console.log(hash)
+
+//   // Query
+//   const result = db.iterator({ limit: -1 }).collect()
+//   console.log(JSON.stringify(result, null, 2))
+// })()
 
 
 // Where we save the personal data
@@ -12,6 +35,7 @@ var browserStorageKey = 'docket-v0.2-data';
 
 
 // START ELM
+async function startElmApp() {
 try { // Errors out if undeclared
     if (inTasker) {
         let storedState = tk.readFile(storagefilename);
@@ -25,13 +49,19 @@ try { // Errors out if undeclared
     elmStartedWithTasker(app);
     }
 } catch (error) { // not inTasker
-    const currentlyStored = localStorage.getItem(browserStorageKey);
+    const db = await startOrbit();
+    const dbEntries = db.iterator({ limit: -1 }).collect();
+    console.log(JSON.stringify(dbEntries, null, 2));
+    const currentlyStored = dbEntries.map((e) => e.payload.value).join('\n');
+    //const currentlyStored = localStorage.getItem(browserStorageKey);
+
+
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : (currentlyStored ? currentlyStored : null) 
         , userFlags : null
         }
     });
-    elmStartedWithoutTasker(app);
+    elmStartedWithoutTasker(app, db);
     // Use Capacitor storage
     // Storage.get({ key: browserStorageKey }).then((found) => {
     //     let app = Elm.Main.init({ flags: 
@@ -51,9 +81,9 @@ try { // Errors out if undeclared
           console.log("Storage may be cleared by the UA under storage pressure.");
       });
 }
+}
 
-
-
+startElmApp();
 
 function elmStartedWithTasker(app) {
 
@@ -89,7 +119,7 @@ function elmStartedWithTasker(app) {
 }
 
 
-function elmStartedWithoutTasker(app) {
+function elmStartedWithoutTasker(app, db) {
 
     //tk.flash("Tasker does not appear to be here!" + tk.global( 'sdk' ))
     // hide the splash screen
@@ -100,7 +130,7 @@ function elmStartedWithoutTasker(app) {
 
 
     // SET STORAGE
-    app.ports.setStorage.subscribe(function(state) {
+    app.ports.setStorage.subscribe(async function(state) {
         // TODO does this account for localStorage disabled/unavailable?
         // https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
         
@@ -111,8 +141,9 @@ function elmStartedWithoutTasker(app) {
         //         value: (found.value ? found.value : "") + state
         //        });
         // });
-        const currentlyStored = localStorage.getItem(browserStorageKey);
-        localStorage.setItem(browserStorageKey, (currentlyStored ? currentlyStored : "") + state);
+        // const currentlyStored = localStorage.getItem(browserStorageKey);
+        // localStorage.setItem(browserStorageKey, (currentlyStored ? currentlyStored : "") + state);
+        const hash = await db.add(state);
 
     });
 
@@ -123,11 +154,20 @@ function elmStartedWithoutTasker(app) {
     window.addEventListener('storage', function (e) {
         // if (e.key == Storage.KEY_PREFIX + browserStorageKey) { //Capacitor
         if (e.key == browserStorageKey) {
-            app.ports.storageChangedElsewhere.send(e.newValue);
+            app.ports.incomingFramesFromElsewhere.send(e.newValue);
         } else {
             console.log("localStorage changed elsewhere, but the key was different.")
         }
     });
+
+
+    // Get new frames from peers
+    db.events.on("replicate.progress", (address, hash, entry, progress, have) => {
+      //const newFramesOnlyIHope = db.iterator({ limit: -1 }).collect().map(e => e.payload.value).join('\n');
+      const newFramesOnlyIHope = entry.payload.value;
+      app.ports.incomingFramesFromElsewhere.send(newFramesOnlyIHope);
+      console.log("Got new frames from peer @" + address)
+    })
 
 
     // FLASH OR TOAST

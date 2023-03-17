@@ -86,6 +86,7 @@ browserApplication :
     , onUrlChange : Url -> userMsg
     , replicaCodec : SkelCodec userReplicaError userReplica -- TODO not Skel
     , portSetStorage : String -> Cmd userMsg
+    , portIncomingChanges : (String -> Msg userMsg) -> Sub (Msg userMsg)
     }
     -> Program userFlags userReplica temp userMsg
 browserApplication userApp =
@@ -93,19 +94,22 @@ browserApplication userApp =
         { init = initWrapper userApp.init
         , view = viewWrapper userApp.view
         , update = updateWrapper userApp.replicaCodec userApp.portSetStorage userApp.update
-        , subscriptions = subscriptionsWrapper userApp.subscriptions
+        , subscriptions = subscriptionsWrapper userApp.portIncomingChanges userApp.subscriptions
         , onUrlChange = \url -> Tick (userApp.onUrlChange url)
         , onUrlRequest = \req -> Tick (userApp.onUrlRequest req)
         }
 
 
-subscriptionsWrapper : (Replicator userReplica temp -> Sub userMsg) -> Model userFlags userMsg userReplica temp -> Sub (Msg userMsg)
-subscriptionsWrapper userSubs model =
+subscriptionsWrapper : ((String -> Msg userMsg) -> Sub (Msg userMsg)) -> (Replicator userReplica temp -> Sub userMsg) -> Model userFlags userMsg userReplica temp -> Sub (Msg userMsg)
+subscriptionsWrapper portIncomingChanges userSubs model =
     case model of
         UserRunning replicator ->
-            userSubs replicator
-                -- Tick means every sub will run with an updated clock
-                |> Sub.map (\userMsg -> Tick userMsg)
+            Sub.batch <|
+                [ userSubs replicator
+                    -- Tick means every sub will run with an updated clock
+                    |> Sub.map (\userMsg -> Tick userMsg)
+                , portIncomingChanges (\allFrames -> LoadMoreData (String.split "❃" allFrames))
+                ]
 
         _ ->
             Sub.none
@@ -161,58 +165,6 @@ toReplicator premodel =
 
 type alias UserInit userFlags userReplica temp userMsg =
     userFlags -> Url -> Key -> userReplica -> ( List Frame, temp, Cmd userMsg )
-
-
-
---    startingModel =
---         case maybeRon of
---             Just foundRon ->
---                 case Node.initFromSaved { sameSession = False, storedNodeID = "myNode" } foundRon of
---                     Ok { node, warnings } ->
---                         case (Codec.decodeFromNode userReplica.codec node, warnings) of
---                             (Ok userReplica, []) ->
---                                 { viewState = viewUrl url
---                                 , userReplica = userReplica
---                                 , environment = Environment.preInit maybeKey
---                                 , node = node
---                                 }
---                             (Ok _, warningsFound) ->
---                                 initShowstopper
---                                     { savedRon = foundRon
---                                     , problem =  ImportFail warningsFound
---                                     , url = url
---                                     }
---                             (Err problem, _) ->
---                                 initShowstopper
---                                     { savedRon = foundRon
---                                     , problem = DecodeNodeFail problem
---                                     , url = url
---                                     }
---                     Err initError ->
---                         initShowstopper
---                             { savedRon = foundRon
---                             , problem = OtherFail initError
---                             , url = url
---                             }
---             -- no ron stored at all
---             Nothing ->
---                 let
---                     { newNode, startOps } =
---                         Node.startNewNode Nothing
---                 in
---                 case decodeFromNode userReplica.codec newNode of
---                     Ok userReplica ->
---                         { viewState = viewUrl url
---                         , userReplica = userReplica
---                         , environment = Environment.preInit maybeKey
---                         , node = newNode
---                         }
---                     Err problem ->
---                         initShowstopper
---                             { savedRon = "No Stored RON."
---                             , problem = DecodeNodeFail problem
---                             , url = url
---                             }
 
 
 initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> Url -> Key -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
@@ -390,22 +342,32 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                     let
                         updated =
                             Node.updateWithRon { node = node, warnings = [], newObjects = [] } (Log.logMessageOnly ("Importing RON frame: \n" ++ nextRonFrame) nextRonFrame)
+
+                        totalFrames =
+                            Tuple.second frameworkReady.loadProgress
                     in
                     ( FrameworkReady
                         { frameworkReady
                             | node = updated.node
-                            , loadProgress = ( List.length moreRonFrames, Tuple.second frameworkReady.loadProgress )
+                            , loadProgress = ( totalFrames - List.length moreRonFrames, totalFrames )
                         }
-                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Process.sleep 10000)
+                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
                     )
 
-                ( UserRunning replicator, [] ) ->
-                    ( wrappedModel, Cmd.none )
+                ( UserRunning ({ node } as replicator), [] ) ->
+                    -- no more RON frames to process
+                    let
+                        ( newUserReplica, userReplicaDecodeWarnings ) =
+                            Codec.forceDecodeFromNode userReplicaCodec node
+                    in
+                    ( UserRunning { replicator | replica = newUserReplica }
+                    , Cmd.none
+                    )
 
                 ( UserRunning ({ node } as replicator), nextRonFrame :: moreRonFrames ) ->
                     let
                         updated =
-                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } (nextRonFrame ++ ".")
+                            Node.updateWithRon { node = node, warnings = [], newObjects = [] } (Log.logMessageOnly ("Importing RON frame: \n" ++ nextRonFrame) nextRonFrame)
                     in
                     ( UserRunning { replicator | node = updated.node }
                     , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())

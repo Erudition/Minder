@@ -143,7 +143,11 @@ updateWithClosedOps node newOps =
                     }
 
                 Just _ ->
-                    Debug.todo ("Already have op " ++ OpID.toString (Op.id newOp) ++ "as an object..")
+                    Debug.log ("Already have op " ++ OpID.toString (Op.id newOp) ++ "as an object..")
+                        { node
+                            | ops = AnyDict.insert (Op.id newOp) newOp nodeToUpdate.ops
+                            , highestSeenClock = max nodeToUpdate.highestSeenClock (OpID.getClock (Op.id newOp))
+                        }
 
         alreadyHaveThisOp op =
             AnyDict.get (Op.id op) node.ops
@@ -218,7 +222,7 @@ update : Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 update newFrame old =
     case newFrame.chunks of
         [] ->
-            Log.crashInDev "Node.update: got an OpenTextRonFrame with no Chunks!"
+            Log.log "Node.update: got an OpenTextRonFrame with no Chunks!"
                 { old | warnings = old.warnings ++ [ EmptyChunk ] }
 
         someChunks ->

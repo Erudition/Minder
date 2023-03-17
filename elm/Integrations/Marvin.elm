@@ -597,8 +597,7 @@ getTasks secret =
                     [ ( "selector"
                       , Encode.object
                             [ ( "db", Encode.string "Tasks" )
-
-                            --, ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
+                            , ( "timeEstimate", Encode.object [ ( "$gt", Encode.int 0 ) ] )
                             , ( "done", Encode.object [ ( "$exists", Encode.bool False ) ] )
 
                             --, ( "day", Encode.object [ ( "$regex", Encode.string "^\\d" ) ] )
