@@ -37,38 +37,40 @@ module.exports = (env) => {
         return {
           resolve: {
               mainFields: ['module', 'main', 'browser'],
-              alias: { "tns-core-modules": "@nativescript/core", //somehow still necessary for old node modules
+              alias: { "tns-core-modules/utils/utils": "@nativescript/core/utils",
+                      "tns-core-modules": "@nativescript/core", //somehow still necessary for old node modules
+                        "application": "@nativescript/core/application",
                         //"url": "whatwg-url", //better replacement
-                        "randombytes" : "nativescript-randombytes", // for crypto library
-                        "nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
-                        "nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
-                        "ipfs-utils" : "/customized-node-modules/ipfs-utils",
-                        "crypto" : '/customized-node-modules/nativescript-crypto',
+                        //"randombytes" : "nativescript-randombytes", // for crypto library
+                        //"nativescript-nodeify" : "/customized-node-modules/nativescript-nodeify",
+                        //"nativescript-urlhandler" : "/customized-node-modules/nativescript-urlhandler",
+                        //"ipfs-utils" : "/customized-node-modules/ipfs-utils",
+                        //"crypto" : '/customized-node-modules/nativescript-crypto',
                         "nativescript-wear-os" : '/customized-node-modules/nativescript-wear-os'
                         },
               fallback: {
 //                assert: require.resolve('assert'),
 //                buffer: require.resolve('buffer'),
-                console: require.resolve('console-browserify'),
-                constants: require.resolve('constants-browserify'),
+                //console: require.resolve('console-browserify'),
+                //constants: require.resolve('constants-browserify'),
 //                domain: require.resolve('domain-browser'),
                 events: require.resolve('events'),
-                http: require.resolve('stream-http'),
-                https: require.resolve('https-browserify'),
-                os: require.resolve('os-browserify/browser'),
-                path: require.resolve('path-browserify'),
+                //http: require.resolve('stream-http'),
+                //https: require.resolve('https-browserify'),
+                //os: require.resolve('os-browserify/browser'),
+                //path: require.resolve('path-browserify'),
 //                punycode: require.resolve('punycode'),
 //                process: require.resolve('process/browser'),
 //                querystring: require.resolve('querystring-es3'),
-                stream: require.resolve('stream-browserify'),
+                //stream: require.resolve('stream-browserify'),
 //                string_decoder: require.resolve('string_decoder'),
 //                sys: require.resolve('util'),
-                timers: require.resolve('timers-browserify'),
-                tty: require.resolve('tty-browserify'),
+                //timers: require.resolve('timers-browserify'),
+                //tty: require.resolve('tty-browserify'),
                 //url: require.resolve('whatwg-url'), conflict with ui-webview
                 util: require.resolve('util'),
-                vm: require.resolve('vm-browserify'),
-                zlib: require.resolve('browserify-zlib'),
+                //vm: require.resolve('vm-browserify'),
+                //zlib: require.resolve('browserify-zlib'),
                 "fs": false,
                 "child_process": false,
                 "net": false,

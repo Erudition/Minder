@@ -53,7 +53,7 @@ But we need a way to let parent Registers still initialize their naked-codec fie
 Are Contexts really necessary? turns out they can't fully identify their children uniquely without assuming the user only uses each once - which we can't enforce, and sometimes is the only option without awkwardly adding unique numbers or strings just for differentiating new objects (or contexts). Meanwhile the encoder pass doesn't have this problem, can uniquely identify everything. The only reason pre-encoded objects need valid unique pointers is so they can be referenced elsewhere (workaround?) and for sub changes.
 
 Workarounds for external references:
-- have a `Codec.newUnique` for objects that need to be referenced elsewhere, taking a user-supplied string they will need to make sure is unique among all changes in the current frame - use this as the pointer, and newUnique returns an ID that can be used then
+- have a `Codec.newUnique` for objects that need to be referenced elsewhere, taking a user-supplied string they will need to make sure is unique among all changes in the current frame - use this as the pointer, and newUnique returns an ID that can be used then (how do we make sure an object can't refer to itself?)
 
 Workarounds for newWithChanges producing global changes with the pre-encoded pointer (not unique) instead of the encoder-designated pointer
 - manually recurse among subchanges, swapping old pointers with the new one. Difficult with pointers/changes possibly nested in various deep places.
@@ -63,6 +63,8 @@ Benefits of Contexts
 
 -IDEA: add type variable to Context. Can't force it to be used only once, but can make sure it's used on the type the parent expects (child type). Most importantly, in a custom type, it must first pass through the custom type codec. TODO test passing through custom type codec. TODO what ways can a context still be reused.
 -IDEA: Node encode custom types as flat enumerations with records - each piece of the variant is a reg field. merging is done already, 
+
+
 
 ## Change library design goals
 - allow object creation and changes only for objects that will be attached to the tree somewhere
@@ -75,6 +77,7 @@ Since it seems that having a fully unique pointer is hard to guarantee, perhaps 
 Then we allow a limited subset of changes to the placeholder objects, that make sense and don't require Changes, like starting a RepList with a plain list of seed values.
 
 - what if we relied on encoders for all pointers, but still required contexts for all init (must attach somewhere), but eliminated early change lists so there's nowhere to misplace external-object changes?
+
 
 
 # Updating the replica when ops/changes come in

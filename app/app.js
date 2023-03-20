@@ -13,10 +13,10 @@ console.info("Loading app.js.");
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
 const applicationModule = require("@nativescript/core/application");
 var androidApp = applicationModule.android
-let isPaused = androidApp.paused; // e.g. false
-let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
-let nativeApp = androidApp.nativeApp; // The native Application reference
-let foregroundActivity = androidApp.foregroundActivity; // The current Activity reference
+//let isPaused = androidApp.paused; // e.g. false
+//let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
+//let nativeApp = androidApp.nativeApp; // The native Application reference
+//let foregroundActivity = androidApp.foregroundActivity; // The current Activity reference
 
 
 // APP DATA & SETTINGS STORAGE -----------------------------------------------------

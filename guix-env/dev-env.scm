@@ -44,5 +44,7 @@
 	;; Android Studio checks for these to launch:
 	"grep" "coreutils" "findutils"
 	"sed" "xmessage" "zenity"
-	"openjdk@11:jdk" ;; formerly openjdk@11.28 but seems gone from guix. closest to the JDK 11 it comes bundled with
+	"openjdk@18:jdk" ;; formerly openjdk@11.28 but seems gone from guix. closest to the JDK 11 it comes bundled with
+
+
 )))

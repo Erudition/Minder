@@ -1,5 +1,5 @@
 for nativescript side
-
+s
 
 guix install openjdk@14.0:jdk unzip
 
@@ -23,4 +23,4 @@ guix install adb
 
 then symlink to that in the place NS expects
 
-ln -s $ANDROID_HOME/platform-tools/adb /home/$USER/.guix-profile/bin/adb
+ln -s /home/$USER/.guix-profile/bin/adb $ANDROID_HOME/platform-tools/adb

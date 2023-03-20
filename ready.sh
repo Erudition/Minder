@@ -3,7 +3,7 @@
 export PROFILE=$(guix environment --container --network -m ./guix-env/dev-env.scm \
   -- bash -c 'echo $GUIX_ENVIRONMENT')
 
-/home/adroit/android-sdk/platform-tools/adb devices # for some reason deamon should be started outside container
+LD_LIBRARY_PATH=/lib:/lib/nss:$ANDROID_HOME/emulator/lib64/qt/lib:$ANDROID_HOME/emulator/lib64:$LIBRARY_PATH /home/adroit/android-sdk/platform-tools/adb devices # for some reason deamon should be started outside container
 
 
 guix environment --container --network --share=$XAUTHORITY --share=/tmp/.X11-unix \

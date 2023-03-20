@@ -127,3 +127,4 @@ export function exitFullscreen() {
 
     closeFullscreen = null;
 }
+3
