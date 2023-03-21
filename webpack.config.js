@@ -115,7 +115,11 @@ module.exports = (env) => {
       use: [
         // warps elm code
         { loader: path.resolve('./elm-code-wrap-loader') },
-        { loader: 'elm-webpack-loader' },
+        { loader: 'elm-webpack-loader' ,
+          options: {
+            verbose: true,
+            debug: true
+        }},
       ]
     }
   )

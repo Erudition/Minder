@@ -1,9 +1,9 @@
-export function addNativeScriptFeaturesToElm (elm) {
+export function addToastPorts (elmPorts) {
     // FLASH OR "TOAST" POPUPS ---------------------------------------
     const toasty = require('nativescript-toasty');
-
-    if (elm.ports.flash) {
-        elm.ports.flash.subscribe(function(toast_message) {
+    console.log("ElmPorts is ", elmPorts)
+    if (elmPorts.flash !== undefined) {
+        elmPorts.flash.subscribe(function(toast_message) {
             const toast = new toasty.Toasty({
                 text: toast_message,
                 duration: toasty.ToastDuration.LONG,
@@ -20,7 +20,7 @@ export function addNativeScriptFeaturesToElm (elm) {
         });
     }
 
-    if (elm.ports.ns_notify) {
+    if (elmPorts.ns_notify) {
 
     }
 }

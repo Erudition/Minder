@@ -1,4 +1,4 @@
-console.info("Loading app.js.");
+//console.info("Loading app.js.");
 //require("nativescript-dom-free");
 
 //require("./nativehelpers/wearDataLayer.js");
@@ -53,14 +53,37 @@ var launchURL = testingSync;
 
 // ELM INITIALIZATION -----------------------------------------------------------
 
-console.info("starting Elm headless.");
-var elm = require('../www/elm-headless.js').Elm.Headless.init(
-    { flags: [launchURL, appDataString] });
+// console.info("starting Elm headless.");
+// var elm = require('../www/elm-headless.js').Elm.Headless.init(
+//     { flags: [launchURL, appDataString] });
 
-console.info("Elm headless initialized.");
+// console.info("Elm headless initialized.");
+import Elm from "../elm/NativeMain.elm";
+//import * as Geolocation from '@nativescript/geolocation';
+import { CoreTypes } from "@nativescript/core"
+import { start } from "elm-native-js"
 
-const ns_hookup = require('./elm-nativescript.js');
-ns_hookup.addNativeScriptFeaturesToElm(elm);
+
+
+
+let initElmPorts: (ports: any) => void = (ports) => {
+    // ports.getCurrentLocation.subscribe(async _ => {
+    //   await Geolocation.enableLocationRequest()
+    //   const location =
+    //     await Geolocation.getCurrentLocation(
+    //       {
+    //         desiredAccuracy: CoreTypes.Accuracy.high,
+    //         maximumAge: 5000,
+    //         timeout: 20000
+    //       }
+    //     )
+    //   ports.gotCurrentLocation.send(location)
+    // })
+
+    const ns_hookup = require('./elm-ports/ns-toast');
+    ns_hookup.addToastPorts(ports);
+
+  }
 
 
 
@@ -71,115 +94,9 @@ handleOpenURL(function(appURL) {
         launchURL = appURL.toString();
     } else {
         console.info('Already running, changing URL to: ', appURL);
-        elm.ports.headlessMsg.send(appURL.toString());
+        //elm.ports.headlessMsg.send(appURL.toString());
     }
   });
-
-
-
-
-// NOTIFICATIONS --------------------------------------------------------
-const notifications = require ("@nativescript/local-notifications").LocalNotifications;
-
-const Color = require("tns-core-modules/color").Color;
-const colors = require("tns-core-modules/color/known-colors");
-
-elm.ports.ns_notify_cancel.subscribe(function(notificationID) {
-    console.log("Canceling notification " + notificationID);
-    notifications.cancel(notificationID);
-    }
-);
-
-elm.ports.ns_notify.subscribe(function(notificationList) {
-
-    // Elm-encoded JSON object obviously can't contain the required Date() object
-    var correctedList = notificationList.map(
-        function(notifObj) {
-            //wrap js time (unix ms float) with Date object
-            notifObj["at"] = new Date(notifObj["at"]);
-
-            try {
-              notifObj["when"] = new Date(notifObj["when"]);
-            } catch (e)
-            {console.log(e)}
-
-            let notifColor = notifObj["color"];
-            if (notifColor) {
-              // supports known names and hex values short and long
-                  notifObj["color"] = new Color(notifColor);
-            }
-
-
-            // While we're at it, check if we missed it
-            if (new Date() > notifObj["at"]) {
-                // make it dispatch right away
-                notifObj["at"] = null;
-            }
-            return notifObj;
-        }
-    );
-
-    console.info("Here are the " + correctedList.length + " Notifications I'll try to schedule:");
-    console.dir(correctedList);
-
-
-    notifications.schedule(correctedList).then(
-        function(scheduledIds) {
-          console.info("Notification id(s) scheduled: " + JSON.stringify(scheduledIds) + "\n from JSON: ");
-
-        },
-        function(error) {
-          console.error("Minder Notif scheduling error: " + error);
-        }
-    )
-});
-
-notifications.addOnMessageReceivedCallback(
-    function (notification) {
-
-      //console.dir(notification);
-      let actionTaken = notification.response;
-        if (typeof actionTaken !== 'undefined') // No response if they just tap it or "Open"
-        console.log('ID: ' + notification.id);
-        console.log('Title: ' + notification.title);
-        console.log('Body: ' + notification.body);
-        { elm.ports.headlessMsg.send("http://minder.app/?" + actionTaken ); }
-
-    }
-).then(
-    function() {
-      //console.info("Listener added");
-    }
-)
-
-
-
-// LEGACY PORT: VARIABLE OUT ------------------------------------------
-
-elm.ports.variableOut.subscribe(function(data) {
-    // are we a worker?
-    if (typeof postMessage !== 'undefined') {
-    postMessage(data);
-    } else {
-    messageFromElm(data);
-    }
-
-
-});
-
-
-// SET STORAGE -----------------------------------------------------------------
-elm.ports.setStorage.subscribe(function(data) {
-
-    //console.info("App Data being set");
-
-    // let lines = data.split("\\n");
-    // for (var line in lines) {
-    //     console.info("Line: " + lines[line]);
-    // }
-
-    appSettings.setString("appData", data);
-});
 
 
 
@@ -190,18 +107,18 @@ global.globalViewModel = observableModule.fromObject(
     });
 
 // UNIVERSAL COMMUNICATION CHANNEL
-export function tellElm(destinationPort, outgoingMessage) {
-    elm.ports[destinationPort].send(outgoingMessage);
-}
+// export function tellElm(destinationPort, outgoingMessage) {
+//     elm.ports[destinationPort].send(outgoingMessage);
+// }
 
-export function messageFromElm(incomingMessage) {
-    if (incomingMessage[0] == "activities") {
-        updateVM(incomingMessage);
-    } else {
-        console.info("Setting " + incomingMessage[0] + " to " + incomingMessage[1]);
-        global[incomingMessage[0]] = incomingMessage[1]
-    }
-}
+// export function messageFromElm(incomingMessage) {
+//     if (incomingMessage[0] == "activities") {
+//         updateVM(incomingMessage);
+//     } else {
+//         console.info("Setting " + incomingMessage[0] + " to " + incomingMessage[1]);
+//         global[incomingMessage[0]] = incomingMessage[1]
+//     }
+// }
 
 //worker.onmessage = function(messageFromElm(incomingMessage));
 
@@ -210,20 +127,20 @@ export function messageFromElm(incomingMessage) {
 
 
 // VIEWMODEL UPDATER
-function updateVM (data) {
-    // No access to globals in worker
-    //global.globalViewModel.set(part, value);
+// function updateVM (data) {
+//     // No access to globals in worker
+//     //global.globalViewModel.set(part, value);
 
-    try {
-        let newObservable = (JSON.parse(data[1]));
-        global.globalViewModel.set(data[0], newObservable);
-        // console.info("Here's the new globalViewModel:");
-        // console.dir(global.globalViewModel);
+//     try {
+//         let newObservable = (JSON.parse(data[1]));
+//         global.globalViewModel.set(data[0], newObservable);
+//         // console.info("Here's the new globalViewModel:");
+//         // console.dir(global.globalViewModel);
 
-    } catch (e) {
-        console.error("Unable to set viewModel " + data[0] + " because " + e.toString())
-    }
-}
+//     } catch (e) {
+//         console.error("Unable to set viewModel " + data[0] + " because " + e.toString())
+//     }
+// }
 
 
 // BROADCAST RECEIVERS
@@ -240,7 +157,7 @@ const batteryChanged = (androidContext, intent) => {
     const level = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_LEVEL, -1);
     const scale = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_SCALE, -1);
     //vm.set("batteryLife", percent.toString()); //???
-    tellElm("headlessMsg", "http://minder.app/?battery=" + level);
+    //tellElm("headlessMsg", "http://minder.app/?battery=" + level);
 };
 
 
@@ -251,7 +168,7 @@ const secretMessageReceived = (androidContext, intent) => {
     let maybeMessage = intent.getStringExtra("command");
     if (typeof maybeMessage === 'string' || maybeMessage instanceof String)
     {
-        tellElm("headlessMsg", maybeMessage);
+        //tellElm("headlessMsg", maybeMessage);
         console.info("received secret message:" + maybeMessage);
     } else {
         console.warn("Got an secretMessage intent, but it was empty!");
@@ -274,11 +191,13 @@ applicationModule.android.registerBroadcastReceiver(
 
 // START THE APP --------------------------------------------
 //const application = require("@nativescript/core/application");
-const traceModule = require("@nativescript/core/trace").Trace;
-const notaTraceCategory = require("@nativescript-community/ui-webview").NotaTraceCategory
+import { Trace } from "@nativescript/core/trace";
+import { debug } from "@nativescript/core/utils/debug";
+//const notaTraceCategory = require("@nativescript-community/ui-webview").NotaTraceCategory
 
-traceModule.addCategories(notaTraceCategory);
-traceModule.enable();
+//traceModule.addCategories(notaTraceCategory);
+Trace.enable();
+Trace.write("Tracer working!", Trace.categories.Debug);
 
 
 function launchListener (args)  {
@@ -307,13 +226,22 @@ function launchListener (args)  {
 
 
 }
-applicationModule.on(applicationModule.launchEvent, launchListener);
+//applicationModule.on(applicationModule.launchEvent, launchListener);
 
 //LAUNCH!
-applicationModule.run({ moduleName: "app-root" });
+//applicationModule.run({ moduleName: "app-root" });
 
 
+const config = {
+    elmModule: Elm,
+    elmModuleName: "NativeMain",
+    initPorts: ports => {
+        console.log("Ports is " + ports)
 
+        return true;
+      }
+  }
+start(config)
 
 /*
 Do not place any code after the application has been started as it will not

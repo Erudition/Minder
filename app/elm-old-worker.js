@@ -66,7 +66,7 @@ var elm = require('../www/elm-headless.js').Elm.Headless.init(
 
 console.info("Got past Elm headless initialization! ---------------------------------");
 
-const ns_hookup = require('./elm-nativescript.js');
+const ns_hookup = require('./elm-ports/ns-toast');
 ns_hookup.addNativeScriptFeaturesToElm(elm);
 
 

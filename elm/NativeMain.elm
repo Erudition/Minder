@@ -1,6 +1,7 @@
 module NativeMain exposing (..)
 
 import Browser
+import Main exposing (Msg(..))
 import Native exposing (Native)
 import Native.Attributes as NA
 import Native.Frame as Frame
@@ -45,7 +46,7 @@ homePage _ =
             , NA.justifyContent "center"
             , NA.height "100%"
             ]
-            [ Native.label [ NA.class "main", NA.text "Elm is working." ] []
+            [ Native.label [ NA.class "main", NA.text "Minder Native Elm is working!" ] []
             ]
         )
 

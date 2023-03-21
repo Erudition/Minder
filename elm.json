@@ -31,6 +31,7 @@
             "elm-community/maybe-extra": "5.2.1",
             "elm-community/result-extra": "2.4.0",
             "f0i/debug-to-json": "1.0.6",
+            "hariroshan/elm-native": "1.0.1",
             "j-panasiuk/elm-ionicons": "2.0.0",
             "justinmimbs/date": "3.1.2",
             "justinmimbs/time-extra": "1.1.0",
@@ -47,6 +48,7 @@
         "indirect": {
             "elm/file": "1.0.5",
             "elm/svg": "1.0.1",
+            "lobanov/elm-taskport": "2.0.1",
             "rtfeldman/elm-hex": "1.0.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.2"
         }
