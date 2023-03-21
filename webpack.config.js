@@ -2,6 +2,7 @@ const webpack = require("@nativescript/webpack");
 
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { IgnorePlugin } = require('webpack');
+const path = require('path');
 
 
 
@@ -102,6 +103,21 @@ module.exports = (env) => {
             context: webpack.Utils.project.getProjectFilePath('www')
           });
 
+  // That's it, config will be resolved now
+  const config = webpack.resolveConfig()
 
-	return webpack.resolveConfig();
+  // After this we put changes to resolved config
+
+  config.module.rules.push(
+    {
+      test: /\.elm$/,
+      exclude: [/elm-stuff/, /node_modules/],
+      use: [
+        // warps elm code
+        { loader: path.resolve('./elm-code-wrap-loader') },
+        { loader: 'elm-webpack-loader' },
+      ]
+    }
+  )
+  return config;
 };

@@ -7,6 +7,7 @@ specifiers:
   '@nativescript/android': ^8.4.0
   '@nativescript/core': ^8.1.5
   '@nativescript/local-notifications': link:../nativescript-plugins/packages/local-notifications
+  '@nativescript/types': ^8.4.0
   '@nativescript/webpack': ~5.0.0
   circular-dependency-plugin: ^5.2.2
   elm-live: ^4.0.2
@@ -22,6 +23,7 @@ specifiers:
   nativescript-wear-os: link:customized-node-modules/nativescript-wear-os
   orbit-db: ^0.29.0
   pnpm: ^7.30.0
+  typescript: ^5.0.2
 
 dependencies:
   '@ionic/pwa-elements': 1.5.2
@@ -44,9 +46,11 @@ dependencies:
 
 devDependencies:
   '@nativescript/android': 8.4.0
-  '@nativescript/webpack': 5.0.13
+  '@nativescript/types': 8.4.0
+  '@nativescript/webpack': 5.0.13_typescript@5.0.2
   elm-live: 4.0.2
   elm-tooling: 1.13.1
+  typescript: 5.0.2
 
 packages:
 
@@ -2228,7 +2232,22 @@ packages:
     resolution: {integrity: sha512-3pA0cXbkwu55+He71QO1oRE18wQyquk5t6vpM4laAFatI5w8n2dyHYSzM7pM6bN57zpcP2sk5u1q3YtYv0d2MQ==}
     dev: false
 
-  /@nativescript/webpack/5.0.13:
+  /@nativescript/types-android/8.4.0:
+    resolution: {integrity: sha512-WmDVH72ZeBlxy7k5OAJFk7wPSW9K2xjRzFwHAkQ1mjKr7k+UcFzGkpbAXjtgQZ5SybBPCzYGLGcvv7kJDNJ/mQ==}
+    dev: true
+
+  /@nativescript/types-ios/8.4.0:
+    resolution: {integrity: sha512-6Sx4yuSar2qk4UpYtZCs9B53Jv0wLRGvrg6Vsg5tC8mdYeQOKsizNxPa625pHbFrNjTF8NkdoGOGZiFM/XkiOQ==}
+    dev: true
+
+  /@nativescript/types/8.4.0:
+    resolution: {integrity: sha512-AsHLbzYi/3rNAQYxG5etVlTiq96KG+RHJ+UgZ3zynER4vw+mLN6TkVJ9hR6ciKMfFhQBM0JZvxBuHqm3xmlRzw==}
+    dependencies:
+      '@nativescript/types-android': 8.4.0
+      '@nativescript/types-ios': 8.4.0
+    dev: true
+
+  /@nativescript/webpack/5.0.13_typescript@5.0.2:
     resolution: {integrity: sha512-0J6lpyzNC2QESMv/eti8zyd90uhvYegiv/3t8n2WtKQ0MviJqIOI5EyDgtkxxcd0bC2zOy2kcgGTK+Wq72iWtg==}
     hasBin: true
     peerDependencies:
@@ -2249,7 +2268,7 @@ packages:
       css: 3.0.0
       css-loader: 6.7.3_webpack@5.76.2
       dotenv-webpack: 7.1.1_webpack@5.76.2
-      fork-ts-checker-webpack-plugin: 7.3.0_webpack@5.76.2
+      fork-ts-checker-webpack-plugin: 7.3.0_wgmwfe52hjghagqoougovwh5da
       loader-utils: 3.2.1
       lodash.get: 4.4.2
       micromatch: 4.0.5
@@ -2264,7 +2283,7 @@ packages:
       source-map: 0.7.4
       terser-webpack-plugin: 5.3.7_webpack@5.76.2
       ts-dedent: 2.2.0
-      ts-loader: 9.4.2_webpack@5.76.2
+      ts-loader: 9.4.2_wgmwfe52hjghagqoougovwh5da
       vue-loader: 15.9.8_iqpbuetxquk3tw4kdqf5hpiuim
       webpack: 5.76.2_webpack-cli@4.10.0
       webpack-bundle-analyzer: 4.8.0
@@ -5703,7 +5722,7 @@ packages:
     resolution: {integrity: sha512-j0KLYPhm6zeac4lz3oJ3o65qvgQCcPubiyotZrXqEaG4hNagNYO8qdlUrX5vwqv9ohqeT/Z3j6+yW067yWWdUw==}
     dev: false
 
-  /fork-ts-checker-webpack-plugin/7.3.0_webpack@5.76.2:
+  /fork-ts-checker-webpack-plugin/7.3.0_wgmwfe52hjghagqoougovwh5da:
     resolution: {integrity: sha512-IN+XTzusCjR5VgntYFgxbxVx3WraPRnKehBFrf00cMSrtUuW9MsG9dhL6MWpY6MkjC3wVwoujfCDgZZCQwbswA==}
     engines: {node: '>=12.13.0', yarn: '>=1.0.0'}
     peerDependencies:
@@ -5726,6 +5745,7 @@ packages:
       schema-utils: 3.1.1
       semver: 7.3.8
       tapable: 2.2.1
+      typescript: 5.0.2
       webpack: 5.76.2_webpack-cli@4.10.0
     dev: true
 
@@ -11860,7 +11880,7 @@ packages:
     engines: {node: '>=6.10'}
     dev: true
 
-  /ts-loader/9.4.2_webpack@5.76.2:
+  /ts-loader/9.4.2_wgmwfe52hjghagqoougovwh5da:
     resolution: {integrity: sha512-OmlC4WVmFv5I0PpaxYb+qGeGOdm5giHU7HwDDUjw59emP2UYMHy9fFSDcYgSNoH8sXcj4hGCSEhlDZ9ULeDraA==}
     engines: {node: '>=12.0.0'}
     peerDependencies:
@@ -11871,6 +11891,7 @@ packages:
       enhanced-resolve: 5.12.0
       micromatch: 4.0.5
       semver: 7.3.8
+      typescript: 5.0.2
       webpack: 5.76.2_webpack-cli@4.10.0
     dev: true
 
@@ -11973,6 +11994,12 @@ packages:
     engines: {node: '>=4.2.0'}
     hasBin: true
     dev: false
+
+  /typescript/5.0.2:
+    resolution: {integrity: sha512-wVORMBGO/FAs/++blGNeAVdbNKtIh1rbBL2EyQ1+J9lClJ93KiiKe8PmFIVdXhHcyv44SL9oglmfeSsndo0jRw==}
+    engines: {node: '>=12.20'}
+    hasBin: true
+    dev: true
 
   /uint8-varint/1.0.4:
     resolution: {integrity: sha512-FHnaReHRIM7kHe/Ms0I2KGkuSY4o7ouhUJGJeiFEuYWGvBt4Y64+BJ3mV6DqmyYtYTZj4Pz8K/BmViSNFLRrVw==}

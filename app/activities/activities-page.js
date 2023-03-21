@@ -1,5 +1,5 @@
 
-var main = require("../app.js");
+var main = require("../app");
 
 function onPageLoaded(args) {
     const page = args.object;

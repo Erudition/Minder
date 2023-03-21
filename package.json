@@ -2,7 +2,7 @@
   "name": "minder",
   "version": "0.1.2",
   "description": "Minder - life tracker",
-  "main": "app/app.js",
+  "main": "app/app.ts",
   "scripts": {
     "packages-install": "pnpm i --shamefully-hoist",
     "build": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm",
@@ -57,9 +57,11 @@
   },
   "devDependencies": {
     "@nativescript/android": "^8.4.0",
+    "@nativescript/types": "^8.4.0",
     "@nativescript/webpack": "~5.0.0",
     "elm-live": "^4.0.2",
-    "elm-tooling": "^1.7.0"
+    "elm-tooling": "^1.7.0",
+    "typescript": "^5.0.2"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder"

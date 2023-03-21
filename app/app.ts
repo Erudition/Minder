@@ -34,7 +34,7 @@ try {
     var appData = JSON.parse(appDataString);
 } catch (e) {
     console.error("Epic failure when parsing stored AppData. Here's what it was set to: '" + appDataString + "'");
-    var appData = {};
+    //var appData = {};
 }
 
 
@@ -47,16 +47,6 @@ const testingActivity = "https://minder.app/?start=Project";
 const testingSync = "https://minder.app/?sync=marvin";
 var launchURL = testingSync;
 
-// URL passed in via somewhere else on the system
-handleOpenURL(function(appURL) {
-  if (!app) {
-      console.info('Launching with the supplied URL: ', appURL);
-      launchURL = appURL.toString();
-  } else {
-      console.info('Already running, changing URL to: ', appURL);
-      elm.ports.headlessMsg.send(appURL.toString());
-  }
-});
 
 
 
@@ -74,6 +64,16 @@ ns_hookup.addNativeScriptFeaturesToElm(elm);
 
 
 
+// URL passed in via somewhere else on the system
+handleOpenURL(function(appURL) {
+    if (androidApp === undefined) {
+        console.info('Launching with the supplied URL: ', appURL);
+        launchURL = appURL.toString();
+    } else {
+        console.info('Already running, changing URL to: ', appURL);
+        elm.ports.headlessMsg.send(appURL.toString());
+    }
+  });
 
 
 
@@ -237,8 +237,8 @@ function updateVM (data) {
 // );
 
 const batteryChanged = (androidContext, intent) => {
-    const level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-    const scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+    const level = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_LEVEL, -1);
+    const scale = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_SCALE, -1);
     //vm.set("batteryLife", percent.toString()); //???
     tellElm("headlessMsg", "http://minder.app/?battery=" + level);
 };
@@ -300,7 +300,7 @@ function launchListener (args)  {
 
     // Choose launch screen based on watch or not
     const applicationModule2 = require("@nativescript/core/application");
-    var PackageManager = android.content.pm.PackageManager;
+    var PackageManager = androidApp.content.pm.PackageManager;
     if (applicationModule2.android.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
         applicationModule2.run({ moduleName: "app-root-wear" });
     }
