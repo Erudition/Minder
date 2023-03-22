@@ -30,12 +30,7 @@ try {
 }
 global.appDataString = appDataString;
 
-try {
-    var appData = JSON.parse(appDataString);
-} catch (e) {
-    console.error("Epic failure when parsing stored AppData. Here's what it was set to: '" + appDataString + "'");
-    //var appData = {};
-}
+
 
 
 // URL HANDLING ---------------------------------------------------------------
@@ -67,22 +62,13 @@ import { start } from "elm-native-js"
 
 
 let initElmPorts: (ports: any) => void = (ports) => {
-    // ports.getCurrentLocation.subscribe(async _ => {
-    //   await Geolocation.enableLocationRequest()
-    //   const location =
-    //     await Geolocation.getCurrentLocation(
-    //       {
-    //         desiredAccuracy: CoreTypes.Accuracy.high,
-    //         maximumAge: 5000,
-    //         timeout: 20000
-    //       }
-    //     )
-    //   ports.gotCurrentLocation.send(location)
-    // })
 
-    const ns_hookup = require('./elm-ports/ns-toast');
-    ns_hookup.addToastPorts(ports);
-
+    // hook up all of our ports!
+    // each should check if the port is defined first, as unused Elm ports get tree-shaken away, so it will crash when trying to subscribe.
+    require('./elm-ports/ns-toast').addToastPorts(ports);
+    require('./elm-ports/ns-notifications').addNotificationPorts(ports);
+    require('./elm-ports/ns-storage').addStoragePorts(ports);
+    require('./elm-ports/ns-geolocation').addGeolocationPorts(ports);
   }
 
 
@@ -235,11 +221,11 @@ function launchListener (args)  {
 const config = {
     elmModule: Elm,
     elmModuleName: "NativeMain",
-    initPorts: ports => {
-        console.log("Ports is " + ports)
-
-        return true;
-      }
+    initPorts: initElmPorts,
+    flags: 
+    { storedRonMaybe : appSettings.getString("appData", "@0+s0	:lww ;.❃")
+    , userFlags : null
+    }
   }
 start(config)
 

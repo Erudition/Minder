@@ -6,13 +6,13 @@ const colors = require("tns-core-modules/color/known-colors");
 export function addNotificationPorts (elmPorts) {
 // NOTIFICATIONS --------------------------------------------------------
 
-    elmPorts.ns_notify_cancel.subscribe(function(notificationID) {
+    if (elmPorts.ns_notify_cancel) elmPorts.ns_notify_cancel.subscribe(function(notificationID) {
         console.log("Canceling notification " + notificationID);
         notifications.cancel(notificationID);
         }
     );
 
-    elmPorts.ns_notify.subscribe(function(notificationList) {
+    if (elmPorts.ns_notify) elmPorts.ns_notify.subscribe(function(notificationList) {
 
         // Elm-encoded JSON object obviously can't contain the required Date() object
         var correctedList = notificationList.map(

@@ -2,7 +2,7 @@ export function addToastPorts (elmPorts) {
     // FLASH OR "TOAST" POPUPS ---------------------------------------
     const toasty = require('nativescript-toasty');
     console.log("ElmPorts is ", elmPorts)
-    if (elmPorts.flash !== undefined) {
+    if (elmPorts.flash) {
         elmPorts.flash.subscribe(function(toast_message) {
             const toast = new toasty.Toasty({
                 text: toast_message,

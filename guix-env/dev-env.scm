@@ -27,6 +27,7 @@
         	;; for Nativescript
         	"node"  ;; for npm
         	"nss-certs"  ;; fixes git/git-via-npm errors accessing HTTPS sites
+			"openssh" ;; ns install command tries to install by git repo via ssh
         	
         	;; for elm-test
         	"tar"

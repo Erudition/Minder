@@ -1,8 +1,8 @@
 const appSettings = require("@nativescript/core/application-settings");
 
-export function addToastPorts (elmPorts) {
+export function addStoragePorts (elmPorts) {
     // SET STORAGE -----------------------------------------------------------------
-    elmPorts.setStorage.subscribe(function(data) {
+    if (elmPorts.setStorage) elmPorts.setStorage.subscribe(function(data) {
 
         //console.info("App Data being set");
 
@@ -10,7 +10,6 @@ export function addToastPorts (elmPorts) {
         // for (var line in lines) {
         //     console.info("Line: " + lines[line]);
         // }
-
-        appSettings.setString("appData", data);
+        appSettings.setString("appData", appSettings.getString("appData", "") + data);
     });
 }

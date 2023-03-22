@@ -42,7 +42,7 @@
     "@nativescript-community/ui-webview": "^1.4.4",
     "@nativescript/core": "^8.1.5",
     "@nativescript/geolocation": "^8.1.0",
-    "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
+    "@nativescript/local-notifications": "^6.0.0",
     "circular-dependency-plugin": "^5.2.2",
     "elm-native-js": "^1.0.3",
     "elm-test": "^0.19.1-revision7",
@@ -67,5 +67,8 @@
     "typescript": "^5.0.2"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
-  "readme": "Minder"
+  "readme": "Minder",
+  "volta": {
+    "node": "14.21.3"
+  }
 }

@@ -7,7 +7,7 @@ specifiers:
   '@nativescript/android': ^8.4.0
   '@nativescript/core': ^8.1.5
   '@nativescript/geolocation': ^8.1.0
-  '@nativescript/local-notifications': link:../nativescript-plugins/packages/local-notifications
+  '@nativescript/local-notifications': ^6.0.0
   '@nativescript/types': ^8.4.0
   '@nativescript/webpack': ~5.0.0
   circular-dependency-plugin: ^5.2.2
@@ -34,7 +34,7 @@ dependencies:
   '@nativescript-community/ui-webview': 1.4.4
   '@nativescript/core': 8.4.7
   '@nativescript/geolocation': 8.1.0
-  '@nativescript/local-notifications': link:../nativescript-plugins/packages/local-notifications
+  '@nativescript/local-notifications': 6.0.0
   circular-dependency-plugin: 5.2.2
   elm-native-js: 1.0.3
   elm-test: 0.19.1
@@ -2240,8 +2240,18 @@ packages:
       mkdirp: 1.0.4
     dev: false
 
+  /@nativescript/local-notifications/6.0.0:
+    resolution: {integrity: sha512-ZQWU/p+Dsh9KgO3wOrexsb/5iRD2RRxWOFgNPnvftcKxkMd7awpnGl0jv6WdgaCv509gUKfdd8y0aNK5ZQwSpA==}
+    dependencies:
+      '@nativescript/shared-notification-delegate': 1.0.2
+    dev: false
+
   /@nativescript/schematics-executor/0.0.2:
     resolution: {integrity: sha512-3pA0cXbkwu55+He71QO1oRE18wQyquk5t6vpM4laAFatI5w8n2dyHYSzM7pM6bN57zpcP2sk5u1q3YtYv0d2MQ==}
+    dev: false
+
+  /@nativescript/shared-notification-delegate/1.0.2:
+    resolution: {integrity: sha512-Wh6F1WH9Aj23K+nyolA5MrA6MXku/5rSPt9r20ekbyx2FkRpBr0stjg4uD6KSyUvWY8YT+KQ9WlOUzhq7g7Ycw==}
     dev: false
 
   /@nativescript/types-android/8.4.0:

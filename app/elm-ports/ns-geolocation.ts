@@ -1,9 +1,9 @@
 import * as Geolocation from '@nativescript/geolocation';
 import { CoreTypes } from "@nativescript/core"
 
-export function addToastPorts (elmPorts) {
+export function addGeolocationPorts (elmPorts) {
 
-    elmPorts.getCurrentLocation.subscribe(async _ => {
+    if (elmPorts.getCurrentLocation) elmPorts.getCurrentLocation.subscribe(async _ => {
       await Geolocation.enableLocationRequest()
       const location =
         await Geolocation.getCurrentLocation(
