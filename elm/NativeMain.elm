@@ -1,79 +1,45 @@
 module NativeMain exposing (..)
 
 import Browser
+import Html
 import Main exposing (Msg(..))
 import Native exposing (Native)
 import Native.Attributes as NA
 import Native.Frame as Frame
 import Native.Layout as Layout
 import Native.Page as Page
+import Profile exposing (Profile)
+import Replicated.Framework as Framework
+import Url
 
 
-type NavPage
-    = HomePage
+
+-- update : Msg -> Model -> ( Model, Cmd Msg )
+-- update msg model =
+--     case msg of
+--         SyncFrame bool ->
+--             ( { model | rootFrame = Frame.handleBack bool model.rootFrame }, Cmd.none )
 
 
-type alias Model =
-    { rootFrame : Frame.Model NavPage
-    }
-
-
-init : ( Model, Cmd Msg )
-init =
-    ( { rootFrame = Frame.init HomePage }
-    , Cmd.none
-    )
-
-
-type Msg
-    = SyncFrame Bool
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        SyncFrame bool ->
-            ( { model | rootFrame = Frame.handleBack bool model.rootFrame }, Cmd.none )
-
-
-homePage : Model -> Native Msg
-homePage _ =
-    Page.pageWithActionBar SyncFrame
-        []
-        (Native.actionBar [ NA.title "Here we go!!!" ] [])
-        (Layout.flexboxLayout
-            [ NA.alignItems "center"
-            , NA.justifyContent "center"
-            , NA.height "100%"
-            ]
-            [ Native.label [ NA.class "main", NA.text "Minder Native Elm is working!" ] []
-            ]
-        )
-
-
-getPage : Model -> NavPage -> Native Msg
-getPage model page =
-    case page of
-        HomePage ->
-            homePage model
-
-
-view : Model -> Native Msg
-view model =
-    model.rootFrame
-        |> Frame.view [] (getPage model)
-
-
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
-
-
-main : Program () Model Msg
+main : Framework.Program () Profile Main.Temp Main.Msg
 main =
-    Browser.element
-        { init = always init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
+    let
+        bogusTempUrl : Url.Url
+        bogusTempUrl =
+            { protocol = Url.Https
+            , host = "minder.app"
+            , port_ = Nothing
+            , path = ""
+            , query = Nothing
+            , fragment = Nothing
+            }
+    in
+    Framework.browserElement
+        { init = \flags replica -> Main.init bogusTempUrl Nothing replica
+        , view = Main.nativeView
+        , update = Main.update
+        , subscriptions = Main.subscriptions
+        , replicaCodec = Profile.codec
+        , portSetStorage = Main.setStorage
+        , portIncomingChanges = Main.incomingFramesFromElsewhere
         }

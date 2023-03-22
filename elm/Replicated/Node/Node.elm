@@ -174,7 +174,7 @@ updateWithRon old inputRon =
         Ok parsedRonFrames ->
             case parsedRonFrames of
                 [] ->
-                    Log.crashInDev ("parsed 0 frames from input ron: " ++ inputRon)
+                    Log.log ("parsed 0 frames from input ron: '" ++ inputRon ++ "'")
                         --make sure we don't pretend to succeed when we didn't actually get anything
                         { old | warnings = old.warnings ++ [ EmptyChunk ] }
 

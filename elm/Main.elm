@@ -1,4 +1,4 @@
-port module Main exposing (Msg(..), StoredRON, Temp, ViewState, emptyViewState, infoFooter, init, main, navigate, setStorage, subscriptions, update, view)
+port module Main exposing (Model, Msg(..), StoredRON, Temp, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
 import Activity.Session as Session exposing (Session(..))
@@ -26,6 +26,11 @@ import Integrations.Todoist
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
+import Native exposing (Native)
+import Native.Attributes as NA
+import Native.Frame
+import Native.Layout as Layout
+import Native.Page as Page
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
 import Profile exposing (..)
@@ -138,8 +143,8 @@ type alias StoredRON =
     String
 
 
-initGraphical : () -> Url.Url -> Nav.Key -> Profile -> ( List Frame, Temp, Cmd Msg )
-initGraphical _ url key =
+initGraphical : Url.Url -> Nav.Key -> () -> Profile -> ( List Frame, Temp, Cmd Msg )
+initGraphical url key flags =
     init url (Just key)
 
 
@@ -156,11 +161,16 @@ init url maybeKey replica =
         initialTemp =
             { viewState = state
             , environment = Environment.preInit maybeKey
+            , rootFrame = Native.Frame.init HomePage
             }
+
+        initNotif =
+            [ Notif.test "We have taken over Android, woo!" ]
+                |> NativeScript.Commands.notify
     in
     ( []
     , initialTemp
-    , Cmd.batch [ cmdsFromUrl, panelOpenCmds ]
+    , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif ]
     )
 
 
@@ -178,7 +188,12 @@ Intentionally minimal - we originally went with the common elm habit of stuffing
 type alias Temp =
     { viewState : ViewState
     , environment : Environment
+    , rootFrame : Native.Frame.Model NativePage
     }
+
+
+type NativePage
+    = HomePage
 
 
 type alias Model =
@@ -510,6 +525,34 @@ infoFooter =
         ]
 
 
+homePage : Model -> Native Msg
+homePage _ =
+    Page.pageWithActionBar SyncNSFrame
+        []
+        (Native.actionBar [ NA.title "Here we go!!!" ] [])
+        (Layout.flexboxLayout
+            [ NA.alignItems "center"
+            , NA.justifyContent "center"
+            , NA.height "100%"
+            ]
+            [ Native.label [ NA.class "main", NA.text "Minder Native Elm is working!" ] []
+            ]
+        )
+
+
+getPage : Model -> NativePage -> Native Msg
+getPage model page =
+    case page of
+        HomePage ->
+            homePage model
+
+
+nativeView : Model -> PlainHtml.Html Msg
+nativeView model =
+    model.temp.rootFrame
+        |> Native.Frame.view [] (getPage model)
+
+
 
 -- type Phrase = Written_by
 --             | Double_click_to_edit_a_task
@@ -535,6 +578,7 @@ type Msg
     | ThirdPartyServerResponded ThirdPartyResponse
     | Link Browser.UrlRequest
     | NewUrl Url.Url
+    | SyncNSFrame Bool
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
@@ -697,6 +741,9 @@ update msg { temp, replica, now } =
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
             ( [], { newTemp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
+
+        SyncNSFrame bool ->
+            ( [], { newTemp | rootFrame = Native.Frame.handleBack bool temp.rootFrame }, Cmd.none )
 
         TaskListMsg subMsg ->
             case subMsg of

@@ -1,4 +1,4 @@
-module Replicated.Framework exposing (Program, Replicator, browserApplication)
+module Replicated.Framework exposing (Program, Replicator, browserApplication, browserElement)
 
 import Browser
 import Browser.Navigation exposing (Key)
@@ -40,8 +40,6 @@ type Model userFlags userMsg userReplica temp
         { restoredNode : Maybe Node
         , warnings : List String
         , flags : Flags userFlags
-        , url : Url
-        , key : Key
         , userInit : UserInit userFlags userReplica temp userMsg
         }
     | FrameworkReady
@@ -51,8 +49,6 @@ type Model userFlags userMsg userReplica temp
         , userReplica : userReplica
         , warnings : List String
         , userFlags : userFlags
-        , url : Url
-        , key : Key
         , userInit : UserInit userFlags userReplica temp userMsg
         , loadProgress : ( Int, Int )
         }
@@ -78,7 +74,7 @@ type alias Flags userFlags =
 
 
 browserApplication :
-    { init : UserInit userFlags userReplica temp userMsg
+    { init : UserInitBrowser userFlags userReplica temp userMsg
     , view : Replicator userReplica temp -> Browser.Document userMsg
     , update : UserUpdate userMsg userReplica temp
     , subscriptions : Replicator userReplica temp -> Sub userMsg
@@ -91,12 +87,31 @@ browserApplication :
     -> Program userFlags userReplica temp userMsg
 browserApplication userApp =
     Browser.application
-        { init = initWrapper userApp.init
-        , view = viewWrapper userApp.view
+        { init = \userFlags url key -> initWrapper (userApp.init url key) userFlags
+        , view = viewWrapperBrowser userApp.view
         , update = updateWrapper userApp.replicaCodec userApp.portSetStorage userApp.update
         , subscriptions = subscriptionsWrapper userApp.portIncomingChanges userApp.subscriptions
         , onUrlChange = \url -> Tick (userApp.onUrlChange url)
         , onUrlRequest = \req -> Tick (userApp.onUrlRequest req)
+        }
+
+
+browserElement :
+    { init : UserInitElement userFlags userReplica temp userMsg
+    , view : Replicator userReplica temp -> Html.Html userMsg
+    , update : UserUpdate userMsg userReplica temp
+    , subscriptions : Replicator userReplica temp -> Sub userMsg
+    , replicaCodec : SkelCodec userReplicaError userReplica -- TODO not Skel
+    , portSetStorage : String -> Cmd userMsg
+    , portIncomingChanges : (String -> Msg userMsg) -> Sub (Msg userMsg)
+    }
+    -> Program userFlags userReplica temp userMsg
+browserElement userApp =
+    Browser.element
+        { init = initWrapper userApp.init
+        , view = \premodel -> viewWrapperElement userApp.view premodel
+        , update = updateWrapper userApp.replicaCodec userApp.portSetStorage userApp.update
+        , subscriptions = subscriptionsWrapper userApp.portIncomingChanges userApp.subscriptions
         }
 
 
@@ -115,14 +130,14 @@ subscriptionsWrapper portIncomingChanges userSubs model =
             Sub.none
 
 
-viewWrapper : (Replicator userReplica temp -> Browser.Document userMsg) -> Model userFlags userMsg userReplica temp -> Browser.Document (Msg userMsg)
-viewWrapper userView premodel =
+viewWrapperBrowser : (Replicator userReplica temp -> Browser.Document userMsg) -> Model userFlags userMsg userReplica temp -> Browser.Document (Msg userMsg)
+viewWrapperBrowser userView premodel =
     let
         objectsImportedString node =
             "Objects imported: " ++ String.fromInt (Node.objectCount node)
     in
     case premodel of
-        PreInit { restoredNode, warnings, flags, url, key, userInit } ->
+        PreInit { restoredNode, warnings, flags } ->
             { title = "Crashed."
             , body =
                 [ Html.text "PreInit Replicator Failure"
@@ -132,7 +147,7 @@ viewWrapper userView premodel =
                     ++ List.map Html.text warnings
             }
 
-        FrameworkReady { node, now, zone, userReplica, warnings, userFlags, url, loadProgress } ->
+        FrameworkReady { node, now, zone, userReplica, warnings, loadProgress } ->
             { title = "Crashed."
             , body =
                 [ Html.text "FrameworkReady Replicator Failure"
@@ -151,6 +166,35 @@ viewWrapper userView premodel =
             }
 
 
+viewWrapperElement : (Replicator userReplica temp -> Html.Html userMsg) -> Model userFlags userMsg userReplica temp -> Html.Html (Msg userMsg)
+viewWrapperElement userView premodel =
+    let
+        objectsImportedString node =
+            "Objects imported: " ++ String.fromInt (Node.objectCount node)
+    in
+    case premodel of
+        PreInit { restoredNode, warnings, flags } ->
+            Html.div []
+                ([ Html.text "PreInit Replicator Failure"
+                 , Html.text <| Maybe.withDefault "No stored RON." flags.storedRonMaybe
+                 , Html.text <| Maybe.withDefault "No ops imported." (Maybe.map objectsImportedString restoredNode)
+                 ]
+                    ++ List.map Html.text warnings
+                )
+
+        FrameworkReady { node, now, zone, userReplica, warnings, loadProgress } ->
+            Html.div []
+                ([ Html.text "FrameworkReady Replicator Failure"
+                 , Html.text ("Loaded frame " ++ String.fromInt (Tuple.first loadProgress) ++ " of " ++ String.fromInt (Tuple.second loadProgress))
+                 ]
+                    ++ List.map Html.text warnings
+                )
+
+        UserRunning replicator ->
+            userView replicator
+                |> Html.map Tick
+
+
 {-| Internal helper to get the Model the user expects when everything initialized correctly.
 -}
 toReplicator : Model userFlags userMsg userReplica temp -> Maybe (Replicator userReplica temp)
@@ -163,12 +207,20 @@ toReplicator premodel =
             Nothing
 
 
+type alias UserInitBrowser userFlags userReplica temp userMsg =
+    Url -> Key -> userFlags -> userReplica -> ( List Frame, temp, Cmd userMsg )
+
+
+type alias UserInitElement userFlags userReplica temp userMsg =
+    userFlags -> userReplica -> ( List Frame, temp, Cmd userMsg )
+
+
 type alias UserInit userFlags userReplica temp userMsg =
-    userFlags -> Url -> Key -> userReplica -> ( List Frame, temp, Cmd userMsg )
+    userFlags -> userReplica -> ( List Frame, temp, Cmd userMsg )
 
 
-initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> Url -> Key -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
-initWrapper userInit wrappedFlags url key =
+initWrapper : UserInit userFlags userReplica temp userMsg -> Flags userFlags -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
+initWrapper userInit wrappedFlags =
     let
         { storedNodeMaybe, startWarnings, loadAfter } =
             case wrappedFlags.storedRonMaybe of
@@ -197,8 +249,6 @@ initWrapper userInit wrappedFlags url key =
         { restoredNode = storedNodeMaybe
         , warnings = [] -- TODO
         , flags = wrappedFlags
-        , url = url
-        , key = key
         , userInit = userInit
         }
     , userInitNext
@@ -272,7 +322,7 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
         FrameworkInit remainingRon zone now ->
             case wrappedModel of
-                PreInit { restoredNode, warnings, key, url, flags, userInit } ->
+                PreInit { restoredNode, warnings, flags, userInit } ->
                     let
                         ( startNode, startCmds ) =
                             case restoredNode of
@@ -313,8 +363,6 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         , zone = zone
                         , userReplica = startuserReplica
                         , warnings = warnings
-                        , key = key
-                        , url = url
                         , userFlags = flags.userFlags
                         , userInit = userInit
                         , loadProgress = ( 1, List.length remainingRon )
@@ -378,10 +426,10 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
 
         UserInit ->
             case wrappedModel of
-                FrameworkReady { userInit, userFlags, url, key, userReplica, node, now, zone } ->
+                FrameworkReady { userInit, userFlags, userReplica, node, now, zone } ->
                     let
                         ( userInitFrames, temp, userInitCmds ) =
-                            userInit userFlags url key userReplica
+                            userInit userFlags userReplica
                     in
                     ( UserRunning
                         { node = node
