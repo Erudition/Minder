@@ -30,7 +30,7 @@ const ipfsConfig = {
 // Configuration for the database
 const dbConfig = {
   // If database doesn't exist, create it?
-  create: false,
+  create: true,
   // Wait to load from the network?
   sync: true,
   // Load only the local version of the database

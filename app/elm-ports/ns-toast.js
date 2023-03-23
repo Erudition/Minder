@@ -1,6 +1,6 @@
 export function addToastPorts (elmPorts) {
     // FLASH OR "TOAST" POPUPS ---------------------------------------
-    const toasty = require('nativescript-toasty');
+    const toasty = require('@triniwiz/nativescript-toasty');
     console.log("ElmPorts is ", elmPorts)
     if (elmPorts.flash) {
         elmPorts.flash.subscribe(function(toast_message) {

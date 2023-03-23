@@ -223,7 +223,7 @@ const config = {
     elmModuleName: "NativeMain",
     initPorts: initElmPorts,
     flags: 
-    { storedRonMaybe : appSettings.getString("appData", "@0+s0	:lww ;.❃")
+    { storedRonMaybe : appSettings.getString("appData", null)
     , userFlags : null
     }
   }

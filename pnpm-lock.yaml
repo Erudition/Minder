@@ -7,9 +7,10 @@ specifiers:
   '@nativescript/android': ^8.4.0
   '@nativescript/core': ^8.1.5
   '@nativescript/geolocation': ^8.1.0
-  '@nativescript/local-notifications': ^6.0.0
+  '@nativescript/local-notifications': link:../nativescript-plugins/packages/local-notifications
   '@nativescript/types': ^8.4.0
   '@nativescript/webpack': ~5.0.0
+  '@triniwiz/nativescript-toasty': ^4.1.3
   circular-dependency-plugin: ^5.2.2
   elm-live: ^4.0.2
   elm-native-js: ^1.0.3
@@ -21,7 +22,6 @@ specifiers:
   multiaddr: ^10.0.1
   nativescript: ^8.4.0
   nativescript-theme-core: ^1.0.6
-  nativescript-toasty: ^2.0.1
   nativescript-urlhandler: ^1.3.0
   nativescript-wear-os: link:customized-node-modules/nativescript-wear-os
   orbit-db: ^0.29.0
@@ -34,7 +34,8 @@ dependencies:
   '@nativescript-community/ui-webview': 1.4.4
   '@nativescript/core': 8.4.7
   '@nativescript/geolocation': 8.1.0
-  '@nativescript/local-notifications': 6.0.0
+  '@nativescript/local-notifications': link:../nativescript-plugins/packages/local-notifications
+  '@triniwiz/nativescript-toasty': 4.1.3
   circular-dependency-plugin: 5.2.2
   elm-native-js: 1.0.3
   elm-test: 0.19.1
@@ -44,7 +45,6 @@ dependencies:
   multiaddr: 10.0.1
   nativescript: 8.4.0
   nativescript-theme-core: 1.0.6
-  nativescript-toasty: 2.0.1
   nativescript-urlhandler: 1.3.0
   nativescript-wear-os: link:customized-node-modules/nativescript-wear-os
   orbit-db: 0.29.0_ipfs@0.66.0
@@ -2240,18 +2240,8 @@ packages:
       mkdirp: 1.0.4
     dev: false
 
-  /@nativescript/local-notifications/6.0.0:
-    resolution: {integrity: sha512-ZQWU/p+Dsh9KgO3wOrexsb/5iRD2RRxWOFgNPnvftcKxkMd7awpnGl0jv6WdgaCv509gUKfdd8y0aNK5ZQwSpA==}
-    dependencies:
-      '@nativescript/shared-notification-delegate': 1.0.2
-    dev: false
-
   /@nativescript/schematics-executor/0.0.2:
     resolution: {integrity: sha512-3pA0cXbkwu55+He71QO1oRE18wQyquk5t6vpM4laAFatI5w8n2dyHYSzM7pM6bN57zpcP2sk5u1q3YtYv0d2MQ==}
-    dev: false
-
-  /@nativescript/shared-notification-delegate/1.0.2:
-    resolution: {integrity: sha512-Wh6F1WH9Aj23K+nyolA5MrA6MXku/5rSPt9r20ekbyx2FkRpBr0stjg4uD6KSyUvWY8YT+KQ9WlOUzhq7g7Ycw==}
     dev: false
 
   /@nativescript/types-android/8.4.0:
@@ -2766,6 +2756,10 @@ packages:
   /@tootallnate/once/1.1.2:
     resolution: {integrity: sha512-RbzJvlNzmRq5c3O09UipeuXno4tA1FE6ikOjxZK0tuxVv3412l64l5t1W5pj4+rJq9vpkm/kwiR07aZXnsKPxw==}
     engines: {node: '>= 6'}
+    dev: false
+
+  /@triniwiz/nativescript-toasty/4.1.3:
+    resolution: {integrity: sha512-ps3dXEVb5Pz2MFEY4Pu9G9l3co9vu6QVoapEm3CSHYRYvBbfGuB2tP+Gmqy0RCHaTPN7i6f2gHieiP3zM/YOSg==}
     dev: false
 
   /@ts-morph/common/0.6.0:
@@ -9038,10 +9032,6 @@ packages:
 
   /nativescript-theme-core/1.0.6:
     resolution: {integrity: sha512-p9v8w0xC/WJDJat/HwxJ/u7Xf50i3JiZR0zx0M7445Gi4HaBClFcjfVc+TLOZEARU4RKauBTopYlLN4xke6tYw==}
-    dev: false
-
-  /nativescript-toasty/2.0.1:
-    resolution: {integrity: sha512-C5MT146ClIcS0s14ZazJyuPhnd9H5qfiJs1OLHR0F0XTu13onLDssz8YWrfeGnjlE2OJBBhtRk3yc3dklMrldQ==}
     dev: false
 
   /nativescript-urlhandler/1.3.0:

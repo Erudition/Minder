@@ -28,6 +28,7 @@ import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
 import Native exposing (Native)
 import Native.Attributes as NA
+import Native.Event
 import Native.Frame
 import Native.Layout as Layout
 import Native.Page as Page
@@ -40,6 +41,7 @@ import Replicated.Framework as Framework
 import Replicated.Node.Node
 import Replicated.Op.OpID
 import Replicated.Reducer.RepDb as RepDb
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment
@@ -526,18 +528,35 @@ infoFooter =
 
 
 homePage : Model -> Native Msg
-homePage _ =
+homePage { replica } =
     Page.pageWithActionBar SyncNSFrame
         []
-        (Native.actionBar [ NA.title "Here we go!!!" ] [])
+        (Native.actionBar [ NA.title "Minder" ]
+            [ Native.navigationButton [ NA.text "Back" ] []
+            , Native.actionItem [ NA.text "Marvin", Native.Event.onTap (ThirdPartySync Marvin) ] []
+            ]
+        )
         (Layout.flexboxLayout
             [ NA.alignItems "center"
             , NA.justifyContent "center"
             , NA.height "100%"
             ]
-            [ Native.label [ NA.class "main", NA.text "Minder Native Elm is working!" ] []
+            [ Native.label [ NA.text "Log", NA.textWrap "true" ] []
+            , logList replica
             ]
         )
+
+
+logList : Profile -> Native Msg
+logList replica =
+    Native.scrollView [ NA.orientation "vertical" ] <|
+        Layout.stackLayout [] <|
+            List.map logItem (RepList.listValues replica.errors)
+
+
+logItem : String -> Native Msg
+logItem logString =
+    Native.label [ NA.text logString, NA.textWrap "true" ] []
 
 
 getPage : Model -> NativePage -> Native Msg
@@ -706,7 +725,7 @@ update msg { temp, replica, now } =
                         |> Notif.setAccentColor "green"
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
-            ( [ marvinChanges ]
+            ( [ marvinChanges, Change.saveChanges "Log it temporarily" [ Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened) ] ]
             , newTemp
             , Cmd.batch
                 [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
