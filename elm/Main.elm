@@ -882,11 +882,11 @@ bypassFakeFragment url =
         Just (Just ( '/', fakeFragment )) ->
             -- take the url and drop the first "#", then re-parse it
             case String.split "#" (Url.toString url) of
-                front :: _ ->
+                _ :: afterFragment ->
                     -- Url.fromString can fail, but it shouldn't here
                     Maybe.withDefault url <|
-                        -- include all the rest (even later "#"s)
-                        Url.fromString (front ++ fakeFragment)
+                        -- include all the rest
+                        Url.fromString (String.concat afterFragment)
 
                 _ ->
                     url
