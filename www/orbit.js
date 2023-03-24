@@ -34,7 +34,7 @@ const dbConfig = {
   // Wait to load from the network?
   sync: true,
   // Load only the local version of the database
-  // localOnly: true,
+  localOnly: true,
   // Allow anyone to write to the database,
   // otherwise only the creator of the database can write
   accessController: {
@@ -59,7 +59,7 @@ async function startOrbit() {
   const orbitdb = await OrbitDB.createInstance(ipfs)
   
   // Create / Open a database
-  const db = await orbitdb.log("minder1", dbConfig)
+  const db = await orbitdb.log("minder4", dbConfig)
   await db.load()
   console.log("OrbitDB database started at ", db.address.toString())
 
