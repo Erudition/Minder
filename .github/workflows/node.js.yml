@@ -1,35 +1,86 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
-name: Build Elm
-
+name: Deploy
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches:
+      - 'master'
+  delete:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+
+concurrency:
+  group: preview-${{ github.event_name }}-${{ github.event.number || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-
+  dev:
+    name: Development
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         node-version: [14.x, 16.x, 18.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    env:
+      PREVIEW_REPO: Erudition/minder-preview
+      PAGES_BASE: https://erudition.github.io/minder-preview
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: pnpm/action-setup@v2
-      with:
-        version: 7
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'pnpm'
-    - name: Install dependencies
-      run: pnpm install
-    - name: Build Elm project
-      run: pnpm run build
+      - name: Checkout branch
+        if: ${{ !startsWith(github.event_name, 'pull_request') }}
+        uses: actions/checkout@v3
+
+      - name: Checkout PR head
+        if: ${{ startsWith(github.event_name, 'pull_request') && github.event.action != 'closed' }}
+        uses: actions/checkout@v3
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+
+      - name: Set up PNPM action
+        uses: pnpm/action-setup@v2
+
+      # Set up Node.js
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        if: ${{ github.event.action != 'closed' }} # Skipping these steps if the PR has been closed
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: ${{ github.event.action != 'closed' }}
+        run: pnpm install
+
+      # This will calculate the base URL for the website, based on the event that triggered the workflow.
+      # Leave this step as it is, unless you know what you're doing.
+      - name: Determine base URL
+        if: ${{ github.event.action != 'closed' }}
+        id: baseurl
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            full="${{ env.PAGES_BASE }}/${{ github.repository }}/pr/${{ github.event.number }}"
+          else
+            full="${{ env.PAGES_BASE }}/${{ github.repository }}/branch/${{ github.ref_name }}"
+          fi
+          relative=/$(echo $full | cut -d/ -f4-)
+          echo "full=$full" >> $GITHUB_OUTPUT
+          echo "relative=$relative" >> $GITHUB_OUTPUT
+        shell: bash
+
+      # Run your usual build command, but make sure to use the correct base URL
+      # This example assumes you're using React, and that you're using the PUBLIC_URL env variable
+      - name: Build
+        if: ${{ github.event.action != 'closed' }}
+        run: pnpm run build
+        env:
+          PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
+
+      # This will trigger the action. Make sure to change the build_dir input to the correct directory
+      - uses: EndBug/pages-preview@v1
+        with:
+          build_dir: www
+          preview_base_url: ${{ env.PAGES_BASE }}
+          preview_repo: ${{ env.PREVIEW_REPO }}
+          preview_token: ${{ secrets.PREVIEW_TOKEN }}
