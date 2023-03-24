@@ -32,4 +32,4 @@ jobs:
     - name: Install dependencies
       run: pnpm install
     - name: Build Elm project
-      run: pnpm run build --if-present
+      run: pnpm run build
