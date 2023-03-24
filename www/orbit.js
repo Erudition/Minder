@@ -34,7 +34,7 @@ const dbConfig = {
   // Wait to load from the network?
   sync: true,
   // Load only the local version of the database
-  localOnly: true,
+  //localOnly: true,
   // Allow anyone to write to the database,
   // otherwise only the creator of the database can write
   accessController: {
