@@ -877,22 +877,27 @@ even though that path may have resulted in a 404 on any host without fancy redir
 -}
 bypassFakeFragment : Url.Url -> Url.Url
 bypassFakeFragment url =
-    case Maybe.map String.uncons url.fragment of
-        -- only if "#" is immediately followed by a "/" (path)
-        Just (Just ( '/', fakeFragment )) ->
-            -- take the url and drop the first "#", then re-parse it
-            case String.split "#" (Url.toString url) of
-                _ :: afterFragment ->
-                    -- Url.fromString can fail, but it shouldn't here
-                    Maybe.withDefault url <|
-                        -- include all the rest
-                        Url.fromString (String.concat afterFragment)
-
-                _ ->
-                    url
-
-        _ ->
-            url
+    -- case Maybe.map String.uncons url.fragment of
+    --     -- only if "#" is immediately followed by a "/" (path)
+    --     Just (Just ( '/', fakeFragment )) ->
+    --         -- take the url and drop the first "#", then re-parse it
+    --         case String.split "#" (Url.toString url) of
+    --             _ :: afterFragment ->
+    --                 -- Url.fromString can fail, but it shouldn't here
+    --                 Maybe.withDefault url <|
+    --                     -- include all the rest
+    --                     Url.fromString (String.concat afterFragment)
+    --             _ ->
+    --                 url
+    --     _ ->
+    --         url
+    { protocol = url.protocol
+    , host = url.host
+    , port_ = url.port_
+    , path = Maybe.withDefault "/" url.fragment
+    , query = url.query
+    , fragment = Nothing
+    }
 
 
 navigate : Url.Url -> ( ViewState, Cmd Msg )
