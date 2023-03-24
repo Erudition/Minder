@@ -40,6 +40,8 @@ jobs:
 
       - name: Set up PNPM action
         uses: pnpm/action-setup@v2
+        with:
+          version: 7
 
       # Set up Node.js
       - name: Use Node.js ${{ matrix.node-version }}
