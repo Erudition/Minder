@@ -24,6 +24,7 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), ab
 import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
+import Task as Job
 import Task.ActionClass exposing (ActionClassID)
 import Task.AssignedAction exposing (AssignedAction, AssignedActionID)
 import Task.Entry
@@ -163,17 +164,21 @@ switchTracking newActivityID newInstanceIDMaybe profile ( time, timeZone ) =
 
     else
         -- we actually changed tracking, add session to timeline
+        let
+            ( reactionChanges, reactionCmds ) =
+                reactToNewSession newActivityID newInstanceIDMaybe ( time, timeZone ) profile
+        in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges, Commands.toast "Switched to a new activity" )
+        ( switchChanges ++ reactionChanges, Cmd.batch [ reactionCmds ] )
 
 
-reactToNewSession newActivityID newInstanceIDMaybe updatedProfile ( time, timeZone ) oldProfile =
+reactToNewSession newActivityID newInstanceIDMaybe ( time, timeZone ) oldProfile =
     let
         ( newStatusDetails, newFocusStatus ) =
-            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile updatedProfile ( time, timeZone )
+            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, timeZone )
 
         ( reactionNow, checkbackTimeMaybe ) =
-            reactToStatusChange False newStatusDetails newFocusStatus updatedProfile
+            reactToStatusChange False newStatusDetails newFocusStatus
 
         reactionWhenExpired =
             case checkbackTimeMaybe of
@@ -184,9 +189,9 @@ reactToNewSession newActivityID newInstanceIDMaybe updatedProfile ( time, timeZo
                     let
                         -- everything stays the same, just in the future
                         ( futureStatusDetails, futureFocusStatus ) =
-                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) updatedProfile updatedProfile ( checkbackTime, timeZone )
+                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( checkbackTime, timeZone )
                     in
-                    Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus updatedProfile)
+                    Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus)
 
         suggestions =
             suggestedTasks oldProfile ( time, timeZone )
@@ -194,14 +199,14 @@ reactToNewSession newActivityID newInstanceIDMaybe updatedProfile ( time, timeZo
     ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
-determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
-determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile ( time, timeZone ) =
+determineNewStatus : ( ActivityID, Maybe AssignedActionID ) -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
+determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, timeZone ) =
     let
         newActivity =
-            Profile.getActivityByID newProfile newActivityID
+            Profile.getActivityByID oldProfile newActivityID
 
         oldActivity =
-            Profile.getActivityByID newProfile oldActivityID
+            Profile.getActivityByID oldProfile oldActivityID
 
         oldActivityID =
             Profile.currentActivityID oldProfile
@@ -210,7 +215,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile (
             Timeline.currentInstanceID oldProfile.timeline
 
         allTasks =
-            Profile.instanceListNow newProfile ( time, timeZone )
+            Profile.instanceListNow oldProfile ( time, timeZone )
 
         trackingTask =
             case newInstanceIDMaybe of
@@ -226,19 +231,16 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile (
         statusDetails =
             { now = time
             , zone = timeZone
-            , oldActivity = Activity.getByID oldActivityID newProfile.activities
-            , lastSession =
-                Maybe.withDefault Duration.zero <|
-                    Maybe.map Session.duration <|
-                        Timeline.mostRecentHistorySessionOfActivity filterPeriod newProfile.timeline oldActivityID
-            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID newProfile ( time, timeZone )) oldInstanceIDMaybe
-            , newActivity = Activity.getByID newActivityID newProfile.activities
+            , oldActivity = oldActivity
+            , lastSession = Timeline.currentAsPeriod time oldProfile.timeline |> Period.length
+            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) oldInstanceIDMaybe
+            , newActivity = newActivity
             , newActivityTodayTotal =
-                Timeline.activityTotalDurationLive filterPeriod time newProfile.timeline newActivityID
-            , newInstanceMaybe = Maybe.andThen (\instanceID -> List.head <| List.filter (.instanceID >> (==) instanceID) allTasks) newInstanceIDMaybe
+                Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
+            , newInstanceMaybe = Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) newInstanceIDMaybe
             }
     in
-    case whatsImportantNow newProfile ( time, timeZone ) of
+    case whatsImportantNow oldProfile ( time, timeZone ) of
         Nothing ->
             -- ALL DONE
             ( statusDetails, Free )
@@ -251,10 +253,12 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile (
                     writeDur <| excusedUsage
 
                 excusedUsage =
-                    Timeline.excusedUsage newProfile.timeline time ( newActivityID, newActivity )
+                    -- TODO does not cover new to-be-saved session
+                    Timeline.excusedUsage oldProfile.timeline time ( newActivityID, newActivity )
 
                 excusedLeft =
-                    Timeline.excusedLeft newProfile.timeline time ( newActivityID, Activity.getByID newActivityID newProfile.activities )
+                    -- TODO does not cover new to-be-saved session
+                    Timeline.excusedLeft oldProfile.timeline time ( newActivityID, newActivity )
 
                 isThisTheRightNextTask =
                     case ( newInstanceIDMaybe, Maybe.map Task.AssignedAction.getID nextInstanceMaybe ) of
@@ -265,13 +269,14 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile newProfile (
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getInstanceByID newProfile ( time, timeZone )) newInstanceIDMaybe
+                    Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) newInstanceIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
                 ( Just newInstance, True, _ ) ->
                     let
                         timeSpent =
-                            Timeline.activityTotalDurationLive filterPeriod time newProfile.timeline newActivityID
+                            -- TODO does not cover new to-be-saved session
+                            Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
 
                         maxTimeRemaining =
                             Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent
@@ -368,8 +373,8 @@ type alias CheckBack =
     Moment
 
 
-reactToStatusChange : Bool -> StatusDetails -> FocusStatus -> Profile -> ( Cmd msg, Maybe CheckBack )
-reactToStatusChange isExtrapolated status focusStatus profile =
+reactToStatusChange : Bool -> StatusDetails -> FocusStatus -> ( Cmd msg, Maybe CheckBack )
+reactToStatusChange isExtrapolated status focusStatus =
     case focusStatus of
         Free ->
             ( newlyFreeReaction status, Nothing )
@@ -575,11 +580,11 @@ freeSticky status =
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.AssignedAction.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.AssignedAction.getTitle |> Maybe.withDefault (Activity.getName status.newActivity ++ " (no task)")
 
         final =
             { stickyBase
-                | title = title
+                | title = Just title
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")

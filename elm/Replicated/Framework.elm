@@ -141,8 +141,8 @@ viewWrapperBrowser userView premodel =
             { title = "Crashed."
             , body =
                 [ Html.text "PreInit Replicator Failure"
-                , Html.text <| Maybe.withDefault "No stored RON." flags.storedRonMaybe
-                , Html.text <| Maybe.withDefault "No ops imported." (Maybe.map objectsImportedString restoredNode)
+                , Html.text <| Maybe.withDefault "\nNo stored RON:\n" flags.storedRonMaybe
+                , Html.text <| Maybe.withDefault "\nNo ops imported:\n" (Maybe.map objectsImportedString restoredNode)
                 ]
                     ++ List.map Html.text warnings
             }

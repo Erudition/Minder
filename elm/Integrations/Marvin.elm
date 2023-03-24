@@ -248,7 +248,7 @@ getTimeBlockAssignments =
                             Decode.list
                                 decodeAssignment
                 )
-        , timeout = Just 1000
+        , timeout = Just 10000
         , tracker = Nothing
         }
 
@@ -342,7 +342,7 @@ handle classCounter profile ( time, timeZone ) response =
                     in
                     ( Change.saveChanges "Imported Marvin Labels" changes
                     , "Fetched labels: " ++ Debug.toString labelList
-                    , getTasks partialAccessToken
+                    , getTodayItems partialAccessToken
                     )
 
                 Err err ->
@@ -583,7 +583,7 @@ getDueItems secret =
         }
 
 
-{-| Get tasks and projects that are due today
+{-| Get tasks and projects
 -}
 getTasks : SecretToken -> Cmd Msg
 getTasks secret =
