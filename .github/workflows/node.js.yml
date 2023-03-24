@@ -61,10 +61,14 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         id: baseurl
         run: |
-          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
-            full="${{ env.PAGES_BASE }}/${{ github.repository }}/pr/${{ github.event.number }}"
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            full="${{ env.PAGES_BASE }}"
           else
-            full="${{ env.PAGES_BASE }}/${{ github.repository }}/branch/${{ github.ref_name }}"
+            if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+              full="${{ env.PAGES_BASE }}/with-pr/${{ github.event.number }}"
+            else
+              full="${{ env.PAGES_BASE }}/${{ github.ref_name }}"
+            fi
           fi
           relative=/$(echo $full | cut -d/ -f4-)
           echo "full=$full" >> $GITHUB_OUTPUT
