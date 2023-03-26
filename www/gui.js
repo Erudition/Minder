@@ -266,18 +266,18 @@ function elmStartedWithoutTasker(app, db) {
       // below copied from https://capacitor.ionicframework.com/docs/apis/app
 
       // import { Plugins, AppState } from '@capacitor/core';
-      //
-      //import { Plugins, AppState } from './capacitor.js';
-      //const { Toast, App } = window.Capacitor.Plugins;
+      
+      // import { Plugins, AppState } from './capacitor.js';
+      // const { Toast, App } = window.Capacitor.Plugins;
 
       // async show => {
       //   await Toast.show({
       //     text: 'Hello!'
       //   });
       // }
-      //const { AppState } = window.Capacitor.AppState;
+      // const { AppState } = window.Capacitor.AppState;
 
-      //const CapApp = window.Capacitor.Plugins;
+      // const CapApp = window.Capacitor.Plugins;
 
       // CapApp.addListener('appStateChange', (state: AppState) => {
       //   // state.isActive contains the active state
@@ -291,5 +291,23 @@ function elmStartedWithoutTasker(app, db) {
       //   app.ports.pluginError.send(state.isActive);
       // });
 
+
+      App.addListener('appStateChange', ({ isActive }) => {
+        console.log('App state changed. Is active?', isActive);
+      });
+      
+      App.addListener('appUrlOpen', data => {
+        console.log('App opened with URL:', data);
+      });
+      
+      App.addListener('appRestoredResult', data => {
+        console.log('Restored state:', data);
+      });
+      
+      const checkAppLaunchUrl = async () => {
+        const { url } = await App.getLaunchUrl();
+      
+        console.log('App opened with URL: ' + url);
+      };
 
 }

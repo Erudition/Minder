@@ -11,6 +11,7 @@ import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events
 import Element.Font
 import Element.Input as Input
 import Environment exposing (..)
@@ -222,7 +223,7 @@ type alias ViewState =
 
 emptyViewState : ViewState
 emptyViewState =
-    { taskList = UnopenedPanel -- OpenPanel FullScreen <| TaskList.defaultView
+    { taskList = OpenPanel FullScreen <| TaskList.defaultView
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
@@ -351,7 +352,7 @@ globalLayout viewState replica env innerStuff =
             { options = [] }
 
         projectsLink =
-            link [ centerX, centerY ] { url = "#/projects", label = text "Projects" }
+            link [ centerX, centerY, Element.Events.onClick (TaskListMsg TaskList.NoOp) ] { url = "#/projects", label = text "Projects" }
 
         readyLink =
             link [ centerX, centerY ] { url = "#/ready", label = text "Ready" }

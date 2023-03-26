@@ -11,8 +11,8 @@
 
 
 // GET ENVIRONMENT DETAILS ---------------------------------------------------------
-const applicationModule = require("@nativescript/core/application");
-var androidApp = applicationModule.android
+const application = require("@nativescript/core/application");
+var androidApp = application.android
 //let isPaused = androidApp.paused; // e.g. false
 //let packageName = androidApp.packageName; // The package ID e.g. org.nativescript.nativescriptsdkexamplesng
 //let nativeApp = androidApp.nativeApp; // The native Application reference
@@ -93,18 +93,19 @@ global.globalViewModel = observableModule.fromObject(
     });
 
 // UNIVERSAL COMMUNICATION CHANNEL
-// export function tellElm(destinationPort, outgoingMessage) {
-//     elm.ports[destinationPort].send(outgoingMessage);
-// }
+export function tellElm(destinationPort, outgoingMessage) {
+    //elm.ports[destinationPort].send(outgoingMessage);
+    console.log(outgoingMessage);
+}
 
-// export function messageFromElm(incomingMessage) {
-//     if (incomingMessage[0] == "activities") {
-//         updateVM(incomingMessage);
-//     } else {
-//         console.info("Setting " + incomingMessage[0] + " to " + incomingMessage[1]);
-//         global[incomingMessage[0]] = incomingMessage[1]
-//     }
-// }
+export function messageFromElm(incomingMessage) {
+    if (incomingMessage[0] == "activities") {
+        //updateVM(incomingMessage);
+    } else {
+        console.info("Setting " + incomingMessage[0] + " to " + incomingMessage[1]);
+        global[incomingMessage[0]] = incomingMessage[1]
+    }
+}
 
 //worker.onmessage = function(messageFromElm(incomingMessage));
 
@@ -140,8 +141,8 @@ global.globalViewModel = observableModule.fromObject(
 // );
 
 const batteryChanged = (androidContext, intent) => {
-    const level = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_LEVEL, -1);
-    const scale = intent.getIntExtra(applicationModule.android.os.BatteryManager.EXTRA_SCALE, -1);
+    const level = intent.getIntExtra(application.android.os.BatteryManager.EXTRA_LEVEL, -1);
+    const scale = intent.getIntExtra(application.android.os.BatteryManager.EXTRA_SCALE, -1);
     //vm.set("batteryLife", percent.toString()); //???
     //tellElm("headlessMsg", "http://minder.app/?battery=" + level);
 };
@@ -161,7 +162,7 @@ const secretMessageReceived = (androidContext, intent) => {
     }
 };
 
-applicationModule.android.registerBroadcastReceiver(
+application.android.registerBroadcastReceiver(
     "app.minder.secretMessage",
     secretMessageReceived
 );
@@ -186,50 +187,37 @@ Trace.enable();
 Trace.write("Tracer working!", Trace.categories.Debug);
 
 
-function launchListener (args)  {
-//    console.info("Attempting Elm initialization!");
-//    console.log("args is " + JSON.stringify(args));
+function readyToLaunch (args)  {
 
-//    var rootElement =  document.getElementById("root-tabview");
-//
-//    console.log("finding root element: " + document.getElementById("root-tabview"));
-//
-//    var document = {location : {href : "https://minder.app/"}, getElementById : getElementById}
-//    var elm = require('../www/elm-browserless.js').Elm.Browserless.init(
-//        { node: rootElement
-//        , flags: ["https://minder.app/", ""]
-//        });
-//
-//    console.info("Got past Elm initialization! ---------------------------------");
-    console.log("The app was launched!");
+    console.log("Ready to launch app, determining watch mode.");
 
     // Choose launch screen based on watch or not
-    const applicationModule2 = require("@nativescript/core/application");
-    var PackageManager = androidApp.content.pm.PackageManager;
-    if (applicationModule2.android.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-        applicationModule2.run({ moduleName: "app-root-wear" });
+    var PackageManager = android.content.pm.PackageManager;
+    if (androidApp.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+        androidApp.run({ moduleName: "app-root-wear" });
+    } else {
+        //LAUNCH!
+        application.run({ moduleName: "app-root" });
     }
 
 
 }
-//applicationModule.on(applicationModule.launchEvent, launchListener);
+//application.on(application.launchEvent, readyToLaunch);
+application.run({ moduleName: "app-root-wear" });
 
-//LAUNCH!
-//applicationModule.run({ moduleName: "app-root" });
-
-
-const config = {
-    elmModule: Elm,
-    elmModuleName: "NativeMain",
-    initPorts: initElmPorts,
-    flags: 
-    { storedRonMaybe : appSettings.getString("appData", null)
-    , userFlags : null
+function launchElmNative () {
+    const config = {
+        elmModule: Elm,
+        elmModuleName: "NativeMain",
+        initPorts: initElmPorts,
+        flags: 
+        { storedRonMaybe : appSettings.getString("appData", null)
+        , userFlags : null
+        }
     }
-  }
-start(config)
-
-/*
+    start(config)
+}
+/* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 Do not place any code after the application has been started as it will not
 be executed on iOS.
 */

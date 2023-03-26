@@ -9,9 +9,9 @@ http://docs.nativescript.org/cookbook/ui/tab-view
         <Frame defaultPage="activities/activities-page"></Frame>
     </TabViewItem>
 
-    <TabViewItem title="Webapp" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
+    <!-- <TabViewItem title="Webapp" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
         <Frame defaultPage="webapp/webapp-page"></Frame>
-    </TabViewItem>
+    </TabViewItem> -->
 
     <TabViewItem title="Home" ios:iconSource="res://tabIcons/home" android:iconSource="res://home">
         <Frame defaultPage="home/home-items-page"></Frame>

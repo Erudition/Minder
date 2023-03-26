@@ -1,8 +1,8 @@
 <Page
   xmlns="http://schemas.nativescript.org/tns.xsd" loaded="pageLoaded" class="page"
-  xmlns:nota="@nativescript-community/ui-webview">
+  xmlns:ui="nativescript-community/ui-webview">
   <GridLayout class="p-2" rows="auto, *" columns="*">
     <Button id="test_button" row="0" text="Run Tests" tap="runTests" class="btn btn-primary"></Button>
-    <nota:AWebView src="~/assets/www/webview-index.html" scalesPageToFit="false" databaseStorage="true" displayZoomControls="true" supportZoom="true" row="1" loaded="webviewLoaded" webRTC="true" webConsoleEnabled="true" debugMode="true" viewPortSize="initial-scale=1" enterFullscreen="enterFullscreen" exitFullscreen="exitFullscreen"></nota:AWebView>
+    <!-- <ui:AWebView src="~/assets/www/webview-index.html" scalesPageToFit="false" databaseStorage="true" displayZoomControls="true" supportZoom="true" row="1" loaded="webviewLoaded" webRTC="true" webConsoleEnabled="true" debugMode="true" viewPortSize="initial-scale=1" enterFullscreen="enterFullscreen" exitFullscreen="exitFullscreen"></ui:AWebView> -->
   </GridLayout>
 </Page>
