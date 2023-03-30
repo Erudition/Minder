@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Docket</title>
   <link rel="stylesheet" href="styles/style.css">
@@ -12,9 +12,9 @@
   <link rel="stylesheet" href="styles/timeline.css">
 </head>
 
-<body style="cursor: wait">
-    This is the body of the HTML, but it should be replaced by Elm!
-<svg class="centered" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="lds-ripple">
+<body style="cursor: wait; background: no-repeat center center url('media/logos/Minder/alpha\ logo.png') fixed;">
+    Loading the program.
+<!-- <svg class="centered" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="lds-ripple">
     <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c1}}" ng-attr-stroke-width="{{config.width}}" stroke="#1d3f72" stroke-width="2">
         <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
         <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
@@ -24,7 +24,7 @@
         <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="0s" repeatCount="indefinite">
         </animate>
     </circle>
-</svg>
+</svg> -->
 
     <style>
     .centered {
@@ -46,15 +46,23 @@
 <script src="orbit.js"></script>
 <script type="application/javascript" src="gui.js"></script>
 
-<script type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
-<script nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
+
+<script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+<script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+
+
+<script async type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+<script async nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
+
+
 <script>
 if('serviceWorker' in navigator) {
   navigator.serviceWorker
            .register('./sw.js')
            .then(function() { console.log("Service Worker Registered!"); });
 } else {
-    tk.flash("Uh oh! No service worker support! :(");
+    console.error("Uh oh! No service worker support! :(");
 }
 </script>
 

@@ -59,7 +59,7 @@ async function startOrbit() {
   const orbitdb = await OrbitDB.createInstance(ipfs)
   
   // Create / Open a database
-  const db = await orbitdb.log("minder4", dbConfig)
+  const db = await orbitdb.log("minder5", dbConfig)
   await db.load()
   console.log("OrbitDB database started at ", db.address.toString())
 

@@ -228,20 +228,20 @@ function elmStartedWithoutTasker(app, db) {
 
 
     //   WORKS
-    LocalNotifications.schedule({
-      notifications: [
-        {
-          title: "Minder Started",
-          body: "Now",
-          id: 1,
-          schedule: { at: new Date(Date.now() + 1000 * 5) },
-          sound: null,
-          attachments: null,
-          actionTypeId: "",
-          extra: null
-        }
-      ]
-    });
+    // LocalNotifications.schedule({
+    //   notifications: [
+    //     {
+    //       title: "Minder Started",
+    //       body: "Now",
+    //       id: 1,
+    //       schedule: { at: new Date(Date.now() + 1000 * 5) },
+    //       sound: null,
+    //       attachments: null,
+    //       actionTypeId: "",
+    //       extra: null
+    //     }
+    //   ]
+    // });
 
       app.ports.ns_notify.subscribe(function(notificationList) {
 

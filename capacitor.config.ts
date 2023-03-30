@@ -4,7 +4,8 @@ const config: CapacitorConfig = {
   appId: 'io.github.erudition.Minder',
   appName: 'Minder',
   webDir: 'www',
-  bundledWebRuntime: false
+  bundledWebRuntime: true,
+  server: { allowNavigation: ["https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"]}
 };
 
 export default config;

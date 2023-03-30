@@ -395,7 +395,7 @@ globalLayout viewState replica env innerStuff =
         column [ width fill, height fill ]
             [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
                 [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
-                , el [ centerX ] <| text "Minder - pre-alpha prototype"
+                , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
                 , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
                 ]
             , row [ width fill, height (fillPortion 20), clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
@@ -437,6 +437,7 @@ trackingDisplay replica time launchTime timeZone =
                 , el [ centerX ] <|
                     text
                         (tracking_for_string (Activity.getName currentActivity) timeSinceSession)
+                , Element.html <| PlainHtml.node "ion-button" [] [ PlainHtml.text "Stop" ]
                 ]
 
         Just currentInstance ->
