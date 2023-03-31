@@ -4,6 +4,7 @@ import Activity.Activity as Activity
 import Activity.Session as Session exposing (Session(..))
 import Activity.Timeline as Timeline
 import Browser
+import Browser.Dom exposing (Viewport, getViewport, setViewport)
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import DevTools
@@ -18,12 +19,16 @@ import Environment exposing (..)
 import External.Commands exposing (..)
 import Html as PlainHtml
 import Html.Attributes as HA
+import Html.Events
 import Html.Styled as H exposing (Html, li, toUnstyled)
 import Html.Styled.Attributes exposing (class, href)
 import Html.Styled.Events as HtmlEvents
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
+import Ion.App
+import Ion.Button
+import Ion.Tab
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
@@ -84,8 +89,8 @@ subscriptions { replica, temp } =
           -- Debug.log
           -- "starting interval"
           -- (Moment.every Duration.aMinute (\_ -> NoOp))
-          Browser.Events.onVisibilityChange
-            (\_ -> NoOp)
+          Browser.Events.onVisibilityChange VisibilityChanged
+        , Browser.Events.onResize (\width height -> ResizeViewport width height)
 
         -- , storageChangedElsewhere NewAppData
         , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
@@ -165,15 +170,25 @@ init url maybeKey replica =
             { viewState = state
             , environment = Environment.preInit maybeKey
             , rootFrame = Native.Frame.init HomePage
+            , viewportSize = { width = 0, height = 0 }
+            , viewportSizeClass = Element.Phone
+            , windowVisibility = Browser.Events.Visible
             }
 
         initNotif =
             [ Notif.test "We have taken over Android, woo!" ]
                 |> NativeScript.Commands.notify
+
+        getViewport =
+            Job.perform setViewport Browser.Dom.getViewport
+
+        setViewport : Viewport -> Msg
+        setViewport newViewport =
+            ResizeViewport (truncate newViewport.viewport.width) (truncate newViewport.viewport.height)
     in
     ( []
     , initialTemp
-    , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif ]
+    , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif, getViewport ]
     )
 
 
@@ -192,6 +207,9 @@ type alias Temp =
     { viewState : ViewState
     , environment : Environment
     , rootFrame : Native.Frame.Model NativePage
+    , viewportSize : { width : Int, height : Int }
+    , viewportSizeClass : Element.DeviceClass
+    , windowVisibility : Browser.Events.Visibility
     }
 
 
@@ -223,7 +241,7 @@ type alias ViewState =
 
 emptyViewState : ViewState
 emptyViewState =
-    { taskList = OpenPanel FullScreen <| TaskList.defaultView
+    { taskList = UnopenedPanel
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
@@ -294,7 +312,7 @@ view { replica, temp } =
     in
     { title = finalTitle
     , body =
-        [ globalLayout temp.viewState replica temp.environment withinPage ]
+        [ Ion.App.app [ globalLayout temp.viewState replica temp.environment withinPage ] ]
     }
 
 
@@ -400,8 +418,16 @@ globalLayout viewState replica env innerStuff =
                 ]
             , row [ width fill, height (fillPortion 20), clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
                 [ html innerStuff ]
-            , row [ width fill, spacing 30, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                [ footerLinks
+            , row [ width fill ]
+                [ Element.html <|
+                    Ion.Tab.bar [ HA.style "width" "100%" ]
+                        [ Ion.Tab.labeledIconButton [ HA.disabled True ] "Home" "albums-outline"
+                        , Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline"
+                        , Ion.Tab.labeledIconButton [ HA.href "#/projects", HA.selected (isPanelOpen viewState.taskList) ] "Projects" "list-outline"
+                        , Ion.Tab.labeledIconButton [ HA.href "#/timeflow", HA.selected (isPanelOpen viewState.timeflow) ] "Timeflow" "hourglass-outline"
+                        , Ion.Tab.labeledIconButton [ HA.href "#/timetracker", HA.selected (isPanelOpen viewState.timeTracker) ] "Activities" "stopwatch-outline"
+                        , Ion.Tab.labeledIconButton [ HA.href "#/devtools", HA.selected (isPanelOpen viewState.devTools) ] "Dev" "code-working-outline"
+                        ]
                 ]
             , trackingDisplay replica env.time env.launchTime env.timeZone
             ]
@@ -437,7 +463,7 @@ trackingDisplay replica time launchTime timeZone =
                 , el [ centerX ] <|
                     text
                         (tracking_for_string (Activity.getName currentActivity) timeSinceSession)
-                , Element.html <| PlainHtml.node "ion-button" [] [ PlainHtml.text "Stop" ]
+                , Element.html <| Ion.Button.justIcon "stop-circle-outline"
                 ]
 
         Just currentInstance ->
@@ -599,12 +625,15 @@ type Msg
     | ThirdPartyServerResponded ThirdPartyResponse
     | Link Browser.UrlRequest
     | NewUrl Url.Url
+    | InternalLink String
     | SyncNSFrame Bool
     | TaskListMsg TaskList.Msg
     | TimeTrackerMsg TimeTracker.Msg
     | TimeflowMsg Timeflow.Msg
     | DevToolsMsg DevTools.Msg
     | MouseMoved Bool Float
+    | ResizeViewport Int Int
+    | VisibilityChanged Browser.Events.Visibility
 
 
 type ThirdPartyService
@@ -643,6 +672,18 @@ update msg { temp, replica, now } =
             ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        ResizeViewport newWidth newHeight ->
+            ( []
+            , { newTemp | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
+            , Cmd.none
+            )
+
+        VisibilityChanged newVisibility ->
+            ( []
+            , { newTemp | windowVisibility = newVisibility }
+            , Cmd.none
+            )
+
         MouseMoved _ _ ->
             ( []
             , newTemp
@@ -762,6 +803,16 @@ update msg { temp, replica, now } =
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
             ( [], { newTemp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
+
+        InternalLink path ->
+            case environment.navkey of
+                Just navkey ->
+                    -- in browser
+                    justRunCommand <| Nav.pushUrl navkey path
+
+                Nothing ->
+                    -- running headless
+                    noOp
 
         SyncNSFrame bool ->
             ( [], { newTemp | rootFrame = Native.Frame.handleBack bool temp.rootFrame }, Cmd.none )
