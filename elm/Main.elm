@@ -20,6 +20,7 @@ import External.Commands exposing (..)
 import Html as PlainHtml
 import Html.Attributes as HA
 import Html.Events
+import Html.Keyed as HK
 import Html.Styled as H exposing (Html, li, toUnstyled)
 import Html.Styled.Attributes exposing (class, href)
 import Html.Styled.Events as HtmlEvents
@@ -28,7 +29,9 @@ import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Ion.App
 import Ion.Button
+import Ion.Icon
 import Ion.Tab
+import Ion.Toolbar
 import Json.Decode as ClassicDecode
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
@@ -404,32 +407,44 @@ globalLayout viewState replica env innerStuff =
                 , ( False, dashLink )
                 , ( isPanelOpen viewState.devTools, devToolsLink )
                 ]
+
+        tabBar =
+            HK.node "ion-tab-bar"
+                [ HA.style "width" "100%" ]
+                [ ( "home-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Home" "albums-outline" )
+                , ( "cares-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline" )
+                , ( "projects-tab-button", PlainHtml.node "ion-tab-button" [ HA.href "#/projects", HA.selected (isPanelOpen viewState.taskList) ] [ PlainHtml.node "ion-label" [] [ PlainHtml.text "Projects" ] ] )
+                , ( "timeflow-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/timeflow", HA.selected (isPanelOpen viewState.timeflow) ] "Timeflow" "hourglass-outline" )
+                , ( "timetracker-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/timetracker", HA.selected (isPanelOpen viewState.timeTracker) ] "Activities" "stopwatch-outline" )
+                , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools", HA.selected (isPanelOpen viewState.devTools) ] "Dev" "code-working-outline" )
+                ]
     in
     layoutWith elmUIOptions
         [ width fill
-        , htmlAttribute (HA.style "max-height" "100vh")
+
+        -- , htmlAttribute (HA.style "max-height" "100vh")
         ]
     <|
         column [ width fill, height fill ]
-            [ row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-                [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
-                , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
-                , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
-                ]
-            , row [ width fill, height (fillPortion 20), clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
+            [ Element.html <|
+                Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
+                    [ Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
+                    , Ion.Toolbar.title [] [ PlainHtml.text <| SmartTime.Human.Moment.toStandardString env.time ]
+                    ]
+
+            -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
+            -- [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
+            -- , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
+            -- , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
+            -- ]
+            , row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
                 [ html innerStuff ]
-            , row [ width fill ]
-                [ Element.html <|
-                    Ion.Tab.bar [ HA.style "width" "100%" ]
-                        [ Ion.Tab.labeledIconButton [ HA.disabled True ] "Home" "albums-outline"
-                        , Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline"
-                        , Ion.Tab.labeledIconButton [ HA.href "#/projects", HA.selected (isPanelOpen viewState.taskList) ] "Projects" "list-outline"
-                        , Ion.Tab.labeledIconButton [ HA.href "#/timeflow", HA.selected (isPanelOpen viewState.timeflow) ] "Timeflow" "hourglass-outline"
-                        , Ion.Tab.labeledIconButton [ HA.href "#/timetracker", HA.selected (isPanelOpen viewState.timeTracker) ] "Activities" "stopwatch-outline"
-                        , Ion.Tab.labeledIconButton [ HA.href "#/devtools", HA.selected (isPanelOpen viewState.devTools) ] "Dev" "code-working-outline"
-                        ]
-                ]
-            , trackingDisplay replica env.time env.launchTime env.timeZone
+            , Element.html <|
+                Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
+                    [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
+                      tabBar
+                    , trackingDisplay replica env.time env.launchTime env.timeZone
+                    ]
             ]
 
 
@@ -456,29 +471,22 @@ trackingDisplay replica time launchTime timeZone =
                 ++ " for "
                 ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits givenTime ]
     in
-    case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
-        Nothing ->
-            row [ width fill, height (fillPortion 1), Background.color (rgb 1 1 1) ]
-                [ el [] <| text "O"
-                , el [ centerX ] <|
-                    text
-                        (tracking_for_string (Activity.getName currentActivity) timeSinceSession)
-                , Element.html <| Ion.Button.justIcon "stop-circle-outline"
-                ]
-
-        Just currentInstance ->
-            row
-                [ width fill
-                , height (fillPortion 1)
-                , Background.color (rgb 1 1 1)
-                , behindContent
-                    (row [ width fill, height fill ]
-                        [ el [] <| text "O"
-                        , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSession))
-                        ]
-                    )
-                ]
-                [ trackingTaskCompletionSlider currentInstance ]
+    -- row
+    -- [ width fill
+    -- , height (px 30)
+    -- , Background.color (rgb 1 1 1)
+    -- , behindContent
+    --     (row [ width fill, height fill ]
+    --         [ el [] <| text "O"
+    --         , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSession))
+    --         ]
+    --     )
+    -- ]
+    -- [ trackingTaskCompletionSlider currentInstance ]
+    Ion.Toolbar.toolbar []
+        [ Ion.Toolbar.title [] [ PlainHtml.text <| tracking_for_string (Activity.getName currentActivity) timeSinceSession ]
+        , Ion.Button.button [ Ion.Toolbar.placeEnd ] [ Ion.Icon.basic "stop-circle-outline" ]
+        ]
 
 
 trackingTaskCompletionSlider instance =

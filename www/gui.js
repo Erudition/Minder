@@ -1,5 +1,6 @@
 // If this file has .mjs extension, Tasker injection will not work.
 const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
+//const {SplashScreen} = window.Capacitor.Plugins.SplashScreen;
 
 
 // import IPFS from 'ipfs'
@@ -123,9 +124,9 @@ function elmStartedWithoutTasker(app, db) {
 
     //tk.flash("Tasker does not appear to be here!" + tk.global( 'sdk' ))
     // hide the splash screen
-    SplashScreen.hide().catch((err) => {
-        console.log("No Capacitor splash screen to hide.");
-    });
+    // SplashScreen.hide().catch((err) => {
+    //     console.log("No Capacitor splash screen to hide.");
+    // });
 
 
 
