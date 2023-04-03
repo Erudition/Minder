@@ -1,3 +1,7 @@
+import './fixGlobal'
+import {create} from 'ipfs'
+import OrbitDb from 'orbit-db'
+
 const ipfsConfig = {
   preload: { enabled: false }, // Prevents large data transfers
   repo: '/minder/0.0',
@@ -44,19 +48,19 @@ const dbConfig = {
 
 const store = async (name) => {
   // Create IPFS instance
-  const ipfs = await Ipfs.create(ipfsConfig)
+  const ipfs = await create(ipfsConfig)
   // Create an OrbitDB instance
-  const orbitdb = await OrbitDB.createInstance(ipfs)
+  const orbitdb = await OrbitDb.createInstance(ipfs)
   // Open (or create) database
   const db = await orbitdb.log(name, dbConfig)
   // Done
   return db
 }
 
-async function startOrbit() {
+export async function startOrbit() {
   
-  const ipfs = await Ipfs.create(ipfsConfig)
-  const orbitdb = await OrbitDB.createInstance(ipfs)
+  const ipfs = await create(ipfsConfig)
+  const orbitdb = await OrbitDb.createInstance(ipfs)
   
   // Create / Open a database
   const db = await orbitdb.log("minder5", dbConfig)
@@ -85,7 +89,7 @@ async function startOrbit() {
   } )
 
   db.events.on('ready', (dbname, heads) => {
-    console.log("Loaded locally cached database. ", entry);
+    console.log("Loaded locally cached database. ");
   } )
 
   return db;

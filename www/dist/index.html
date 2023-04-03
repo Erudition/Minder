@@ -6,29 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Docket</title>
-    <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="styles/sliders.css">
-    <link rel="stylesheet" href="styles/timetracker.css">
-    <link rel="stylesheet" href="styles/timeline.css">
+    
+    
+    
+    
     <!-- <script src="capacitor.js"></script> -->
     <!-- <script type="application/javascript" src="elm-gui.js"></script> -->
     <!-- <script type="text/javascript" src="tasker-fillers.js"></script> -->
     <!-- <script src="lib/orbitdb.min.js"></script> -->
     <!-- <script src="lib/ipfs.min.js"></script> -->
     <!-- <script src="orbit.js"></script> -->
-    <script type="module" src="index.ts"></script>
+    
     <!-- <script type="application/javascript" src="lib/insQ.min.js"></script> -->
 
-    <!-- <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script> -->
-    <!-- <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script> -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+    <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
 
 
-    <!-- <script async type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script> -->
-    <!-- <script async nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script> -->
+    <script async type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script>
+    <script async nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script>
 
 
     <script>
+        import 'insertion-query';
 
     if('serviceWorker' in navigator) {
     navigator.serviceWorker
@@ -38,8 +39,35 @@
         console.error("Uh oh! No service worker support! :(");
     }
 
+    function clean(node)
+        {
+            for(var n = 0; n < node.childNodes.length; n ++)
+            {
+                var child = node.childNodes[n];
+                if
+                (
+                child.nodeType === 8 
+                || 
+                (child.nodeType === 3 && !/\S/.test(child.nodeValue))
+                )
+                {
+                node.removeChild(child);
+                console.log("removed a superflous node:", child, "from", node);
+                n --;
+                }
+                else if(child.nodeType === 1)
+                {
+                clean(child);
+                }
+            }
+        }
+
+        insertionQ('ion-footer, ion-header').every(function(element){
+            clean(element)
+        });
     </script>
-    <script type="module" src="ionicFixes"></script>
+  <script type="module" crossorigin src="/assets/index-a31bf0bd.js"></script>
+  <link rel="stylesheet" href="/assets/index-1bc3a4b1.css">
 </head>
 
 <body style="cursor: wait; background: no-repeat center center url('media/logos/Minder/alpha\ logo.png') fixed; text-align: center; background-size: auto 30%;">

@@ -1,33 +1,31 @@
-// If this file has .mjs extension, Tasker injection will not work.
-const { Toast, App, SplashScreen, Clipboard, LocalNotifications, Storage } = window.Capacitor.Plugins;
-//const {SplashScreen} = window.Capacitor.Plugins.SplashScreen;
+import './fixGlobal'
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app'
+import { Toast } from '@capacitor/toast'
+import { SplashScreen } from '@capacitor/splash-screen';
+import {Clipboard} from '@capacitor/clipboard'
+import {LocalNotifications} from '@capacitor/local-notifications'
+import {Elm} from '../elm/Main.elm'
+import {startOrbit} from './orbit'
+import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
+import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
 
 
-// import IPFS from 'ipfs'
-// import OrbitDB from 'orbit-db'
+/* Core CSS required for Ionic components to work properly */
+import '@ionic/core/css/core.css';
 
-// (async function () {
-//   const ipfs = await IPFS.create()
-//   const orbitdb = await OrbitDB.createInstance(ipfs)
+/* Basic CSS for apps built with Ionic */
+import '@ionic/core/css/normalize.css';
+import '@ionic/core/css/structure.css';
+import '@ionic/core/css/typography.css';
 
-//   // Create / Open a database
-//   const db = await orbitdb.log("hello")
-//   await db.load()
-
-//   // Listen for updates from peers
-//   db.events.on("replicated", address => {
-//     console.log(db.iterator({ limit: -1 }).collect())
-//   })
-
-//   // Add an entry
-//   const hash = await db.add("world")
-//   console.log(hash)
-
-//   // Query
-//   const result = db.iterator({ limit: -1 }).collect()
-//   console.log(JSON.stringify(result, null, 2))
-// })()
-
+/* Optional CSS utils that can be commented out */
+import '@ionic/core/css/padding.css';
+import '@ionic/core/css/float-elements.css';
+import '@ionic/core/css/text-alignment.css';
+import '@ionic/core/css/text-transformation.css';
+import '@ionic/core/css/flex-utils.css';
+import '@ionic/core/css/display.css';
 
 // Where we save the personal data
 var storagefilename = "Minder/personal-data.json"
@@ -37,19 +35,7 @@ var browserStorageKey = 'docket-v0.2-data';
 
 // START ELM
 async function startElmApp() {
-try { // Errors out if undeclared
-    if (inTasker) {
-        let storedState = tk.readFile(storagefilename);
-        let app = Elm.Main.init(
-            { flags: 
-                { storedRonMaybe : (storedState ? storedState : null)
-                , userFlags : null
-                }
-            }
-            );
-    elmStartedWithTasker(app);
-    }
-} catch (error) { // not inTasker
+
     const db = await startOrbit();
     const dbEntries = db.iterator({ limit: -1 }).collect();
     console.log(JSON.stringify(dbEntries, null, 2));
@@ -81,7 +67,6 @@ try { // Errors out if undeclared
         else
           console.log("Storage may be cleared by the UA under storage pressure.");
       });
-}
 }
 
 startElmApp();
@@ -178,9 +163,13 @@ function elmStartedWithoutTasker(app, db) {
         // (Line breaks are ignored and replaced with spaces)
         let reformatted = data.replace(/(?:\r\n|\r|\n)/g, " — ");
 
-
-        Toast.show({ text: reformatted, duration: '10000'}).then();
+        try {
+          Toast.show({ text: reformatted, duration: '10000'}).then();
         console.log("Toast: "+data)
+        } catch (e) {
+          console.error("Failed to show Toast!", e)
+        }
+        
     });
 
     // const setItem = Storage.set({
@@ -246,10 +235,15 @@ function elmStartedWithoutTasker(app, db) {
 
       app.ports.ns_notify.subscribe(function(notificationList) {
 
-        LocalNotifications.schedule({
-          notifications: notificationList
-        });
-        console.log("Notification: ", notificationList)
+        try {
+          LocalNotifications.schedule({
+            notifications: notificationList
+          });
+          console.log("Notification: ", notificationList)
+        } catch (e) {
+          console.error("Failed to schedule notification(s)!" , e)
+        }
+        
     });
 
 
@@ -312,3 +306,5 @@ function elmStartedWithoutTasker(app, db) {
       };
 
 }
+loadIonicElements(window);
+loadPwaElements(window);

@@ -2,5 +2,17 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/.pnpm/@capacitor+android@4.7.1_@capacitor+core@4.7.1/node_modules/@capacitor/android/capacitor')
 
+include ':capacitor-app'
+project(':capacitor-app').projectDir = new File('../node_modules/.pnpm/@capacitor+app@4.1.1_@capacitor+core@4.7.1/node_modules/@capacitor/app/android')
+
+include ':capacitor-clipboard'
+project(':capacitor-clipboard').projectDir = new File('../node_modules/.pnpm/@capacitor+clipboard@4.1.0_@capacitor+core@4.7.1/node_modules/@capacitor/clipboard/android')
+
+include ':capacitor-local-notifications'
+project(':capacitor-local-notifications').projectDir = new File('../node_modules/.pnpm/@capacitor+local-notifications@4.1.5_@capacitor+core@4.7.1/node_modules/@capacitor/local-notifications/android')
+
 include ':capacitor-splash-screen'
 project(':capacitor-splash-screen').projectDir = new File('../node_modules/.pnpm/@capacitor+splash-screen@4.2.0_@capacitor+core@4.7.1/node_modules/@capacitor/splash-screen/android')
+
+include ':capacitor-toast'
+project(':capacitor-toast').projectDir = new File('../node_modules/.pnpm/@capacitor+toast@4.1.0_@capacitor+core@4.7.1/node_modules/@capacitor/toast/android')
