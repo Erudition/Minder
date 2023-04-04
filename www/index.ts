@@ -1,4 +1,4 @@
-import './fixGlobal'
+// import './fixGlobal'
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app'
 import { Toast } from '@capacitor/toast'

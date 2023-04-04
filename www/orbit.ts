@@ -1,4 +1,4 @@
-import './fixGlobal'
+// import './fixGlobal'
 import {create} from 'ipfs'
 import OrbitDb from 'orbit-db'
 

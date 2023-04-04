@@ -15,9 +15,15 @@ export default defineConfig({
   // configure our build
   build: {
     // file path for the build output directory
-    outDir: "dist",
+    outDir: "../dist",
     // esbuild target
     target: "es2020"
   },
-  root: "www/"
+  root: "www/",
+  optimizeDeps: {
+    exclude: [
+        '@ionic/core/loader' //fix weird Vite error "outdated optimize dep"
+    ],
+    force: true
+  }
 })
