@@ -62,14 +62,10 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         id: baseurl
         run: |
-          if [ "${{ github.ref_name }}" == "master" ]; then
-            full="${{ env.PAGES_BASE }}"
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            full="${{ env.PAGES_BASE }}/pr/${{ github.event.number }}"
           else
-            if [ "${{ github.event_name }}" == "pull_request_target" ]; then
-              full="${{ env.PAGES_BASE }}/with-pr/${{ github.event.number }}"
-            else
-              full="${{ env.PAGES_BASE }}/${{ github.ref_name }}"
-            fi
+            full="${{ env.PAGES_BASE }}/branch/${{ github.ref_name }}"
           fi
           relative=/$(echo $full | cut -d/ -f4-)
           echo "full=$full" >> $GITHUB_OUTPUT
@@ -87,7 +83,7 @@ jobs:
       # This will trigger the action. Make sure to change the build_dir input to the correct directory
       - uses: EndBug/pages-preview@v1
         with:
-          build_dir: www
+          build_dir: dist
           preview_base_url: ${{ env.PAGES_BASE }}
           preview_repo: ${{ env.PREVIEW_REPO }}
           preview_token: ${{ secrets.PREVIEW_TOKEN }}
