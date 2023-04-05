@@ -41,7 +41,8 @@ export default defineConfig({
     // file path for the build output directory
     outDir: "../dist",
     // esbuild target
-    target: "es2020"
+    target: "es2020",
+    sourcemap: true
   },
   root: "www/",
   optimizeDeps: {

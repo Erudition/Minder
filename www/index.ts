@@ -37,11 +37,15 @@ var browserStorageKey = 'docket-v0.2-data';
 // START ELM
 async function startElmApp() {
 
-    const db = await startOrbit();
-    const dbEntries = db.iterator({ limit: -1 }).collect();
-    console.log(JSON.stringify(dbEntries, null, 2));
-    const currentlyStored = dbEntries.map((e) => e.payload.value).join('\n');
-    //const currentlyStored = localStorage.getItem(browserStorageKey);
+    var currentlyStored: string | null = null;
+    try {
+      const db = await startOrbit();
+      const dbEntries = db.iterator({ limit: -1 }).collect();
+      console.log(JSON.stringify(dbEntries, null, 2));
+      currentlyStored = dbEntries.map((e) => e.payload.value).join('\n');
+    } catch (e) {
+      currentlyStored = localStorage.getItem(browserStorageKey);
+    }
 
 
     let app = Elm.Main.init({ flags: 
