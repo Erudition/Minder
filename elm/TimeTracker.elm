@@ -41,6 +41,7 @@ import Time
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
 import Url.Parser.Query as PQ
 import VirtualDom
+import VitePluginHelper
 
 
 
@@ -165,7 +166,7 @@ viewIcon getIcon =
         File svgPath ->
             img
                 [ class "activity-icon"
-                , src ("media/icons/" ++ svgPath)
+                , src (VitePluginHelper.asset <| "/media/icons/" ++ svgPath)
                 , css [ Css.float left ]
                 ]
                 []
