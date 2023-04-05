@@ -76,7 +76,7 @@ jobs:
       # This example assumes you're using React, and that you're using the PUBLIC_URL env variable
       - name: Build
         if: ${{ github.event.action != 'closed' }}
-        run: vite build --base=${{ steps.baseurl.outputs.relative }}
+        run: pnpm run build-ci --base=${{ steps.baseurl.outputs.relative }}
         env:
           PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
 
