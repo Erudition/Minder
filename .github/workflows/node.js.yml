@@ -63,9 +63,9 @@ jobs:
         id: baseurl
         run: |
           if [ "${{ github.event_name }}" == "pull_request_target" ]; then
-            full="${{ env.PAGES_BASE }}/pr/${{ github.event.number }}"
+            full="${{ env.PAGES_BASE }}/${{ github.repository }}/pr/${{ github.event.number }}"
           else
-            full="${{ env.PAGES_BASE }}/branch/${{ github.ref_name }}"
+            full="${{ env.PAGES_BASE }}/${{ github.repository }}/branch/${{ github.ref_name }}"
           fi
           relative=/$(echo $full | cut -d/ -f4-)
           echo "full=$full" >> $GITHUB_OUTPUT
@@ -76,7 +76,7 @@ jobs:
       # This example assumes you're using React, and that you're using the PUBLIC_URL env variable
       - name: Build
         if: ${{ github.event.action != 'closed' }}
-        run: pnpm run build-ci
+        run: pnpm run build-ci -- --base=${{ steps.baseurl.outputs.relative }}
         env:
           PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
 
