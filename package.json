@@ -54,7 +54,6 @@
     "@nativescript/geolocation": "^8.1.0",
     "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
     "@triniwiz/nativescript-toasty": "^4.1.3",
-    "@types/orbit-db": "github:orbitdb/orbit-db-types",
     "circular-dependency-plugin": "^5.2.2",
     "elm-native-js": "^1.0.3",
     "elm-test": "0.19.1-revision9",
@@ -84,7 +83,8 @@
     "typescript": "^5.0.3",
     "vite": "^4.2.1",
     "vite-plugin-elm": "^2.7.2",
-    "vite-plugin-node-polyfills": "^0.7.0"
+    "vite-plugin-node-polyfills": "^0.7.0",
+    "@types/orbit-db": "github:orbitdb/orbit-db-types"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder",
