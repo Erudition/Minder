@@ -52,6 +52,9 @@ dependencies:
   '@triniwiz/nativescript-toasty':
     specifier: ^4.1.3
     version: 4.1.3
+  '@types/orbit-db':
+    specifier: github:orbitdb/orbit-db-types
+    version: github.com/orbitdb/orbit-db-types/ed41369e64c054952c1e47505d598342a4967d4c(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)
   circular-dependency-plugin:
     specifier: ^5.2.2
     version: 5.2.2(webpack@5.77.0)
@@ -3653,6 +3656,12 @@ packages:
   /@tsconfig/node16@1.0.3:
     resolution: {integrity: sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==}
 
+  /@types/bn.js@5.1.1:
+    resolution: {integrity: sha512-qNrYbZqMx0uJAfKnKclPh+dTwK33KfLHYqtyODwd5HnXOjnkhc4qgn3BrK6RWyGZm5+sIFE7Q7Vz6QQtJB7w7g==}
+    dependencies:
+      '@types/node': 18.15.11
+    dev: false
+
   /@types/cacheable-request@6.0.3:
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
     dependencies:
@@ -3684,6 +3693,12 @@ packages:
       '@types/node': 18.15.11
     dev: false
 
+  /@types/elliptic@6.4.14:
+    resolution: {integrity: sha512-z4OBcDAU0GVwDTuwJzQCiL6188QvZMkvoERgcVjq0/mPM8jCfdwZ3x5zQEVoL9WCAru3aG5wl3Z5Ww5wBWn7ZQ==}
+    dependencies:
+      '@types/bn.js': 5.1.1
+    dev: false
+
   /@types/eslint-scope@3.7.4:
     resolution: {integrity: sha512-9K4zoImiZc3HlIp6AVUDE4CWYx22a+lhSZMYNpbjW04+YF0KWj4pJXnEMjdnFTiQibFFmElcsasJXDbdI/EPhA==}
     dependencies:
@@ -3702,6 +3717,10 @@ packages:
   /@types/estree@1.0.0:
     resolution: {integrity: sha512-WulqXMDUTYAXCjZnk6JtIHPigp55cVtDgDrO2gHRwhyJto21+1zbVCtOYB2L1F9w4qCQ0rOGWBnBe0FNTiEJIQ==}
     dev: true
+
+  /@types/events@1.2.0:
+    resolution: {integrity: sha512-KEIlhXnIutzKwRbQkGWb/I4HFqBuUykAdHgDED6xqwXJfONCjF5VoE0cXEiurh3XauygxzeDzgtXUqvLkxFzzA==}
+    dev: false
 
   /@types/form-data@0.0.33:
     resolution: {integrity: sha512-8BSvG1kGm83cyJITQMZSulnl6QV8jqAGreJsc5tPu1Jq0vTSOiY/k24Wx82JRpWwZSqrala6sd5rWi6aNXvqcw==}
@@ -15807,4 +15826,56 @@ packages:
     version: 0.2.0
     dependencies:
       big-integer: 1.6.51
+    dev: false
+
+  github.com/lukas2005/types-ipfs/fb4bd2c5780810b8355356f2f683064008b60053:
+    resolution: {commit: fb4bd2c5780810b8355356f2f683064008b60053, repo: git+ssh://git@github.com/lukas2005/types-ipfs.git, type: git}
+    name: '@types/ipfs'
+    version: 0.23.6
+    dev: false
+
+  github.com/orbitdb/orbit-db-types/ed41369e64c054952c1e47505d598342a4967d4c(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0):
+    resolution: {tarball: https://codeload.github.com/orbitdb/orbit-db-types/tar.gz/ed41369e64c054952c1e47505d598342a4967d4c}
+    id: github.com/orbitdb/orbit-db-types/ed41369e64c054952c1e47505d598342a4967d4c
+    name: '@types/orbit-db'
+    version: 1.0.1
+    dependencies:
+      '@types/elliptic': 6.4.14
+      '@types/events': 1.2.0
+      '@types/ipfs': github.com/lukas2005/types-ipfs/fb4bd2c5780810b8355356f2f683064008b60053
+      orbit-db: github.com/orbitdb/orbit-db/a7cea4945bff649fc77ec3202d76bb9e52820d06(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)
+    transitivePeerDependencies:
+      - go-ipfs
+      - ipfs
+      - ipfsd-ctl
+    dev: false
+
+  github.com/orbitdb/orbit-db/a7cea4945bff649fc77ec3202d76bb9e52820d06(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0):
+    resolution: {tarball: https://codeload.github.com/orbitdb/orbit-db/tar.gz/a7cea4945bff649fc77ec3202d76bb9e52820d06}
+    id: github.com/orbitdb/orbit-db/a7cea4945bff649fc77ec3202d76bb9e52820d06
+    name: orbit-db
+    version: 0.29.0
+    engines: {node: '>=16.0.0'}
+    dependencies:
+      ipfs-pubsub-1on1: 0.1.0
+      is-node: 1.0.2
+      logplease: 1.2.15
+      orbit-db-access-controllers: 0.4.0(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)
+      orbit-db-cache: 0.5.0
+      orbit-db-counterstore: 2.0.0(orbit-db-store@5.0.0)
+      orbit-db-docstore: 2.0.0(orbit-db-store@5.0.0)
+      orbit-db-eventstore: 2.0.0(orbit-db-store@5.0.0)
+      orbit-db-feedstore: 2.0.0(orbit-db-store@5.0.0)
+      orbit-db-identity-provider: 0.5.0
+      orbit-db-io: 3.0.0(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)
+      orbit-db-keystore: 2.0.0
+      orbit-db-kvstore: 2.0.0(orbit-db-store@5.0.0)
+      orbit-db-pubsub: 0.7.0
+      orbit-db-storage-adapter: 0.9.0
+      orbit-db-store: 5.0.0(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)(orbit-db-io@3.0.0)
+      wherearewe: 2.0.1
+    transitivePeerDependencies:
+      - go-ipfs
+      - ipfs
+      - ipfsd-ctl
     dev: false
