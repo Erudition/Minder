@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
-        run: pnpm install --prod
+        run: pnpm install
 
       # This will calculate the base URL for the website, based on the event that triggered the workflow.
       # Leave this step as it is, unless you know what you're doing.
@@ -76,7 +76,7 @@ jobs:
       # This example assumes you're using React, and that you're using the PUBLIC_URL env variable
       - name: Build
         if: ${{ github.event.action != 'closed' }}
-        run: pnpm run build
+        run: pnpm run build-ci
         env:
           PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
 
