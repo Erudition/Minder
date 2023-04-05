@@ -9,6 +9,7 @@ import {Elm} from '../elm/Main.elm'
 import {startOrbit} from './orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
 import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
+import './ionicFixes'
 
 
 /* Core CSS required for Ionic components to work properly */

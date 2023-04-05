@@ -58,6 +58,7 @@
     "circular-dependency-plugin": "^5.2.2",
     "elm-native-js": "^1.0.3",
     "elm-test": "0.19.1-revision9",
+    "elm-tooling": "^1.13.1",
     "elm-webpack-loader": "^8.0.0",
     "esbuild": "^0.17.15",
     "insertion-query": "^1.1.0",
@@ -70,8 +71,7 @@
     "nativescript-theme-core": "^1.0.6",
     "nativescript-wear-os": "link:customized-node-modules/nativescript-wear-os",
     "orbit-db": "^0.29.0",
-    "pnpm": "^8",
-    "elm-tooling": "^1.13.1"
+    "pnpm": "^8"
   },
   "devDependencies": {
     "@capacitor/cli": "^4.7.3",
@@ -84,7 +84,8 @@
     "typescript": "^5.0.3",
     "vite": "^4.2.1",
     "vite-plugin-elm": "^2.7.2",
-    "vite-plugin-node-polyfills": "^0.7.0"
+    "vite-plugin-node-polyfills": "^0.7.0",
+    "vite-plugin-pwa": "^0.14.7"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder",

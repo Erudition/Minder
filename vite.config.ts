@@ -2,11 +2,14 @@ import { defineConfig } from 'vite'
 import elmPlugin from "vite-plugin-elm"
 
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { VitePWA } from 'vite-plugin-pwa'
 
 
 export default defineConfig({
   // identify what plugins we want to use
-  plugins: [elmPlugin({debug: true}),
+  plugins: [
+    VitePWA({ registerType: 'autoUpdate' }),
+    elmPlugin({debug: true}),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
         protocolImports: true,

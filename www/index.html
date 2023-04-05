@@ -24,19 +24,6 @@
     <!-- <script async type="module" src="https://unpkg.com/@ionic/pwa-elements@1.2.7/dist/ionicpwaelements/ionicpwaelements.esm.js"></script> -->
     <!-- <script async nomodule src="https://unpkg.com/@ionic/pwa-elements@latest/dist/ionicpwaelements/ionicpwaelements.js"></script> -->
 
-
-    <script>
-
-    if('serviceWorker' in navigator) {
-    navigator.serviceWorker
-            .register('./sw.js')
-            .then(function() { console.log("Service Worker Registered!"); });
-    } else {
-        console.error("Uh oh! No service worker support! :(");
-    }
-
-    </script>
-    <script type="module" src="ionicFixes"></script>
 </head>
 
 <body style="cursor: wait; background: no-repeat center center url('media/logos/Minder/alpha\ logo.png') fixed; text-align: center; background-size: auto 30%;">
