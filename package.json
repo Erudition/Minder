@@ -79,7 +79,6 @@
     "@nativescript/android": "^8.5.0",
     "@nativescript/types": "^8.5.0",
     "@nativescript/webpack": "~5.0.14",
-    "@types/orbit-db": "github:orbitdb/orbit-db-types",
     "elm-live": "^4.0.2",
     "elm-tooling": "^1.13.1",
     "typescript": "^5.0.3",
