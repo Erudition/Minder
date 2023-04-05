@@ -83,8 +83,7 @@
     "typescript": "^5.0.3",
     "vite": "^4.2.1",
     "vite-plugin-elm": "^2.7.2",
-    "vite-plugin-node-polyfills": "^0.7.0",
-    "@types/orbit-db": "github:orbitdb/orbit-db-types"
+    "vite-plugin-node-polyfills": "^0.7.0"
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder",
