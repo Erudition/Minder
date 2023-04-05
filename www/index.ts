@@ -72,38 +72,38 @@ async function startElmApp() {
 
 startElmApp();
 
-function elmStartedWithTasker(app) {
+// function elmStartedWithTasker(app) {
 
-    tk.flash("Welcome to Tasker in the GUI!")
+//     tk.flash("Welcome to Tasker in the GUI!")
 
-    // SET STORAGE
-    app.ports.setStorage.subscribe(function(data) {
-        tk.writeFile(storagefilename,data,false)
-    });
-
-
-    // FLASH OR TOAST
-    app.ports.flash.subscribe(function(data) {
-        tk.flash(data)
-    });
+//     // SET STORAGE
+//     app.ports.setStorage.subscribe(function(data) {
+//         tk.writeFile(storagefilename,data,false)
+//     });
 
 
-    // TASKER VARIABLE OUT
-    app.ports.variableOut.subscribe(function(data) {
-          if (data[0].toLower == data[0])
-            tk.setLocal(data[0], data[1]);
-          else
-            tk.setGlobal(data[0], data[1]);
-    });
+//     // FLASH OR TOAST
+//     app.ports.flash.subscribe(function(data) {
+//         tk.flash(data)
+//     });
 
-    // TASKER STOP EXECUTING
-    app.ports.exit.subscribe(function(data) {
 
-        // Must be in this exact form for some reason:
-        setTimeout(() => tk.flash("Trying to hide the window" + tk.hideScene("Docket")), 100);
-    });
+//     // TASKER VARIABLE OUT
+//     app.ports.variableOut.subscribe(function(data) {
+//           if (data[0].toLower == data[0])
+//             tk.setLocal(data[0], data[1]);
+//           else
+//             tk.setGlobal(data[0], data[1]);
+//     });
 
-}
+//     // TASKER STOP EXECUTING
+//     app.ports.exit.subscribe(function(data) {
+
+//         // Must be in this exact form for some reason:
+//         setTimeout(() => tk.flash("Trying to hide the window" + tk.hideScene("Docket")), 100);
+//     });
+
+// }
 
 
 function elmStartedWithoutTasker(app, db) {
@@ -165,7 +165,7 @@ function elmStartedWithoutTasker(app, db) {
         let reformatted = data.replace(/(?:\r\n|\r|\n)/g, " — ");
 
         try {
-          Toast.show({ text: reformatted, duration: '10000'}).then();
+          Toast.show({ text: reformatted, duration: "short"}).then();
         console.log("Toast: "+data)
         } catch (e) {
           console.error("Failed to show Toast!", e)
@@ -301,7 +301,7 @@ function elmStartedWithoutTasker(app, db) {
       });
       
       const checkAppLaunchUrl = async () => {
-        const { url } = await App.getLaunchUrl();
+        const url = await App.getLaunchUrl();
       
         console.log('App opened with URL: ' + url);
       };

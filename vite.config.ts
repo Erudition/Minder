@@ -9,6 +9,7 @@ export default defineConfig({
   // identify what plugins we want to use
   plugins: [
     VitePWA({ registerType: 'autoUpdate',
+        devOptions: {enabled: true},
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         manifest: {
           name: 'Minder Prototype',
@@ -17,12 +18,12 @@ export default defineConfig({
           theme_color: '#ffffff',
           icons: [
             {
-              src: 'pwa-192x192.png',
+              src: 'android-chrome-192x192.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'pwa-512x512.png',
+              src: 'android-chrome-512x512.png',
               sizes: '512x512',
               type: 'image/png'
             }
@@ -49,5 +50,4 @@ export default defineConfig({
     ],
     force: true
   },
-  server: {port: 8000}
 })

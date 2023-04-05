@@ -166,7 +166,7 @@ viewIcon getIcon =
         File svgPath ->
             img
                 [ class "activity-icon"
-                , src (VitePluginHelper.asset <| "/media/icons/" ++ svgPath)
+                , src ("/media/icons/" ++ svgPath)
                 , css [ Css.float left ]
                 ]
                 []
