@@ -8,7 +8,27 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // identify what plugins we want to use
   plugins: [
-    VitePWA({ registerType: 'autoUpdate' }),
+    VitePWA({ registerType: 'autoUpdate',
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        manifest: {
+          name: 'Minder Prototype',
+          short_name: 'Minder',
+          description: 'Mental Assistant',
+          theme_color: '#ffffff',
+          icons: [
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            }
+          ]
+        }
+    }),
     elmPlugin({debug: true}),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
@@ -28,5 +48,6 @@ export default defineConfig({
         '@ionic/core/loader' //fix weird Vite error "outdated optimize dep"
     ],
     force: true
-  }
+  },
+  server: {port: 8000}
 })
