@@ -89,7 +89,7 @@ export async function startOrbit() {
   } )
 
   db.events.on('ready', (dbname, heads) => {
-    console.log("Loaded locally cached database. ");
+    console.log("Loaded locally cached database ", dbname);
   } )
 
   return db;

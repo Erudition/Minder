@@ -9,7 +9,7 @@ export default defineConfig({
   // identify what plugins we want to use
   plugins: [
     VitePWA({ registerType: 'autoUpdate',
-        devOptions: {enabled: true},
+        //devOptions: {enabled: true},
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         manifest: {
           name: 'Minder Prototype',
@@ -42,12 +42,25 @@ export default defineConfig({
     outDir: "../dist",
     // esbuild target
     target: "es2020",
-    sourcemap: true
+    sourcemap: true,
+    // rollupOptions: { // trick to try to avoid OOM in CI
+    // currently just raising node ram limit
+    // https://github.com/vitejs/vite/issues/2433
+    //   maxParallelFileOps: 2,
+    //   output: {
+    //     sourcemap: true,
+    //     manualChunks: (id) => { //don't sourcemap node_modules?
+    //      if (id.includes('node_modules')) {
+    //         return 'vendor';
+    //       }
+    //     },
+    // }
   },
   root: "www/",
   optimizeDeps: {
     exclude: [
-        '@ionic/core/loader' //fix weird Vite error "outdated optimize dep"
+        '@ionic/core/loader', //fix weird Vite error "outdated optimize dep"
+        '@ionic/pwa-elements/loader' // same
     ],
     force: true
   },
