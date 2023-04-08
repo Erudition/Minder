@@ -27,6 +27,7 @@ jobs:
     env:
       PREVIEW_REPO: Erudition/minder-preview
       PAGES_BASE: https://erudition.github.io/minder-preview
+      NODE_OPTIONS: --max-old-space-size=32768
 
     steps:
       - name: Checkout branch
