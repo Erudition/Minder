@@ -413,7 +413,7 @@ globalLayout viewState replica env innerStuff =
                 [ HA.style "width" "100%" ]
                 [ ( "home-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Home" "albums-outline" )
                 , ( "cares-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline" )
-                , ( "projects-tab-button", PlainHtml.node "ion-tab-button" [ HA.href "#/projects", HA.selected (isPanelOpen viewState.taskList) ] [ PlainHtml.node "ion-label" [] [ PlainHtml.text "Projects" ] ] )
+                , ( "projects-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/projects", HA.selected (isPanelOpen viewState.taskList) ] "Projects" "list-outline" )
                 , ( "timeflow-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/timeflow", HA.selected (isPanelOpen viewState.timeflow) ] "Timeflow" "hourglass-outline" )
                 , ( "timetracker-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/timetracker", HA.selected (isPanelOpen viewState.timeTracker) ] "Activities" "stopwatch-outline" )
                 , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools", HA.selected (isPanelOpen viewState.devTools) ] "Dev" "code-working-outline" )

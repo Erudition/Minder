@@ -46,6 +46,7 @@ export default defineConfig({
     // esbuild target
     target: "es2020",
     sourcemap: true,
+    emptyOutDir: true,
     // rollupOptions: { // trick to try to avoid OOM in CI
     // currently just raising node ram limit
     // https://github.com/vitejs/vite/issues/2433
