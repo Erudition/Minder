@@ -1,13 +1,12 @@
-// import './fixGlobal'
 import {create} from 'ipfs'
 import OrbitDb from 'orbit-db'
+
+// if (globalThis && globalThis.process && globalThis.process.env)
+// 	globalThis.process.env.LIBP2P_FORCE_PNET = false;
 
 const ipfsConfig = {
   preload: { enabled: false }, // Prevents large data transfers
   repo: '/minder/0.0',
-  EXPERIMENTAL: {
-    pubsub: true,
-  },
   config: {
     Addresses: {
       Swarm: [

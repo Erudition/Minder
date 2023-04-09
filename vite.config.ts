@@ -7,6 +7,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   // identify what plugins we want to use
+  resolve: {
+    alias: {
+      fs: ""
+    }
+  },
   plugins: [
     // VitePWA({ registerType: 'autoUpdate',
     //     //devOptions: {enabled: true},
@@ -33,10 +38,10 @@ export default defineConfig({
     //       ]
     //     }
     // }),
-    elmPlugin({debug: true}),
+    elmPlugin({debug: false, optimize: false} ),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
-        protocolImports: true,
+        protocolImports: false,
       }),
     ],
   // configure our build

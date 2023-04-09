@@ -1,4 +1,3 @@
-// import './fixGlobal'
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app'
 import { Toast } from '@capacitor/toast'
@@ -153,3 +152,4 @@ async function attachOrbit(elmApp) {
       console.log("New frames from peer @", address, "Progress is ", progress)
     })
 }
+window["attachOrbit"] = attachOrbit;
