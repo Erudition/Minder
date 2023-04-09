@@ -1,5 +1,10 @@
 lockfileVersion: '6.0'
 
+patchedDependencies:
+  orbit-db-storage-adapter@0.9.0:
+    hash: tx7rl4nryxk7u4geoy4mwey7fa
+    path: patches/orbit-db-storage-adapter@0.9.0.patch
+
 dependencies:
   '@capacitor/android':
     specifier: ^4.7.3
@@ -12939,12 +12944,13 @@ packages:
       p-series: 1.1.0
     dev: false
 
-  /orbit-db-storage-adapter@0.9.0:
+  /orbit-db-storage-adapter@0.9.0(patch_hash=tx7rl4nryxk7u4geoy4mwey7fa):
     resolution: {integrity: sha512-WFZsJVbdeiDBxkXnpLv8p8MPs+0kyk5XwPu6y+F+hRNwvzZ4h5L0bqjbqtKbs5ljAW3GVe+HPP59bUZdBiESqw==}
     dependencies:
       level: 8.0.0
       mkdirp: 2.1.6
     dev: false
+    patched: true
 
   /orbit-db-store@5.0.0(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)(orbit-db-io@3.0.0):
     resolution: {integrity: sha512-TQPlXke156gwPG5yLgICNHpn8NrnwoBV4YmENLF0w9T8jb/I2HzQu6WFu+HEbBgI/Ee2CGO7kjNGUS1JuA6EGQ==}
@@ -12984,7 +12990,7 @@ packages:
       orbit-db-keystore: 2.0.0
       orbit-db-kvstore: 2.0.0(orbit-db-store@5.0.0)
       orbit-db-pubsub: 0.7.0
-      orbit-db-storage-adapter: 0.9.0
+      orbit-db-storage-adapter: 0.9.0(patch_hash=tx7rl4nryxk7u4geoy4mwey7fa)
       orbit-db-store: 5.0.0(go-ipfs@0.19.0)(ipfs@0.66.0)(ipfsd-ctl@13.0.0)(orbit-db-io@3.0.0)
       wherearewe: 2.0.1
     transitivePeerDependencies:

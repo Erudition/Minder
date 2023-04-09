@@ -9,7 +9,7 @@ export default defineConfig({
   // identify what plugins we want to use
   resolve: {
     alias: {
-      fs: ""
+      fs: "fs"
     }
   },
   plugins: [
