@@ -429,7 +429,6 @@ globalLayout viewState replica env innerStuff =
             [ Element.html <|
                 Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
                     [ Ion.Toolbar.title [] [ PlainHtml.text <| SmartTime.Human.Moment.toStandardString env.time ]
-                    , PlainHtml.a [ HA.href "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/" ] [ PlainHtml.text "Update" ]
                     ]
 
             -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]

@@ -7,6 +7,7 @@ import {LocalNotifications} from '@capacitor/local-notifications'
 import {Elm} from '../elm/Main.elm'
 import {startOrbit} from './orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
+import { detectDarkMode, toggleDarkTheme } from './darkMode';
 //import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
 import './ionicFixes'
 
@@ -101,6 +102,7 @@ function elmStarted(app) {
 
       App.addListener('appStateChange', ({ isActive }) => {
         console.log('App state changed. Is active?', isActive);
+        //detectDarkMode();
       });
       
       App.addListener('appUrlOpen', data => {
@@ -127,6 +129,7 @@ function elmStarted(app) {
 }
 //loadIonicElements(window);
 loadPwaElements(window);
+detectDarkMode();
 
 
 async function attachOrbit(elmApp) {
