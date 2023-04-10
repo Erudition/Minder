@@ -75,7 +75,7 @@ function elmStarted(app) {
 
         try {
           Toast.show({ text: reformatted, duration: "short"}).then();
-        console.log("Toast: "+data)
+        //console.log("Toast: "+data)
         } catch (e) {
           console.error("Failed to show Toast!", e)
         }
@@ -152,4 +152,3 @@ async function attachOrbit(elmApp) {
       console.log("New frames from peer @", address, "Progress is ", progress)
     })
 }
-window["attachOrbit"] = attachOrbit;

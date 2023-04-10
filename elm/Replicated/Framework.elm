@@ -20,7 +20,7 @@ import Url exposing (Url)
 
 
 testMode =
-    True
+    False
 
 
 type alias Program userFlags userReplica temp userMsg =
