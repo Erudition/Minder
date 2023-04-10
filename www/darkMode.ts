@@ -1,16 +1,18 @@
 
 export function detectDarkMode() {
     // Use matchMedia to check the user preference
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-
-toggleDarkTheme(prefersDark.matches);
+const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
+console.log("Prefers light theme?", prefersLight)
+toggleDarkTheme(!prefersLight.matches);
 
 // Listen for changes to the prefers-color-scheme media query
-prefersDark.addListener((mediaQuery) => toggleDarkTheme(mediaQuery.matches));
+prefersLight.addListener((mediaQuery) => toggleDarkTheme(!mediaQuery.matches));
 }
 
 
 // Add or remove the "dark" class based on if the media query matches
 export function toggleDarkTheme(shouldAdd) {
-  document.getElementsByTagName("ion-app")[0].classList.toggle('dark', shouldAdd);
+  const ionApp = document.getElementById("ion-app");
+  if (ionApp) {ionApp.classList.toggle('dark', shouldAdd);} else {console.error("can't find #ion-app for dark mode")}
 }
+globalThis.toggleDarkTheme = (darkBool) => toggleDarkTheme(darkBool);

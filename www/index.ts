@@ -40,7 +40,7 @@ async function startElmApp() {
 
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : (null) 
-        , userFlags : null
+        , userFlags : {darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches}
         }
     });
     elmStarted(app);
@@ -49,7 +49,7 @@ async function startElmApp() {
 startElmApp();
 
 function elmStarted(app) {
-
+  
     // hide the splash screen
     SplashScreen.hide().catch((err) => {
         console.log("No Capacitor splash screen to hide.");
@@ -128,7 +128,7 @@ function elmStarted(app) {
 }
 //loadIonicElements(window);
 loadPwaElements(window);
-detectDarkMode();
+
 
 
 async function attachOrbit(elmApp) {

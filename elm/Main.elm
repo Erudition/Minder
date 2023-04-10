@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), StoredRON, Temp, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
+port module Main exposing (Flags, Model, Msg(..), StoredRON, Temp, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
 import Activity.Session as Session exposing (Session(..))
@@ -52,6 +52,8 @@ import Replicated.Op.OpID
 import Replicated.Reducer.RepDb as RepDb
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration
+import SmartTime.Human.Calendar
+import SmartTime.Human.Clock
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment
 import SmartTime.Moment as Moment
@@ -66,7 +68,7 @@ import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
 
 
-main : Framework.Program () Profile Temp Msg
+main : Framework.Program Flags Profile Temp Msg
 main =
     Framework.browserApplication
         { init = initGraphical
@@ -154,13 +156,17 @@ type alias StoredRON =
     String
 
 
-initGraphical : Url.Url -> Nav.Key -> () -> Profile -> ( List Frame, Temp, Cmd Msg )
+type alias Flags =
+    { darkTheme : Bool }
+
+
+initGraphical : Url.Url -> Nav.Key -> Flags -> Profile -> ( List Frame, Temp, Cmd Msg )
 initGraphical url key flags =
-    init url (Just key)
+    init url (Just key) flags
 
 
-init : Url.Url -> Maybe Nav.Key -> Profile -> ( List Frame, Temp, Cmd Msg )
-init url maybeKey replica =
+init : Url.Url -> Maybe Nav.Key -> Flags -> Profile -> ( List Frame, Temp, Cmd Msg )
+init url maybeKey flags replica =
     let
         cmdsFromUrl =
             handleUrlTriggers url replica initialTemp
@@ -176,6 +182,7 @@ init url maybeKey replica =
             , viewportSize = { width = 0, height = 0 }
             , viewportSizeClass = Element.Phone
             , windowVisibility = Browser.Events.Visible
+            , darkTheme = flags.darkTheme
             }
 
         initNotif =
@@ -188,10 +195,13 @@ init url maybeKey replica =
         setViewport : Viewport -> Msg
         setViewport newViewport =
             ResizeViewport (truncate newViewport.viewport.width) (truncate newViewport.viewport.height)
+
+        getTimeZone =
+            Job.perform NewTimeZone SmartTime.Human.Moment.localZone
     in
     ( []
     , initialTemp
-    , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif, getViewport ]
+    , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif, getViewport, getTimeZone ]
     )
 
 
@@ -213,6 +223,7 @@ type alias Temp =
     , viewportSize : { width : Int, height : Int }
     , viewportSizeClass : Element.DeviceClass
     , windowVisibility : Browser.Events.Visibility
+    , darkTheme : Bool
     }
 
 
@@ -315,7 +326,7 @@ view { replica, temp } =
     in
     { title = finalTitle
     , body =
-        [ Ion.App.appWithAttributes [ HA.class "dark" ] [ globalLayout temp.viewState replica temp.environment withinPage ] ]
+        [ globalLayout temp replica withinPage ]
     }
 
 
@@ -366,9 +377,15 @@ getPanelViewState panel default =
             ( default, FullScreen )
 
 
-globalLayout : ViewState -> Profile -> Environment -> PlainHtml.Html Msg -> PlainHtml.Html Msg
-globalLayout viewState replica env innerStuff =
+globalLayout : Temp -> Profile -> PlainHtml.Html Msg -> PlainHtml.Html Msg
+globalLayout temp replica innerStuff =
     let
+        env =
+            temp.environment
+
+        viewState =
+            temp.viewState
+
         elmUIOptions =
             { options = [] }
 
@@ -418,33 +435,44 @@ globalLayout viewState replica env innerStuff =
                 , ( "timetracker-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/timetracker", HA.selected (isPanelOpen viewState.timeTracker) ] "Activities" "stopwatch-outline" )
                 , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools", HA.selected (isPanelOpen viewState.devTools) ] "Dev" "code-working-outline" )
                 ]
+
+        formattedTime =
+            let
+                ( calendarDate, timeOfDay ) =
+                    SmartTime.Human.Moment.humanize env.timeZone env.time
+            in
+            String.concat
+                [ SmartTime.Human.Calendar.toStandardString calendarDate
+                , " @ "
+                , SmartTime.Human.Clock.toStandardString timeOfDay
+                ]
     in
-    layoutWith elmUIOptions
-        [ width fill
-
-        -- , htmlAttribute (HA.style "max-height" "100vh")
-        ]
-    <|
-        column [ width fill, height fill ]
-            [ Element.html <|
-                Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
-                    [ Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
-                    ]
-
-            -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-            -- [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
-            -- , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
-            -- , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
-            -- ]
-            , row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
-                [ html innerStuff ]
-            , Element.html <|
-                Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
-                    [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
-                      tabBar
-                    , trackingDisplay replica env.time env.launchTime env.timeZone
-                    ]
+    Ion.App.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ] ]
+        [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
+            [ Ion.Toolbar.toolbar []
+                [ Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
+                , Ion.Toolbar.title [] [ PlainHtml.text formattedTime ]
+                , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
+                    [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ] ]
+                , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
+                    [ Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ] ]
+                ]
             ]
+
+        -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
+        -- [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
+        -- , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
+        -- , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
+        -- ]
+        --, row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
+        --    [  html innerStuff ]
+        , PlainHtml.node "ion-content" [ HA.id "page-viewport", HA.style "height" "80vh", HA.style "overflow-y" "scroll", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
+        , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
+            [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
+              tabBar
+            , trackingDisplay replica env.time env.launchTime env.timeZone
+            ]
+        ]
 
 
 trackingDisplay replica time launchTime timeZone =
@@ -641,6 +669,8 @@ type Msg
     | MouseMoved Bool Float
     | ResizeViewport Int Int
     | VisibilityChanged Browser.Events.Visibility
+    | NewTimeZone SmartTime.Human.Moment.Zone
+    | ToggleDarkTheme Bool
 
 
 type ThirdPartyService
@@ -679,6 +709,9 @@ update msg { temp, replica, now } =
             ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        NewTimeZone zone ->
+            justSetEnv { environment | timeZone = zone }
+
         ResizeViewport newWidth newHeight ->
             ( []
             , { newTemp | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
@@ -688,6 +721,12 @@ update msg { temp, replica, now } =
         VisibilityChanged newVisibility ->
             ( []
             , { newTemp | windowVisibility = newVisibility }
+            , Cmd.none
+            )
+
+        ToggleDarkTheme isDark ->
+            ( []
+            , { newTemp | darkTheme = isDark }
             , Cmd.none
             )
 

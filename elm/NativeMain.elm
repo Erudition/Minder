@@ -21,7 +21,7 @@ import Url
 --             ( { model | rootFrame = Frame.handleBack bool model.rootFrame }, Cmd.none )
 
 
-main : Framework.Program () Profile Main.Temp Main.Msg
+main : Framework.Program Main.Flags Profile Main.Temp Main.Msg
 main =
     let
         bogusTempUrl : Url.Url
@@ -35,7 +35,7 @@ main =
             }
     in
     Framework.browserElement
-        { init = \flags replica -> Main.init bogusTempUrl Nothing replica
+        { init = \flags replica -> Main.init bogusTempUrl Nothing flags replica
         , view = Main.nativeView
         , update = Main.update
         , subscriptions = Main.subscriptions
