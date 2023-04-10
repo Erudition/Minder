@@ -466,8 +466,8 @@ globalLayout temp replica innerStuff =
         -- ]
         --, row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
         --    [  html innerStuff ]
-        , PlainHtml.node "ion-content" [ HA.id "page-viewport", HA.style "height" "80vh", HA.style "overflow-y" "scroll", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
-        , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
+        , PlainHtml.node "ion-content" [ HA.class "ion-padding", HA.id "page-viewport", HA.style "overflow-y" "scroll", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true", HA.style "padding-bottom" "100px" ] [ innerStuff ]
+        , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos, HA.style "position" "fixed", HA.style "bottom" "0" ]
             [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
               tabBar
             , trackingDisplay replica env.time env.launchTime env.timeZone
