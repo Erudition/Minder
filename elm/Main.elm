@@ -315,7 +315,7 @@ view { replica, temp } =
     in
     { title = finalTitle
     , body =
-        [ Ion.App.app [ globalLayout temp.viewState replica temp.environment withinPage ] ]
+        [ Ion.App.appWithAttributes [ HA.class "dark" ] [ globalLayout temp.viewState replica temp.environment withinPage ] ]
     }
 
 
@@ -428,7 +428,7 @@ globalLayout viewState replica env innerStuff =
         column [ width fill, height fill ]
             [ Element.html <|
                 Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
-                    [ Ion.Toolbar.title [] [ PlainHtml.text <| SmartTime.Human.Moment.toStandardString env.time ]
+                    [ Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
                     ]
 
             -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]

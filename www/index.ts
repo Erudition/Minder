@@ -46,7 +46,6 @@ async function startElmApp() {
     elmStarted(app);
 
 }
-
 startElmApp();
 
 function elmStarted(app) {

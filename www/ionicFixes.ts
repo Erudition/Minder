@@ -40,7 +40,7 @@ document.documentElement.classList.add('ion-ce');
 
 
 
-function clean(node)
+export function clean(node)
 {
     for(var n = 0; n < node.childNodes.length; n ++)
     {
@@ -63,6 +63,15 @@ function clean(node)
     }
 }
 
-insertionQ('ion-footer, ion-header').every(function(element){
-    clean(element)
+
+insertionQ.config({
+    strictlyNew : false,
+    timeout : 1,
+    addImportant: true
 });
+insertionQ('ion-footer, ion-header').every(function(element){
+    clean(element);
+});
+
+
+globalThis.clean = () => Array.from(document.querySelectorAll("ion-header, ion-footer")).map((el) => clean(el));

@@ -12,5 +12,5 @@ prefersDark.addListener((mediaQuery) => toggleDarkTheme(mediaQuery.matches));
 
 // Add or remove the "dark" class based on if the media query matches
 export function toggleDarkTheme(shouldAdd) {
-  document.body.classList.toggle('dark', shouldAdd);
+  document.getElementsByTagName("ion-app")[0].classList.toggle('dark', shouldAdd);
 }

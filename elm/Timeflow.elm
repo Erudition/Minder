@@ -125,7 +125,7 @@ updateViewSettings profile env =
                 )
 
         chosenPeriod =
-            week
+            today
 
         chosenDayCutoffTime =
             -- will be derived from profile settings
@@ -152,7 +152,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 1000 "0"
+            Widget.init 100 100 "0"
 
         initialSettings =
             updateViewSettings profile environment
