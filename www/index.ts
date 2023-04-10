@@ -102,7 +102,7 @@ function elmStarted(app) {
 
       App.addListener('appStateChange', ({ isActive }) => {
         console.log('App state changed. Is active?', isActive);
-        //detectDarkMode();
+        detectDarkMode();
       });
       
       App.addListener('appUrlOpen', data => {
