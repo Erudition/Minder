@@ -7,11 +7,6 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   // identify what plugins we want to use
-  resolve: {
-    alias: {
-      fs: "fs"
-    }
-  },
   plugins: [
     // VitePWA({ registerType: 'autoUpdate',
     //     //devOptions: {enabled: true},

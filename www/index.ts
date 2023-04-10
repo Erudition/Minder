@@ -71,10 +71,10 @@ function elmStarted(app) {
 
         // Workaround for https://github.com/ionic-team/pwa-elements/issues/34
         // (Line breaks are ignored and replaced with spaces)
-        let reformatted = data.replace(/(?:\r\n|\r|\n)/g, " — ");
+        //let reformatted = data.replace(/(?:\r\n|\r|\n)/g, " — ");
 
         try {
-          Toast.show({ text: reformatted, duration: "short"}).then();
+          Toast.show({ text: data, duration: "short"}).then();
         //console.log("Toast: "+data)
         } catch (e) {
           console.error("Failed to show Toast!", e)

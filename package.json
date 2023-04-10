@@ -13,7 +13,8 @@
     "build-live-insecure-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm ; node_modules/.bin/elm-live.cmd elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js",
     "postinstall": "elm-tooling install",
     "build": "tsc && vite build",
-    "build-ci": "vite build"
+    "build-ci": "vite build",
+    "build-sync": "vite build && cap sync"
   },
   "repository": {
     "type": "git",
@@ -74,6 +75,7 @@
     "pnpm": "^8"
   },
   "devDependencies": {
+    "@capacitor/assets": "^2.0.4",
     "@capacitor/cli": "^4.7.3",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",

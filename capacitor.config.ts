@@ -3,13 +3,14 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'io.github.erudition.Minder',
   appName: 'Minder',
-  webDir: 'www',
+  webDir: 'dist',
   bundledWebRuntime: false,
   server: { 
     allowNavigation: ["https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"],
     url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
     hostname: 'erudition.github.io',
     androidScheme: 'https',
+    cleartext: true,
     },
   plugins: {
     SplashScreen: {
@@ -26,7 +27,7 @@ const config: CapacitorConfig = {
       //splashFullScreen: true,
       //splashImmersive: true,
       layoutName: "launch_screen",
-      useDialog: true,
+      useDialog: false,
     },
     Toast: {},
     LocalNotifications: {},
