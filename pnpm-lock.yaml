@@ -1,6 +1,9 @@
 lockfileVersion: '6.0'
 
 patchedDependencies:
+  '@ionic/pwa-elements@3.1.1':
+    hash: mm6wzknppdoxvvwardhg3ga55e
+    path: patches/@ionic__pwa-elements@3.1.1.patch
   orbit-db-storage-adapter@0.9.0:
     hash: tx7rl4nryxk7u4geoy4mwey7fa
     path: patches/orbit-db-storage-adapter@0.9.0.patch
@@ -35,7 +38,7 @@ dependencies:
     version: 7.0.0
   '@ionic/pwa-elements':
     specifier: ^3.1.1
-    version: 3.1.1
+    version: 3.1.1(patch_hash=mm6wzknppdoxvvwardhg3ga55e)
   '@multiformats/multiaddr':
     specifier: ^12.1.0
     version: 12.1.0
@@ -2541,9 +2544,10 @@ packages:
       tslib: 2.5.0
     dev: false
 
-  /@ionic/pwa-elements@3.1.1:
+  /@ionic/pwa-elements@3.1.1(patch_hash=mm6wzknppdoxvvwardhg3ga55e):
     resolution: {integrity: sha512-BoEX1pSrKn5dP4VQwaf8DweAmT4ynmpW+9f6oj/W1xLe54bmuXcUY07ziuZX1DLu50xHSYcO5qJ/dbYC/w6wgA==}
     dev: false
+    patched: true
 
   /@ionic/utils-array@2.1.6:
     resolution: {integrity: sha512-0JZ1Zkp3wURnv8oq6Qt7fMPo5MpjbLoUoa9Bu2Q4PJuSDWM8H8gwF3dQO7VTeUj3/0o1IB1wGkFWZZYgUXZMUg==}

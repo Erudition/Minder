@@ -69,7 +69,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: [
         '@ionic/core/loader', //fix weird Vite error "outdated optimize dep"
-        '@ionic/pwa-elements/loader' // same
+        '@ionic/pwa-elements/loader', // same
+        '@ionic/pwa-elements/dist/esm-es5/pwa-toast.entry.js'
     ],
     force: true
   },

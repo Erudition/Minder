@@ -1,0 +1,32 @@
+diff --git a/dist/esm-es5/core-f86805ad.js b/dist/esm-es5/core-f86805ad.js
+index e63be6e4e6e3f396ed615fcdb1c08d2211625aa5..24a33f092da14f366c66e1fd21002f19aa3e1625 100644
+--- a/dist/esm-es5/core-f86805ad.js
++++ b/dist/esm-es5/core-f86805ad.js
+@@ -112,16 +112,21 @@ var loadModule = function (cmpMeta, hostRef, hmrVersionId) {
+     if (module) {
+         return module[exportName];
+     }
+-    return import(
+-    /* webpackInclude: /\.entry\.js$/ */
+-    /* webpackExclude: /\.system\.entry\.js$/ */
+-    /* webpackMode: "lazy" */
+-    "./" + bundleId + ".entry.js" + '').then(function (importedModule) {
++
++    const postImport = (importedModule) => {
+         {
+             moduleCache.set(bundleId, importedModule);
+         }
+         return importedModule[exportName];
+-    }, consoleError);
++    };
++
++    switch (bundleId) {
++        case 'pwa-camera-modal': return import('./pwa-camera-modal.entry.js').then(postImport, consoleError)
++        case 'pwa-camera-modal-instance': return import('./pwa-camera-modal-instance.entry.js').then(postImport, consoleError)
++        case 'pwa-camera': return import('./pwa-camera.entry.js').then(postImport, consoleError)
++        case 'pwa-action-sheet': return import('./pwa-action-sheet.entry.js').then(postImport, consoleError)
++        case 'pwa-toast': return import('./pwa-toast.entry.js').then(postImport, consoleError)
++    }
+ };
+ var styles = new Map();
+ var queueDomReads = [];
