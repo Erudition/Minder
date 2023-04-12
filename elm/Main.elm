@@ -462,8 +462,8 @@ globalLayout temp replica innerStuff =
                         ]
                     ]
                 ]
-            , Ion.Content.content [ HA.class "ion-padding", HA.id "page-viewport", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true", HA.style "padding-bottom" "100px" ] [ innerStuff ]
-            , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos, HA.style "position" "fixed", HA.style "bottom" "0" ]
+            , Ion.Content.content [ HA.class "ion-padding", HA.id "page-viewport", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
+            , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
                 [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
                   tabBar
                 , trackingDisplay replica env.time env.launchTime env.timeZone
@@ -478,7 +478,7 @@ globalLayout temp replica innerStuff =
         --, row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
         --    [  html innerStuff ]
         , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.push ]
-            [ Ion.Toolbar.header [] [ Ion.Toolbar.toolbar [] [ Ion.Toolbar.title [] [ PlainHtml.text "Menu" ] ] ]
+            [ Ion.Toolbar.header [] [ Ion.Toolbar.toolbar [] [ Ion.Toolbar.title [] [ PlainHtml.text "Minder (Alpha)" ] ] ]
             , Ion.Content.content [ HA.class "ion-padding" ] [ PlainHtml.text "menu " ]
             ]
         ]

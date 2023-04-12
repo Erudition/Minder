@@ -10,10 +10,12 @@ import { defineCustomElement as defineIonTab } from "@ionic/core/components/ion-
 import { defineCustomElement as defineIonTabButton } from "@ionic/core/components/ion-tab-button";
 import { defineCustomElement as defineIonButtons } from "@ionic/core/components/ion-buttons";
 import { defineCustomElement as defineIonTitle } from "@ionic/core/components/ion-title";
+import { defineCustomElement as defineIonMenu } from "@ionic/core/components/ion-menu";
+import { defineCustomElement as defineIonMenuButton } from "@ionic/core/components/ion-menu-button";
+import { defineCustomElement as defineIonMenuToggle } from "@ionic/core/components/ion-menu-toggle";
+import { defineCustomElement as defineIonSplitPane } from "@ionic/core/components/ion-split-pane";
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
-//import { defineCustomElement as defineIonIcon } from 'ionicons/components/ion-icon'
-//import { stopCircleOutline } from 'ionicons/icons'
 
 
 // Initializes the Ionic config and `mode` behavior
@@ -29,6 +31,10 @@ defineIonTab();
 defineIonTabButton();
 defineIonButtons();
 defineIonTitle();
+defineIonMenu();
+defineIonMenuButton();
+defineIonMenuToggle();
+defineIonSplitPane();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');
 
