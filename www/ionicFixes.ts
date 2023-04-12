@@ -14,7 +14,18 @@ import { defineCustomElement as defineIonMenu } from "@ionic/core/components/ion
 import { defineCustomElement as defineIonMenuButton } from "@ionic/core/components/ion-menu-button";
 import { defineCustomElement as defineIonMenuToggle } from "@ionic/core/components/ion-menu-toggle";
 import { defineCustomElement as defineIonSplitPane } from "@ionic/core/components/ion-split-pane";
+import { defineCustomElement as defineIonList } from "@ionic/core/components/ion-list";
+import { defineCustomElement as defineIonListHeader } from "@ionic/core/components/ion-list-header";
+import { defineCustomElement as defineIonItem } from "@ionic/core/components/ion-item";
+import { defineCustomElement as defineIonItemDivider } from "@ionic/core/components/ion-item-divider";
+import { defineCustomElement as defineIonItemGroup } from "@ionic/core/components/ion-item-group";
+import { defineCustomElement as defineIonItemOption } from "@ionic/core/components/ion-item-option";
+import { defineCustomElement as defineIonItemOptions } from "@ionic/core/components/ion-item-options";
+import { defineCustomElement as defineIonItemSliding } from "@ionic/core/components/ion-item-sliding";
+
+
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
+
 
 
 
@@ -35,42 +46,13 @@ defineIonMenu();
 defineIonMenuButton();
 defineIonMenuToggle();
 defineIonSplitPane();
+defineIonList();
+defineIonListHeader();
+defineIonItem();
+defineIonItemDivider();
+defineIonItemGroup();
+defineIonItemOption();
+defineIonItemOptions();
+defineIonItemSliding();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');
-
-
-
-
-
-
-
-
-
-export function clean(node)
-{
-    for(var n = 0; n < node.childNodes.length; n ++)
-    {
-        var child = node.childNodes[n];
-        if
-        (
-        child.nodeType === 8 
-        || 
-        (child.nodeType === 3 && !/\S/.test(child.nodeValue))
-        )
-        {
-        node.removeChild(child);
-        console.log("removed a superflous node:", child, "from", node);
-        n --;
-        }
-        else if(child.nodeType === 1)
-        {
-        clean(child);
-        }
-    }
-}
-
-
-
-
-
-globalThis.clean = () => Array.from(document.querySelectorAll("ion-header, ion-footer")).map((el) => clean(el));

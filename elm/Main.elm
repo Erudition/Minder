@@ -448,7 +448,7 @@ globalLayout temp replica innerStuff =
                 , SmartTime.Human.Clock.toStandardString timeOfDay
                 ]
     in
-    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ] ]
+    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ], HA.id "ion-app" ]
         [ PlainHtml.div [ HA.class "ion-page", HA.id "main-content" ]
             [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
                 [ Ion.Toolbar.toolbar []
