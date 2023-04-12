@@ -1,9 +1,9 @@
 all: VirtualDom Url
 
 VirtualDom:
-	rm -f ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.2/artifacts.dat
-	rm -f ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.2/docs.json
-	patch -uN --reject-file=/tmp/rej ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.2/src/Elm/Kernel/VirtualDom.js ./VirtualDom.js.patch || true
+	rm -f ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.3/artifacts.dat
+	rm -f ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.3/docs.json
+	patch -uN --reject-file=/tmp/rej ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.3/src/Elm/Kernel/VirtualDom.js ./VirtualDom.js.patch || true
 
 Url:
 	rm -f ~/.elm/0.19.1/packages/elm/url/1.0.0/artifacts.dat

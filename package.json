@@ -11,7 +11,7 @@
     "build-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm",
     "build-live-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm ; node_modules/.bin/elm-live.cmd elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js",
     "build-live-insecure-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm ; node_modules/.bin/elm-live.cmd elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js",
-    "postinstall": "elm-tooling install && make --directory ./elm-patches",
+    "postinstall": "elm-tooling install && elm make --output=www/elm-gui.js elm/Main.elm && make --directory ./elm-patches",
     "build": "tsc && vite build",
     "build-ci": "vite build",
     "build-sync": "vite build && cap sync"
