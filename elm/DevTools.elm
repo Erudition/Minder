@@ -1,24 +1,29 @@
-module DevTools exposing (Msg, init, ViewState, routeView, subscriptions, update, view)
+module DevTools exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Element exposing (..)
-import Element.Events exposing (onClick)
 import Environment exposing (..)
 import Helpers exposing (..)
+import Html as H exposing (Html)
 import Html.Attributes as HA
-import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Html.Events as HE exposing (onClick)
 import Html.Styled as SH
+import Ion.Item
+import Ion.List
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Change, Frame)
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Human.Moment exposing (FuzzyMoment(..))
 import Task.Progress exposing (..)
 import Url.Parser as P exposing ((</>), Parser)
+
 
 init : Profile -> Environment -> String -> ( ViewState, Cmd Msg )
 init profile environment ron =
     ( ViewState ron
     , Cmd.none
     )
+
+
 
 --            MM    MM  OOOOO  DDDDD   EEEEEEE LL
 --            MMM  MMM OO   OO DD  DD  EE      LL
@@ -47,27 +52,27 @@ routeView =
 view : ViewState -> Profile -> Environment -> SH.Html Msg
 view state profile _ =
     SH.fromUnstyled <|
-        layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
-            column [ width fill, height fill ]
-                [ (errorList profile.errors)
-                , el [] (text state.ron)
-                ]
+        H.div []
+            [ errorList profile.errors
+            , H.text state.ron
+            ]
 
-errorList : RepList String -> Element Msg
+
+errorList : RepList String -> Html Msg
 errorList errors =
     let
         errorItems =
             List.map showItem <| RepList.list errors
 
-        showItem {handle, value} =
-            row 
-                [
-                    onClick (SimpleChange (RepList.remove handle errors))
-                ] 
-                [text value] 
-
+        showItem { handle, value } =
+            Ion.Item.item
+                [ HE.onDoubleClick (SimpleChange (RepList.remove handle errors))
+                ]
+                [ H.text value ]
     in
-    column [] errorItems 
+    Ion.List.list [] errorItems
+
+
 
 --             _   _ ______ ______   ___   _____  _____
 --            | | | || ___ \|  _  \ / _ \ |_   _||  ___|
