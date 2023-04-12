@@ -150,8 +150,8 @@ devDependencies:
     specifier: ^2.7.2
     version: 2.7.2(vite@4.2.1)
   vite-plugin-node-polyfills:
-    specifier: ^0.7.0
-    version: 0.7.0(rollup@3.20.2)(vite@4.2.1)
+    specifier: ^0.8.1
+    version: 0.8.1(rollup@3.20.2)(vite@4.2.1)
   vite-plugin-pwa:
     specifier: ^0.14.7
     version: 0.14.7(vite@4.2.1)(workbox-build@6.5.4)(workbox-window@6.5.4)
@@ -16628,8 +16628,8 @@ packages:
       vite: 4.2.1(@types/node@18.15.11)
     dev: true
 
-  /vite-plugin-node-polyfills@0.7.0(rollup@3.20.2)(vite@4.2.1):
-    resolution: {integrity: sha512-DKBSGDOx3R8pUIsQFRZAWNYp0vIffJOT0NkuByX4WIQq80nJ2eamAph5T9zG91liO1Fyl1lo7/Onh6xoQO52XQ==}
+  /vite-plugin-node-polyfills@0.8.1(rollup@3.20.2)(vite@4.2.1):
+    resolution: {integrity: sha512-Vf6Oy++74uhieXUr2XDw6rd0M4I/ymXfPXu4VlVadPuUay15ClGE2h9OHTkG69F44NmwTrdswtNkhMeAKD5jjw==}
     peerDependencies:
       vite: ^2.0.0 || ^3.0.0 || ^4.0.0
     dependencies:
