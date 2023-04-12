@@ -27,9 +27,10 @@ import Html.Styled.Events as HtmlEvents
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
-import Ion.App
 import Ion.Button
+import Ion.Content
 import Ion.Icon
+import Ion.Menu
 import Ion.Tab
 import Ion.Toolbar
 import Json.Decode as ClassicDecode
@@ -447,15 +448,25 @@ globalLayout temp replica innerStuff =
                 , SmartTime.Human.Clock.toStandardString timeOfDay
                 ]
     in
-    Ion.App.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ] ]
-        [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
-            [ Ion.Toolbar.toolbar []
-                [ Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
-                , Ion.Toolbar.title [] [ PlainHtml.text formattedTime ]
-                , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                    [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ] ]
-                , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                    [ Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ] ]
+    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ] ]
+        [ PlainHtml.div [ HA.class "ion-page", HA.id "main-content" ]
+            [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
+                [ Ion.Toolbar.toolbar []
+                    [ Ion.Toolbar.buttons [ Ion.Toolbar.placeStart ]
+                        [ Ion.Menu.button [] [] ]
+                    , Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
+                    , Ion.Toolbar.title [] [ PlainHtml.text formattedTime ]
+                    , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
+                        [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ]
+                        , Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
+                        ]
+                    ]
+                ]
+            , Ion.Content.content [ HA.class "ion-padding", HA.id "page-viewport", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true", HA.style "padding-bottom" "100px" ] [ innerStuff ]
+            , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos, HA.style "position" "fixed", HA.style "bottom" "0" ]
+                [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
+                  tabBar
+                , trackingDisplay replica env.time env.launchTime env.timeZone
                 ]
             ]
 
@@ -466,11 +477,9 @@ globalLayout temp replica innerStuff =
         -- ]
         --, row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
         --    [  html innerStuff ]
-        , PlainHtml.node "ion-content" [ HA.class "ion-padding", HA.id "page-viewport", HA.style "overflow-y" "scroll", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true", HA.style "padding-bottom" "100px" ] [ innerStuff ]
-        , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos, HA.style "position" "fixed", HA.style "bottom" "0" ]
-            [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
-              tabBar
-            , trackingDisplay replica env.time env.launchTime env.timeZone
+        , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.push ]
+            [ Ion.Toolbar.header [] [ Ion.Toolbar.toolbar [] [ Ion.Toolbar.title [] [ PlainHtml.text "Menu" ] ] ]
+            , Ion.Content.content [ HA.class "ion-padding" ] [ PlainHtml.text "This is the menu" ]
             ]
         ]
 
