@@ -1,0 +1,93 @@
+--- .elm/0.19.1/packages/elm/url/1.0.0/src/Url.elm	2021-07-19 07:57:50.343736925 +0200
++++ elm-liascript/0.19.1/packages/elm/url/1.0.0/src/Url.elm	2021-07-19 08:56:52.291506011 +0200
+@@ -60,7 +60,16 @@
+ 
+ {-| Is the URL served over a secure connection or not?
+ -}
+-type Protocol = Http | Https
++type Protocol
++    = Http
++    | Https
++    | File
++    | File2
++    | Ipfs
++    | Ipns
++    | Dat
++    | Ftp
++    | Hyper
+ 
+ 
+ {-| Attempt to break a URL up into [`Url`](#Url). This is useful in
+@@ -116,6 +125,27 @@
+   else if String.startsWith "https://" str then
+     chompAfterProtocol Https (String.dropLeft 8 str)
+ 
++  else if String.startsWith "file:///" str then
++    chompAfterProtocol File2 (String.dropLeft 8 str)
++
++  else if String.startsWith "file://" str then
++    chompAfterProtocol File (String.dropLeft 7 str)
++
++  else if String.startsWith "ipfs://" str then
++    chompAfterProtocol Ipfs (String.dropLeft 7 str)
++
++  else if String.startsWith "ipns://" str then
++    chompAfterProtocol Ipns (String.dropLeft 7 str)
++
++  else if String.startsWith "dat://" str then
++    chompAfterProtocol Dat (String.dropLeft 6 str)
++
++  else if String.startsWith "ftp://" str then
++    chompAfterProtocol Ftp (String.dropLeft 6 str)
++
++  else if String.startsWith "hyper://" str then
++    chompAfterProtocol Hyper (String.dropLeft 8 str)
++
+   else
+     Nothing
+ 
+@@ -171,7 +201,15 @@
+       i :: [] ->
+         case String.toInt (String.dropLeft (i + 1) str) of
+           Nothing ->
+-            Nothing
++            Just <| Url protocol str Nothing path params frag
++
++          port_ ->
++            Just <| Url protocol (String.left i str) port_ path params frag
++
++      _ :: i :: [] ->
++        case String.toInt (String.dropLeft (i + 1) str) of
++          Nothing ->
++            Just <| Url protocol str Nothing path params frag
+ 
+           port_ ->
+             Just <| Url protocol (String.left i str) port_ path params frag
+@@ -192,6 +230,27 @@
+ 
+         Https ->
+           "https://"
++
++        File ->
++          "file://"
++
++        File2 ->
++          "file:///"
++
++        Ipfs ->
++          "ipfs://"
++
++        Ipns ->
++          "ipns://"
++
++        Dat ->
++          "dat://"
++
++        Ftp ->
++          "ftp://"
++
++        Hyper ->
++          "hyper://"                
+   in
+   addPort url.port_ (http ++ url.host) ++ url.path
+     |> addPrefixed "?" url.query
