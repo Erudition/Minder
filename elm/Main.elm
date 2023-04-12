@@ -458,7 +458,6 @@ globalLayout temp replica innerStuff =
                     , Ion.Toolbar.title [] [ PlainHtml.text formattedTime ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
                         [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ]
-                        , Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
                         ]
                     ]
                 ]
@@ -469,16 +468,16 @@ globalLayout temp replica innerStuff =
                 , trackingDisplay replica env.time env.launchTime env.timeZone
                 ]
             ]
-
-        -- row [ width fill, height (fillPortion 1), Background.color (rgb 0.5 0.5 0.5) ]
-        -- [ el [ alignLeft ] <| text <| SmartTime.Human.Moment.toStandardString env.time
-        -- , link [ centerX ] { url = "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/", label = text "Minder (prototype)" }
-        -- , link [ alignRight ] { url = "?sync=marvin", label = text "Marvin" }
-        -- ]
-        --, row [ width fill, height fill, clip, scrollbarY, Element.htmlAttribute (HA.id "page-viewport") ]
-        --    [  html innerStuff ]
         , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.push ]
-            [ Ion.Toolbar.header [] [ Ion.Toolbar.toolbar [] [ Ion.Toolbar.title [] [ PlainHtml.text "Minder (Alpha)" ] ] ]
+            [ Ion.Toolbar.header []
+                [ Ion.Toolbar.toolbar []
+                    [ Ion.Toolbar.title [] [ PlainHtml.text "Minder (Alpha)" ]
+                    , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
+                        [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ]
+                        , Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
+                        ]
+                    ]
+                ]
             , Ion.Content.content [ HA.class "ion-padding" ] [ PlainHtml.text "menu " ]
             ]
         ]
