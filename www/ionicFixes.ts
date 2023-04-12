@@ -1,7 +1,7 @@
-import insertionQ from 'insertion-query'
 import { initialize } from "@ionic/core/components";
 import { defineCustomElement as defineIonButton } from "@ionic/core/components/ion-button";
 import { defineCustomElement as defineIonApp } from "@ionic/core/components/ion-app";
+import { defineCustomElement as defineIonContent } from "@ionic/core/components/ion-content";
 import { defineCustomElement as defineIonHeader } from "@ionic/core/components/ion-header";
 import { defineCustomElement as defineIonFooter } from "@ionic/core/components/ion-footer";
 import { defineCustomElement as defineIonToolbar } from "@ionic/core/components/ion-toolbar";
@@ -34,6 +34,7 @@ initialize();
 
 defineIonButton();
 defineIonApp();
+defineIonContent();
 defineIonHeader();
 defineIonFooter();
 defineIonToolbar();
