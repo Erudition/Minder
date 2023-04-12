@@ -1,4 +1,4 @@
-module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, padInt, parseHMS, second, secondFractional, secondsSinceMidnight, startOfDay, toShortString, toStandardString, truncateMinute)
+module SmartTime.Human.Clock exposing (MeridiemBasedHour(..), TimeOfDay, asFractionOfDay, backward, clock, compare, endOfDay, forward, fromStandardString, hour, hourOf12, hourOf12Raw, hourOf12WithPMBool, hourToShortString, hourToString, isMidnight, isNoon, isPM, lastMillisecond, lastSecond, midnight, milliseconds, minute, msSinceMidnight, noon, padInt, parseHMS, second, secondFractional, secondsSinceMidnight, startOfDay, toShortString, toStandardString, truncateMinute, truncateSecond)
 
 import Parser exposing ((|.), (|=), Parser, chompWhile, getChompedString, spaces, symbol)
 import ParserExtra as Parser
@@ -229,6 +229,15 @@ truncateMinute timeSinceDayStart =
             Duration.breakdown timeSinceDayStart
     in
     clock oldTime.hours oldTime.minutes 0 0
+
+
+truncateSecond : TimeOfDay -> TimeOfDay
+truncateSecond timeSinceDayStart =
+    let
+        oldTime =
+            Duration.breakdown timeSinceDayStart
+    in
+    clock oldTime.hours oldTime.minutes oldTime.seconds 0
 
 
 {-| Like `String.fromInt` but pads the integer with zeroes so that it always has two digits.

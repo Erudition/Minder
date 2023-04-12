@@ -100,7 +100,9 @@ subscriptions { replica, temp } =
 
         -- , storageChangedElsewhere NewAppData
         , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
-        , Moment.every (Duration.fromSeconds (1 / 5)) (\_ -> NoOp)
+
+        -- , Moment.every (Duration.fromSeconds (1/5)) (\_ -> NoOp)
+        , SmartTime.Human.Moment.everySecondOnTheSecond temp.environment.time (\_ -> NoOp)
         ]
             ++ (case temp.viewState.timeflow of
                     OpenPanel _ (Just subState) ->

@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeGapVsNow, describeVsNow, everyMinuteOnTheMinute, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeGapVsNow, describeVsNow, everyMinuteOnTheMinute, everySecondOnTheSecond, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, nextSecond, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -105,11 +105,11 @@ Also requires the current time.
 Make sure the "waitUntil" moment is fixed for the lifetime of your program (e.g. an offset from "app launch moment"), and not based on something you `update` (e.g. the current time) or this timer will be constantly resetting itself.
 
 -}
-everyMinuteOnTheMinute : Moment -> Zone -> (Moment -> msg) -> Sub msg
-everyMinuteOnTheMinute now zone tagger =
+everyMinuteOnTheMinute : Moment -> (Moment -> msg) -> Sub msg
+everyMinuteOnTheMinute now tagger =
     let
         nextTick =
-            nextMinute zone now
+            nextMinute now
 
         waitingTime =
             Moment.difference now nextTick
@@ -125,6 +125,36 @@ everyMinuteOnTheMinute now zone tagger =
 
         fallbackTicker =
             Moment.every Duration.aMinute tagger
+    in
+    if Moment.compare now Moment.zero == Moment.Later then
+        Moment.every waitingTime tagger
+
+    else
+        -- falling back to Sub.none means there may be no tick to trigger the recovery
+        -- so we check frequently for a fix
+        -- Debug.log ("Got bogus current time, " ++ toStandardString now) fallbackTicker
+        fallbackTicker
+
+
+{-| Like `every`, but lines itself up with the local clock - or any other period.
+Pass in an exact (non-past!) starting Moment, and the `every` will start from then on.
+
+Also requires the current time.
+
+Make sure the "waitUntil" moment is fixed for the lifetime of your program (e.g. an offset from "app launch moment"), and not based on something you `update` (e.g. the current time) or this timer will be constantly resetting itself.
+
+-}
+everySecondOnTheSecond : Moment -> (Moment -> msg) -> Sub msg
+everySecondOnTheSecond now tagger =
+    let
+        nextTick =
+            nextSecond now
+
+        waitingTime =
+            Moment.difference now nextTick
+
+        fallbackTicker =
+            Moment.every Duration.aSecond tagger
     in
     if Moment.compare now Moment.zero == Moment.Later then
         Moment.every waitingTime tagger
@@ -589,16 +619,29 @@ clockTurnForward timeOfDay zone moment =
         Moment.future newMoment Duration.aDay
 
 
-nextMinute : Zone -> Moment -> Moment
-nextMinute zone moment =
+nextMinute : Moment -> Moment
+nextMinute moment =
     let
         ( _, originalTimeOfDay ) =
-            humanize zone moment
+            -- TODO optimize
+            humanize utc moment
 
         newTimeOfDay =
             Clock.forward (Clock.truncateMinute originalTimeOfDay) (HumanDuration.Minutes 1)
     in
-    setTime newTimeOfDay zone moment
+    setTime newTimeOfDay utc moment
+
+
+nextSecond : Moment -> Moment
+nextSecond moment =
+    let
+        ( _, originalTimeOfDay ) =
+            humanize utc moment
+
+        newTimeOfDay =
+            Clock.forward (Clock.truncateSecond originalTimeOfDay) (HumanDuration.Seconds 1)
+    in
+    setTime newTimeOfDay utc moment
 
 
 {-| A convenience type for a much more human kind of `Moment`: the `Zone` and `TimeOfDay` are optional! Why? Imagine you have a schedule that looks something like this:
