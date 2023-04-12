@@ -177,20 +177,13 @@ routeView =
 view : ViewState -> Profile -> Environment -> SH.Html Msg
 view vState profile env =
     SH.fromUnstyled <|
-        layoutWith { options = [ noStaticStyleSheet ] } [ width fill, height fill ] <|
+        layout [ width fill, height fill ] <|
             column [ width fill, height fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row [ width (fillPortion 1), height fill, htmlAttribute (HA.style "max-height" "inherit") ]
                     -- [ timeFlowLayout vState.settings profile env
-                    [ column [ width (px 30), height fill, Background.color <| elementColor Color.grey, Font.size 30 ]
-                        [ el [ centerX, centerY ] <| Element.text "👋"
-                        , el [ centerX, centerY ] <| Element.text "🖖"
-                        , el [ centerX, centerY ] <| Element.text "👌"
-                        , el [ centerX, centerY ] <| Element.text "🤞"
-                        , el [ centerX, centerY ] <| Element.text "🖕"
-                        ]
-                    , column [ width fill, height fill ]
+                    [ column [ width fill, height fill ]
                         [ row
                             [ width fill, height (px <| 10 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip ]
                             (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
@@ -226,8 +219,8 @@ view vState profile env =
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view
         widgetState
-        [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
-        , group (allShapes state profile env)
+        [ -- graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
+          group (allShapes state profile env)
             |> move ( 0, 200 )
             |> notifyMouseMoveAt PointerMove
             |> notifyMouseUp MouseUp
@@ -240,11 +233,11 @@ allShapes state profile env =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
     in
     [ rect 100 boxHeight
-        |> filled black
-        |> makeTransparent 0.9
+        |> filled grey
+        |> makeTransparent 0.5
         |> move ( 0, -boxHeight / 2 )
     , rect 100 boxHeight
-        |> filled (GraphicSVG.hsl 180 1 0.1)
+        |> filled grey
         |> move ( 0, -3 * boxHeight / 2 )
 
     -- , polygon
