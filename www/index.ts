@@ -29,7 +29,7 @@ import '@ionic/core/css/text-transformation.css';
 import '@ionic/core/css/flex-utils.css';
 import '@ionic/core/css/display.css';
 
-import '/styles/theme.css'
+//import '/styles/theme.css'
 
 // Where we save the personal data
 var storagefilename = "Minder/personal-data.json"
