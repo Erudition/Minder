@@ -135,7 +135,7 @@ updateViewSettings profile env =
             Duration.fromMinutes 30
 
         rowHeight =
-            3
+            5
 
         rowCount =
             List.length (Period.divide timePerRow chosenPeriod) * rowHeight
@@ -181,14 +181,9 @@ view vState profile env =
             column [ width fill, height fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
-                , row [ width (fillPortion 1), height fill, htmlAttribute (HA.style "max-height" "inherit") ]
-                    -- [ timeFlowLayout vState.settings profile env
-                    [ column [ width fill, height fill ]
-                        [ row
-                            [ width fill, height (px <| 10 * (vState.settings.rowHeight * vState.settings.rows)), Element.clip ]
-                            (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
-                        ]
-                    ]
+                , row
+                    [ width fill ]
+                    (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
                         Element.text
@@ -219,9 +214,9 @@ view vState profile env =
 svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
     Widget.view
         widgetState
-        [ -- graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
-          group (allShapes state profile env)
-            |> move ( 0, 200 )
+        [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
+        , group (allShapes state profile env)
+            |> move ( 0, 50 )
             |> notifyMouseMoveAt PointerMove
             |> notifyMouseUp MouseUp
         ]

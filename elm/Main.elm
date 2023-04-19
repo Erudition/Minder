@@ -480,7 +480,7 @@ globalLayout temp replica innerStuff =
                         ]
                     ]
                 ]
-            , Ion.Content.content [ HA.class "ion-padding" ] [ PlainHtml.text "menu " ]
+            , Ion.Content.content [] [ PlainHtml.text "menu contents" ]
             ]
         ]
 
