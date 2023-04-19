@@ -22,8 +22,6 @@ import { defineCustomElement as defineIonItemGroup } from "@ionic/core/component
 import { defineCustomElement as defineIonItemOption } from "@ionic/core/components/ion-item-option";
 import { defineCustomElement as defineIonItemOptions } from "@ionic/core/components/ion-item-options";
 import { defineCustomElement as defineIonItemSliding } from "@ionic/core/components/ion-item-sliding";
-
-
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
 

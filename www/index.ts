@@ -5,11 +5,11 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import {Clipboard} from '@capacitor/clipboard'
 import {LocalNotifications} from '@capacitor/local-notifications'
 import {Elm} from '../elm/Main.elm'
-import {startOrbit} from './orbit'
+import {startOrbit} from './scripts/orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
 import { detectDarkMode, toggleDarkTheme } from './darkMode';
 //import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
-import './ionicFixes'
+import './scripts/ionicInit'
 
 
 
@@ -28,6 +28,8 @@ import '@ionic/core/css/text-alignment.css';
 import '@ionic/core/css/text-transformation.css';
 import '@ionic/core/css/flex-utils.css';
 import '@ionic/core/css/display.css';
+
+import '/styles/theme.css'
 
 // Where we save the personal data
 var storagefilename = "Minder/personal-data.json"
