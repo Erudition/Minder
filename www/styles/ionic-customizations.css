@@ -1,0 +1,12 @@
+
+ion-tab-bar {
+    overflow-x: scroll;
+    display: flex;    
+    overflow-x: auto;
+}
+
+ion-tab-bar ion-tab-button {
+    display: inline-block;
+    min-width: 100px;
+    width: auto;
+}
