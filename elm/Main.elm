@@ -30,6 +30,8 @@ import Integrations.Todoist
 import Ion.Button
 import Ion.Content
 import Ion.Icon
+import Ion.Item
+import Ion.List
 import Ion.Menu
 import Ion.Tab
 import Ion.Toolbar
@@ -389,27 +391,6 @@ globalLayout temp replica innerStuff =
         viewState =
             temp.viewState
 
-        elmUIOptions =
-            { options = [] }
-
-        projectsLink =
-            link [ centerX, centerY, Element.Events.onClick (TaskListMsg TaskList.NoOp) ] { url = "#/projects", label = text "Projects" }
-
-        readyLink =
-            link [ centerX, centerY ] { url = "#/ready", label = text "Ready" }
-
-        timeflowLink =
-            link [ centerX, centerY ] { url = "#/timeflow", label = text "Timeflow" }
-
-        timetrackerLink =
-            link [ centerX, centerY ] { url = "#/timetracker", label = text "Timetracker" }
-
-        dashLink =
-            link [ centerX, centerY ] { url = "#/dash", label = text "Dashboard" }
-
-        devToolsLink =
-            link [ centerX, centerY ] { url = "#/devtools", label = text "Dev" }
-
         isPanelOpen panelStatus =
             case panelStatus of
                 OpenPanel _ _ ->
@@ -417,16 +398,6 @@ globalLayout temp replica innerStuff =
 
                 _ ->
                     False
-
-        footerLinks =
-            selectedTabs
-                [ ( isPanelOpen viewState.taskList, projectsLink )
-                , ( False, readyLink )
-                , ( isPanelOpen viewState.timeflow, timeflowLink )
-                , ( isPanelOpen viewState.timeTracker, timetrackerLink )
-                , ( False, dashLink )
-                , ( isPanelOpen viewState.devTools, devToolsLink )
-                ]
 
         tabBar =
             HK.node "ion-tab-bar"
@@ -449,6 +420,18 @@ globalLayout temp replica innerStuff =
                 , " @ "
                 , SmartTime.Human.Clock.toStandardString timeOfDay
                 ]
+
+        menuItemHref label icon href =
+            Ion.Item.item [ Ion.Item.button, HA.href href ]
+                [ Ion.Item.label [] [ PlainHtml.text label ]
+                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
+                ]
+
+        menuItemOnClick label icon clickHandler =
+            Ion.Item.item [ Ion.Item.button, Html.Events.onClick clickHandler ]
+                [ Ion.Item.label [] [ PlainHtml.text label ]
+                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
+                ]
     in
     Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ], HA.id "ion-app" ]
         [ PlainHtml.div [ HA.class "ion-page", HA.id "main-content" ]
@@ -457,9 +440,9 @@ globalLayout temp replica innerStuff =
                     [ Ion.Toolbar.buttons [ Ion.Toolbar.placeStart ]
                         [ Ion.Menu.button [] [] ]
                     , Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
-                    , Ion.Toolbar.title [] [ PlainHtml.text formattedTime ]
+                    , Ion.Toolbar.title [ HA.attribute "size" "small" ] [ PlainHtml.text formattedTime ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                        [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ]
+                        [ Ion.Button.button [ HA.disabled True ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
                         ]
                     ]
                 ]
@@ -470,17 +453,25 @@ globalLayout temp replica innerStuff =
                 , trackingDisplay replica env.time env.launchTime env.timeZone
                 ]
             ]
-        , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.push ]
+        , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.overlay ]
             [ Ion.Toolbar.header []
                 [ Ion.Toolbar.toolbar []
                     [ Ion.Toolbar.title [] [ PlainHtml.text "Minder (Alpha)" ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                        [ Ion.Button.button [ HA.href "?sync=marvin" ] [ Ion.Icon.basic "sync-outline" ]
-                        , Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
+                        [ Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
                         ]
                     ]
                 ]
-            , Ion.Content.content [] [ PlainHtml.text "menu contents" ]
+            , Ion.Content.content []
+                [ Ion.List.list []
+                    [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
+                    , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
+                    , Ion.Item.item [ Ion.Item.button, HA.disabled True ]
+                        [ Ion.Item.label [] [ PlainHtml.text "Purge Data" ]
+                        , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
+                        ]
+                    ]
+                ]
             ]
         ]
 

@@ -17,6 +17,6 @@ basic iconName =
     node "ion-icon" [ HA.name iconName ] []
 
 
-html : List (Attribute msg) -> List (Html msg) -> Html msg
-html attributes children =
-    node "ion-icon" attributes children
+withAttr : String -> List (Attribute msg) -> Html msg
+withAttr iconName attributes =
+    node "ion-icon" (HA.name iconName :: attributes) []

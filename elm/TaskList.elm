@@ -11,6 +11,7 @@ import Dict
 import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (..)
+import Html.Attributes
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (..)
 import Html.Styled.Events exposing (..)
@@ -23,6 +24,8 @@ import Incubator.Todoist.Command as TodoistCommand
 import IntDict
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
+import Ion.Item
+import Ion.List
 import Json.Decode as OldDecode
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
@@ -121,12 +124,13 @@ view state profile env =
                             Maybe.withDefault AllTasks (List.head filters)
                     in
                     div
-                        [ class "todomvc-wrapper", css [ visibility Css.hidden ] ]
+                        []
                         [ section
-                            [ class "todoapp" ]
+                            []
                             [ lazy viewInput field
                             , Html.Styled.Lazy.lazy4 viewTasks env.launchTime env.timeZone activeFilter profile
-                            , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
+
+                            -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
                             ]
                         ]
     in
@@ -135,19 +139,16 @@ view state profile env =
 
 viewInput : String -> Html Msg
 viewInput newEntryFieldContents =
-    header
-        [ class "header" ]
-        [ input
-            [ class "new-task"
-            , placeholder "What needs to be done?"
-            , autofocus True
-            , value newEntryFieldContents
-            , name "newTask"
-            , onInput UpdateNewEntryField
-            , onEnter Add
-            ]
-            []
+    node "ion-input"
+        [ class "new-task"
+        , placeholder "What needs to be done?"
+        , autofocus True
+        , value newEntryFieldContents
+        , name "newTask"
+        , onInput UpdateNewEntryField
+        , onEnter Add
         ]
+        []
 
 
 onEnter : Msg -> Attribute Msg
@@ -195,21 +196,10 @@ viewTasks time timeZone filter profile =
         allCompleted =
             List.all completed sortedTasks
     in
-    section
-        [ class "main" ]
-        [ input
-            [ class "toggle-all"
-            , type_ "checkbox"
-            , name "toggle"
-            , Attr.checked allCompleted
-            ]
-            []
-        , label
-            [ for "toggle-all" ]
-            [ text "Mark all as complete" ]
-        , Keyed.ul [ class "task-list" ] <|
-            List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible sortedTasks)
-        ]
+    Keyed.node "ion-list"
+        []
+    <|
+        List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible sortedTasks)
 
 
 
@@ -227,127 +217,135 @@ viewKeyedTask ( time, timeZone ) trackedTaskMaybe task =
 
 viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> AssignedAction -> Html Msg
 viewTask ( time, timeZone ) trackedTaskMaybe task =
-    li
-        [ class "task-entry"
-        , classList [ ( "completed", completed task ), ( "editing", False ) ]
-        ]
-        [ div
-            [ class "view" ]
-            [ div
-                [ class "task-times"
-                , css
-                    [ Css.width (rem 3)
-                    , displayFlex
-                    , flex3 (num 0) (num 0) (rem 3)
-                    , flexDirection column
-                    , fontSize (rem 0.7)
-                    , justifyContent center
-                    , alignItems center
-                    , textAlign center
-                    , letterSpacing (rem -0.1)
-                    ]
-                ]
-                [ div
-                    [ class "minimum-duration"
-                    , css
-                        [ justifyContent Css.end
-                        ]
-                    ]
-                    [ if SmartTime.Duration.isZero (Instance.getMinEffort task) then
-                        text ""
-
-                      else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
-                    ]
-                , div
-                    [ class "task-bubble"
-                    , title (taskTooltip ( time, timeZone ) task)
-                    , css
-                        [ Css.height (rem 2)
-                        , Css.width (rem 2)
-                        , backgroundColor (activityColor task).lighter
-                        , Css.color (activityColor task).medium
-                        , border3 (px 2) solid (activityColor task).darker
-                        , displayFlex
-                        , borderRadius (pct 100)
-
-                        -- , margin (rem 0.5)
-                        , fontSize (rem 1)
-                        , alignItems center
-                        , justifyContent center
-
-                        -- , padding (rem 0.2)
-                        , fontFamily monospace
-                        , fontWeight Css.normal
-                        , textAlign center
-                        ]
-                    ]
-                    [ if SmartTime.Duration.isZero (Instance.getPredictedEffort task) then
-                        text ""
-
-                      else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
-                    ]
-                , div
-                    [ class "maximum-duration"
-                    , css
-                        [ justifyContent Css.end
-                        ]
-                    ]
-                    [ if SmartTime.Duration.isZero (Instance.getMaxEffort task) then
-                        text ""
-
-                      else
-                        text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
-                    ]
-                ]
-            , div [ class "title-and-details" ]
-                [ label
-                    [ onDoubleClick (EditingTitle task True)
-                    , onClick (FocusSlider task True)
-                    , css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
-                    , class "task-title"
-                    ]
-                    [ span [ class "task-title-text" ] [ text <| Instance.getTitle task ]
-                    , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
-                    ]
-                , timingInfo ( time, timeZone ) task
-                ]
-            , div
-                [ class "sessions"
-                , css
-                    [ fontSize (Css.em 0.5)
-                    , Css.width (pct 50)
-                    , displayFlex
-                    , flexDirection column
-                    , alignItems end
-                    , textAlign center
-                    ]
-                ]
-                (plannedSessions ( time, timeZone ) task)
-            , div [ class "task-controls" ]
-                (List.filterMap
-                    identity
-                    [ startTrackingButton task trackedTaskMaybe
-                    , Just <|
-                        button
-                            [ class "destroy"
-                            , onClick (Delete (Instance.getID task))
-                            ]
-                            [ text "×" ]
-                    ]
-                )
+    node "ion-item-sliding"
+        []
+        [ node "ion-item"
+            [ classList [ ( "completed", completed task ), ( "editing", False ) ]
             ]
-        , input
-            [ class "edit"
-            , value <| Instance.getTitle task
-            , name "title"
-            , id ("task-" ++ Instance.getIDString task)
-            , onInput (UpdateTitle task)
-            , onBlur (EditingTitle task False)
-            , onEnter (EditingTitle task False)
+            [ node "ion-label"
+                [ css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
+                , title (taskTooltip ( time, timeZone ) task)
+                ]
+                [ text <| Instance.getTitle task
+                , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
+                ]
+            , timingInfo ( time, timeZone ) task
+
+            -- , div
+            --     [ class "view" ]
+            --     [ div
+            --         [ class "task-times"
+            --         , css
+            --             [ Css.width (rem 3)
+            --             , displayFlex
+            --             , flex3 (num 0) (num 0) (rem 3)
+            --             , flexDirection column
+            --             , fontSize (rem 0.7)
+            --             , justifyContent center
+            --             , alignItems center
+            --             , textAlign center
+            --             , letterSpacing (rem -0.1)
+            --             ]
+            --         ]
+            --         [ div
+            --             [ class "minimum-duration"
+            --             , css
+            --                 [ justifyContent Css.end
+            --                 ]
+            --             ]
+            --             [ if SmartTime.Duration.isZero (Instance.getMinEffort task) then
+            --                 text ""
+            --               else
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --             ]
+            --         , div
+            --             [ class "task-bubble"
+            --             , title (taskTooltip ( time, timeZone ) task)
+            --             , css
+            --                 [ Css.height (rem 2)
+            --                 , Css.width (rem 2)
+            --                 , backgroundColor (activityColor task).lighter
+            --                 , Css.color (activityColor task).medium
+            --                 , border3 (px 2) solid (activityColor task).darker
+            --                 , displayFlex
+            --                 , borderRadius (pct 100)
+            --                 -- , margin (rem 0.5)
+            --                 , fontSize (rem 1)
+            --                 , alignItems center
+            --                 , justifyContent center
+            --                 -- , padding (rem 0.2)
+            --                 , fontFamily monospace
+            --                 , fontWeight Css.normal
+            --                 , textAlign center
+            --                 ]
+            --             ]
+            --             [ if SmartTime.Duration.isZero (Instance.getPredictedEffort task) then
+            --                 text ""
+            --               else
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --             ]
+            --         , div
+            --             [ class "maximum-duration"
+            --             , css
+            --                 [ justifyContent Css.end
+            --                 ]
+            --             ]
+            --             [ if SmartTime.Duration.isZero (Instance.getMaxEffort task) then
+            --                 text ""
+            --               else
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --             ]
+            --         ]
+            --     , div [ class "title-and-details" ]
+            --         [ label
+            --             [ onDoubleClick (EditingTitle task True)
+            --             , onClick (FocusSlider task True)
+            --             , css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
+            --             , class "task-title"
+            --             ]
+            --             [ span [ class "task-title-text" ] [ text <| Instance.getTitle task ]
+            --             , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
+            --             ]
+            --         ]
+            --     , div
+            --         [ class "sessions"
+            --         , css
+            --             [ fontSize (Css.em 0.5)
+            --             , Css.width (pct 50)
+            --             , displayFlex
+            --             , flexDirection column
+            --             , alignItems end
+            --             , textAlign center
+            --             ]
+            --         ]
+            --         (plannedSessions ( time, timeZone ) task)
+            --     , div [ class "task-controls" ]
+            --         (List.filterMap
+            --             identity
+            --             [ startTrackingButton task trackedTaskMaybe
+            --             , Just <|
+            --                 button
+            --                     [ class "destroy"
+            --                     , onClick (Delete (Instance.getID task))
+            --                     ]
+            --                     [ text "×" ]
+            --             ]
+            --         )
+            --     ]
+            -- , input
+            --     [ class "edit"
+            --     , value <| Instance.getTitle task
+            --     , name "title"
+            --     , id ("task-" ++ Instance.getIDString task)
+            --     , onInput (UpdateTitle task)
+            --     , onBlur (EditingTitle task False)
+            --     , onEnter (EditingTitle task False)
+            --     ]
+            --     []
             ]
+        , node "ion-item-options"
             []
+            [ node "ion-item-option" [ attribute "color" "danger", onClick (SimpleChange task.remove) ] [ text "delete" ] ]
         ]
 
 
@@ -559,9 +557,9 @@ timingInfo ( time, timeZone ) task =
                 _ ->
                     Nothing
     in
-    div
+    node "ion-note"
         [ class "timing-info" ]
-        ([ text effortDescription ] ++ dueDate_editable ++ dueTime_editable)
+        [ text effortDescription ]
 
 
 editableDateLabel : ( Moment, HumanMoment.Zone ) -> String -> Maybe CalendarDate -> (String -> msg) -> List (Html msg)
@@ -874,7 +872,7 @@ update msg state profile env =
                                     [ RepDb.addNew (Instance.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
                             in
-                            Class.newActionClassSkel c (Class.normalizeTitle ("Action: " ++ newTaskTitle)) newClassChanger
+                            Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
