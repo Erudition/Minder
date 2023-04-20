@@ -132,10 +132,10 @@ updateViewSettings profile env =
             HumanDuration.build [ HumanDuration.Hours 3 ]
 
         timePerRow =
-            Duration.fromMinutes 30
+            Duration.fromMinutes 60
 
         rowHeight =
-            5
+            3
 
         rowCount =
             List.length (Period.divide timePerRow chosenPeriod) * rowHeight
@@ -177,8 +177,8 @@ routeView =
 view : ViewState -> Profile -> Environment -> SH.Html Msg
 view vState profile env =
     SH.fromUnstyled <|
-        layout [ width fill, height fill ] <|
-            column [ width fill, height fill ]
+        layout [ width fill ] <|
+            column [ width fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row
@@ -248,9 +248,9 @@ allShapes state profile env =
     --    |> filled blue
     --    |> move ( state.pointer.x / 4, state.pointer.y / 4 )
     --    |> notifyMouseMoveAt PointerMove
-    , timeLabel env state.settings.pivotMoment
     ]
         ++ List.map (blobToShape state env) (historyBlobs env profile state.settings.flowRenderPeriod)
+        ++ [ timeLabel env state.settings.pivotMoment ]
 
 
 timeLabel : Environment -> Moment -> Shape msg
@@ -260,7 +260,7 @@ timeLabel env stampMoment =
         |> size 1
         |> centered
         |> filled red
-        |> move ( 0, 0 )
+        |> move ( 0, -1 )
 
 
 distanceBetweenPoints : Point -> Point -> Float
