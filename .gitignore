@@ -6,7 +6,7 @@ nsconfig.json
 
 # NativeScript Template
 *.js.map
-*.css
+# *.css
 
 # Logs
 logs
