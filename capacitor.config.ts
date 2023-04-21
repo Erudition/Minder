@@ -30,7 +30,11 @@ const config: CapacitorConfig = {
       useDialog: false,
     },
     Toast: {},
-    LocalNotifications: {},
+    LocalNotifications: {
+      smallIcon: "alpha-logo",
+      // iconColor: "#488AFF",
+      // sound: "beep.wav",
+    },
     App: {},
     Clipboard: {},
     Storage: {}

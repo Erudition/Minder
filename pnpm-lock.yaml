@@ -66,6 +66,9 @@ dependencies:
   elm-native-js:
     specifier: ^1.0.3
     version: 1.0.3
+  elm-taskport:
+    specifier: ^2.0.1
+    version: 2.0.1
   elm-test:
     specifier: 0.19.1-revision9
     version: 0.19.1-revision9

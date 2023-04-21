@@ -58,6 +58,7 @@
     "@triniwiz/nativescript-toasty": "^4.1.3",
     "circular-dependency-plugin": "^5.2.2",
     "elm-native-js": "^1.0.3",
+    "elm-taskport": "^2.0.1",
     "elm-test": "0.19.1-revision9",
     "elm-tooling": "^1.13.1",
     "elm-webpack-loader": "^8.0.0",

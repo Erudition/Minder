@@ -10,6 +10,8 @@ import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loa
 import { detectDarkMode, toggleDarkTheme } from './darkMode';
 //import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
 import './scripts/ionicInit'
+import * as TaskPort from 'elm-taskport';
+import {registerNotificationTaskPorts} from './scripts/capacitor/notifications'
 
 
 
@@ -40,6 +42,8 @@ var browserStorageKey = 'docket-v0.2-data';
 // START ELM
 async function startElmApp() {
 
+    installTaskPorts();
+
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : (null) 
         , userFlags : {darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches}
@@ -49,6 +53,14 @@ async function startElmApp() {
 
 }
 startElmApp();
+
+function installTaskPorts() {
+  
+  TaskPort.install({ logCallErrors: true, logInteropErrors: false });
+  
+  
+  registerNotificationTaskPorts();
+}
 
 function elmStarted(app) {
   
@@ -127,7 +139,7 @@ function elmStarted(app) {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
       }
 
-}
+}  
 //loadIonicElements(window);
 loadPwaElements(window);
 

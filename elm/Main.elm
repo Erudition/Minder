@@ -64,6 +64,7 @@ import SmartTime.Period as Period exposing (Period)
 import Task as Job
 import Task.AssignedAction as Instance
 import TaskList
+import TaskPort
 import TimeTracker
 import Timeflow
 import Url
@@ -191,8 +192,9 @@ init url maybeKey flags replica =
             }
 
         initNotif =
-            [ Notif.test "We have taken over Android, woo!" ]
-                |> NativeScript.Commands.notify
+            Job.attempt NotificationScheduled <|
+                Notif.dispatch
+                    [ Notif.test "We have taken over Android, woo!" ]
 
         getViewport =
             Job.perform setViewport Browser.Dom.getViewport
@@ -466,9 +468,11 @@ globalLayout temp replica innerStuff =
                 [ Ion.List.list []
                     [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
+                    , menuItemHref "Reload App" "sync-outline" "/"
                     , Ion.Item.item [ Ion.Item.button, HA.disabled True ]
                         [ Ion.Item.label [] [ PlainHtml.text "Purge Data" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
+                        , Ion.Item.note [] [ PlainHtml.text "coming soon" ]
                         ]
                     ]
                 ]
@@ -672,6 +676,7 @@ type Msg
     | VisibilityChanged Browser.Events.Visibility
     | NewTimeZone SmartTime.Human.Moment.Zone
     | ToggleDarkTheme Bool
+    | NotificationScheduled (TaskPort.Result String)
 
 
 type ThirdPartyService
@@ -710,6 +715,9 @@ update msg { temp, replica, now } =
             ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        NotificationScheduled response ->
+            noOp
+
         NewTimeZone zone ->
             justSetEnv { environment | timeZone = zone }
 

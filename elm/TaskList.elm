@@ -141,7 +141,7 @@ viewInput : String -> Html Msg
 viewInput newEntryFieldContents =
     node "ion-input"
         [ class "new-task"
-        , placeholder "What needs to be done?"
+        , placeholder "Type new project name here..."
         , autofocus True
         , value newEntryFieldContents
         , name "newTask"

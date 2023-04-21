@@ -1,10 +1,12 @@
 module NativeScript.Notification exposing (..)
 
 import Helpers exposing (normal, omittable, omittableList)
+import Json.Decode as JD
 import Json.Encode as Encode
 import Json.Encode.Extra as Encode
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
+import TaskPort
 
 
 
@@ -782,6 +784,13 @@ encode v =
     Helpers.encodeObjectWithoutNothings
         [ omittable ( "id", Encode.int, v.id )
         , omittable ( "at", Encode.float << Moment.toJSTime, v.at )
+        , omittable
+            ( "schedule"
+            , \at ->
+                Encode.object
+                    [ ( "at", Encode.float (Moment.toJSTime at) ) ]
+            , v.at
+            )
         , omittable ( "ongoing", Encode.bool, v.ongoing )
         , omittable ( "expiresAfter", encodeExpiresAfter, v.expiresAfter )
         , omittable ( "priority", encodeImportance, v.channel.importance )
@@ -818,6 +827,7 @@ encode v =
         , omittable ( "vibratePattern", encodeVibrationSetting, v.channel.vibrate )
         , omittable ( "phone_only", Encode.bool, v.phone_only )
         , omittable ( "groupedMessages", Encode.list Encode.string, v.groupedMessages )
+        , omittable ( "inboxList", Encode.list Encode.string, v.groupedMessages )
         , omittable ( "group", \(GroupKey s) -> Encode.string s, v.group )
         , omittable ( "interval", encodeRepeatEvery, v.interval )
         , omittable ( "icon", Encode.string, v.icon )
@@ -831,3 +841,12 @@ encode v =
         , omittable ( "allowSystemGeneratedContextualActions", Encode.bool, v.allowSystemGeneratedContextualActions )
         , omittable ( "maxMinutesLate", Encode.int, v.maxMinutesLate )
         ]
+
+
+dispatch : List Notification -> TaskPort.Task String
+dispatch =
+    TaskPort.call
+        { function = "scheduleNotifications"
+        , valueDecoder = JD.string
+        , argsEncoder = Encode.list encode
+        }
