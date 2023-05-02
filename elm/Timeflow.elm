@@ -182,7 +182,7 @@ view vState profile env =
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row
-                    [ width fill ]
+                    [ width fill, htmlAttribute (HA.style "touch-action" "none") ]
                     (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
@@ -218,7 +218,9 @@ svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
         , group (allShapes state profile env)
             |> move ( 0, 50 )
             |> notifyMouseMoveAt PointerMove
+            |> notifyTouchMoveAt PointerMove
             |> notifyMouseUp MouseUp
+            |> notifyTouchEnd MouseUp
         ]
 
 
@@ -465,6 +467,7 @@ blobToShape display env initialBlob =
         ]
         |> move ( -50, 0 )
         |> notifyMouseDownAt (MouseDownAt blob.id)
+        |> notifyTouchStartAt (MouseDownAt blob.id)
 
 
 blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ), startCapTL : Point, endCapTL : Point }
