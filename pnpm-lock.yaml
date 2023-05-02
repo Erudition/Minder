@@ -24,6 +24,9 @@ dependencies:
   '@capacitor/local-notifications':
     specifier: ^4.1.5
     version: 4.1.5(@capacitor/core@4.7.3)
+  '@capacitor/preferences':
+    specifier: ^4.0.2
+    version: 4.0.2(@capacitor/core@4.7.3)
   '@capacitor/splash-screen':
     specifier: ^4.2.0
     version: 4.2.0(@capacitor/core@4.7.3)
@@ -1471,6 +1474,14 @@ packages:
 
   /@capacitor/local-notifications@4.1.5(@capacitor/core@4.7.3):
     resolution: {integrity: sha512-zUU4WvXxweALIDp9gBjurpwF9drLeMNe+O5tVKiUr/8PsaxB9dlv2ciuN5Seq4b+9LftOfTuzEX2PY7JkOJy1g==}
+    peerDependencies:
+      '@capacitor/core': ^4.0.0
+    dependencies:
+      '@capacitor/core': 4.7.3
+    dev: false
+
+  /@capacitor/preferences@4.0.2(@capacitor/core@4.7.3):
+    resolution: {integrity: sha512-HgcRkMdVHSIV3TeQLZFmCaCeMWQ25wLyZZ7dA2f8Rw81Q1Nroxsi7HxTEGNqrWKSN9PNKBJD8vChr6eB2GNtZg==}
     peerDependencies:
       '@capacitor/core': ^4.0.0
     dependencies:

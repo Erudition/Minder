@@ -2,11 +2,12 @@ port module NativeScript.Commands exposing (notify, notifyCancel)
 
 import Json.Encode as Encode exposing (Value, string)
 import NativeScript.Notification as Notification
+import Task
 
 
 notify : List Notification.Notification -> Cmd msg
-notify notification =
-    ns_notify (Encode.list Notification.encode notification)
+notify notifs =
+    ns_notify (Encode.list Notification.encode notifs)
 
 
 notifyCancel : Notification.NotificationID -> Cmd msg

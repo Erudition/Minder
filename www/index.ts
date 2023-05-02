@@ -4,6 +4,7 @@ import { Toast } from '@capacitor/toast'
 import { SplashScreen } from '@capacitor/splash-screen';
 import {Clipboard} from '@capacitor/clipboard'
 import {LocalNotifications} from '@capacitor/local-notifications'
+import { Preferences } from '@capacitor/preferences';
 import {Elm} from '../elm/Main.elm'
 import {startOrbit} from './scripts/orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
@@ -12,6 +13,7 @@ import { detectDarkMode, toggleDarkTheme } from './darkMode';
 import './scripts/ionicInit'
 import * as TaskPort from 'elm-taskport';
 import {registerNotificationTaskPorts} from './scripts/capacitor/notifications'
+import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 
 
 
@@ -58,7 +60,7 @@ function installTaskPorts() {
   
   TaskPort.install({ logCallErrors: true, logInteropErrors: false });
   
-  
+  registerPreferencesTaskPorts();
   registerNotificationTaskPorts();
 }
 
@@ -145,10 +147,36 @@ loadPwaElements(window);
 
 
 
+
+
+
+
 async function attachOrbit(elmApp) {
+
+    const getPassphraseResult = await Preferences.get({ key: 'minder-alpha-passphrase' });
+    var storedPassphrase = getPassphraseResult.value;
+
+    if (storedPassphrase == null) {
+        const fallbackPassphrase = ("tester" + Math.floor(Math.random()*1000))
+        const newPassphrase = prompt("New device. Enter a secret account passphrase to begin storing your data. If you've already got data in Minder on some other device, be sure to use the same passphrase here, and it will eventually sync over.", fallbackPassphrase);
+
+        storedPassphrase = newPassphrase ? newPassphrase : fallbackPassphrase;
+        console.log(`Storing new passphrase: ${storedPassphrase}`);
+        await Preferences.set({
+          key: 'minder-alpha-passphrase',
+          value: storedPassphrase,
+        });
+
+
+    } else {
+      console.log(`Passphrase previously specified: ${storedPassphrase}`);
+    }
+
+
+
     var currentlyStored: string | null = null;
 
-    const db = await startOrbit();
+    const db = await startOrbit(storedPassphrase);
     const dbEntries = db.iterator({ limit: -1 }).collect();
     console.log("Loaded inital database entries", dbEntries);
     let oldFrames = dbEntries.map((e) => e.payload.value).join('\n');

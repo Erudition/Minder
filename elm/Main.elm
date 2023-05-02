@@ -35,7 +35,7 @@ import Ion.List
 import Ion.Menu
 import Ion.Tab
 import Ion.Toolbar
-import Json.Decode as ClassicDecode
+import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
 import Native exposing (Native)
@@ -102,7 +102,7 @@ subscriptions { replica, temp } =
         , Browser.Events.onResize (\width height -> ResizeViewport width height)
 
         -- , storageChangedElsewhere NewAppData
-        , Browser.Events.onMouseMove <| ClassicDecode.map2 MouseMoved decodeButtons decodeFraction
+        , Browser.Events.onMouseMove <| JD.map2 MouseMoved decodeButtons decodeFraction
 
         -- , Moment.every (Duration.fromSeconds (1/5)) (\_ -> NoOp)
         , SmartTime.Human.Moment.everySecondOnTheSecond temp.environment.time (\_ -> NoOp)
@@ -119,6 +119,14 @@ subscriptions { replica, temp } =
 port incomingFramesFromElsewhere : (String -> msg) -> Sub msg
 
 
+clearPreferences : TaskPort.Task ()
+clearPreferences =
+    TaskPort.callNoArgs
+        { function = "clearPreferences"
+        , valueDecoder = TaskPort.ignoreValue
+        }
+
+
 
 {- The goal here is to get (mouse x / window width) on each mouse event. So if
    the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
@@ -133,11 +141,11 @@ port incomingFramesFromElsewhere : (String -> msg) -> Sub msg
 -}
 
 
-decodeFraction : ClassicDecode.Decoder Float
+decodeFraction : JD.Decoder Float
 decodeFraction =
-    ClassicDecode.map2 (/)
-        (ClassicDecode.field "pageX" ClassicDecode.float)
-        (ClassicDecode.at [ "currentTarget", "defaultView", "innerWidth" ] ClassicDecode.float)
+    JD.map2 (/)
+        (JD.field "pageX" JD.float)
+        (JD.at [ "currentTarget", "defaultView", "innerWidth" ] JD.float)
 
 
 
@@ -150,9 +158,9 @@ decodeFraction =
 -}
 
 
-decodeButtons : ClassicDecode.Decoder Bool
+decodeButtons : JD.Decoder Bool
 decodeButtons =
-    ClassicDecode.field "buttons" (ClassicDecode.map (\buttons -> buttons == 1) ClassicDecode.int)
+    JD.field "buttons" (JD.map (\buttons -> buttons == 1) JD.int)
 
 
 port setStorage : String -> Cmd msg
@@ -469,10 +477,9 @@ globalLayout temp replica innerStuff =
                     [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "/"
-                    , Ion.Item.item [ Ion.Item.button, HA.disabled True ]
+                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences ]
                         [ Ion.Item.label [] [ PlainHtml.text "Purge Data" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
-                        , Ion.Item.note [] [ PlainHtml.text "coming soon" ]
                         ]
                     ]
                 ]
@@ -677,6 +684,7 @@ type Msg
     | NewTimeZone SmartTime.Human.Moment.Zone
     | ToggleDarkTheme Bool
     | NotificationScheduled (TaskPort.Result String)
+    | ClearPreferences
 
 
 type ThirdPartyService
@@ -757,6 +765,11 @@ update msg { temp, replica, now } =
               -- TODO Model viewState { replica | errors = [] } environment
             , Cmd.none
             )
+
+        ClearPreferences ->
+            justRunCommand <|
+                Job.attempt (\_ -> NoOp) <|
+                    clearPreferences
 
         ThirdPartySync service ->
             case service of

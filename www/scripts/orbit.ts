@@ -56,13 +56,13 @@ const store = async (name) => {
   return db
 }
 
-export async function startOrbit() {
+export async function startOrbit(dbName) {
   
   const ipfs = await create(ipfsConfig)
   const orbitdb = await OrbitDb.createInstance(ipfs)
   
   // Create / Open a database
-  const db = await orbitdb.log("minder5", dbConfig)
+  const db = await orbitdb.log(dbName, dbConfig)
   await db.load()
   console.log("OrbitDB database started at ", db.address.toString())
 

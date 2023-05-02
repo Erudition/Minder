@@ -8,9 +8,15 @@ export function registerNotificationTaskPorts() {
         // Elm-encoded JSON object obviously can't contain the required Date() object
         var correctedList = notificationList.map(
             function(notifObj) {
-                //wrap js time (unix ms float) with Date object
-                notifObj["at"] = new Date(notifObj["at"]);
-
+                if (notifObj["schedule"]) {
+                    //wrap js time (unix ms float) with Date object
+                    let oldScheduleAt = notifObj["schedule"]["at"]
+                    notifObj["schedule"]["at"] = oldScheduleAt ? new Date(oldScheduleAt) : new Date();
+                } else {
+                    notifObj["schedule"] = { at : new Date()}
+                }
+                Object.assign(notifObj, {schedule : {at: new Date()}})
+                console.log("new notif Object", notifObj)
                 try {
                 notifObj["when"] = new Date(notifObj["when"]);
                 } catch (e)
