@@ -99,11 +99,28 @@ function elmStarted(app) {
     });
 
     app.ports.ns_notify.subscribe(function(notificationList) {
-        try {
+      var correctedList = notificationList.map(
+        function(notifObj) {
+            if (notifObj["schedule"]) {
+                //wrap js time (unix ms float) with Date object
+                let oldScheduleAt = notifObj["schedule"]["at"]
+                notifObj["schedule"]["at"] = oldScheduleAt ? new Date(oldScheduleAt) : new Date();
+            } 
+
+            try {
+            notifObj["when"] = new Date(notifObj["when"]);
+            } catch (e)
+            {console.log(e)}
+
+            return notifObj;
+        }
+    );  
+      
+      try {
           LocalNotifications.schedule({
-            notifications: notificationList
+            notifications: correctedList
           });
-          console.log("Notification: ", notificationList)
+          console.log("Notification: ", correctedList)
         } catch (e) {
           console.error("Failed to schedule notification(s)!" , e)
         }
