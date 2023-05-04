@@ -388,7 +388,14 @@ blobToShape display env initialBlob =
             ( (x1 + x2) / 2, (y1 + y2) / 2 )
 
         textSize =
-            toFloat display.settings.rowHeight / 2
+            if textAreaW < 10 then
+                toFloat display.settings.rowHeight / 4
+
+            else if textAreaW < 40 then
+                toFloat display.settings.rowHeight / 3
+
+            else
+                toFloat display.settings.rowHeight / 2
 
         textAreaW =
             (Tuple.first <| Tuple.second <| pointsOfInterest.bestTextArea)
@@ -661,7 +668,7 @@ blobToPoints displaySettings _ blob =
                     ]
                 , bestTextArea =
                     -- no slash on left side shared wall
-                    if startsAtPortion >= endsAtPortion then
+                    if (1 - startsAtPortion) >= endsAtPortion then
                         ( ( 0, startHeight )
                         , ( clamp 0 100 <| (100 - startsAtPortion * 100) - slash, startHeight - h )
                         )
@@ -688,7 +695,7 @@ blobToPoints displaySettings _ blob =
                     ]
                 , bestTextArea =
                     -- no slash on right side shared wall
-                    if startsAtPortion >= endsAtPortion then
+                    if (1 - startsAtPortion) >= endsAtPortion then
                         -- use top piece, there's more room
                         ( ( clamp 0 100 <| (startsAtPortion * 100) + slash, startHeight )
                         , ( 100, startHeight - h )
@@ -840,20 +847,28 @@ dragOffsetDur display ( startX, startY ) =
         yOffset =
             startY - display.pointer.y
 
-        yOffsetInRows =
-            yOffset / rowHeightInMouseCoords
+        yOffsetInDoubleRows =
+            yOffset / doubleRowHeightInMouseCoords
 
-        yOffsetInRowsRounded =
-            yOffsetInRows
+        yOffsetInDoubleRowsRounded =
+            (round yOffsetInDoubleRows * 2) |> toFloat
 
-        rowHeightInMouseCoords =
-            toFloat display.settings.rowHeight * 1
+        doubleRowHeightInMouseCoords =
+            toFloat display.settings.rowHeight * 20
 
         xOffsetAsPortion =
-            xOffset / 100
+            xOffset / 800
+
+        xIfSameLineYOtherwise =
+            if yOffsetInDoubleRowsRounded == 0 then
+                0 - xOffsetAsPortion
+
+            else
+                yOffsetInDoubleRowsRounded
     in
     -- TODO
-    Duration.scale display.settings.hourRowSize (yOffsetInRowsRounded - xOffsetAsPortion)
+    -- Duration.scale display.settings.hourRowSize xIfSameLineYOtherwise
+    Duration.scale display.settings.hourRowSize (yOffsetInDoubleRowsRounded - xOffsetAsPortion)
 
 
 timeLabelSidebar : ViewSettings -> Profile -> ( Moment, HumanMoment.Zone ) -> Period -> Element Msg
