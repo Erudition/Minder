@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app'
 import { Toast } from '@capacitor/toast'
 import { SplashScreen } from '@capacitor/splash-screen';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import {Clipboard} from '@capacitor/clipboard'
 import {LocalNotifications} from '@capacitor/local-notifications'
 import { Preferences } from '@capacitor/preferences';
@@ -34,11 +35,10 @@ import '@ionic/core/css/text-transformation.css';
 import '@ionic/core/css/flex-utils.css';
 import '@ionic/core/css/display.css';
 
-//import '/styles/theme.css'
+// Display content under transparent status bar (Android only)
+// Fails in browser, surpress error
+StatusBar.setOverlaysWebView({ overlay: true }).catch(e => {return});
 
-// Where we save the personal data
-var storagefilename = "Minder/personal-data.json"
-var browserStorageKey = 'docket-v0.2-data';
 
 
 
@@ -63,6 +63,7 @@ function installTaskPorts() {
   
   registerPreferencesTaskPorts();
   registerNotificationTaskPorts();
+  TaskPort.register("changePassphrase", () => getPassphrase(true))
 }
 
 function elmStarted(app) {
@@ -166,16 +167,14 @@ loadPwaElements(window);
 
 
 
-
-
-
-async function attachOrbit(elmApp) {
-
+async function getPassphrase(shouldReset) {
     const getPassphraseResult = await Preferences.get({ key: 'minder-alpha-passphrase' });
     var storedPassphrase = getPassphraseResult.value;
 
-    if (storedPassphrase == null) {
-        const fallbackPassphrase = ("tester" + Math.floor(Math.random()*1000))
+    const notPreviouslySet = storedPassphrase == null || storedPassphrase == ""
+
+    if (notPreviouslySet || shouldReset) {
+        const fallbackPassphrase = notPreviouslySet ? ("tester" + Math.floor(Math.random()*1000)) : storedPassphrase
 
         const { value, cancelled } = await Dialog.prompt({
           title: 'New Device',
@@ -190,15 +189,18 @@ async function attachOrbit(elmApp) {
           key: 'minder-alpha-passphrase',
           value: storedPassphrase,
         });
-
-
+        return storedPassphrase;
     } else {
       Toast.show({ text: `Loading account: ${storedPassphrase}`, duration: "short"}).then();
+      return storedPassphrase;
     }
+}
 
 
 
-    var currentlyStored: string | null = null;
+async function attachOrbit(elmApp) {
+
+    var storedPassphrase = await getPassphrase(false);
 
     const db = await startOrbit(storedPassphrase);
     const dbEntries = db.iterator({ limit: -1 }).collect();
