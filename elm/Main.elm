@@ -122,7 +122,7 @@ port incomingFramesFromElsewhere : (String -> msg) -> Sub msg
 clearPreferences : TaskPort.Task ()
 clearPreferences =
     TaskPort.callNoArgs
-        { function = "clearPreferences"
+        { function = "changePassphrase"
         , valueDecoder = TaskPort.ignoreValue
         }
 
@@ -476,7 +476,7 @@ globalLayout temp replica innerStuff =
                 [ Ion.List.list []
                     [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
-                    , menuItemHref "Reload App" "sync-outline" "/"
+                    , menuItemHref "Reload App" "sync-outline" "index.html"
                     , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences ]
                         [ Ion.Item.label [] [ PlainHtml.text "Purge Data" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
