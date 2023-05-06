@@ -579,22 +579,15 @@ blobToPoints displaySettings _ blob =
             1
 
         clampWithOffset x =
-            clamp 0 100 <| x + offset
+            clamp100 <| x + offset
 
         clampWithOffsetNeg x =
-            clamp 0 100 <| x - offset
+            clamp100 <| x - offset
 
         clamp100 x =
             clamp 0 100 x
 
-        value =
-            if isOddRow firstRowStartWall then
-                100
-
-            else
-                0
-
-        slash =
+        widgetWidth =
             0.0
 
         singleRowBlob =
@@ -602,37 +595,37 @@ blobToPoints displaySettings _ blob =
             if isOddRow firstRowStartWall then
                 -- RTL row
                 { shell =
-                    [ ( clamp100 (100 - ending * 100), startHeight - h )
-                    , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (h / 2) )
-                    , ( clamp100 (100 - ending * 100), startHeight )
-                    , ( clamp100 (100 - starting * 100), startHeight )
-                    , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
-                    , ( clamp100 (100 - starting * 100), startHeight - h )
+                    [ ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - h )
+                    , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight )
+                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                    , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
-                    ( ( 100 - ending * 100, startHeight )
-                    , ( 100 - starting * 100, startHeight - h )
+                    ( ( widgetWidth - ending * widgetWidth, startHeight )
+                    , ( widgetWidth - starting * widgetWidth, startHeight - h )
                     )
-                , startCapTL = ( (100 - starting * 100) - h, startHeight )
-                , endCapTL = ( 100 - ending * 100, startHeight )
+                , startCapTL = ( (widgetWidth - starting * widgetWidth) - h, startHeight )
+                , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight )
                 }
 
             else
                 -- LTR row
                 { shell =
-                    [ ( clamp100 (starting * 100), startHeight - h )
-                    , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
-                    , ( clamp100 (starting * 100), startHeight )
-                    , ( clamp100 (ending * 100), startHeight )
-                    , ( clampWithOffset (ending * 100), startHeight - (h / 2) )
-                    , ( clamp100 (ending * 100), startHeight - h )
+                    [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                    , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (starting * widgetWidth), startHeight )
+                    , ( clamp100 (ending * widgetWidth), startHeight )
+                    , ( clampWithOffset (ending * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (ending * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
-                    ( ( clamp 0 100 <| (starting * 100), startHeight )
-                    , ( clamp 0 100 <| (ending * 100), startHeight - h )
+                    ( ( clamp100 <| (starting * widgetWidth), startHeight )
+                    , ( clamp100 <| (ending * widgetWidth), startHeight - h )
                     )
-                , startCapTL = ( starting * 100, startHeight )
-                , endCapTL = ( (ending * 100) - h, startHeight )
+                , startCapTL = ( starting * widgetWidth, startHeight )
+                , endCapTL = ( (ending * widgetWidth) - h, startHeight )
                 }
 
         twoRowBlob =
@@ -644,60 +637,60 @@ blobToPoints displaySettings _ blob =
                     , ( 0, startHeight )
 
                     -- starting side, RTL row
-                    , ( clamp100 (100 - starting * 100), startHeight )
-                    , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
-                    , ( clamp100 (100 - starting * 100), startHeight - h )
+                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                    , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
 
                     -- ending side, LTR row
-                    , ( clamp100 (ending * 100), startHeight - h )
-                    , ( clampWithOffset (ending * 100), startHeight - (1.5 * h) )
-                    , ( clamp100 (ending * 100), startHeight - (2 * h) )
+                    , ( clamp100 (ending * widgetWidth), startHeight - h )
+                    , ( clampWithOffset (ending * widgetWidth), startHeight - (1.5 * h) )
+                    , ( clamp100 (ending * widgetWidth), startHeight - (2 * h) )
                     ]
                 , bestTextArea =
                     -- no slash on left side shared wall
                     if (1 - starting) >= ending then
                         ( ( 0, startHeight )
-                        , ( clamp 0 100 <| (100 - starting * 100), startHeight - h )
+                        , ( clamp100 <| (widgetWidth - starting * widgetWidth), startHeight - h )
                         )
 
                     else
                         ( ( 0, startHeight - h )
-                        , ( clamp 0 100 <| (ending * 100), startHeight - (2 * h) )
+                        , ( clamp100 <| (ending * widgetWidth), startHeight - (2 * h) )
                         )
-                , startCapTL = ( (100 - starting * 100) - h, startHeight )
-                , endCapTL = ( (ending * 100) - h, startHeight - h )
+                , startCapTL = ( (widgetWidth - starting * widgetWidth) - h, startHeight )
+                , endCapTL = ( (ending * widgetWidth) - h, startHeight - h )
                 }
 
             else
                 { shell =
-                    [ ( clamp100 (starting * 100), startHeight - h )
-                    , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
-                    , ( clamp100 (starting * 100), startHeight )
+                    [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                    , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
+                    , ( clamp100 (starting * widgetWidth), startHeight )
 
                     --
-                    , ( 100, startHeight )
-                    , ( 100, startHeight - (2 * h) )
+                    , ( widgetWidth, startHeight )
+                    , ( widgetWidth, startHeight - (2 * h) )
 
                     -- RTL row
-                    , ( clamp100 (100 - ending * 100), startHeight - (2 * h) )
-                    , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (1.5 * h) )
-                    , ( clamp100 (100 - ending * 100), startHeight - h )
+                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (2 * h) )
+                    , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (1.5 * h) )
+                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
                     -- no slash on right side shared wall
                     if (1 - starting) >= ending then
                         -- use top piece, there's more room
-                        ( ( clamp 0 100 <| (starting * 100), startHeight )
-                        , ( 100, startHeight - h )
+                        ( ( clamp100 <| (starting * widgetWidth), startHeight )
+                        , ( widgetWidth, startHeight - h )
                         )
 
                     else
                         -- use bottom piece, there's more room
-                        ( ( clamp 0 100 <| (100 - ending * 100), startHeight - h )
-                        , ( 100, startHeight - (2 * h) )
+                        ( ( clamp100 <| (widgetWidth - ending * widgetWidth), startHeight - h )
+                        , ( widgetWidth, startHeight - (2 * h) )
                         )
-                , startCapTL = ( starting * 100, startHeight )
-                , endCapTL = ( 100 - ending * 100, startHeight - h )
+                , startCapTL = ( starting * widgetWidth, startHeight )
+                , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight - h )
                 }
 
         sandwichBlob middlePieces =
@@ -706,27 +699,27 @@ blobToPoints displaySettings _ blob =
                 ( False, True ) ->
                     { shell =
                         -- start-side, LTR
-                        [ ( clamp100 (starting * 100), startHeight - h )
-                        , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
-                        , ( clamp100 (starting * 100), startHeight )
+                        [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                        , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
+                        , ( clamp100 (starting * widgetWidth), startHeight )
 
                         -- right wall
-                        , ( 100, startHeight )
-                        , ( 100, startHeight - ((2 + middlePieces) * h) )
+                        , ( widgetWidth, startHeight )
+                        , ( widgetWidth, startHeight - ((2 + middlePieces) * h) )
 
                         -- end-side, RTL
-                        , ( clamp100 (100 - ending * 100), startHeight - ((middlePieces + 2) * h) )
-                        , ( clampWithOffsetNeg (100 - ending * 100), startHeight - ((middlePieces + 1.5) * h) )
-                        , ( clamp100 (100 - ending * 100), startHeight - ((middlePieces + 1) * h) )
+                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
+                        , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 1.5) * h) )
+                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((1 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
                     , bestTextArea =
-                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( starting * 100, startHeight )
-                    , endCapTL = ( 100 - ending * 100, startHeight - ((1 + middlePieces) * h) )
+                        ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( starting * widgetWidth, startHeight )
+                    , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is RTL, bottom is LTR
@@ -737,50 +730,50 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , ( clamp100 (100 - starting * 100), startHeight )
-                        , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
-                        , ( clamp100 (100 - starting * 100), startHeight - h )
+                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                        , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
+                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
 
                         -- right wall
-                        , ( 100, startHeight - h )
-                        , ( 100, startHeight - (h * (middlePieces + 1)) )
+                        , ( widgetWidth, startHeight - h )
+                        , ( widgetWidth, startHeight - (h * (middlePieces + 1)) )
 
                         -- end-side, LTR
-                        , ( clamp100 (ending * 100), startHeight - (h * (middlePieces + 1)) )
-                        , ( clampWithOffset (ending * 100), startHeight - (h * (middlePieces + 1.5)) )
-                        , ( clamp100 (ending * 100), startHeight - (h * (middlePieces + 2)) )
+                        , ( clamp100 (ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
+                        , ( clampWithOffset (ending * widgetWidth), startHeight - (h * (middlePieces + 1.5)) )
+                        , ( clamp100 (ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
                         ]
                     , bestTextArea =
-                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (100 - starting * 100) - h, startHeight )
-                    , endCapTL = ( (ending * 100) - h, startHeight - ((1 + middlePieces) * h) )
+                        ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (widgetWidth - starting * widgetWidth) - h, startHeight )
+                    , endCapTL = ( (ending * widgetWidth) - h, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is LTR, bottom is LTR
                 ( False, False ) ->
                     { shell =
                         -- start-side, LTR
-                        [ ( clamp100 (starting * 100), startHeight - h )
-                        , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
-                        , ( clamp100 (starting * 100), startHeight )
+                        [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                        , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
+                        , ( clamp100 (starting * widgetWidth), startHeight )
 
                         -- right wall
-                        , ( 100, startHeight )
-                        , ( 100, startHeight - ((1 + middlePieces) * h) )
+                        , ( widgetWidth, startHeight )
+                        , ( widgetWidth, startHeight - ((1 + middlePieces) * h) )
 
                         -- end-side, also LTR
-                        , ( clamp100 (ending * 100), startHeight - ((middlePieces + 1) * h) )
-                        , ( clampWithOffset (ending * 100), startHeight - ((middlePieces + 1.5) * h) )
-                        , ( clamp100 (ending * 100), startHeight - ((middlePieces + 2) * h) )
+                        , ( clamp100 (ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
+                        , ( clampWithOffset (ending * widgetWidth), startHeight - ((middlePieces + 1.5) * h) )
+                        , ( clamp100 (ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((2 + middlePieces) * h) )
                         , ( 0, startHeight - h )
                         ]
                     , bestTextArea =
-                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( starting * 100, startHeight )
-                    , endCapTL = ( (ending * 100) - h, startHeight - ((1 + middlePieces) * h) )
+                        ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( starting * widgetWidth, startHeight )
+                    , endCapTL = ( (ending * widgetWidth) - h, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is RTL, bottom is RTL
@@ -791,23 +784,23 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , ( clamp100 (100 - starting * 100), startHeight )
-                        , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
-                        , ( clamp100 (100 - starting * 100), startHeight - h )
+                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                        , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
+                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
 
                         -- right wall
-                        , ( 100, startHeight - h )
-                        , ( 100, startHeight - (h * (middlePieces + 2)) )
+                        , ( widgetWidth, startHeight - h )
+                        , ( widgetWidth, startHeight - (h * (middlePieces + 2)) )
 
                         -- end-side, also RTL
-                        , ( clamp100 (100 - ending * 100), startHeight - (h * (middlePieces + 2)) )
-                        , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (h * (middlePieces + 1.5)) )
-                        , ( clamp100 (100 - ending * 100), startHeight - (h * (middlePieces + 1)) )
+                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
+                        , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 1.5)) )
+                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
                         ]
                     , bestTextArea =
-                        ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (100 - starting * 100) - h, startHeight )
-                    , endCapTL = ( 100 - ending * 100, startHeight - ((1 + middlePieces) * h) )
+                        ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
+                    , startCapTL = ( (widgetWidth - starting * widgetWidth) - h, startHeight )
+                    , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight - ((1 + middlePieces) * h) )
                     }
     in
     case List.length wallsCrossed of
