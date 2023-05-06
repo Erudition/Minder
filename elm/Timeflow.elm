@@ -228,9 +228,21 @@ allShapes state profile env =
     let
         boxHeight =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
+
+        hourOfDayAsPortion hour =
+            ((hour - 3) / 24) * 100
     in
     [ rect 100 boxHeight
-        |> filled grey
+        |> filled
+            (rotateGradient (turns 0.75) <|
+                gradient
+                    [ stop black 0
+                    , stop grey (hourOfDayAsPortion 6)
+                    , stop white (hourOfDayAsPortion 12)
+                    , stop grey (hourOfDayAsPortion 15)
+                    , stop black (hourOfDayAsPortion 21)
+                    ]
+            )
         |> makeTransparent 0.5
         |> move ( 0, -boxHeight / 2 )
     , rect 100 boxHeight
@@ -958,7 +970,7 @@ makeHistoryBlob env activityStore displayPeriod session =
                 { hue = activityHue
                 , saturation = 1
                 , lightness = 0.5
-                , alpha = 0.99
+                , alpha = 0.8
                 }
                 |> HSLuv.toColor
 
