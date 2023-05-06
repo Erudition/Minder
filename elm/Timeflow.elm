@@ -20,6 +20,7 @@ import HSLuv exposing (HSLuv, hsluv)
 import Helpers exposing (..)
 import Html as H
 import Html.Attributes as HA
+import Html.Events.Extra.Wheel
 import Html.Styled as SH
 import ID
 import Incubator.IntDict.Extra as IntDict
@@ -188,7 +189,7 @@ view vState profile env =
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row
-                    [ width fill, height fill, htmlAttribute (HA.style "touch-action" "none"), htmlAttribute (HA.id "timeflow-container") ]
+                    [ width fill, height fill, htmlAttribute (HA.style "touch-action" "none"), htmlAttribute (HA.id "timeflow-container"), clipY, htmlAttribute (Html.Events.Extra.Wheel.onWheel Wheel) ]
                     [ Element.html <| svgExperiment vState profile env ]
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
@@ -274,10 +275,10 @@ timeLabel : Environment -> Moment -> Shape msg
 timeLabel env stampMoment =
     GraphicSVG.text (HumanMoment.describeVsNow env.timeZone env.time stampMoment)
         |> fixedwidth
-        |> size 1
+        |> size 16
         |> centered
         |> filled red
-        |> move ( 0, -1 )
+        |> move ( 0, -16 )
 
 
 distanceBetweenPoints : Point -> Point -> Float
@@ -1006,6 +1007,7 @@ type Msg
     | MouseDownAt String ( Float, Float )
     | MouseUp
     | ResetCoordinates Float Float
+    | Wheel Html.Events.Extra.Wheel.Event
 
 
 type alias Pointer =
@@ -1028,6 +1030,29 @@ update msg stateMaybe profile env =
                             { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
                     in
                     ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
+
+                Wheel wheelEvent ->
+                    let
+                        oldSettings =
+                            state.settings
+
+                        forwardOrBack =
+                            if wheelEvent.deltaY > 0 then
+                                2
+
+                            else
+                                -2
+
+                        shiftMoment oldMoment =
+                            Moment.future oldMoment (Duration.scale state.settings.hourRowSize forwardOrBack)
+
+                        ( oldStart, oldFinish ) =
+                            Period.toPair oldSettings.flowRenderPeriod
+
+                        newSettings =
+                            { oldSettings | flowRenderPeriod = Period.fromPair ( shiftMoment oldStart, shiftMoment oldFinish ), pivotMoment = shiftMoment oldSettings.pivotMoment }
+                    in
+                    ( Change.none, { state | settings = newSettings }, Cmd.none )
 
                 WidgetMsg widgetMsg ->
                     let
