@@ -303,14 +303,16 @@ roundedPolygon radii cornerList =
 
         pullerList =
             allThePoints
-                |> List.groupsOf 2
+                |> List.greedyGroupsOf 2
                 |> List.map
                     (\list ->
-                        let
-                            ( c, d ) =
-                                Maybe.withDefault ( ( 0, 0 ), ( 0, 0 ) ) <| Helpers.listToTuple2 list
-                        in
-                        GraphicSVG.Pull c d
+                        case list of
+                            [ a, b ] ->
+                                GraphicSVG.Pull a b
+
+                            _ ->
+                                GraphicSVG.Pull ( 0, 0 ) ( 0, 0 )
+                                    |> Log.crashInDev "This should never happen"
                     )
     in
     curve
@@ -445,11 +447,17 @@ blobToShape display env initialBlob =
 
         capLabel moment =
             group
-                [ GraphicSVG.text (Clock.padInt (Clock.hour (HumanMoment.extractTime env.timeZone moment)))
+                [ HumanMoment.extractTime env.timeZone moment
+                    |> Clock.hour
+                    |> Clock.padInt
+                    |> GraphicSVG.text
                     |> size 0.7
                     |> filled black
                     |> move ( 0, 0 )
-                , GraphicSVG.text (Clock.padInt (Clock.minute (HumanMoment.extractTime env.timeZone moment)))
+                , HumanMoment.extractTime env.timeZone moment
+                    |> Clock.hour
+                    |> Clock.padInt
+                    |> GraphicSVG.text
                     |> size 0.7
                     |> filled black
                     |> move ( 0, -0.6 )
@@ -509,7 +517,8 @@ blobToPoints displaySettings _ blob =
             Duration.inMs displaySettings.hourRowSize
 
         startMs =
-            Duration.subtract (Moment.toDuration blob.start Moment.y2k)
+            Duration.subtract
+                (Moment.toDuration blob.start Moment.y2k)
                 (Moment.toDuration displaySettings.pivotMoment Moment.y2k)
                 |> Duration.inMs
 
@@ -521,7 +530,8 @@ blobToPoints displaySettings _ blob =
             msBetweenWalls - offsetFromPriorWall ms
 
         endMs =
-            Duration.subtract (Moment.toDuration blob.end Moment.y2k)
+            Duration.subtract
+                (Moment.toDuration blob.end Moment.y2k)
                 (Moment.toDuration displaySettings.pivotMoment Moment.y2k)
                 |> Duration.inMs
 
@@ -890,8 +900,14 @@ timeLabelSidebar state profile ( time, timeZone ) rowPeriod =
                 False ->
                     Clock.toShortString startMomentAsTimeOfDay
     in
-    column [ width (px 70), height fill, Border.color (Element.rgb 0.2 0.2 0.2), Border.width 1, Background.color (Element.rgb 0.5 0.5 0.5) ]
-        [ paragraph [ centerX, centerY ] <|
+    column
+        [ width (px 70)
+        , height fill
+        , Border.color (Element.rgb 0.2 0.2 0.2)
+        , Border.width 1
+        , Background.color (Element.rgb 0.5 0.5 0.5)
+        ]
+        [ paragraph [ centerX, centerY ]
             [ Element.text timeOfDayString ]
         ]
 
@@ -912,7 +928,13 @@ makeHistoryBlob env activityStore displayPeriod session =
             )
 
         describeTiming =
-            String.fromInt (round <| Duration.inMinutes (Period.length (Session.getPeriod session)))
+            (session
+                |> Session.getPeriod
+                |> Period.length
+                |> Duration.inMinutes
+                |> round
+                |> String.fromInt
+            )
                 ++ "m "
                 ++ activityIcon
                 ++ activityName
@@ -952,7 +974,12 @@ makeHistoryBlob env activityStore displayPeriod session =
         stringID =
             HumanMoment.toStandardString (Session.getStart session)
     in
-    FlowBlob (Period.start croppedSessionPeriod) (Period.end croppedSessionPeriod) activityColor describeTiming stringID
+    FlowBlob
+        (Period.start croppedSessionPeriod)
+        (Period.end croppedSessionPeriod)
+        activityColor
+        describeTiming
+        stringID
 
 
 blockBrokenCoord coord =
