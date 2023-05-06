@@ -432,7 +432,7 @@ blobToShape display env initialBlob =
             midPoint pointsOfInterest.bestTextArea
 
         theShell =
-            roundedPolygon 0.5 pointsOfInterest.shell
+            roundedPolygon 7 pointsOfInterest.shell
 
         rotateIfSquished shape =
             if textAreaW > toFloat display.settings.rowHeight then
@@ -475,7 +475,7 @@ blobToShape display env initialBlob =
             [ theShell
                 |> filled (graphColor blob.color)
                 -- TODO: Consider flipping to black when blobs are old
-                |> addOutline (GraphicSVG.solid 0.3) outlineColor
+                |> addOutline (GraphicSVG.solid 7) outlineColor
                 |> Just
             , capLabel blob.start
                 |> move pointsOfInterest.startCapTL
@@ -579,7 +579,7 @@ blobToPoints displaySettings _ blob =
             modBy 2 (rowNumber startWall) == 1
 
         offset =
-            3
+            5
 
         clampWithOffset x =
             clampWidth <| x + offset
