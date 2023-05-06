@@ -439,7 +439,14 @@ blobToShape display env initialBlob =
                     |> filled black
                     |> move ( 0, -0.6 )
                 ]
-                |> makeTransparent 0.5
+                |> makeTransparent 0.8
+
+        ifBigEnoughForCaps keepShape =
+            if textAreaW > 7 then
+                Just keepShape
+
+            else
+                Nothing
 
         outlineColor =
             if isDraggingMe then
@@ -449,29 +456,32 @@ blobToShape display env initialBlob =
                 GraphicSVG.rgba 255 255 255 0.55
     in
     group
-        [ theShell
-            |> filled (graphColor blob.color)
-            -- TODO: Consider flipping to black when blobs are old
-            |> addOutline (GraphicSVG.solid 0.5) outlineColor
-            |> GraphicSVG.clip (filled black theShell)
-        , capLabel blob.start
-            |> move pointsOfInterest.startCapTL
-            |> move ( 0.5, toFloat -display.settings.rowHeight / 2 )
-            |> GraphicSVG.clip (filled black theShell)
-        , capLabel blob.end
-            |> move pointsOfInterest.endCapTL
-            |> move ( 0.6, toFloat -display.settings.rowHeight / 2 )
-            |> GraphicSVG.clip (filled black theShell)
-        , GraphicSVG.text blob.label
-            |> size textSize
-            |> sansserif
-            |> centered
-            |> filled black
-            |> rotateIfSquished
-            |> move (midPoint pointsOfInterest.bestTextArea)
-            |> move ( 0, -textSize / 2 )
-            |> GraphicSVG.clip (filled black theShell)
-        ]
+        (List.filterMap identity <|
+            [ theShell
+                |> filled (graphColor blob.color)
+                -- TODO: Consider flipping to black when blobs are old
+                |> addOutline (GraphicSVG.solid 0.3) outlineColor
+                |> Just
+            , capLabel blob.start
+                |> move pointsOfInterest.startCapTL
+                |> move ( 0.5, toFloat -display.settings.rowHeight / 2 )
+                |> ifBigEnoughForCaps
+            , capLabel blob.end
+                |> move pointsOfInterest.endCapTL
+                |> move ( 0.5, toFloat -display.settings.rowHeight / 2 )
+                |> ifBigEnoughForCaps
+            , GraphicSVG.text blob.label
+                |> size textSize
+                |> sansserif
+                |> centered
+                |> filled black
+                |> rotateIfSquished
+                |> move (midPoint pointsOfInterest.bestTextArea)
+                |> move ( 0, -textSize / 2 )
+                |> Just
+            ]
+        )
+        |> GraphicSVG.clip (filled black theShell)
         |> move ( -50, 0 )
         |> notifyMouseDownAt (MouseDownAt blob.id)
         |> notifyTouchStartAt (MouseDownAt blob.id)
@@ -830,7 +840,7 @@ historyBlobs env profile displayPeriod =
             Timeline.historyLive env.time profile.timeline
     in
     List.map (makeHistoryBlob env profile.activities displayPeriod)
-        (List.takeWhile
+        (List.takeWhileRight
             (\sesh -> Period.haveOverlap displayPeriod (Session.getPeriod sesh))
             historyList
         )
@@ -920,6 +930,7 @@ makeHistoryBlob env activityStore displayPeriod session =
         describeTiming =
             String.fromInt (round <| Duration.inMinutes (Period.length (Session.getPeriod session)))
                 ++ "m "
+                ++ activityIcon
                 ++ activityName
 
         sessionActivity =

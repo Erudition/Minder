@@ -1,4 +1,4 @@
-module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, crop, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, instantaneous, isInstant, isWithin, length, midpoint, overlap, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
+module SmartTime.Period exposing (Period(..), areAdjacent, between, contains, crop, distanceBetween, divide, end, endsEarlier, endsLater, fromEnd, fromPair, fromStart, haveOverlap, instantaneous, isInstant, isWithin, length, midpoint, split, splitEvery, splitHalves, splitThirds, start, startsEarlier, startsLater, timeline, timelineWithEnd, timelineWithStart, toPair, toStartDurPair)
 
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Moment as Moment exposing (Moment)
@@ -283,25 +283,19 @@ areAdjacent (Period startA endA) (Period startB endB) =
     startB == endA || startA == endB
 
 
-overlap : Period -> Period -> Duration
-overlap periodA periodB =
+haveOverlap : Period -> Period -> Bool
+haveOverlap periodA periodB =
     let
         comesFirst =
             startsEarlier periodA periodB
 
         comesLast =
             startsLater periodA periodB
+
+        firstEndsAfterLastStarts =
+            Moment.compare (end comesFirst) (start comesLast) == Moment.Later
     in
-    if Moment.compare (end comesFirst) (start comesLast) == Moment.Later then
-        Moment.difference (end comesFirst) (start comesLast)
-
-    else
-        Duration.zero
-
-
-haveOverlap : Period -> Period -> Bool
-haveOverlap periodA periodB =
-    not <| Duration.isZero (overlap periodA periodB)
+    firstEndsAfterLastStarts
 
 
 {-| Whether the first Period is contained by the second (A fits entirely within B).

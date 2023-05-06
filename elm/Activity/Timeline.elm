@@ -98,7 +98,7 @@ historyLive now ((Timeline timeline) as wrappedTimeline) =
             RepList.listValues timeline.history
 
         Just currentSesh ->
-            currentSesh :: RepList.listValues timeline.history
+            RepList.listValues timeline.history ++ [ currentSesh ]
 
 
 sessionsOfActivity : Period -> Timeline -> ActivityID -> List Session
