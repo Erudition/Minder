@@ -541,10 +541,10 @@ blobToPoints displaySettings _ blob =
                 -- we've left the blob
                 Nothing
 
-        startsAtPortion =
+        starting =
             toFloat (offsetFromPriorWall startMs) / toFloat msBetweenWalls
 
-        endsAtPortion =
+        ending =
             toFloat (offsetFromPriorWall endMs) / toFloat msBetweenWalls
 
         reverseMaybe shouldReverse elements =
@@ -575,104 +575,67 @@ blobToPoints displaySettings _ blob =
         isOddRow startWall =
             modBy 2 (rowNumber startWall) == 1
 
+        offset =
+            1
+
+        clampWithOffset x =
+            clamp 0 100 <| x + offset
+
+        clampWithOffsetNeg x =
+            clamp 0 100 <| x - offset
+
+        clamp100 x =
+            clamp 0 100 x
+
+        value =
+            if isOddRow firstRowStartWall then
+                100
+
+            else
+                0
+
         slash =
-            0.2
+            0.0
 
-        touchingRightWallBy ( x, y ) =
-            if (100 - x) < slash then
-                Debug.log "touching right wall portion" (1 - ((100 - x) / slash))
-
-            else
-                0
-
-        touchingLeftWallBy ( x, y ) =
-            if x < slash then
-                Debug.log "touching left wall portion" (1 - (x / slash))
-
-            else
-                0
-
-        slashTopLTR ( x, y ) =
-            -- let
-            --     touchPortion =
-            --         touchingRightWallBy ( x, y )
-            -- in
-            -- if touchPortion > 0 then
-            --     ( 100, y - (touchPortion * h) )
-            --
-            -- else
-            ( clamp 0 100 <| x + slash, y )
-
-        slashBottomLTR ( x, y ) =
-            -- if touchingRightWallBy ( x, y ) > 0 then
-            --     ( 100 - (2 * slash), y )
-            --
-            -- else
-            ( clamp 0 100 <| x - slash, y )
-
-        slashTopRTL ( x, y ) =
-            -- let
-            --     leftTouchPortion =
-            --         touchingLeftWallBy ( x, y )
-            -- in
-            -- if touchingRightWallBy ( x, y ) > 0 then
-            --     ( 100 - (2 * slash), y )
-            --
-            -- else if leftTouchPortion > 0 then
-            --     ( 0, y - (leftTouchPortion * h) )
-            --
-            -- else
-            ( clamp 0 100 <| x - slash, y )
-
-        slashBottomRTL ( x, y ) =
-            -- let
-            --     rightTouchPortion =
-            --         touchingRightWallBy ( x, y )
-            -- in
-            -- if touchingLeftWallBy ( x, y ) > 0 then
-            --     ( 0 + (2 * slash), y )
-            --
-            -- else if rightTouchPortion > 0 then
-            --     ( 100, y + (rightTouchPortion * h) )
-            --
-            -- else
-            ( clamp 0 100 <| x + slash, y )
-
-        floatingBlob =
+        singleRowBlob =
             -- all Points are in clockwise order, starting with the top left point or the one before it
             if isOddRow firstRowStartWall then
                 -- RTL row
                 { shell =
-                    [ slashBottomRTL ( 100 - endsAtPortion * 100, startHeight - h )
-                    , slashTopRTL ( 100 - endsAtPortion * 100, startHeight )
-                    , slashTopRTL ( 100 - startsAtPortion * 100, startHeight )
-                    , slashBottomRTL ( 100 - startsAtPortion * 100, startHeight - h )
+                    [ ( clamp100 (100 - ending * 100), startHeight - h )
+                    , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (h / 2) )
+                    , ( clamp100 (100 - ending * 100), startHeight )
+                    , ( clamp100 (100 - starting * 100), startHeight )
+                    , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
+                    , ( clamp100 (100 - starting * 100), startHeight - h )
                     ]
                 , bestTextArea =
-                    ( ( (100 - endsAtPortion * 100) + slash, startHeight )
-                    , ( (100 - startsAtPortion * 100) - slash, startHeight - h )
+                    ( ( 100 - ending * 100, startHeight )
+                    , ( 100 - starting * 100, startHeight - h )
                     )
-                , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
-                , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight )
+                , startCapTL = ( (100 - starting * 100) - h, startHeight )
+                , endCapTL = ( 100 - ending * 100, startHeight )
                 }
 
             else
                 -- LTR row
                 { shell =
-                    [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
-                    , slashTopLTR ( startsAtPortion * 100, startHeight )
-                    , slashTopLTR ( endsAtPortion * 100, startHeight )
-                    , slashBottomLTR ( endsAtPortion * 100, startHeight - h )
+                    [ ( clamp100 (starting * 100), startHeight - h )
+                    , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
+                    , ( clamp100 (starting * 100), startHeight )
+                    , ( clamp100 (ending * 100), startHeight )
+                    , ( clampWithOffset (ending * 100), startHeight - (h / 2) )
+                    , ( clamp100 (ending * 100), startHeight - h )
                     ]
                 , bestTextArea =
-                    ( ( clamp 0 100 <| (startsAtPortion * 100) + slash, startHeight )
-                    , ( clamp 0 100 <| (endsAtPortion * 100) - slash, startHeight - h )
+                    ( ( clamp 0 100 <| (starting * 100), startHeight )
+                    , ( clamp 0 100 <| (ending * 100), startHeight - h )
                     )
-                , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
-                , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight )
+                , startCapTL = ( starting * 100, startHeight )
+                , endCapTL = ( (ending * 100) - h, startHeight )
                 }
 
-        oneCrossingBlob =
+        twoRowBlob =
             if isOddRow firstRowStartWall then
                 -- RTL row
                 { shell =
@@ -681,55 +644,60 @@ blobToPoints displaySettings _ blob =
                     , ( 0, startHeight )
 
                     -- starting side, RTL row
-                    , slashTopRTL ( 100 - startsAtPortion * 100, startHeight )
-                    , slashBottomRTL ( 100 - startsAtPortion * 100, startHeight - h )
+                    , ( clamp100 (100 - starting * 100), startHeight )
+                    , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
+                    , ( clamp100 (100 - starting * 100), startHeight - h )
 
                     -- ending side, LTR row
-                    , slashTopLTR ( endsAtPortion * 100, startHeight - h )
-                    , slashBottomLTR ( endsAtPortion * 100, startHeight - (2 * h) )
+                    , ( clamp100 (ending * 100), startHeight - h )
+                    , ( clampWithOffset (ending * 100), startHeight - (1.5 * h) )
+                    , ( clamp100 (ending * 100), startHeight - (2 * h) )
                     ]
                 , bestTextArea =
                     -- no slash on left side shared wall
-                    if (1 - startsAtPortion) >= endsAtPortion then
+                    if (1 - starting) >= ending then
                         ( ( 0, startHeight )
-                        , ( clamp 0 100 <| (100 - startsAtPortion * 100) - slash, startHeight - h )
+                        , ( clamp 0 100 <| (100 - starting * 100), startHeight - h )
                         )
 
                     else
                         ( ( 0, startHeight - h )
-                        , ( clamp 0 100 <| (endsAtPortion * 100) - slash, startHeight - (2 * h) )
+                        , ( clamp 0 100 <| (ending * 100), startHeight - (2 * h) )
                         )
-                , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
-                , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - h )
+                , startCapTL = ( (100 - starting * 100) - h, startHeight )
+                , endCapTL = ( (ending * 100) - h, startHeight - h )
                 }
 
             else
-                -- LTR row
                 { shell =
-                    [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
-                    , slashTopLTR ( startsAtPortion * 100, startHeight )
+                    [ ( clamp100 (starting * 100), startHeight - h )
+                    , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
+                    , ( clamp100 (starting * 100), startHeight )
+
+                    --
                     , ( 100, startHeight )
                     , ( 100, startHeight - (2 * h) )
 
                     -- RTL row
-                    , slashBottomRTL ( 100 - endsAtPortion * 100, startHeight - (2 * h) )
-                    , slashTopRTL ( 100 - endsAtPortion * 100, startHeight - h )
+                    , ( clamp100 (100 - ending * 100), startHeight - (2 * h) )
+                    , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (1.5 * h) )
+                    , ( clamp100 (100 - ending * 100), startHeight - h )
                     ]
                 , bestTextArea =
                     -- no slash on right side shared wall
-                    if (1 - startsAtPortion) >= endsAtPortion then
+                    if (1 - starting) >= ending then
                         -- use top piece, there's more room
-                        ( ( clamp 0 100 <| (startsAtPortion * 100) + slash, startHeight )
+                        ( ( clamp 0 100 <| (starting * 100), startHeight )
                         , ( 100, startHeight - h )
                         )
 
                     else
                         -- use bottom piece, there's more room
-                        ( ( clamp 0 100 <| (100 - endsAtPortion * 100) + slash, startHeight - h )
+                        ( ( clamp 0 100 <| (100 - ending * 100), startHeight - h )
                         , ( 100, startHeight - (2 * h) )
                         )
-                , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
-                , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - h )
+                , startCapTL = ( starting * 100, startHeight )
+                , endCapTL = ( 100 - ending * 100, startHeight - h )
                 }
 
         sandwichBlob middlePieces =
@@ -738,16 +706,18 @@ blobToPoints displaySettings _ blob =
                 ( False, True ) ->
                     { shell =
                         -- start-side, LTR
-                        [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
-                        , slashTopLTR ( startsAtPortion * 100, startHeight )
+                        [ ( clamp100 (starting * 100), startHeight - h )
+                        , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
+                        , ( clamp100 (starting * 100), startHeight )
 
                         -- right wall
                         , ( 100, startHeight )
                         , ( 100, startHeight - ((2 + middlePieces) * h) )
 
                         -- end-side, RTL
-                        , slashBottomRTL ( 100 - endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
-                        , slashTopRTL ( 100 - endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
+                        , ( clamp100 (100 - ending * 100), startHeight - ((middlePieces + 2) * h) )
+                        , ( clampWithOffsetNeg (100 - ending * 100), startHeight - ((middlePieces + 1.5) * h) )
+                        , ( clamp100 (100 - ending * 100), startHeight - ((middlePieces + 1) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((1 + middlePieces) * h) )
@@ -755,8 +725,8 @@ blobToPoints displaySettings _ blob =
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
-                    , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+                    , startCapTL = ( starting * 100, startHeight )
+                    , endCapTL = ( 100 - ending * 100, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is RTL, bottom is LTR
@@ -767,37 +737,41 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , slashTopRTL ( 100 - startsAtPortion * 100, startHeight )
-                        , slashBottomRTL ( 100 - startsAtPortion * 100, startHeight - h )
+                        , ( clamp100 (100 - starting * 100), startHeight )
+                        , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
+                        , ( clamp100 (100 - starting * 100), startHeight - h )
 
                         -- right wall
                         , ( 100, startHeight - h )
                         , ( 100, startHeight - (h * (middlePieces + 1)) )
 
                         -- end-side, LTR
-                        , slashTopLTR ( endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
-                        , slashBottomLTR ( endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
+                        , ( clamp100 (ending * 100), startHeight - (h * (middlePieces + 1)) )
+                        , ( clampWithOffset (ending * 100), startHeight - (h * (middlePieces + 1.5)) )
+                        , ( clamp100 (ending * 100), startHeight - (h * (middlePieces + 2)) )
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
-                    , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - ((1 + middlePieces) * h) )
+                    , startCapTL = ( (100 - starting * 100) - h, startHeight )
+                    , endCapTL = ( (ending * 100) - h, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is LTR, bottom is LTR
                 ( False, False ) ->
                     { shell =
                         -- start-side, LTR
-                        [ slashBottomLTR ( startsAtPortion * 100, startHeight - h )
-                        , slashTopLTR ( startsAtPortion * 100, startHeight )
+                        [ ( clamp100 (starting * 100), startHeight - h )
+                        , ( clampWithOffset (starting * 100), startHeight - (h / 2) )
+                        , ( clamp100 (starting * 100), startHeight )
 
                         -- right wall
                         , ( 100, startHeight )
                         , ( 100, startHeight - ((1 + middlePieces) * h) )
 
                         -- end-side, also LTR
-                        , slashTopLTR ( endsAtPortion * 100, startHeight - ((1 + middlePieces) * h) )
-                        , slashBottomLTR ( endsAtPortion * 100, startHeight - ((2 + middlePieces) * h) )
+                        , ( clamp100 (ending * 100), startHeight - ((middlePieces + 1) * h) )
+                        , ( clampWithOffset (ending * 100), startHeight - ((middlePieces + 1.5) * h) )
+                        , ( clamp100 (ending * 100), startHeight - ((middlePieces + 2) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((2 + middlePieces) * h) )
@@ -805,8 +779,8 @@ blobToPoints displaySettings _ blob =
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (startsAtPortion * 100) + slash, startHeight )
-                    , endCapTL = ( (endsAtPortion * 100) - slash - h, startHeight - ((1 + middlePieces) * h) )
+                    , startCapTL = ( starting * 100, startHeight )
+                    , endCapTL = ( (ending * 100) - h, startHeight - ((1 + middlePieces) * h) )
                     }
 
                 -- top row is RTL, bottom is RTL
@@ -817,29 +791,31 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , slashTopRTL ( 100 - startsAtPortion * 100, startHeight )
-                        , slashBottomRTL ( 100 - startsAtPortion * 100, startHeight - h )
+                        , ( clamp100 (100 - starting * 100), startHeight )
+                        , ( clampWithOffsetNeg (100 - starting * 100), startHeight - (h / 2) )
+                        , ( clamp100 (100 - starting * 100), startHeight - h )
 
                         -- right wall
                         , ( 100, startHeight - h )
                         , ( 100, startHeight - (h * (middlePieces + 2)) )
 
                         -- end-side, also RTL
-                        , slashBottomRTL ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 2)) )
-                        , slashTopRTL ( 100 - endsAtPortion * 100, startHeight - (h * (middlePieces + 1)) )
+                        , ( clamp100 (100 - ending * 100), startHeight - (h * (middlePieces + 2)) )
+                        , ( clampWithOffsetNeg (100 - ending * 100), startHeight - (h * (middlePieces + 1.5)) )
+                        , ( clamp100 (100 - ending * 100), startHeight - (h * (middlePieces + 1)) )
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( 100, startHeight - ((1 + middlePieces) * h) ) )
-                    , startCapTL = ( (100 - startsAtPortion * 100) - slash - h, startHeight )
-                    , endCapTL = ( (100 - endsAtPortion * 100) + slash, startHeight - ((1 + middlePieces) * h) )
+                    , startCapTL = ( (100 - starting * 100) - h, startHeight )
+                    , endCapTL = ( 100 - ending * 100, startHeight - ((1 + middlePieces) * h) )
                     }
     in
     case List.length wallsCrossed of
         0 ->
-            floatingBlob
+            singleRowBlob
 
         1 ->
-            oneCrossingBlob
+            twoRowBlob
 
         x ->
             sandwichBlob (toFloat x - 1)

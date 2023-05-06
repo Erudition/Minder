@@ -583,6 +583,16 @@ listToTuple2 list =
             Nothing
 
 
+{-|
+
+    Example:
+    listToTuple3 [ 1, 2, 3 ]
+    -> Just ( 1, 2, 3 )
+
+    listToTuple3 [ 1, 2 ]
+    -> Nothing
+
+-}
 listToTuple3 : List a -> Maybe ( a, a, a )
 listToTuple3 list =
     case list of
@@ -593,19 +603,22 @@ listToTuple3 list =
             Nothing
 
 
+{-| Given a list, return a list of 'grouped' elements with a step which Loops!.
 
-{-
-   Given a list, return a list of 'grouped' elements with a step which Loops!.
-   Example:
-   cycleGroupWithStep 3 1 [ 1, 2, 3, 4 ]
-        -> [ [ 1, 2, 3 ], [ 2, 3, 4 ], [ 3, 4, 1 ], [ 4, 1, 2 ] ]
+    Example:
+    cycleGroupWithStep 3 1 [ 1, 2, 3, 4 ]
+    -> [ [ 1, 2, 3 ], [ 2, 3, 4 ], [ 3, 4, 1 ], [ 4, 1, 2 ] ]
+
+    cycleGroupWithStep 3 2 [ 1, 2, 3, 4, 5 ]
+    -> [ [ 1, 2, 3 ], [ 3, 4, 5 ], [ 5, 1, 2 ] ]
+
     cycleGroupWithStep 4 4 [ 1, 2, 3, 4 ]
-        -> [ [ 1, 2, 3, 4 ] ]
+    -> [ [ 1, 2, 3, 4 ] ]
+
 -}
-
-
 cycleGroupWithStep : Int -> Int -> List a -> List (List a)
 cycleGroupWithStep groupSize groupStep list =
+    -- Cycle the list so that the first group is at the start
     list
         |> List.cycle (List.length list + (groupSize - 1))
         |> List.groupsOfWithStep groupSize groupStep
