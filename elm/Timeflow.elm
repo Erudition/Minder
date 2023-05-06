@@ -851,7 +851,7 @@ dragOffsetDur display ( startX, startY ) =
             toFloat display.settings.rowHeight * 2
 
         xOffsetAsPortion =
-            xOffset / 800
+            xOffset / toFloat display.settings.widgetHeight
 
         xIfSameLineYOtherwise =
             if yOffsetInDoubleRowsRounded == 0 then
