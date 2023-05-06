@@ -1,4 +1,4 @@
-module Timeflow exposing (Msg(..), ViewState, init, routeView, subscriptions, update, view)
+module Timeflow exposing (Msg(..), ViewState, init, resizeCmd, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Session as Session exposing (Session)
@@ -90,7 +90,8 @@ type DraggingStatus
 
 type alias ViewState =
     { settings : ViewSettings
-    , widgets : Dict WidgetID ( Widget.Model, Cmd Widget.Msg )
+    , widgetState : Widget.Model
+    , widgetInit : Cmd Widget.Msg
     , pointer : Pointer
     , dragging : Maybe DraggingStatus
     }
@@ -106,6 +107,8 @@ type alias ViewSettings =
     , pivotMoment : Moment
     , rowHeight : Int
     , rows : Int
+    , widgetWidth : Int
+    , widgetHeight : Int
     }
 
 
@@ -135,16 +138,18 @@ updateViewSettings profile env =
             Duration.fromMinutes 60
 
         rowHeight =
-            3
+            30
 
         rowCount =
-            List.length (Period.divide timePerRow chosenPeriod) * rowHeight
+            List.length (Period.divide timePerRow chosenPeriod)
     in
     { flowRenderPeriod = chosenPeriod
     , hourRowSize = timePerRow
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = rowHeight
     , rows = rowCount
+    , widgetHeight = 1000
+    , widgetWidth = 1000
     }
 
 
@@ -152,20 +157,21 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init 100 100 "0"
+            Widget.init (toFloat initialSettings.widgetWidth) (toFloat initialWidgetHeight) "0"
 
         initialSettings =
             updateViewSettings profile environment
 
         initialWidgetHeight =
-            initialSettings.rowHeight * initialSettings.rows
+            initialSettings.widgetHeight
     in
     ( { settings = initialSettings
-      , widgets = Dict.fromList [ ( "0", ( widget1state, widget1init ) ) ]
+      , widgetState = widget1state
+      , widgetInit = widget1init
       , pointer = { x = 0.0, y = 0.0 }
       , dragging = Nothing
       }
-    , Cmd.map (WidgetMsg "0") widget1init
+    , Cmd.batch [ resizeCmd ]
     )
 
 
@@ -177,13 +183,13 @@ routeView =
 view : ViewState -> Profile -> Environment -> SH.Html Msg
 view vState profile env =
     SH.fromUnstyled <|
-        layout [ width fill ] <|
-            column [ width fill ]
+        layout [ width fill, height fill ] <|
+            column [ width fill, height fill ]
                 [ row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row
-                    [ width fill, htmlAttribute (HA.style "touch-action" "none") ]
-                    (List.map (Element.html << svgExperiment vState profile env) (Dict.toList vState.widgets))
+                    [ width fill, height fill, htmlAttribute (HA.style "touch-action" "none"), htmlAttribute (HA.id "timeflow-container") ]
+                    [ Element.html <| svgExperiment vState profile env ]
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
                         Element.text
@@ -211,12 +217,12 @@ view vState profile env =
 -- svgExperiment : ViewState -> Profile -> Environment -> ( widgetID, ( widgetState, widgetInitCmd ) )
 
 
-svgExperiment state profile env ( widgetID, ( widgetState, widgetInitCmd ) ) =
+svgExperiment state profile env =
     Widget.view
-        widgetState
-        [ graphPaperCustom 1 0.03 (GraphicSVG.rgb 20 20 20)
+        state.widgetState
+        [ graphPaperCustom 100 0.03 (GraphicSVG.rgb 20 20 20)
         , group (allShapes state profile env)
-            |> move ( 0, 50 )
+            |> move ( 0, toFloat state.settings.widgetHeight / 2 )
             |> notifyMouseMoveAt PointerMove
             |> notifyTouchMoveAt PointerMove
             |> notifyMouseUp MouseUp
@@ -230,9 +236,9 @@ allShapes state profile env =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
 
         hourOfDayAsPortion hour =
-            ((hour - 3) / 24) * 100
+            ((hour - 3) / 24) * toFloat state.settings.widgetHeight
     in
-    [ rect 100 boxHeight
+    [ rect (toFloat state.settings.widgetWidth) boxHeight
         |> filled
             (rotateGradient (turns 0.75) <|
                 gradient
@@ -245,9 +251,6 @@ allShapes state profile env =
             )
         |> makeTransparent 0.5
         |> move ( 0, -boxHeight / 2 )
-    , rect 100 boxHeight
-        |> filled grey
-        |> move ( 0, -3 * boxHeight / 2 )
 
     -- , polygon
     --    demoPolygonPoints
@@ -494,7 +497,7 @@ blobToShape display env initialBlob =
             ]
         )
         |> GraphicSVG.clip (filled black theShell)
-        |> move ( -50, 0 )
+        |> move ( toFloat display.settings.widgetWidth / -2, 0 )
         |> notifyMouseDownAt (MouseDownAt blob.id)
         |> notifyTouchStartAt (MouseDownAt blob.id)
 
@@ -576,31 +579,31 @@ blobToPoints displaySettings _ blob =
             modBy 2 (rowNumber startWall) == 1
 
         offset =
-            1
+            3
 
         clampWithOffset x =
-            clamp100 <| x + offset
+            clampWidth <| x + offset
 
         clampWithOffsetNeg x =
-            clamp100 <| x - offset
+            clampWidth <| x - offset
 
-        clamp100 x =
-            clamp 0 100 x
+        clampWidth x =
+            clamp 0 widgetWidth x
 
         widgetWidth =
-            0.0
+            toFloat displaySettings.widgetWidth
 
         singleRowBlob =
             -- all Points are in clockwise order, starting with the top left point or the one before it
             if isOddRow firstRowStartWall then
                 -- RTL row
                 { shell =
-                    [ ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - h )
+                    [ ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - h )
                     , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight )
-                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                    , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight )
+                    , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight )
                     , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
+                    , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
                     ( ( widgetWidth - ending * widgetWidth, startHeight )
@@ -613,16 +616,16 @@ blobToPoints displaySettings _ blob =
             else
                 -- LTR row
                 { shell =
-                    [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                    [ ( clampWidth (starting * widgetWidth), startHeight - h )
                     , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (starting * widgetWidth), startHeight )
-                    , ( clamp100 (ending * widgetWidth), startHeight )
+                    , ( clampWidth (starting * widgetWidth), startHeight )
+                    , ( clampWidth (ending * widgetWidth), startHeight )
                     , ( clampWithOffset (ending * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (ending * widgetWidth), startHeight - h )
+                    , ( clampWidth (ending * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
-                    ( ( clamp100 <| (starting * widgetWidth), startHeight )
-                    , ( clamp100 <| (ending * widgetWidth), startHeight - h )
+                    ( ( clampWidth <| (starting * widgetWidth), startHeight )
+                    , ( clampWidth <| (ending * widgetWidth), startHeight - h )
                     )
                 , startCapTL = ( starting * widgetWidth, startHeight )
                 , endCapTL = ( (ending * widgetWidth) - h, startHeight )
@@ -637,25 +640,25 @@ blobToPoints displaySettings _ blob =
                     , ( 0, startHeight )
 
                     -- starting side, RTL row
-                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                    , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight )
                     , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
+                    , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight - h )
 
                     -- ending side, LTR row
-                    , ( clamp100 (ending * widgetWidth), startHeight - h )
+                    , ( clampWidth (ending * widgetWidth), startHeight - h )
                     , ( clampWithOffset (ending * widgetWidth), startHeight - (1.5 * h) )
-                    , ( clamp100 (ending * widgetWidth), startHeight - (2 * h) )
+                    , ( clampWidth (ending * widgetWidth), startHeight - (2 * h) )
                     ]
                 , bestTextArea =
                     -- no slash on left side shared wall
                     if (1 - starting) >= ending then
                         ( ( 0, startHeight )
-                        , ( clamp100 <| (widgetWidth - starting * widgetWidth), startHeight - h )
+                        , ( clampWidth <| (widgetWidth - starting * widgetWidth), startHeight - h )
                         )
 
                     else
                         ( ( 0, startHeight - h )
-                        , ( clamp100 <| (ending * widgetWidth), startHeight - (2 * h) )
+                        , ( clampWidth <| (ending * widgetWidth), startHeight - (2 * h) )
                         )
                 , startCapTL = ( (widgetWidth - starting * widgetWidth) - h, startHeight )
                 , endCapTL = ( (ending * widgetWidth) - h, startHeight - h )
@@ -663,30 +666,30 @@ blobToPoints displaySettings _ blob =
 
             else
                 { shell =
-                    [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                    [ ( clampWidth (starting * widgetWidth), startHeight - h )
                     , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
-                    , ( clamp100 (starting * widgetWidth), startHeight )
+                    , ( clampWidth (starting * widgetWidth), startHeight )
 
                     --
                     , ( widgetWidth, startHeight )
                     , ( widgetWidth, startHeight - (2 * h) )
 
                     -- RTL row
-                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (2 * h) )
+                    , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - (2 * h) )
                     , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (1.5 * h) )
-                    , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - h )
+                    , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - h )
                     ]
                 , bestTextArea =
                     -- no slash on right side shared wall
                     if (1 - starting) >= ending then
                         -- use top piece, there's more room
-                        ( ( clamp100 <| (starting * widgetWidth), startHeight )
+                        ( ( clampWidth <| (starting * widgetWidth), startHeight )
                         , ( widgetWidth, startHeight - h )
                         )
 
                     else
                         -- use bottom piece, there's more room
-                        ( ( clamp100 <| (widgetWidth - ending * widgetWidth), startHeight - h )
+                        ( ( clampWidth <| (widgetWidth - ending * widgetWidth), startHeight - h )
                         , ( widgetWidth, startHeight - (2 * h) )
                         )
                 , startCapTL = ( starting * widgetWidth, startHeight )
@@ -699,18 +702,18 @@ blobToPoints displaySettings _ blob =
                 ( False, True ) ->
                     { shell =
                         -- start-side, LTR
-                        [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                        [ ( clampWidth (starting * widgetWidth), startHeight - h )
                         , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
-                        , ( clamp100 (starting * widgetWidth), startHeight )
+                        , ( clampWidth (starting * widgetWidth), startHeight )
 
                         -- right wall
                         , ( widgetWidth, startHeight )
                         , ( widgetWidth, startHeight - ((2 + middlePieces) * h) )
 
                         -- end-side, RTL
-                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
+                        , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
                         , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 1.5) * h) )
-                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
+                        , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((1 + middlePieces) * h) )
@@ -730,18 +733,18 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                        , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight )
                         , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
-                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
+                        , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight - h )
 
                         -- right wall
                         , ( widgetWidth, startHeight - h )
                         , ( widgetWidth, startHeight - (h * (middlePieces + 1)) )
 
                         -- end-side, LTR
-                        , ( clamp100 (ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
+                        , ( clampWidth (ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
                         , ( clampWithOffset (ending * widgetWidth), startHeight - (h * (middlePieces + 1.5)) )
-                        , ( clamp100 (ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
+                        , ( clampWidth (ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
@@ -753,18 +756,18 @@ blobToPoints displaySettings _ blob =
                 ( False, False ) ->
                     { shell =
                         -- start-side, LTR
-                        [ ( clamp100 (starting * widgetWidth), startHeight - h )
+                        [ ( clampWidth (starting * widgetWidth), startHeight - h )
                         , ( clampWithOffset (starting * widgetWidth), startHeight - (h / 2) )
-                        , ( clamp100 (starting * widgetWidth), startHeight )
+                        , ( clampWidth (starting * widgetWidth), startHeight )
 
                         -- right wall
                         , ( widgetWidth, startHeight )
                         , ( widgetWidth, startHeight - ((1 + middlePieces) * h) )
 
                         -- end-side, also LTR
-                        , ( clamp100 (ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
+                        , ( clampWidth (ending * widgetWidth), startHeight - ((middlePieces + 1) * h) )
                         , ( clampWithOffset (ending * widgetWidth), startHeight - ((middlePieces + 1.5) * h) )
-                        , ( clamp100 (ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
+                        , ( clampWidth (ending * widgetWidth), startHeight - ((middlePieces + 2) * h) )
 
                         -- left wall
                         , ( 0, startHeight - ((2 + middlePieces) * h) )
@@ -784,18 +787,18 @@ blobToPoints displaySettings _ blob =
                         , ( 0, startHeight )
 
                         -- start-side, RTL
-                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight )
+                        , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight )
                         , ( clampWithOffsetNeg (widgetWidth - starting * widgetWidth), startHeight - (h / 2) )
-                        , ( clamp100 (widgetWidth - starting * widgetWidth), startHeight - h )
+                        , ( clampWidth (widgetWidth - starting * widgetWidth), startHeight - h )
 
                         -- right wall
                         , ( widgetWidth, startHeight - h )
                         , ( widgetWidth, startHeight - (h * (middlePieces + 2)) )
 
                         -- end-side, also RTL
-                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
+                        , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 2)) )
                         , ( clampWithOffsetNeg (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 1.5)) )
-                        , ( clamp100 (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
+                        , ( clampWidth (widgetWidth - ending * widgetWidth), startHeight - (h * (middlePieces + 1)) )
                         ]
                     , bestTextArea =
                         ( ( 0, startHeight - h ), ( widgetWidth, startHeight - ((1 + middlePieces) * h) ) )
@@ -845,7 +848,7 @@ dragOffsetDur display ( startX, startY ) =
             (round yOffsetInDoubleRows * 2) |> toFloat
 
         doubleRowHeightInMouseCoords =
-            toFloat display.settings.rowHeight * 20
+            toFloat display.settings.rowHeight * 2
 
         xOffsetAsPortion =
             xOffset / 800
@@ -971,11 +974,12 @@ blockBrokenCoord coord =
 
 type Msg
     = ChangeTimeWindow Moment Moment
-    | WidgetMsg WidgetID Widget.Msg
+    | WidgetMsg Widget.Msg
     | PointerMove ( Float, Float )
     | MouseDownAt String ( Float, Float )
     | MouseUp
     | Refresh
+    | ResetCoordinates Float Float
 
 
 type alias Pointer =
@@ -999,23 +1003,15 @@ update msg stateMaybe profile env =
                     in
                     ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
 
-                WidgetMsg widgetID widgetMsg ->
-                    case Dict.get widgetID state.widgets of
-                        Nothing ->
-                            Debug.todo "Tried to update a widget that has no stored state"
-
-                        Just ( oldWidgetState, widgetInitCmd ) ->
-                            let
-                                ( newWidgetState, widgetOutCmds ) =
-                                    Widget.update widgetMsg oldWidgetState
-
-                                newWidgetDict =
-                                    Dict.insert widgetID ( newWidgetState, widgetInitCmd ) state.widgets
-                            in
-                            ( Change.none
-                            , { state | widgets = newWidgetDict }
-                            , Cmd.map (WidgetMsg widgetID) widgetOutCmds
-                            )
+                WidgetMsg widgetMsg ->
+                    let
+                        ( newWidgetState, widgetOutCmds ) =
+                            Widget.update widgetMsg state.widgetState
+                    in
+                    ( Change.none
+                    , { state | widgetState = newWidgetState }
+                    , Cmd.map WidgetMsg widgetOutCmds
+                    )
 
                 PointerMove ( x, y ) ->
                     let
@@ -1046,7 +1042,28 @@ update msg stateMaybe profile env =
                 Refresh ->
                     ( Change.none
                     , { state | dragging = Nothing }
-                    , scrollToCenterCmd
+                    , Cmd.none
+                    )
+
+                ResetCoordinates width height ->
+                    let
+                        oldSettings =
+                            state.settings
+
+                        newSettings =
+                            { oldSettings | widgetWidth = round width, widgetHeight = round height, rowHeight = round height // oldSettings.rows }
+
+                        ( widget1state, widget1init ) =
+                            Widget.init width height "0"
+                    in
+                    ( Change.none
+                    , { settings = newSettings
+                      , widgetState = widget1state
+                      , widgetInit = widget1init
+                      , pointer = { x = 0.0, y = 0.0 }
+                      , dragging = Nothing
+                      }
+                    , Cmd.map WidgetMsg widget1init
                     )
 
         Nothing ->
@@ -1054,24 +1071,23 @@ update msg stateMaybe profile env =
                 ( initState, initCmd ) =
                     init profile env
             in
-            ( Change.none, initState, Cmd.batch [ initCmd, scrollToCenterCmd ] )
+            ( Change.none, initState, Cmd.batch [ initCmd, resizeCmd ] )
 
 
-scrollToCenterCmd =
+resizeCmd =
     let
         outcomeToMsg result =
             case result of
-                Ok () ->
-                    MouseUp
+                Ok element ->
+                    ResetCoordinates element.element.width element.element.height
 
                 Err err ->
-                    Tuple.second ( Log.log "problem scrolling to center!" err, MouseUp )
+                    Tuple.second ( Log.log "problem fetching timeflow size!" err, MouseUp )
     in
-    Dom.getViewportOf "page-viewport"
-        |> Job.andThen (\info -> Dom.setViewportOf "page-viewport" 0 (info.scene.height * 0.384))
+    Dom.getElement "timeflow-container"
         |> Job.attempt outcomeToMsg
 
 
 subscriptions : Profile -> Environment -> ViewState -> Sub Msg
 subscriptions profile env vState =
-    Sub.batch <| List.map (\id -> Sub.map (WidgetMsg id) Widget.subscriptions) (Dict.keys vState.widgets)
+    Sub.map WidgetMsg Widget.subscriptions

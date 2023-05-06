@@ -456,7 +456,7 @@ globalLayout temp replica innerStuff =
                         ]
                     ]
                 ]
-            , Ion.Content.content [ HA.class "ion-padding", HA.id "page-viewport", HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
+            , Ion.Content.content [ HA.classList [ ( "ion-padding", not (isPanelOpen viewState.timeflow) ) ], HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
             , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
                 [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
                   tabBar
@@ -732,13 +732,13 @@ update msg { temp, replica, now } =
         ResizeViewport newWidth newHeight ->
             ( []
             , { newTemp | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
-            , Cmd.none
+            , Cmd.map TimeflowMsg Timeflow.resizeCmd
             )
 
         VisibilityChanged newVisibility ->
             ( []
             , { newTemp | windowVisibility = newVisibility }
-            , Cmd.none
+            , Cmd.map TimeflowMsg Timeflow.resizeCmd
             )
 
         ToggleDarkTheme isDark ->
@@ -923,32 +923,38 @@ update msg { temp, replica, now } =
             )
 
         TimeflowMsg subMsg ->
-            let
-                ( panelState, position, initCmdIfNeeded ) =
-                    case viewState.timeflow of
-                        OpenPanel oldPosition (Just oldState) ->
-                            ( oldState, oldPosition, Cmd.none )
+            case viewState.timeflow of
+                OpenPanel oldPosition (Just oldState) ->
+                    let
+                        ( newFrame, newPanelState, newCommand ) =
+                            Timeflow.update subMsg (Just oldState) replica environment
 
-                        ClosedPanel oldPosition (Just oldState) ->
-                            ( oldState, oldPosition, Cmd.none )
+                        newViewState =
+                            { viewState | timeflow = OpenPanel oldPosition (Just newPanelState) }
+                    in
+                    ( [ newFrame ]
+                    , { newTemp | viewState = newViewState }
+                    , Cmd.map TimeflowMsg newCommand
+                    )
 
-                        _ ->
-                            let
-                                ( freshState, initCmds ) =
-                                    Timeflow.init replica environment
-                            in
-                            ( freshState, FullScreen, initCmds )
+                OpenPanel oldPosition Nothing ->
+                    let
+                        ( freshState, initCmds ) =
+                            Timeflow.init replica environment
 
-                ( newFrame, newPanelState, newCommand ) =
-                    Timeflow.update subMsg (Just panelState) replica environment
+                        newViewState =
+                            { viewState | timeflow = OpenPanel oldPosition (Just freshState) }
+                    in
+                    ( []
+                    , { newTemp | viewState = newViewState }
+                    , Cmd.map TimeflowMsg initCmds
+                    )
 
-                newViewState =
-                    { viewState | timeflow = OpenPanel position (Just newPanelState) }
-            in
-            ( [ newFrame ]
-            , { newTemp | viewState = newViewState }
-            , Cmd.map TimeflowMsg (Cmd.batch [ initCmdIfNeeded, newCommand ])
-            )
+                _ ->
+                    ( []
+                    , newTemp
+                    , Cmd.none
+                    )
 
         DevToolsMsg subMsg ->
             let
