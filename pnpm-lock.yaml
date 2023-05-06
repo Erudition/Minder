@@ -21,6 +21,9 @@ dependencies:
   '@capacitor/core':
     specifier: ^4.7.3
     version: 4.7.3
+  '@capacitor/dialog':
+    specifier: ^5.0.1
+    version: 5.0.1(@capacitor/core@4.7.3)
   '@capacitor/local-notifications':
     specifier: ^4.1.5
     version: 4.1.5(@capacitor/core@4.7.3)
@@ -1470,6 +1473,14 @@ packages:
     resolution: {integrity: sha512-IDhJapHqfJNpSlq89M0quOZGb08uOUZhVhyRDdrGUrwa4ttFoWeX/Vi9F+b9bffsDRKkSLF0BhzA9TH7ko5c3A==}
     dependencies:
       tslib: 2.5.0
+    dev: false
+
+  /@capacitor/dialog@5.0.1(@capacitor/core@4.7.3):
+    resolution: {integrity: sha512-1bXmEMM6cRvYCEpNxyViUdmHxauYFHAgTRksI1hB60bKQKhNSnBTzd1vXn/jRZijd0FFzydILwJWzVwDodQS1A==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 4.7.3
     dev: false
 
   /@capacitor/local-notifications@4.1.5(@capacitor/core@4.7.3):

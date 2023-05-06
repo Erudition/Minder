@@ -6,6 +6,7 @@ import {Clipboard} from '@capacitor/clipboard'
 import {LocalNotifications} from '@capacitor/local-notifications'
 import { Preferences } from '@capacitor/preferences';
 import {Elm} from '../elm/Main.elm'
+import { Dialog } from '@capacitor/dialog';
 import {startOrbit} from './scripts/orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
 import { detectDarkMode, toggleDarkTheme } from './darkMode';
@@ -175,10 +176,16 @@ async function attachOrbit(elmApp) {
 
     if (storedPassphrase == null) {
         const fallbackPassphrase = ("tester" + Math.floor(Math.random()*1000))
-        const newPassphrase = prompt("New device. Enter a secret account passphrase to begin storing your data. If you've already got data in Minder on some other device, be sure to use the same passphrase here, and it will eventually sync over.", fallbackPassphrase);
+
+        const { value, cancelled } = await Dialog.prompt({
+          title: 'New Device',
+          message: "Enter a secret account passphrase to begin storing your data. If you've already got data in Minder on some other device, be sure to use the same passphrase here, and it will eventually sync over.",
+        });
+
+        const newPassphrase = cancelled ? fallbackPassphrase : value
 
         storedPassphrase = newPassphrase ? newPassphrase : fallbackPassphrase;
-        console.log(`Storing new passphrase: ${storedPassphrase}`);
+        Toast.show({ text: `Storing new passphrase: ${storedPassphrase}`, duration: "short"}).then();
         await Preferences.set({
           key: 'minder-alpha-passphrase',
           value: storedPassphrase,
@@ -186,7 +193,7 @@ async function attachOrbit(elmApp) {
 
 
     } else {
-      console.log(`Passphrase previously specified: ${storedPassphrase}`);
+      Toast.show({ text: `Loading account: ${storedPassphrase}`, duration: "short"}).then();
     }
 
 

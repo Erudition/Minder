@@ -43,6 +43,7 @@
     "@capacitor/app": "^4.1.1",
     "@capacitor/clipboard": "^4.1.0",
     "@capacitor/core": "^4.7.3",
+    "@capacitor/dialog": "^5.0.1",
     "@capacitor/local-notifications": "^4.1.5",
     "@capacitor/preferences": "^4.0.2",
     "@capacitor/splash-screen": "^4.2.0",
