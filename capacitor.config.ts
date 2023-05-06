@@ -14,9 +14,9 @@ const config: CapacitorConfig = {
     },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 100,
+      launchShowDuration: 0,
       launchAutoHide: true,
-      launchFadeOutDuration: 300,
+      launchFadeOutDuration: 0,
       backgroundColor: "#ffffffff",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
@@ -37,7 +37,10 @@ const config: CapacitorConfig = {
     },
     App: {},
     Clipboard: {},
-    Storage: {}
+    Storage: {},
+    CapacitorCookies: {
+      enabled: true
+    }
   }
 };
 
