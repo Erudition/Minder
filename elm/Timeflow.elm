@@ -107,8 +107,8 @@ type alias ViewSettings =
     , pivotMoment : Moment
     , rowHeight : Int
     , rows : Int
-    , widgetWidth : Int
-    , widgetHeight : Int
+    , widgetWidth : Float
+    , widgetHeight : Float
     }
 
 
@@ -157,7 +157,7 @@ init : Profile -> Environment -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
-            Widget.init (toFloat initialSettings.widgetWidth) (toFloat initialWidgetHeight) "0"
+            Widget.init initialSettings.widgetWidth initialWidgetHeight "0"
 
         initialSettings =
             updateViewSettings profile environment
@@ -222,7 +222,7 @@ svgExperiment state profile env =
         state.widgetState
         [ graphPaperCustom 100 0.03 (GraphicSVG.rgb 20 20 20)
         , group (allShapes state profile env)
-            |> move ( 0, toFloat state.settings.widgetHeight / 2 )
+            |> move ( 0, state.settings.widgetHeight / 2 )
             |> notifyMouseMoveAt PointerMove
             |> notifyTouchMoveAt PointerMove
             |> notifyMouseUp MouseUp
@@ -236,9 +236,9 @@ allShapes state profile env =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
 
         hourOfDayAsPortion hour =
-            ((hour - 3) / 24) * toFloat state.settings.widgetHeight
+            ((hour - 3) / 24) * state.settings.widgetHeight
     in
-    [ rect (toFloat state.settings.widgetWidth) boxHeight
+    [ rect state.settings.widgetWidth boxHeight
         |> filled
             (rotateGradient (turns 0.75) <|
                 gradient
@@ -497,7 +497,7 @@ blobToShape display env initialBlob =
             ]
         )
         |> GraphicSVG.clip (filled black theShell)
-        |> move ( toFloat display.settings.widgetWidth / -2, 0 )
+        |> move ( display.settings.widgetWidth / -2, 0 )
         |> notifyMouseDownAt (MouseDownAt blob.id)
         |> notifyTouchStartAt (MouseDownAt blob.id)
 
@@ -591,7 +591,7 @@ blobToPoints displaySettings _ blob =
             clamp 0 widgetWidth x
 
         widgetWidth =
-            toFloat displaySettings.widgetWidth
+            displaySettings.widgetWidth
 
         singleRowBlob =
             -- all Points are in clockwise order, starting with the top left point or the one before it
@@ -851,7 +851,7 @@ dragOffsetDur display ( startX, startY ) =
             toFloat display.settings.rowHeight * 2
 
         xOffsetAsPortion =
-            xOffset / toFloat display.settings.widgetHeight
+            xOffset / display.settings.widgetWidth
 
         xIfSameLineYOtherwise =
             if yOffsetInDoubleRowsRounded == 0 then
@@ -978,7 +978,6 @@ type Msg
     | PointerMove ( Float, Float )
     | MouseDownAt String ( Float, Float )
     | MouseUp
-    | Refresh
     | ResetCoordinates Float Float
 
 
@@ -1039,22 +1038,23 @@ update msg stateMaybe profile env =
                     , Cmd.none
                     )
 
-                Refresh ->
-                    ( Change.none
-                    , { state | dragging = Nothing }
-                    , Cmd.none
-                    )
-
                 ResetCoordinates width height ->
                     let
                         oldSettings =
                             state.settings
 
+                        ( newWidth, newHeight ) =
+                            if width > 0 && height > 0 then
+                                ( width, height )
+
+                            else
+                                ( oldSettings.widgetWidth, oldSettings.widgetHeight )
+
                         newSettings =
-                            { oldSettings | widgetWidth = round width, widgetHeight = round height, rowHeight = round height // oldSettings.rows }
+                            { oldSettings | widgetWidth = newWidth, widgetHeight = newHeight, rowHeight = round newHeight // oldSettings.rows }
 
                         ( widget1state, widget1init ) =
-                            Widget.init width height "0"
+                            Widget.init newWidth newHeight "0"
                     in
                     ( Change.none
                     , { settings = newSettings
@@ -1082,7 +1082,7 @@ resizeCmd =
                     ResetCoordinates element.element.width element.element.height
 
                 Err err ->
-                    Tuple.second ( Log.log "problem fetching timeflow size!" err, MouseUp )
+                    Tuple.second ( Log.log "problem fetching timeflow size!" err, ResetCoordinates 0 0 )
     in
     Dom.getElement "timeflow-container"
         |> Job.attempt outcomeToMsg

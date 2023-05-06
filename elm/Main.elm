@@ -1040,7 +1040,7 @@ navigate url =
             List.filterMap identity
                 [ case finalViewState.timeflow of
                     OpenPanel _ _ ->
-                        Just <| Job.perform (\_ -> TimeflowMsg Timeflow.Refresh) (Job.succeed ())
+                        Just <| Cmd.map TimeflowMsg Timeflow.resizeCmd
 
                     _ ->
                         Nothing
