@@ -148,7 +148,7 @@ updateViewSettings profile env =
     , hourRowSize = timePerRow
     , pivotMoment = HumanMoment.clockTurnBack chosenDayCutoffTime env.timeZone env.time
     , rowHeight = rowHeight
-    , rows = rowCount
+    , rows = rowCount - 1
     , widgetHeight = 1000
     , widgetWidth = 1000
     }
@@ -835,7 +835,7 @@ historyBlobs env profile displayPeriod =
             Timeline.historyLive env.time profile.timeline
     in
     List.map (makeHistoryBlob env profile.activities displayPeriod)
-        (List.takeWhileRight
+        (List.filter
             (\sesh -> Period.haveOverlap displayPeriod (Session.getPeriod sesh))
             historyList
         )
@@ -871,8 +871,6 @@ dragOffsetDur display ( startX, startY ) =
             else
                 yOffsetInDoubleRowsRounded
     in
-    -- TODO
-    -- Duration.scale display.settings.hourRowSize xIfSameLineYOtherwise
     Duration.scale display.settings.hourRowSize (yOffsetInDoubleRowsRounded - xOffsetAsPortion)
 
 
