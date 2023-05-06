@@ -9,33 +9,63 @@ patchedDependencies:
     path: patches/orbit-db-storage-adapter@0.9.0.patch
 
 dependencies:
+  '@capacitor/action-sheet':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/android':
-    specifier: ^4.7.3
-    version: 4.7.3(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/app':
-    specifier: ^4.1.1
-    version: 4.1.1(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/clipboard':
-    specifier: ^4.1.0
-    version: 4.1.0(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/core':
-    specifier: ^4.7.3
-    version: 4.7.3
+    specifier: ^5.0.0
+    version: 5.0.1
+  '@capacitor/device':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/dialog':
-    specifier: ^5.0.1
-    version: 5.0.1(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/geolocation':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/haptics':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/keyboard':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/local-notifications':
-    specifier: ^4.1.5
-    version: 4.1.5(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/motion':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/network':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/preferences':
-    specifier: ^4.0.2
-    version: 4.0.2(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/share':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/splash-screen':
-    specifier: ^4.2.0
-    version: 4.2.0(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/status-bar':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
+  '@capacitor/text-zoom':
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@capacitor/toast':
-    specifier: ^4.1.0
-    version: 4.1.0(@capacitor/core@4.7.3)
+    specifier: ^5.0.0
+    version: 5.0.1(@capacitor/core@5.0.1)
   '@ionic/cli':
     specifier: ^7.0.0
     version: 7.0.0
@@ -126,8 +156,8 @@ devDependencies:
     specifier: ^2.0.4
     version: 2.0.4(@types/node@18.15.11)(typescript@5.0.3)
   '@capacitor/cli':
-    specifier: ^4.7.3
-    version: 4.7.3
+    specifier: ^5.0.0
+    version: 5.0.1
   '@esbuild-plugins/node-globals-polyfill':
     specifier: ^0.2.3
     version: 0.2.3(esbuild@0.17.15)
@@ -156,8 +186,8 @@ devDependencies:
     specifier: ^4.2.1
     version: 4.2.1(@types/node@18.15.11)
   vite-plugin-elm:
-    specifier: ^2.7.2
-    version: 2.7.2(vite@4.2.1)
+    specifier: ^2.8.0
+    version: 2.8.0(vite@4.2.1)
   vite-plugin-node-polyfills:
     specifier: ^0.8.1
     version: 0.8.1(rollup@3.20.2)(vite@4.2.1)
@@ -1368,20 +1398,28 @@ packages:
       to-fast-properties: 2.0.0
     dev: true
 
-  /@capacitor/android@4.7.3(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-TmVg7vbAt6Iw0FWc51dLlW1gRMtSeIQ6qVLFJ1/sl2SYLXpgCHh8v/LfhqQ93NurgM+6SKFxOycGgg1FIBaLGw==}
+  /@capacitor/action-sheet@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-nc0wddHYHC8T1TJ0yMcTPqnV29T5g6v3Vbv9POrGi+UTRYctHX0fKX897OAsBNpdKZ5ey/FceKkj4pY34oK2Sw==}
     peerDependencies:
-      '@capacitor/core': ^4.7.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/app@4.1.1(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-SJcJA1rhFQyeH6eLfUEbdKkHzAwzahJNVPNXmU88fdmXpMgM2dJGzZj1vrm6e21aQq+Z4aBVLJ2RCdj92zD7wg==}
+  /@capacitor/android@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-zv0Hy22vkA6aPvLRwpYl8u5NMnZBcj+Gx1gz72mXmpy3JPRqM6UHB6Ncdcie3SK+uJW9TTftZz2uOHYSZiaPEA==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/app@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-JyichIVMeYP1YlnxkvpFs7TvZKoOO8OpH29ksSt9vVSeZ/8OWgpaM/H7ach2H50JrS4BAKBVivqTEjwQWo0GKA==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
     dev: false
 
   /@capacitor/assets@2.0.4(@types/node@18.15.11)(typescript@5.0.3):
@@ -1435,9 +1473,9 @@ packages:
       - supports-color
     dev: true
 
-  /@capacitor/cli@4.7.3:
-    resolution: {integrity: sha512-/9Vjl0A91UjRA0b8a5YCqHfHcM50vQ3Fh0typ3ScwYZhg3shkFtB03e8liAD/u0rhr/MerN8VGgN75QNEXN0Lg==}
-    engines: {node: '>=12.4.0'}
+  /@capacitor/cli@5.0.1:
+    resolution: {integrity: sha512-icE4QKTwixzk7SYvgdRSkzbknlnEhLOEtEFYCO//I35+VN3SUkgGu4iYB3Evq0do49ng33TJ2SFgCtPV5pvcVQ==}
+    engines: {node: '>=16.0.0'}
     hasBin: true
     dependencies:
       '@ionic/cli-framework-output': 2.2.6
@@ -1452,67 +1490,139 @@ packages:
       open: 8.4.2
       plist: 3.0.6
       prompts: 2.4.2
-      rimraf: 3.0.2
+      rimraf: 4.4.1
       semver: 7.3.8
       tar: 6.1.13
       tslib: 2.5.0
-      xml2js: 0.4.23
+      xml2js: 0.5.0
     transitivePeerDependencies:
       - supports-color
     dev: true
 
-  /@capacitor/clipboard@4.1.0(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-lfUwDqZces3mQcBOyfxpBCsRWWSfLuPzekA1N3RaMgYVhD6/rdzFnzfRiksj1hm4It+lnULK0y+N5nxVnTt+0Q==}
+  /@capacitor/clipboard@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-Ts2fx+0eXd7/ZkQ+yehtj48/a78MB2wuZp1liQDt0BzznrqMTJuzq38KyT96xGm42AN1TwOdVOp6gtYq0JsyQg==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/core@4.7.3:
-    resolution: {integrity: sha512-IDhJapHqfJNpSlq89M0quOZGb08uOUZhVhyRDdrGUrwa4ttFoWeX/Vi9F+b9bffsDRKkSLF0BhzA9TH7ko5c3A==}
+  /@capacitor/core@5.0.1:
+    resolution: {integrity: sha512-5rxU+/VnHwS2Qpmjzq7OvciW+ahWJV6FcqFxIyyMT4uPc4sstpsw0qgofei+AZ4m63aOh9CXUqXSwFFkT5/l4g==}
     dependencies:
       tslib: 2.5.0
     dev: false
 
-  /@capacitor/dialog@5.0.1(@capacitor/core@4.7.3):
+  /@capacitor/device@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-qkcidB/RHdiMOZUZ+6ihf9qExzA1MzIvzmyh+ggzPLDgIDod7EmWdqnlLF+3eJ4UjhUo4TmE9VhO1A0GuuD0dw==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/dialog@5.0.1(@capacitor/core@5.0.1):
     resolution: {integrity: sha512-1bXmEMM6cRvYCEpNxyViUdmHxauYFHAgTRksI1hB60bKQKhNSnBTzd1vXn/jRZijd0FFzydILwJWzVwDodQS1A==}
     peerDependencies:
       '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/local-notifications@4.1.5(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-zUU4WvXxweALIDp9gBjurpwF9drLeMNe+O5tVKiUr/8PsaxB9dlv2ciuN5Seq4b+9LftOfTuzEX2PY7JkOJy1g==}
+  /@capacitor/geolocation@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-0tdRvaXTXzLxCRoRgyCE8kp3LgEzF0RbvdbbGbCldU6a8hEGiDea7wT0BLe1Zr0CuQa46j87yRfqk4IylUXZTA==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/preferences@4.0.2(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-HgcRkMdVHSIV3TeQLZFmCaCeMWQ25wLyZZ7dA2f8Rw81Q1Nroxsi7HxTEGNqrWKSN9PNKBJD8vChr6eB2GNtZg==}
+  /@capacitor/haptics@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-8RgwrppzI+9mFQHmB1z90D4SnOtxa8haiGptccCYMZpHoZDqY1XDFf7KgwvqQZk2PMh7h5RqckrA5Tu3bEAYXA==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/splash-screen@4.2.0(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-XtGqM7J/yVEl/tKksKa7l1B6IDzhq4JJkadRuT8ohf/N7fD/1z45+id/4twM2Vnsxazh1fur2gq8rma7HaXMEw==}
+  /@capacitor/keyboard@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-TpYvNJ11he2z8KHIb6ncKVwygXZvUZwRdOO10GshmSJ16XLAVpH9YOYCXjq9rpRixerqrA0VFDveMeQMkJpi0A==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
     dev: false
 
-  /@capacitor/toast@4.1.0(@capacitor/core@4.7.3):
-    resolution: {integrity: sha512-hU3GoA1dT+dsMuDOlEeiaU2mdd4VCLvIzgbp7Vk0Mqy9tbg++W4t7hcewlawzJGs6FxH59rIekf2lz7m4ir33w==}
+  /@capacitor/local-notifications@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-czvu6u5tDQOnUwJJ384/uB3ZX6YJhtnLrKQR0xz3aTUHM+eseYeSOfpsHSIMfGuGjlpHHiVFZ4wZa3sMrtYmXg==}
     peerDependencies:
-      '@capacitor/core': ^4.0.0
+      '@capacitor/core': ^5.0.0
     dependencies:
-      '@capacitor/core': 4.7.3
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/motion@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-jO/mcv6L7R6G2Z75P/MhD99zkBTNCqtzWprtfW5LyWrhPWsK6+UWw538mjo4y9eIu71YquHli3UzCZj+brN5uQ==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/network@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-sbyKjjyILUZkT2XghyFmUbQtGX2abiMarTeM1NFZf7s67wR8C3+ogHWmrjl7DLNTHtDgUjp6kPUd1Kpr/IMvYg==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/preferences@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-ufouDv5NDhI+v+DFzgmXfKDnlTNLrfip4TbvnEcVMxBE6Yt4qr91jAqpzazZ91ewgfgbBHe8mPaLZbBmRz7waw==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/share@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-tFZbxnE6QmgLZL4tSm1vXjTEePXzBkT+2D+UxWPMPz1DoOTCJKsWwXgiPRCJarnP1x+xvuXbyOdVghAYq2ohow==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/splash-screen@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-WEouefpeBe7/4fignQQ/QLjIG22ZMjQY+XTZgLpgNKcuxoBbHwi04JbTaGuYnxhoVX54w93N2pA7iHWSSxCyPQ==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/status-bar@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-wSvYcKedkOgFIKiYproAaXJQu/IGxCR4NRNJENbqmHQdyaZVlnL+1EphEiUo2Qy+XSjZhiilCwEyxyDuVo/97Q==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/text-zoom@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-ZncRS9kibbQXAf9I808A28qmaMW3bR7PV6Up7EZVGaUeHr7Ppizl2nSL5YIEGL1s3wLrOF3J68vIvKtSw+gcLg==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
+    dev: false
+
+  /@capacitor/toast@5.0.1(@capacitor/core@5.0.1):
+    resolution: {integrity: sha512-QFpnVNQEosIyZeczgIU/mhPofJZxZfJ+Rg9V5j2m91V7KPSnmb+uUrrLOXKAPnFtFdFb/H0IIH7y0vjKBv53zg==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+    dependencies:
+      '@capacitor/core': 5.0.1
     dev: false
 
   /@chainsafe/is-ip@2.0.1:
@@ -9064,6 +9174,16 @@ packages:
       once: 1.4.0
     dev: false
 
+  /glob@9.3.5:
+    resolution: {integrity: sha512-e1LleDykUz2Iu+MTYdkSsuWX8lvAjAcs0Xef0lNIu0S2wOAzuTxCJtcd9S3cijlwYF18EsU3rzb8jPVobxDh9Q==}
+    engines: {node: '>=16 || 14 >=14.17'}
+    dependencies:
+      fs.realpath: 1.0.0
+      minimatch: 8.0.4
+      minipass: 4.2.5
+      path-scurry: 1.7.0
+    dev: true
+
   /global-dirs@3.0.1:
     resolution: {integrity: sha512-NBcGGFbBA9s1VzD41QXDG+3++t9Mn5t1FpLdhESY6oKY4gYTFpX4wO3sqGUa0Srjtbfj3szX0RnemmrVRUdULA==}
     engines: {node: '>=10'}
@@ -11842,6 +11962,11 @@ packages:
     dependencies:
       yallist: 4.0.0
 
+  /lru-cache@9.1.1:
+    resolution: {integrity: sha512-65/Jky17UwSb0BuB9V+MyDpsOtXKmYwzhyl+cOa9XUiI4uV2Ouy/2voFP3+al0BjZbJgMBD8FojMpAf+Z+qn4A==}
+    engines: {node: 14 || >=16.14}
+    dev: true
+
   /lru@3.1.0:
     resolution: {integrity: sha512-5OUtoiVIGU4VXBOshidmtOsvBIvcQR6FD/RzWSvaeHyxCGB+PCUCu+52lqMfdc0h/2CLvHhZS4TwUmMQrrMbBQ==}
     engines: {node: '>= 0.4.0'}
@@ -12093,6 +12218,13 @@ packages:
     dependencies:
       brace-expansion: 2.0.1
 
+  /minimatch@8.0.4:
+    resolution: {integrity: sha512-W0Wvr9HyFXZRGIDgCicunpQ299OKXs9RgZfaukz4qAW/pJhcpUfupc9c+OObPOFueNy8VSrZgEmDtk6Kh4WzDA==}
+    engines: {node: '>=16 || 14 >=14.17'}
+    dependencies:
+      brace-expansion: 2.0.1
+    dev: true
+
   /minimist-options@4.1.0:
     resolution: {integrity: sha512-Q4r8ghd80yhO/0j1O3B2BjweX3fiHg9cdOwjJd2J76Q135c+NDxGCqdYKQ1SKBuFfgWbAUzBfvYjPUEeNgqN1A==}
     engines: {node: '>= 6'}
@@ -12159,6 +12291,11 @@ packages:
   /minipass@4.2.5:
     resolution: {integrity: sha512-+yQl7SX3bIT83Lhb4BVorMAHVuqsskxRdlmO9kTpyukp8vsm2Sn/fUOV9xlnG8/a5JsypJzap21lz/y3FBMJ8Q==}
     engines: {node: '>=8'}
+
+  /minipass@5.0.0:
+    resolution: {integrity: sha512-3FnjYuehv9k6ovOEbyOswadCDPX1piCfhV8ncmYtHOjuPwylVWsghTLo7rabjC3Rx5xD4HDx8Wm1xnMF7S5qFQ==}
+    engines: {node: '>=8'}
+    dev: true
 
   /minizlib@2.1.2:
     resolution: {integrity: sha512-bAxsR8BVfj60DWXHE3u30oHzfl4G7khkSuPW+qvpd7jFRHm7dLxOjUk1EHACJ/hxLY8phGJ0YhYHZo7jil7Qdg==}
@@ -13603,6 +13740,14 @@ packages:
   /path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
 
+  /path-scurry@1.7.0:
+    resolution: {integrity: sha512-UkZUeDjczjYRE495+9thsgcVgsaCPkaw80slmfVFgllxY+IO8ubTsOpFVjDPROBqJdHfVPUFRHPBV/WciOVfWg==}
+    engines: {node: '>=16 || 14 >=14.17'}
+    dependencies:
+      lru-cache: 9.1.1
+      minipass: 5.0.0
+    dev: true
+
   /path-type@1.1.0:
     resolution: {integrity: sha512-S4eENJz1pkiQn9Znv33Q+deTOKmbl+jj1Fl+qiP/vYezj+S8x+J3Uo0ISrx/QoEvIlOaDWJhPaRd1flJ9HXZqg==}
     engines: {node: '>=0.10.0'}
@@ -14794,6 +14939,14 @@ packages:
     hasBin: true
     dependencies:
       glob: 7.2.3
+
+  /rimraf@4.4.1:
+    resolution: {integrity: sha512-Gk8NlF062+T9CqNGn6h4tls3k6T1+/nXdOcSZVikNVtlRdYpA7wRJJMoXmuvOnLW844rPjdQ7JgXCYM6PPC/og==}
+    engines: {node: '>=14'}
+    hasBin: true
+    dependencies:
+      glob: 9.3.5
+    dev: true
 
   /ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
@@ -16641,14 +16794,15 @@ packages:
       extsprintf: 1.3.0
     dev: false
 
-  /vite-plugin-elm@2.7.2(vite@4.2.1):
-    resolution: {integrity: sha512-iOp89Jg5AROb4GApyyWjKqspqIx9cGzPxHKX9JxPTdCd1cUVlqhJPWEJOTar0FcknzCsShm4XQQ3XbCtnCHsyQ==}
+  /vite-plugin-elm@2.8.0(vite@4.2.1):
+    resolution: {integrity: sha512-+nOtCodhQV2SMSKV1yWVmCZMsr35VTr/BJ9FJweLaqJ7WerO5c6iYLbgexfUXdLDo4iI0leY27dHj/TLf5zuSw==}
     peerDependencies:
-      vite: ^3.0.0 || ^2.0.0
+      vite: ^4.0.0 || ^3.0.0 || ^2.0.0
     dependencies:
       acorn: 8.8.2
       acorn-walk: 8.2.0
       elm-esm: 1.1.4
+      find-up: 5.0.0
       node-elm-compiler: 5.0.6
       vite: 4.2.1(@types/node@18.15.11)
     dev: true
@@ -17383,6 +17537,14 @@ packages:
     dependencies:
       sax: 1.2.4
       xmlbuilder: 11.0.1
+
+  /xml2js@0.5.0:
+    resolution: {integrity: sha512-drPFnkQJik/O+uPKpqSgr22mpuFHqKdbS835iAQrUC73L2F5WkboIRd63ai/2Yg6I1jzifPFKH2NTK+cfglkIA==}
+    engines: {node: '>=4.0.0'}
+    dependencies:
+      sax: 1.2.4
+      xmlbuilder: 11.0.1
+    dev: true
 
   /xmlbuilder@11.0.1:
     resolution: {integrity: sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==}
