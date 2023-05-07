@@ -29,7 +29,7 @@ import { defineCustomElement as defineIonInput } from "@ionic/core/components/io
 
 
 // Initializes the Ionic config and `mode` behavior
-initialize();
+initialize({_forceStatusbarPadding: true});
 
 defineIonButton();
 defineIonApp();
