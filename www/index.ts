@@ -37,7 +37,9 @@ import '@ionic/core/css/display.css';
 
 // Display content under transparent status bar (Android only)
 // Fails in browser, surpress error
-StatusBar.setOverlaysWebView({ overlay: true }).catch(e => {return});
+// StatusBar.setOverlaysWebView({ overlay: true }).catch(e => {return});
+// StatusBar.setStyle({});
+
 
 
 
