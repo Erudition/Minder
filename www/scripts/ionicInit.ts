@@ -29,7 +29,8 @@ import { defineCustomElement as defineIonInput } from "@ionic/core/components/io
 
 
 // Initializes the Ionic config and `mode` behavior
-initialize({_forceStatusbarPadding: true});
+initialize();
+//initialize({_forceStatusbarPadding: true}); // for status bar underlay, when I get that working
 
 defineIonButton();
 defineIonApp();
