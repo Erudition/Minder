@@ -850,3 +850,42 @@ dispatch =
         , valueDecoder = JD.string
         , argsEncoder = Encode.list encode
         }
+
+
+type PermissionStatus
+    = Prompt
+    | PromptWithRationale
+    | Granted
+    | Denied
+
+
+permissonStatusDecoder : JD.Decoder PermissionStatus
+permissonStatusDecoder =
+    let
+        toStatus statusString =
+            case statusString of
+                "prompt" ->
+                    JD.succeed Prompt
+
+                "prompt-with-rationale" ->
+                    JD.succeed PromptWithRationale
+
+                "granted" ->
+                    JD.succeed Granted
+
+                "denied" ->
+                    JD.succeed Denied
+
+                somethingElse ->
+                    JD.fail <| "unknown permission status: " ++ somethingElse
+    in
+    JD.at [ "display" ] JD.string
+        |> JD.andThen toStatus
+
+
+requestPermisson : TaskPort.Task PermissionStatus
+requestPermisson =
+    TaskPort.callNoArgs
+        { function = "requestNotificationPermission"
+        , valueDecoder = permissonStatusDecoder
+        }

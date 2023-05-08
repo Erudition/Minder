@@ -66,7 +66,8 @@ function installTaskPorts() {
   
   registerPreferencesTaskPorts();
   registerNotificationTaskPorts();
-  TaskPort.register("changePassphrase", () => getPassphrase(true))
+  TaskPort.register("changePassphrase", () => getPassphrase(true));
+  TaskPort.register("requestNotificationPermission", LocalNotifications.requestPermissions)
 }
 
 function elmStarted(app) {

@@ -38,6 +38,7 @@ import Ion.Toolbar
 import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
+import Log
 import Native exposing (Native)
 import Native.Attributes as NA
 import Native.Event
@@ -478,8 +479,18 @@ globalLayout temp replica innerStuff =
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences ]
-                        [ Ion.Item.label [] [ PlainHtml.text "Purge Data" ]
+                        [ Ion.Item.label [] [ PlainHtml.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
+                        ]
+                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick RequestNotificationPermission ]
+                        [ Ion.Item.label []
+                            [ if temp.environment.notifPermission /= Notif.Granted then
+                                PlainHtml.text "Enable Notifications"
+
+                              else
+                                PlainHtml.text "Notifications Enabled"
+                            ]
+                        , Ion.Icon.withAttr "notifications-outline" [ Ion.Toolbar.placeEnd ]
                         ]
                     ]
                 ]
@@ -685,6 +696,8 @@ type Msg
     | ToggleDarkTheme Bool
     | NotificationScheduled (TaskPort.Result String)
     | ClearPreferences
+    | RequestNotificationPermission
+    | GotNotificationPermissionStatus (TaskPort.Result Notif.PermissionStatus)
 
 
 type ThirdPartyService
@@ -770,6 +783,18 @@ update msg { temp, replica, now } =
             justRunCommand <|
                 Job.attempt (\_ -> NoOp) <|
                     clearPreferences
+
+        RequestNotificationPermission ->
+            justRunCommand <|
+                Job.attempt GotNotificationPermissionStatus Notif.requestPermisson
+
+        GotNotificationPermissionStatus result ->
+            case result of
+                Ok status ->
+                    justSetEnv { environment | notifPermission = status }
+
+                Err taskPortErr ->
+                    Log.logSeparate "taskport error" taskPortErr noOp
 
         ThirdPartySync service ->
             case service of

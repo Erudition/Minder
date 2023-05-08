@@ -4,9 +4,10 @@ module Environment exposing (Environment, preInit)
 
 import Browser.Navigation as Nav exposing (..)
 import Dict
+import NativeScript.Notification as Notif
+import Replicated.Codec
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.Op exposing (Op)
-import Replicated.Codec
 import SmartTime.Human.Clock
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
@@ -27,6 +28,7 @@ type alias Environment =
     , navkey : Maybe Nav.Key -- instance-specific (can't store it)
     , timeZone : Zone -- according to browser
     , launchTime : Moment -- when we officially started the session
+    , notifPermission : Notif.PermissionStatus
     }
 
 
@@ -38,4 +40,5 @@ preInit maybeKey =
     , navkey = maybeKey -- passed from init
     , timeZone = utc -- temporary placeholder
     , launchTime = zero -- temporary placeholder
+    , notifPermission = Notif.Denied
     }
