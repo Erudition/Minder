@@ -36,9 +36,10 @@ import '@ionic/core/css/flex-utils.css';
 import '@ionic/core/css/display.css';
 
 // Display content under transparent status bar (Android only)
-// Fails in browser, surpress error
+// Fails in browser, suppress error
 // StatusBar.setOverlaysWebView({ overlay: true }).catch(e => {return});
-// StatusBar.setStyle({});
+// StatusBar.setStyle({}); // set to opposite of current theme
+// FIXME: can't underlay status bar because theme switch resets status bar padding 
 
 
 
