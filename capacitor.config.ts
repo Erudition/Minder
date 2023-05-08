@@ -10,6 +10,7 @@ const config: CapacitorConfig = {
     //hostname: 'erudition.github.io',
     androidScheme: 'https',
     cleartext: true,
+    errorPath: "localhost",
     },
   plugins: {
     SplashScreen: {
