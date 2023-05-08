@@ -478,6 +478,8 @@ globalLayout temp replica innerStuff =
                     [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
+                    , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
+                    , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
                     , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences ]
                         [ Ion.Item.label [] [ PlainHtml.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]

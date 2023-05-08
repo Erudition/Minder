@@ -3,34 +3,42 @@ import {LocalNotifications} from '@capacitor/local-notifications'
 
 
 export function registerNotificationTaskPorts() {
-    TaskPort.register("scheduleNotifications", (notificationList) => {
+    TaskPort.register("scheduleNotifications", scheduleNotifications );
+}
 
-        // Elm-encoded JSON object obviously can't contain the required Date() object
-        var correctedList = notificationList.map(
-            function(notifObj) {
-                if (notifObj["schedule"]) {
-                    //wrap js time (unix ms float) with Date object
-                    let oldScheduleAt = notifObj["schedule"]["at"]
-                    notifObj["schedule"]["at"] = oldScheduleAt ? new Date(oldScheduleAt) : new Date();
+export function scheduleNotifications(notificationList) {
+
+    // Elm-encoded JSON object obviously can't contain the required Date() object
+    var correctedList = notificationList.map(
+        function(notifObj) {
+            let now = new Date();
+
+            if (notifObj["schedule"]) {
+                //wrap js time (unix ms float) with Date object
+                let oldScheduleAt = new Date( notifObj["schedule"]["at"])
+
+                if (oldScheduleAt.getTime() > now.getTime()) {
+                    notifObj["schedule"]["at"] = oldScheduleAt;
                 } else {
-                    notifObj["schedule"] = { at : new Date()}
+                    notifObj["schedule"]["at"] = null;
                 }
-                Object.assign(notifObj, {schedule : {at: new Date()}})
-                console.log("new notif Object", notifObj)
-                try {
-                notifObj["when"] = new Date(notifObj["when"]);
-                } catch (e)
-                {console.log(e)}
 
-                return notifObj;
             }
-        );
+            try {
+            notifObj["when"] = new Date(notifObj["when"]);
+            } catch (e)
+            {console.log(e)}
+
+            if (!notifObj["id"]) {
+                notifObj["id"] = (0 - now.getTime());
+            }
+
+            return notifObj;
+        }
+    );
 
 
-
-        LocalNotifications.requestPermissions()
-        return LocalNotifications.schedule({
-            notifications: correctedList
-            });
-    });
+    return LocalNotifications.schedule({
+        notifications: correctedList
+        });
 }

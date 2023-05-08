@@ -4,11 +4,10 @@ const config: CapacitorConfig = {
   appId: 'io.github.erudition.Minder',
   appName: 'Minder',
   webDir: 'dist',
-  bundledWebRuntime: false,
   server: { 
-    allowNavigation: ["https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"],
-    url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
-    hostname: 'erudition.github.io',
+    allowNavigation: ["erudition.github.io"],
+    //url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
+    //hostname: 'erudition.github.io',
     androidScheme: 'https',
     cleartext: true,
     },
@@ -31,7 +30,7 @@ const config: CapacitorConfig = {
     },
     Toast: {},
     LocalNotifications: {
-      smallIcon: "alpha-logo",
+      smallIcon: "alpha_logo",
       // iconColor: "#488AFF",
       // sound: "beep.wav",
     },
