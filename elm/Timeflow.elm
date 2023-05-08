@@ -647,7 +647,7 @@ blobToPoints displaySettings _ blob =
                 , startCapTL = ( (widgetWidth - starting * widgetWidth) - rowHeight, startHeight )
                 , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight )
                 , midHeight = midHeight
-                , reversed = ( True, True ) -- huh?
+                , reversed = ( True, True )
                 }
 
             else
@@ -667,7 +667,7 @@ blobToPoints displaySettings _ blob =
                 , startCapTL = ( starting * widgetWidth, startHeight )
                 , endCapTL = ( (ending * widgetWidth) - rowHeight, startHeight )
                 , midHeight = midHeight
-                , reversed = ( False, False ) -- huh?
+                , reversed = ( False, False )
                 }
 
         twoRowBlob =
@@ -702,7 +702,7 @@ blobToPoints displaySettings _ blob =
                 , startCapTL = ( (widgetWidth - starting * widgetWidth) - rowHeight, startHeight )
                 , endCapTL = ( (ending * widgetWidth) - rowHeight, startHeight - rowHeight )
                 , midHeight = midHeight
-                , reversed = ( False, True )
+                , reversed = ( True, False )
                 }
 
             else
@@ -736,7 +736,7 @@ blobToPoints displaySettings _ blob =
                 , startCapTL = ( starting * widgetWidth, startHeight )
                 , endCapTL = ( widgetWidth - ending * widgetWidth, startHeight - rowHeight )
                 , midHeight = midHeight
-                , reversed = ( True, False )
+                , reversed = ( False, True )
                 }
 
         sandwichBlob middlePieces =
@@ -884,7 +884,7 @@ historyBlobs env profile displayPeriod =
 {-| How much a blob moves (in time) while being dragged.
 -}
 dragOffsetDur : ViewState -> Float -> ( Bool, Bool ) -> Point -> Duration
-dragOffsetDur display midBlobHeight ( bottomReversed, topReversed ) ( startX, startY ) =
+dragOffsetDur display midBlobHeight ( topReversed, bottomReversed ) ( startX, startY ) =
     let
         startYInBlobCoordinates =
             toFloat display.settings.rowHeight * (startY - (display.settings.widgetHeight / 2))
