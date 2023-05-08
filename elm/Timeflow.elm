@@ -478,13 +478,19 @@ blobToShape display env initialBlob =
 
             else
                 GraphicSVG.rgba 255 255 255 0.55
+
+        outlineThickness =
+            7
+
+        clipMask =
+            ghost theShell
     in
     group
         (List.filterMap identity <|
             [ theShell
                 |> filled (graphColor blob.color)
                 -- TODO: Consider flipping to black when blobs are old
-                |> addOutline (GraphicSVG.solid 7) outlineColor
+                |> addOutline (GraphicSVG.solid outlineThickness) outlineColor
                 |> Just
             , capLabel blob.start
                 |> move pointsOfInterest.startCapTL
@@ -502,10 +508,11 @@ blobToShape display env initialBlob =
                 |> rotateIfSquished
                 |> move (midPoint pointsOfInterest.bestTextArea)
                 |> move ( 0, -textSize / 2 )
+                |> GraphicSVG.clip clipMask
+                -- must be last
                 |> Just
             ]
         )
-        |> GraphicSVG.clip (filled black theShell)
         |> move ( display.settings.widgetWidth / -2, 0 )
         |> notifyMouseDownAt (MouseDownAt blob.id)
         |> notifyTouchStartAt (MouseDownAt blob.id)
@@ -1076,9 +1083,13 @@ update msg stateMaybe profile env =
                     let
                         dragState =
                             DraggingStarted { id = itemID, start = startPoint, current = startPoint }
+
+                        newPointer =
+                            -- make sure drag start location agrees with pointer location
+                            { x = Tuple.first startPoint, y = Tuple.second startPoint }
                     in
                     ( Change.none
-                    , { state | dragging = Just dragState }
+                    , { state | dragging = Just dragState, pointer = newPointer }
                     , Cmd.none
                     )
 
