@@ -311,6 +311,11 @@ setCompletion newPortion instance =
     (Reg.latest instance.instance).completion.set newPortion
 
 
+setProjectTitle : String -> AssignedAction -> Change
+setProjectTitle newTitle instance =
+    (Reg.latest instance.class).title.set newTitle
+
+
 getProgressMaxInt : AssignedAction -> Portion
 getProgressMaxInt instance =
     Progress.unitMax (Reg.latest instance.class).completionUnits.get

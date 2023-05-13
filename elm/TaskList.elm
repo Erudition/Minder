@@ -11,12 +11,11 @@ import Dict
 import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (..)
-import Html.Attributes
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy, lazy2, lazy3)
+import Html.Styled.Lazy exposing (lazy, lazy2, lazy3, lazy4)
 import ID
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
@@ -26,14 +25,15 @@ import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Ion.Item
 import Ion.List
-import Json.Decode as OldDecode
+import Json.Decode as JD
 import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
+import Json.Encode as JE exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
+import Process
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change, Parent)
@@ -87,17 +87,17 @@ type Filter
 
 
 type ViewState
-    = Normal (List Filter) (Maybe ExpandedTask) NewTaskField
+    = Normal (List Filter) (Maybe ExpandedTask) NewTaskField (Maybe CurrentlyEditing)
 
 
 routeView : Parser (ViewState -> a) a
 routeView =
-    P.map (Normal [ AllRelevantTasks ] Nothing "") (P.s "projects")
+    P.map (Normal [ AllRelevantTasks ] Nothing "" Nothing) (P.s "projects")
 
 
 defaultView : ViewState
 defaultView =
-    Normal [ AllRelevantTasks ] Nothing ""
+    Normal [ AllRelevantTasks ] Nothing "" Nothing
 
 
 type alias ExpandedTask =
@@ -106,6 +106,11 @@ type alias ExpandedTask =
 
 type alias NewTaskField =
     String
+
+
+type CurrentlyEditing
+    = EditingProjectTitle Class.ActionClassID String
+    | EditingProjectDate
 
 
 allFullTaskInstances profile ( launchTime, zone ) =
@@ -118,7 +123,7 @@ view state profile env =
     let
         renderView lazyState lazyProfile launchTime zone =
             case state of
-                Normal filters expanded field ->
+                Normal filters expanded field editing ->
                     let
                         activeFilter =
                             Maybe.withDefault AllTasks (List.head filters)
@@ -128,7 +133,7 @@ view state profile env =
                         [ section
                             []
                             [ lazy viewInput field
-                            , Html.Styled.Lazy.lazy4 viewTasks env.launchTime env.timeZone activeFilter profile
+                            , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
 
                             -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
                             ]
@@ -156,12 +161,12 @@ onEnter msg =
     let
         isEnter code =
             if code == 13 then
-                OldDecode.succeed msg
+                JD.succeed msg
 
             else
-                OldDecode.fail "not ENTER"
+                JD.fail "not ENTER"
     in
-    on "keydown" (OldDecode.andThen isEnter keyCode)
+    on "keydown" (JD.andThen isEnter keyCode)
 
 
 
@@ -169,8 +174,8 @@ onEnter msg =
 -- viewTasks : String -> List AssignedAction -> Html Msg
 
 
-viewTasks : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
-viewTasks time timeZone filter profile =
+viewTasks : Moment -> HumanMoment.Zone -> Filter -> Maybe CurrentlyEditing -> Profile -> Html Msg
+viewTasks time timeZone filter editingMaybe profile =
     let
         trackedTaskMaybe =
             Activity.Timeline.currentInstanceID profile.timeline
@@ -199,36 +204,31 @@ viewTasks time timeZone filter profile =
     Keyed.node "ion-list"
         []
     <|
-        List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe) (List.filter isVisible sortedTasks)
+        List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe) (List.filter isVisible sortedTasks)
 
 
 
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> AssignedAction -> ( String, Html Msg )
-viewKeyedTask ( time, timeZone ) trackedTaskMaybe task =
-    ( Instance.getIDString task, lazy3 viewTask ( time, timeZone ) trackedTaskMaybe task )
+viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Maybe CurrentlyEditing -> AssignedAction -> ( String, Html Msg )
+viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
+    ( Instance.getIDString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
 
 
 
 -- viewTask : AssignedAction -> Html Msg
 
 
-viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> AssignedAction -> Html Msg
-viewTask ( time, timeZone ) trackedTaskMaybe task =
+viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Maybe CurrentlyEditing -> AssignedAction -> Html Msg
+viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
     node "ion-item-sliding"
         []
         [ node "ion-item"
             [ classList [ ( "completed", completed task ), ( "editing", False ) ]
+            , title (taskTooltip ( time, timeZone ) task)
             ]
-            [ node "ion-label"
-                [ css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
-                , title (taskTooltip ( time, timeZone ) task)
-                ]
-                [ text <| Instance.getTitle task
-                , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
-                ]
+            [ viewTaskTitle task editingMaybe
             , timingInfo ( time, timeZone ) task
 
             -- , div
@@ -347,6 +347,48 @@ viewTask ( time, timeZone ) trackedTaskMaybe task =
             []
             [ node "ion-item-option" [ attribute "color" "danger", onClick (SimpleChange task.remove) ] [ text "delete" ] ]
         ]
+
+
+viewTaskTitle : AssignedAction -> Maybe CurrentlyEditing -> Html Msg
+viewTaskTitle task editingMaybe =
+    let
+        titleNotEditing =
+            node "ion-label"
+                [ css
+                    [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)) ]
+                , onDoubleClick (EditingClassTitle task <| Instance.getTitle task)
+                ]
+                [ text <| Instance.getTitle task
+                , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
+                ]
+
+        titleEditing newTitleSoFar =
+            node "ion-input"
+                [ value newTitleSoFar
+                , placeholder <| "Enter a new name for: " ++ Instance.getTitle task
+                , name "title"
+                , id ("task-title-" ++ Instance.getIDString task)
+                , onInput (EditingClassTitle task)
+                , on "ionBlur" (JD.succeed StopEditing)
+                , onEnter (UpdateTitle task newTitleSoFar)
+                , Attr.property "clearInput" (JE.bool True)
+                , autofocus True
+                , attribute "enterkeyhint" "done"
+                , attribute "helper-text" <| "Enter a new title for the project. "
+                , spellcheck True
+                ]
+                []
+    in
+    case editingMaybe of
+        Just (EditingProjectTitle classID newTitleSoFar) ->
+            if classID == task.classID then
+                titleEditing newTitleSoFar
+
+            else
+                titleNotEditing
+
+        _ ->
+            titleNotEditing
 
 
 startTrackingButton : AssignedAction -> Maybe AssignedActionID -> Maybe (Html Msg)
@@ -474,7 +516,8 @@ progressSlider task =
                 "any"
             )
         , onInput (extractSliderInput task)
-        , onDoubleClick (EditingTitle task True)
+
+        -- , onDoubleClick (EditingClassTitle task True)
         , onFocus (FocusSlider task True)
         , onBlur (FocusSlider task False)
         , dynamicSliderThumbCss (getNormalizedPortion (getProgress task))
@@ -833,7 +876,8 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingTitle AssignedAction Bool
+    | EditingClassTitle AssignedAction String
+    | StopEditing
     | UpdateTitle AssignedAction String
     | Add
     | Delete AssignedActionID
@@ -848,6 +892,7 @@ type Msg
     | StartTracking AssignedActionID ActivityID
     | StopTracking AssignedActionID
     | SimpleChange Change
+    | LogError String
 
 
 update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
@@ -855,14 +900,14 @@ update msg state profile env =
     case msg of
         Add ->
             case state of
-                Normal filters _ "" ->
-                    ( Normal filters Nothing ""
+                Normal filters _ "" _ ->
+                    ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
                     , Change.none
                     , Cmd.none
                     )
 
-                Normal filters _ newTaskTitle ->
+                Normal filters _ newTaskTitle _ ->
                     let
                         newAction : Change.Creator (Reg Class.ActionClassSkel)
                         newAction c =
@@ -884,7 +929,7 @@ update msg state profile env =
                                 profile.taskEntries
                             ]
                     in
-                    ( Normal filters Nothing ""
+                    ( Normal filters Nothing "" Nothing
                       -- ^resets new-entry-textbox to empty, collapses tasks
                     , Change.saveChanges frameDescription finalChanges
                     , Cmd.none
@@ -892,40 +937,55 @@ update msg state profile env =
 
         UpdateNewEntryField typedSoFar ->
             ( let
-                (Normal filters expanded _) =
+                (Normal filters expanded _ editingMaybe) =
                     state
               in
-              Normal filters expanded typedSoFar
+              Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
             , Change.none
             , Cmd.none
             )
 
-        EditingTitle class isEditing ->
+        EditingClassTitle action newTitleSoFar ->
             let
-                updateTask t =
-                    t
+                (Normal filters expanded typedSoFar _) =
+                    state
 
-                -- TODO editing should be a viewState thing, not a task prop
-                focus =
-                    Browser.Dom.focus ("task-" ++ ID.toString class.classID)
+                logFocusError domErrorResult =
+                    case domErrorResult of
+                        Err (Browser.Dom.NotFound idNotFound) ->
+                            LogError ("Could not find Dom Element " ++ idNotFound)
+
+                        _ ->
+                            NoOp
             in
-            -- ( state
-            -- , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
-            -- , Job.attempt (\_ -> NoOp) focus
-            -- )
-            Debug.todo "editing title"
+            ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
+            , Change.none
+            , Cmd.none
+              -- Process.sleep 1000
+              --     |> Job.andThen (\_ -> Browser.Dom.focus ("task-title-" ++ Instance.getIDString action))
+              --     |> Job.attempt logFocusError
+            )
 
-        UpdateTitle class task ->
+        StopEditing ->
             let
-                updateTitle t =
-                    { t | title = task }
+                (Normal filters expanded typedSoFar _) =
+                    state
             in
-            -- ( state
-            -- , { profile | taskClasses = IntDict.update classID (Maybe.map updateTitle) profile.taskClasses }
-            -- , Cmd.none
-            -- )
-            Debug.todo "UpdateTitle"
+            ( Normal filters expanded typedSoFar Nothing
+            , Change.none
+            , Cmd.none
+            )
+
+        UpdateTitle action newTitle ->
+            ( let
+                (Normal filters expanded typedSoFar _) =
+                    state
+              in
+              Normal filters expanded typedSoFar Nothing
+            , Change.saveChanges "Updating project title" [ Instance.setProjectTitle newTitle action ]
+            , Cmd.none
+            )
 
         UpdateTaskDate id field date ->
             let
@@ -1033,8 +1093,8 @@ update msg state profile env =
 
         Refilter newList ->
             ( case state of
-                Normal filterList expandedTaskMaybe newTaskField ->
-                    Normal newList expandedTaskMaybe newTaskField
+                Normal filterList expandedTaskMaybe newTaskField editing ->
+                    Normal newList expandedTaskMaybe newTaskField editing
             , Change.none
             , Cmd.none
             )
@@ -1078,6 +1138,9 @@ update msg state profile env =
 
         SimpleChange change ->
             ( state, Change.saveChanges "Simple change" [ change ], Cmd.none )
+
+        LogError errorMsg ->
+            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Cmd.none )
 
 
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
