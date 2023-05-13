@@ -433,13 +433,13 @@ globalLayout temp replica innerStuff =
                 ]
 
         menuItemHref label icon href =
-            Ion.Item.item [ Ion.Item.button, HA.href href ]
+            Ion.Item.item [ Ion.Item.button, HA.href href, Ion.Item.detail False ]
                 [ Ion.Item.label [] [ PlainHtml.text label ]
                 , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
                 ]
 
         menuItemOnClick label icon clickHandler =
-            Ion.Item.item [ Ion.Item.button, Html.Events.onClick clickHandler ]
+            Ion.Item.item [ Ion.Item.button, Html.Events.onClick clickHandler, Ion.Item.detail False ]
                 [ Ion.Item.label [] [ PlainHtml.text label ]
                 , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
                 ]
@@ -480,11 +480,11 @@ globalLayout temp replica innerStuff =
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
                     , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
-                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences ]
+                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences, Ion.Item.detail False ]
                         [ Ion.Item.label [] [ PlainHtml.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
                         ]
-                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick RequestNotificationPermission ]
+                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick RequestNotificationPermission, Ion.Item.detail False ]
                         [ Ion.Item.label []
                             [ if temp.environment.notifPermission /= Notif.Granted then
                                 PlainHtml.text "Enable Notifications"

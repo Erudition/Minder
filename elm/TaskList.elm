@@ -990,7 +990,7 @@ update msg state profile env =
                     ActionClass.normalizeTitle newTitle
 
                 changeTitleIfValid =
-                    case normalizedNewTitle == AssignedAction.getTitle action of
+                    case (String.length normalizedNewTitle > 1) && normalizedNewTitle == AssignedAction.getTitle action of
                         True ->
                             Change.none
 

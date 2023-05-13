@@ -70,9 +70,13 @@ button =
 [Ionic Docs & Preview](https://ionicframework.com/docs/api/item#detail-arrows)
 
 -}
-detail : Attribute msg
-detail =
-    HA.attribute "detail" "true"
+detail : Bool -> Attribute msg
+detail shouldAddDetail =
+    if shouldAddDetail then
+        HA.attribute "detail" "true"
+
+    else
+        HA.attribute "detail" "false"
 
 
 
