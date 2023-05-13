@@ -49,3 +49,6 @@ project(':capacitor-text-zoom').projectDir = new File('../node_modules/.pnpm/@ca
 
 include ':capacitor-toast'
 project(':capacitor-toast').projectDir = new File('../node_modules/.pnpm/@capacitor+toast@5.0.1_@capacitor+core@5.0.1/node_modules/@capacitor/toast/android')
+
+include ':nativescript-capacitor'
+project(':nativescript-capacitor').projectDir = new File('../node_modules/.pnpm/@nativescript+capacitor@5.0.1_@types+node@18.15.11_esbuild@0.17.15_typescript@5.0.3_webpack@5.77.0/node_modules/@nativescript/capacitor/android')

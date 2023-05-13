@@ -1,5 +1,6 @@
 import * as TaskPort from 'elm-taskport';
 import {LocalNotifications} from '@capacitor/local-notifications'
+import { native } from '@nativescript/capacitor';
 
 
 export function registerNotificationTaskPorts() {
