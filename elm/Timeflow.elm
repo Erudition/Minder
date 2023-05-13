@@ -405,6 +405,9 @@ blobToShape display env initialBlob =
                         , True
                         )
 
+        isCurrentlyTracking =
+            blob.end == env.time
+
         pointsOfInterest =
             blobToPoints display.settings env blob
 
@@ -482,15 +485,25 @@ blobToShape display env initialBlob =
             if isDraggingMe then
                 GraphicSVG.rgba 255 255 255 1
 
+            else if isCurrentlyTracking then
+                GraphicSVG.rgba 0 255 0 0.55
+
             else
-                GraphicSVG.rgba 255 255 255 0.55
+                GraphicSVG.rgba 255 255 255 0.4
 
         outlineThickness =
             if isDraggingMe then
                 7
 
             else
-                3
+                2
+
+        outlineStyle =
+            if isCurrentlyTracking then
+                GraphicSVG.dashed outlineThickness
+
+            else
+                GraphicSVG.solid outlineThickness
 
         clipMask =
             ghost theShell
@@ -500,7 +513,7 @@ blobToShape display env initialBlob =
             [ theShell
                 |> filled (graphColor blob.color)
                 -- TODO: Consider flipping to black when blobs are old
-                |> addOutline (GraphicSVG.solid outlineThickness) outlineColor
+                |> addOutline outlineStyle outlineColor
                 |> Just
             , capLabel blob.start
                 |> move pointsOfInterest.startCapTL
