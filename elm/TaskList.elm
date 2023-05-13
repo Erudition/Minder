@@ -51,11 +51,12 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.ActionClass as Class exposing (ActionClass, ActionClassID)
-import Task.AssignedAction as Instance exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, getProgress, isRelevantNow)
+import Task.ActionClass as ActionClass exposing (ActionClass, ActionClassID)
+import Task.AssignedAction as AssignedAction exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, getProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
 import Task.Session
+import TaskPort
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
 import ZoneHistory
@@ -109,13 +110,13 @@ type alias NewTaskField =
 
 
 type CurrentlyEditing
-    = EditingProjectTitle Class.ActionClassID String
+    = EditingProjectTitle ActionClass.ActionClassID String
     | EditingProjectDate
 
 
 allFullTaskInstances profile ( launchTime, zone ) =
     Profile.instanceListNow profile ( launchTime, zone )
-        |> Instance.prioritize launchTime zone
+        |> AssignedAction.prioritize launchTime zone
 
 
 view : ViewState -> Profile -> Environment -> Html Msg
@@ -213,7 +214,7 @@ viewTasks time timeZone filter editingMaybe profile =
 
 viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Maybe CurrentlyEditing -> AssignedAction -> ( String, Html Msg )
 viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
-    ( Instance.getIDString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
+    ( AssignedAction.getIDString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
 
 
 
@@ -253,10 +254,10 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             --                 [ justifyContent Css.end
             --                 ]
             --             ]
-            --             [ if SmartTime.Duration.isZero (Instance.getMinEffort task) then
+            --             [ if SmartTime.Duration.isZero (AssignedAction.getMinEffort task) then
             --                 text ""
             --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
             --             ]
             --         , div
             --             [ class "task-bubble"
@@ -279,10 +280,10 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             --                 , textAlign center
             --                 ]
             --             ]
-            --             [ if SmartTime.Duration.isZero (Instance.getPredictedEffort task) then
+            --             [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
             --                 text ""
             --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
             --             ]
             --         , div
             --             [ class "maximum-duration"
@@ -290,20 +291,20 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             --                 [ justifyContent Css.end
             --                 ]
             --             ]
-            --             [ if SmartTime.Duration.isZero (Instance.getMaxEffort task) then
+            --             [ if SmartTime.Duration.isZero (AssignedAction.getMaxEffort task) then
             --                 text ""
             --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Instance.getPredictedEffort task))))
+            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
             --             ]
             --         ]
             --     , div [ class "title-and-details" ]
             --         [ label
             --             [ onDoubleClick (EditingTitle task True)
             --             , onClick (FocusSlider task True)
-            --             , css [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)), pointerEvents none ]
+            --             , css [ fontWeight (Css.int <| Basics.round (AssignedAction.getImportance task * 200 + 200)), pointerEvents none ]
             --             , class "task-title"
             --             ]
-            --             [ span [ class "task-title-text" ] [ text <| Instance.getTitle task ]
+            --             [ span [ class "task-title-text" ] [ text <| AssignedAction.getTitle task ]
             --             , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
             --             ]
             --         ]
@@ -326,7 +327,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             --             , Just <|
             --                 button
             --                     [ class "destroy"
-            --                     , onClick (Delete (Instance.getID task))
+            --                     , onClick (Delete (AssignedAction.getID task))
             --                     ]
             --                     [ text "×" ]
             --             ]
@@ -334,9 +335,9 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             --     ]
             -- , input
             --     [ class "edit"
-            --     , value <| Instance.getTitle task
+            --     , value <| AssignedAction.getTitle task
             --     , name "title"
-            --     , id ("task-" ++ Instance.getIDString task)
+            --     , id ("task-" ++ AssignedAction.getIDString task)
             --     , onInput (UpdateTitle task)
             --     , onBlur (EditingTitle task False)
             --     , onEnter (EditingTitle task False)
@@ -355,19 +356,19 @@ viewTaskTitle task editingMaybe =
         titleNotEditing =
             node "ion-label"
                 [ css
-                    [ fontWeight (Css.int <| Basics.round (Instance.getImportance task * 200 + 200)) ]
-                , onDoubleClick (EditingClassTitle task <| Instance.getTitle task)
+                    [ fontWeight (Css.int <| Basics.round (AssignedAction.getImportance task * 200 + 200)) ]
+                , onDoubleClick (EditingClassTitle task <| AssignedAction.getTitle task)
                 ]
-                [ text <| Instance.getTitle task
+                [ text <| AssignedAction.getTitle task
                 , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
                 ]
 
         titleEditing newTitleSoFar =
             node "ion-input"
                 [ value newTitleSoFar
-                , placeholder <| "Enter a new name for: " ++ Instance.getTitle task
+                , placeholder <| "Enter a new name for: " ++ AssignedAction.getTitle task
                 , name "title"
-                , id ("task-title-" ++ Instance.getIDString task)
+                , id ("task-title-" ++ AssignedAction.getIDString task)
                 , onInput (EditingClassTitle task)
                 , on "ionBlur" (JD.succeed StopEditing)
                 , onEnter (UpdateTitle task newTitleSoFar)
@@ -376,6 +377,10 @@ viewTaskTitle task editingMaybe =
                 , attribute "enterkeyhint" "done"
                 , attribute "helper-text" <| "Enter a new title for the project. "
                 , spellcheck True
+                , minlength 2
+                , Attr.required True
+                , attribute "error-text" <| "Minimum 2 characters."
+                , attribute "autocorrect" "on"
                 ]
                 []
     in
@@ -393,12 +398,12 @@ viewTaskTitle task editingMaybe =
 
 startTrackingButton : AssignedAction -> Maybe AssignedActionID -> Maybe (Html Msg)
 startTrackingButton task trackedTaskMaybe =
-    case ( Instance.getActivityID task, Maybe.map ((==) (Instance.getID task)) trackedTaskMaybe ) of
+    case ( AssignedAction.getActivityID task, Maybe.map ((==) (AssignedAction.getID task)) trackedTaskMaybe ) of
         ( Just activityID, Just True ) ->
             Just <|
                 button
                     [ class "stop-tracking-now"
-                    , onClick (StopTracking (Instance.getID task))
+                    , onClick (StopTracking (AssignedAction.getID task))
                     ]
                     [ text "⏸︎" ]
 
@@ -406,7 +411,7 @@ startTrackingButton task trackedTaskMaybe =
             Just <|
                 button
                     [ class "start-tracking-now"
-                    , onClick (StartTracking (Instance.getID task) activityID)
+                    , onClick (StartTracking (AssignedAction.getID task) activityID)
                     ]
                     [ text "▶️" ]
 
@@ -458,7 +463,7 @@ activityColor task =
         activityDerivation n =
             modBy 360 ((n + 1) * 333)
     in
-    case Maybe.map String.length (Instance.getActivityIDString task) of
+    case Maybe.map String.length (AssignedAction.getActivityIDString task) of
         Just activityNumber ->
             let
                 hue =
@@ -476,19 +481,19 @@ activityColor task =
             }
 
 
-taskTooltip : ( Moment, HumanMoment.Zone ) -> Instance.AssignedAction -> String
+taskTooltip : ( Moment, HumanMoment.Zone ) -> AssignedAction.AssignedAction -> String
 taskTooltip ( time, timeZone ) task =
     -- hover tooltip
     String.concat <|
         List.intersperse "\n" <|
             List.filterMap identity
-                ([ Just ("Class ID: " ++ Instance.getClassIDString task)
-                 , Just ("Instance ID: " ++ Instance.getIDString task)
-                 , Maybe.map (String.append "activity ID: ") (Instance.getActivityIDString task)
-                 , Just ("importance: " ++ String.fromFloat (Instance.getImportance task))
-                 , Just ("progress: " ++ Task.Progress.toString (Instance.getProgress task))
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Instance.getRelevanceStarts task)
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Instance.getRelevanceEnds task)
+                ([ Just ("Class ID: " ++ AssignedAction.getClassIDString task)
+                 , Just ("Instance ID: " ++ AssignedAction.getIDString task)
+                 , Maybe.map (String.append "activity ID: ") (AssignedAction.getActivityIDString task)
+                 , Just ("importance: " ++ String.fromFloat (AssignedAction.getImportance task))
+                 , Just ("progress: " ++ Task.Progress.toString (AssignedAction.getProgress task))
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (AssignedAction.getRelevanceStarts task)
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (AssignedAction.getRelevanceEnds task)
                  ]
                     ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
                 )
@@ -571,7 +576,7 @@ timingInfo ( time, timeZone ) task =
             describeEffort task
 
         uniquePrefix =
-            "task-" ++ ID.toString (Instance.getID task) ++ "-"
+            "task-" ++ ID.toString (AssignedAction.getID task) ++ "-"
 
         dateLabelNameAndID : String
         dateLabelNameAndID =
@@ -580,8 +585,8 @@ timingInfo ( time, timeZone ) task =
         dueDate_editable =
             editableDateLabel ( time, timeZone )
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy timeZone) (Instance.getExternalDeadline task))
-                (attemptDateChange ( time, timeZone ) task (Instance.getExternalDeadline task) "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy timeZone) (AssignedAction.getExternalDeadline task))
+                (attemptDateChange ( time, timeZone ) task (AssignedAction.getExternalDeadline task) "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -590,10 +595,10 @@ timingInfo ( time, timeZone ) task =
             editableTimeLabel ( time, timeZone )
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange ( time, timeZone ) task (Instance.getExternalDeadline task) "Due")
+                (attemptTimeChange ( time, timeZone ) task (AssignedAction.getExternalDeadline task) "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy timeZone) (Instance.getExternalDeadline task) of
+            case Maybe.map (HumanMoment.timeFromFuzzy timeZone) (AssignedAction.getExternalDeadline task) of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -675,7 +680,7 @@ describeEffort task =
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort (Instance.getMinEffort task), sayEffort (Instance.getPredictedEffort task), sayEffort (Instance.getMaxEffort task) ) of
+    case ( sayEffort (AssignedAction.getMinEffort task), sayEffort (AssignedAction.getPredictedEffort task), sayEffort (AssignedAction.getMaxEffort task) ) of
         ( [], [], [] ) ->
             ""
 
@@ -761,7 +766,7 @@ viewControls visibilityFilters time zone profile =
             allFullTaskInstances profile ( time, zone )
 
         tasksCompleted =
-            List.length (List.filter Instance.completed sortedTasks)
+            List.length (List.filter AssignedAction.completed sortedTasks)
 
         tasksLeft =
             List.length sortedTasks - tasksCompleted
@@ -909,15 +914,15 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle _ ->
                     let
-                        newAction : Change.Creator (Reg Class.ActionClassSkel)
+                        newAction : Change.Creator (Reg ActionClass.ActionClassSkel)
                         newAction c =
                             let
-                                newClassChanger : Reg Class.ActionClassSkel -> List Change
+                                newClassChanger : Reg ActionClass.ActionClassSkel -> List Change
                                 newClassChanger newClass =
-                                    [ RepDb.addNew (Instance.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                    [ RepDb.addNew (AssignedAction.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
                             in
-                            Class.newActionClassSkel c (Class.normalizeTitle newTaskTitle) newClassChanger
+                            ActionClass.newActionClassSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
@@ -961,10 +966,9 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
             , Change.none
-            , Cmd.none
-              -- Process.sleep 1000
-              --     |> Job.andThen (\_ -> Browser.Dom.focus ("task-title-" ++ Instance.getIDString action))
-              --     |> Job.attempt logFocusError
+            , Process.sleep 100
+                |> Job.andThen (\_ -> ionInputSetFocus ("task-title-" ++ AssignedAction.getIDString action))
+                |> Job.attempt (\_ -> NoOp)
             )
 
         StopEditing ->
@@ -978,12 +982,23 @@ update msg state profile env =
             )
 
         UpdateTitle action newTitle ->
-            ( let
+            let
                 (Normal filters expanded typedSoFar _) =
                     state
-              in
-              Normal filters expanded typedSoFar Nothing
-            , Change.saveChanges "Updating project title" [ Instance.setProjectTitle newTitle action ]
+
+                normalizedNewTitle =
+                    ActionClass.normalizeTitle newTitle
+
+                changeTitleIfValid =
+                    case normalizedNewTitle == AssignedAction.getTitle action of
+                        True ->
+                            Change.none
+
+                        False ->
+                            Change.saveChanges "Updating project title" [ AssignedAction.setProjectTitle newTitle action ]
+            in
+            ( Normal filters expanded typedSoFar Nothing
+            , changeTitleIfValid
             , Cmd.none
             )
 
@@ -1008,27 +1023,27 @@ update msg state profile env =
         DeleteComplete ->
             ( state
             , Change.none
-              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Instance.completed t)) profile.taskInstances }
+              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (AssignedAction.completed t)) profile.taskInstances }
             , Cmd.none
             )
 
         UpdateProgress givenTask newCompletion ->
             -- let
             --     updateTaskInstance t =
-            --         Instance.setCompletion newCompletion
+            --         AssignedAction.setCompletion newCompletion
             --
             --     oldProgress =
-            --         Instance.instanceProgress givenTask
+            --         AssignedAction.instanceProgress givenTask
             --
             --     profile1WithUpdatedInstance =
-            --         { profile | taskInstances = IntDict.update givenTask.instance.id (Maybe.map updateTaskInstance) profile.taskInstances }
+            --         { profile | taskInstances = IntDict.update givenTask.AssignedAction.id (Maybe.map updateTaskInstance) profile.taskInstances }
             -- in
             -- -- how does the new completion status compare to the previous?
             -- case ( isMax oldProgress, isMax ( newCompletion, getUnits oldProgress ) ) of
             --     ( False, True ) ->
             --         let
             --             ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
-            --                 update (StopTracking (Instance.getID givenTask)) state profile1WithUpdatedInstance env
+            --                 update (StopTracking (AssignedAction.getID givenTask)) state profile1WithUpdatedInstance env
             --         in
             --         ( viewState2
             --         , profile2WithTrackingStopped
@@ -1143,6 +1158,16 @@ update msg state profile env =
             ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Cmd.none )
 
 
+ionInputSetFocus : String -> TaskPort.Task ()
+ionInputSetFocus ionInputIDToFocus =
+    TaskPort.call
+        { function = "ionInputSetFocus"
+        , valueDecoder = TaskPort.ignoreValue
+        , argsEncoder = JE.string
+        }
+        ionInputIDToFocus
+
+
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
 urlTriggers profile ( time, timeZone ) =
     let
@@ -1153,7 +1178,7 @@ urlTriggers profile ( time, timeZone ) =
             List.map doneTriggerEntry fullTaskInstances
 
         doneTriggerEntry fullInstance =
-            ( ID.toString (Instance.getID fullInstance), UpdateProgress fullInstance (getWhole (Instance.getProgress fullInstance)) )
+            ( ID.toString (AssignedAction.getID fullInstance), UpdateProgress fullInstance (getWhole (AssignedAction.getProgress fullInstance)) )
 
         taskIDsWithStartMsg =
             List.filterMap startTriggerEntry fullTaskInstances
@@ -1164,15 +1189,15 @@ urlTriggers profile ( time, timeZone ) =
                 |> List.map (\( entryID, _, entryStop ) -> ( entryID, entryStop ))
 
         startTriggerEntry fullInstance =
-            case Instance.getActivityID fullInstance of
+            case AssignedAction.getActivityID fullInstance of
                 Nothing ->
                     Nothing
 
                 Just hasActivityID ->
                     Just
-                        ( ID.toString (Instance.getID fullInstance)
-                        , StartTracking (Instance.getID fullInstance) hasActivityID
-                        , StopTracking (Instance.getID fullInstance)
+                        ( ID.toString (AssignedAction.getID fullInstance)
+                        , StartTracking (AssignedAction.getID fullInstance) hasActivityID
+                        , StopTracking (AssignedAction.getID fullInstance)
                         )
     in
     [ ( "complete", Dict.fromList tasksIDsWithDoneMsg )

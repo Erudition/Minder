@@ -68,6 +68,7 @@ function installTaskPorts() {
   registerNotificationTaskPorts();
   TaskPort.register("changePassphrase", () => getPassphrase(true));
   TaskPort.register("requestNotificationPermission", LocalNotifications.requestPermissions)
+  TaskPort.register("ionInputSetFocus", (id : String) => document?.getElementById(id).setFocus())
 }
 
 function elmStarted(app) {
