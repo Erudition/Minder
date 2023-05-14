@@ -23,6 +23,11 @@ import { defineCustomElement as defineIonItemOption } from "@ionic/core/componen
 import { defineCustomElement as defineIonItemOptions } from "@ionic/core/components/ion-item-options";
 import { defineCustomElement as defineIonItemSliding } from "@ionic/core/components/ion-item-sliding";
 import { defineCustomElement as defineIonInput } from "@ionic/core/components/ion-input";
+import { defineCustomElement as defineIonProgressBar } from "@ionic/core/components/ion-progress-bar";
+import { defineCustomElement as defineIonModal } from "@ionic/core/components/ion-modal";
+import { defineCustomElement as defineIonSelect } from "@ionic/core/components/ion-select";
+import { defineCustomElement as defineIonSelectOption } from "@ionic/core/components/ion-select-option";
+import { defineCustomElement as defineIonPopover } from "@ionic/core/components/ion-popover";
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
 
@@ -56,5 +61,10 @@ defineIonItemOption();
 defineIonItemOptions();
 defineIonItemSliding();
 defineIonInput();
+defineIonProgressBar();
+defineIonModal();
+defineIonSelect();
+defineIonSelectOption();
+defineIonPopover();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');
