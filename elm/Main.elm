@@ -17,12 +17,12 @@ import Element.Font
 import Element.Input as Input
 import Environment exposing (..)
 import External.Commands exposing (..)
-import Html as PlainHtml
+import Html as H
 import Html.Attributes as HA
 import Html.Events
 import Html.Keyed as HK
-import Html.Styled as H exposing (Html, li, toUnstyled)
-import Html.Styled.Attributes exposing (class, href)
+import Html.Styled as SH exposing (Html, li, toUnstyled)
+import Html.Styled.Attributes as SHA exposing (class, href)
 import Html.Styled.Events as HtmlEvents
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
@@ -37,6 +37,7 @@ import Ion.Tab
 import Ion.Toolbar
 import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
+import Json.Encode as JE
 import List.Nonempty exposing (Nonempty(..))
 import Log
 import Native exposing (Native)
@@ -297,7 +298,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Projects"
-                            , body = H.map TaskListMsg (TaskList.view state replica temp.environment)
+                            , body = SH.map TaskListMsg (TaskList.view state replica temp.environment)
                             }
 
                     _ ->
@@ -306,7 +307,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Time Tracker"
-                            , body = H.map TimeTrackerMsg (TimeTracker.view state replica temp.environment)
+                            , body = SH.map TimeTrackerMsg (TimeTracker.view state replica temp.environment)
                             }
 
                     _ ->
@@ -315,7 +316,7 @@ view { replica, temp } =
                     OpenPanel _ (Just state) ->
                         Just
                             { title = "Timeflow"
-                            , body = H.map TimeflowMsg (Timeflow.view state replica temp.environment)
+                            , body = SH.map TimeflowMsg (Timeflow.view state replica temp.environment)
                             }
 
                     _ ->
@@ -324,7 +325,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Dev Tools"
-                            , body = H.map DevToolsMsg (DevTools.view state replica temp.environment)
+                            , body = SH.map DevToolsMsg (DevTools.view state replica temp.environment)
                             }
 
                     _ ->
@@ -336,7 +337,7 @@ view { replica, temp } =
 
         withinPage =
             toUnstyled <|
-                H.node "page"
+                SH.node "page"
                     []
                     (List.map .body openPanels)
     in
@@ -393,7 +394,7 @@ getPanelViewState panel default =
             ( default, FullScreen )
 
 
-globalLayout : Temp -> Profile -> PlainHtml.Html Msg -> PlainHtml.Html Msg
+globalLayout : Temp -> Profile -> H.Html Msg -> H.Html Msg
 globalLayout temp replica innerStuff =
     let
         env =
@@ -434,24 +435,29 @@ globalLayout temp replica innerStuff =
 
         menuItemHref label icon href =
             Ion.Item.item [ Ion.Item.button, HA.href href, Ion.Item.detail False ]
-                [ Ion.Item.label [] [ PlainHtml.text label ]
+                [ Ion.Item.label [] [ H.text label ]
                 , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
                 ]
 
         menuItemOnClick label icon clickHandler =
             Ion.Item.item [ Ion.Item.button, Html.Events.onClick clickHandler, Ion.Item.detail False ]
-                [ Ion.Item.label [] [ PlainHtml.text label ]
+                [ Ion.Item.label [] [ H.text label ]
                 , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
                 ]
+
+        activitySelectOption givenActivity =
+            H.node "ion-select-option"
+                [ HA.value (Activity.idToString (Activity.getID givenActivity)) ]
+                [ H.text <| Activity.getName givenActivity ]
     in
     Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ], HA.id "ion-app" ]
-        [ PlainHtml.div [ HA.class "ion-page", HA.id "main-content" ]
+        [ H.div [ HA.class "ion-page", HA.id "main-content" ]
             [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
                 [ Ion.Toolbar.toolbar []
                     [ Ion.Toolbar.buttons [ Ion.Toolbar.placeStart ]
                         [ Ion.Menu.button [] [] ]
-                    , Ion.Toolbar.title [] [ PlainHtml.text "Minder" ]
-                    , Ion.Toolbar.title [ HA.attribute "size" "small" ] [ PlainHtml.text formattedTime ]
+                    , Ion.Toolbar.title [] [ H.text "Minder" ]
+                    , Ion.Toolbar.title [ HA.attribute "size" "small" ] [ H.text formattedTime ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
                         [ Ion.Button.button [ HA.disabled True ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
                         ]
@@ -459,7 +465,7 @@ globalLayout temp replica innerStuff =
                 ]
             , Ion.Content.content [ HA.classList [ ( "ion-padding", not (isPanelOpen viewState.timeflow) ) ], HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ innerStuff ]
             , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
-                [ --Ion.Toolbar.title [] [ PlainHtml.text "Footer" ]
+                [ --Ion.Toolbar.title [] [ H.text "Footer" ]
                   tabBar
                 , trackingDisplay replica env.time env.launchTime env.timeZone
                 ]
@@ -467,7 +473,7 @@ globalLayout temp replica innerStuff =
         , Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.overlay ]
             [ Ion.Toolbar.header []
                 [ Ion.Toolbar.toolbar []
-                    [ Ion.Toolbar.title [] [ PlainHtml.text "Minder (Alpha)" ]
+                    [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
                         [ Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
                         ]
@@ -481,19 +487,47 @@ globalLayout temp replica innerStuff =
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
                     , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
                     , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences, Ion.Item.detail False ]
-                        [ Ion.Item.label [] [ PlainHtml.text "Switch Account" ]
+                        [ Ion.Item.label [] [ H.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
                         ]
                     , Ion.Item.item [ Ion.Item.button, Html.Events.onClick RequestNotificationPermission, Ion.Item.detail False ]
                         [ Ion.Item.label []
                             [ if temp.environment.notifPermission /= Notif.Granted then
-                                PlainHtml.text "Enable Notifications"
+                                H.text "Enable Notifications"
 
                               else
-                                PlainHtml.text "Notifications Enabled"
+                                H.text "Notifications Enabled"
                             ]
                         , Ion.Icon.withAttr "notifications-outline" [ Ion.Toolbar.placeEnd ]
                         ]
+                    ]
+                ]
+            ]
+        , H.node "ion-modal"
+            [ HA.property "isOpen" (JE.bool False) ]
+            [ H.node "ion-header"
+                []
+                [ H.node "ion-toolbar"
+                    []
+                    [ H.node "ion-buttons"
+                        [ HA.attribute "slot" "start" ]
+                        [ H.node "ion-button" [ HA.attribute "color" "medium" ] [ H.text "Close" ]
+                        ]
+                    , H.node "ion-title" [] [ H.text "Testing a modal" ]
+                    , H.node "ion-buttons"
+                        [ HA.attribute "slot" "end" ]
+                        [ H.node "ion-button" [ HA.attribute "strong" "true" ] [ H.text "Confirm" ]
+                        ]
+                    ]
+                ]
+            , H.node "ion-content"
+                [ HA.class "ion-padding" ]
+                [ H.node "ion-item" [] [ H.node "ion-input" [ HA.type_ "text", HA.attribute "label-placement" "stacked", HA.attribute "label" "Task Title", HA.placeholder "New Task Title Here" ] [] ]
+                , H.node "ion-item"
+                    []
+                    [ H.node "ion-select"
+                        [ HA.type_ "text", HA.attribute "label-placement" "stacked", HA.attribute "label" "Activity", HA.placeholder "What's the most fitting activity?" ]
+                        (List.map activitySelectOption (Activity.allUnhidden replica.activities))
                     ]
                 ]
             ]
@@ -536,7 +570,8 @@ trackingDisplay replica time launchTime timeZone =
     -- ]
     -- [ trackingTaskCompletionSlider currentInstance ]
     Ion.Toolbar.toolbar []
-        [ Ion.Toolbar.title [] [ PlainHtml.text <| tracking_for_string (Activity.getName currentActivity) timeSinceSession ]
+        [ H.node "ion-progress-bar" [ HA.type_ "indeterminate" ] []
+        , Ion.Toolbar.title [] [ H.text <| tracking_for_string (Activity.getName currentActivity) timeSinceSession ]
         , Ion.Button.button [ Ion.Toolbar.placeEnd ] [ Ion.Icon.basic "stop-circle-outline" ]
         ]
 
@@ -593,24 +628,24 @@ trackingTaskCompletionSlider instance =
 
 infoFooter : Html Msg
 infoFooter =
-    H.footer [ class "info" ]
-        [ H.p []
-            [ H.text "Switch to: "
-            , H.a [ href "/tasks" ] [ H.text "Task List" ]
-            , H.text " ➖ "
-            , H.a [ href "/timetracker" ] [ H.text "Time Tracker" ]
-            , H.text " ➖ "
-            , H.a [ href "/timeflow" ] [ H.text "Timeflow" ]
-            , H.text " ➖ "
-            , H.a [ href "?sync=marvin" ] [ H.text "Sync Marvin" ]
+    SH.footer [ class "info" ]
+        [ SH.p []
+            [ SH.text "Switch to: "
+            , SH.a [ href "/tasks" ] [ SH.text "Task List" ]
+            , SH.text " ➖ "
+            , SH.a [ href "/timetracker" ] [ SH.text "Time Tracker" ]
+            , SH.text " ➖ "
+            , SH.a [ href "/timeflow" ] [ SH.text "Timeflow" ]
+            , SH.text " ➖ "
+            , SH.a [ href "?sync=marvin" ] [ SH.text "Sync Marvin" ]
             ]
-        , H.p []
-            [ H.text "Written by "
-            , H.a [ href "https://github.com/Erudition" ] [ H.text "Erudition" ]
+        , SH.p []
+            [ SH.text "Written by "
+            , SH.a [ href "https://github.com/Erudition" ] [ SH.text "Erudition" ]
             ]
-        , H.p []
-            [ H.text "(Increasingly more distant) fork of Evan's elm "
-            , H.a [ href "http://todomvc.com" ] [ H.text "TodoMVC" ]
+        , SH.p []
+            [ SH.text "(Increasingly more distant) fork of Evan's elm "
+            , SH.a [ href "http://todomvc.com" ] [ SH.text "TodoMVC" ]
             ]
         ]
 
@@ -654,7 +689,7 @@ getPage model page =
             homePage model
 
 
-nativeView : Model -> PlainHtml.Html Msg
+nativeView : Model -> H.Html Msg
 nativeView model =
     model.temp.rootFrame
         |> Native.Frame.view [] (getPage model)
