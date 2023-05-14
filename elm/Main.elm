@@ -19,11 +19,11 @@ import Environment exposing (..)
 import External.Commands exposing (..)
 import Html as H
 import Html.Attributes as HA
-import Html.Events
+import Html.Events as HE
 import Html.Keyed as HK
 import Html.Styled as SH exposing (Html, li, toUnstyled)
 import Html.Styled.Attributes as SHA exposing (class, href)
-import Html.Styled.Events as HtmlEvents
+import Html.Styled.Events as SHE
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
@@ -48,6 +48,7 @@ import Native.Layout as Layout
 import Native.Page as Page
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
+import Popups exposing (Popup)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Frame)
 import Replicated.Codec
@@ -64,7 +65,7 @@ import SmartTime.Human.Moment
 import SmartTime.Moment as Moment
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.AssignedAction as Instance
+import Task.AssignedAction as AssignedAction exposing (AssignedAction)
 import TaskList
 import TaskPort
 import TimeTracker
@@ -267,6 +268,7 @@ type alias ViewState =
     , timeTracker : Panel TimeTracker.ViewState
     , timeflow : Panel (Maybe Timeflow.ViewState)
     , devTools : Panel DevTools.ViewState
+    , modal : Maybe Popup
     }
 
 
@@ -276,6 +278,7 @@ emptyViewState =
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
+    , modal = Nothing
     }
 
 
@@ -440,7 +443,7 @@ globalLayout temp replica innerStuff =
                 ]
 
         menuItemOnClick label icon clickHandler =
-            Ion.Item.item [ Ion.Item.button, Html.Events.onClick clickHandler, Ion.Item.detail False ]
+            Ion.Item.item [ Ion.Item.button, HE.onClick clickHandler, Ion.Item.detail False ]
                 [ Ion.Item.label [] [ H.text label ]
                 , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
                 ]
@@ -475,7 +478,7 @@ globalLayout temp replica innerStuff =
                 [ Ion.Toolbar.toolbar []
                     [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                        [ Ion.Button.button [ Html.Events.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
+                        [ Ion.Button.button [ HE.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
                         ]
                     ]
                 ]
@@ -486,11 +489,11 @@ globalLayout temp replica innerStuff =
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
                     , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
-                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick ClearPreferences, Ion.Item.detail False ]
+                    , Ion.Item.item [ Ion.Item.button, HE.onClick ClearPreferences, Ion.Item.detail False ]
                         [ Ion.Item.label [] [ H.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
                         ]
-                    , Ion.Item.item [ Ion.Item.button, Html.Events.onClick RequestNotificationPermission, Ion.Item.detail False ]
+                    , Ion.Item.item [ Ion.Item.button, HE.onClick RequestNotificationPermission, Ion.Item.detail False ]
                         [ Ion.Item.label []
                             [ if temp.environment.notifPermission /= Notif.Granted then
                                 H.text "Enable Notifications"
@@ -503,34 +506,7 @@ globalLayout temp replica innerStuff =
                     ]
                 ]
             ]
-        , H.node "ion-modal"
-            [ HA.property "isOpen" (JE.bool False) ]
-            [ H.node "ion-header"
-                []
-                [ H.node "ion-toolbar"
-                    []
-                    [ H.node "ion-buttons"
-                        [ HA.attribute "slot" "start" ]
-                        [ H.node "ion-button" [ HA.attribute "color" "medium" ] [ H.text "Close" ]
-                        ]
-                    , H.node "ion-title" [] [ H.text "Testing a modal" ]
-                    , H.node "ion-buttons"
-                        [ HA.attribute "slot" "end" ]
-                        [ H.node "ion-button" [ HA.attribute "strong" "true" ] [ H.text "Confirm" ]
-                        ]
-                    ]
-                ]
-            , H.node "ion-content"
-                [ HA.class "ion-padding" ]
-                [ H.node "ion-item" [] [ H.node "ion-input" [ HA.type_ "text", HA.attribute "label-placement" "stacked", HA.attribute "label" "Task Title", HA.placeholder "New Task Title Here" ] [] ]
-                , H.node "ion-item"
-                    []
-                    [ H.node "ion-select"
-                        [ HA.type_ "text", HA.attribute "label-placement" "stacked", HA.attribute "label" "Activity", HA.placeholder "What's the most fitting activity?" ]
-                        (List.map activitySelectOption (Activity.allUnhidden replica.activities))
-                    ]
-                ]
-            ]
+        , SH.toUnstyled <| viewPopup temp replica
         ]
 
 
@@ -546,7 +522,7 @@ trackingDisplay replica time launchTime timeZone =
             Profile.instanceListNow replica ( launchTime, timeZone )
 
         currentInstanceMaybe currentInstanceID =
-            List.head (List.filter (\t -> Instance.getID t == currentInstanceID) allInstances)
+            List.head (List.filter (\t -> AssignedAction.getID t == currentInstanceID) allInstances)
 
         timeSinceSession =
             Period.length (Timeline.currentAsPeriod time replica.timeline)
@@ -564,7 +540,7 @@ trackingDisplay replica time launchTime timeZone =
     -- , behindContent
     --     (row [ width fill, height fill ]
     --         [ el [] <| text "O"
-    --         , el [ centerX ] (text (tracking_for_string (Instance.getTitle currentInstance) timeSinceSession))
+    --         , el [ centerX ] (text (tracking_for_string (AssignedAction.getTitle currentInstance) timeSinceSession))
     --         ]
     --     )
     -- ]
@@ -588,7 +564,7 @@ trackingTaskCompletionSlider instance =
         , Element.behindContent
             (row [ width fill, height fill ]
                 [ Element.el
-                    [ Element.width (fillPortion (Instance.getCompletionInt instance))
+                    [ Element.width (fillPortion (AssignedAction.getCompletionInt instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 1 0 0.5)
@@ -596,7 +572,7 @@ trackingTaskCompletionSlider instance =
                     ]
                     Element.none
                 , Element.el
-                    [ Element.width (fillPortion (Instance.getProgressMaxInt instance - Instance.getCompletionInt instance))
+                    [ Element.width (fillPortion (AssignedAction.getProgressMaxInt instance - AssignedAction.getCompletionInt instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 0 0 0)
@@ -610,9 +586,9 @@ trackingTaskCompletionSlider instance =
         , label =
             Input.labelHidden "Task Progress"
         , min = 0
-        , max = toFloat <| Instance.getProgressMaxInt instance
+        , max = toFloat <| AssignedAction.getProgressMaxInt instance
         , step = Just 1
-        , value = toFloat (Instance.getCompletionInt instance)
+        , value = toFloat (AssignedAction.getCompletionInt instance)
         , thumb =
             Input.thumb []
         }
@@ -648,6 +624,58 @@ infoFooter =
             , SH.a [ href "http://todomvc.com" ] [ SH.text "TodoMVC" ]
             ]
         ]
+
+
+viewPopup : Temp -> Profile -> Html msg
+viewPopup temp profile =
+    let
+        demoContents =
+            [ SH.node "ion-header"
+                []
+                [ SH.node "ion-toolbar"
+                    []
+                    [ SH.node "ion-buttons"
+                        [ SHA.attribute "slot" "start" ]
+                        [ SH.node "ion-button"
+                            [ SHA.attribute "color" "medium"
+
+                            -- , onClick CloseEditor
+                            ]
+                            [ SH.text "Close" ]
+                        ]
+                    , SH.node "ion-title" [] [ SH.text "Modal test" ]
+                    , SH.node "ion-buttons"
+                        [ SHA.attribute "slot" "end" ]
+                        [ SH.node "ion-button" [ SHA.attribute "strong" "true" ] [ SH.text "Confirm" ]
+                        ]
+                    ]
+                ]
+            , SH.node "ion-content"
+                [ class "ion-padding" ]
+                [ SH.node "ion-item" [] [ SH.node "ion-input" [ SHA.type_ "text", SHA.attribute "label-placement" "stacked", SHA.attribute "label" "Task Title", SHA.placeholder "New Task Title Here" ] [] ]
+                ]
+            ]
+    in
+    case temp.viewState.modal of
+        Just popup ->
+            SH.node "ion-modal"
+                [ SHA.property "isOpen" (JE.bool True)
+
+                -- , on "didDismiss" <| JD.succeed CloseEditor
+                ]
+                demoContents
+
+        Nothing ->
+            SH.node "ion-modal"
+                [ SHA.property "isOpen" (JE.bool False)
+
+                -- , on "didDismiss" <| JD.succeed CloseEditor
+                ]
+                demoContents
+
+
+
+-- NATIVESCRIPT VIEWS
 
 
 homePage : Model -> Native Msg
@@ -735,6 +763,8 @@ type Msg
     | ClearPreferences
     | RequestNotificationPermission
     | GotNotificationPermissionStatus (TaskPort.Result Notif.PermissionStatus)
+    | OpenPopup Popup
+    | ClosePopup
 
 
 type ThirdPartyService
@@ -773,6 +803,26 @@ update msg { temp, replica, now } =
             ( [], { temp | environment = newEnv }, Cmd.none )
     in
     case msg of
+        OpenPopup popup ->
+            let
+                newViewState =
+                    { viewState | modal = Just popup }
+            in
+            ( []
+            , { newTemp | viewState = newViewState }
+            , Cmd.map TimeflowMsg Timeflow.resizeCmd
+            )
+
+        ClosePopup ->
+            let
+                newViewState =
+                    { viewState | modal = Nothing }
+            in
+            ( []
+            , { newTemp | viewState = newViewState }
+            , Cmd.map TimeflowMsg Timeflow.resizeCmd
+            )
+
         NotificationScheduled response ->
             noOp
 
