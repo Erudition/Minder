@@ -24,6 +24,7 @@ import Html.Keyed as HK
 import Html.Styled as SH exposing (Html, li, toUnstyled)
 import Html.Styled.Attributes as SHA exposing (class, href)
 import Html.Styled.Events as SHE
+import Html.Styled.Keyed as SHK
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
@@ -622,7 +623,7 @@ infoFooter =
         ]
 
 
-viewPopup : MainModel -> Profile -> SH.Html msg
+viewPopup : MainModel -> Profile -> SH.Html Msg
 viewPopup temp profile =
     let
         demoContents =
@@ -634,8 +635,7 @@ viewPopup temp profile =
                         [ SHA.attribute "slot" "start" ]
                         [ SH.node "ion-button"
                             [ SHA.attribute "color" "medium"
-
-                            -- , onClick CloseEditor
+                            , SHE.onClick (RunEffects [ Effect.ClosePopup ])
                             ]
                             [ SH.text "Close" ]
                         ]
@@ -656,16 +656,14 @@ viewPopup temp profile =
         Just popup ->
             SH.node "ion-modal"
                 [ SHA.property "isOpen" (JE.bool True)
-
-                -- , on "didDismiss" <| JD.succeed CloseEditor
+                , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
                 ]
                 demoContents
 
         Nothing ->
             SH.node "ion-modal"
                 [ SHA.property "isOpen" (JE.bool False)
-
-                -- , on "didDismiss" <| JD.succeed CloseEditor
+                , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
                 ]
                 demoContents
 
@@ -739,6 +737,7 @@ to them.
 -}
 type Msg
     = NoOp
+    | RunEffects (List (Effect.Effect Msg))
     | ClearErrors
     | ThirdPartySync ThirdPartyService
     | ThirdPartyServerResponded ThirdPartyResponse
@@ -808,6 +807,16 @@ update msg ({ replica } as frameworkModel) =
             ( [], { viewState = viewState, shared = shared }, Cmd.none )
     in
     case msg of
+        RunEffects effects ->
+            let
+                ( effectFrames, newShared, effectCmds ) =
+                    Effect.perform (\_ -> NoOp) shared replica effects
+            in
+            ( effectFrames
+            , { unchangedMainModel | shared = newShared }
+            , effectCmds
+            )
+
         OpenPopup popup ->
             justSetShared { shared | modal = Just popup }
 

@@ -36,7 +36,7 @@
 +			// skip them
 +			while(!childNodes[k].created_by_elm)
 +			{
-+				console.log("INFO 1: skipping DOM")
++				//console.log("Elm Virtual Dom: skipping non-Elm element", childNodes[k])
 +				k++
 +			}
 +		}
@@ -45,13 +45,13 @@
 +		{
 +			if(childNodes[k])
 +			{
-+				// replace tha node using the old vdom
-+				console.log("WARN 1: redrawing DOM")
++				// replace the node using the old vdom
++				console.log("Elm Virtual Dom:", vKids.length - childNodes.length, "less children than expected, overwriting", childNodes[k], "with", vKids[j].c, "containing", vKids[j].e  )
 +				_VirtualDom_applyPatchRedraw(childNodes[k], vKids[j], eventNode)
 +			}
 +			else
 +			{
-+				console.log("WARN 2: redrawing DOM")
++				console.log("Elm Virtual Dom:", vKids.length - childNodes.length, "less children than expected, inserting", vKids[j].c, "containing", vKids[j].e  )
 +				domNode.appendChild(_VirtualDom_render(vKids[j], eventNode));
 +			}
 +		}
@@ -61,14 +61,14 @@
 +			if(!childNodes[k].created_by_elm)
 +			{
 +				// replace tha node using the old vdom
-+				console.log("WARN 3: redrawing DOM")
++				console.log("Elm Virtual Dom: in", eventNode, "the child", childNodes[k], "was not created by elm, but an elm element was expected there. Overwriting with", vKids[j])
 +				_VirtualDom_applyPatchRedraw(childNodes[k], vKids[j], eventNode)
 +			}
 +		}
 +		// 4. this is needed for some edge cases
 +		if(vKids[j].$ === __2_NODE && (childNodes[k].tagName || "").toLowerCase() !== vKids[j].__tag)
 +		{
-+			console.log("WARN 4: redrawing DOM")
++			console.log("Elm Virtual Dom: Tag name does not match for", childNodes[k], ", overwriting with", vKids[j])
 +			_VirtualDom_applyPatchRedraw(childNodes[k], vKids[j], eventNode)
 +		}
 +
@@ -87,7 +87,7 @@
 +			// patch for extension
 +			if(domNode.childNodes.length !== data.__diff + data.__length)
 +			{
-+				console.log("INFO 0: using another logic")
++				console.log("Elm Virtual Dom: using alternative logic for an extension")
 +				var removed = 0;
 +				var index = domNode.childNodes.length - 1;
 +				while (removed < data.__diff)
