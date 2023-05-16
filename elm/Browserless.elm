@@ -3,14 +3,15 @@ port module Browserless exposing (..)
 import Browser
 import Html as PlainHtml
 import Html.Styled exposing (node, toUnstyled)
-import Main exposing (Msg, StoredRON, Temp)
+import Main exposing (Msg, StoredRON)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
+import Shared.Model exposing (..)
 import Url
 import VirtualDom
 
 
-main : Program ( String, Maybe StoredRON ) Temp Msg
+main : Program ( String, Maybe StoredRON ) Shared Msg
 main =
     Browser.element
         (Debug.todo "framework for browser.element")
@@ -24,7 +25,7 @@ main =
 -- }
 
 
-initBrowserless : ( String, Profile ) -> ( List Change.Frame, Temp, Cmd Msg )
+initBrowserless : ( String, Profile ) -> ( List Change.Frame, Main.MainModel, Cmd Msg )
 initBrowserless ( urlAsString, profile ) =
     let
         flags =
@@ -33,7 +34,7 @@ initBrowserless ( urlAsString, profile ) =
     Main.init (urlOrElse urlAsString) Nothing flags profile
 
 
-browserlessView : Temp -> VirtualDom.Node Msg
+browserlessView : Shared -> VirtualDom.Node Msg
 browserlessView _ =
     toUnstyled <|
         node "AbsoluteLayout" [] []

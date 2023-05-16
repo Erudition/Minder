@@ -1,7 +1,6 @@
 module DevTools exposing (Msg, ViewState, init, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Environment exposing (..)
 import Helpers exposing (..)
 import Html as H exposing (Html)
 import Html.Attributes as HA
@@ -12,13 +11,14 @@ import Ion.List
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Human.Moment exposing (FuzzyMoment(..))
 import Task.Progress exposing (..)
 import Url.Parser as P exposing ((</>), Parser)
 
 
-init : Profile -> Environment -> String -> ( ViewState, Cmd Msg )
-init profile environment ron =
+init : Profile -> Shared -> String -> ( ViewState, Cmd Msg )
+init profile shared ron =
     ( ViewState ron
     , Cmd.none
     )
@@ -49,7 +49,7 @@ routeView =
     P.map (ViewState "") (P.s "devtools")
 
 
-view : ViewState -> Profile -> Environment -> SH.Html Msg
+view : ViewState -> Profile -> Shared -> SH.Html Msg
 view state profile _ =
     SH.fromUnstyled <|
         H.div []
@@ -86,13 +86,13 @@ type Msg
     = SimpleChange Change
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Frame, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Frame, Cmd Msg )
 update msg state _ _ =
     case msg of
         SimpleChange change ->
             ( state, Change.saveChanges "Simple change" [ change ], Cmd.none )
 
 
-subscriptions : Profile -> Environment -> Maybe ViewState -> Sub Msg
+subscriptions : Profile -> Shared -> Maybe ViewState -> Sub Msg
 subscriptions _ _ _ =
     Sub.none

@@ -8,7 +8,6 @@ import Activity.Timeline as Timeline
 import Base64
 import Bytes.Encode
 import Dict exposing (Dict)
-import Environment exposing (Environment)
 import Helpers exposing (..)
 import Http
 import IntDict exposing (IntDict)

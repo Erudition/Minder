@@ -4,7 +4,6 @@ import Activity.Session exposing (Session(..))
 import Browser.Navigation exposing (..)
 import Css
 import Dict
-import Environment exposing (..)
 import External.Commands exposing (..)
 import Html.Styled as H exposing (Html, div, text)
 import Html.Styled.Attributes as HA exposing (class)
@@ -17,6 +16,7 @@ import Replicated.Codec as Codec
 import Replicated.Node.Node as Node
 import Replicated.Op.Op as Op
 import Replicated.Op.OpID as OpID
+import Shared.Model exposing (..)
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import Url
 

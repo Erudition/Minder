@@ -3,7 +3,6 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 import Activity.Activity as Activity exposing (..)
 import Activity.Session as Session exposing (Session, new)
 import Activity.Timeline as Timeline exposing (Timeline)
-import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (multiline)
 import ID
@@ -19,6 +18,7 @@ import Replicated.Change as Change exposing (Change)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Human.Moment as HumanMoment

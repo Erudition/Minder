@@ -8,7 +8,7 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Dict
-import Environment exposing (..)
+import Effect exposing (Effect)
 import External.Commands as Commands
 import Helpers exposing (..)
 import Html.Styled exposing (..)
@@ -34,7 +34,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
-import Process
+import Popups exposing (Popup)
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change, Parent)
@@ -43,6 +43,7 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -121,7 +122,7 @@ allFullTaskInstances profile ( launchTime, zone ) =
         |> AssignedAction.prioritize launchTime zone
 
 
-view : ViewState -> Profile -> Environment -> Html Msg
+view : ViewState -> Profile -> Shared -> Html Msg
 view state profile env =
     let
         renderView lazyState lazyProfile launchTime zone =
@@ -412,23 +413,23 @@ viewTaskTitle task editingMaybe =
 startTrackingButton : AssignedAction -> Maybe AssignedActionID -> Html Msg
 startTrackingButton task trackedTaskMaybe =
     case ( AssignedAction.getActivityID task, Maybe.map ((==) (AssignedAction.getID task)) trackedTaskMaybe ) of
-        ( Just activityID, Just True ) ->
+        ( _, Just True ) ->
             node "ion-item-option"
                 [ attribute "color" "primary", onClick (StopTracking (AssignedAction.getID task)) ]
-                [ node "ion-icon" [ name "pause-circle-outline" ] [] ]
+                [ node "ion-icon" [ name "pause-outline" ] [] ]
 
         ( Just activityID, _ ) ->
             node "ion-item-option"
                 [ attribute "color" "primary", onClick (StartTracking (AssignedAction.getID task) activityID) ]
-                [ node "ion-icon" [ name "play-circle-outline" ] [] ]
+                [ node "ion-icon" [ name "play-outline" ] [] ]
 
         ( Nothing, _ ) ->
             node "ion-item-option"
                 [ attribute "color" "primary", onClick (StartTracking (AssignedAction.getID task) Activity.unknown) ]
-                [ node "ion-icon" [ name "play-circle-outline" ] [] ]
+                [ node "ion-icon" [ name "play-outline" ] [] ]
 
 
-viewTaskEditModal : Profile -> Environment -> AssignedAction -> Html Msg
+viewTaskEditModal : Profile -> Shared -> AssignedAction -> Html Msg
 viewTaskEditModal profile env assignment =
     let
         activitySelectOption givenActivity =
@@ -949,7 +950,7 @@ type Msg
     | LogError String
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Change.Frame, List (Effect msg) )
 update msg state profile env =
     case msg of
         Add ->
@@ -958,7 +959,7 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
                     , Change.none
-                    , Cmd.none
+                    , []
                     )
 
                 Normal filters _ newTaskTitle _ ->
@@ -986,7 +987,7 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- ^resets new-entry-textbox to empty, collapses tasks
                     , Change.saveChanges frameDescription finalChanges
-                    , Cmd.none
+                    , []
                     )
 
         UpdateNewEntryField typedSoFar ->
@@ -997,7 +998,7 @@ update msg state profile env =
               Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
             , Change.none
-            , Cmd.none
+            , []
             )
 
         EditingClassTitle action newTitleSoFar ->
@@ -1007,9 +1008,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
             , Change.none
-            , Process.sleep 100
-                |> Job.andThen (\_ -> ionInputSetFocus ("task-title-" ++ AssignedAction.getIDString action))
-                |> Job.attempt (\_ -> NoOp)
+            , [ Effect.FocusIonInput ("task-title-" ++ AssignedAction.getIDString action) ]
             )
 
         OpenEditor action ->
@@ -1019,7 +1018,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal action)
             , Change.none
-            , Cmd.none
+            , [ Effect.OpenPopup (Popups.ProjectEditor action) ]
             )
 
         CloseEditor ->
@@ -1029,7 +1028,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , Change.none
-            , Cmd.none
+            , [ Effect.ClosePopup ]
             )
 
         StopEditing ->
@@ -1039,7 +1038,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , Change.none
-            , Cmd.none
+            , []
             )
 
         UpdateTitle action newTitle ->
@@ -1060,7 +1059,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
-            , Cmd.none
+            , []
             )
 
         UpdateTaskDate id field date ->
@@ -1070,14 +1069,14 @@ update msg state profile env =
             in
             -- ( state
             -- , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
-            -- , Cmd.none
+            -- , []
             -- )
             Debug.todo "UpdateTaskDate"
 
         Delete id ->
             -- ( state
             -- , { profile | taskInstances = IntDict.remove id profile.taskInstances }
-            -- , Cmd.none
+            -- , []
             -- )
             Debug.todo "Delete"
 
@@ -1085,7 +1084,7 @@ update msg state profile env =
             ( state
             , Change.none
               -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (AssignedAction.completed t)) profile.taskInstances }
-            , Cmd.none
+            , []
             )
 
         UpdateProgress givenTask newCompletion ->
@@ -1138,19 +1137,19 @@ update msg state profile env =
             --
             --     _ ->
             --         -- nothing changed, completion-wise
-            --         ( state, profile1WithUpdatedInstance, Cmd.none )
+            --         ( state, profile1WithUpdatedInstance, [] )
             Debug.todo "completion update"
 
         FocusSlider task focused ->
             ( state
             , Change.none
-            , Cmd.none
+            , []
             )
 
         NoOp ->
             ( state
             , Change.none
-            , Cmd.none
+            , []
             )
 
         TodoistServerResponse response ->
@@ -1160,73 +1159,66 @@ update msg state profile env =
             in
             ( state
             , todoistChanges
-            , Commands.toast whatHappened
+            , [ Effect.Toast whatHappened ]
             )
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, Change.none, Cmd.none )
+            ( state, Change.none, [] )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField editing ->
                     Normal newList expandedTaskMaybe newTaskField editing
             , Change.none
-            , Cmd.none
+            , []
             )
 
         StartTracking instanceID activityID ->
-            -- let
-            --     ( addSession, sessionCommands ) =
-            --         Refocus.switchTracking activityID (Just instanceID) profile env
-            --
-            --     ( newProfile2WithMarvinTimes, marvinCmds ) =
-            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env (Just instanceID) True
-            -- in
-            -- ( state
-            -- , newProfile2WithMarvinTimes
-            -- , Cmd.batch
-            --     [ Cmd.map MarvinServerResponse <| marvinCmds
-            --     , sessionCommands
-            --     ]
-            -- )
-            Debug.todo "start tracking"
+            let
+                ( addSessionChanges, sessionCommands ) =
+                    Refocus.switchTracking activityID (Just instanceID) profile ( env.time, env.timeZone )
+
+                -- ( newProfile2WithMarvinTimes, marvinCmds ) =
+                --     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env (Just instanceID) True
+            in
+            ( state
+            , Change.saveChanges "Start tracking" addSessionChanges
+            , []
+              -- , Cmd.batch
+              --     [ sessionCommands
+              --     -- , Cmd.map MarvinServerResponse <| marvinCmds
+              --     ]
+            )
 
         StopTracking instanceID ->
-            -- let
-            --     activityToContinue =
-            --         Activity.Timeline.currentActivityID profile.timeline
-            --
-            --     instanceToStop =
-            --         Activity.Timeline.currentInstanceID profile.timeline
-            --
-            --     ( newProfile1WithSession, sessionCommands ) =
-            --         Refocus.switchTracking activityToContinue Nothing profile env
-            --
-            --     ( newProfile2WithMarvinTimes, marvinCmds ) =
-            --         Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env instanceToStop False
-            -- in
-            -- ( state
-            -- , newProfile2WithMarvinTimes
-            -- , Cmd.batch [ Cmd.map MarvinServerResponse <| marvinCmds, sessionCommands ]
-            -- )
-            Debug.todo "stop tracking"
+            let
+                activityToContinue =
+                    Activity.Timeline.currentActivityID profile.timeline
+
+                instanceToStop =
+                    Activity.Timeline.currentInstanceID profile.timeline
+
+                ( sessionChanges, sessionCommands ) =
+                    Refocus.switchTracking activityToContinue Nothing profile ( env.time, env.timeZone )
+
+                -- ( newProfile2WithMarvinTimes, marvinCmds ) =
+                --     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env instanceToStop False
+            in
+            ( state
+            , Change.saveChanges "Stop tracking" sessionChanges
+            , []
+              -- , Cmd.batch
+              --     [ sessionCommands
+              --     -- , Cmd.map MarvinServerResponse <| marvinCmds
+              --     ]
+            )
 
         SimpleChange change ->
-            ( state, Change.saveChanges "Simple change" [ change ], Cmd.none )
+            ( state, Change.saveChanges "Simple change" [ change ], [] )
 
         LogError errorMsg ->
-            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Cmd.none )
-
-
-ionInputSetFocus : String -> TaskPort.Task ()
-ionInputSetFocus ionInputIDToFocus =
-    TaskPort.call
-        { function = "ionInputSetFocus"
-        , valueDecoder = TaskPort.ignoreValue
-        , argsEncoder = JE.string
-        }
-        ionInputIDToFocus
+            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], [] )
 
 
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )

@@ -5,10 +5,11 @@ import Main exposing (..)
 import Platform exposing (worker)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
+import Shared.Model exposing (..)
 import Url
 
 
-main : Program ( String, Maybe StoredRON ) Temp Msg
+main : Program ( String, Maybe StoredRON ) Shared Msg
 main =
     worker
         (Debug.todo "framework for worker")
@@ -21,7 +22,7 @@ main =
 -- }
 
 
-initHeadless : ( String, Profile ) -> ( List Change.Frame, Temp, Cmd Msg )
+initHeadless : ( String, Profile ) -> ( List Change.Frame, MainModel, Cmd Msg )
 initHeadless ( urlAsString, profile ) =
     let
         flags =
@@ -45,7 +46,7 @@ fallbackUrl =
     { protocol = Url.Http, host = "headless.docket.com", port_ = Nothing, path = "", query = Nothing, fragment = Nothing }
 
 
-headlessSubscriptions : Temp -> Sub Msg
+headlessSubscriptions : Shared -> Sub Msg
 headlessSubscriptions _ =
     Sub.batch
         [ headlessMsg (\s -> NewUrl (urlOrElse s))

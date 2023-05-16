@@ -3,7 +3,6 @@ module Profile exposing (AppInstance, Profile, TodoistIntegrationData, codec, cu
 import Activity.Activity as Activity exposing (..)
 import Activity.Session
 import Activity.Timeline exposing (Timeline)
-import Environment exposing (Environment)
 import ExtraCodecs as Codec
 import Helpers exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
 import ID

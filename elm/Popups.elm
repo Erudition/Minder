@@ -9,7 +9,6 @@ import Html.Styled.Attributes as SHA exposing (attribute, class, href, placehold
 import Html.Styled.Events as SHE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
-import Profile exposing (Profile)
 import Task.AssignedAction as AssignedAction exposing (AssignedAction)
 
 

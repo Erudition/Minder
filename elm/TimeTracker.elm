@@ -9,7 +9,6 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Dict
-import Environment exposing (..)
 import External.Commands as Commands exposing (..)
 import External.Tasker as Tasker
 import Helpers exposing (..)
@@ -30,6 +29,7 @@ import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
@@ -76,7 +76,7 @@ defaultView =
     Normal
 
 
-view : ViewState -> Profile -> Environment -> Html Msg
+view : ViewState -> Profile -> Shared -> Html Msg
 view state app env =
     case state of
         Normal ->
@@ -103,7 +103,7 @@ viewActivities ( time, timeZone ) app =
 
 
 -- VIEW INDIVIDUAL ENTRIES
--- viewKeyedActivity : Profile -> Environment -> Activity -> ( String, Html Msg )
+-- viewKeyedActivity : Profile -> Shared -> Activity -> ( String, Html Msg )
 -- viewKeyedActivity app env activity =
 --     let
 --         key =
@@ -151,7 +151,7 @@ viewActivity app ( time, timeZone ) activity =
         ]
 
 
-writeTime : Environment -> String
+writeTime : Shared -> String
 writeTime env =
     let
         nowClock =

@@ -2,7 +2,7 @@ module NativeMain exposing (..)
 
 import Browser
 import Html
-import Main exposing (Msg(..))
+import Main exposing (MainModel, Msg(..))
 import Native exposing (Native)
 import Native.Attributes as NA
 import Native.Frame as Frame
@@ -10,6 +10,7 @@ import Native.Layout as Layout
 import Native.Page as Page
 import Profile exposing (Profile)
 import Replicated.Framework as Framework
+import Shared.Model exposing (..)
 import Url
 
 
@@ -21,7 +22,7 @@ import Url
 --             ( { model | rootFrame = Frame.handleBack bool model.rootFrame }, Cmd.none )
 
 
-main : Framework.Program Main.Flags Profile Main.Temp Main.Msg
+main : Framework.Program Flags Profile MainModel Main.Msg
 main =
     let
         bogusTempUrl : Url.Url

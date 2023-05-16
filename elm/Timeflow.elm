@@ -12,7 +12,6 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Environment exposing (..)
 import External.Commands as Commands
 import GraphicSVG exposing (..)
 import GraphicSVG.Widget as Widget
@@ -32,6 +31,7 @@ import Refocus
 import Replicated.Change as Change exposing (ChangeSet, Frame)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week
@@ -41,7 +41,8 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.AssignedAction as Task exposing (AssignedAction, AssignedActionSkel)
+import Task.ActionClass as ActionClass exposing (ActionClass)
+import Task.AssignedAction as AssignedAction exposing (AssignedAction, AssignedActionSkel)
 import Task.Entry as Task
 import Task.Progress exposing (..)
 import Task.Session as Task
@@ -113,7 +114,7 @@ type alias ViewSettings =
     }
 
 
-updateViewSettings : Profile -> Environment -> ViewSettings
+updateViewSettings : Profile -> Shared -> ViewSettings
 updateViewSettings profile env =
     let
         today =
@@ -154,7 +155,7 @@ updateViewSettings profile env =
     }
 
 
-init : Profile -> Environment -> ( ViewState, Cmd Msg )
+init : Profile -> Shared -> ( ViewState, Cmd Msg )
 init profile environment =
     let
         ( widget1state, widget1init ) =
@@ -181,7 +182,7 @@ routeView =
     P.map Nothing (P.s "timeflow")
 
 
-view : ViewState -> Profile -> Environment -> SH.Html Msg
+view : ViewState -> Profile -> Shared -> SH.Html Msg
 view vState profile env =
     SH.fromUnstyled <|
         layout [ width fill, height fill ] <|
@@ -215,7 +216,7 @@ view vState profile env =
 
 
 
--- svgExperiment : ViewState -> Profile -> Environment -> ( widgetID, ( widgetState, widgetInitCmd ) )
+-- svgExperiment : ViewState -> Profile -> Shared -> ( widgetID, ( widgetState, widgetInitCmd ) )
 
 
 svgExperiment state profile env =
@@ -271,7 +272,7 @@ allShapes state profile env =
         ++ [ timeLabel env state.settings.pivotMoment ]
 
 
-timeLabel : Environment -> Moment -> Shape msg
+timeLabel : Shared -> Moment -> Shape msg
 timeLabel env stampMoment =
     GraphicSVG.text (HumanMoment.describeVsNow env.timeZone env.time stampMoment)
         |> fixedwidth
@@ -374,7 +375,7 @@ roundCorner radii ( startX, startY ) ( middleX, middleY ) ( endX, endY ) =
     [ midPoint, firstPoint, controlPoint, secondPoint ]
 
 
-blobToShape : ViewState -> Environment -> FlowBlob -> Shape Msg
+blobToShape : ViewState -> Shared -> FlowBlob -> Shape Msg
 blobToShape display env initialBlob =
     let
         ( blob, isDraggingMe ) =
@@ -541,7 +542,7 @@ blobToShape display env initialBlob =
         |> notifyTouchStartAt (MouseDownAt blob.id)
 
 
-blobToPoints : ViewSettings -> Environment -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ), startCapTL : Point, endCapTL : Point, midHeight : Float, reversed : ( Bool, Bool ) }
+blobToPoints : ViewSettings -> Shared -> FlowBlob -> { shell : Polygon, bestTextArea : ( Point, Point ), startCapTL : Point, endCapTL : Point, midHeight : Float, reversed : ( Bool, Bool ) }
 blobToPoints displaySettings _ blob =
     let
         msBetweenWalls =
@@ -881,13 +882,13 @@ blobToPoints displaySettings _ blob =
             sandwichBlob (toFloat x - 1)
 
 
-historyBlobs : Environment -> Profile -> Period -> List FlowBlob
+historyBlobs : Shared -> Profile -> Period -> List FlowBlob
 historyBlobs env profile displayPeriod =
     let
         historyList =
             Timeline.historyLive env.time profile.timeline
     in
-    List.map (makeHistoryBlob env profile.activities displayPeriod)
+    List.map (makeHistoryBlob env profile displayPeriod)
         (List.filter
             (\sesh -> Period.haveOverlap displayPeriod (Session.getPeriod sesh))
             historyList
@@ -986,13 +987,13 @@ timeLabelSidebar state profile ( time, timeZone ) rowPeriod =
         ]
 
 
-dayString : Environment -> Moment -> String
+dayString : Shared -> Moment -> String
 dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Environment -> Activity.Store -> Period -> Session -> FlowBlob
-makeHistoryBlob env activityStore displayPeriod session =
+makeHistoryBlob : Shared -> Profile -> Period -> Session -> FlowBlob
+makeHistoryBlob env profile displayPeriod session =
     let
         -- sessionPositions =
         --     getPositionInDay day.rowLength day.period sessionPeriod
@@ -1011,10 +1012,17 @@ makeHistoryBlob env activityStore displayPeriod session =
             )
                 ++ "m "
                 ++ activityIcon
-                ++ activityName
+                ++ Maybe.withDefault activityName sessionProjectName
 
         sessionActivity =
-            Activity.getByID (Session.getActivityID session) activityStore
+            Activity.getByID (Session.getActivityID session) profile.activities
+
+        sessionProjectMaybe =
+            Maybe.andThen (Profile.getInstanceByID profile ( env.time, env.timeZone )) (Session.getInstanceID session)
+
+        sessionProjectName =
+            -- TODO
+            Maybe.map AssignedAction.getTitle sessionProjectMaybe
 
         activityName =
             Activity.getName sessionActivity
@@ -1089,7 +1097,7 @@ type alias Pointer =
     }
 
 
-update : Msg -> Maybe ViewState -> Profile -> Environment -> ( Frame, ViewState, Cmd Msg )
+update : Msg -> Maybe ViewState -> Profile -> Shared -> ( Frame, ViewState, Cmd Msg )
 update msg stateMaybe profile env =
     case stateMaybe of
         Just state ->
@@ -1217,6 +1225,6 @@ resizeCmd =
         |> Job.attempt outcomeToMsg
 
 
-subscriptions : Profile -> Environment -> ViewState -> Sub Msg
+subscriptions : Profile -> Shared -> ViewState -> Sub Msg
 subscriptions profile env vState =
     Sub.map WidgetMsg Widget.subscriptions

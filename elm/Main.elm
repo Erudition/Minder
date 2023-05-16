@@ -1,4 +1,4 @@
-port module Main exposing (Flags, Model, Msg(..), StoredRON, Temp, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
+port module Main exposing (FrameworkModel, MainModel, Msg(..), StoredRON, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
 import Activity.Session as Session exposing (Session(..))
@@ -9,13 +9,13 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import DevTools
 import Dict
+import Effect
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events
 import Element.Font
 import Element.Input as Input
-import Environment exposing (..)
 import External.Commands exposing (..)
 import Html as H
 import Html.Attributes as HA
@@ -57,6 +57,8 @@ import Replicated.Node.Node
 import Replicated.Op.OpID
 import Replicated.Reducer.RepDb as RepDb
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
+import Shared.Msg
 import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar
 import SmartTime.Human.Clock
@@ -75,7 +77,7 @@ import Url.Parser as P exposing ((</>), Parser)
 import Url.Parser.Query as PQ
 
 
-main : Framework.Program Flags Profile Temp Msg
+main : Framework.Program Flags Profile MainModel Msg
 main =
     Framework.browserApplication
         { init = initGraphical
@@ -90,13 +92,13 @@ main =
         }
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : FrameworkModel -> Sub Msg
 subscriptions { replica, temp } =
     Sub.batch <|
         [ -- TODO unsubscribe when not visible
           -- TODO sync subscription with current activity
-          --   SmartTime.Human.Moment.everyMinuteOnTheMinute temp.environment.time
-          --     temp.environment.timeZone
+          --   SmartTime.Human.Moment.everyMinuteOnTheMinute temp.time
+          --     temp.timeZone
           --     (\_ -> NoOp)
           -- Debug.log
           -- "starting interval"
@@ -108,11 +110,11 @@ subscriptions { replica, temp } =
         , Browser.Events.onMouseMove <| JD.map2 MouseMoved decodeButtons decodeFraction
 
         -- , Moment.every (Duration.fromSeconds (1/5)) (\_ -> NoOp)
-        , SmartTime.Human.Moment.everySecondOnTheSecond temp.environment.time (\_ -> NoOp)
+        , SmartTime.Human.Moment.everySecondOnTheSecond temp.shared.time (\_ -> NoOp)
         ]
             ++ (case temp.viewState.timeflow of
                     OpenPanel _ (Just subState) ->
-                        [ Sub.map TimeflowMsg (Timeflow.subscriptions replica temp.environment subState) ]
+                        [ Sub.map TimeflowMsg (Timeflow.subscriptions replica temp.shared subState) ]
 
                     _ ->
                         []
@@ -173,33 +175,24 @@ type alias StoredRON =
     String
 
 
-type alias Flags =
-    { darkTheme : Bool }
-
-
-initGraphical : Url.Url -> Nav.Key -> Flags -> Profile -> ( List Frame, Temp, Cmd Msg )
+initGraphical : Url.Url -> Nav.Key -> Flags -> Profile -> ( List Frame, MainModel, Cmd Msg )
 initGraphical url key flags =
     init url (Just key) flags
 
 
-init : Url.Url -> Maybe Nav.Key -> Flags -> Profile -> ( List Frame, Temp, Cmd Msg )
+init : Url.Url -> Maybe Nav.Key -> Flags -> Profile -> ( List Frame, MainModel, Cmd Msg )
 init url maybeKey flags replica =
     let
         cmdsFromUrl =
-            handleUrlTriggers url replica initialTemp
+            handleUrlTriggers url replica initialMainModel
 
         ( state, panelOpenCmds ) =
             navigate url
 
-        initialTemp : Temp
-        initialTemp =
+        initialMainModel : MainModel
+        initialMainModel =
             { viewState = state
-            , environment = Environment.preInit maybeKey
-            , rootFrame = Native.Frame.init HomePage
-            , viewportSize = { width = 0, height = 0 }
-            , viewportSizeClass = Element.Phone
-            , windowVisibility = Browser.Events.Visible
-            , darkTheme = flags.darkTheme
+            , shared = initialShared maybeKey flags
             }
 
         initNotif =
@@ -218,7 +211,7 @@ init url maybeKey flags replica =
             Job.perform NewTimeZone SmartTime.Human.Moment.localZone
     in
     ( []
-    , initialTemp
+    , initialMainModel
     , Cmd.batch [ cmdsFromUrl, panelOpenCmds, initNotif, getViewport, getTimeZone ]
     )
 
@@ -231,26 +224,18 @@ init url maybeKey flags replica =
 --            MM    MM  OOOO0  DDDDDD  EEEEEEE LLLLLLL
 
 
-{-| Our whole app's Model.
-Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is due thursday", all stored in App "Database").
--}
-type alias Temp =
+type alias FrameworkModel =
+    Framework.Replicator Profile MainModel
+
+
+type alias MainModel =
     { viewState : ViewState
-    , environment : Environment
-    , rootFrame : Native.Frame.Model NativePage
-    , viewportSize : { width : Int, height : Int }
-    , viewportSizeClass : Element.DeviceClass
-    , windowVisibility : Browser.Events.Visibility
-    , darkTheme : Bool
+    , shared : Shared
     }
 
 
 type NativePage
     = HomePage
-
-
-type alias Model =
-    Framework.Replicator Profile Temp
 
 
 type Panel panelState
@@ -268,7 +253,7 @@ type alias ViewState =
     , timeTracker : Panel TimeTracker.ViewState
     , timeflow : Panel (Maybe Timeflow.ViewState)
     , devTools : Panel DevTools.ViewState
-    , modal : Maybe Popup
+    , rootFrame : Native.Frame.Model NativePage
     }
 
 
@@ -278,7 +263,7 @@ emptyViewState =
     , timeTracker = UnopenedPanel
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
-    , modal = Nothing
+    , rootFrame = Native.Frame.init HomePage
     }
 
 
@@ -292,7 +277,7 @@ emptyViewState =
 --                ###     ########### ##########   ###   ###
 
 
-view : Model -> Browser.Document Msg
+view : FrameworkModel -> Browser.Document Msg
 view { replica, temp } =
     let
         openPanels =
@@ -301,7 +286,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Projects"
-                            , body = SH.map TaskListMsg (TaskList.view state replica temp.environment)
+                            , body = SH.map TaskListMsg (TaskList.view state replica temp.shared)
                             }
 
                     _ ->
@@ -310,7 +295,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Time Tracker"
-                            , body = SH.map TimeTrackerMsg (TimeTracker.view state replica temp.environment)
+                            , body = SH.map TimeTrackerMsg (TimeTracker.view state replica temp.shared)
                             }
 
                     _ ->
@@ -319,7 +304,7 @@ view { replica, temp } =
                     OpenPanel _ (Just state) ->
                         Just
                             { title = "Timeflow"
-                            , body = SH.map TimeflowMsg (Timeflow.view state replica temp.environment)
+                            , body = SH.map TimeflowMsg (Timeflow.view state replica temp.shared)
                             }
 
                     _ ->
@@ -328,7 +313,7 @@ view { replica, temp } =
                     OpenPanel _ state ->
                         Just
                             { title = "Dev Tools"
-                            , body = SH.map DevToolsMsg (DevTools.view state replica temp.environment)
+                            , body = SH.map DevToolsMsg (DevTools.view state replica temp.shared)
                             }
 
                     _ ->
@@ -397,14 +382,17 @@ getPanelViewState panel default =
             ( default, FullScreen )
 
 
-globalLayout : Temp -> Profile -> H.Html Msg -> H.Html Msg
-globalLayout temp replica innerStuff =
+globalLayout : MainModel -> Profile -> H.Html Msg -> H.Html Msg
+globalLayout model replica innerStuff =
     let
+        temp =
+            model.shared
+
         env =
-            temp.environment
+            temp
 
         viewState =
-            temp.viewState
+            model.viewState
 
         isPanelOpen panelStatus =
             case panelStatus of
@@ -453,7 +441,7 @@ globalLayout temp replica innerStuff =
                 [ HA.value (Activity.idToString (Activity.getID givenActivity)) ]
                 [ H.text <| Activity.getName givenActivity ]
     in
-    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkTheme ) ], HA.id "ion-app" ]
+    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkThemeActive ) ], HA.id "ion-app" ]
         [ H.div [ HA.class "ion-page", HA.id "main-content" ]
             [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
                 [ Ion.Toolbar.toolbar []
@@ -478,13 +466,13 @@ globalLayout temp replica innerStuff =
                 [ Ion.Toolbar.toolbar []
                     [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                        [ Ion.Button.button [ HE.onClick (ToggleDarkTheme (not temp.darkTheme)) ] [ Ion.Icon.basic "contrast-outline" ]
+                        [ Ion.Button.button [ HE.onClick (ToggleDarkTheme (not temp.darkThemeActive)) ] [ Ion.Icon.basic "contrast-outline" ]
                         ]
                     ]
                 ]
             , Ion.Content.content []
                 [ Ion.List.list []
-                    [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkTheme))
+                    [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkThemeActive))
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
@@ -495,7 +483,7 @@ globalLayout temp replica innerStuff =
                         ]
                     , Ion.Item.item [ Ion.Item.button, HE.onClick RequestNotificationPermission, Ion.Item.detail False ]
                         [ Ion.Item.label []
-                            [ if temp.environment.notifPermission /= Notif.Granted then
+                            [ if temp.notifPermission /= Notif.Granted then
                                 H.text "Enable Notifications"
 
                               else
@@ -506,7 +494,7 @@ globalLayout temp replica innerStuff =
                     ]
                 ]
             ]
-        , SH.toUnstyled <| viewPopup temp replica
+        , SH.toUnstyled <| viewPopup model replica
         ]
 
 
@@ -532,6 +520,14 @@ trackingDisplay replica time launchTime timeZone =
                 ++ thing
                 ++ " for "
                 ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits givenTime ]
+
+        trackingTitle =
+            case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
+                Just trackedAssignment ->
+                    AssignedAction.getTitle trackedAssignment
+
+                Nothing ->
+                    Activity.getName currentActivity
     in
     -- row
     -- [ width fill
@@ -547,7 +543,7 @@ trackingDisplay replica time launchTime timeZone =
     -- [ trackingTaskCompletionSlider currentInstance ]
     Ion.Toolbar.toolbar []
         [ H.node "ion-progress-bar" [ HA.type_ "indeterminate" ] []
-        , Ion.Toolbar.title [] [ H.text <| tracking_for_string (Activity.getName currentActivity) timeSinceSession ]
+        , Ion.Toolbar.title [] [ H.text <| tracking_for_string trackingTitle timeSinceSession ]
         , Ion.Button.button [ Ion.Toolbar.placeEnd ] [ Ion.Icon.basic "stop-circle-outline" ]
         ]
 
@@ -626,7 +622,7 @@ infoFooter =
         ]
 
 
-viewPopup : Temp -> Profile -> Html msg
+viewPopup : MainModel -> Profile -> SH.Html msg
 viewPopup temp profile =
     let
         demoContents =
@@ -656,7 +652,7 @@ viewPopup temp profile =
                 ]
             ]
     in
-    case temp.viewState.modal of
+    case temp.shared.modal of
         Just popup ->
             SH.node "ion-modal"
                 [ SHA.property "isOpen" (JE.bool True)
@@ -678,7 +674,7 @@ viewPopup temp profile =
 -- NATIVESCRIPT VIEWS
 
 
-homePage : Model -> Native Msg
+homePage : FrameworkModel -> Native Msg
 homePage { replica } =
     Page.pageWithActionBar SyncNSFrame
         []
@@ -710,16 +706,16 @@ logItem logString =
     Native.label [ NA.text logString, NA.textWrap "true" ] []
 
 
-getPage : Model -> NativePage -> Native Msg
+getPage : FrameworkModel -> NativePage -> Native Msg
 getPage model page =
     case page of
         HomePage ->
             homePage model
 
 
-nativeView : Model -> H.Html Msg
+nativeView : FrameworkModel -> H.Html Msg
 nativeView model =
-    model.temp.rootFrame
+    model.temp.viewState.rootFrame
         |> Native.Frame.view [] (getPage model)
 
 
@@ -777,94 +773,73 @@ type ThirdPartyResponse
     | MarvinServer Marvin.Msg
 
 
-update : Msg -> Model -> ( List Change.Frame, Temp, Cmd Msg )
-update msg { temp, replica, now } =
+update : Msg -> FrameworkModel -> ( List Change.Frame, MainModel, Cmd Msg )
+update msg ({ replica } as frameworkModel) =
     let
-        newTemp =
-            { temp | environment = environment }
+        shared =
+            let
+                oldShared =
+                    frameworkModel.temp.shared
+            in
+            { oldShared | time = frameworkModel.now }
 
         viewState =
-            temp.viewState
+            frameworkModel.temp.viewState
 
-        environment =
-            let
-                oldEnv =
-                    temp.environment
-            in
-            { oldEnv | time = now }
+        unchangedMainModel =
+            { viewState = viewState, shared = shared }
 
         justRunCommand command =
-            ( [], newTemp, command )
+            ( [], unchangedMainModel, command )
+
+        justSetShared newShared =
+            ( [], { viewState = viewState, shared = newShared }, Cmd.none )
+
+        setSharedAndCmd newShared cmd =
+            ( [], { viewState = viewState, shared = newShared }, cmd )
+
+        justSetViewState newViewState =
+            ( [], { viewState = newViewState, shared = shared }, Cmd.none )
+
+        setViewStateAndCmd newViewState cmd =
+            ( [], { viewState = newViewState, shared = shared }, cmd )
 
         noOp =
-            ( [], temp, Cmd.none )
-
-        justSetEnv newEnv =
-            ( [], { temp | environment = newEnv }, Cmd.none )
+            ( [], { viewState = viewState, shared = shared }, Cmd.none )
     in
     case msg of
         OpenPopup popup ->
-            let
-                newViewState =
-                    { viewState | modal = Just popup }
-            in
-            ( []
-            , { newTemp | viewState = newViewState }
-            , Cmd.map TimeflowMsg Timeflow.resizeCmd
-            )
+            justSetShared { shared | modal = Just popup }
 
         ClosePopup ->
-            let
-                newViewState =
-                    { viewState | modal = Nothing }
-            in
-            ( []
-            , { newTemp | viewState = newViewState }
-            , Cmd.map TimeflowMsg Timeflow.resizeCmd
-            )
+            justSetShared { shared | modal = Nothing }
 
         NotificationScheduled response ->
             noOp
 
         NewTimeZone zone ->
-            justSetEnv { environment | timeZone = zone }
+            justSetShared { shared | timeZone = zone }
 
         ResizeViewport newWidth newHeight ->
-            ( []
-            , { newTemp | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
-            , Cmd.map TimeflowMsg Timeflow.resizeCmd
-            )
+            setSharedAndCmd { shared | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
+                (Cmd.map TimeflowMsg Timeflow.resizeCmd)
 
         VisibilityChanged newVisibility ->
-            ( []
-            , { newTemp | windowVisibility = newVisibility }
-            , Cmd.map TimeflowMsg Timeflow.resizeCmd
-            )
+            setSharedAndCmd { shared | windowVisibility = newVisibility }
+                (Cmd.map TimeflowMsg Timeflow.resizeCmd)
 
         ToggleDarkTheme isDark ->
-            ( []
-            , { newTemp | darkTheme = isDark }
-            , Cmd.none
-            )
+            justSetShared { shared | darkThemeActive = isDark }
 
         MouseMoved _ _ ->
-            ( []
-            , newTemp
-            , Cmd.none
-            )
+            noOp
 
         NoOp ->
-            ( []
-            , newTemp
-            , Cmd.none
-            )
+            noOp
 
         ClearErrors ->
-            ( []
-            , newTemp
-              -- TODO Model viewState { replica | errors = [] } environment
-            , Cmd.none
-            )
+            -- TODO Model viewState { replica | errors = [] } environment
+            noOp
 
         ClearPreferences ->
             justRunCommand <|
@@ -878,7 +853,7 @@ update msg { temp, replica, now } =
         GotNotificationPermissionStatus result ->
             case result of
                 Ok status ->
-                    justSetEnv { environment | notifPermission = status }
+                    justSetShared { shared | notifPermission = status }
 
                 Err taskPortErr ->
                     Log.logSeparate "taskport error" taskPortErr noOp
@@ -920,14 +895,14 @@ update msg { temp, replica, now } =
                         |> Notif.setBigTextStyle True
             in
             ( [ marvinChangeFrame ]
-            , newTemp
+            , unchangedMainModel
             , Cmd.batch [ notify [ notification ], External.Commands.toast whatHappened ]
             )
 
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( marvinChanges, whatHappened, nextStep ) =
-                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica ( environment.time, environment.timeZone ) response
+                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica ( shared.time, shared.timeZone ) response
 
                 _ =
                     Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)
@@ -949,7 +924,7 @@ update msg { temp, replica, now } =
                         |> Notif.setGroup (Notif.GroupKey "marvin")
             in
             ( [ marvinChanges, Change.saveChanges "Log it temporarily" [ Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened) ] ]
-            , newTemp
+            , unchangedMainModel
             , Cmd.batch
                 [ Cmd.map ThirdPartyServerResponded <| Cmd.map MarvinServer <| nextStep
                 , notify [ notification ]
@@ -960,7 +935,7 @@ update msg { temp, replica, now } =
         Link urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    case environment.navkey of
+                    case shared.navkey of
                         Just navkey ->
                             -- in browser
                             justRunCommand <| Nav.pushUrl navkey (Url.toString url)
@@ -975,17 +950,17 @@ update msg { temp, replica, now } =
         NewUrl url ->
             let
                 effectsAfter =
-                    handleUrlTriggers url replica temp
+                    handleUrlTriggers url replica unchangedMainModel
 
                 ( newViewState, panelOpenCmds ) =
                     navigate url
 
                 -- effectsAfterDebug =External.Commands.toast ("got NewUrl: " ++ Url.toString url)
             in
-            ( [], { newTemp | viewState = newViewState }, Cmd.batch [ panelOpenCmds, effectsAfter ] )
+            setViewStateAndCmd newViewState (Cmd.batch [ panelOpenCmds, effectsAfter ])
 
         InternalLink path ->
-            case environment.navkey of
+            case shared.navkey of
                 Just navkey ->
                     -- in browser
                     justRunCommand <| Nav.pushUrl navkey path
@@ -995,7 +970,7 @@ update msg { temp, replica, now } =
                     noOp
 
         SyncNSFrame bool ->
-            ( [], { newTemp | rootFrame = Native.Frame.handleBack bool temp.rootFrame }, Cmd.none )
+            justSetViewState { viewState | rootFrame = Native.Frame.handleBack bool viewState.rootFrame }
 
         TaskListMsg subMsg ->
             case subMsg of
@@ -1007,15 +982,18 @@ update msg { temp, replica, now } =
                         ( oldPanelState, position ) =
                             getPanelViewState viewState.taskList TaskList.defaultView
 
-                        ( newPanelState, newFrame, newCommand ) =
-                            TaskList.update subMsg oldPanelState replica environment
+                        ( newPanelState, newFrame, outEffects ) =
+                            TaskList.update subMsg oldPanelState replica shared
 
                         newViewState =
                             { viewState | taskList = OpenPanel position newPanelState }
+
+                        ( effectFrames, newShared, effectCmds ) =
+                            Effect.perform (\_ -> NoOp) shared replica outEffects
                     in
-                    ( [ newFrame ]
-                    , { newTemp | viewState = newViewState }
-                    , Cmd.map TaskListMsg newCommand
+                    ( newFrame :: effectFrames
+                    , { shared = newShared, viewState = newViewState }
+                    , effectCmds
                     )
 
         TimeTrackerMsg subMsg ->
@@ -1024,13 +1002,13 @@ update msg { temp, replica, now } =
                     getPanelViewState viewState.timeTracker TimeTracker.defaultView
 
                 ( newFrame, newPanelState, newCommand ) =
-                    TimeTracker.update subMsg oldPanelState replica ( environment.time, environment.timeZone )
+                    TimeTracker.update subMsg oldPanelState replica ( shared.time, shared.timeZone )
 
                 newViewState =
                     { viewState | timeTracker = OpenPanel position newPanelState }
             in
             ( [ newFrame ]
-            , { newTemp | viewState = newViewState }
+            , { unchangedMainModel | viewState = newViewState }
             , Cmd.map TimeTrackerMsg newCommand
             )
 
@@ -1039,34 +1017,31 @@ update msg { temp, replica, now } =
                 OpenPanel oldPosition (Just oldState) ->
                     let
                         ( newFrame, newPanelState, newCommand ) =
-                            Timeflow.update subMsg (Just oldState) replica environment
+                            Timeflow.update subMsg (Just oldState) replica shared
 
                         newViewState =
                             { viewState | timeflow = OpenPanel oldPosition (Just newPanelState) }
                     in
                     ( [ newFrame ]
-                    , { newTemp | viewState = newViewState }
+                    , { unchangedMainModel | viewState = newViewState }
                     , Cmd.map TimeflowMsg newCommand
                     )
 
                 OpenPanel oldPosition Nothing ->
                     let
                         ( freshState, initCmds ) =
-                            Timeflow.init replica environment
+                            Timeflow.init replica shared
 
                         newViewState =
                             { viewState | timeflow = OpenPanel oldPosition (Just freshState) }
                     in
                     ( []
-                    , { newTemp | viewState = newViewState }
+                    , { unchangedMainModel | viewState = newViewState }
                     , Cmd.map TimeflowMsg initCmds
                     )
 
                 _ ->
-                    ( []
-                    , newTemp
-                    , Cmd.none
-                    )
+                    noOp
 
         DevToolsMsg subMsg ->
             let
@@ -1081,23 +1056,32 @@ update msg { temp, replica, now } =
                         _ ->
                             let
                                 ( freshState, initCmds ) =
-                                    DevTools.init replica environment "not wired yet"
+                                    DevTools.init replica shared "not wired yet"
                             in
                             ( freshState, FullScreen, initCmds )
 
                 ( newPanelState, newFrame, newCommand ) =
-                    DevTools.update subMsg panelState replica environment
+                    DevTools.update subMsg panelState replica shared
 
                 newViewState =
                     { viewState | devTools = OpenPanel position newPanelState }
             in
             ( [ newFrame ]
-            , { newTemp | viewState = newViewState }
+            , { unchangedMainModel | viewState = newViewState }
             , Cmd.map DevToolsMsg (Cmd.batch [ initCmdsIfNeeded, newCommand ])
             )
 
 
 
+-- SharedMsg sharedMsg ->
+--     let
+--         ( frames, newShared, cmds ) =
+--             Effect.update shared replica sharedMsg
+--     in
+--     ( frames
+--     , { unchangedMainModel | shared = newShared }
+--     , Cmd.map SharedMsg cmds
+--     )
 -- PARSER
 
 
@@ -1187,7 +1171,7 @@ routeParser =
 
 {-| Turns parts of the URL query into `Cmd`s. to allow us to send `Msg`s from the address bar! Thus our web app should be completely scriptable.
 -}
-handleUrlTriggers : Url.Url -> Profile -> Temp -> Cmd Msg
+handleUrlTriggers : Url.Url -> Profile -> MainModel -> Cmd Msg
 handleUrlTriggers rawUrl replica temp =
     let
         url =
@@ -1235,7 +1219,7 @@ handleUrlTriggers rawUrl replica temp =
 
         -- Triggers (passed to PQ.enum) for each page. Add new page here
         allTriggers =
-            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers replica ( temp.environment.time, temp.environment.timeZone ))
+            List.map (wrapMsgs TaskListMsg) (TaskList.urlTriggers replica ( temp.shared.time, temp.shared.timeZone ))
                 ++ List.map (wrapMsgs TimeTrackerMsg) (TimeTracker.urlTriggers replica)
                 ++ [ ( "sync"
                      , Dict.fromList
@@ -1248,7 +1232,7 @@ handleUrlTriggers rawUrl replica temp =
 
         --TODO only remove handled triggers
         removeTriggersFromUrl =
-            case temp.environment.navkey of
+            case temp.shared.navkey of
                 Just navkey ->
                     -- TODO maintain Fake Fragment. currently destroys it
                     Nav.replaceUrl navkey (Url.toString { url | query = Nothing })

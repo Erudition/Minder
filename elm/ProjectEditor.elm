@@ -8,7 +8,6 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Dict
-import Environment exposing (..)
 import External.Commands as Commands
 import Helpers exposing (..)
 import Html.Styled exposing (..)
@@ -43,6 +42,7 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Shared.Model exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
