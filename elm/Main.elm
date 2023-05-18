@@ -628,7 +628,7 @@ viewPopup temp profile =
     let
         demoContents =
             [ SH.node "ion-header"
-                []
+                [ SHA.id "ion-modal-header" ]
                 [ SH.node "ion-toolbar"
                     []
                     [ SH.node "ion-buttons"

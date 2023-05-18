@@ -60,13 +60,13 @@
 +		{
 +			if(!childNodes[k].created_by_elm)
 +			{
-+				// replace tha node using the old vdom
++				// replace the node using the old vdom
 +				console.log("Elm Virtual Dom: in", eventNode, "the child", childNodes[k], "was not created by elm, but an elm element was expected there. Overwriting with", vKids[j])
 +				_VirtualDom_applyPatchRedraw(childNodes[k], vKids[j], eventNode)
 +			}
 +		}
 +		// 4. this is needed for some edge cases
-+		if(vKids[j].$ === __2_NODE && (childNodes[k].tagName || "").toLowerCase() !== vKids[j].__tag)
++		if(vKids[j].$ === __2_NODE && childNodes[k] && (childNodes[k].tagName || "").toLowerCase() !== vKids[j].__tag)
 +		{
 +			console.log("Elm Virtual Dom: Tag name does not match for", childNodes[k], ", overwriting with", vKids[j])
 +			_VirtualDom_applyPatchRedraw(childNodes[k], vKids[j], eventNode)

@@ -14,7 +14,8 @@
     "postinstall": "elm-tooling install && elm make --output=www/elm-gui.js elm/Main.elm && make --directory ./elm-patches && rm -rf elm-stuff",
     "build": "tsc && vite build",
     "build-ci": "vite build",
-    "build-sync": "vite build && cap sync"
+    "build-sync": "vite build && cap sync",
+    "repatch-elm": "rm -rf ~/.elm/ && elm-tooling install && sleep 8 && elm make --output=www/elm-gui.js elm/Main.elm && make --directory ./elm-patches && rm -rf elm-stuff"
   },
   "repository": {
     "type": "git",
