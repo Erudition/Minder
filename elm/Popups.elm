@@ -69,23 +69,42 @@ htmlView =
             | textField = inputField "text"
             , passwordField = inputField "password"
             , checkboxField = checkboxField
+            , form = form
+            , textareaField = textareaField
+            , numberField = numberField
+            , rangeField = rangeField
         }
 
 
 inputField : String -> Form.View.TextFieldConfig msg -> Html msg
 inputField type_ { onChange, onBlur, disabled, value, error, showError, attributes } =
+    let
+        errorString =
+            case error of
+                Just (Form.Error.External externalError) ->
+                    externalError
+
+                Just otherError ->
+                    errorToString otherError
+
+                Nothing ->
+                    "No errors."
+    in
     H.node "ion-input"
         ([ HE.onInput onChange
          , HA.disabled disabled
          , HA.value value
          , HA.placeholder attributes.placeholder
          , HA.type_ type_
+         , HA.attribute "error-text" errorString
+         , HA.attribute "label-placement" "stacked"
+         , HA.attribute "label" attributes.label
+         , HA.classList [ ( "ion-invalid", showError ), ( "ion-valid", value /= "" && not showError ), ( "ion-touched", value /= "" ) ]
          ]
             |> withMaybeAttribute HE.onBlur onBlur
             |> withHtmlAttributes attributes.htmlAttributes
         )
         []
-        |> withLabelAndError attributes.label showError error
 
 
 textareaField : Form.View.TextFieldConfig msg -> Html msg
@@ -152,19 +171,17 @@ rangeField { onChange, onBlur, disabled, value, error, showError, attributes } =
 
 checkboxField : Form.View.CheckboxFieldConfig msg -> Html msg
 checkboxField { onChange, onBlur, value, disabled, error, showError, attributes } =
-    [ H.div [ HA.class "elm-form-label" ]
-        [ H.node "ion-toggle"
-            ([ HE.onCheck onChange
-             , HA.checked value
-             , HA.disabled disabled
-             , HA.type_ "checkbox"
-             ]
-                |> withMaybeAttribute HE.onBlur onBlur
-                |> withHtmlAttributes attributes.htmlAttributes
-            )
-            []
-        , H.text attributes.label
-        ]
+    [ H.node "ion-toggle"
+        ([ HE.onCheck onChange
+         , HA.checked value
+         , HA.disabled disabled
+         , HA.type_ "checkbox"
+         ]
+            |> withMaybeAttribute HE.onBlur onBlur
+            |> withHtmlAttributes attributes.htmlAttributes
+        )
+        []
+    , H.node "ion-label" [] [ H.text attributes.label ]
     , maybeErrorMessage showError error
     ]
         |> wrapInFieldContainer showError error
@@ -250,7 +267,7 @@ withLabelAndError label showError error fieldAsHtml =
 
 wrapInFieldContainer : Bool -> Maybe Form.Error.Error -> List (Html msg) -> Html msg
 wrapInFieldContainer showError error =
-    H.label (fieldContainerAttributes showError error)
+    H.node "ion-item" (fieldContainerAttributes showError error)
 
 
 fieldContainerAttributes : Bool -> Maybe Form.Error.Error -> List (H.Attribute msg)
@@ -264,7 +281,7 @@ fieldContainerAttributes showError error =
 
 fieldLabel : String -> Html msg
 fieldLabel label =
-    H.div [ HA.class "elm-form-label" ] [ H.text label ]
+    H.node "ion-label" [ HA.class "elm-form-label", HA.attribute "position" "floating" ] [ H.text label ]
 
 
 maybeErrorMessage : Bool -> Maybe Form.Error.Error -> Html msg
@@ -307,6 +324,41 @@ errorToString error =
             externalError
 
 
+form : Form.View.FormConfig msg (Html msg) -> Html msg
+form { onSubmit, action, loading, state, fields } =
+    let
+        onSubmitEvent =
+            onSubmit
+                |> Maybe.map (HE.onSubmit >> List.singleton)
+                |> Maybe.withDefault []
+    in
+    H.form (HA.class "elm-form" :: onSubmitEvent)
+        (List.concat
+            [ fields
+            , [ case state of
+                    Form.View.Error error ->
+                        errorMessage error
+
+                    Form.View.Success success ->
+                        successMessage success
+
+                    _ ->
+                        H.text ""
+              , H.node "ion-button"
+                    [ HA.type_ "submit"
+                    , HA.disabled (onSubmit == Nothing)
+                    ]
+                    [ if state == Form.View.Loading then
+                        H.text loading
+
+                      else
+                        H.text action
+                    ]
+              ]
+            ]
+        )
+
+
 withHtmlAttributes : List ( String, String ) -> List (H.Attribute msg) -> List (H.Attribute msg)
 withHtmlAttributes list attributes =
     List.map (\( a, b ) -> HA.attribute a b) list
@@ -324,7 +376,13 @@ demoForm =
     let
         emailField =
             Form.textField
-                { parser = Ok
+                { parser =
+                    \value ->
+                        if String.contains "@" value then
+                            Ok value
+
+                        else
+                            Err "No at sign"
                 , value = .email
                 , update = \value values -> { values | email = value }
                 , error = always Nothing

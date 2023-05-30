@@ -543,7 +543,7 @@ trackingDisplay replica time launchTime timeZone =
     -- ]
     -- [ trackingTaskCompletionSlider currentInstance ]
     Ion.Toolbar.toolbar []
-        [ H.node "ion-progress-bar" [ HA.type_ "indeterminate" ] []
+        [ H.node "ion-progress-bar" [] []
         , Ion.Toolbar.title [] [ H.text <| tracking_for_string trackingTitle timeSinceSession ]
         , Ion.Button.button [ Ion.Toolbar.placeEnd ] [ Ion.Icon.basic "stop-circle-outline" ]
         ]
