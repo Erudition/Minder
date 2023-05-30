@@ -28,6 +28,7 @@ import { defineCustomElement as defineIonModal } from "@ionic/core/components/io
 import { defineCustomElement as defineIonSelect } from "@ionic/core/components/ion-select";
 import { defineCustomElement as defineIonSelectOption } from "@ionic/core/components/ion-select-option";
 import { defineCustomElement as defineIonPopover } from "@ionic/core/components/ion-popover";
+import { defineCustomElement as defineIonToggle } from "@ionic/core/components/ion-toggle";
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
 
@@ -66,5 +67,6 @@ defineIonModal();
 defineIonSelect();
 defineIonSelectOption();
 defineIonPopover();
+defineIonToggle();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');
