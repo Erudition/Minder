@@ -626,7 +626,7 @@ infoFooter =
 viewPopup : MainModel -> Profile -> SH.Html Msg
 viewPopup temp profile =
     let
-        demoContents =
+        outerShell innerStuff =
             [ SH.node "ion-header"
                 [ SHA.id "ion-modal-header" ]
                 [ SH.node "ion-toolbar"
@@ -642,30 +642,43 @@ viewPopup temp profile =
                     , SH.node "ion-title" [] [ SH.text "Modal test" ]
                     , SH.node "ion-buttons"
                         [ SHA.attribute "slot" "end" ]
-                        [ SH.node "ion-button" [ SHA.attribute "strong" "true" ] [ SH.text "Confirm" ]
+                        [ SH.node "ion-button" [ SHA.attribute "strong" "true", SHE.onClick (RunEffects [ Effect.ClosePopup, Effect.Toast "Pretended to Save Changes!" ]) ] [ SH.text "Confirm" ]
                         ]
                     ]
                 ]
             , SH.node "ion-content"
                 [ class "ion-padding" ]
-                [ SH.node "ion-item" [] [ SH.node "ion-input" [ SHA.type_ "text", SHA.attribute "label-placement" "stacked", SHA.attribute "label" "Task Title", SHA.placeholder "New Task Title Here" ] [] ]
-                ]
-            ]
-    in
-    case temp.shared.modal of
-        Just popup ->
-            SH.node "ion-modal"
-                [ SHA.property "isOpen" (JE.bool True)
-                , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
-                ]
-                demoContents
+                innerStuff
 
-        Nothing ->
-            SH.node "ion-modal"
-                [ SHA.property "isOpen" (JE.bool False)
-                , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
-                ]
-                demoContents
+            -- [ SH.node "ion-item" [] [ SH.node "ion-input" [ SHA.type_ "text", SHA.attribute "label-placement" "stacked", SHA.attribute "label" "Task Title", SHA.placeholder "New Task Title Here" ] [] ]
+            -- ]
+            ]
+
+        isOpen =
+            case temp.shared.modal of
+                Just popup ->
+                    True
+
+                Nothing ->
+                    False
+
+        contents =
+            case temp.shared.modal of
+                Just popup ->
+                    outerShell
+                        [ Popups.viewPopup popup
+                            |> SH.fromUnstyled
+                            |> SH.map PopupMsg
+                        ]
+
+                Nothing ->
+                    outerShell []
+    in
+    SH.node "ion-modal"
+        [ SHA.property "isOpen" (JE.bool isOpen)
+        , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
+        ]
+        [ SH.div [ SHA.class "ion-delegate-host", SHA.class "ion-page" ] contents ]
 
 
 
@@ -760,6 +773,7 @@ type Msg
     | GotNotificationPermissionStatus (TaskPort.Result Notif.PermissionStatus)
     | OpenPopup Popup
     | ClosePopup
+    | PopupMsg Popups.Msg
 
 
 type ThirdPartyService
@@ -822,6 +836,18 @@ update msg ({ replica } as frameworkModel) =
 
         ClosePopup ->
             justSetShared { shared | modal = Nothing }
+
+        PopupMsg popupMsg ->
+            case shared.modal of
+                Just (Popups.Form popupModel) ->
+                    let
+                        outModel =
+                            Popups.update popupMsg popupModel
+                    in
+                    justSetShared { shared | modal = Just (Popups.Form outModel) }
+
+                _ ->
+                    noOp
 
         NotificationScheduled response ->
             noOp

@@ -1018,7 +1018,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal action)
             , Change.none
-            , [ Effect.OpenPopup (Popups.ProjectEditor action) ]
+            , [ Effect.OpenPopup (Popups.Form Popups.initialModel) ]
             )
 
         CloseEditor ->
