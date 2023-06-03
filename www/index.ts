@@ -208,9 +208,9 @@ async function attachOrbit(elmApp) {
 // only in nested function updateIfNeeded()
 // : ( _Browser_requestAnimationFrame(updateIfNeeded), flipDraw(model), __4_EXTRA_REQUEST );
 // where function flipDraw(modelIn) {window.flipping.read();draw(modelIn);window.afterDraw();}
-import Flipping from 'flipping/lib/adapters/web';
+//import Flipping from 'flipping/lib/adapters/web';
 //compare to:
-//import Flipping from 'flipping/lib/adapters/css';
+import Flipping from 'flipping/lib/adapters/css';
 
 (window as any).flipping = new Flipping({duration:300});
 

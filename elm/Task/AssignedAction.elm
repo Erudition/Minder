@@ -11,8 +11,9 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import Log
-import Replicated.Change as Change exposing (Change, Changer, Context)
+import Replicated.Change as Change exposing (Change, Changer, Context, getPointerObjectID)
 import Replicated.Codec as Codec exposing (Codec, FlatCodec)
+import Replicated.Op.OpID as OpID exposing (toRonPointerString)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -213,7 +214,7 @@ prioritize now zone taskList =
             Basics.compare (prop b) (prop a)
     in
     -- deepSort [ compareSoonness zone, comparePropInverted .importance ] taskList
-    deepSort [ compareSoonness zone ] taskList
+    deepSort [ compareSoonness zone, compareNewness ] taskList
 
 
 
@@ -269,6 +270,19 @@ compareSoonness zone taskA taskB =
         ( Nothing, Just _ ) ->
             -- whenevers always come after actual times
             GT
+
+
+compareNewness : CompareFunction AssignedAction
+compareNewness taskA taskB =
+    let
+        taskToIDString task =
+            task.instance
+                |> Reg.getPointer
+                |> Change.getPointerObjectID
+                |> Maybe.map OpID.toString
+                |> Maybe.withDefault ""
+    in
+    Basics.compare (taskToIDString taskB) (taskToIDString taskA)
 
 
 getID : AssignedAction -> AssignedActionID

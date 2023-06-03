@@ -195,7 +195,6 @@ viewTasks time timeZone filter editingMaybe profile =
 
         sortedTasks =
             allFullTaskInstances profile ( time, timeZone )
-                |> Log.logMessageOnly "recalculating task list!"
 
         isVisible task =
             case filter of
@@ -240,7 +239,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
         [ node "ion-item"
             [ classList [ ( "completed", completed task ), ( "editing", False ) ]
             , title (taskTooltip ( time, timeZone ) task)
-            , attribute "data-flip-key" ("task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
+            , attribute "data-flip-key" ("task-" ++ AssignedAction.getClassIDString task)
             ]
             [ node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor task) ] []
             , viewTaskTitle task editingMaybe
