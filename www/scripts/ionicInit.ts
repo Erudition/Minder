@@ -29,6 +29,7 @@ import { defineCustomElement as defineIonSelect } from "@ionic/core/components/i
 import { defineCustomElement as defineIonSelectOption } from "@ionic/core/components/ion-select-option";
 import { defineCustomElement as defineIonPopover } from "@ionic/core/components/ion-popover";
 import { defineCustomElement as defineIonToggle } from "@ionic/core/components/ion-toggle";
+import { defineCustomElement as defineIonRange } from "@ionic/core/components/ion-range";
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
 
@@ -68,5 +69,6 @@ defineIonSelect();
 defineIonSelectOption();
 defineIonPopover();
 defineIonToggle();
+defineIonRange();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');

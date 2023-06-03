@@ -126,23 +126,19 @@ numberField { onChange, onBlur, disabled, value, error, showError, attributes } 
 rangeField : Form.View.RangeFieldConfig msg -> Html msg
 rangeField { onChange, onBlur, disabled, value, error, showError, attributes } =
     H.node "ion-range"
-        [ HA.class "elm-form-range-field" ]
-        [ H.input
-            ([ HE.onInput (fromString String.toFloat value >> onChange)
-             , HA.disabled disabled
-             , HA.value (value |> Maybe.map String.fromFloat |> Maybe.withDefault "")
-             , HA.type_ "range"
-             , HA.step (String.fromFloat attributes.step)
-             ]
-                |> withMaybeAttribute (String.fromFloat >> HA.max) attributes.max
-                |> withMaybeAttribute (String.fromFloat >> HA.min) attributes.min
-                |> withMaybeAttribute HE.onBlur onBlur
-                |> withHtmlAttributes attributes.htmlAttributes
-            )
-            []
-        , H.span [] [ H.text (value |> Maybe.map String.fromFloat |> Maybe.withDefault "") ]
+        ([ ionInputEvent (fromString String.toFloat value >> onChange)
+         , HA.disabled disabled
+         , HA.value (value |> Maybe.map String.fromFloat |> Maybe.withDefault "")
+         , HA.step (String.fromFloat attributes.step)
+         , HA.attribute "labelPlacement" "end"
+         ]
+            |> withMaybeAttribute (String.fromFloat >> HA.max) attributes.max
+            |> withMaybeAttribute (String.fromFloat >> HA.min) attributes.min
+            |> withMaybeAttribute ionBlurEvent onBlur
+            |> withHtmlAttributes attributes.htmlAttributes
+        )
+        [ H.div [ HA.attribute "slot" "label" ] [ H.text <| attributes.label ++ (value |> Maybe.map String.fromFloat |> Maybe.withDefault "") ]
         ]
-        |> withLabelAndError attributes.label showError error
 
 
 checkboxField : Form.View.CheckboxFieldConfig msg -> Html msg
