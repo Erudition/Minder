@@ -164,6 +164,7 @@ viewInput newEntryFieldContents =
         , name "newTask"
         , onInput UpdateNewEntryField
         , onEnter Add
+        , attribute "data-flip-key" ("task-named-" ++ String.Normalize.slug newEntryFieldContents)
         ]
         []
 
@@ -239,6 +240,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
         [ node "ion-item"
             [ classList [ ( "completed", completed task ), ( "editing", False ) ]
             , title (taskTooltip ( time, timeZone ) task)
+            , attribute "data-flip-key" ("task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
             ]
             [ node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor task) ] []
             , viewTaskTitle task editingMaybe
@@ -372,6 +374,7 @@ viewTaskTitle task editingMaybe =
                 [ css
                     [ fontWeight (Css.int <| Basics.round (AssignedAction.getImportance task * 200 + 200)) ]
                 , onDoubleClick (EditingClassTitle task <| AssignedAction.getTitle task)
+                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
                 ]
                 [ text <| AssignedAction.getTitle task
                 , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
@@ -395,6 +398,7 @@ viewTaskTitle task editingMaybe =
                 , Attr.required True
                 , attribute "error-text" <| "Minimum 2 characters."
                 , attribute "autocorrect" "on"
+                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
                 ]
                 []
     in

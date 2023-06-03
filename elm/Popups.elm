@@ -63,7 +63,7 @@ demoForm : Form Values Output
 demoForm =
     let
         emailField =
-            Form.textField
+            Form.emailField
                 { parser =
                     \value ->
                         if String.contains "@" value then
@@ -116,9 +116,9 @@ view : Model -> Html Msg
 view =
     Popup.IonicForm.htmlView
         { onChange = FormChanged
-        , action = "Log in"
-        , loading = "Logging in..."
-        , validation = Form.View.ValidateOnSubmit
+        , action = "Submit"
+        , loading = "Submitting!"
+        , validation = Form.View.ValidateOnBlur
         }
         (Form.map Submit demoForm)
 

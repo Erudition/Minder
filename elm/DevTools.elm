@@ -13,6 +13,7 @@ import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Shared.Model exposing (..)
 import SmartTime.Human.Moment exposing (FuzzyMoment(..))
+import String.Normalize
 import Task.Progress exposing (..)
 import Url.Parser as P exposing ((</>), Parser)
 
@@ -67,6 +68,7 @@ errorList errors =
         showItem { handle, value } =
             Ion.Item.item
                 [ HE.onDoubleClick (SimpleChange (RepList.remove handle errors))
+                , HA.attribute "data-flip-key" (String.Normalize.slug value)
                 ]
                 [ H.text value ]
     in

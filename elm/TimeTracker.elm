@@ -127,6 +127,13 @@ viewActivity app ( time, timeZone ) activity =
 
         filterPeriod =
             Period.between Moment.zero time
+
+        trackingFlipID =
+            if Profile.currentActivityID app == Activity.getID activity then
+                attribute "data-flip-key" "current"
+
+            else
+                class "not-current"
     in
     li
         [ class "activity" ]
@@ -134,6 +141,7 @@ viewActivity app ( time, timeZone ) activity =
             [ class "activity-button"
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
+            , trackingFlipID
             , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessionsOfActivity filterPeriod app.timeline (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)

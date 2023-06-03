@@ -108,10 +108,8 @@ subscriptions { replica, temp } =
         , Browser.Events.onResize (\width height -> ResizeViewport width height)
 
         -- , storageChangedElsewhere NewAppData
-        , Browser.Events.onMouseMove <| JD.map2 MouseMoved decodeButtons decodeFraction
-
-        -- , Moment.every (Duration.fromSeconds (1/5)) (\_ -> NoOp)
-        , SmartTime.Human.Moment.everySecondOnTheSecond temp.shared.time (\_ -> NoOp)
+        --, Browser.Events.onMouseMove <| JD.map2 MouseMoved decodeButtons decodeFraction
+        --, SmartTime.Human.Moment.everySecondOnTheSecond temp.shared.time (\_ -> NoOp)
         ]
             ++ (case temp.viewState.timeflow of
                     OpenPanel _ (Just subState) ->

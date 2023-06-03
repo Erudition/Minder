@@ -8,6 +8,7 @@ import Html.Attributes as HA exposing (attribute, class, href, placeholder, prop
 import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
+import Maybe.Extra
 
 
 htmlView : Form.View.ViewConfig values msg -> Form values msg -> Form.View.Model values -> Html msg
@@ -31,6 +32,21 @@ htmlView =
         }
 
 
+ionInputEvent : (String -> msg) -> H.Attribute msg
+ionInputEvent tagger =
+    let
+        alwaysStop : a -> ( a, Bool )
+        alwaysStop x =
+            ( x, True )
+    in
+    HE.stopPropagationOn "ionInput" (JD.map alwaysStop (JD.map tagger HE.targetValue))
+
+
+ionBlurEvent : msg -> H.Attribute msg
+ionBlurEvent msg =
+    on "ionBlur" (JD.succeed msg)
+
+
 inputField : String -> Form.View.TextFieldConfig msg -> Html msg
 inputField type_ { onChange, onBlur, disabled, value, error, showError, attributes } =
     let
@@ -44,19 +60,24 @@ inputField type_ { onChange, onBlur, disabled, value, error, showError, attribut
 
                 Nothing ->
                     "No errors."
+
+        touched =
+            Maybe.Extra.isJust error && showError
     in
     H.node "ion-input"
-        ([ HE.onInput onChange
+        ([ ionInputEvent onChange
          , HA.disabled disabled
          , HA.value value
          , HA.placeholder attributes.placeholder
          , HA.type_ type_
          , HA.attribute "error-text" errorString
+
+         --, HA.attribute "helper-text" errorString
          , HA.attribute "label-placement" "stacked"
          , HA.attribute "label" attributes.label
-         , HA.classList [ ( "ion-invalid", showError ), ( "ion-valid", value /= "" && not showError ), ( "ion-touched", value /= "" ) ]
+         , HA.classList [ ( "ion-invalid", Maybe.Extra.isJust error && value /= "" ), ( "ion-touched", showError ), ( "ion-valid", Maybe.Extra.isNothing error ) ]
          ]
-            |> withMaybeAttribute HE.onBlur onBlur
+            |> withMaybeAttribute ionBlurEvent onBlur
             |> withHtmlAttributes attributes.htmlAttributes
         )
         []
@@ -135,8 +156,7 @@ checkboxField { onChange, onBlur, value, disabled, error, showError, attributes 
             |> withMaybeAttribute HE.onBlur onBlur
             |> withHtmlAttributes attributes.htmlAttributes
         )
-        []
-    , H.node "ion-label" [] [ H.text attributes.label ]
+        [ H.text attributes.label ]
     , maybeErrorMessage showError error
     ]
         |> wrapInFieldContainer showError error

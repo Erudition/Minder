@@ -18,7 +18,6 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 
 
-
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/core/css/core.css';
 
@@ -199,4 +198,27 @@ async function attachOrbit(elmApp) {
       elmApp.ports.incomingFramesFromElsewhere.send(newFrame);
       console.log("New frames from peer @", address, "Progress is ", progress)
     })
+}
+
+
+
+// FLIP ANIMATIONS
+// Requires patch to ~/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js
+// in function _Browser_makeAnimator(model, draw)
+// only in nested function updateIfNeeded()
+// : ( _Browser_requestAnimationFrame(updateIfNeeded), flipDraw(model), __4_EXTRA_REQUEST );
+// where function flipDraw(modelIn) {window.flipping.read();draw(modelIn);window.afterDraw();}
+import Flipping from 'flipping/lib/adapters/web';
+//compare to:
+//import Flipping from 'flipping/lib/adapters/css';
+
+(window as any).flipping = new Flipping({duration:300});
+
+(window as any).afterDraw = async () => {
+  
+  //for normal updates
+  (window as any).flipping.flip()
+  
+  //for delayed updates
+  //requestAnimationFrame(async () => await (window as any).flipping.flip());
 }
