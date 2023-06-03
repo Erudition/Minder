@@ -803,6 +803,9 @@ update msg ({ replica } as frameworkModel) =
         justRunCommand command =
             ( [], unchangedMainModel, command )
 
+        justSaveFrames frames =
+            ( frames, unchangedMainModel, Cmd.none )
+
         justSetShared newShared =
             ( [], { viewState = viewState, shared = newShared }, Cmd.none )
 
@@ -836,13 +839,16 @@ update msg ({ replica } as frameworkModel) =
             justSetShared { shared | modal = Nothing }
 
         PopupMsg popupMsg ->
-            case shared.modal of
-                Just (Popups.Form popupModel) ->
+            case ( shared.modal, popupMsg ) of
+                ( Just popupModel, Popups.SaveChanges frame ) ->
+                    justSaveFrames [ frame ]
+
+                ( Just popupModel, _ ) ->
                     let
                         outModel =
                             Popups.update popupMsg popupModel
                     in
-                    justSetShared { shared | modal = Just (Popups.Form outModel) }
+                    justSetShared { shared | modal = Just outModel }
 
                 _ ->
                     noOp

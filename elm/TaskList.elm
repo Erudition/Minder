@@ -34,6 +34,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
+import Popup.Editor.Task
 import Popups exposing (Popup)
 import Profile exposing (..)
 import Refocus
@@ -114,7 +115,7 @@ type alias NewTaskField =
 type CurrentlyEditing
     = EditingProjectTitle ActionClass.ActionClassID String
     | EditingProjectDate
-    | EditingProjectModal AssignedAction
+    | EditingProjectModal (Maybe AssignedAction)
 
 
 allFullTaskInstances profile ( launchTime, zone ) =
@@ -132,13 +133,12 @@ view state profile env =
                         activeFilter =
                             Maybe.withDefault AllTasks (List.head filters)
 
-                        modalIfOpen =
-                            case editing of
-                                Just (EditingProjectModal assignment) ->
-                                    [ viewTaskEditModal profile env assignment ]
-
-                                _ ->
-                                    []
+                        -- modalIfOpen =
+                        --     case editing of
+                        --         Just (EditingProjectModal assignment) ->
+                        --             [ viewTaskEditModal profile env assignment ]
+                        --         _ ->
+                        --             []
                     in
                     div
                         []
@@ -241,121 +241,92 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             , title (taskTooltip ( time, timeZone ) task)
             , attribute "data-flip-key" ("task-" ++ AssignedAction.getClassIDString task)
             ]
-            [ node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor task) ] []
+            [ node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
             , viewTaskTitle task editingMaybe
             , timingInfo ( time, timeZone ) task
+            , div
+                [ class "view" ]
+                [ div
+                    [ class "task-times"
+                    , css
+                        [ Css.width (rem 3)
+                        , displayFlex
+                        , flex3 (num 0) (num 0) (rem 3)
+                        , flexDirection column
+                        , fontSize (rem 0.7)
+                        , justifyContent center
+                        , alignItems center
+                        , textAlign center
+                        , letterSpacing (rem -0.1)
+                        ]
+                    ]
+                    [ div
+                        [ class "minimum-duration"
+                        , css
+                            [ justifyContent Css.end
+                            ]
+                        ]
+                        [ if SmartTime.Duration.isZero (AssignedAction.getMinEffort task) then
+                            text ""
 
-            -- , div
-            --     [ class "view" ]
-            --     [ div
-            --         [ class "task-times"
-            --         , css
-            --             [ Css.width (rem 3)
-            --             , displayFlex
-            --             , flex3 (num 0) (num 0) (rem 3)
-            --             , flexDirection column
-            --             , fontSize (rem 0.7)
-            --             , justifyContent center
-            --             , alignItems center
-            --             , textAlign center
-            --             , letterSpacing (rem -0.1)
-            --             ]
-            --         ]
-            --         [ div
-            --             [ class "minimum-duration"
-            --             , css
-            --                 [ justifyContent Css.end
-            --                 ]
-            --             ]
-            --             [ if SmartTime.Duration.isZero (AssignedAction.getMinEffort task) then
-            --                 text ""
-            --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
-            --             ]
-            --         , div
-            --             [ class "task-bubble"
-            --             , title (taskTooltip ( time, timeZone ) task)
-            --             , css
-            --                 [ Css.height (rem 2)
-            --                 , Css.width (rem 2)
-            --                 , backgroundColor (activityColor task).lighter
-            --                 , Css.color (activityColor task).medium
-            --                 , border3 (px 2) solid (activityColor task).darker
-            --                 , displayFlex
-            --                 , borderRadius (pct 100)
-            --                 -- , margin (rem 0.5)
-            --                 , fontSize (rem 1)
-            --                 , alignItems center
-            --                 , justifyContent center
-            --                 -- , padding (rem 0.2)
-            --                 , fontFamily monospace
-            --                 , fontWeight Css.normal
-            --                 , textAlign center
-            --                 ]
-            --             ]
-            --             [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
-            --                 text ""
-            --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
-            --             ]
-            --         , div
-            --             [ class "maximum-duration"
-            --             , css
-            --                 [ justifyContent Css.end
-            --                 ]
-            --             ]
-            --             [ if SmartTime.Duration.isZero (AssignedAction.getMaxEffort task) then
-            --                 text ""
-            --               else
-            --                 text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
-            --             ]
-            --         ]
-            --     , div [ class "title-and-details" ]
-            --         [ label
-            --             [ onDoubleClick (EditingTitle task True)
-            --             , onClick (FocusSlider task True)
-            --             , css [ fontWeight (Css.int <| Basics.round (AssignedAction.getImportance task * 200 + 200)), pointerEvents none ]
-            --             , class "task-title"
-            --             ]
-            --             [ span [ class "task-title-text" ] [ text <| AssignedAction.getTitle task ]
-            --             , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
-            --             ]
-            --         ]
-            --     , div
-            --         [ class "sessions"
-            --         , css
-            --             [ fontSize (Css.em 0.5)
-            --             , Css.width (pct 50)
-            --             , displayFlex
-            --             , flexDirection column
-            --             , alignItems end
-            --             , textAlign center
-            --             ]
-            --         ]
-            --         (plannedSessions ( time, timeZone ) task)
-            --     , div [ class "task-controls" ]
-            --         (List.filterMap
-            --             identity
-            --             [ startTrackingButton task trackedTaskMaybe
-            --             , Just <|
-            --                 button
-            --                     [ class "destroy"
-            --                     , onClick (Delete (AssignedAction.getID task))
-            --                     ]
-            --                     [ text "×" ]
-            --             ]
-            --         )
-            --     ]
-            -- , input
-            --     [ class "edit"
-            --     , value <| AssignedAction.getTitle task
-            --     , name "title"
-            --     , id ("task-" ++ AssignedAction.getIDString task)
-            --     , onInput (UpdateTitle task)
-            --     , onBlur (EditingTitle task False)
-            --     , onEnter (EditingTitle task False)
-            --     ]
-            --     []
+                          else
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                        ]
+                    , div
+                        [ class "task-bubble"
+                        , title (taskTooltip ( time, timeZone ) task)
+                        , css
+                            [ Css.height (rem 2)
+                            , Css.width (rem 2)
+                            , backgroundColor (activityColor task).lighter
+                            , Css.color (activityColor task).medium
+                            , border3 (px 2) solid (activityColor task).darker
+                            , displayFlex
+                            , borderRadius (pct 100)
+
+                            -- , margin (rem 0.5)
+                            , fontSize (rem 1)
+                            , alignItems center
+                            , justifyContent center
+
+                            -- , padding (rem 0.2)
+                            , fontFamily monospace
+                            , fontWeight Css.normal
+                            , textAlign center
+                            ]
+                        ]
+                        [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
+                            text ""
+
+                          else
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                        ]
+                    , div
+                        [ class "maximum-duration"
+                        , css
+                            [ justifyContent Css.end
+                            ]
+                        ]
+                        [ if SmartTime.Duration.isZero (AssignedAction.getMaxEffort task) then
+                            text ""
+
+                          else
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                        ]
+                    ]
+                , div
+                    [ class "sessions"
+                    , css
+                        [ fontSize (Css.em 0.5)
+                        , Css.width (pct 50)
+                        , displayFlex
+                        , flexDirection column
+                        , alignItems end
+                        , textAlign center
+                        ]
+                    ]
+                    (plannedSessions ( time, timeZone ) task)
+                ]
             ]
         , node "ion-item-options"
             []
@@ -432,45 +403,43 @@ startTrackingButton task trackedTaskMaybe =
                 [ node "ion-icon" [ name "play-outline" ] [] ]
 
 
-viewTaskEditModal : Profile -> Shared -> AssignedAction -> Html Msg
-viewTaskEditModal profile env assignment =
-    let
-        activitySelectOption givenActivity =
-            node "ion-select-option"
-                [ value (Activity.idToString (Activity.getID givenActivity)) ]
-                [ text <| Activity.getName givenActivity ]
-    in
-    node "ion-popover"
-        [ Attr.property "isOpen" (JE.bool True), on "didDismiss" <| JD.succeed CloseEditor ]
-        [ node "ion-header"
-            []
-            [ node "ion-toolbar"
-                []
-                [ node "ion-buttons"
-                    [ attribute "slot" "start" ]
-                    [ node "ion-button" [ attribute "color" "medium", onClick CloseEditor ] [ text "Close" ]
-                    ]
-                , node "ion-title" [] [ text <| AssignedAction.getTitle assignment ]
-                , node "ion-buttons"
-                    [ attribute "slot" "end" ]
-                    [ node "ion-button" [ attribute "strong" "true" ] [ text "Confirm" ]
-                    ]
-                ]
-            ]
-        , node "ion-content"
-            [ class "ion-padding" ]
-            [ node "ion-item" [] [ node "ion-input" [ type_ "text", attribute "label-placement" "stacked", attribute "label" "Task Title", placeholder "New Task Title Here" ] [] ]
-            , node "ion-item"
-                []
-                [ node "ion-select"
-                    [ type_ "text", attribute "label-placement" "stacked", attribute "label" "Activity", placeholder "What's the most fitting activity?" ]
-                    (List.map activitySelectOption (Activity.allUnhidden profile.activities))
-                ]
-            ]
-        ]
 
-
-
+-- viewTaskEditModal : Profile -> Shared -> (Maybe AssignedAction) -> Html Msg
+-- viewTaskEditModal profile env assignmentMaybe =
+--     let
+--         activitySelectOption givenActivity =
+--             node "ion-select-option"
+--                 [ value (Activity.idToString (Activity.getID givenActivity)) ]
+--                 [ text <| Activity.getName givenActivity ]
+--     in
+--     node "ion-popover"
+--         [ Attr.property "isOpen" (JE.bool True), on "didDismiss" <| JD.succeed CloseEditor ]
+--         [ node "ion-header"
+--             []
+--             [ node "ion-toolbar"
+--                 []
+--                 [ node "ion-buttons"
+--                     [ attribute "slot" "start" ]
+--                     [ node "ion-button" [ attribute "color" "medium", onClick CloseEditor ] [ text "Close" ]
+--                     ]
+--                 , node "ion-title" [] [ text <| AssignedAction.getTitle assignment ]
+--                 , node "ion-buttons"
+--                     [ attribute "slot" "end" ]
+--                     [ node "ion-button" [ attribute "strong" "true" ] [ text "Confirm" ]
+--                     ]
+--                 ]
+--             ]
+--         , node "ion-content"
+--             [ class "ion-padding" ]
+--             [ node "ion-item" [] [ node "ion-input" [ type_ "text", attribute "label-placement" "stacked", attribute "label" "Task Title", placeholder "New Task Title Here" ] [] ]
+--             , node "ion-item"
+--                 []
+--                 [ node "ion-select"
+--                     [ type_ "text", attribute "label-placement" "stacked", attribute "label" "Activity", placeholder "What's the most fitting activity?" ]
+--                     (List.map activitySelectOption (Activity.allUnhidden profile.activities))
+--                 ]
+--             ]
+--         ]
 --, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
 --    [ label [ for "readyDate" ] [ text "Ready" ]
 --    , input [ type_ "date", name "readyDate", onInput (extractDate task.instance.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
@@ -935,7 +904,7 @@ type Msg
     | EditingClassTitle AssignedAction String
     | StopEditing
     | UpdateTitle AssignedAction String
-    | OpenEditor AssignedAction
+    | OpenEditor (Maybe AssignedAction)
     | CloseEditor
     | Add
     | Delete AssignedActionID
@@ -1014,14 +983,14 @@ update msg state profile env =
             , [ Effect.FocusIonInput ("task-title-" ++ AssignedAction.getIDString action) ]
             )
 
-        OpenEditor action ->
+        OpenEditor actionMaybe ->
             let
                 (Normal filters expanded typedSoFar _) =
                     state
             in
-            ( Normal filters expanded typedSoFar (Just <| EditingProjectModal action)
+            ( Normal filters expanded typedSoFar (Just <| EditingProjectModal actionMaybe)
             , Change.none
-            , [ Effect.OpenPopup (Popups.Form Popups.initialModel) ]
+            , [ Effect.OpenPopup (Popups.ProjectEditor (Popup.Editor.Task.initialModel actionMaybe)) ]
             )
 
         CloseEditor ->

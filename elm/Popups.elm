@@ -8,129 +8,45 @@ import Html.Attributes as HA exposing (attribute, class, href, placeholder, prop
 import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
+import Popup.Editor.Task as TaskEditor
 import Popup.IonicForm
-import Task.AssignedAction as AssignedAction exposing (AssignedAction)
+import Replicated.Change as Change
 
 
 type Popup
-    = ProjectEditor AssignedAction
-    | Form Model
+    = ProjectEditor TaskEditor.Model
+    | JustText (Html ())
 
 
 type Msg
-    = FormChanged Model
-    | Submit Output
+    = ProjectEditorMsg TaskEditor.Msg
+    | JustTextMsg
+    | SaveChanges Change.Frame
 
 
-type alias Model =
-    Form.View.Model Values
-
-
-type alias Values =
-    { email : String
-    , password : String
-    , rememberMe : Bool
-    }
-
-
-type alias Output =
-    { email : String
-    , password : String
-    , rememberMe : Bool
-    }
-
-
-initialModel : Model
-initialModel =
-    { email = ""
-    , password = ""
-    , rememberMe = False
-    }
-        |> Form.View.idle
-
-
-update : Msg -> Model -> Model
+update : Msg -> Popup -> Popup
 update msg model =
-    case msg of
-        FormChanged newModel ->
-            newModel
+    case ( model, msg ) of
+        ( ProjectEditor projectEditorModel, ProjectEditorMsg projectEditorMsg ) ->
+            ProjectEditor (TaskEditor.update projectEditorMsg projectEditorModel)
 
-        Submit { email, password, rememberMe } ->
-            { model | state = Form.View.Loading }
+        ( JustText _, JustTextMsg ) ->
+            model
 
-
-demoForm : Form Values Output
-demoForm =
-    let
-        emailField =
-            Form.emailField
-                { parser =
-                    \value ->
-                        if String.contains "@" value then
-                            Ok value
-
-                        else
-                            Err "No at sign"
-                , value = .email
-                , update = \value values -> { values | email = value }
-                , error = always Nothing
-                , attributes =
-                    { label = "E-Mail"
-                    , placeholder = "some@email.com"
-                    , htmlAttributes = []
-                    }
-                }
-
-        passwordField =
-            Form.passwordField
-                { parser = Ok
-                , value = .password
-                , update = \value values -> { values | password = value }
-                , error = always Nothing
-                , attributes =
-                    { label = "Password"
-                    , placeholder = "Your password"
-                    , htmlAttributes = []
-                    }
-                }
-
-        rememberMeCheckbox =
-            Form.checkboxField
-                { parser = Ok
-                , value = .rememberMe
-                , update = \value values -> { values | rememberMe = value }
-                , error = always Nothing
-                , attributes =
-                    { label = "Remember me"
-                    , htmlAttributes = []
-                    }
-                }
-    in
-    Form.succeed Output
-        |> Form.append emailField
-        |> Form.append passwordField
-        |> Form.append rememberMeCheckbox
-
-
-view : Model -> Html Msg
-view =
-    Popup.IonicForm.htmlView
-        { onChange = FormChanged
-        , action = "Submit"
-        , loading = "Submitting!"
-        , validation = Form.View.ValidateOnBlur
-        }
-        (Form.map Submit demoForm)
+        _ ->
+            model
 
 
 viewPopup : Popup -> Html Msg
 viewPopup popup =
     case popup of
-        Form formModel ->
-            view formModel
+        ProjectEditor formModel ->
+            TaskEditor.view formModel
+                |> H.map ProjectEditorMsg
 
-        _ ->
-            H.text "Not a form popup"
+        JustText htmlWithoutMsg ->
+            htmlWithoutMsg
+                |> H.map (\_ -> JustTextMsg)
 
 
 fromString : (String -> Maybe a) -> Maybe a -> String -> Maybe a
