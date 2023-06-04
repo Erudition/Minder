@@ -238,10 +238,41 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
         []
         [ node "ion-item"
             [ classList [ ( "completed", completed task ), ( "editing", False ) ]
-            , title (taskTooltip ( time, timeZone ) task)
             , attribute "data-flip-key" ("task-" ++ AssignedAction.getClassIDString task)
             ]
-            [ node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
+            [ div
+                [ class "task-bubble"
+                , attribute "slot" "start"
+                , title (taskTooltip ( time, timeZone ) task)
+                , onClick (OpenEditor <| Just task)
+                , css
+                    [ Css.height (rem 2)
+                    , Css.width (rem 2)
+                    , backgroundColor (activityColor task).lighter
+                    , Css.color (activityColor task).medium
+                    , border3 (px 2) solid (activityColor task).darker
+                    , displayFlex
+                    , borderRadius (pct 100)
+
+                    -- , margin (rem 0.5)
+                    , fontSize (rem 1)
+                    , alignItems center
+                    , justifyContent center
+
+                    -- , padding (rem 0.2)
+                    , fontFamily monospace
+                    , fontWeight Css.normal
+                    , textAlign center
+                    ]
+                ]
+                [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
+                    text "?"
+
+                  else
+                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                ]
+
+            --, node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
             , viewTaskTitle task editingMaybe
             , timingInfo ( time, timeZone ) task
             , div
@@ -267,35 +298,6 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                             ]
                         ]
                         [ if SmartTime.Duration.isZero (AssignedAction.getMinEffort task) then
-                            text ""
-
-                          else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
-                        ]
-                    , div
-                        [ class "task-bubble"
-                        , title (taskTooltip ( time, timeZone ) task)
-                        , css
-                            [ Css.height (rem 2)
-                            , Css.width (rem 2)
-                            , backgroundColor (activityColor task).lighter
-                            , Css.color (activityColor task).medium
-                            , border3 (px 2) solid (activityColor task).darker
-                            , displayFlex
-                            , borderRadius (pct 100)
-
-                            -- , margin (rem 0.5)
-                            , fontSize (rem 1)
-                            , alignItems center
-                            , justifyContent center
-
-                            -- , padding (rem 0.2)
-                            , fontFamily monospace
-                            , fontWeight Css.normal
-                            , textAlign center
-                            ]
-                        ]
-                        [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
                             text ""
 
                           else
