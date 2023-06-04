@@ -47,6 +47,23 @@ ionBlurEvent msg =
     on "ionBlur" (JD.succeed msg)
 
 
+loggingDecoder : JD.Decoder a -> JD.Decoder a
+loggingDecoder realDecoder =
+    JD.value
+        |> JD.andThen
+            (\event ->
+                case JD.decodeValue realDecoder event of
+                    Ok decoded ->
+                        JD.succeed decoded
+
+                    Err error ->
+                        error
+                            |> JD.errorToString
+                            |> Debug.log "decoding error"
+                            |> JD.fail
+            )
+
+
 inputField : String -> Form.View.TextFieldConfig msg -> Html msg
 inputField type_ { onChange, onBlur, disabled, value, error, showError, attributes } =
     let
@@ -62,7 +79,7 @@ inputField type_ { onChange, onBlur, disabled, value, error, showError, attribut
                     "No errors."
 
         touched =
-            Maybe.Extra.isJust error && showError
+            Maybe.Extra.isJust error && showError && value /= ""
     in
     H.node "ion-input"
         ([ ionInputEvent onChange
@@ -75,7 +92,7 @@ inputField type_ { onChange, onBlur, disabled, value, error, showError, attribut
          --, HA.attribute "helper-text" errorString
          , HA.attribute "label-placement" "stacked"
          , HA.attribute "label" attributes.label
-         , HA.classList [ ( "ion-invalid", Maybe.Extra.isJust error && value /= "" ), ( "ion-touched", showError ), ( "ion-valid", Maybe.Extra.isNothing error ) ]
+         , HA.classList [ ( "ion-invalid", Maybe.Extra.isJust error && value /= "" ), ( "ion-touched", touched ), ( "ion-valid", Maybe.Extra.isNothing error ) ]
          ]
             |> withMaybeAttribute ionBlurEvent onBlur
             |> withHtmlAttributes attributes.htmlAttributes
@@ -125,19 +142,56 @@ numberField { onChange, onBlur, disabled, value, error, showError, attributes } 
 
 rangeField : Form.View.RangeFieldConfig msg -> Html msg
 rangeField { onChange, onBlur, disabled, value, error, showError, attributes } =
+    let
+        errorString =
+            case error of
+                Just (Form.Error.External externalError) ->
+                    externalError
+
+                Just otherError ->
+                    errorToString otherError
+
+                Nothing ->
+                    ""
+
+        ionRangeChangeEvent : H.Attribute msg
+        ionRangeChangeEvent =
+            let
+                alwaysStop : a -> ( a, Bool )
+                alwaysStop x =
+                    ( x, True )
+
+                getValue =
+                    JD.at [ "detail", "value" ] (JD.map Just JD.float)
+            in
+            HE.stopPropagationOn "ionChange" (JD.map alwaysStop (JD.map onChange <| loggingDecoder getValue))
+    in
     H.node "ion-range"
-        ([ ionInputEvent (fromString String.toFloat value >> onChange)
+        ([ ionRangeChangeEvent
          , HA.disabled disabled
          , HA.value (value |> Maybe.map String.fromFloat |> Maybe.withDefault "")
          , HA.step (String.fromFloat attributes.step)
-         , HA.attribute "labelPlacement" "end"
+         , HA.attribute "label-placement" "start"
+         , HA.attribute "pin" "true"
+         , HA.attribute "debounce" "100"
          ]
             |> withMaybeAttribute (String.fromFloat >> HA.max) attributes.max
             |> withMaybeAttribute (String.fromFloat >> HA.min) attributes.min
             |> withMaybeAttribute ionBlurEvent onBlur
             |> withHtmlAttributes attributes.htmlAttributes
         )
-        [ H.div [ HA.attribute "slot" "label" ] [ H.text <| attributes.label ++ (value |> Maybe.map String.fromFloat |> Maybe.withDefault "") ]
+        [ H.div [ HA.attribute "slot" "label" ] [ H.text <| attributes.label ]
+        , H.node "ion-label" [ HA.attribute "slot" "end" ] [ H.text <| (value |> Maybe.map String.fromFloat |> Maybe.withDefault "") ]
+        , H.node "ion-note"
+            [ HA.attribute "slot" "end"
+            , HA.style "display" <|
+                if showError then
+                    "block"
+
+                else
+                    "none"
+            ]
+            [ H.text errorString ]
         ]
 
 

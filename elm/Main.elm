@@ -637,7 +637,7 @@ viewPopup temp profile =
                             ]
                             [ SH.text "Close" ]
                         ]
-                    , SH.node "ion-title" [] [ SH.text "Modal test" ]
+                    , SH.node "ion-title" [] [ SH.text "Editor" ]
                     , SH.node "ion-buttons"
                         [ SHA.attribute "slot" "end" ]
                         [ SH.node "ion-button" [ SHA.attribute "strong" "true", SHE.onClick (RunEffects [ Effect.ClosePopup, Effect.Toast "Pretended to Save Changes!" ]) ] [ SH.text "Confirm" ]

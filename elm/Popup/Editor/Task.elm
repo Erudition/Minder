@@ -90,8 +90,13 @@ type Msg
     | Submit Output
 
 
-demoForm : Form Values Output
-demoForm =
+isNonnegative : number -> Bool
+isNonnegative n =
+    n >= 0
+
+
+taskEditorForm : Form Values Output
+taskEditorForm =
     let
         classTitleField : { parser : String -> Result String String, value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
         classTitleField =
@@ -117,7 +122,7 @@ demoForm =
         classImportanceField =
             { parser =
                 \value ->
-                    if Maybe.map ((<) 0) value |> Maybe.withDefault True then
+                    if Maybe.map isNonnegative value |> Maybe.withDefault True then
                         Ok value
 
                     else
@@ -159,7 +164,7 @@ demoForm =
             , error = always Nothing
             , attributes =
                 { label = "Relevance Ends"
-                , placeholder = "Immediately"
+                , placeholder = "Never"
                 , htmlAttributes = []
                 }
             }
@@ -291,7 +296,7 @@ maybeFloatMinutesToDurationResult maybeFloat =
             Ok Duration.zero
 
         Just float ->
-            if float > 0 then
+            if float >= 0 then
                 Ok <| Duration.fromMinutes float
 
             else
@@ -306,7 +311,7 @@ view formModel =
         , loading = "Submitting!"
         , validation = Form.View.ValidateOnBlur
         }
-        (Form.map Submit demoForm)
+        (Form.map Submit taskEditorForm)
         formModel
 
 
