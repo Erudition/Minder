@@ -265,11 +265,11 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                     , textAlign center
                     ]
                 ]
-                [ if SmartTime.Duration.isZero (AssignedAction.getPredictedEffort task) then
+                [ if SmartTime.Duration.isZero (AssignedAction.getEstimatedEffort task) then
                     text "?"
 
                   else
-                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
                 ]
 
             --, node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
@@ -301,7 +301,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                             text ""
 
                           else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
                         ]
                     , div
                         [ class "maximum-duration"
@@ -313,7 +313,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                             text ""
 
                           else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getPredictedEffort task))))
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
                         ]
                     ]
                 , div
@@ -702,7 +702,7 @@ describeEffort task =
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort (AssignedAction.getMinEffort task), sayEffort (AssignedAction.getPredictedEffort task), sayEffort (AssignedAction.getMaxEffort task) ) of
+    case ( sayEffort (AssignedAction.getMinEffort task), sayEffort (AssignedAction.getEstimatedEffort task), sayEffort (AssignedAction.getMaxEffort task) ) of
         ( [], [], [] ) ->
             ""
 

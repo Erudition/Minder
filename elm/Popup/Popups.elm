@@ -1,10 +1,12 @@
-module Popup.Popups exposing (Model, Msg, getCorrectModel, init, update, viewPopup)
+module Popup.Popups exposing (Model, Msg, getCorrectModel, init, popupWrapper, update)
 
 import Effect exposing (Effect)
 import Form
 import Html as H exposing (Html)
-import Html.Attributes
-import Html.Events
+import Html.Attributes as HA
+import Html.Events as HE
+import Json.Decode as JD
+import Json.Encode as JE
 import Popup.Editor.Task as TaskEditor
 import Replicated.Change as Change
 import Shared.Model exposing (Shared)
@@ -19,6 +21,7 @@ type Model
 type Msg
     = ProjectEditorMsg TaskEditor.Msg
     | JustTextMsg
+    | RunEffects (List (Effect Msg))
 
 
 init : PopupType -> Model
@@ -31,7 +34,7 @@ init popupType =
             JustText (H.div [] [ H.text "Just text" ])
 
 
-update : Msg -> Model -> Shared -> ( Model, List (Effect msg) )
+update : Msg -> Model -> Shared -> ( Model, List (Effect Msg) )
 update msg model shared =
     let
         correctModel =
@@ -48,6 +51,9 @@ update msg model shared =
         ( JustText _, JustTextMsg ) ->
             ( correctModel, [] )
 
+        ( _, RunEffects effects ) ->
+            ( correctModel, effects )
+
         _ ->
             ( correctModel, [] )
 
@@ -62,6 +68,56 @@ viewPopup model shared =
         JustText htmlWithoutMsg ->
             htmlWithoutMsg
                 |> H.map (\_ -> JustTextMsg)
+
+
+popupWrapper : Model -> Shared -> H.Html Msg
+popupWrapper popupModel shared =
+    -- It's important that this be unstyled Html for now, since adding style elements throws off the elm-ionic interaction
+    let
+        outerShell innerStuff =
+            [ H.node "ion-header"
+                [ HA.id "ion-modal-header" ]
+                [ H.node "ion-toolbar"
+                    []
+                    [ H.node "ion-buttons"
+                        [ HA.attribute "slot" "end" ]
+                        [ H.node "ion-button"
+                            [ HA.attribute "color" "medium"
+                            , HE.onClick (RunEffects [ Effect.ClosePopup ])
+                            ]
+                            [ H.text "Cancel" ]
+                        ]
+                    , H.node "ion-title" [] [ H.text "Project Editor" ]
+
+                    -- , H.node "ion-buttons"
+                    --     [ HA.attribute "slot" "end" ]
+                    --     [ H.node "ion-button" [ HA.attribute "strong" "true", HE.onClick (RunEffects [ Effect.ClosePopup, Effect.Toast "Pretended to Save Changes!" ]) ] [ H.text "Confirm" ]
+                    --     ]
+                    ]
+                ]
+            , H.node "ion-content"
+                [ HA.class "ion-padding" ]
+                innerStuff
+            ]
+
+        isOpen =
+            case shared.modal of
+                Just popup ->
+                    True
+
+                Nothing ->
+                    False
+
+        contents =
+            outerShell
+                [ viewPopup popupModel shared
+                ]
+    in
+    H.node "ion-modal"
+        [ HA.property "isOpen" (JE.bool isOpen)
+        , HE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
+        ]
+        [ H.div [ HA.class "ion-delegate-host", HA.class "ion-page" ] contents ]
 
 
 getCorrectModel : Shared -> Model -> Model

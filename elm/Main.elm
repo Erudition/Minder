@@ -496,7 +496,7 @@ globalLayout model replica innerStuff =
                     ]
                 ]
             ]
-        , SH.toUnstyled <| viewPopup model replica
+        , Popups.popupWrapper model.viewState.popup model.shared |> H.map PopupMsg
         ]
 
 
@@ -622,59 +622,6 @@ infoFooter =
             , SH.a [ href "http://todomvc.com" ] [ SH.text "TodoMVC" ]
             ]
         ]
-
-
-viewPopup : MainModel -> Profile -> SH.Html Msg
-viewPopup temp profile =
-    let
-        outerShell innerStuff =
-            [ SH.node "ion-header"
-                [ SHA.id "ion-modal-header" ]
-                [ SH.node "ion-toolbar"
-                    []
-                    [ SH.node "ion-buttons"
-                        [ SHA.attribute "slot" "start" ]
-                        [ SH.node "ion-button"
-                            [ SHA.attribute "color" "medium"
-                            , SHE.onClick (RunEffects [ Effect.ClosePopup ])
-                            ]
-                            [ SH.text "Close" ]
-                        ]
-                    , SH.node "ion-title" [] [ SH.text "Editor" ]
-                    , SH.node "ion-buttons"
-                        [ SHA.attribute "slot" "end" ]
-                        [ SH.node "ion-button" [ SHA.attribute "strong" "true", SHE.onClick (RunEffects [ Effect.ClosePopup, Effect.Toast "Pretended to Save Changes!" ]) ] [ SH.text "Confirm" ]
-                        ]
-                    ]
-                ]
-            , SH.node "ion-content"
-                [ class "ion-padding" ]
-                innerStuff
-
-            -- [ SH.node "ion-item" [] [ SH.node "ion-input" [ SHA.type_ "text", SHA.attribute "label-placement" "stacked", SHA.attribute "label" "Task Title", SHA.placeholder "New Task Title Here" ] [] ]
-            -- ]
-            ]
-
-        isOpen =
-            case temp.shared.modal of
-                Just popup ->
-                    True
-
-                Nothing ->
-                    False
-
-        contents =
-            outerShell
-                [ Popups.viewPopup temp.viewState.popup temp.shared
-                    |> SH.fromUnstyled
-                    |> SH.map PopupMsg
-                ]
-    in
-    SH.node "ion-modal"
-        [ SHA.property "isOpen" (JE.bool isOpen)
-        , SHE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
-        ]
-        [ SH.div [ SHA.class "ion-delegate-host", SHA.class "ion-page" ] contents ]
 
 
 
@@ -834,7 +781,7 @@ update msg ({ replica } as frameworkModel) =
                     Popups.update popupMsg viewState.popup shared
 
                 ( effectFrames, newShared, effectCmds ) =
-                    Effect.perform (\_ -> NoOp) shared replica outEffects
+                    Effect.perform (\_ -> NoOp) shared replica (List.map (Effect.map PopupMsg) outEffects)
 
                 newViewState =
                     { viewState | popup = outModel }

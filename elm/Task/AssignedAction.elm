@@ -345,6 +345,11 @@ getImportance instance =
     (Reg.latest instance.class).importance.get
 
 
+setImportance : AssignedAction -> Float -> Change
+setImportance instance =
+    (Reg.latest instance.class).importance.set
+
+
 getRelevanceStarts : AssignedAction -> Maybe FuzzyMoment
 getRelevanceStarts instance =
     (Reg.latest instance.instance).relevanceStarts.get
@@ -365,9 +370,14 @@ getMinEffort instance =
     (Reg.latest instance.class).minEffort.get
 
 
-getPredictedEffort : AssignedAction -> Duration
-getPredictedEffort instance =
+getEstimatedEffort : AssignedAction -> Duration
+getEstimatedEffort instance =
     (Reg.latest instance.class).predictedEffort.get
+
+
+setEstimatedEffort : AssignedAction -> Duration -> Change
+setEstimatedEffort instance =
+    (Reg.latest instance.class).predictedEffort.set
 
 
 getMaxEffort : AssignedAction -> Duration

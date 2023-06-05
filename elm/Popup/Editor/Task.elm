@@ -6,13 +6,14 @@ import Form.Base.RangeField as RangeField
 import Form.Base.TextField as TextField
 import Form.Error
 import Form.View
-import Html as H exposing (Html, li, node, text)
+import Html as H exposing (Html, li, node, output, text)
 import Html.Attributes as HA exposing (attribute, class, href, placeholder, property, type_)
 import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
 import Popup.IonicForm
 import Replicated.Change as Change
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.AssignedAction as AssignedAction exposing (..)
@@ -58,7 +59,7 @@ initialModel metaInstanceMaybe =
             , relevanceEnds = getRelevanceEnds meta |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
             , externalDeadline = getExternalDeadline meta |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
             , minEffort = getMinEffort meta |> Duration.inMinutes |> Just
-            , estimatedEffort = getPredictedEffort meta |> Duration.inMinutes |> Just
+            , estimatedEffort = getEstimatedEffort meta |> Duration.inMinutes |> Just
             , maxEffort = getMaxEffort meta |> Duration.inMinutes |> Just
             , progressMax = getProgressMaxInt meta |> Just
             , completion = getCompletionInt meta |> Just
@@ -125,7 +126,7 @@ taskEditorForm =
             , attributes =
                 { label = "Project Title"
                 , placeholder = "Mow the lawn"
-                , htmlAttributes = []
+                , htmlAttributes = [ ( "helper-text", "give it a unique name that includes any details you might forget." ) ]
                 }
             }
 
@@ -143,18 +144,16 @@ taskEditorForm =
             , error = always Nothing
             , attributes =
                 { label = "Importance"
-                , max = Nothing
+                , max = Just 3
                 , min = Just 0.0
                 , step = 0.01
-                , htmlAttributes = []
+                , htmlAttributes = [ ( "helper-text", "1 to 3" ) ]
                 }
             }
 
-        relevanceStartsField : { parser : String -> Result String (Maybe FuzzyMoment), value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
+        relevanceStartsField : { parser : String -> Result String FuzzyMoment, value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
         relevanceStartsField =
-            { parser =
-                \value ->
-                    Result.map Just (HumanMoment.fuzzyFromString value)
+            { parser = HumanMoment.fuzzyFromString
             , value = .relevanceStarts
             , update = \value values -> { values | relevanceStarts = value }
             , error = always Nothing
@@ -165,11 +164,9 @@ taskEditorForm =
                 }
             }
 
-        relevanceEndsField : { parser : String -> Result String (Maybe FuzzyMoment), value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
+        relevanceEndsField : { parser : String -> Result String FuzzyMoment, value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
         relevanceEndsField =
-            { parser =
-                \value ->
-                    Result.map Just (HumanMoment.fuzzyFromString value)
+            { parser = HumanMoment.fuzzyFromString
             , value = .relevanceEnds
             , update = \value values -> { values | relevanceEnds = value }
             , error = always Nothing
@@ -180,13 +177,11 @@ taskEditorForm =
                 }
             }
 
-        externalDeadlineField : { parser : String -> Result String (Maybe FuzzyMoment), value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
+        externalDeadlineField : { parser : String -> Result String FuzzyMoment, value : Values -> String, update : String -> Values -> Values, error : Values -> Maybe String, attributes : TextField.Attributes }
         externalDeadlineField =
-            { parser =
-                \value ->
-                    Result.map Just (HumanMoment.fuzzyFromString value)
+            { parser = HumanMoment.fuzzyFromString
             , value = .externalDeadline
-            , update = \value values -> { values | externalDeadline = value }
+            , update = \value values -> { values | externalDeadline = String.filter (\c -> Char.isDigit c || c == '-' || c == '/') value }
             , error = always Nothing
             , attributes =
                 { label = "External Deadline"
@@ -285,9 +280,9 @@ taskEditorForm =
     Form.succeed Output
         |> Form.append (Form.textField classTitleField)
         |> Form.append (Form.rangeField classImportanceField)
-        |> Form.append (Form.textField relevanceStartsField)
-        |> Form.append (Form.textField relevanceEndsField)
-        |> Form.append (Form.textField externalDeadlineField)
+        |> Form.append (Form.optional (Form.textField relevanceStartsField))
+        |> Form.append (Form.optional (Form.textField relevanceEndsField))
+        |> Form.append (Form.optional (Form.textField externalDeadlineField))
         |> Form.append (Form.rangeField minEffortField)
         |> Form.append (Form.rangeField estimatedEffortField)
         |> Form.append (Form.rangeField maxEffortField)
@@ -320,7 +315,7 @@ view model =
         { onChange = FormChanged
         , action = "Submit"
         , loading = "Submitting!"
-        , validation = Form.View.ValidateOnBlur
+        , validation = Form.View.ValidateOnSubmit
         }
         (Form.map Submit taskEditorForm)
         model.formModel
@@ -340,16 +335,50 @@ update msg model =
                 newFormModel =
                     { oldFormModel | state = Form.View.Loading }
             in
-            ( { model | formModel = newFormModel }, [ Debug.log "task editor out2" Effect.Save <| outputToChanges model.action output ] )
+            ( { model | formModel = newFormModel }
+            , [ Effect.Save <| outputToChanges model.action output
+              , Effect.ClosePopup
+              ]
+            )
 
 
 outputToChanges : Maybe AssignedAction -> Output -> Change.Frame
 outputToChanges actionMaybe output =
     case actionMaybe of
         Just action ->
-            Change.saveChanges "Editing a task"
-                [ AssignedAction.setProjectTitle output.classTitle action
-                ]
+            let
+                updateTitle =
+                    if output.classTitle == AssignedAction.getTitle action then
+                        Nothing
+
+                    else
+                        Just (AssignedAction.setProjectTitle output.classTitle action)
+
+                updateImportance =
+                    case output.classImportance of
+                        Just newImportance ->
+                            if newImportance == AssignedAction.getImportance action then
+                                Nothing
+
+                            else
+                                Just (AssignedAction.setImportance action newImportance)
+
+                        Nothing ->
+                            Nothing
+
+                updateEstimatedEffort =
+                    if output.estimatedEffort == AssignedAction.getEstimatedEffort action then
+                        Nothing
+
+                    else
+                        Just (AssignedAction.setEstimatedEffort action output.estimatedEffort)
+            in
+            Change.saveChanges "Editing a task" <|
+                List.filterMap identity
+                    [ updateTitle
+                    , updateImportance
+                    , updateEstimatedEffort
+                    ]
 
         Nothing ->
             Change.none

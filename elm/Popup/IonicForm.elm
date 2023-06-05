@@ -6,6 +6,7 @@ import Form.View
 import Html as H exposing (Html, li, node, text)
 import Html.Attributes as HA exposing (attribute, class, href, placeholder, property, type_)
 import Html.Events as HE exposing (on, onClick)
+import Html.Keyed as HK
 import Json.Decode as JD
 import Json.Encode as JE
 import Maybe.Extra
@@ -77,27 +78,43 @@ inputField type_ { onChange, onBlur, disabled, value, error, showError, attribut
 
                 Nothing ->
                     "No errors."
-
-        touched =
-            Maybe.Extra.isJust error && showError && value /= ""
     in
-    H.node "ion-input"
-        ([ ionInputEvent onChange
-         , HA.disabled disabled
-         , HA.value value
-         , HA.placeholder attributes.placeholder
-         , HA.type_ type_
-         , HA.attribute "error-text" errorString
-
-         --, HA.attribute "helper-text" errorString
-         , HA.attribute "label-placement" "stacked"
-         , HA.attribute "label" attributes.label
-         , HA.classList [ ( "ion-invalid", Maybe.Extra.isJust error && value /= "" ), ( "ion-touched", touched ), ( "ion-valid", Maybe.Extra.isNothing error ) ]
-         ]
-            |> withMaybeAttribute ionBlurEvent onBlur
-            |> withHtmlAttributes attributes.htmlAttributes
-        )
+    HK.node "ion-item"
         []
+        [ ( if Maybe.Extra.isJust error && showError then
+                "error"
+
+            else
+                "no-error"
+          , H.node "ion-input"
+                ([ ionInputEvent onChange
+                 , HA.disabled disabled
+                 , HA.value value
+                 , HA.placeholder attributes.placeholder
+                 , HA.type_ type_
+                 , HA.attribute "error-text" errorString
+
+                 --  , HA.attribute "helper-text" errorString
+                 , HA.attribute "clear-input" "true"
+                 , HA.attribute "label-placement" "stacked"
+                 , HA.attribute "label" attributes.label
+                 , HA.class "ion-touched"
+
+                 --  , HA.attribute "class" "sc-ion-input-md-h input-label-placement-stacked"
+                 -- TODO ion-input does not like when elm scraps all its classes just to add these
+                 , HA.classList
+                    [ ( "ion-invalid", Maybe.Extra.isJust error )
+
+                    --  , ( "ion-touched", showError )
+                    , ( "ion-valid", Maybe.Extra.isNothing error && showError )
+                    ]
+                 ]
+                    |> withMaybeAttribute ionBlurEvent onBlur
+                    |> withHtmlAttributes attributes.htmlAttributes
+                )
+                []
+          )
+        ]
 
 
 textareaField : Form.View.TextFieldConfig msg -> Html msg
@@ -371,6 +388,7 @@ form { onSubmit, action, loading, state, fields } =
                         H.text ""
               , H.node "ion-button"
                     [ HA.type_ "submit"
+                    , HA.attribute "expand" "block"
                     , HA.disabled (onSubmit == Nothing)
                     ]
                     [ if state == Form.View.Loading then
