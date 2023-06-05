@@ -35,7 +35,6 @@ import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
 import Popup.Editor.Task
-import Popups exposing (Popup)
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change, Parent)
@@ -45,6 +44,7 @@ import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Shared.Model exposing (..)
+import Shared.PopupType as PopupType exposing (PopupType)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -992,7 +992,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal actionMaybe)
             , Change.none
-            , [ Effect.OpenPopup (Popups.ProjectEditor (Popup.Editor.Task.initialModel actionMaybe)) ]
+            , [ Effect.OpenPopup (PopupType.ProjectEditor actionMaybe) ]
             )
 
         CloseEditor ->

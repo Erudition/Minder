@@ -6,12 +6,12 @@ import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as JE exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
-import Popups exposing (Popup)
 import Process
 import Profile exposing (Profile)
 import Replicated.Change as Change
 import Replicated.Framework
 import Shared.Model exposing (..)
+import Shared.PopupType as PopupType exposing (PopupType)
 import Task as ElmTask
 import TaskPort
 
@@ -19,9 +19,10 @@ import TaskPort
 type Effect msg
     = NoOp
     | Toast String
-    | OpenPopup Popup
+    | OpenPopup PopupType
     | ClosePopup
     | FocusIonInput String
+    | Save Change.Frame
 
 
 perform : (String -> msg) -> Shared -> Profile -> List (Effect msg) -> ( List Change.Frame, Shared, Cmd msg )
@@ -33,8 +34,8 @@ perform noOp sharedIn profile effects =
                 NoOp ->
                     ( [], shared, [] )
 
-                OpenPopup popup ->
-                    ( [], { shared | modal = Just popup }, [] )
+                OpenPopup popupType ->
+                    ( [], { shared | modal = Just popupType }, [] )
 
                 ClosePopup ->
                     ( [], { shared | modal = Nothing }, [] )
@@ -50,6 +51,9 @@ perform noOp sharedIn profile effects =
                             |> ElmTask.attempt (\_ -> noOp <| "set focus to" ++ inputToFocus)
                       ]
                     )
+
+                Save frame ->
+                    ( [ frame ], shared, [] )
 
         addEffect : Effect msg -> ( List Change.Frame, Shared, List (Cmd msg) ) -> ( List Change.Frame, Shared, List (Cmd msg) )
         addEffect effect ( framesSoFar, sharedSoFar, cmdsSoFar ) =
@@ -94,6 +98,9 @@ map changeMsg effect =
 
         FocusIonInput inputToFocus ->
             FocusIonInput inputToFocus
+
+        Save frame ->
+            Save frame
 
 
 {-| No effect.

@@ -5,14 +5,16 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Element exposing (..)
 import External.Commands exposing (..)
+import Html exposing (Html)
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
-import Popups exposing (Popup)
+import Shared.PopupType exposing (PopupType(..))
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
+import Task.AssignedAction exposing (AssignedAction)
 
 
 {-| Our whole app's Model.
@@ -28,7 +30,7 @@ type alias Shared =
     , timeZone : Zone -- according to browser
     , launchTime : Moment -- when we officially started the session
     , notifPermission : Notif.PermissionStatus
-    , modal : Maybe Popup
+    , modal : Maybe PopupType
     }
 
 

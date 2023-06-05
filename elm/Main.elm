@@ -49,7 +49,7 @@ import Native.Layout as Layout
 import Native.Page as Page
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
-import Popups exposing (Popup)
+import Popup.Popups as Popups
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Frame)
 import Replicated.Codec
@@ -60,6 +60,7 @@ import Replicated.Reducer.RepDb as RepDb
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Shared.Model exposing (..)
 import Shared.Msg
+import Shared.PopupType as PopupType
 import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar
 import SmartTime.Human.Clock
@@ -253,6 +254,7 @@ type alias ViewState =
     , timeflow : Panel (Maybe Timeflow.ViewState)
     , devTools : Panel DevTools.ViewState
     , rootFrame : Native.Frame.Model NativePage
+    , popup : Popups.Model
     }
 
 
@@ -263,6 +265,7 @@ emptyViewState =
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
     , rootFrame = Native.Frame.init HomePage
+    , popup = Popups.init (PopupType.JustText <| H.text "init")
     }
 
 
@@ -661,16 +664,11 @@ viewPopup temp profile =
                     False
 
         contents =
-            case temp.shared.modal of
-                Just popup ->
-                    outerShell
-                        [ Popups.viewPopup popup
-                            |> SH.fromUnstyled
-                            |> SH.map PopupMsg
-                        ]
-
-                Nothing ->
-                    outerShell []
+            outerShell
+                [ Popups.viewPopup temp.viewState.popup temp.shared
+                    |> SH.fromUnstyled
+                    |> SH.map PopupMsg
+                ]
     in
     SH.node "ion-modal"
         [ SHA.property "isOpen" (JE.bool isOpen)
@@ -769,8 +767,6 @@ type Msg
     | ClearPreferences
     | RequestNotificationPermission
     | GotNotificationPermissionStatus (TaskPort.Result Notif.PermissionStatus)
-    | OpenPopup Popup
-    | ClosePopup
     | PopupMsg Popups.Msg
 
 
@@ -832,26 +828,21 @@ update msg ({ replica } as frameworkModel) =
             , effectCmds
             )
 
-        OpenPopup popup ->
-            justSetShared { shared | modal = Just popup }
-
-        ClosePopup ->
-            justSetShared { shared | modal = Nothing }
-
         PopupMsg popupMsg ->
-            case ( shared.modal, popupMsg ) of
-                ( Just popupModel, Popups.SaveChanges frame ) ->
-                    justSaveFrames [ frame ]
+            let
+                ( outModel, outEffects ) =
+                    Popups.update popupMsg viewState.popup shared
 
-                ( Just popupModel, _ ) ->
-                    let
-                        outModel =
-                            Popups.update popupMsg popupModel
-                    in
-                    justSetShared { shared | modal = Just outModel }
+                ( effectFrames, newShared, effectCmds ) =
+                    Effect.perform (\_ -> NoOp) shared replica outEffects
 
-                _ ->
-                    noOp
+                newViewState =
+                    { viewState | popup = outModel }
+            in
+            ( effectFrames
+            , { unchangedMainModel | viewState = newViewState, shared = newShared }
+            , effectCmds
+            )
 
         NotificationScheduled response ->
             noOp

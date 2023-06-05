@@ -1,5 +1,6 @@
 module Popup.Editor.Task exposing (..)
 
+import Effect exposing (Effect)
 import Form exposing (Form)
 import Form.Base.RangeField as RangeField
 import Form.Base.TextField as TextField
@@ -11,6 +12,7 @@ import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
 import Popup.IonicForm
+import Replicated.Change as Change
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.AssignedAction as AssignedAction exposing (..)
@@ -75,18 +77,27 @@ initialModel metaInstanceMaybe =
             , progressMax = Just 100
             , completion = Just 0
             }
+
+        initialFormModel =
+            Form.View.idle <|
+                Maybe.withDefault brandNew <|
+                    Maybe.map initialRawValues metaInstanceMaybe
     in
-    Form.View.idle <|
-        Maybe.withDefault brandNew <|
-            Maybe.map initialRawValues metaInstanceMaybe
+    { action = metaInstanceMaybe, formModel = initialFormModel }
 
 
-type alias Model =
+type alias FormModel =
     Form.View.Model Values
 
 
+type alias Model =
+    { formModel : FormModel
+    , action : Maybe AssignedAction
+    }
+
+
 type Msg
-    = FormChanged (Form.View.Model Values)
+    = FormChanged FormModel
     | Submit Output
 
 
@@ -303,8 +314,8 @@ maybeFloatMinutesToDurationResult maybeFloat =
                 Err "Can't be negative"
 
 
-view : Form.View.Model Values -> Html Msg
-view formModel =
+view : Model -> Html Msg
+view model =
     Popup.IonicForm.htmlView
         { onChange = FormChanged
         , action = "Submit"
@@ -312,14 +323,33 @@ view formModel =
         , validation = Form.View.ValidateOnBlur
         }
         (Form.map Submit taskEditorForm)
-        formModel
+        model.formModel
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, List (Effect msg) )
 update msg model =
     case msg of
         FormChanged formModel ->
-            formModel
+            ( { model | formModel = formModel }, [] )
 
         Submit output ->
-            { model | state = Form.View.Loading }
+            let
+                oldFormModel =
+                    model.formModel
+
+                newFormModel =
+                    { oldFormModel | state = Form.View.Loading }
+            in
+            ( { model | formModel = newFormModel }, [ Debug.log "task editor out2" Effect.Save <| outputToChanges model.action output ] )
+
+
+outputToChanges : Maybe AssignedAction -> Output -> Change.Frame
+outputToChanges actionMaybe output =
+    case actionMaybe of
+        Just action ->
+            Change.saveChanges "Editing a task"
+                [ AssignedAction.setProjectTitle output.classTitle action
+                ]
+
+        Nothing ->
+            Change.none
