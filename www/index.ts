@@ -18,6 +18,7 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 
 
+
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/core/css/core.css';
 
@@ -68,6 +69,7 @@ function installTaskPorts() {
   TaskPort.register("changePassphrase", () => getPassphrase(true));
   TaskPort.register("requestNotificationPermission", LocalNotifications.requestPermissions)
   TaskPort.register("ionInputSetFocus", (id : String) => document?.getElementById(id).setFocus())
+  TaskPort.register("dialogPrompt", Dialog.prompt)
 }
 
 function elmStarted(app) {
@@ -222,3 +224,7 @@ import Flipping from 'flipping/lib/adapters/css';
   //for delayed updates
   //requestAnimationFrame(async () => await (window as any).flipping.flip());
 }
+
+
+
+
