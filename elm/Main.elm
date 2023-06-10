@@ -9,7 +9,7 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import DevTools
 import Dict
-import Effect
+import Effect exposing (Effect)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -25,6 +25,7 @@ import Html.Styled as SH exposing (Html, li, toUnstyled)
 import Html.Styled.Attributes as SHA exposing (class, href)
 import Html.Styled.Events as SHE
 import Html.Styled.Keyed as SHK
+import Http
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
@@ -41,6 +42,7 @@ import Json.Decode.Exploration exposing (..)
 import Json.Encode as JE
 import List.Nonempty exposing (Nonempty(..))
 import Log
+import ML.OnlineChat
 import Native exposing (Native)
 import Native.Attributes as NA
 import Native.Event
@@ -442,6 +444,32 @@ globalLayout model replica innerStuff =
             H.node "ion-select-option"
                 [ HA.value (Activity.idToString (Activity.getID givenActivity)) ]
                 [ H.text <| Activity.getName givenActivity ]
+
+        askAModel =
+            let
+                handleDialogResult : Result TaskPort.Error String -> Msg
+                handleDialogResult result =
+                    case result of
+                        Err error ->
+                            RunEffects [ Effect.Toast <| TaskPort.errorToString error, Effect.LogError <| TaskPort.errorToString error ]
+
+                        Ok userInput ->
+                            RunEffects [ Effect.Predict handlePredictionResponse (ML.OnlineChat.newPrediction userInput) ]
+
+                handlePredictionResponse : Result String ML.OnlineChat.Prediction -> Msg
+                handlePredictionResponse result =
+                    case result of
+                        Ok predictionSoFar ->
+                            if predictionSoFar.done then
+                                RunEffects [ Effect.Toast (ML.OnlineChat.resultToString result), Effect.LogError (ML.OnlineChat.resultToString result) ]
+
+                            else
+                                RunEffects [ Effect.Predict handlePredictionResponse predictionSoFar ]
+
+                        Err problem ->
+                            RunEffects [ Effect.Toast problem, Effect.LogError problem ]
+            in
+            Effect.DialogPrompt handleDialogResult { title = Just "Ask a model", message = "What would you like to ask a model about?", okButtonTitle = Just "Send", cancelButtonTitle = Nothing, inputPlaceholder = Just "What is the meaning of life?", inputText = Nothing }
     in
     Ion.Content.appWithAttributes [ HA.classList [ ( "dark", temp.darkThemeActive ) ], HA.id "ion-app" ]
         [ H.div [ HA.class "ion-page", HA.id "main-content" ]
@@ -482,6 +510,10 @@ globalLayout model replica innerStuff =
                     , Ion.Item.item [ Ion.Item.button, HE.onClick ClearPreferences, Ion.Item.detail False ]
                         [ Ion.Item.label [] [ H.text "Switch Account" ]
                         , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
+                        ]
+                    , Ion.Item.item [ Ion.Item.button, HE.onClick (RunEffects [ askAModel ]), Ion.Item.detail False ]
+                        [ Ion.Item.label [] [ H.text "Ask a model" ]
+                        , Ion.Icon.withAttr "chatbox-ellipses-outline" [ Ion.Toolbar.placeEnd ]
                         ]
                     , Ion.Item.item [ Ion.Item.button, HE.onClick RequestNotificationPermission, Ion.Item.detail False ]
                         [ Ion.Item.label []
