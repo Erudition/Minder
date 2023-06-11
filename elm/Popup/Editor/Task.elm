@@ -12,6 +12,7 @@ import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
 import Popup.IonicForm
+import Profile as Profile exposing (Profile)
 import Replicated.Change as Change
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -48,8 +49,8 @@ type alias Output =
     }
 
 
-initialModel : Maybe AssignedAction -> Model
-initialModel metaInstanceMaybe =
+initialModel : Profile -> Maybe AssignedAction -> Model
+initialModel profile metaInstanceMaybe =
     let
         initialRawValues : AssignedAction -> Values
         initialRawValues meta =
@@ -243,7 +244,7 @@ taskEditorForm =
             , error = always Nothing
             , attributes =
                 { label = "Out Of:"
-                , max = Just 1000000000
+                , max = Just 100
                 , min = Just 0
                 , step = 1
                 , htmlAttributes = []
@@ -258,7 +259,7 @@ taskEditorForm =
             , error = always Nothing
             , attributes =
                 { label = "Completion:"
-                , max = Just 1000000000 -- TODO use progressMax
+                , max = Just 100 -- TODO use progressMax
                 , min = Just 0
                 , step = 1
                 , htmlAttributes = []
@@ -309,8 +310,8 @@ maybeFloatMinutesToDurationResult maybeFloat =
                 Err "Can't be negative"
 
 
-view : Model -> Html Msg
-view model =
+view : Profile -> Model -> Html Msg
+view profile model =
     Popup.IonicForm.htmlView
         { onChange = FormChanged
         , action = "Submit"

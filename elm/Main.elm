@@ -267,7 +267,7 @@ emptyViewState =
     , timeflow = UnopenedPanel
     , devTools = UnopenedPanel
     , rootFrame = Native.Frame.init HomePage
-    , popup = Popups.init (PopupType.JustText <| H.text "init")
+    , popup = Popups.initEmpty
     }
 
 
@@ -528,7 +528,7 @@ globalLayout model replica innerStuff =
                     ]
                 ]
             ]
-        , Popups.popupWrapper model.viewState.popup model.shared |> H.map PopupMsg
+        , Popups.popupWrapper model.viewState.popup replica model.shared |> H.map PopupMsg
         ]
 
 
@@ -810,7 +810,7 @@ update msg ({ replica } as frameworkModel) =
         PopupMsg popupMsg ->
             let
                 ( outModel, outEffects ) =
-                    Popups.update popupMsg viewState.popup shared
+                    Popups.update popupMsg viewState.popup replica shared
 
                 ( effectFrames, newShared, effectCmds ) =
                     Effect.perform (\_ -> NoOp) shared replica (List.map (Effect.map PopupMsg) outEffects)

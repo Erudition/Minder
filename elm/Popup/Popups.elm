@@ -1,4 +1,4 @@
-module Popup.Popups exposing (Model, Msg, getCorrectModel, init, popupWrapper, update)
+module Popup.Popups exposing (Model, Msg, getCorrectModel, init, initEmpty, popupWrapper, update)
 
 import Effect exposing (Effect)
 import Form
@@ -8,6 +8,7 @@ import Html.Events as HE
 import Json.Decode as JD
 import Json.Encode as JE
 import Popup.Editor.Task as TaskEditor
+import Profile as Profile exposing (Profile)
 import Replicated.Change as Change
 import Shared.Model exposing (Shared)
 import Shared.PopupType as PopupType exposing (PopupType)
@@ -24,21 +25,26 @@ type Msg
     | RunEffects (List (Effect Msg))
 
 
-init : PopupType -> Model
-init popupType =
+init : Profile -> PopupType -> Model
+init profile popupType =
     case popupType of
         PopupType.ProjectEditor maybeAction ->
-            ProjectEditor <| TaskEditor.initialModel maybeAction
+            ProjectEditor <| TaskEditor.initialModel profile maybeAction
 
         PopupType.JustText _ ->
             JustText (H.div [] [ H.text "Just text" ])
 
 
-update : Msg -> Model -> Shared -> ( Model, List (Effect Msg) )
-update msg model shared =
+initEmpty : Model
+initEmpty =
+    JustText (H.div [] [ H.text "Just text" ])
+
+
+update : Msg -> Model -> Profile -> Shared -> ( Model, List (Effect Msg) )
+update msg model profile shared =
     let
         correctModel =
-            getCorrectModel shared model
+            getCorrectModel profile shared model
     in
     case ( correctModel, msg ) of
         ( ProjectEditor projectEditorModel, ProjectEditorMsg projectEditorMsg ) ->
@@ -58,11 +64,11 @@ update msg model shared =
             ( correctModel, [] )
 
 
-viewPopup : Model -> Shared -> Html Msg
-viewPopup model shared =
-    case getCorrectModel shared model of
+viewPopup : Model -> Profile -> Shared -> Html Msg
+viewPopup model profile shared =
+    case getCorrectModel profile shared model of
         ProjectEditor formModel ->
-            TaskEditor.view formModel
+            TaskEditor.view profile formModel
                 |> H.map ProjectEditorMsg
 
         JustText htmlWithoutMsg ->
@@ -70,8 +76,8 @@ viewPopup model shared =
                 |> H.map (\_ -> JustTextMsg)
 
 
-popupWrapper : Model -> Shared -> H.Html Msg
-popupWrapper popupModel shared =
+popupWrapper : Model -> Profile -> Shared -> H.Html Msg
+popupWrapper popupModel profile shared =
     -- It's important that this be unstyled Html for now, since adding style elements throws off the elm-ionic interaction
     let
         outerShell innerStuff =
@@ -110,7 +116,7 @@ popupWrapper popupModel shared =
 
         contents =
             outerShell
-                [ viewPopup popupModel shared
+                [ viewPopup popupModel profile shared
                 ]
     in
     H.node "ion-modal"
@@ -120,8 +126,8 @@ popupWrapper popupModel shared =
         [ H.div [ HA.class "ion-delegate-host", HA.class "ion-page" ] contents ]
 
 
-getCorrectModel : Shared -> Model -> Model
-getCorrectModel shared model =
+getCorrectModel : Profile -> Shared -> Model -> Model
+getCorrectModel profile shared model =
     case ( shared.modal, model ) of
         -- model is correct match
         ( Just (PopupType.ProjectEditor newAction), ProjectEditor { action } ) ->
@@ -129,7 +135,7 @@ getCorrectModel shared model =
                 model
 
             else
-                init (PopupType.ProjectEditor newAction)
+                init profile (PopupType.ProjectEditor newAction)
 
         ( Just (PopupType.JustText _), JustText _ ) ->
             model
@@ -140,4 +146,4 @@ getCorrectModel shared model =
 
         ( Just popupType, _ ) ->
             -- model doesn't match, substitute blank
-            init popupType
+            init profile popupType
