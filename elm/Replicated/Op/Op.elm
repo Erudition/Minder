@@ -646,7 +646,10 @@ ifProgress parser offset =
 
 quotedStringHelp : List String -> RonParser (Parser.Step (List String) String)
 quotedStringHelp piecesReversed =
-    -- TODO this function may get stuck in an infinite loop if input terminates unexpectedly
+    -- infinite loop should be fixed now, all chars are consumed
+    -- note that we don't unescape anything but single-quote chars like
+    -- https://github.com/elm/parser/blob/master/examples/DoubleQuoteString.elm
+    -- does, because we assume it's a JSON-escaped string and leave it that way
     Parser.oneOf
         [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
             -- When we detect an escaped quote, add it, don't stop parsing this atom
