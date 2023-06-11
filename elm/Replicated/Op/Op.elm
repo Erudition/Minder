@@ -98,6 +98,7 @@ type Problem
     | ExpectingNodeID
     | ExpectingVersionSymbol
     | ExpectingComment
+    | InfiniteLoop
 
 
 problemToString : Problem -> String
@@ -168,6 +169,9 @@ problemToString problem =
 
         ExpectingComment ->
             "Expecting a line comment (@~ ...)"
+
+        InfiniteLoop ->
+            "Infinite Loop"
 
 
 
@@ -252,6 +256,11 @@ stringWrapSingleQuote =
 escapedSingleQuote : Token Problem
 escapedSingleQuote =
     Token "\\'" ExpectingEscapedSingleQuote
+
+
+escapingBackslash : Token Problem
+escapingBackslash =
+    Token "\\" ExpectingEscapedSingleQuote
 
 
 versionPlus : Token Problem
@@ -620,29 +629,40 @@ quotedString =
         |= Parser.loop [] quotedStringHelp
 
 
+ifProgress : RonParser (List String) -> Int -> RonParser (Parser.Step Int ())
+ifProgress parser offset =
+    succeed identity
+        |. parser
+        |= Parser.getOffset
+        |> Parser.map
+            (\newOffset ->
+                if offset == newOffset then
+                    Parser.Done ()
+
+                else
+                    Parser.Loop newOffset
+            )
+
+
 quotedStringHelp : List String -> RonParser (Parser.Step (List String) String)
 quotedStringHelp piecesReversed =
     -- TODO this function may get stuck in an infinite loop if input terminates unexpectedly
     Parser.oneOf
         [ succeed (\_ -> Parser.Loop ("\\'" :: piecesReversed))
-            |= Parser.symbol escapedSingleQuote
-
-        -- ^When we detect an escaped quote, don't stop parsing this atom
-        , succeed (\_ -> Parser.Done (String.join "" (List.reverse piecesReversed)))
+            -- When we detect an escaped quote, add it, don't stop parsing this atom
+            |= Parser.token escapedSingleQuote
+        , succeed (\_ -> Parser.Loop ("\\" :: piecesReversed))
+            -- Something else was escaped, add backslash but leave the following intact,
+            -- because it can't be an ending quote after above parser; don't stop parsing this atom
+            |= Parser.token escapingBackslash
+        , succeed (\_ -> Parser.Done (String.concat (List.reverse piecesReversed)))
+            -- Done! Finish loop when we encounter the next unescaped single quote
             |= Parser.token stringWrapSingleQuote
         , Parser.chompWhile isUninteresting
+            -- keep chomping until endquote or escape slash, then come back to top of this oneOf list
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (chunk :: piecesReversed))
         ]
-
-
-checkNonEmpty : List a -> Parser.Parser Context String ()
-checkNonEmpty list =
-    if List.isEmpty list then
-        Parser.problem "Looping without consuming characters!"
-
-    else
-        succeed ()
 
 
 isUninteresting : Char -> Bool
@@ -651,12 +671,17 @@ isUninteresting char =
     -- use case, in case Char == check is still unoptimized in compiler
     case char of
         '\\' ->
+            -- just \
+            -- interesting because we are about to escape the next character
             False
 
         '\'' ->
+            -- just '
+            -- interesting because an unescaped single quote means the end
             False
 
         _ ->
+            -- everything else is uninteresting, keep chomping till we hit one of the above
             True
 
 
