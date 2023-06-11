@@ -503,6 +503,10 @@ globalLayout model replica innerStuff =
             , Ion.Content.content []
                 [ Ion.List.list []
                     [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (ToggleDarkTheme (not temp.darkThemeActive))
+                    , Ion.Item.item [ Ion.Item.button, HE.onClick (ThirdPartySync Marvin), Ion.Item.detail False ]
+                        [ Ion.Item.label [] [ H.text "Test Marvin Sync" ]
+                        , Ion.Icon.withAttr "sync-outline" [ Ion.Toolbar.placeEnd ]
+                        ]
                     , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/"
