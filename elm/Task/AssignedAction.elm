@@ -393,3 +393,8 @@ getExtra key instance =
 setExtra : String -> String -> AssignedAction -> Change
 setExtra key value instance =
     RepDict.insert key value (Reg.latest instance.instance).extra
+
+
+deleteAssignment : AssignedAction -> Change
+deleteAssignment instance =
+    instance.remove

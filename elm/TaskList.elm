@@ -332,7 +332,7 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
             ]
         , node "ion-item-options"
             []
-            [ node "ion-item-option" [ attribute "color" "danger", onClick (SimpleChange task.remove) ] [ text "delete" ]
+            [ node "ion-item-option" [ attribute "color" "danger", onClick (Delete task) ] [ text "delete" ]
             , startTrackingButton task trackedTaskMaybe
             ]
         ]
@@ -909,7 +909,7 @@ type Msg
     | OpenEditor (Maybe AssignedAction)
     | CloseEditor
     | Add
-    | Delete AssignedActionID
+    | Delete AssignedAction
     | DeleteComplete
     | UpdateProgress AssignedAction Portion
     | FocusSlider AssignedAction Bool
@@ -1045,14 +1045,16 @@ update msg state profile env =
             -- , { profile | taskInstances = IntDict.update id (Maybe.map updateTask) profile.taskInstances }
             -- , []
             -- )
-            Debug.todo "UpdateTaskDate"
+            Debug.todo "Not yet implemented: UpdateTaskTitle"
 
-        Delete id ->
-            -- ( state
-            -- , { profile | taskInstances = IntDict.remove id profile.taskInstances }
-            -- , []
-            -- )
-            Debug.todo "Delete"
+        Delete assignedAction ->
+            ( state
+            , Change.saveChanges "Deleting an action assignment"
+                [ AssignedAction.deleteAssignment assignedAction
+                , RepList.insert RepList.Last ("Deleted item: " ++ AssignedAction.getTitle assignedAction) profile.errors
+                ]
+            , []
+            )
 
         DeleteComplete ->
             ( state
