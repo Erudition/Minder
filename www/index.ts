@@ -44,8 +44,8 @@ import '@ionic/core/css/display.css';
 
 
 var orbitIsReady = false;
-var storedPassphrase = await getPassphrase(false);
-const db = await startOrbit(storedPassphrase);
+var storedPassphrase =  getPassphrase(false);
+const db =  startOrbit(storedPassphrase);
 
 // START ELM
 async function startElmApp() {
