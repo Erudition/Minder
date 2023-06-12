@@ -83,7 +83,7 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
                     if OpID.isReversion (Op.id newOp) then
                         -- this op reverts a real event
                         revertEventHelper ref oldObject.events opDict
-                            |> Debug.log ("Op " ++ OpID.toString (Op.id newOp) ++ " reverts op " ++ OpID.toString ref ++ " in object " ++ OpID.toString oldObject.creation ++ ". new event dict")
+                        -- |> Debug.log ("Op " ++ OpID.toString (Op.id newOp) ++ " reverts op " ++ OpID.toString ref ++ " in object " ++ OpID.toString oldObject.creation ++ ". new event dict")
 
                     else
                         ( AnyDict.insert (Op.id newOp)

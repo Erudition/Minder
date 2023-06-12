@@ -33,7 +33,7 @@ export default defineConfig({
     //       ]
     //     }
     // }),
-    elmPlugin({debug: true, optimize: false} ),
+    elmPlugin({debug: false, optimize: false} ),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
         protocolImports: false,
