@@ -102,8 +102,8 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init =
             List.filterMap eventToItem sortedEvents
 
         eventToItem ( eventID, event ) =
-            case ( payloadToMember (Object.eventPayloadAsJson event), Object.eventReverted event ) of
-                ( Just item, False ) ->
+            case payloadToMember (Object.eventPayloadAsJson event) of
+                Just item ->
                     Just
                         { handle = Handle eventID
                         , value = item

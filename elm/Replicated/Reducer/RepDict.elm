@@ -77,8 +77,8 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
 
         eventToMemberPair : Change.ExistingID -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
         eventToMemberPair containerExistingID ( eventID, event ) =
-            case ( payloadToEntry (Object.eventPayloadAsJson event), Object.eventReverted event ) of
-                ( Just (Present key val), False ) ->
+            case payloadToEntry (Object.eventPayloadAsJson event) of
+                Just (Present key val) ->
                     Just
                         ( key
                         , { value = val

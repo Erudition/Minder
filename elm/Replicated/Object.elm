@@ -80,13 +80,14 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
             -- op ref means it's an event op (or reversion)
             let
                 ( newEventDict, newWarnings ) =
-                    if Op.pattern newOp == Op.DeletionOp then
+                    if OpID.isReversion (Op.id newOp) then
                         -- this op reverts a real event
                         revertEventHelper ref oldObject.events opDict
+                            |> Debug.log ("Op " ++ OpID.toString (Op.id newOp) ++ " reverts op " ++ OpID.toString ref ++ " in object " ++ OpID.toString oldObject.creation ++ ". new event dict")
 
                     else
                         ( AnyDict.insert (Op.id newOp)
-                            (Event { referencedOp = ref, reverted = False, payload = Op.payload newOp })
+                            (Event { referencedOp = ref, payload = Op.payload newOp })
                             oldObject.events
                         , []
                         )
@@ -109,25 +110,52 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
 {-| Internal function to find the event to revert.
 -}
 revertEventHelper : OpID -> EventDict -> OpDict -> ( EventDict, List ObjectBuildWarning )
-revertEventHelper ref eventDict opDict =
-    case AnyDict.get ref eventDict of
-        Just foundEventToRevert ->
-            ( AnyDict.insert ref (revertEvent foundEventToRevert) eventDict, [] )
+revertEventHelper opIDToRevert eventDict opDict =
+    case ( AnyDict.member opIDToRevert eventDict, OpID.isReversion opIDToRevert ) of
+        ( True, _ ) ->
+            -- found our reverted event. remove it!
+            ( AnyDict.remove opIDToRevert eventDict, [] )
 
-        Nothing ->
-            -- maybe the op reverts another reversion op, rather than an event directly
-            case AnyDict.get ref opDict of
+        ( False, True ) ->
+            -- the reverted op points to a reversion op. go get the second one it points to
+            case AnyDict.get opIDToRevert opDict of
                 Nothing ->
-                    ( eventDict, [ UnknownReference ref ] )
+                    ( eventDict, [ UnknownReference (Log.log "unknown op ID to revert" opIDToRevert) ] )
 
-                Just referencedOp ->
-                    case Op.reference referencedOp of
+                Just secondReversionOp ->
+                    -- we found the reversion op that should be reverted!
+                    case Op.reference secondReversionOp of
                         Op.ReducerReference _ ->
-                            Log.crashInDev "Tried to revert a creation op!" ( eventDict, [ UnknownReference ref ] )
+                            -- impossible, creation ops can't be reversion ops.
+                            Log.crashInDev "Tried to revert a creation op!" ( eventDict, [ UnknownReference opIDToRevert ] )
 
-                        Op.OpReference opID ->
-                            -- recursively find the event to revert
-                            revertEventHelper opID eventDict opDict
+                        Op.OpReference thirdOpID ->
+                            -- does the second reversion op point to a third reversion op?
+                            if OpID.isReversion thirdOpID then
+                                -- yup. start over with that one.
+                                revertEventHelper thirdOpID eventDict opDict
+
+                            else
+                                -- nope, normal op! assume it was a former event of ours. go get it
+                                case AnyDict.get thirdOpID opDict of
+                                    Just opToReinstate ->
+                                        case Op.reference opToReinstate of
+                                            Op.ReducerReference _ ->
+                                                -- impossible, creation ops can't be events, nor can they be reverted.
+                                                Log.crashInDev "Tried to unrevert a creation op!" ( eventDict, [ UnknownReference opIDToRevert ] )
+
+                                            Op.OpReference referenceOfThirdOp ->
+                                                ( AnyDict.insert (Op.id opToReinstate)
+                                                    (Event { referencedOp = referenceOfThirdOp, payload = Op.payload opToReinstate })
+                                                    eventDict
+                                                , []
+                                                )
+
+                                    Nothing ->
+                                        ( eventDict, [ UnknownReference thirdOpID ] )
+
+        ( False, False ) ->
+            ( eventDict, [ UnknownReference (Log.log "couldn't find op to revert" opIDToRevert) ] )
 
 
 type ObjectBuildWarning
@@ -196,12 +224,12 @@ type alias EventPayload =
     Op.OpPayloadAtoms
 
 
-{-| An event that has not been undone/deleted.
+{-| An object update that has not been reverted. Reversion ops themselves are not included, so Object Events are always the type of op the reducer is expecting to work with.
 -}
 type
     Event
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = Event { referencedOp : OpID, reverted : Bool, payload : EventPayload }
+    = Event { referencedOp : OpID, payload : EventPayload }
 
 
 eventReference : Event -> OpID
@@ -212,16 +240,6 @@ eventReference (Event event) =
 eventPayload : Event -> EventPayload
 eventPayload (Event event) =
     event.payload
-
-
-eventReverted : Event -> Bool
-eventReverted (Event event) =
-    event.reverted
-
-
-revertEvent : Event -> Event
-revertEvent (Event event) =
-    Event { event | reverted = not event.reverted }
 
 
 eventPayloadAsJson : Event -> JE.Value
