@@ -146,6 +146,7 @@ view state profile env =
                             []
                             [ lazy viewInput field
                             , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
+                            , Html.Styled.Lazy.lazy4 viewProjects env.launchTime env.timeZone activeFilter profile
 
                             -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
                             ]
@@ -185,6 +186,131 @@ onEnter msg =
 
 -- VIEW ALL TODOS
 -- viewTasks : String -> List AssignedAction -> Html Msg
+
+
+viewProjects : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
+viewProjects time timeZone filter profile =
+    let
+        trackedTaskMaybe =
+            Activity.Timeline.currentInstanceID profile.timeline
+
+        sortedProjects =
+            RepList.list profile.taskEntries
+    in
+    Keyed.node "ion-list" [] <|
+        List.map (viewKeyedProject ( time, timeZone ) trackedTaskMaybe) sortedProjects
+
+
+viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> RepList.Item Entry.RootEntry -> ( String, Html Msg )
+viewKeyedProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
+    ( RepList.handleString rootEntryItem, lazy3 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem )
+
+
+viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> RepList.Item Entry.RootEntry -> Html Msg
+viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
+    let
+        entryContents =
+            case rootEntryItem.value of
+                Entry.AssignableIsDeeper containerOfAssignables ->
+                    Debug.todo "containerOfAssignables"
+
+                Entry.AssignableIsHere assignable ->
+                    viewAssignable ( time, timeZone ) trackedTaskMaybe assignable
+    in
+    node "ion-item-sliding"
+        []
+        [ node "ion-item"
+            [ classList []
+            , attribute "data-flip-key" ("project-" ++ RepList.handleString rootEntryItem)
+            ]
+            [ node "ion-thumbnail"
+                [ class "project-image"
+                , attribute "slot" "start"
+                ]
+                [ img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
+                ]
+            , div []
+                [ node "ion-label"
+                    []
+                    [ text "Entry title"
+                    ]
+                , entryContents
+                ]
+            ]
+        , node "ion-item-options"
+            []
+            [ node "ion-item-option" [ attribute "color" "danger" ] [ text "delete" ]
+            ]
+        ]
+
+
+viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Reg Entry.Assignable -> Html Msg
+viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
+    let
+        assignable =
+            Reg.latest assignableReg
+
+        properties =
+            Reg.latest assignable.properties
+
+        assignableTitle =
+            case properties.title.get of
+                Just title ->
+                    [ text title ]
+
+                Nothing ->
+                    [ text "Untitled Assignable" ]
+
+        noAssignables =
+            node "ion-card"
+                []
+                [ node "ion-card-header"
+                    []
+                    [ node "ion-card-title" [] assignableTitle
+                    , node "ion-card-subtitle" [] [ text "No assignables" ]
+                    ]
+                , node "ion-card-content"
+                    []
+                    []
+                , node "ion-button" [ attribute "fill" "clear" ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
+                ]
+
+        viewSubAssignables =
+            List.map viewSubAssignable (RepList.listValues assignable.children)
+
+        viewSubAssignable subAssignable =
+            case subAssignable of
+                Entry.ActionIsHere actionClassReg ->
+                    text "action is here"
+
+                Entry.ActionIsDeeper containerOfActions ->
+                    text (Debug.toString containerOfActions)
+    in
+    div
+        [ class "assignments" ]
+        ([ node "ion-card-subtitle" [] assignableTitle ] ++ viewSubAssignables)
+
+
+viewAssignment ( time, timeZone ) trackedTaskMaybe assignmentRegItem =
+    let
+        assignment =
+            Reg.latest assignmentRegItem.value
+    in
+    node "ion-card"
+        []
+        [ node "ion-card-header"
+            []
+            [ node "ion-card-title" [] []
+            , node "ion-card-subtitle" [] [ text "Subtitle" ]
+            ]
+        , node "ion-card-content"
+            []
+            [ text "card content" ]
+        ]
+
+
+
+--- old view
 
 
 viewTasks : Moment -> HumanMoment.Zone -> Filter -> Maybe CurrentlyEditing -> Profile -> Html Msg
@@ -938,10 +1064,10 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle _ ->
                     let
-                        newAction : Change.Creator (Reg ActionClass.ActionClassSkel)
+                        newAction : Change.Creator (Reg ActionClass.AssignmentSkel)
                         newAction c =
                             let
-                                newClassChanger : Reg ActionClass.ActionClassSkel -> List Change
+                                newClassChanger : Reg ActionClass.AssignmentSkel -> List Change
                                 newClassChanger newClass =
                                     [ RepDb.addNew (AssignedAction.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
