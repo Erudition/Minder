@@ -4,13 +4,14 @@ import Helpers exposing (..)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Maybe.Extra
+import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.ActionClass exposing (ActionClassSkel, ParentProperties)
-import Task.AssignedAction exposing (AssignedAction, AssignedActionSkel)
+import Task.Action exposing (TrackableLayerProperties)
+import Task.Assignable
+import Task.Assignment exposing (Assignment, AssignmentSkel)
 import Task.SessionSkel exposing (..)
-import Replicated.Reducer.Register as Reg exposing (Reg)
 
 
 
@@ -20,9 +21,9 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 {-| A fully spec'ed-out version of a PlannedSession
 -}
 type alias FullSession =
-    { parents : List (Reg ParentProperties)
-    , class : (Reg ActionClassSkel)
-    , instance : (Reg AssignedActionSkel)
+    { parents : List (Reg TrackableLayerProperties)
+    , assignable : Reg Task.Assignable.AssignableSkel
+    , assignment : Reg AssignmentSkel
     , session : UserPlannedSession
     }
 
@@ -31,25 +32,25 @@ type alias FullSession =
 -- TODO replace this?
 
 
-makeFullSession : AssignedAction -> UserPlannedSession -> FullSession
+makeFullSession : Assignment -> UserPlannedSession -> FullSession
 makeFullSession inherited justSession =
-    { parents = (inherited).parents
-    , class = inherited.class
-    , instance = inherited.instance
+    { parents = inherited.parents
+    , assignable = inherited.assignable
+    , assignment = inherited.assignment
     , session = justSession
     }
 
 
 {-| Get planned sessions for a FullInstance and build a FullSession list.
 -}
-getFullSessions : AssignedAction -> List FullSession
+getFullSessions : Assignment -> List FullSession
 getFullSessions fullInstance =
     let
         ins =
-            (Reg.latest fullInstance.instance)
+            Reg.latest fullInstance.assignment
 
         class =
-            (Reg.latest fullInstance.class)
+            Reg.latest fullInstance.assignable
 
         providedSessions =
             RepList.listValues ins.plannedSessions

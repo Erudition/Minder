@@ -23,8 +23,8 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import Task.ActionClass exposing (ActionClassDb)
-import Task.AssignedAction exposing (AssignedActionDb)
+import Task.Assignable exposing (AssignableDb)
+import Task.Assignment exposing (AssignmentDb)
 import Task.Entry
 import Task.Progress exposing (..)
 import Task.Session
@@ -41,8 +41,7 @@ type alias AppInstance =
 type alias Profile =
     { errors : RepList String
     , taskEntries : RepList Task.Entry.RootEntry
-    , taskClasses : ActionClassDb
-    , taskInstances : AssignedActionDb
+    , taskInstances : AssignmentDb
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -57,8 +56,7 @@ codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
         |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
-        |> Codec.fieldDb ( 3, "taskClasses" ) .taskClasses Task.ActionClass.codec
-        |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.AssignedAction.codec
+        |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.Assignment.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
@@ -112,7 +110,7 @@ saveError appData error =
 
 {-| All instances that are not expired or finished.
 -}
-instanceListNow : Profile -> ( Moment, HumanMoment.Zone ) -> List Task.AssignedAction.AssignedAction
+instanceListNow : Profile -> ( Moment, HumanMoment.Zone ) -> List Task.Assignment.Assignment
 instanceListNow profile ( time, timeZone ) =
     let
         fullClasses =
@@ -125,18 +123,18 @@ instanceListNow profile ( time, timeZone ) =
         rightNow =
             Period.instantaneous time
     in
-    Task.AssignedAction.listAllAssignedActions fullClasses profile.taskInstances ( zoneHistory, rightNow )
+    Task.Assignment.listAllAssignments fullClasses profile.taskInstances ( zoneHistory, rightNow )
 
 
-trackedInstance : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.AssignedAction.AssignedAction
+trackedInstance : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.Assignment.Assignment
 trackedInstance profile ( time, timeZone ) =
     Maybe.andThen (getInstanceByID profile ( time, timeZone )) (Activity.Timeline.currentInstanceID profile.timeline)
 
 
-getInstanceByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.AssignedAction.AssignedActionID -> Maybe Task.AssignedAction.AssignedAction
+getInstanceByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.Assignment.AssignmentID -> Maybe Task.Assignment.Assignment
 getInstanceByID profile ( time, timeZone ) instanceID =
     -- TODO optimize
-    List.head (List.filter (\i -> Task.AssignedAction.getID i == instanceID) (instanceListNow profile ( time, timeZone )))
+    List.head (List.filter (\i -> Task.Assignment.getID i == instanceID) (instanceListNow profile ( time, timeZone )))
 
 
 getActivityByID : Profile -> ActivityID -> Activity

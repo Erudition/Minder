@@ -27,8 +27,8 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.ActionClass as Task exposing (ActionClassSkel)
-import Task.AssignedAction as Task exposing (AssignedActionSkel)
+import Task.Assignable as Task exposing (AssignmentSkel)
+import Task.Assignment as Task exposing (AssignmentSkel)
 import Task.Progress
 import Url
 import Url.Builder
@@ -226,7 +226,7 @@ filterActivityProjects projects activities =
     IntDict.filterMap (\i p -> pickFirstMatch p.name) projects
 
 
-timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( ActionClassSkel, AssignedActionSkel )
+timetrackItemToTask : IntDict ActivityID -> Item -> Maybe ( AssignmentSkel, AssignmentSkel )
 timetrackItemToTask lookup item =
     -- Equivalent to the one-liner:
     --      Maybe.map (\act -> itemToTask act item) (IntDict.get item.project_id lookup)
@@ -239,14 +239,14 @@ timetrackItemToTask lookup item =
             Nothing
 
 
-itemToTask : Activity.ActivityID -> Item -> ( ActionClassSkel, AssignedActionSkel )
+itemToTask : Activity.ActivityID -> Item -> ( AssignmentSkel, AssignmentSkel )
 itemToTask activityID item =
     -- let
-    --     newActionClassSkel =
+    --     newAssignableSkel =
     --         Debug.todo "todoist items need to use changers"
     --
     --     base =
-    --         newActionClassSkel (Task.normalizeTitle newName) item.id
+    --         newAssignableSkel (Task.normalizeTitle newName) item.id
     --
     --     ( newName, ( minDur, maxDur ) ) =
     --         extractTiming2 item.content
@@ -273,11 +273,11 @@ itemToTask activityID item =
     --             , externalDeadline = Maybe.andThen getDueDate item.due
     --         }
     --
-    --     newAssignedActionSkel =
+    --     newAssignmentSkel =
     --         Debug.todo "todoist items need to use changers"
     --
     --     newTaskInstance =
-    --         newAssignedActionSkel item.id class
+    --         newAssignmentSkel item.id class
     -- in
     -- ( class, instance )
     Debug.todo "todoist items need to use changers"

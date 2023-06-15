@@ -41,8 +41,8 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.ActionClass as ActionClass exposing (ActionClass)
-import Task.AssignedAction as AssignedAction exposing (AssignedAction, AssignedActionSkel)
+import Task.Assignable as ActionClass exposing (ActionClass)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentSkel)
 import Task.Entry as Task
 import Task.Progress exposing (..)
 import Task.Session as Task
@@ -1022,7 +1022,7 @@ makeHistoryBlob env profile displayPeriod session =
 
         sessionProjectName =
             -- TODO
-            Maybe.map AssignedAction.getTitle sessionProjectMaybe
+            Maybe.map Assignment.getTitle sessionProjectMaybe
 
         activityName =
             Activity.getName sessionActivity

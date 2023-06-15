@@ -19,7 +19,7 @@ import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
 import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period exposing (Period)
-import Task.AssignedAction exposing (AssignedActionID)
+import Task.Assignment exposing (AssignmentID)
 
 
 type Session
@@ -30,7 +30,7 @@ type alias SessionSkel =
     { start : Moment
     , end : Moment
     , activity : ActivityID
-    , action : Maybe AssignedActionID
+    , action : Maybe AssignmentID
     }
 
 
@@ -49,7 +49,7 @@ new :
     { start : Moment
     , end : Moment
     , activity : ActivityID
-    , action : Maybe AssignedActionID
+    , action : Maybe AssignmentID
     }
     -> Session
 new sessionDetails =
@@ -71,7 +71,7 @@ getEnd (Session { end }) =
     end
 
 
-getInstanceID : Session -> Maybe AssignedActionID
+getInstanceID : Session -> Maybe AssignmentID
 getInstanceID (Session { action }) =
     action
 
@@ -81,7 +81,7 @@ getPeriod (Session session) =
     SmartTime.Period.fromPair ( session.start, session.end )
 
 
-instanceMatches : AssignedActionID -> Session -> Bool
+instanceMatches : AssignmentID -> Session -> Bool
 instanceMatches givenInstanceID (Session givenSession) =
     case givenSession.action of
         Just foundInstance ->

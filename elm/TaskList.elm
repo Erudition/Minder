@@ -54,8 +54,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.ActionClass as ActionClass exposing (ActionClass, ActionClassID)
-import Task.AssignedAction as AssignedAction exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, getProgress, isRelevantNow)
+import Task.Assignable as ActionClass exposing (ActionClass, ActionClassID)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
 import Task.Session
@@ -115,12 +115,12 @@ type alias NewTaskField =
 type CurrentlyEditing
     = EditingProjectTitle ActionClass.ActionClassID String
     | EditingProjectDate
-    | EditingProjectModal (Maybe AssignedAction)
+    | EditingProjectModal (Maybe Assignment)
 
 
 allFullTaskInstances profile ( launchTime, zone ) =
     Profile.instanceListNow profile ( launchTime, zone )
-        |> AssignedAction.prioritize launchTime zone
+        |> Assignment.prioritize launchTime zone
 
 
 view : ViewState -> Profile -> Shared -> Html Msg
@@ -185,7 +185,7 @@ onEnter msg =
 
 
 -- VIEW ALL TODOS
--- viewTasks : String -> List AssignedAction -> Html Msg
+-- viewTasks : String -> List Assignment -> Html Msg
 
 
 viewProjects : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
@@ -201,12 +201,12 @@ viewProjects time timeZone filter profile =
         List.map (viewKeyedProject ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
-viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> RepList.Item Entry.RootEntry -> ( String, Html Msg )
+viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.RootEntry -> ( String, Html Msg )
 viewKeyedProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     ( RepList.handleString rootEntryItem, lazy3 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem )
 
 
-viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> RepList.Item Entry.RootEntry -> Html Msg
+viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.RootEntry -> Html Msg
 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     let
         entryContents =
@@ -244,7 +244,7 @@ viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
         ]
 
 
-viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Reg Entry.Assignable -> Html Msg
+viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Reg Entry.Assignable -> Html Msg
 viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
     let
         assignable =
@@ -349,22 +349,22 @@ viewTasks time timeZone filter editingMaybe profile =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Maybe CurrentlyEditing -> AssignedAction -> ( String, Html Msg )
+viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> ( String, Html Msg )
 viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
-    ( AssignedAction.getIDString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
+    ( Assignment.getIDString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
 
 
 
--- viewTask : AssignedAction -> Html Msg
+-- viewTask : Assignment -> Html Msg
 
 
-viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignedActionID -> Maybe CurrentlyEditing -> AssignedAction -> Html Msg
+viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> Html Msg
 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
     node "ion-item-sliding"
         []
         [ node "ion-item"
             [ classList [ ( "completed", completed task ), ( "editing", False ) ]
-            , attribute "data-flip-key" ("task-" ++ AssignedAction.getClassIDString task)
+            , attribute "data-flip-key" ("task-" ++ Assignment.getClassIDString task)
             ]
             [ div
                 [ class "task-bubble"
@@ -391,11 +391,11 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                     , textAlign center
                     ]
                 ]
-                [ if SmartTime.Duration.isZero (AssignedAction.getEstimatedEffort task) then
+                [ if SmartTime.Duration.isZero (Assignment.getEstimatedEffort task) then
                     text "?"
 
                   else
-                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
+                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.getEstimatedEffort task))))
                 ]
 
             --, node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
@@ -423,11 +423,11 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                             [ justifyContent Css.end
                             ]
                         ]
-                        [ if SmartTime.Duration.isZero (AssignedAction.getMinEffort task) then
+                        [ if SmartTime.Duration.isZero (Assignment.getMinEffort task) then
                             text ""
 
                           else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.getEstimatedEffort task))))
                         ]
                     , div
                         [ class "maximum-duration"
@@ -435,11 +435,11 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
                             [ justifyContent Css.end
                             ]
                         ]
-                        [ if SmartTime.Duration.isZero (AssignedAction.getMaxEffort task) then
+                        [ if SmartTime.Duration.isZero (Assignment.getMaxEffort task) then
                             text ""
 
                           else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (AssignedAction.getEstimatedEffort task))))
+                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.getEstimatedEffort task))))
                         ]
                     ]
                 , div
@@ -464,26 +464,26 @@ viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
         ]
 
 
-viewTaskTitle : AssignedAction -> Maybe CurrentlyEditing -> Html Msg
+viewTaskTitle : Assignment -> Maybe CurrentlyEditing -> Html Msg
 viewTaskTitle task editingMaybe =
     let
         titleNotEditing =
             node "ion-label"
                 [ css
-                    [ fontWeight (Css.int <| Basics.round (AssignedAction.getImportance task * 200 + 200)) ]
-                , onDoubleClick (EditingClassTitle task <| AssignedAction.getTitle task)
-                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
+                    [ fontWeight (Css.int <| Basics.round (Assignment.getImportance task * 200 + 200)) ]
+                , onDoubleClick (EditingClassTitle task <| Assignment.getTitle task)
+                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.getTitle task))
                 ]
-                [ text <| AssignedAction.getTitle task
+                [ text <| Assignment.getTitle task
                 , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
                 ]
 
         titleEditing newTitleSoFar =
             node "ion-input"
                 [ value newTitleSoFar
-                , placeholder <| "Enter a new name for: " ++ AssignedAction.getTitle task
+                , placeholder <| "Enter a new name for: " ++ Assignment.getTitle task
                 , name "title"
-                , id ("task-title-" ++ AssignedAction.getIDString task)
+                , id ("task-title-" ++ Assignment.getIDString task)
                 , onInput (EditingClassTitle task)
                 , on "ionBlur" (JD.succeed StopEditing)
                 , onEnter (UpdateTitle task newTitleSoFar)
@@ -496,7 +496,7 @@ viewTaskTitle task editingMaybe =
                 , Attr.required True
                 , attribute "error-text" <| "Minimum 2 characters."
                 , attribute "autocorrect" "on"
-                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (AssignedAction.getTitle task))
+                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.getTitle task))
                 ]
                 []
     in
@@ -512,27 +512,27 @@ viewTaskTitle task editingMaybe =
             titleNotEditing
 
 
-startTrackingButton : AssignedAction -> Maybe AssignedActionID -> Html Msg
+startTrackingButton : Assignment -> Maybe AssignmentID -> Html Msg
 startTrackingButton task trackedTaskMaybe =
-    case ( AssignedAction.getActivityID task, Maybe.map ((==) (AssignedAction.getID task)) trackedTaskMaybe ) of
+    case ( Assignment.getActivityID task, Maybe.map ((==) (Assignment.getID task)) trackedTaskMaybe ) of
         ( _, Just True ) ->
             node "ion-item-option"
-                [ attribute "color" "primary", onClick (StopTracking (AssignedAction.getID task)) ]
+                [ attribute "color" "primary", onClick (StopTracking (Assignment.getID task)) ]
                 [ node "ion-icon" [ name "pause-outline" ] [] ]
 
         ( Just activityID, _ ) ->
             node "ion-item-option"
-                [ attribute "color" "primary", onClick (StartTracking (AssignedAction.getID task) activityID) ]
+                [ attribute "color" "primary", onClick (StartTracking (Assignment.getID task) activityID) ]
                 [ node "ion-icon" [ name "play-outline" ] [] ]
 
         ( Nothing, _ ) ->
             node "ion-item-option"
-                [ attribute "color" "primary", onClick (StartTracking (AssignedAction.getID task) Activity.unknown) ]
+                [ attribute "color" "primary", onClick (StartTracking (Assignment.getID task) Activity.unknown) ]
                 [ node "ion-icon" [ name "play-outline" ] [] ]
 
 
 
--- viewTaskEditModal : Profile -> Shared -> (Maybe AssignedAction) -> Html Msg
+-- viewTaskEditModal : Profile -> Shared -> (Maybe Assignment) -> Html Msg
 -- viewTaskEditModal profile env assignmentMaybe =
 --     let
 --         activitySelectOption givenActivity =
@@ -550,7 +550,7 @@ startTrackingButton task trackedTaskMaybe =
 --                     [ attribute "slot" "start" ]
 --                     [ node "ion-button" [ attribute "color" "medium", onClick CloseEditor ] [ text "Close" ]
 --                     ]
---                 , node "ion-title" [] [ text <| AssignedAction.getTitle assignment ]
+--                 , node "ion-title" [] [ text <| Assignment.getTitle assignment ]
 --                 , node "ion-buttons"
 --                     [ attribute "slot" "end" ]
 --                     [ node "ion-button" [ attribute "strong" "true" ] [ text "Confirm" ]
@@ -611,7 +611,7 @@ activityColor task =
         activityDerivation n =
             modBy 360 ((n + 1) * 333)
     in
-    case Maybe.map String.length (AssignedAction.getActivityIDString task) of
+    case Maybe.map String.length (Assignment.getActivityIDString task) of
         Just activityNumber ->
             let
                 hue =
@@ -629,27 +629,27 @@ activityColor task =
             }
 
 
-taskTooltip : ( Moment, HumanMoment.Zone ) -> AssignedAction.AssignedAction -> String
+taskTooltip : ( Moment, HumanMoment.Zone ) -> Assignment.Assignment -> String
 taskTooltip ( time, timeZone ) task =
     -- hover tooltip
     String.concat <|
         List.intersperse "\n" <|
             List.filterMap identity
-                ([ Just ("Class ID: " ++ AssignedAction.getClassIDString task)
-                 , Just ("Instance ID: " ++ AssignedAction.getIDString task)
-                 , Maybe.map (String.append "activity ID: ") (AssignedAction.getActivityIDString task)
-                 , Just ("importance: " ++ String.fromFloat (AssignedAction.getImportance task))
-                 , Just ("progress: " ++ Task.Progress.toString (AssignedAction.getProgress task))
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (AssignedAction.getRelevanceStarts task)
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (AssignedAction.getRelevanceEnds task)
+                ([ Just ("Class ID: " ++ Assignment.getClassIDString task)
+                 , Just ("Instance ID: " ++ Assignment.getIDString task)
+                 , Maybe.map (String.append "activity ID: ") (Assignment.getActivityIDString task)
+                 , Just ("importance: " ++ String.fromFloat (Assignment.getImportance task))
+                 , Just ("progress: " ++ Task.Progress.toString (Assignment.getProgress task))
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.getRelevanceStarts task)
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.getRelevanceEnds task)
                  ]
                     ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
                 )
 
 
-{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our AssignedAction entry.
+{-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Assignment entry.
 -}
-progressSlider : AssignedAction -> Html Msg
+progressSlider : Assignment -> Html Msg
 progressSlider task =
     let
         completion =
@@ -703,7 +703,7 @@ dynamicSliderThumbCss portion =
         ]
 
 
-extractSliderInput : AssignedAction -> String -> Msg
+extractSliderInput : Assignment -> String -> Msg
 extractSliderInput task input =
     UpdateProgress task <|
         Basics.round <|
@@ -717,14 +717,14 @@ extractSliderInput task input =
 TODO currently only captures deadline
 TODO doesn't specify "ago", "in", etc.
 -}
-timingInfo : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Html Msg
+timingInfo : ( Moment, HumanMoment.Zone ) -> Assignment -> Html Msg
 timingInfo ( time, timeZone ) task =
     let
         effortDescription =
             describeEffort task
 
         uniquePrefix =
-            "task-" ++ ID.toString (AssignedAction.getID task) ++ "-"
+            "task-" ++ ID.toString (Assignment.getID task) ++ "-"
 
         dateLabelNameAndID : String
         dateLabelNameAndID =
@@ -733,8 +733,8 @@ timingInfo ( time, timeZone ) task =
         dueDate_editable =
             editableDateLabel ( time, timeZone )
                 dateLabelNameAndID
-                (Maybe.map (HumanMoment.dateFromFuzzy timeZone) (AssignedAction.getExternalDeadline task))
-                (attemptDateChange ( time, timeZone ) task (AssignedAction.getExternalDeadline task) "Due")
+                (Maybe.map (HumanMoment.dateFromFuzzy timeZone) (Assignment.getExternalDeadline task))
+                (attemptDateChange ( time, timeZone ) task (Assignment.getExternalDeadline task) "Due")
 
         timeLabelNameAndID =
             uniquePrefix ++ "due-time-field"
@@ -743,10 +743,10 @@ timingInfo ( time, timeZone ) task =
             editableTimeLabel ( time, timeZone )
                 timeLabelNameAndID
                 deadlineTime
-                (attemptTimeChange ( time, timeZone ) task (AssignedAction.getExternalDeadline task) "Due")
+                (attemptTimeChange ( time, timeZone ) task (Assignment.getExternalDeadline task) "Due")
 
         deadlineTime =
-            case Maybe.map (HumanMoment.timeFromFuzzy timeZone) (AssignedAction.getExternalDeadline task) of
+            case Maybe.map (HumanMoment.timeFromFuzzy timeZone) (Assignment.getExternalDeadline task) of
                 Just (Just timeOfDay) ->
                     Just timeOfDay
 
@@ -822,13 +822,13 @@ editableTimeLabel env uniqueName givenTimeMaybe changeEvent =
     ]
 
 
-describeEffort : AssignedAction -> String
+describeEffort : Assignment -> String
 describeEffort task =
     let
         sayEffort amount =
             HumanDuration.breakdownNonzero amount
     in
-    case ( sayEffort (AssignedAction.getMinEffort task), sayEffort (AssignedAction.getEstimatedEffort task), sayEffort (AssignedAction.getMaxEffort task) ) of
+    case ( sayEffort (Assignment.getMinEffort task), sayEffort (Assignment.getEstimatedEffort task), sayEffort (Assignment.getMaxEffort task) ) of
         ( [], [], [] ) ->
             ""
 
@@ -860,7 +860,7 @@ describeTaskPlan ( time, timeZone ) fullSession =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : ( Moment, HumanMoment.Zone ) -> Assignment -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange ( time, timeZone ) task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -884,7 +884,7 @@ attemptDateChange ( time, timeZone ) task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : ( Moment, HumanMoment.Zone ) -> Assignment -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange ( time, timeZone ) task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -914,7 +914,7 @@ viewControls visibilityFilters time zone profile =
             allFullTaskInstances profile ( time, zone )
 
         tasksCompleted =
-            List.length (List.filter AssignedAction.completed sortedTasks)
+            List.length (List.filter Assignment.completed sortedTasks)
 
         tasksLeft =
             List.length sortedTasks - tasksCompleted
@@ -1029,23 +1029,23 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingClassTitle AssignedAction String
+    | EditingClassTitle Assignment String
     | StopEditing
-    | UpdateTitle AssignedAction String
-    | OpenEditor (Maybe AssignedAction)
+    | UpdateTitle Assignment String
+    | OpenEditor (Maybe Assignment)
     | CloseEditor
     | Add
-    | Delete AssignedAction
+    | Delete Assignment
     | DeleteComplete
-    | UpdateProgress AssignedAction Portion
-    | FocusSlider AssignedAction Bool
-    | UpdateTaskDate AssignedAction String (Maybe FuzzyMoment)
+    | UpdateProgress Assignment Portion
+    | FocusSlider Assignment Bool
+    | UpdateTaskDate Assignment String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
     | MarvinServerResponse Marvin.Msg
-    | StartTracking AssignedActionID ActivityID
-    | StopTracking AssignedActionID
+    | StartTracking AssignmentID ActivityID
+    | StopTracking AssignmentID
     | SimpleChange Change
     | LogError String
 
@@ -1069,10 +1069,10 @@ update msg state profile env =
                             let
                                 newClassChanger : Reg ActionClass.AssignmentSkel -> List Change
                                 newClassChanger newClass =
-                                    [ RepDb.addNew (AssignedAction.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
                             in
-                            ActionClass.newActionClassSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
+                            ActionClass.newAssignableSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
@@ -1108,7 +1108,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
             , Change.none
-            , [ Effect.FocusIonInput ("task-title-" ++ AssignedAction.getIDString action) ]
+            , [ Effect.FocusIonInput ("task-title-" ++ Assignment.getIDString action) ]
             )
 
         OpenEditor actionMaybe ->
@@ -1150,12 +1150,12 @@ update msg state profile env =
                     ActionClass.normalizeTitle newTitle
 
                 changeTitleIfValid =
-                    case (String.length normalizedNewTitle < 2) || normalizedNewTitle == AssignedAction.getTitle action of
+                    case (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignment.getTitle action of
                         True ->
                             Change.none
 
                         False ->
-                            Change.saveChanges "Updating project title" [ AssignedAction.setProjectTitle newTitle action ]
+                            Change.saveChanges "Updating project title" [ Assignment.setProjectTitle newTitle action ]
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
@@ -1173,11 +1173,11 @@ update msg state profile env =
             -- )
             Debug.todo "Not yet implemented: UpdateTaskTitle"
 
-        Delete assignedAction ->
+        Delete Assignment ->
             ( state
             , Change.saveChanges "Deleting an action assignment"
-                [ AssignedAction.deleteAssignment assignedAction
-                , RepList.insert RepList.Last ("Deleted item: " ++ AssignedAction.getTitle assignedAction) profile.errors
+                [ Assignment.deleteAssignment Assignment
+                , RepList.insert RepList.Last ("Deleted item: " ++ Assignment.getTitle Assignment) profile.errors
                 ]
             , []
             )
@@ -1185,27 +1185,27 @@ update msg state profile env =
         DeleteComplete ->
             ( state
             , Change.none
-              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (AssignedAction.completed t)) profile.taskInstances }
+              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
             , []
             )
 
         UpdateProgress givenTask newCompletion ->
             -- let
             --     updateTaskInstance t =
-            --         AssignedAction.setCompletion newCompletion
+            --         Assignment.setCompletion newCompletion
             --
             --     oldProgress =
-            --         AssignedAction.instanceProgress givenTask
+            --         Assignment.instanceProgress givenTask
             --
             --     profile1WithUpdatedInstance =
-            --         { profile | taskInstances = IntDict.update givenTask.AssignedAction.id (Maybe.map updateTaskInstance) profile.taskInstances }
+            --         { profile | taskInstances = IntDict.update givenTask.Assignment.id (Maybe.map updateTaskInstance) profile.taskInstances }
             -- in
             -- -- how does the new completion status compare to the previous?
             -- case ( isMax oldProgress, isMax ( newCompletion, getUnits oldProgress ) ) of
             --     ( False, True ) ->
             --         let
             --             ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
-            --                 update (StopTracking (AssignedAction.getID givenTask)) state profile1WithUpdatedInstance env
+            --                 update (StopTracking (Assignment.getID givenTask)) state profile1WithUpdatedInstance env
             --         in
             --         ( viewState2
             --         , profile2WithTrackingStopped
@@ -1333,7 +1333,7 @@ urlTriggers profile ( time, timeZone ) =
             List.map doneTriggerEntry fullTaskInstances
 
         doneTriggerEntry fullInstance =
-            ( ID.toString (AssignedAction.getID fullInstance), UpdateProgress fullInstance (getWhole (AssignedAction.getProgress fullInstance)) )
+            ( ID.toString (Assignment.getID fullInstance), UpdateProgress fullInstance (getWhole (Assignment.getProgress fullInstance)) )
 
         taskIDsWithStartMsg =
             List.filterMap startTriggerEntry fullTaskInstances
@@ -1344,15 +1344,15 @@ urlTriggers profile ( time, timeZone ) =
                 |> List.map (\( entryID, _, entryStop ) -> ( entryID, entryStop ))
 
         startTriggerEntry fullInstance =
-            case AssignedAction.getActivityID fullInstance of
+            case Assignment.getActivityID fullInstance of
                 Nothing ->
                     Nothing
 
                 Just hasActivityID ->
                     Just
-                        ( ID.toString (AssignedAction.getID fullInstance)
-                        , StartTracking (AssignedAction.getID fullInstance) hasActivityID
-                        , StopTracking (AssignedAction.getID fullInstance)
+                        ( ID.toString (Assignment.getID fullInstance)
+                        , StartTracking (Assignment.getID fullInstance) hasActivityID
+                        , StopTracking (Assignment.getID fullInstance)
                         )
     in
     [ ( "complete", Dict.fromList tasksIDsWithDoneMsg )

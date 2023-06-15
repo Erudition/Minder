@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), Item, RepList, append, buildFromReplicaDb, dict, getInit, getPointer, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove)
+module Replicated.Reducer.RepList exposing (Handle, InsertionPoint(..), Item, RepList, append, buildFromReplicaDb, dict, getInit, getPointer, handleString, head, headValue, insert, insertNew, last, length, list, listValues, reducerID, remove)
 
 import Array exposing (Array)
 import Console
@@ -35,6 +35,18 @@ type alias Item memberType =
     { handle : Handle
     , value : memberType
     }
+
+
+{-| Want to use a replist with Html.Keyed?
+Here's your key.
+-}
+handleString : Item memberType -> String
+handleString { handle } =
+    let
+        (Handle itemID) =
+            handle
+    in
+    OpID.toString itemID
 
 
 head : RepList memberType -> Maybe (Item memberType)
@@ -150,10 +162,10 @@ list (RepList repSetRecord) =
 dict : RepList memberType -> Dict OpIDString memberType
 dict (RepList repSetRecord) =
     let
-        handleString (Handle handle) =
+        handleToString (Handle handle) =
             OpID.toString handle
     in
-    Dict.fromList (List.map (\member -> ( handleString member.handle, member.value )) repSetRecord.members)
+    Dict.fromList (List.map (\member -> ( handleToString member.handle, member.value )) repSetRecord.members)
 
 
 

@@ -71,7 +71,7 @@ import SmartTime.Human.Moment
 import SmartTime.Moment as Moment
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.AssignedAction as AssignedAction exposing (AssignedAction)
+import Task.Assignment as Assignment exposing (Assignment)
 import TaskList
 import TaskPort
 import TimeTracker
@@ -548,7 +548,7 @@ trackingDisplay replica time launchTime timeZone =
             Profile.instanceListNow replica ( launchTime, timeZone )
 
         currentInstanceMaybe currentInstanceID =
-            List.head (List.filter (\t -> AssignedAction.getID t == currentInstanceID) allInstances)
+            List.head (List.filter (\t -> Assignment.getID t == currentInstanceID) allInstances)
 
         timeSinceSession =
             Period.length (Timeline.currentAsPeriod time replica.timeline)
@@ -562,7 +562,7 @@ trackingDisplay replica time launchTime timeZone =
         trackingTitle =
             case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
                 Just trackedAssignment ->
-                    AssignedAction.getTitle trackedAssignment
+                    Assignment.getTitle trackedAssignment
 
                 Nothing ->
                     Activity.getName currentActivity
@@ -574,7 +574,7 @@ trackingDisplay replica time launchTime timeZone =
     -- , behindContent
     --     (row [ width fill, height fill ]
     --         [ el [] <| text "O"
-    --         , el [ centerX ] (text (tracking_for_string (AssignedAction.getTitle currentInstance) timeSinceSession))
+    --         , el [ centerX ] (text (tracking_for_string (Assignment.getTitle currentInstance) timeSinceSession))
     --         ]
     --     )
     -- ]
@@ -598,7 +598,7 @@ trackingTaskCompletionSlider instance =
         , Element.behindContent
             (row [ width fill, height fill ]
                 [ Element.el
-                    [ Element.width (fillPortion (AssignedAction.getCompletionInt instance))
+                    [ Element.width (fillPortion (Assignment.getCompletionInt instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 1 0 0.5)
@@ -606,7 +606,7 @@ trackingTaskCompletionSlider instance =
                     ]
                     Element.none
                 , Element.el
-                    [ Element.width (fillPortion (AssignedAction.getProgressMaxInt instance - AssignedAction.getCompletionInt instance))
+                    [ Element.width (fillPortion (Assignment.getProgressMaxInt instance - Assignment.getCompletionInt instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 0 0 0)
@@ -620,9 +620,9 @@ trackingTaskCompletionSlider instance =
         , label =
             Input.labelHidden "Task Progress"
         , min = 0
-        , max = toFloat <| AssignedAction.getProgressMaxInt instance
+        , max = toFloat <| Assignment.getProgressMaxInt instance
         , step = Just 1
-        , value = toFloat (AssignedAction.getCompletionInt instance)
+        , value = toFloat (Assignment.getCompletionInt instance)
         , thumb =
             Input.thumb []
         }

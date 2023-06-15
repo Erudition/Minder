@@ -30,6 +30,15 @@ import { defineCustomElement as defineIonSelectOption } from "@ionic/core/compon
 import { defineCustomElement as defineIonPopover } from "@ionic/core/components/ion-popover";
 import { defineCustomElement as defineIonToggle } from "@ionic/core/components/ion-toggle";
 import { defineCustomElement as defineIonRange } from "@ionic/core/components/ion-range";
+import { defineCustomElement as defineIonCard } from "@ionic/core/components/ion-card";
+import { defineCustomElement as defineIonCardContent } from "@ionic/core/components/ion-card-content";
+import { defineCustomElement as defineIonCardHeader } from "@ionic/core/components/ion-card-header";
+import { defineCustomElement as defineIonCardSubtitle } from "@ionic/core/components/ion-card-subtitle";
+import { defineCustomElement as defineIonCardTitle } from "@ionic/core/components/ion-card-title";
+import { defineCustomElement as defineIonThumbnail } from "@ionic/core/components/ion-thumbnail";
+
+
+
 //import { defineCustomElement as defineIonIcon } from "@ionic/core/components/ion-icon";
 
 
@@ -70,5 +79,11 @@ defineIonSelectOption();
 defineIonPopover();
 defineIonToggle();
 defineIonRange();
+defineIonCard();
+defineIonCardTitle();
+defineIonCardSubtitle();
+defineIonCardContent();
+defineIonCardHeader();
+defineIonThumbnail();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');

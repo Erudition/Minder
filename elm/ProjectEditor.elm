@@ -52,8 +52,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.ActionClass as ActionClass exposing (ActionClass, ActionClassID)
-import Task.AssignedAction as AssignedAction exposing (AssignedAction, AssignedActionID, AssignedActionSkel, completed, getProgress, isRelevantNow)
+import Task.Assignable as ActionClass exposing (ActionClass, ActionClassID)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
 import Task.Session
@@ -116,7 +116,7 @@ view state profile env =
     Html.Styled.Lazy.lazy4 renderView state profile env.launchTime env.timeZone
 
 
-viewTaskEditModal : Profile -> Environment -> AssignedAction -> Html Msg
+viewTaskEditModal : Profile -> Environment -> Assignment -> Html Msg
 viewTaskEditModal profile env assignment =
     let
         activitySelectOption givenActivity =
@@ -134,7 +134,7 @@ viewTaskEditModal profile env assignment =
                     [ attribute "slot" "start" ]
                     [ node "ion-button" [ attribute "color" "medium", onClick CloseEditor ] [ text "Close" ]
                     ]
-                , node "ion-title" [] [ text <| AssignedAction.getTitle assignment ]
+                , node "ion-title" [] [ text <| Assignment.getTitle assignment ]
                 , node "ion-buttons"
                     [ attribute "slot" "end" ]
                     [ node "ion-button" [ attribute "strong" "true" ] [ text "Confirm" ]
@@ -169,19 +169,19 @@ viewTaskEditModal profile env assignment =
 --    ]
 
 
-taskTooltip : ( Moment, HumanMoment.Zone ) -> AssignedAction.AssignedAction -> String
+taskTooltip : ( Moment, HumanMoment.Zone ) -> Assignment.Assignment -> String
 taskTooltip ( time, timeZone ) task =
     -- hover tooltip
     String.concat <|
         List.intersperse "\n" <|
             List.filterMap identity
-                ([ Just ("Class ID: " ++ AssignedAction.getClassIDString task)
-                 , Just ("Instance ID: " ++ AssignedAction.getIDString task)
-                 , Maybe.map (String.append "activity ID: ") (AssignedAction.getActivityIDString task)
-                 , Just ("importance: " ++ String.fromFloat (AssignedAction.getImportance task))
-                 , Just ("progress: " ++ Task.Progress.toString (AssignedAction.getProgress task))
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (AssignedAction.getRelevanceStarts task)
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (AssignedAction.getRelevanceEnds task)
+                ([ Just ("Class ID: " ++ Assignment.getClassIDString task)
+                 , Just ("Instance ID: " ++ Assignment.getIDString task)
+                 , Maybe.map (String.append "activity ID: ") (Assignment.getActivityIDString task)
+                 , Just ("importance: " ++ String.fromFloat (Assignment.getImportance task))
+                 , Just ("progress: " ++ Task.Progress.toString (Assignment.getProgress task))
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.getRelevanceStarts task)
+                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.getRelevanceEnds task)
                  ]
                     ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
                 )
@@ -263,7 +263,7 @@ describeTaskPlan ( time, timeZone ) fullSession =
 
 {-| Get the date out of a date input.
 -}
-attemptDateChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptDateChange : ( Moment, HumanMoment.Zone ) -> Assignment -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptDateChange ( time, timeZone ) task oldFuzzyMaybe field input =
     case Calendar.fromNumberString input of
         Ok newDate ->
@@ -287,7 +287,7 @@ attemptDateChange ( time, timeZone ) task oldFuzzyMaybe field input =
 {-| Get the time out of a time input.
 TODO Time Zones
 -}
-attemptTimeChange : ( Moment, HumanMoment.Zone ) -> AssignedAction -> Maybe FuzzyMoment -> String -> String -> Msg
+attemptTimeChange : ( Moment, HumanMoment.Zone ) -> Assignment -> Maybe FuzzyMoment -> String -> String -> Msg
 attemptTimeChange ( time, timeZone ) task oldFuzzyMaybe whichTimeField input =
     case Clock.fromStandardString input of
         Ok newTime ->
@@ -321,23 +321,23 @@ attemptTimeChange ( time, timeZone ) task oldFuzzyMaybe whichTimeField input =
 
 type Msg
     = Refilter (List Filter)
-    | EditingClassTitle AssignedAction String
+    | EditingClassTitle Assignment String
     | StopEditing
-    | UpdateTitle AssignedAction String
-    | OpenEditor AssignedAction
+    | UpdateTitle Assignment String
+    | OpenEditor Assignment
     | CloseEditor
     | Add
-    | Delete AssignedActionID
+    | Delete AssignmentID
     | DeleteComplete
-    | UpdateProgress AssignedAction Portion
-    | FocusSlider AssignedAction Bool
-    | UpdateTaskDate AssignedAction String (Maybe FuzzyMoment)
+    | UpdateProgress Assignment Portion
+    | FocusSlider Assignment Bool
+    | UpdateTaskDate Assignment String (Maybe FuzzyMoment)
     | UpdateNewEntryField String
     | NoOp
     | TodoistServerResponse Todoist.Msg
     | MarvinServerResponse Marvin.Msg
-    | StartTracking AssignedActionID ActivityID
-    | StopTracking AssignedActionID
+    | StartTracking AssignmentID ActivityID
+    | StopTracking AssignmentID
     | SimpleChange Change
     | LogError String
 
@@ -356,15 +356,15 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle _ ->
                     let
-                        newAction : Change.Creator (Reg ActionClass.ActionClassSkel)
+                        newAction : Change.Creator (Reg ActionClass.AssignmentSkel)
                         newAction c =
                             let
-                                newClassChanger : Reg ActionClass.ActionClassSkel -> List Change
+                                newClassChanger : Reg ActionClass.AssignmentSkel -> List Change
                                 newClassChanger newClass =
-                                    [ RepDb.addNew (AssignedAction.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
                             in
-                            ActionClass.newActionClassSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
+                            ActionClass.newAssignableSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
@@ -401,7 +401,7 @@ update msg state profile env =
             ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
             , Change.none
             , Process.sleep 100
-                |> Job.andThen (\_ -> ionInputSetFocus ("task-title-" ++ AssignedAction.getIDString action))
+                |> Job.andThen (\_ -> ionInputSetFocus ("task-title-" ++ Assignment.getIDString action))
                 |> Job.attempt (\_ -> NoOp)
             )
 
@@ -444,12 +444,12 @@ update msg state profile env =
                     ActionClass.normalizeTitle newTitle
 
                 changeTitleIfValid =
-                    case (String.length normalizedNewTitle < 2) || normalizedNewTitle == AssignedAction.getTitle action of
+                    case (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignment.getTitle action of
                         True ->
                             Change.none
 
                         False ->
-                            Change.saveChanges "Updating project title" [ AssignedAction.setProjectTitle newTitle action ]
+                            Change.saveChanges "Updating project title" [ Assignment.setProjectTitle newTitle action ]
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
@@ -477,27 +477,27 @@ update msg state profile env =
         DeleteComplete ->
             ( state
             , Change.none
-              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (AssignedAction.completed t)) profile.taskInstances }
+              -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
             , Cmd.none
             )
 
         UpdateProgress givenTask newCompletion ->
             -- let
             --     updateTaskInstance t =
-            --         AssignedAction.setCompletion newCompletion
+            --         Assignment.setCompletion newCompletion
             --
             --     oldProgress =
-            --         AssignedAction.instanceProgress givenTask
+            --         Assignment.instanceProgress givenTask
             --
             --     profile1WithUpdatedInstance =
-            --         { profile | taskInstances = IntDict.update givenTask.AssignedAction.id (Maybe.map updateTaskInstance) profile.taskInstances }
+            --         { profile | taskInstances = IntDict.update givenTask.Assignment.id (Maybe.map updateTaskInstance) profile.taskInstances }
             -- in
             -- -- how does the new completion status compare to the previous?
             -- case ( isMax oldProgress, isMax ( newCompletion, getUnits oldProgress ) ) of
             --     ( False, True ) ->
             --         let
             --             ( viewState2, profile2WithTrackingStopped, trackingStoppedCmds ) =
-            --                 update (StopTracking (AssignedAction.getID givenTask)) state profile1WithUpdatedInstance env
+            --                 update (StopTracking (Assignment.getID givenTask)) state profile1WithUpdatedInstance env
             --         in
             --         ( viewState2
             --         , profile2WithTrackingStopped

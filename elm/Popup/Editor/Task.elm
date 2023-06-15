@@ -17,7 +17,7 @@ import Replicated.Change as Change
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.AssignedAction as AssignedAction exposing (..)
+import Task.Assignment as Assignment exposing (..)
 import Task.Progress exposing (Portion)
 
 
@@ -49,10 +49,10 @@ type alias Output =
     }
 
 
-initialModel : Profile -> Maybe AssignedAction -> Model
+initialModel : Profile -> Maybe Assignment -> Model
 initialModel profile metaInstanceMaybe =
     let
-        initialRawValues : AssignedAction -> Values
+        initialRawValues : Assignment -> Values
         initialRawValues meta =
             { classTitle = getTitle meta
             , classImportance = getImportance meta |> Just
@@ -94,7 +94,7 @@ type alias FormModel =
 
 type alias Model =
     { formModel : FormModel
-    , action : Maybe AssignedAction
+    , action : Maybe Assignment
     }
 
 
@@ -343,36 +343,36 @@ update msg model =
             )
 
 
-outputToChanges : Maybe AssignedAction -> Output -> Change.Frame
+outputToChanges : Maybe Assignment -> Output -> Change.Frame
 outputToChanges actionMaybe output =
     case actionMaybe of
         Just action ->
             let
                 updateTitle =
-                    if output.classTitle == AssignedAction.getTitle action then
+                    if output.classTitle == Assignment.getTitle action then
                         Nothing
 
                     else
-                        Just (AssignedAction.setProjectTitle output.classTitle action)
+                        Just (Assignment.setProjectTitle output.classTitle action)
 
                 updateImportance =
                     case output.classImportance of
                         Just newImportance ->
-                            if newImportance == AssignedAction.getImportance action then
+                            if newImportance == Assignment.getImportance action then
                                 Nothing
 
                             else
-                                Just (AssignedAction.setImportance action newImportance)
+                                Just (Assignment.setImportance action newImportance)
 
                         Nothing ->
                             Nothing
 
                 updateEstimatedEffort =
-                    if output.estimatedEffort == AssignedAction.getEstimatedEffort action then
+                    if output.estimatedEffort == Assignment.getEstimatedEffort action then
                         Nothing
 
                     else
-                        Just (AssignedAction.setEstimatedEffort action output.estimatedEffort)
+                        Just (Assignment.setEstimatedEffort action output.estimatedEffort)
             in
             Change.saveChanges "Editing a task" <|
                 List.filterMap identity

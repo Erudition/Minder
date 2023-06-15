@@ -1,4 +1,4 @@
-module Task.ActionClass exposing (..)
+module Task.Assignable exposing (..)
 
 import Activity.Activity exposing (ActivityID)
 import Dict exposing (Dict)
@@ -20,8 +20,14 @@ import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
+import Task.Action as Action exposing (Action, NestedOrAction(..), TrackableLayerProperties, nestedOrActionCodec, trackableLayerPropertiesCodec)
 import Task.Progress as Progress exposing (..)
+import Task.RelativeTiming as RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
 import Task.Series
+
+
+
+--  MIDDLE LAYER: ASSIGNABLES -------------------------------
 
 
 {-| A TaskClass is an exact specific task, in general, without a time. If you took a shower yesterday, and you take a shower tomorrow, those are two separate TaskInstances - but they are instances of the same TaskClass ("take a shower").
@@ -30,7 +36,7 @@ This way, the same task can be assigned multiple times in life (either automatic
 Tasks that are only similar, e.g. "take a bath", should be separate TaskClasses.
 
 -}
-type alias ActionClassSkel =
+type alias AssignableSkel =
     { title : RW String -- ActionClass
     , activity : RW (Maybe ActivityID)
 
@@ -48,19 +54,21 @@ type alias ActionClassSkel =
     , defaultRelevanceEnds : RepList RelativeTiming
     , importance : RW Float -- ActionClass
     , extra : RepDict String String
+    , children : RepList NestedOrAction
+    , layerProperties : Reg TrackableLayerProperties
 
     -- future: default Session strategy
     }
 
 
-newActionClassSkel : Context (Reg ActionClassSkel) -> String -> Changer (Reg ActionClassSkel) -> Reg ActionClassSkel
-newActionClassSkel c title changer =
+newAssignableSkel : Context (Reg AssignableSkel) -> String -> Changer (Reg AssignableSkel) -> Reg AssignableSkel
+newAssignableSkel c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 
-codec : Codec String ( String, Changer (Reg ActionClassSkel) ) Codec.SoloObject (Reg ActionClassSkel)
+codec : Codec String ( String, Changer (Reg AssignableSkel) ) Codec.SoloObject (Reg AssignableSkel)
 codec =
-    Codec.record ActionClassSkel
+    Codec.record AssignableSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
         |> maybeRW ( 2, "activity" ) .activity Activity.Activity.idCodec
         |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
@@ -74,49 +82,42 @@ codec =
         |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
+        |> Codec.fieldList ( 3, "children" ) .children nestedOrActionCodec
+        |> Codec.fieldReg ( 1, "layerProperties" ) .layerProperties trackableLayerPropertiesCodec
         |> Codec.finishSeededRegister
 
 
-type alias ActionClassID =
-    ID (Reg ActionClassSkel)
+type alias AssignableID =
+    ID (Reg AssignableSkel)
 
 
-type alias ActionClassDb =
-    RepDb (Reg ActionClassSkel)
+type alias AssignableDb =
+    RepDb (Reg AssignableSkel)
 
 
 
 -- FULL Task Classes (augmented with entry data) --------------------------
 
 
-type alias ParentProperties =
-    { title : RW (Maybe String) -- Can have no title if it's just a singleton task
-    }
+{-| A "Parent" task is actually a container of subtasks. A RecurringParent contains tasks (or a single task!) that repeat, all at the same time and by the same pattern. Since it doesn't make sense for individual tasks to recur in a different way from their siblings, all recurrence behavior of tasks comes from this type of parent.
 
+Parents that contain only a single task are transparently unwrapped to appear like single tasks - in this case, with recurrence applied. Since it doesn't make sense for a bundle of tasks that recur on some schedule to contain other bundles of tasks with their own schedule and instances, all children of RecurringParents are considered "Constrained" and cannot contain recurrence information. This ensures that only one ancestor of a task dictates its recurrence pattern.
 
-parentPropertiesCodec : WrappedCodec String (Reg ParentProperties)
-parentPropertiesCodec =
-    Codec.record ParentProperties
-        |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) (Just "fake title - set me back to Nothing")
-        |> Codec.finishRegister
-
-
-{-| A fully spec'ed-out version of a ActionClass
 -}
-type alias ActionClass =
-    { parents : List (Reg ParentProperties)
+type alias Assignable =
+    { parents : List (Reg TrackableLayerProperties)
     , recurrence : Maybe Task.Series.Series
-    , class : Reg ActionClassSkel
-    , classID : ActionClassID
+    , assignable : Reg AssignableSkel
+    , assignableID : AssignableID
     }
 
 
-makeFullActionClass : List (Reg ParentProperties) -> Maybe Task.Series.Series -> Reg ActionClassSkel -> ActionClass
-makeFullActionClass parentPropsRegList recurrenceRules action =
+makeFull : List (Reg TrackableLayerProperties) -> Maybe Task.Series.Series -> Reg AssignableSkel -> Assignable
+makeFull parentPropsRegList recurrenceRules action =
     { parents = parentPropsRegList
     , recurrence = recurrenceRules
-    , class = action
-    , classID = ID.fromPointer (Reg.getPointer action)
+    , assignable = action
+    , assignableID = ID.fromPointer (Reg.getPointer action)
     }
 
 
@@ -138,48 +139,6 @@ encodeTaskMoment fuzzy =
 
 type alias TagId =
     Int
-
-
-
--- Task Timing functions
-
-
-{-| Need to be able to specify multiple of these, as some may not apply.
--}
-type RelativeTiming
-    = FromDeadline Duration
-    | FromToday Duration
-
-
-relativeTimingCodec : Codec.NullCodec String RelativeTiming
-relativeTimingCodec =
-    Codec.customType
-        (\fromDeadline fromToday value ->
-            case value of
-                FromDeadline duration ->
-                    fromDeadline duration
-
-                FromToday duration ->
-                    fromToday duration
-        )
-        |> Codec.variant1 ( 1, "FromDeadline" ) FromDeadline Codec.duration
-        |> Codec.variant1 ( 2, "FromToday" ) FromToday Codec.duration
-        |> Codec.finishCustomType
-
-
-decodeRelativeTiming : Decoder RelativeTiming
-decodeRelativeTiming =
-    Decode.map FromDeadline decodeDuration
-
-
-encodeRelativeTiming : RelativeTiming -> Encode.Value
-encodeRelativeTiming relativeTaskTiming =
-    case relativeTaskTiming of
-        FromDeadline duration ->
-            encodeDuration duration
-
-        FromToday duration ->
-            encodeDuration duration
 
 
 

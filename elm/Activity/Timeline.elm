@@ -31,7 +31,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
 import Svg.Styled exposing (..)
-import Task.AssignedAction exposing (AssignedAction, AssignedActionID)
+import Task.Assignment exposing (Assignment, AssignmentID)
 import Time
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)
@@ -59,7 +59,7 @@ codec =
 type alias CurrentSession =
     { start : Moment
     , activity : ActivityID
-    , action : Maybe AssignedActionID
+    , action : Maybe AssignmentID
     }
 
 
@@ -106,12 +106,12 @@ sessionsOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activit
     List.filter (Session.activityMatches activityId) (limitedHistory wrappedTimeline filterPeriod)
 
 
-currentInstanceID : Timeline -> Maybe AssignedActionID
+currentInstanceID : Timeline -> Maybe AssignmentID
 currentInstanceID ((Timeline timeline) as wrappedTimeline) =
     Maybe.andThen .action timeline.current.get
 
 
-sessionsOfInstance : Timeline -> AssignedActionID -> List Session
+sessionsOfInstance : Timeline -> AssignmentID -> List Session
 sessionsOfInstance ((Timeline timeline) as wrappedTimeline) instance =
     List.filter (Session.instanceMatches instance) (RepList.listValues timeline.history)
 
@@ -232,7 +232,7 @@ currentToHistory ((Timeline timeline) as wrappedTimeline) now =
             [ RepList.insert RepList.Last currentSesh timeline.history ]
 
 
-startTask : Moment -> ActivityID -> AssignedActionID -> Timeline -> List Change
+startTask : Moment -> ActivityID -> AssignmentID -> Timeline -> List Change
 startTask now newActivityID instanceID ((Timeline timeline) as wrappedTimeline) =
     let
         newCurrent : CurrentSession
@@ -258,7 +258,7 @@ startActivity now newActivityID ((Timeline timeline) as wrappedTimeline) =
     timeline.current.set (Just newCurrent) :: currentToHistory wrappedTimeline now
 
 
-backfill : Timeline -> List ( ActivityID, Maybe AssignedActionID, Period ) -> List Change
+backfill : Timeline -> List ( ActivityID, Maybe AssignmentID, Period ) -> List Change
 backfill ((Timeline timeline) as wrappedTimeline) periodsToAdd =
     -- case periodsToAdd of
     --     [] ->
@@ -272,7 +272,7 @@ backfill ((Timeline timeline) as wrappedTimeline) periodsToAdd =
     Debug.todo "fix backfill"
 
 
-insertExternalSession : Timeline -> ( ActivityID, Maybe AssignedActionID, Period ) -> List Change
+insertExternalSession : Timeline -> ( ActivityID, Maybe AssignmentID, Period ) -> List Change
 insertExternalSession ((Timeline timeline) as wrappedTimeline) ( candidateActivityID, candidateInstanceIDMaybe, candidatePeriod ) =
     let
         newSession : Session
@@ -302,13 +302,13 @@ currentAsPeriod now ((Timeline timeline) as wrappedTimeline) =
     Period.fromPair ( currentSessionStarted, now )
 
 
-periodsOfInstance : Timeline -> AssignedActionID -> List Period
+periodsOfInstance : Timeline -> AssignmentID -> List Period
 periodsOfInstance ((Timeline timeline) as wrappedTimeline) givenInstanceID =
     sessionsOfInstance wrappedTimeline givenInstanceID
         |> Session.listAsPeriods
 
 
-periodsOfInstanceLive : Moment -> Timeline -> AssignedActionID -> List Period
+periodsOfInstanceLive : Moment -> Timeline -> AssignmentID -> List Period
 periodsOfInstanceLive now ((Timeline timeline) as wrappedTimeline) givenInstanceID =
     let
         historyPeriods =
@@ -441,7 +441,7 @@ inHoursMinutes duration =
 
 {-| Marvin needs a flat list of start/stop moments.
 -}
-instanceUniqueMomentsList : Timeline -> AssignedActionID -> List Moment
+instanceUniqueMomentsList : Timeline -> AssignmentID -> List Moment
 instanceUniqueMomentsList ((Timeline timeline) as wrappedTimeline) instanceID =
     let
         periods =

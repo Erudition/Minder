@@ -116,7 +116,7 @@ Implementation plan:
 
 # Before
 ```
-type alias ActionClassSkel =
+type alias AssignableSkel =
     { title : String -- ActionClass
     , id : ActionClassID -- ActionClass and Instance
     , activity : Maybe ActivityID
@@ -140,9 +140,9 @@ type alias ActionClassSkel =
     }
 
 
-decodeActionClassSkel : Decode.Decoder ActionClassSkel
-decodeActionClassSkel =
-    decode ActionClassSkel
+decodeAssignableSkel : Decode.Decoder AssignableSkel
+decodeAssignableSkel =
+    decode AssignableSkel
         |> Pipeline.required "title" Decode.string
         |> Pipeline.required "id" decodeActionClassID
         |> Pipeline.required "activity" (Decode.nullable <| ID.decode)
@@ -159,8 +159,8 @@ decodeActionClassSkel =
         |> Pipeline.optional "extra" (Decode.dict Decode.string) Dict.empty
 
 
-encodeActionClassSkell : ActionClassSkel -> Encode.Value
-encodeActionClassSkell taskClass =
+encodeAssignableSkell : AssignableSkel -> Encode.Value
+encodeAssignableSkell taskClass =
     object <|
         [ ( "title", Encode.string taskClass.title )
         , ( "id", Encode.int taskClass.id )
@@ -179,8 +179,8 @@ encodeActionClassSkell taskClass =
         ]
 
 
-newActionClassSkel : String -> Int -> ActionClassSkel
-newActionClassSkel givenTitle newID =
+newAssignableSkel : String -> Int -> AssignableSkel
+newAssignableSkel givenTitle newID =
     { title = givenTitle
     , id = newID
     , activity = Nothing
@@ -200,7 +200,7 @@ newActionClassSkel givenTitle newID =
 
 # After
 ```
-type alias ActionClassSkel =
+type alias AssignableSkel =
     { title : RW String -- ActionClass
     , activity : RW (Maybe ActivityID)
     , completionUnits : RW Progress.Unit
@@ -216,9 +216,9 @@ type alias ActionClassSkel =
     , extra : RepDict String String
     }
 
-    actionClassSkelCodec : Codec String ActionClassSkel
-    actionClassSkelCodec =
-        Codec.record ActionClassSkel
+    AssignableSkelCodec : Codec String AssignableSkel
+    AssignableSkelCodec =
+        Codec.record AssignableSkel
             |> essentialWritable ( 1, "title" ) .title Codec.string
             |> writableField ( 2, "activity" ) .activity (Codec.maybe Codec.id) Nothing
             |> writableField ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent

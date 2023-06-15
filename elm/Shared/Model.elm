@@ -14,7 +14,7 @@ import Shared.PopupType exposing (PopupType(..))
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
-import Task.AssignedAction exposing (AssignedAction)
+import Task.Assignment exposing (Assignment)
 
 
 {-| Our whole app's Model.
