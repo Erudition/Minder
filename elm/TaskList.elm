@@ -323,7 +323,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                     " assigned " ++ HumanMoment.describeGapVsNow timeZone time assignedAt
     in
     node "ion-card"
-        [ SHA.attribute "color" "tertiary", css [ minWidth (pct 60), maxWidth (pct 90) ] ]
+        [ SHA.attribute "color" "tertiary", css [ Css.width (pct 60), minWidth (rem 10), maxWidth (rem 30) ] ]
         [ node "ion-card-content"
             []
             [ node "ion-note" [] [ text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText ]

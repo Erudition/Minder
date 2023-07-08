@@ -36,7 +36,7 @@ const dbConfig = {
   // If database doesn't exist, create it?
   create: true, // TODO how to not!?
   // Wait to load from the network?
-  sync: true,
+  //sync: false,
   // Load only the local version of the database
   //localOnly: true,
   // Allow anyone to write to the database,
