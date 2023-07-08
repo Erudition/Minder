@@ -104,7 +104,7 @@ prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
 prioritizeTasks profile ( time, timeZone ) =
     Task.Assignment.prioritize time timeZone <|
         List.filter (Task.Assignment.completed >> not) <|
-            Debug.todo "Profile.instanceListNow profile ( time, timeZone )"
+            Profile.assignments profile ( time, timeZone )
 
 
 whatsImportantNow : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )

@@ -147,7 +147,7 @@ view state profile env =
                         [ section
                             []
                             [ lazy viewInput field
-                            , Html.Styled.Lazy.lazy4 viewProjects env.launchTime env.timeZone activeFilter profile
+                            , Html.Styled.Lazy.lazy4 viewProjects env.time env.timeZone activeFilter profile
                             , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
 
                             -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
@@ -199,7 +199,7 @@ viewProjects time timeZone filter profile =
         sortedProjects =
             RepList.list profile.projects
     in
-    Keyed.node "ion-list" [] <|
+    Keyed.node "ion-list" [ SHA.attribute "lines" "full" ] <|
         List.map (viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
@@ -310,16 +310,25 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
     let
         assignment =
             Reg.latest assignmentRegItem.value
+
+        assignmentCreated =
+            Reg.createdAt assignmentRegItem.value
+
+        assignedTimeText =
+            case assignmentCreated of
+                Nothing ->
+                    ""
+
+                Just assignedAt ->
+                    " assigned " ++ HumanMoment.describeGapVsNow timeZone time assignedAt
     in
     node "ion-card"
         [ SHA.attribute "color" "tertiary", css [ minWidth (pct 60), maxWidth (pct 90) ] ]
-        [ node "ion-card-header"
+        [ node "ion-card-content"
             []
-            [ node "ion-card-subtitle" [] [ text <| "#" ++ String.fromInt (index + 1) ]
+            [ node "ion-note" [] [ text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText ]
+            , node "ion-list" [] [ node "ion-item" [] [ text <| "action 1" ] ]
             ]
-        , node "ion-card-content"
-            []
-            [ text "action here" ]
         ]
 
 
