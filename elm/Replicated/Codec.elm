@@ -839,7 +839,7 @@ id =
                         OpID.fromStringForced
                         ("Uninitialized! " ++ Log.dump givenID)
 
-        toChangeAtom givenID =
+        idToChangeAtom givenID =
             case ID.toPointer "bogus reducer unused" givenID of
                 ExistingObjectPointer existingID ->
                     Change.ExistingObjectReferenceAtom existingID.object
@@ -847,14 +847,15 @@ id =
                 PlaceholderPointer pendingID _ ->
                     Change.PendingObjectReferenceAtom pendingID
 
-        toPrimitiveAtom givenID =
+        idToPrimitiveAtom givenID =
             case ID.toPointer "bogus reducer unused" givenID of
                 ExistingObjectPointer existingID ->
                     Change.StringAtom (OpID.toString existingID.object)
 
                 PlaceholderPointer pendingID _ ->
-                    Log.crashInDev "Tried to serialize an ID that was Pending" <|
-                        Change.StringAtom "pendingID"
+                    -- can't crash here because primitive mode is always calculated even if unused
+                    -- Log.crashInDev ("Tried to primitive-serialize an ID that was pending. Pending ID: " ++ Log.dump pendingID) <|
+                    Change.StringAtom "pendingID"
 
         toString givenID =
             OpID.toString (toObjectID givenID)
@@ -892,8 +893,8 @@ id =
 
         nodeEncoder : NodeEncoderInputs (ID userType) -> PrimitiveEncoderOutput
         nodeEncoder inputs =
-            { complex = Nonempty.singleton <| toChangeAtom (getEncodedPrimitive inputs.thingToEncode)
-            , primitive = Nonempty.singleton <| toPrimitiveAtom (getEncodedPrimitive inputs.thingToEncode)
+            { complex = Nonempty.singleton <| idToChangeAtom (getEncodedPrimitive inputs.thingToEncode)
+            , primitive = Nonempty.singleton <| idToPrimitiveAtom (getEncodedPrimitive inputs.thingToEncode)
             }
     in
     Codec
@@ -3476,10 +3477,10 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
         explicitDefaultIfNeeded val =
             if mode.setDefaultsExplicitly then
                 -- we were asked to encode all defaults
-                EncodeThisField <| Change.NewPayload <| wrappedOutput val
+                EncodeThisField <| Change.NewPayload <| encodedDefaultAsPayload val
 
             else
-                case encodeVal val of
+                case encodeDefaultVal val of
                     (Nonempty (Change.QuoteNestedObject { skippable }) []) as encodedVal ->
                         -- payload must be a single nested object with no other atoms
                         if skippable then
@@ -3492,7 +3493,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                         else
                             EncodeThisField <|
                                 Change.NewPayload <|
-                                    wrappedOutput val
+                                    encodedDefaultAsPayload val
 
                     _ ->
                         if isExistingSameAsDefault then
@@ -3501,7 +3502,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
                         else
                             -- Nested objects are never equal to default, respect their necessity
-                            EncodeThisField <| Change.NewPayload <| wrappedOutput val
+                            EncodeThisField <| Change.NewPayload <| encodedDefaultAsPayload val
 
         isExistingSameAsDefault =
             case ( fieldDefaultMaybe fieldFallback, Maybe.andThen fieldDecodedMaybe getPayloadIfSet ) of
@@ -3527,14 +3528,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     -- if there's no default, and not placeholder, it can't be equal. (seeded)
                     False
 
-        encodeVal : fieldType -> Change.ComplexPayload
-        encodeVal val =
+        encodeDefaultVal : fieldType -> Change.ComplexPayload
+        encodeDefaultVal defaultVal =
             -- EncodeThis because this only gets used on default value
-            (runFieldNodeEncoder (EncodeThis val)).complex
+            (runFieldNodeEncoder (EncodeThis defaultVal)).complex
 
-        wrappedOutput : fieldType -> Change.ComplexPayload
-        wrappedOutput val =
-            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (encodeVal val)
+        encodedDefaultAsPayload : fieldType -> Change.ComplexPayload
+        encodedDefaultAsPayload val =
+            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) (encodeDefaultVal val)
     in
     case Maybe.Extra.or existingValMaybe (fieldDefaultMaybe fieldFallback) of
         Just valToEncode ->
