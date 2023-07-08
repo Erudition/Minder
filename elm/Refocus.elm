@@ -25,7 +25,7 @@ import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.Assignable exposing (ActionClassID)
+import Task.Assignable exposing (Assignable, AssignableID)
 import Task.Assignment exposing (Assignment, AssignmentID)
 import Task.Entry
 import Task.Progress
@@ -104,7 +104,7 @@ prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
 prioritizeTasks profile ( time, timeZone ) =
     Task.Assignment.prioritize time timeZone <|
         List.filter (Task.Assignment.completed >> not) <|
-            Profile.instanceListNow profile ( time, timeZone )
+            Debug.todo "Profile.instanceListNow profile ( time, timeZone )"
 
 
 whatsImportantNow : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )
@@ -112,7 +112,7 @@ whatsImportantNow profile ( time, timeZone ) =
     let
         prioritized =
             -- Must have an activity to tell
-            List.filter (\i -> (Reg.latest i.class).activity.get /= Nothing)
+            List.filter (\i -> (Reg.latest i.assignable).activity.get /= Nothing)
                 (prioritizeTasks profile ( time, timeZone ))
 
         -- TODO allow activities to be WIN
@@ -214,17 +214,6 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, time
         oldInstanceIDMaybe =
             Timeline.currentInstanceID oldProfile.timeline
 
-        allTasks =
-            Profile.instanceListNow oldProfile ( time, timeZone )
-
-        trackingTask =
-            case newInstanceIDMaybe of
-                Nothing ->
-                    Nothing
-
-                Just instanceID ->
-                    List.head <| List.filter (.instanceID >> (==) instanceID) allTasks
-
         filterPeriod =
             Period.between Moment.zero time
 
@@ -233,11 +222,11 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, time
             , zone = timeZone
             , oldActivity = oldActivity
             , lastSession = Timeline.currentAsPeriod time oldProfile.timeline |> Period.length
-            , oldInstanceMaybe = Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) oldInstanceIDMaybe
+            , oldInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) oldInstanceIDMaybe
             , newActivity = newActivity
             , newActivityTodayTotal =
                 Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
-            , newInstanceMaybe = Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) newInstanceIDMaybe
+            , newInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) newInstanceIDMaybe
             }
     in
     case whatsImportantNow oldProfile ( time, timeZone ) of
@@ -269,7 +258,7 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, time
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getInstanceByID oldProfile ( time, timeZone )) newInstanceIDMaybe
+                    Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) newInstanceIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
                 ( Just newInstance, True, _ ) ->
@@ -279,10 +268,10 @@ determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, time
                             Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
 
                         maxTimeRemaining =
-                            Duration.subtract (Reg.latest newInstance.class).maxEffort.get timeSpent
+                            Duration.subtract (Reg.latest newInstance.assignable).maxEffort.get timeSpent
 
                         remainingToTarget =
-                            Duration.subtract (Reg.latest newInstance.class).predictedEffort.get timeSpent
+                            Duration.subtract (Reg.latest newInstance.assignable).predictedEffort.get timeSpent
 
                         intendToFinishDuringThisSession =
                             -- TODO false if less time available than needed
@@ -588,7 +577,7 @@ freeSticky status =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ (Reg.latest nt.class).title.get) status.newInstanceMaybe
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ (Reg.latest nt.assignable).title.get) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
@@ -1124,11 +1113,11 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
             ]
     in
     { base
-        | id = Just <| taskClassNotifID taskInstance.classID
+        | id = Just <| taskClassNotifID taskInstance.assignableID
         , group = Just suggestedTasksGroup
         , subtitle = Just "Suggested"
         , at = Just now
-        , title = Just <| (Reg.latest taskInstance.class).title.get
+        , title = Just <| (Reg.latest taskInstance.assignable).title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1162,7 +1151,7 @@ suggestedTasks profile ( time, timeZone ) =
     List.map (suggestedTaskNotif time) (List.take 3 actionableTasks)
 
 
-taskClassNotifID : ActionClassID -> Int
+taskClassNotifID : AssignableID -> Int
 taskClassNotifID classID =
     ID.toInt classID
 
@@ -1197,11 +1186,11 @@ cleanupTaskNotif now ( taskInstance, needs ) =
             ]
     in
     { base
-        | id = Just <| taskClassNotifID taskInstance.classID
+        | id = Just <| taskClassNotifID taskInstance.assignableID
         , group = Just cleanupTasksGroup
         , subtitle = Just "Missing Duration/Activity"
         , at = Just now
-        , title = Just <| (Reg.latest taskInstance.class).title.get
+        , title = Just <| (Reg.latest taskInstance.assignable).title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1248,9 +1237,9 @@ currentTaskNotif now task =
             ]
     in
     { blank
-        | id = Just <| taskClassNotifID task.classID
+        | id = Just <| taskClassNotifID task.assignableID
         , autoCancel = Just False
-        , title = Just (Reg.latest task.class).title.get
+        , title = Just (Reg.latest task.assignable).title.get
         , chronometer = Just True
         , when = Just now
         , subtitle = Nothing

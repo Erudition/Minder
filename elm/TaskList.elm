@@ -54,7 +54,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.Assignable as ActionClass exposing (ActionClass, ActionClassID)
+import Task.Action as Action
+import Task.Assignable as Assignable exposing (Assignable, AssignableID, AssignableSkel)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Entry as Entry
 import Task.Progress exposing (..)
@@ -105,7 +106,7 @@ defaultView =
 
 
 type alias ExpandedTask =
-    ActionClassID
+    AssignableID
 
 
 type alias NewTaskField =
@@ -113,13 +114,13 @@ type alias NewTaskField =
 
 
 type CurrentlyEditing
-    = EditingProjectTitle ActionClass.ActionClassID String
+    = EditingAssignableTitle AssignableID String
     | EditingProjectDate
     | EditingProjectModal (Maybe Assignment)
 
 
 allFullTaskInstances profile ( launchTime, zone ) =
-    Profile.instanceListNow profile ( launchTime, zone )
+    Profile.assignments profile ( launchTime, zone )
         |> Assignment.prioritize launchTime zone
 
 
@@ -195,18 +196,18 @@ viewProjects time timeZone filter profile =
             Activity.Timeline.currentInstanceID profile.timeline
 
         sortedProjects =
-            RepList.list profile.taskEntries
+            RepList.list profile.projects
     in
     Keyed.node "ion-list" [] <|
         List.map (viewKeyedProject ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
-viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.RootEntry -> ( String, Html Msg )
+viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> ( String, Html Msg )
 viewKeyedProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     ( RepList.handleString rootEntryItem, lazy3 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem )
 
 
-viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.RootEntry -> Html Msg
+viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> Html Msg
 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     let
         entryContents =
@@ -244,14 +245,14 @@ viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
         ]
 
 
-viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Reg Entry.Assignable -> Html Msg
+viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Reg AssignableSkel -> Html Msg
 viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
     let
         assignable =
             Reg.latest assignableReg
 
         properties =
-            Reg.latest assignable.properties
+            Reg.latest assignable.layerProperties
 
         assignableTitle =
             case properties.title.get of
@@ -280,10 +281,10 @@ viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
 
         viewSubAssignable subAssignable =
             case subAssignable of
-                Entry.ActionIsHere actionClassReg ->
+                Action.ActionIsHere actionClassReg ->
                     text "action is here"
 
-                Entry.ActionIsDeeper containerOfActions ->
+                Action.ActionIsDeeper containerOfActions ->
                     text (Debug.toString containerOfActions)
     in
     div
@@ -501,8 +502,8 @@ viewTaskTitle task editingMaybe =
                 []
     in
     case editingMaybe of
-        Just (EditingProjectTitle classID newTitleSoFar) ->
-            if classID == task.classID then
+        Just (EditingAssignableTitle classID newTitleSoFar) ->
+            if classID == task.assignableID then
                 titleEditing newTitleSoFar
 
             else
@@ -643,7 +644,7 @@ taskTooltip ( time, timeZone ) task =
                  , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.getRelevanceStarts task)
                  , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.getRelevanceEnds task)
                  ]
-                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.instance).extra)
+                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.assignment).extra)
                 )
 
 
@@ -1064,15 +1065,15 @@ update msg state profile env =
 
                 Normal filters _ newTaskTitle _ ->
                     let
-                        newAction : Change.Creator (Reg ActionClass.AssignmentSkel)
-                        newAction c =
+                        newAssignable : Change.Creator (Reg AssignableSkel)
+                        newAssignable c =
                             let
-                                newClassChanger : Reg ActionClass.AssignmentSkel -> List Change
-                                newClassChanger newClass =
-                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                changesToMake : Reg AssignableSkel -> List Change
+                                changesToMake newClass =
+                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.assignments
                                     ]
                             in
-                            ActionClass.newAssignableSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger
+                            Assignable.newAssignableSkel c (Assignable.normalizeTitle newTaskTitle) changesToMake
 
                         frameDescription =
                             "Added new task class: " ++ newTaskTitle
@@ -1080,8 +1081,8 @@ update msg state profile env =
                         finalChanges =
                             [ RepList.insert RepList.Last ("Added item: " ++ newTaskTitle) profile.errors
                             , RepList.insertNew RepList.Last
-                                [ \c -> Entry.initWithClass (newAction (Change.reuseContext "action" c)) c ]
-                                profile.taskEntries
+                                [ \c -> Entry.initProjectWithAssignable (newAssignable (Change.reuseContext "action" c)) c ]
+                                profile.projects
                             ]
                     in
                     ( Normal filters Nothing "" Nothing
@@ -1101,14 +1102,14 @@ update msg state profile env =
             , []
             )
 
-        EditingClassTitle action newTitleSoFar ->
+        EditingClassTitle assignable newTitleSoFar ->
             let
                 (Normal filters expanded typedSoFar _) =
                     state
             in
-            ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
+            ( Normal filters expanded typedSoFar (Just <| EditingAssignableTitle assignable.assignableID newTitleSoFar)
             , Change.none
-            , [ Effect.FocusIonInput ("task-title-" ++ Assignment.getIDString action) ]
+            , [ Effect.FocusIonInput ("task-title-" ++ Assignment.getIDString assignable) ]
             )
 
         OpenEditor actionMaybe ->
@@ -1147,7 +1148,7 @@ update msg state profile env =
                     state
 
                 normalizedNewTitle =
-                    ActionClass.normalizeTitle newTitle
+                    Assignable.normalizeTitle newTitle
 
                 changeTitleIfValid =
                     case (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignment.getTitle action of
@@ -1173,11 +1174,11 @@ update msg state profile env =
             -- )
             Debug.todo "Not yet implemented: UpdateTaskTitle"
 
-        Delete Assignment ->
+        Delete assignment ->
             ( state
             , Change.saveChanges "Deleting an action assignment"
-                [ Assignment.deleteAssignment Assignment
-                , RepList.insert RepList.Last ("Deleted item: " ++ Assignment.getTitle Assignment) profile.errors
+                [ Assignment.deleteAssignment assignment
+                , RepList.insert RepList.Last ("Deleted item: " ++ Assignment.getTitle assignment) profile.errors
                 ]
             , []
             )
@@ -1327,7 +1328,7 @@ urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dic
 urlTriggers profile ( time, timeZone ) =
     let
         fullTaskInstances =
-            instanceListNow profile ( time, timeZone )
+            Profile.assignments profile ( time, timeZone )
 
         tasksIDsWithDoneMsg =
             List.map doneTriggerEntry fullTaskInstances

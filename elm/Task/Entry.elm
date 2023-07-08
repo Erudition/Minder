@@ -10,7 +10,7 @@ import Json.Decode.Exploration as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, NullCodec, SkelCodec, WrappedCodec)
+import Replicated.Codec as Codec exposing (Codec, NullCodec, SelfSeededCodec, SkelCodec, WrappedCodec)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
@@ -19,9 +19,8 @@ import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar.Month exposing (DayOfMonth)
 import SmartTime.Human.Calendar.Week exposing (DayOfWeek)
 import SmartTime.Moment exposing (Moment)
-import Task.Action as Action exposing (Action, ActionSkel, ContainerOfActions, NestedOrAction(..), TrackableLayerProperties, trackableLayerPropertiesCodec)
+import Task.Action as Action exposing (Action, ActionID, ActionSkel, ContainerOfActions, NestedOrAction(..), TrackableLayerProperties, trackableLayerPropertiesCodec)
 import Task.Assignable as Assignable exposing (Assignable, AssignableDb, AssignableID, AssignableSkel)
-import Task.Assignment exposing (Assignment, AssignmentSkel)
 import Task.Series exposing (Series(..))
 
 
@@ -31,7 +30,7 @@ import Task.Series exposing (Series(..))
 
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
 -}
-type alias RootEntry =
+type alias Project =
     NestedOrAssignable
 
 
@@ -80,53 +79,75 @@ nestedOrAssignableCodec =
 --  TRAVERSE & FLATTEN LAYERS --------------------------------------
 
 
-{-| Take all the Entries and flatten them into a list of Actions
+{-| Take all the Entries and flatten them into a list of Assignables
 -}
-flattenEntriesToActions : RepList RootEntry -> List Action
-flattenEntriesToActions entries =
+entriesToAssignables : RepList Project -> List Assignable
+entriesToAssignables entries =
+    let
+        traverseEntries : NestedOrAssignable -> List Assignable
+        traverseEntries entry =
+            insideContainerOfAssignables [] entry
+
+        insideContainerOfAssignables : List (Reg TrackableLayerProperties) -> NestedOrAssignable -> List Assignable
+        insideContainerOfAssignables accumulator child =
+            case child of
+                AssignableIsDeeper parent ->
+                    traverseContainerOfAssignables (parent.layerProperties :: accumulator) parent
+
+                AssignableIsHere assignable ->
+                    List.singleton <| Assignable.makeFull accumulator assignable
+
+        traverseContainerOfAssignables : List (Reg TrackableLayerProperties) -> ContainerOfAssignables -> List Assignable
+        traverseContainerOfAssignables accumulator parent =
+            List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
+    in
     List.concatMap traverseEntries (RepList.listValues entries)
 
 
-traverseEntries : NestedOrAssignable -> List Action
-traverseEntries entry =
-    insideContainerOfAssignables [] entry
+{-| Take all the Entries and flatten them into a list of Actions
+-}
+entriesToActions : RepList Project -> List Action
+entriesToActions entries =
+    let
+        traverseEntries : NestedOrAssignable -> List Action
+        traverseEntries entry =
+            insideContainerOfAssignables [] entry
+
+        insideContainerOfAssignables : List (Reg TrackableLayerProperties) -> NestedOrAssignable -> List Action
+        insideContainerOfAssignables accumulator child =
+            case child of
+                AssignableIsDeeper parent ->
+                    traverseContainerOfAssignables (parent.layerProperties :: accumulator) parent
+
+                AssignableIsHere assignable ->
+                    assignableToActions ((Reg.latest assignable).layerProperties :: accumulator) assignable
+
+        traverseContainerOfAssignables : List (Reg TrackableLayerProperties) -> ContainerOfAssignables -> List Action
+        traverseContainerOfAssignables accumulator parent =
+            List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
+    in
+    List.concatMap traverseEntries (RepList.listValues entries)
 
 
-traverseContainerOfAssignables : List (Reg TrackableLayerProperties) -> ContainerOfAssignables -> List Action
-traverseContainerOfAssignables accumulator parent =
-    List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
+assignableToActions : List (Reg TrackableLayerProperties) -> Reg AssignableSkel -> List Action
+assignableToActions acc assignable =
+    let
+        traverseContainerOfActions : List (Reg TrackableLayerProperties) -> ContainerOfActions -> List Action
+        traverseContainerOfActions accumulator class =
+            -- TODO do we need to collect props here
+            List.concatMap (insideContainerOfActions accumulator) (RepList.listValues class.children)
 
+        insideContainerOfActions : List (Reg TrackableLayerProperties) -> NestedOrAction -> List Action
+        insideContainerOfActions accumulator child =
+            case child of
+                ActionIsHere action ->
+                    -- we've reached the bottom
+                    List.singleton <| Action.makeFull accumulator action
 
-insideContainerOfAssignables : List (Reg TrackableLayerProperties) -> NestedOrAssignable -> List Action
-insideContainerOfAssignables accumulator child =
-    case child of
-        AssignableIsDeeper parent ->
-            traverseContainerOfAssignables (parent.layerProperties :: accumulator) parent
-
-        AssignableIsHere assignable ->
-            traverseAssignable ((Reg.latest assignable).layerProperties :: accumulator) assignable
-
-
-traverseAssignable : List (Reg TrackableLayerProperties) -> Reg AssignableSkel -> List Action
-traverseAssignable accumulator assignable =
-    List.concatMap (insideContainerOfActions accumulator) (RepList.listValues (Reg.latest assignable).children)
-
-
-traverseContainerOfActions : List (Reg TrackableLayerProperties) -> ContainerOfActions -> List Action
-traverseContainerOfActions accumulator class =
-    -- TODO do we need to collect props here
-    List.concatMap (insideContainerOfActions accumulator) (RepList.listValues class.children)
-
-
-insideContainerOfActions : List (Reg TrackableLayerProperties) -> NestedOrAction -> List Action
-insideContainerOfActions accumulator child =
-    case child of
-        ActionIsHere action ->
-            -- we've reached the bottom
-            List.singleton <| Action.makeFull accumulator action
-
-        ActionIsDeeper followerParent ->
-            traverseContainerOfActions (followerParent.layerProperties :: accumulator) followerParent
+                ActionIsDeeper followerParent ->
+                    traverseContainerOfActions (followerParent.layerProperties :: accumulator) followerParent
+    in
+    List.concatMap (insideContainerOfActions acc) (RepList.listValues (Reg.latest assignable).children)
 
 
 
@@ -139,7 +160,7 @@ insideContainerOfActions accumulator child =
 --     RepList.insert RepList.Last taskClassChild classToModify.children
 
 
-initProjectWithAssignable : Reg AssignableSkel -> Change.Creator RootEntry
+initProjectWithAssignable : Reg AssignableSkel -> Change.Creator Project
 initProjectWithAssignable assignableSkelReg entryListParent =
     let
         -- initContainerOfActions : Change.Creator ContainerOfActions

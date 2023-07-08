@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, codec, currentActivityID, getActivityByID, getInstanceByID, instanceListNow, saveDecodeErrors, saveError, saveWarnings, trackedInstance, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, getActivityByID, getAssignmentByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Session
@@ -14,7 +14,7 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import List.Nonempty exposing (..)
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, SkelCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, SelfSeededCodec, SkelCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -23,8 +23,9 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
+import Task.Action exposing (Action)
 import Task.Assignable exposing (AssignableDb)
-import Task.Assignment exposing (AssignmentDb)
+import Task.Assignment exposing (AssignedAction, Assignment, AssignmentDb)
 import Task.Entry
 import Task.Progress exposing (..)
 import Task.Session
@@ -40,8 +41,8 @@ type alias AppInstance =
 
 type alias Profile =
     { errors : RepList String
-    , taskEntries : RepList Task.Entry.RootEntry
-    , taskInstances : AssignmentDb
+    , projects : RepList Task.Entry.Project
+    , assignments : AssignmentDb
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -55,8 +56,8 @@ codec : SkelCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
-        |> Codec.fieldList ( 2, "taskEntries" ) .taskEntries Task.Entry.codec
-        |> Codec.fieldDb ( 4, "taskInstances" ) .taskInstances Task.Assignment.codec
+        |> Codec.fieldList ( 2, "projects" ) .projects Task.Entry.codec
+        |> Codec.fieldDb ( 4, "assignments" ) .assignments Task.Assignment.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
@@ -108,13 +109,13 @@ saveError appData error =
 --- HELPERS
 
 
-{-| All instances that are not expired or finished.
+{-| All actions that are not unready or expired or finished.
 -}
-instanceListNow : Profile -> ( Moment, HumanMoment.Zone ) -> List Task.Assignment.Assignment
-instanceListNow profile ( time, timeZone ) =
+assignments : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
+assignments profile ( time, timeZone ) =
     let
-        fullClasses =
-            Task.Entry.flattenEntriesToActions profile.taskEntries
+        assignables =
+            Task.Entry.entriesToAssignables profile.projects
 
         zoneHistory =
             -- TODO
@@ -123,18 +124,19 @@ instanceListNow profile ( time, timeZone ) =
         rightNow =
             Period.instantaneous time
     in
-    Task.Assignment.listAllAssignments fullClasses profile.taskInstances ( zoneHistory, rightNow )
+    Task.Assignment.listAllAssignments assignables profile.assignments ( zoneHistory, rightNow )
 
 
 trackedInstance : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.Assignment.Assignment
 trackedInstance profile ( time, timeZone ) =
-    Maybe.andThen (getInstanceByID profile ( time, timeZone )) (Activity.Timeline.currentInstanceID profile.timeline)
+    Maybe.andThen (getAssignmentByID profile ( time, timeZone )) (Activity.Timeline.currentInstanceID profile.timeline)
 
 
-getInstanceByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.Assignment.AssignmentID -> Maybe Task.Assignment.Assignment
-getInstanceByID profile ( time, timeZone ) instanceID =
+getAssignmentByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.Assignment.AssignmentID -> Maybe Task.Assignment.Assignment
+getAssignmentByID profile ( time, timeZone ) instanceID =
     -- TODO optimize
-    List.head (List.filter (\i -> Task.Assignment.getID i == instanceID) (instanceListNow profile ( time, timeZone )))
+    -- Task.Assignment.listAllAssignments (RepDb.get instanceID profile.assignments)
+    Debug.todo "getAssignmentByID needed?"
 
 
 getActivityByID : Profile -> ActivityID -> Activity

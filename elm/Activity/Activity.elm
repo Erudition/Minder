@@ -14,7 +14,7 @@ import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
 import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, NullCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, NullCodec, SelfSeededCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -87,6 +87,7 @@ type alias BuiltInActivitySkel =
 
 builtInActivitySkelCodec : SkelCodec String BuiltInActivitySkel
 builtInActivitySkelCodec =
+    -- TODO currently does not use the seed passed in
     Codec.record BuiltInActivitySkel
         |> fieldList ( 1, "names" ) .names Codec.string
         |> maybeRW ( 2, "icon" ) .icon iconCodec

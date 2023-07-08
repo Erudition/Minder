@@ -73,6 +73,10 @@ type alias ContainerOfActions =
     }
 
 
+type alias ContainerOfActionsID =
+    ID ContainerOfActions
+
+
 containerOfActionsCodec : SkelCodec String ContainerOfActions
 containerOfActionsCodec =
     Codec.record ContainerOfActions

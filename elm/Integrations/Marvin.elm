@@ -461,7 +461,7 @@ handle classCounter profile ( time, timeZone ) response =
                             Timeline.currentInstanceID profile.timeline
 
                         activeInstanceMaybe =
-                            Maybe.andThen (Profile.getInstanceByID profile ( time, timeZone )) activeInstanceIDMaybe
+                            Maybe.andThen (Profile.getAssignmentByID profile ( time, timeZone )) activeInstanceIDMaybe
 
                         activeMarvinIDMaybe =
                             Maybe.andThen (Task.Assignment.getExtra "marvinID") activeInstanceMaybe
@@ -777,7 +777,7 @@ timeTrack secret taskID starting =
 
 marvinUpdateCurrentlyTracking : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.Assignment.AssignmentID -> Bool -> ( List Change, Cmd Msg )
 marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe starting =
-    case Maybe.andThen (Profile.getInstanceByID profile ( time, timeZone )) instanceIDMaybe of
+    case Maybe.andThen (Profile.getAssignmentByID profile ( time, timeZone )) instanceIDMaybe of
         Just instanceNowTracking ->
             case Task.Assignment.getExtra "marvinID" instanceNowTracking of
                 Nothing ->
@@ -855,7 +855,7 @@ trackTruthToTimelineSessions profile ( time, timeZone ) truthItem =
             Just truthItem.task == Task.Assignment.getExtra "marvinID" instance
 
         matchingInstance =
-            List.find isCorrectInstance (Profile.instanceListNow profile ( time, timeZone ))
+            List.find isCorrectInstance (Profile.assignments profile ( time, timeZone ))
 
         indexedTimes =
             List.indexedMap Tuple.pair truthItem.times

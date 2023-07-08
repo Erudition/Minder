@@ -27,7 +27,7 @@ import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Assignable as Task exposing (AssignmentSkel)
+import Task.Assignable as Task exposing (AssignableSkel)
 import Task.Assignment as Task exposing (AssignmentSkel)
 import Task.Progress
 import Url

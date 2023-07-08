@@ -13,7 +13,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import NativeScript.Notification exposing (Action)
 import Replicated.Change as Change exposing (Change, Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, FlatCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, SelfSeededCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -106,16 +106,14 @@ Parents that contain only a single task are transparently unwrapped to appear li
 -}
 type alias Assignable =
     { parents : List (Reg TrackableLayerProperties)
-    , recurrence : Maybe Task.Series.Series
     , assignable : Reg AssignableSkel
     , assignableID : AssignableID
     }
 
 
-makeFull : List (Reg TrackableLayerProperties) -> Maybe Task.Series.Series -> Reg AssignableSkel -> Assignable
-makeFull parentPropsRegList recurrenceRules action =
+makeFull : List (Reg TrackableLayerProperties) -> Reg AssignableSkel -> Assignable
+makeFull parentPropsRegList action =
     { parents = parentPropsRegList
-    , recurrence = recurrenceRules
     , assignable = action
     , assignableID = ID.fromPointer (Reg.getPointer action)
     }

@@ -388,7 +388,8 @@ toDocketTask : Profile -> MarvinItem -> List Change
 toDocketTask profile marvinItem =
     let
         existingClasses =
-            Task.Entry.flattenEntriesToActions profile.taskEntries
+            -- Task.Entry.entriesToActions profile.taskEntries
+            Debug.todo "marvin needs to know about entries<->actions"
 
         existingClassesWithMarvinLink =
             Dict.fromList <| List.filterMap pairClassWithMarvinIDMaybe existingClasses
@@ -431,7 +432,7 @@ toDocketTask profile marvinItem =
         -- INSTANCE
         existingInstancesWithMarvinLink : Dict String Task.Assignment.AssignmentID
         existingInstancesWithMarvinLink =
-            Dict.fromList <| List.filterMap pairInstanceWithMarvinIDMaybe (RepDb.members profile.taskInstances)
+            Dict.fromList <| List.filterMap pairInstanceWithMarvinIDMaybe (RepDb.members profile.assignments)
 
         pairInstanceWithMarvinIDMaybe member =
             case RepDict.get "marvinID" (Reg.latest member.value).extra of
@@ -547,7 +548,7 @@ toDocketTask profile marvinItem =
             ]
 
         finalInstanceChanges =
-            case Maybe.andThen (\instanceID -> RepDb.get instanceID profile.taskInstances) existingInstanceIDMaybe of
+            case Maybe.andThen (\instanceID -> RepDb.get instanceID profile.assignments) existingInstanceIDMaybe of
                 Just existingInstance ->
                     Debug.log "It thinks we have an existing instance!!" <| instanceChanges existingInstance
 
@@ -555,26 +556,26 @@ toDocketTask profile marvinItem =
                     []
 
         finalEntryAndClassChanges =
-            case Maybe.andThen (\classID -> RepDb.get classID profile.taskClasses) existingClassIDMaybe of
+            case Maybe.andThen (Debug.todo "classID -> RepDb.get classID profile.projects") existingClassIDMaybe of
                 Just existingClass ->
                     Debug.log "it thinks we already have an existing taskClass!!" (classChanges (Reg.latest existingClass))
 
                 Nothing ->
                     let
                         newEntry c =
-                            Task.Entry.initProjectWithAssignable (newAction (Change.reuseContext "action" c)) c
+                            Task.Entry.initProjectWithAssignable (newAssignable (Change.reuseContext "action" c)) c
 
-                        newAction : Change.Creator (Reg Task.Assignable.AssignmentSkel)
-                        newAction c =
+                        newAssignable : Change.Creator (Reg Task.Assignable.AssignableSkel)
+                        newAssignable c =
                             let
-                                newClassChanger : Reg Task.Assignable.AssignmentSkel -> List Change
+                                newClassChanger : Reg Task.Assignable.AssignableSkel -> List Change
                                 newClassChanger newClass =
-                                    RepDb.addNew (\c2 -> Task.Assignment.initWithClassAndChanges (ID.fromPointer (Reg.getPointer newClass)) instanceChanges (Change.reuseContext marvinItem.id c2)) profile.taskInstances
+                                    RepDb.addNew (\c2 -> Task.Assignment.initWithClassAndChanges (ID.fromPointer (Reg.getPointer newClass)) instanceChanges (Change.reuseContext marvinItem.id c2)) profile.assignments
                                         :: classChanges (Reg.latest newClass)
                             in
                             Task.Assignable.newAssignableSkel (Change.reuseContext marvinItem.id c) marvinItem.title newClassChanger
                     in
-                    [ RepList.insertNew RepList.Last [ newEntry ] profile.taskEntries
+                    [ RepList.insertNew RepList.Last [ newEntry ] profile.projects
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges
@@ -605,7 +606,7 @@ fromDocket instance =
                 , rev = rev
                 , done = Debug.log "checking completion" Task.Assignment.completed instance
                 , day = toDate <| Task.Assignment.getExtra "marvinDay" instance
-                , title = (Reg.latest instance.class).title.get
+                , title = (Reg.latest instance.assignable).title.get
                 , parentId = Task.Assignment.getExtra "marvinParentID" instance
                 , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Task.Assignment.getExtra "marvinLabels" instance
                 , firstScheduled = toDate <| Task.Assignment.getExtra "marvinFirstScheduled" instance
@@ -616,7 +617,7 @@ fromDocket instance =
                 , timeBlockSection = Task.Assignment.getExtra "marvinTimeBlockSection" instance
                 , note = Task.Assignment.getExtra "marvinNote" instance
                 , dueDate = toDate <| Task.Assignment.getExtra "marvinDueDate" instance
-                , timeEstimate = Just (Reg.latest instance.class).predictedEffort.get
+                , timeEstimate = Just (Reg.latest instance.assignable).predictedEffort.get
                 , isReward = Maybe.withDefault False <| Maybe.map toBool <| Task.Assignment.getExtra "marvinIsReward" instance
                 , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinIsStarred" instance
                 , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinIsFrogged" instance

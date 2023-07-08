@@ -545,7 +545,7 @@ trackingDisplay replica time launchTime timeZone =
             Timeline.currentInstanceID replica.timeline
 
         allInstances =
-            Profile.instanceListNow replica ( launchTime, timeZone )
+            Profile.assignments replica ( launchTime, timeZone )
 
         currentInstanceMaybe currentInstanceID =
             List.head (List.filter (\t -> Assignment.getID t == currentInstanceID) allInstances)
@@ -915,7 +915,7 @@ update msg ({ replica } as frameworkModel) =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( marvinChanges, whatHappened, nextStep ) =
-                    Marvin.handle (RepDb.size replica.taskClasses + 1000) replica ( shared.time, shared.timeZone ) response
+                    Marvin.handle (RepDb.size replica.assignments + 1000) replica ( shared.time, shared.timeZone ) response
 
                 _ =
                     Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)
