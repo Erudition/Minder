@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromRonPointerString, fromSortable, fromString, fromStringForced, generate, getClock, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toRonPointerString, toSortablePrimitives, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromRonPointerString, fromSortable, fromString, fromStringForced, generate, getClock, getMoment, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toRonPointerString, toSortablePrimitives, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser.Advanced as Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -116,6 +116,13 @@ getClock opID =
             toStamp opID
     in
     clock
+
+
+{-| Get the rough creation time of the Op.
+-}
+getMoment : OpID -> Moment
+getMoment opID =
+    Moment.fromSmartInt (toStamp opID).clock
 
 
 fromSortable : OpIDSortable -> OpID

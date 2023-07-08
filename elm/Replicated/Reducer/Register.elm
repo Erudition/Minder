@@ -46,6 +46,14 @@ type alias FieldHistoryDict =
     Dict FieldSlot FieldHistoryBackwards
 
 
+{-| Get the moment that the register object was first saved.
+If no changes have been made or saved yet, return Nothing.
+-}
+createdAt : Reg userType -> Maybe Moment
+createdAt (Register register) =
+    Maybe.map OpID.getMoment (Change.getPointerObjectID register.pointer)
+
+
 getPointer : Reg userType -> Change.Pointer
 getPointer (Register register) =
     register.pointer

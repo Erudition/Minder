@@ -200,7 +200,7 @@ init url maybeKey flags replica =
         initNotif =
             Job.attempt NotificationScheduled <|
                 Notif.dispatch
-                    [ Notif.test "We have taken over Android, woo!" ]
+                    [ Notif.test "Minder has launched!" ]
 
         getViewport =
             Job.perform setViewport Browser.Dom.getViewport
@@ -831,7 +831,7 @@ update msg ({ replica } as frameworkModel) =
             noOp
 
         NewTimeZone zone ->
-            justSetShared { shared | timeZone = zone }
+            justSetShared { shared | timeZone = zone, launchTime = frameworkModel.now }
 
         ResizeViewport newWidth newHeight ->
             setSharedAndCmd { shared | viewportSize = { height = newHeight, width = newWidth }, viewportSizeClass = (Element.classifyDevice { height = newHeight, width = newWidth }).class }
