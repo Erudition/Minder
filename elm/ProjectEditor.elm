@@ -361,7 +361,7 @@ update msg state profile env =
                             let
                                 newClassChanger : Reg ActionClass.AssignmentSkel -> List Change
                                 newClassChanger newClass =
-                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
+                                    [ RepDb.addNew (Assignment.new (ID.fromPointer (Reg.getPointer newClass))) profile.taskInstances
                                     ]
                             in
                             ActionClass.newAssignableSkel c (ActionClass.normalizeTitle newTaskTitle) newClassChanger

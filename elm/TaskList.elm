@@ -11,12 +11,13 @@ import Dict
 import Effect exposing (Effect)
 import External.Commands as Commands
 import Helpers exposing (..)
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (..)
+import Html.Styled as SH exposing (..)
+import Html.Styled.Attributes as SHA exposing (..)
 import Html.Styled.Events exposing (..)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy, lazy2, lazy3, lazy4)
 import ID
+import Identicon exposing (identicon)
 import Incubator.IntDict.Extra as IntDict
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Command as TodoistCommand
@@ -146,8 +147,8 @@ view state profile env =
                         [ section
                             []
                             [ lazy viewInput field
-                            , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
                             , Html.Styled.Lazy.lazy4 viewProjects env.launchTime env.timeZone activeFilter profile
+                            , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
 
                             -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
                             ]
@@ -165,7 +166,7 @@ viewInput newEntryFieldContents =
         , value newEntryFieldContents
         , name "newTask"
         , onInput UpdateNewEntryField
-        , onEnter Add
+        , onEnter AddProject
         , attribute "data-flip-key" ("task-named-" ++ String.Normalize.slug newEntryFieldContents)
         ]
         []
@@ -199,16 +200,16 @@ viewProjects time timeZone filter profile =
             RepList.list profile.projects
     in
     Keyed.node "ion-list" [] <|
-        List.map (viewKeyedProject ( time, timeZone ) trackedTaskMaybe) sortedProjects
+        List.map (viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
-viewKeyedProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> ( String, Html Msg )
-viewKeyedProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
-    ( RepList.handleString rootEntryItem, lazy3 viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem )
+viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> ( String, Html Msg )
+viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
+    ( RepList.handleString rootEntryItem, lazy4 viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem )
 
 
-viewProject : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> Html Msg
-viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
+viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> Html Msg
+viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     let
         entryContents =
             case rootEntryItem.value of
@@ -216,7 +217,7 @@ viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
                     Debug.todo "containerOfAssignables"
 
                 Entry.AssignableIsHere assignable ->
-                    viewAssignable ( time, timeZone ) trackedTaskMaybe assignable
+                    viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable
     in
     node "ion-item-sliding"
         []
@@ -228,12 +229,13 @@ viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
                 [ class "project-image"
                 , attribute "slot" "start"
                 ]
-                [ img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
+                [ --img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
+                  SH.fromUnstyled <| identicon "100%" (RepList.handleString rootEntryItem)
                 ]
-            , div []
+            , div [ css [ Css.width (pct 100) ] ]
                 [ node "ion-label"
                     []
-                    [ text "Entry title"
+                    [ text "" -- Project title if assignable is deeper
                     ]
                 , entryContents
                 ]
@@ -245,8 +247,8 @@ viewProject ( time, timeZone ) trackedTaskMaybe rootEntryItem =
         ]
 
 
-viewAssignable : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Reg AssignableSkel -> Html Msg
-viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
+viewAssignable : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Reg AssignableSkel -> Html Msg
+viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
     let
         assignable =
             Reg.latest assignableReg
@@ -254,27 +256,16 @@ viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
         properties =
             Reg.latest assignable.layerProperties
 
-        assignableTitle =
+        viewAssignableWrapperTitle =
             case properties.title.get of
                 Just title ->
                     [ text title ]
 
                 Nothing ->
-                    [ text "Untitled Assignable" ]
+                    []
 
-        noAssignables =
-            node "ion-card"
-                []
-                [ node "ion-card-header"
-                    []
-                    [ node "ion-card-title" [] assignableTitle
-                    , node "ion-card-subtitle" [] [ text "No assignables" ]
-                    ]
-                , node "ion-card-content"
-                    []
-                    []
-                , node "ion-button" [ attribute "fill" "clear" ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
-                ]
+        viewAssignableTitle =
+            viewAssignableWrapperTitle ++ [ text assignable.title.get ]
 
         viewSubAssignables =
             List.map viewSubAssignable (RepList.listValues assignable.children)
@@ -286,27 +277,49 @@ viewAssignable ( time, timeZone ) trackedTaskMaybe assignableReg =
 
                 Action.ActionIsDeeper containerOfActions ->
                     text (Debug.toString containerOfActions)
+
+        assignments =
+            RepDb.members profile.assignments
+                |> List.filter (\assignmentMember -> (Reg.latest assignmentMember.value).assignableID == ID.fromPointer (Reg.getPointer assignableReg))
+
+        viewAssignments =
+            List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
+                ++ [ addAssignment ]
+
+        addAssignment =
+            node "ion-card"
+                [ css [ minWidth (pct 60), maxWidth (pct 90) ] ]
+                [ node "ion-card-header"
+                    []
+                    [ node "ion-card-subtitle" [] [ text "Add the first assignment" ]
+                    ]
+                , node "ion-card-content"
+                    []
+                    []
+                , node "ion-button" [ attribute "fill" "clear", onClick (AddAssignment (ID.fromPointer <| Reg.getPointer assignableReg)) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
+                ]
     in
     div
         [ class "assignments" ]
-        ([ node "ion-card-subtitle" [] assignableTitle ] ++ viewSubAssignables)
+        [ node "ion-card-title" [] (viewAssignableTitle ++ viewSubAssignables)
+        , div [ css [ displayFlex, overflowX scroll ] ] viewAssignments
+        ]
 
 
-viewAssignment ( time, timeZone ) trackedTaskMaybe assignmentRegItem =
+viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
     let
         assignment =
             Reg.latest assignmentRegItem.value
     in
     node "ion-card"
-        []
+        [ SHA.attribute "color" "tertiary", css [ minWidth (pct 60), maxWidth (pct 90) ] ]
         [ node "ion-card-header"
             []
-            [ node "ion-card-title" [] []
-            , node "ion-card-subtitle" [] [ text "Subtitle" ]
+            [ node "ion-card-subtitle" [] [ text <| "#" ++ String.fromInt (index + 1) ]
             ]
         , node "ion-card-content"
             []
-            [ text "card content" ]
+            [ text "action here" ]
         ]
 
 
@@ -488,13 +501,13 @@ viewTaskTitle task editingMaybe =
                 , onInput (EditingClassTitle task)
                 , on "ionBlur" (JD.succeed StopEditing)
                 , onEnter (UpdateTitle task newTitleSoFar)
-                , Attr.property "clearInput" (JE.bool True)
+                , SHA.property "clearInput" (JE.bool True)
                 , autofocus True
                 , attribute "enterkeyhint" "done"
                 , attribute "helper-text" <| "Enter a new title for the project. "
                 , spellcheck True
                 , minlength 2
-                , Attr.required True
+                , SHA.required True
                 , attribute "error-text" <| "Minimum 2 characters."
                 , attribute "autocorrect" "on"
                 , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.getTitle task))
@@ -542,7 +555,7 @@ startTrackingButton task trackedTaskMaybe =
 --                 [ text <| Activity.getName givenActivity ]
 --     in
 --     node "ion-popover"
---         [ Attr.property "isOpen" (JE.bool True), on "didDismiss" <| JD.succeed CloseEditor ]
+--         [ SHA.property "isOpen" (JE.bool True), on "didDismiss" <| JD.succeed CloseEditor ]
 --         [ node "ion-header"
 --             []
 --             [ node "ion-toolbar"
@@ -569,7 +582,7 @@ startTrackingButton task trackedTaskMaybe =
 --                 ]
 --             ]
 --         ]
---, div [ class "task-drawer", class "slider-overlay" , Attr.hidden False ]
+--, div [ class "task-drawer", class "slider-overlay" , SHA.hidden False ]
 --    [ label [ for "readyDate" ] [ text "Ready" ]
 --    , input [ type_ "date", name "readyDate", onInput (extractDate task.instance.id "Ready"), pattern "[0-9]{4}-[0-9]{2}-[0-9]{2}" ] []
 --    , label [ for "startDate" ] [ text "Start" ]
@@ -660,8 +673,8 @@ progressSlider task =
         [ class "task-progress"
         , type_ "range"
         , value <| String.fromInt <| getPortion completion
-        , Attr.min "0"
-        , Attr.max <| String.fromInt <| getWhole completion
+        , SHA.min "0"
+        , SHA.max <| String.fromInt <| getWhole completion
         , step
             (if isDiscrete <| getUnits completion then
                 "1"
@@ -922,7 +935,7 @@ viewControls visibilityFilters time zone profile =
     in
     footer
         [ class "footer"
-        , Attr.hidden (List.isEmpty sortedTasks)
+        , SHA.hidden (List.isEmpty sortedTasks)
         ]
         [ Html.Styled.Lazy.lazy viewControlsCount tasksLeft
         , Html.Styled.Lazy.lazy viewControlsFilters visibilityFilters
@@ -978,10 +991,10 @@ visibilitySwap name visibilityToDisplay actualVisibility =
         []
         [ input
             [ type_ "checkbox"
-            , Attr.checked isCurrent
+            , SHA.checked isCurrent
             , onClick (Refilter changeList)
             , classList [ ( "selected", isCurrent ) ]
-            , Attr.name name
+            , SHA.name name
             ]
             []
         , label [ for name ] [ text (filterName visibilityToDisplay) ]
@@ -1012,7 +1025,7 @@ viewControlsClear : Int -> Html Msg
 viewControlsClear tasksCompleted =
     button
         [ class "clear-completed"
-        , Attr.hidden (tasksCompleted == 0)
+        , SHA.hidden (tasksCompleted == 0)
         , onClick DeleteComplete
         ]
         [ text ("Clear completed (" ++ String.fromInt tasksCompleted ++ ")")
@@ -1035,7 +1048,8 @@ type Msg
     | UpdateTitle Assignment String
     | OpenEditor (Maybe Assignment)
     | CloseEditor
-    | Add
+    | AddProject
+    | AddAssignment AssignableID
     | Delete Assignment
     | DeleteComplete
     | UpdateProgress Assignment Portion
@@ -1054,7 +1068,7 @@ type Msg
 update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Change.Frame, List (Effect msg) )
 update msg state profile env =
     case msg of
-        Add ->
+        AddProject ->
             case state of
                 Normal filters _ "" _ ->
                     ( Normal filters Nothing "" Nothing
@@ -1063,25 +1077,25 @@ update msg state profile env =
                     , []
                     )
 
-                Normal filters _ newTaskTitle _ ->
+                Normal filters _ newProjectTitle _ ->
                     let
                         newAssignable : Change.Creator (Reg AssignableSkel)
                         newAssignable c =
                             let
                                 changesToMake : Reg AssignableSkel -> List Change
-                                changesToMake newClass =
-                                    [ RepDb.addNew (Assignment.initWithClass (ID.fromPointer (Reg.getPointer newClass))) profile.assignments
+                                changesToMake parentAssignable =
+                                    [ RepDb.addNew (Assignment.new (ID.fromPointer (Reg.getPointer parentAssignable))) profile.assignments
                                     ]
                             in
-                            Assignable.newAssignableSkel c (Assignable.normalizeTitle newTaskTitle) changesToMake
+                            Assignable.new c (Assignable.normalizeTitle newProjectTitle) changesToMake
 
                         frameDescription =
-                            "Added new task class: " ++ newTaskTitle
+                            "Added project: " ++ newProjectTitle
 
                         finalChanges =
-                            [ RepList.insert RepList.Last ("Added item: " ++ newTaskTitle) profile.errors
+                            [ RepList.insert RepList.Last frameDescription profile.errors
                             , RepList.insertNew RepList.Last
-                                [ \c -> Entry.initProjectWithAssignable (newAssignable (Change.reuseContext "action" c)) c ]
+                                [ \c -> Entry.AssignableIsHere (newAssignable (Change.reuseContext "Assignable in Project" c)) ]
                                 profile.projects
                             ]
                     in
@@ -1090,6 +1104,22 @@ update msg state profile env =
                     , Change.saveChanges frameDescription finalChanges
                     , []
                     )
+
+        AddAssignment assignableID ->
+            let
+                frameDescription =
+                    "Added a new assignment."
+
+                finalChanges =
+                    [ RepList.insert RepList.Last frameDescription profile.errors
+                    , RepDb.addNew (\c -> Assignment.new assignableID c)
+                        profile.assignments
+                    ]
+            in
+            ( state
+            , Change.saveChanges frameDescription finalChanges
+            , []
+            )
 
         UpdateNewEntryField typedSoFar ->
             ( let
@@ -1232,11 +1262,7 @@ update msg state profile env =
             --         , Cmd.batch
             --             [ Commands.toast ("No longer marked as complete: " ++ givenTask.class.title)
             --
-            --             -- , Cmd.map TodoistServerResponse <|
-            --             --     Integrations.Todoist.sendChanges profile.todoist
-            --             --         [ ( HumanMoment.toStandardString env.time, TodoistCommand.ItemUncomplete (TodoistCommand.RealItem givenTask.instance.id) ) ]
-            --             ]
-            --         )
+            --             -- , Cmd.map TodoistServerResponse <|item
             --
             --     _ ->
             --         -- nothing changed, completion-wise

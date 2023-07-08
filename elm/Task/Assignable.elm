@@ -61,8 +61,8 @@ type alias AssignableSkel =
     }
 
 
-newAssignableSkel : Context (Reg AssignableSkel) -> String -> Changer (Reg AssignableSkel) -> Reg AssignableSkel
-newAssignableSkel c title changer =
+new : Context (Reg AssignableSkel) -> String -> Changer (Reg AssignableSkel) -> Reg AssignableSkel
+new c title changer =
     Codec.seededNewWithChanges codec c title changer
 
 

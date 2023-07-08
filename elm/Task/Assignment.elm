@@ -42,7 +42,7 @@ import ZoneHistory exposing (ZoneHistory)
 {-| Definition of a single assignment of a single task - one particular time that the specific thing will be done, that can be scheduled. Can be thought of as an "assignment" of a task (assignable). There may be zero (an unassigned task), and there may be many (a repeated task) for a given assignable.
 -}
 type alias AssignmentSkel =
-    { assignableID : RW AssignableID
+    { assignableID : AssignableID
     , memberOfSeries : Maybe SeriesID
     , completion : RW Progress.Portion
     , externalDeadline : RW (Maybe FuzzyMoment) -- *
@@ -59,7 +59,7 @@ type alias AssignmentSkel =
 codec : Codec String ( AssignableID, Changer (Reg AssignmentSkel) ) Codec.SoloObject (Reg AssignmentSkel)
 codec =
     Codec.record AssignmentSkel
-        |> Codec.coreRW ( 1, "assignableID" ) .assignableID Codec.id identity
+        |> Codec.coreR ( 1, "assignableID" ) .assignableID Codec.id identity
         |> Codec.maybeR ( 2, "memberOfSeries" ) .memberOfSeries Codec.int
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0
         |> Codec.maybeRW ( 4, "externalDeadline" ) .externalDeadline Codec.fuzzyMoment
@@ -81,13 +81,13 @@ type alias AssignmentDb =
     RepDb (Reg AssignmentSkel)
 
 
-initWithClass : AssignableID -> Context (Reg AssignmentSkel) -> Reg AssignmentSkel
-initWithClass actionClassID context =
-    Codec.seededNew codec context ( actionClassID, \_ -> [] )
+new : AssignableID -> Context (Reg AssignmentSkel) -> Reg AssignmentSkel
+new assignableID context =
+    Codec.seededNew codec context ( assignableID, \_ -> [] )
 
 
-initWithClassAndChanges : AssignableID -> Change.Changer (Reg AssignmentSkel) -> Context (Reg AssignmentSkel) -> Reg AssignmentSkel
-initWithClassAndChanges actionClassID changer context =
+newWithChanges : AssignableID -> Change.Changer (Reg AssignmentSkel) -> Context (Reg AssignmentSkel) -> Reg AssignmentSkel
+newWithChanges actionClassID changer context =
     Codec.seededNew codec context ( actionClassID, changer )
 
 
@@ -131,7 +131,7 @@ assignmentsOfAssignable : ( ZoneHistory, Period ) -> AssignmentDb -> Assignable 
 assignmentsOfAssignable ( zoneHistory, relevantPeriod ) assignmentDb fullAssignable =
     let
         savedInstancesWithMatchingClass =
-            List.filter (\member -> (Reg.latest member.value).assignableID.get == fullAssignable.assignableID) (RepDb.members assignmentDb)
+            List.filter (\member -> (Reg.latest member.value).assignableID == fullAssignable.assignableID) (RepDb.members assignmentDb)
 
         savedInstancesFull =
             List.indexedMap toFull savedInstancesWithMatchingClass
