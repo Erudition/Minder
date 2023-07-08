@@ -93,52 +93,68 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 {-| Like a normal codec, but can have references instead of values, so must be passed the entire Replica so that some decoders may search elsewhere.
 -}
-type Codec e s o a
+type Codec errType initData constraints a
     = Codec
         { bytesEncoder : a -> BE.Encoder
-        , bytesDecoder : BD.Decoder (Result (Error e) a)
+        , bytesDecoder : BD.Decoder (Result (Error errType) a)
         , jsonEncoder : a -> JE.Value
-        , jsonDecoder : JD.Decoder (Result (Error e) a)
-        , nodeEncoder : NodeEncoder a o
-        , nodeDecoder : NodeDecoder e a
-        , nodePlaceholder : PlaceholderGenerator s a
+        , jsonDecoder : JD.Decoder (Result (Error errType) a)
+        , nodeEncoder : NodeEncoder a constraints
+        , nodeDecoder : NodeDecoder errType a
+        , nodePlaceholder : PlaceholderGenerator initData a
         }
 
 
-{-| Any codec that can only be seeded with its own type. (No custom seed, not seedless)
+{-| For types that cannot be initialized from nothing, nor from a list of changes - you need the whole value upfront. We use the value itself as the "seed".
 -}
-type alias FlatCodec e o a =
-    Codec e a o a
+type alias SelfSeededCodec e constraints thing =
+    Codec e thing constraints thing
 
 
+{-| A self-seeded codec with no special guarantees. Used as a building block for additional type constraints.
+-}
 type alias NullCodec e a =
     Codec e a {} a
 
 
+{-| A self-seeded, primitive-only codec, like string or int.
+-}
 type alias PrimitiveCodec e a =
     Codec e a Primitive a
 
 
+{-| Codec for unwrapped objects, like naked records.
+-}
 type alias SkelCodec e a =
     Codec e Skel SoloObject a
 
 
+{-| Codec for wrapped objects, like replist or register, or unwrapped naked records.
+-}
 type alias WrappedOrSkelCodec e s a =
     Codec e (s -> List Change) SoloObject a
 
 
+{-| Codec for wrapped objects, like replist or register, but not naked records.
+-}
 type alias WrappedCodec e a =
     Codec e (Changer a) SoloObject a
 
 
-type alias WrappedSeededCodec e s a =
-    Codec e ( s, Changer a ) SoloObject a
+{-| Codec for wrapped objects that need an initial seed.
+-}
+type alias WrappedSeededCodec e seed a =
+    Codec e ( seed, Changer a ) SoloObject a
 
 
-type alias PlaceholderGenerator i a =
-    PlaceholderInputs i -> a
+{-| The type of function that produces a placeholder object. It may require a seed value.
+-}
+type alias PlaceholderGenerator seed a =
+    PlaceholderInputs seed -> a
 
 
+{-| The inputs to a placeholder generator function.
+-}
 type alias PlaceholderInputs seed =
     { parent : Change.Parent
     , position : Location
@@ -752,7 +768,7 @@ buildNestableCodec :
     -> JD.Decoder (Result (Error e) a)
     -> NodeEncoder a o
     -> NodeDecoder e a
-    -> FlatCodec e o a
+    -> SelfSeededCodec e o a
 buildNestableCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecoder =
     Codec
         { bytesEncoder = encoder_
@@ -810,7 +826,7 @@ string =
 
 {-| An ID is a Pointer that's meant to be more user-facing. It has a type variable so it can be used for constraining a wrapped reptype for type safety, unlike a Pointer. It also can only be gotten from already Saved Objects, or objects that are about to be saved in the same frame as the ID reference, so we can guarantee that the ID points to something that exists, anywhere it's used. Placeholder Pointers will always be resolved to real object IDs by the time of serialization, so it's serialized as simply an object ID.
 -}
-id : Codec e (ID userType) {} (ID userType)
+id : PrimitiveCodec e (ID userType)
 id =
     let
         toObjectID givenID =
@@ -830,6 +846,15 @@ id =
 
                 PlaceholderPointer pendingID _ ->
                     Change.PendingObjectReferenceAtom pendingID
+
+        toPrimitiveAtom givenID =
+            case ID.toPointer "bogus reducer unused" givenID of
+                ExistingObjectPointer existingID ->
+                    Change.StringAtom (OpID.toString existingID.object)
+
+                PlaceholderPointer pendingID _ ->
+                    Log.crashInDev "Tried to serialize an ID that was Pending" <|
+                        Change.StringAtom "pendingID"
 
         toString givenID =
             OpID.toString (toObjectID givenID)
@@ -865,9 +890,11 @@ id =
                             -- Or is this better to switch to canonical ObjectIDs
                             ID.fromPointer (ExistingObjectPointer (Change.ExistingID reducerID objectID))
 
-        nodeEncoder : NodeEncoderInputs (ID userType) -> EncoderOutput {}
+        nodeEncoder : NodeEncoderInputs (ID userType) -> PrimitiveEncoderOutput
         nodeEncoder inputs =
-            { complex = Nonempty.singleton <| toChangeAtom (getEncodedPrimitive inputs.thingToEncode) }
+            { complex = Nonempty.singleton <| toChangeAtom (getEncodedPrimitive inputs.thingToEncode)
+            , primitive = Nonempty.singleton <| toPrimitiveAtom (getEncodedPrimitive inputs.thingToEncode)
+            }
     in
     Codec
         { bytesEncoder =
@@ -1045,7 +1072,7 @@ maybeIntCodec =
 S.maybe S.int
 
 -}
-maybe : Codec e s o a -> FlatCodec e {} (Maybe a)
+maybe : Codec e s o a -> SelfSeededCodec e {} (Maybe a)
 maybe justCodec =
     customType
         (\nothingEncoder justEncoder value ->
@@ -1262,7 +1289,7 @@ list codec =
         }
 
 
-nonempty : FlatCodec e o userType -> FlatCodec e {} (Nonempty userType)
+nonempty : SelfSeededCodec e o userType -> SelfSeededCodec e {} (Nonempty userType)
 nonempty wrappedCodec =
     -- We can't use mapValid with built-in errors, since it will wrap it again with CustomError.
     -- So, we must implement mapValid from scratch, on top of the list codec.
@@ -1330,7 +1357,7 @@ listStep decoder_ ( n, xs ) =
 
 {-| Codec for serializing an `Array`
 -}
-array : FlatCodec e o a -> FlatCodec e {} (Array a)
+array : SelfSeededCodec e o a -> SelfSeededCodec e {} (Array a)
 array codec =
     list codec |> map Array.fromList Array.toList
 
@@ -1577,10 +1604,12 @@ repDict keyCodec valueCodec =
 
 {-| Codec for a replicated store. Accepts a key codec and a value codec.
 
-  - By design, the store only accepts values with seedless codecs.
+  - The value type's codec can't have a creation changer, since there is no explicit creation in a store.
+  - For the same reason, it can't have a seed.
+    (Forcing the seed to be the key would work, but in practice that turns out not to be useful - you could customize the value's defaults based on the key, but you usually need outside information to do so, and this could be accomplished by wrapping `get` with your own accessor function that provides fallbacks for `Nothing` based on the key. It would also allow one to store the key in the value, which is a waste of resources.
 
 -}
-repStore : PrimitiveCodec e k -> Codec e (s -> List Change) o v -> WrappedCodec e (RepStore k v)
+repStore : PrimitiveCodec e k -> Codec e (any -> List Change) o v -> WrappedCodec e (RepStore k v)
 repStore keyCodec valueCodec =
     let
         keyToString : k -> String
@@ -1747,7 +1776,7 @@ repStore keyCodec valueCodec =
     Not sync-safe : use RepDict instead.
 
 -}
-dict : PrimitiveCodec e comparable -> Codec e s o a -> FlatCodec e {} (Dict comparable a)
+dict : PrimitiveCodec e comparable -> Codec e s o a -> SelfSeededCodec e {} (Dict comparable a)
 dict keyCodec valueCodec =
     list (pair keyCodec valueCodec)
         |> map Dict.fromList Dict.toList
@@ -1755,7 +1784,7 @@ dict keyCodec valueCodec =
 
 {-| Codec for serializing a `Set`
 -}
-set : PrimitiveCodec e comparable -> FlatCodec e {} (Set comparable)
+set : PrimitiveCodec e comparable -> SelfSeededCodec e {} (Set comparable)
 set codec =
     list codec |> map Set.fromList Set.toList
 
@@ -1814,7 +1843,7 @@ seedlessPair codecFirst codecSecond =
         S.tuple S.float S.float S.float
 
 -}
-triple : Codec e ia oa a -> Codec e ib ob b -> Codec e ic oc c -> FlatCodec e {} ( a, b, c )
+triple : Codec e ia oa a -> Codec e ib ob b -> Codec e ic oc c -> SelfSeededCodec e {} ( a, b, c )
 triple codecFirst codecSecond codecThird =
     -- fragileRecord (\a b c -> ( a, b, c ))
     --     |> fixedField (\( a, _, _ ) -> a) codecFirst
@@ -1831,7 +1860,7 @@ triple codecFirst codecSecond codecThird =
 
 {-| Codec for serializing a `Result`
 -}
-result : Codec e sa oa error -> Codec e sb ob value -> FlatCodec e {} (Result error value)
+result : Codec e sa oa error -> Codec e sb ob value -> SelfSeededCodec e {} (Result error value)
 result errorCodec valueCodec =
     customType
         (\errEncoder okEncoder value ->
@@ -2413,6 +2442,18 @@ fieldList fieldID fieldGetter fieldCodec recordBuilt =
 fieldDict : FieldIdentifier -> (full -> RepDict keyType valueType) -> ( PrimitiveCodec errs keyType, Codec errs valInit o valueType ) -> PartialRegister errs i full (RepDict keyType valueType -> remaining) -> PartialRegister errs i full remaining
 fieldDict fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
     readableHelper fieldID fieldGetter (repDict keyCodec valueCodec) (PlaceholderDefault nonChanger) recordBuilt
+
+
+{-| Read a `RepStore` field without adding the `repStore` codec. Default is an empty `RepStore`. Instead of supplying a single codec for members, you provide a pair of codec in a tuple, e.g. `(string, bool)`.
+
+  - Default is an empty RepStore. Want a different default? Use `field` with the `repStore` codec.
+  - If any items in the RepStore are corrupted, they will be silently excluded.
+  - If your field is not a `RepStore` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repStore` codec instead.
+
+-}
+fieldStore : FieldIdentifier -> (full -> RepStore keyType valueType) -> ( PrimitiveCodec errs keyType, Codec errs (any -> List Change) o valueType ) -> PartialRegister errs i full (RepStore keyType valueType -> remaining) -> PartialRegister errs i full remaining
+fieldStore fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
+    readableHelper fieldID fieldGetter (repStore keyCodec valueCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
 {-| Read a `RepDb` field without adding the `repDb` codec. Default is an empty `RepDb`.
@@ -3730,7 +3771,7 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 [Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
 
 -}
-mapValid : (a -> Result e b) -> (b -> a) -> FlatCodec e o a -> FlatCodec e o b
+mapValid : (a -> Result e b) -> (b -> a) -> SelfSeededCodec e o a -> SelfSeededCodec e o b
 mapValid fromBytes_ toBytes_ codec =
     let
         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (Error e) b)

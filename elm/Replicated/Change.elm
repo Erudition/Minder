@@ -354,6 +354,7 @@ type alias PrimitivePayload =
 
 
 {-| Simple change encoder atoms, to be converted to RON - no standalone objects or references.
+TODO allow IDs so user can use IDs as dict keys, no need for special behavior
 -}
 type PrimitiveAtom
     = NakedStringAtom String
