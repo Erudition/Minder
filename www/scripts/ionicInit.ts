@@ -36,6 +36,7 @@ import { defineCustomElement as defineIonCardHeader } from "@ionic/core/componen
 import { defineCustomElement as defineIonCardSubtitle } from "@ionic/core/components/ion-card-subtitle";
 import { defineCustomElement as defineIonCardTitle } from "@ionic/core/components/ion-card-title";
 import { defineCustomElement as defineIonThumbnail } from "@ionic/core/components/ion-thumbnail";
+import { defineCustomElement as defineIonActionSheet } from "@ionic/core/components/ion-action-sheet";
 
 
 
@@ -85,5 +86,6 @@ defineIonCardSubtitle();
 defineIonCardContent();
 defineIonCardHeader();
 defineIonThumbnail();
+defineIonActionSheet();
 //defineIonIcon();
 document.documentElement.classList.add('ion-ce');
