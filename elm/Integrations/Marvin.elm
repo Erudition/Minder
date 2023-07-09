@@ -29,7 +29,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.Assignable
 import Task.Assignment
-import Task.Entry
+import Task.Project
 import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url.Builder
 

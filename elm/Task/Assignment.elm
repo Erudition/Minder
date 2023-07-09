@@ -28,8 +28,8 @@ import SmartTime.Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
 import Task.Action exposing (Action, ActionID, ActionSkel, TrackableLayerProperties)
 import Task.Assignable exposing (Assignable, AssignableID, AssignableSkel, decodeTaskMoment, encodeTaskMoment)
-import Task.Entry as Entry
 import Task.Progress as Progress exposing (..)
+import Task.Project as Entry
 import Task.Series exposing (Series, SeriesID)
 import Task.SessionSkel as Session exposing (UserPlannedSession, decodeSession, encodeSession)
 import ZoneHistory exposing (ZoneHistory)

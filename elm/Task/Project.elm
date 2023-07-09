@@ -1,4 +1,4 @@
-module Task.Entry exposing (..)
+module Task.Project exposing (..)
 
 import Date exposing (Date)
 import ExtraCodecs as Codec
@@ -191,9 +191,3 @@ initProjectWithAssignable assignableSkelReg entryListParent =
             ]
     in
     AssignableIsHere (Codec.seededNewWithChanges Assignable.codec (Change.reuseContext "AssignableIsHere" entryListParent) "Untitled Assignable" assignableChanger)
-
-
-
--- Todo list left off:
--- - how do I add a new Custom Type value to a RepList when the variant takes a nested type?
--- - how do I refer to the ID of an object that's being created in the same frame I want the reference made? update IDs to be pointers?

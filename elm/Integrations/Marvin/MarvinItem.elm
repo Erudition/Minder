@@ -30,8 +30,8 @@ import SmartTime.Moment as Moment exposing (Moment(..))
 import SmartTime.Period as Period exposing (Period(..))
 import Task.Assignable
 import Task.Assignment
-import Task.Entry
 import Task.Progress
+import Task.Project
 import Task.SessionSkel exposing (UserPlannedSession)
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 
@@ -563,7 +563,7 @@ toDocketTask profile marvinItem =
                 Nothing ->
                     let
                         newEntry c =
-                            Task.Entry.initProjectWithAssignable (newAssignable (Change.reuseContext "action" c)) c
+                            Task.Project.initProjectWithAssignable (newAssignable (Change.reuseContext "action" c)) c
 
                         newAssignable : Change.Creator (Reg Task.Assignable.AssignableSkel)
                         newAssignable c =

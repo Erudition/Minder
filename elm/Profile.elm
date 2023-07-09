@@ -26,8 +26,8 @@ import SmartTime.Period as Period exposing (Period)
 import Task.Action exposing (Action)
 import Task.Assignable exposing (AssignableDb)
 import Task.Assignment exposing (AssignedAction, Assignment, AssignmentDb)
-import Task.Entry
 import Task.Progress exposing (..)
+import Task.Project
 import Task.Session
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
@@ -41,7 +41,7 @@ type alias AppInstance =
 
 type alias Profile =
     { errors : RepList String
-    , projects : RepList Task.Entry.Project
+    , projects : RepList Task.Project.Project
     , assignments : AssignmentDb
     , activities : Activity.Store
     , timeline : Timeline
@@ -56,7 +56,7 @@ codec : SkelCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
-        |> Codec.fieldList ( 2, "projects" ) .projects Task.Entry.codec
+        |> Codec.fieldList ( 2, "projects" ) .projects Task.Project.codec
         |> Codec.fieldDb ( 4, "assignments" ) .assignments Task.Assignment.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
@@ -115,7 +115,7 @@ assignments : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
 assignments profile ( time, timeZone ) =
     let
         assignables =
-            Task.Entry.entriesToAssignables profile.projects
+            Task.Project.entriesToAssignables profile.projects
 
         zoneHistory =
             -- TODO

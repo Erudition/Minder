@@ -59,8 +59,8 @@ import Task as Job
 import Task.Action as Action
 import Task.Assignable as Assignable exposing (Assignable, AssignableID, AssignableSkel)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
-import Task.Entry as Entry
 import Task.Progress exposing (..)
+import Task.Project as Project exposing (Project)
 import Task.Session
 import TaskPort
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
@@ -204,20 +204,20 @@ viewProjects time timeZone filter profile =
         List.map (viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
-viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> ( String, Html Msg )
+viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Project -> ( String, Html Msg )
 viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     ( RepList.handleString rootEntryItem, lazy4 viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem )
 
 
-viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Entry.Project -> Html Msg
+viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Project -> Html Msg
 viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     let
         entryContents =
             case rootEntryItem.value of
-                Entry.AssignableIsDeeper containerOfAssignables ->
+                Project.AssignableIsDeeper containerOfAssignables ->
                     Debug.todo "containerOfAssignables"
 
-                Entry.AssignableIsHere assignable ->
+                Project.AssignableIsHere assignable ->
                     viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable
     in
     node "ion-item-sliding"
@@ -278,7 +278,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
         viewSubAssignable subAssignable =
             case subAssignable of
                 Action.ActionIsHere actionClassReg ->
-                    text "action is here"
+                    text (Reg.latest actionClassReg).title.get
 
                 Action.ActionIsDeeper containerOfActions ->
                     text (Debug.toString containerOfActions)
@@ -340,13 +340,26 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                 , ActionSheet.button "Continue" (Toast "clicked Continue!")
                 ]
                 |> SH.fromUnstyled
+
+        assignmentTooltip =
+            String.concat <|
+                List.intersperse "\n" <|
+                    List.filterMap identity
+                        ([ Just ("Assignment #" ++ String.fromInt (index + 1))
+                         , Just ("ID: " ++ ID.toString assignmentRegItem.id)
+                         , Just ("completion: " ++ String.fromInt assignment.completion.get)
+                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") assignment.relevanceStarts.get
+                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") assignment.relevanceEnds.get
+                         ]
+                            ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list assignment.extra)
+                        )
     in
     node "ion-card"
         [ css [ Css.width (pct 90), minWidth (rem 10), maxWidth (rem 300) ] ]
         [ node "ion-card-content"
             []
             [ node "ion-note"
-                []
+                [ title assignmentTooltip ]
                 [ SH.fromUnstyled <| identicon "1em" (RepDb.idString assignmentRegItem)
                 , text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText
                 ]
@@ -1119,12 +1132,16 @@ update msg state profile env =
                         newAssignable : Change.Creator (Reg AssignableSkel)
                         newAssignable c =
                             let
-                                changesToMake : Reg AssignableSkel -> List Change
-                                changesToMake parentAssignable =
+                                assignableChanger : Reg AssignableSkel -> List Change
+                                assignableChanger parentAssignable =
                                     [ RepDb.addNew (Assignment.new (ID.fromPointer (Reg.getPointer parentAssignable))) profile.assignments
+                                    , RepList.insert RepList.Last (Action.ActionIsHere actionToAdd) (Reg.latest parentAssignable).children
                                     ]
+
+                                actionToAdd =
+                                    Action.newActionSkel (Change.reuseContext "in-action" c) "first action" (\_ -> [])
                             in
-                            Assignable.new c (Assignable.normalizeTitle newProjectTitle) changesToMake
+                            Assignable.new c (Assignable.normalizeTitle newProjectTitle) assignableChanger
 
                         frameDescription =
                             "Added project: " ++ newProjectTitle
@@ -1132,7 +1149,7 @@ update msg state profile env =
                         finalChanges =
                             [ RepList.insert RepList.Last frameDescription profile.errors
                             , RepList.insertNew RepList.Last
-                                [ \c -> Entry.AssignableIsHere (newAssignable (Change.reuseContext "Assignable in Project" c)) ]
+                                [ \c -> Project.AssignableIsHere (newAssignable (Change.reuseContext "Assignable in Project" c)) ]
                                 profile.projects
                             ]
                     in

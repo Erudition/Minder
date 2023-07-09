@@ -27,8 +27,8 @@ import SmartTime.Period as Period exposing (Period)
 import Task as Job
 import Task.Assignable exposing (Assignable, AssignableID)
 import Task.Assignment exposing (Assignment, AssignmentID)
-import Task.Entry
 import Task.Progress
+import Task.Project
 import ZoneHistory
 
 
