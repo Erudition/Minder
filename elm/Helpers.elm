@@ -1,14 +1,14 @@
-module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, cycleGroupWithStep, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, elementHsluv, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, graphColor, homogeneousTuple2AsArray, listToTuple2, listToTuple3, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
+module Helpers exposing (BoolFromInt, EncodeField, Updateable(..), applyChanges, arrayAsTuple2, customDecoder, cycleGroupWithStep, decodeBoolFromInt, decodeCustom, decodeCustomFlat, decodeDuration, decodeFuzzyMoment, decodeIntDict, decodeInterval, decodeMoment, decodeTuple2, decodeTuple3, decodeUnixTimestamp, elementColor, elementHsluv, encodeBoolToInt, encodeDuration, encodeFuzzyMoment, encodeIntDict, encodeInterval, encodeMoment, encodeObjectWithoutNothings, encodeTuple2, encodeTuple3, encodeUnixTimestamp, graphColor, homogeneousTuple2AsArray, listToTuple2, listToTuple3, loggingDecoder, mapUpdateable, multiline, normal, omittable, omittableBool, omittableList, omittableNum, optionalIgnored, subtype, subtype2, toClassic, toClassicLoose, triple, updateable, withPresence, withPresenceList)
 
 import Color
 import Element
 import GraphicSVG
 import HSLuv exposing (HSLuv, hsluv)
 import IntDict exposing (IntDict)
-import Json.Decode as ClassicDecode
+import Json.Decode as JD
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Decode.Extra as ClassicDecode2
+import Json.Decode.Extra as JD2
 import Json.Encode as Encode
 import List.Extra as List
 import Maybe.Extra as Maybe
@@ -410,11 +410,33 @@ optionalIgnored field pipeline =
         |> Decode.andThen (\_ -> pipeline)
 
 
+{-| For event decoders, which always fail silently, to debug them...
+From an online article.
+Unfortunately, this seems to trigger the output object to contain nothing but isTrusted: false
+in scenarios like ionic events, you have to blindly listen for the exact correct fields...
+-}
+loggingDecoder : JD.Decoder a -> JD.Decoder a
+loggingDecoder realDecoder =
+    JD.value
+        |> JD.andThen
+            (\event ->
+                case JD.decodeValue realDecoder event of
+                    Ok decoded ->
+                        JD.succeed decoded
+
+                    Err error ->
+                        error
+                            |> JD.errorToString
+                            |> Debug.log "decoding error"
+                            |> JD.fail
+            )
+
+
 
 -- toClassic TODO: Switch to using Pipeline.resolve, ya dummy
 
 
-toClassic : Decoder a -> ClassicDecode.Decoder a
+toClassic : Decoder a -> JD.Decoder a
 toClassic decoder =
     let
         runRealDecoder value =
@@ -429,10 +451,10 @@ toClassic decoder =
         final value =
             convertToNormalResult (asResult value)
     in
-    ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
+    JD.value |> JD.andThen (JD2.fromResult << final)
 
 
-toClassicLoose : Decoder a -> ClassicDecode.Decoder a
+toClassicLoose : Decoder a -> JD.Decoder a
 toClassicLoose decoder =
     let
         runRealDecoder value =
@@ -455,7 +477,7 @@ toClassicLoose decoder =
         final value =
             asResult value
     in
-    ClassicDecode.value |> ClassicDecode.andThen (ClassicDecode2.fromResult << final)
+    JD.value |> JD.andThen (JD2.fromResult << final)
 
 
 encodeTuple2 : (a -> Encode.Value) -> (b -> Encode.Value) -> ( a, b ) -> Encode.Value

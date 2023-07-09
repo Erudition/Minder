@@ -8,7 +8,7 @@ import Browser.Dom
 import Css exposing (..)
 import Date
 import Dict
-import Effect exposing (Effect)
+import Effect exposing (Effect(..))
 import External.Commands as Commands
 import Helpers exposing (..)
 import Html.Styled as SH exposing (..)
@@ -336,7 +336,9 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                 , ActionSheet.isOpen True
                 , ActionSheet.trigger sheetButtonID
                 ]
-                [ ActionSheet.button "Continue" (DeleteAssignment assignmentRegItem) ]
+                [ ActionSheet.deleteButton (DeleteAssignment assignmentRegItem)
+                , ActionSheet.button "Continue" (Toast "clicked Continue!")
+                ]
                 |> SH.fromUnstyled
     in
     node "ion-card"
@@ -1097,6 +1099,7 @@ type Msg
     | StopTracking AssignmentID
     | SimpleChange Change
     | LogError String
+    | Toast String
 
 
 update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Change.Frame, List (Effect msg) )
@@ -1397,6 +1400,9 @@ update msg state profile env =
 
         LogError errorMsg ->
             ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], [] )
+
+        Toast toastMsg ->
+            ( state, Change.none, [ Effect.Toast toastMsg ] )
 
 
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
