@@ -24,6 +24,7 @@ import Incubator.Todoist.Command as TodoistCommand
 import IntDict
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
+import Ion.ActionSheet as ActionSheet
 import Ion.Icon
 import Ion.Item
 import Ion.List
@@ -325,6 +326,18 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
 
                 Just assignedAt ->
                     ", " ++ HumanMoment.describeGapVsNowSimple timeZone time assignedAt
+
+        sheetButtonID =
+            "actionsheet-" ++ RepDb.idString assignmentRegItem
+
+        presentActionSheet =
+            ActionSheet.actionSheet
+                [ ActionSheet.header "Action Sheet!"
+                , ActionSheet.isOpen True
+                , ActionSheet.trigger sheetButtonID
+                ]
+                [ ActionSheet.button "Continue" (DeleteAssignment assignmentRegItem) ]
+                |> SH.fromUnstyled
     in
     node "ion-card"
         [ css [ Css.width (pct 90), minWidth (rem 10), maxWidth (rem 300) ] ]
@@ -336,8 +349,10 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                 , text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText
                 ]
             , node "ion-list" [] [ node "ion-item" [] [ text <| "action 1" ] ]
-            , node "ion-button" [ attribute "fill" "clear", attribute "color" "danger", onClick (DeleteAssignment assignmentRegItem) ] [ node "ion-icon" [ name "trash-outline" ] [], text "Remove" ]
+            , node "ion-button" [ attribute "fill" "clear", attribute "color" "danger", onClick (DeleteAssignment assignmentRegItem) ] [ node "ion-icon" [ name "trash-outline" ] [] ]
+            , node "ion-button" [ attribute "fill" "clear", attribute "color" "primary", SHA.id sheetButtonID ] [ node "ion-icon" [ name "menu-outline" ] [] ]
             ]
+        , presentActionSheet
         ]
 
 
