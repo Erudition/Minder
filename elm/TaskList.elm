@@ -225,14 +225,18 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
             [ classList []
             , attribute "data-flip-key" ("project-" ++ RepList.handleString rootEntryItem)
             ]
-            [ node "ion-thumbnail"
-                [ class "project-image"
-                , attribute "slot" "start"
-                ]
-                [ --img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
-                  SH.fromUnstyled <| identicon "100%" (RepList.handleString rootEntryItem)
-                ]
-            , div [ css [ Css.width (pct 100) ] ]
+            [ -- node "ion-thumbnail"
+              -- [ class "project-image"
+              -- , attribute "slot" "start"
+              -- , css
+              --     [ backgroundColor <| Css.hsl 0 0 0.5
+              --     , Css.height (pct 100)
+              --     ]
+              -- ]
+              -- [ --img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
+              --   SH.fromUnstyled <| identicon "100%" (RepList.handleString rootEntryItem)
+              -- ]
+              div [ css [ Css.width (pct 100) ] ]
                 [ node "ion-label"
                     []
                     [ text "" -- Project title if assignable is deeper
@@ -320,14 +324,19 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                     ""
 
                 Just assignedAt ->
-                    " assigned " ++ HumanMoment.describeGapVsNow timeZone time assignedAt
+                    ", " ++ HumanMoment.describeGapVsNowSimple timeZone time assignedAt
     in
     node "ion-card"
-        [ SHA.attribute "color" "tertiary", css [ Css.width (pct 60), minWidth (rem 10), maxWidth (rem 30) ] ]
+        [ css [ Css.width (pct 90), minWidth (rem 10), maxWidth (rem 300) ] ]
         [ node "ion-card-content"
             []
-            [ node "ion-note" [] [ text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText ]
+            [ node "ion-note"
+                []
+                [ SH.fromUnstyled <| identicon "1em" (RepDb.idString assignmentRegItem)
+                , text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText
+                ]
             , node "ion-list" [] [ node "ion-item" [] [ text <| "action 1" ] ]
+            , node "ion-button" [ attribute "fill" "clear", attribute "color" "danger", onClick (DeleteAssignment assignmentRegItem) ] [ node "ion-icon" [ name "trash-outline" ] [], text "Remove" ]
             ]
         ]
 
@@ -1059,6 +1068,7 @@ type Msg
     | CloseEditor
     | AddProject
     | AddAssignment AssignableID
+    | DeleteAssignment (RepDb.Member (Reg AssignmentSkel))
     | Delete Assignment
     | DeleteComplete
     | UpdateProgress Assignment Portion
@@ -1123,6 +1133,21 @@ update msg state profile env =
                     [ RepList.insert RepList.Last frameDescription profile.errors
                     , RepDb.addNew (\c -> Assignment.new assignableID c)
                         profile.assignments
+                    ]
+            in
+            ( state
+            , Change.saveChanges frameDescription finalChanges
+            , []
+            )
+
+        DeleteAssignment assignmentRegItem ->
+            let
+                frameDescription =
+                    "Deleted assignment"
+
+                finalChanges =
+                    [ RepList.insert RepList.Last frameDescription profile.errors
+                    , assignmentRegItem.remove
                     ]
             in
             ( state
