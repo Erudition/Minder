@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepDb exposing (Member, RepDb, addMultipleNew, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, listValues, members, reducerID, size)
+module Replicated.Reducer.RepDb exposing (Member, RepDb, addMultipleNew, addNew, buildFromReplicaDb, get, getInit, getMember, getPointer, idString, listValues, members, reducerID, size)
 
 import Array exposing (Array)
 import Console
@@ -54,6 +54,14 @@ getPointer (RepDb repSet) =
 reducerID : Op.ReducerID
 reducerID =
     "replist"
+
+
+{-| Want to use a repdb with Html.Keyed?
+Here's your key.
+-}
+idString : Member memberType -> String
+idString { id } =
+    ID.toString id
 
 
 {-| Only run in codec

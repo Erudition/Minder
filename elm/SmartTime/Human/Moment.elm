@@ -1,4 +1,4 @@
-module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeGapVsNow, describeVsNow, everyMinuteOnTheMinute, everySecondOnTheSecond, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, nextSecond, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
+module SmartTime.Human.Moment exposing (FuzzyMoment(..), Zone, clockTurnBack, clockTurnForward, compareFuzzy, compareFuzzyEarliness, compareFuzzyLateness, dateFromFuzzy, deduceZoneOffset, describeGapVsNow, describeGapVsNowSimple, describeVsNow, everyMinuteOnTheMinute, everySecondOnTheSecond, extractDate, extractTime, fromDate, fromDateAndTime, fromFuzzy, fromFuzzyWithDefaultTime, fromStandardString, fromStandardStringLoose, fromStringHelper, fuzzyDescription, fuzzyFromString, fuzzyToString, getMillisecond, getOffset, getSecond, humanize, humanizeFuzzy, humanizeFuzzyWithDefaultTime, importElmMonth, localZone, makeZone, nextMinute, nextSecond, searchRemainingZoneHistory, setDate, setTime, timeFromFuzzy, toStandardString, toTAIAndUnlocalize, toUTCAndLocalize, today, utc)
 
 {-| Human.Moment lets you safely comingle `Moment`s with their messy human counterparts: time zone, calendar date, and time-of-day.
 
@@ -389,7 +389,7 @@ describeVsNow zone now moment =
 
 {-| Given the current zone and time, describe the distance to the following moment.
 Output is a String in English.
-Ex. 4 minutes ago, in 5 days
+Ex. 4min 33sec ago, in 5 days 1 hr
 
 The first `Moment` is assumed to be the current time.
 
@@ -406,6 +406,37 @@ describeGapVsNow zone now moment =
         breakdown =
             gap
                 |> HumanDuration.breakdownNonzero
+    in
+    case Moment.compare moment now of
+        Moment.Coincident ->
+            "now"
+
+        Moment.Earlier ->
+            HumanDuration.abbreviatedSpaced breakdown ++ " ago"
+
+        Moment.Later ->
+            "in " ++ HumanDuration.abbreviatedSpaced breakdown
+
+
+{-| Given the current zone and time, describe the distance to the following moment, just like `describeGapVsNow` but without the smaller units.
+Ex. 4 minutes ago, in 5 days
+
+The first `Moment` is assumed to be the current time.
+
+-}
+describeGapVsNowSimple : Zone -> Moment -> Moment -> String
+describeGapVsNowSimple zone now moment =
+    let
+        ( date, time ) =
+            humanize zone moment
+
+        gap =
+            Moment.difference now moment
+
+        breakdown =
+            gap
+                |> HumanDuration.breakdownNonzero
+                |> List.take 1
     in
     case Moment.compare moment now of
         Moment.Coincident ->
