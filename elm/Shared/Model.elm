@@ -31,6 +31,7 @@ type alias Shared =
     , launchTime : Moment -- when we officially started the session
     , notifPermission : Notif.PermissionStatus
     , modal : Maybe PopupType
+    , actionSheet : Maybe ActionSheet
     }
 
 
@@ -46,6 +47,7 @@ initialShared maybeKey flags =
     , windowVisibility = Browser.Events.Visible
     , darkThemeActive = flags.darkTheme
     , modal = Nothing
+    , actionSheet = Nothing
     }
 
 

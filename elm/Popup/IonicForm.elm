@@ -3,6 +3,7 @@ module Popup.IonicForm exposing (..)
 import Form exposing (Form)
 import Form.Error
 import Form.View
+import Helpers exposing (loggingDecoder)
 import Html as H exposing (Html, li, node, text)
 import Html.Attributes as HA exposing (attribute, class, href, placeholder, property, type_)
 import Html.Events as HE exposing (on, onClick)
@@ -46,23 +47,6 @@ ionInputEvent tagger =
 ionBlurEvent : msg -> H.Attribute msg
 ionBlurEvent msg =
     on "ionBlur" (JD.succeed msg)
-
-
-loggingDecoder : JD.Decoder a -> JD.Decoder a
-loggingDecoder realDecoder =
-    JD.value
-        |> JD.andThen
-            (\event ->
-                case JD.decodeValue realDecoder event of
-                    Ok decoded ->
-                        JD.succeed decoded
-
-                    Err error ->
-                        error
-                            |> JD.errorToString
-                            |> Debug.log "decoding error"
-                            |> JD.fail
-            )
 
 
 inputField : String -> Form.View.TextFieldConfig msg -> Html msg

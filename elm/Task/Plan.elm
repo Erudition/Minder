@@ -7,7 +7,7 @@ import SmartTime.Human.Duration exposing (HumanDuration(..), dur)
 import SmartTime.Period exposing (Period)
 import Task.Assignable as Class
 import Task.Assignment as Instance exposing (Assignment)
-import Task.Entry as Entry
+import Task.Project as Entry
 
 
 {-| Current Idea: Go through list of To-Be-Planned in this order
