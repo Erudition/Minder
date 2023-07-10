@@ -7,7 +7,8 @@ import Html.Attributes as HA
 import Html.Events as HE
 import Json.Decode as JD
 import Json.Encode as JE
-import Popup.Editor.Task as TaskEditor
+import Popup.Editor.Assignable as AssignableEditor
+import Popup.Editor.Assignment as AssignmentEditor
 import Profile as Profile exposing (Profile)
 import Replicated.Change as Change
 import Shared.Model exposing (Shared)
@@ -15,12 +16,14 @@ import Shared.PopupType as PopupType exposing (PopupType)
 
 
 type Model
-    = ProjectEditor TaskEditor.Model
+    = AssignableEditor AssignableEditor.Model
+    | AssignmentEditor AssignmentEditor.Model
     | JustText (Html ())
 
 
 type Msg
-    = ProjectEditorMsg TaskEditor.Msg
+    = AssignableEditorMsg AssignableEditor.Msg
+    | AssignmentEditorMsg AssignmentEditor.Msg
     | JustTextMsg
     | RunEffects (List (Effect Msg))
 
@@ -28,8 +31,11 @@ type Msg
 init : Profile -> PopupType -> Model
 init profile popupType =
     case popupType of
-        PopupType.ProjectEditor maybeAction ->
-            ProjectEditor <| TaskEditor.initialModel profile maybeAction
+        PopupType.AssignmentEditor maybeExistingAssignment ->
+            AssignmentEditor <| AssignmentEditor.initialModel profile maybeExistingAssignment
+
+        PopupType.AssignableEditor maybeExistingAssignable ->
+            AssignableEditor <| AssignableEditor.initialModel profile maybeExistingAssignable
 
         PopupType.JustText _ ->
             JustText (H.div [] [ H.text "Just text" ])
@@ -47,12 +53,19 @@ update msg model profile shared =
             getCorrectModel profile shared model
     in
     case ( correctModel, msg ) of
-        ( ProjectEditor projectEditorModel, ProjectEditorMsg projectEditorMsg ) ->
+        ( AssignableEditor projectEditorModel, AssignableEditorMsg projectEditorMsg ) ->
             let
                 ( outModel, outEffects ) =
-                    TaskEditor.update projectEditorMsg projectEditorModel
+                    AssignableEditor.update projectEditorMsg projectEditorModel
             in
-            ( ProjectEditor outModel, outEffects )
+            ( AssignableEditor outModel, outEffects )
+
+        ( AssignmentEditor projectEditorModel, AssignmentEditorMsg projectEditorMsg ) ->
+            let
+                ( outModel, outEffects ) =
+                    AssignmentEditor.update projectEditorMsg projectEditorModel
+            in
+            ( AssignmentEditor outModel, outEffects )
 
         ( JustText _, JustTextMsg ) ->
             ( correctModel, [] )
@@ -67,9 +80,13 @@ update msg model profile shared =
 viewPopup : Model -> Profile -> Shared -> Html Msg
 viewPopup model profile shared =
     case getCorrectModel profile shared model of
-        ProjectEditor formModel ->
-            TaskEditor.view profile formModel
-                |> H.map ProjectEditorMsg
+        AssignableEditor formModel ->
+            AssignableEditor.view profile formModel
+                |> H.map AssignableEditorMsg
+
+        AssignmentEditor formModel ->
+            AssignmentEditor.view profile formModel
+                |> H.map AssignmentEditorMsg
 
         JustText htmlWithoutMsg ->
             htmlWithoutMsg
@@ -130,12 +147,19 @@ getCorrectModel : Profile -> Shared -> Model -> Model
 getCorrectModel profile shared model =
     case ( shared.modal, model ) of
         -- model is correct match
-        ( Just (PopupType.ProjectEditor newAction), ProjectEditor { action } ) ->
-            if newAction == action then
+        ( Just (PopupType.AssignableEditor newAction), AssignableEditor { assignable } ) ->
+            if newAction == assignable then
                 model
 
             else
-                init profile (PopupType.ProjectEditor newAction)
+                init profile (PopupType.AssignableEditor newAction)
+
+        ( Just (PopupType.AssignmentEditor newAction), AssignmentEditor { assignment } ) ->
+            if newAction == assignment then
+                model
+
+            else
+                init profile (PopupType.AssignmentEditor newAction)
 
         ( Just (PopupType.JustText _), JustText _ ) ->
             model

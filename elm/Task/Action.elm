@@ -1,28 +1,20 @@
 module Task.Action exposing (..)
 
 import Activity.Activity exposing (ActivityID)
-import Dict exposing (Dict)
 import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID exposing (ID)
-import Incubator.IntDict.Extra as IntDict
-import IntDict exposing (IntDict)
-import Json.Decode.Exploration as Decode exposing (Decoder)
-import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
-import Json.Encode.Extra as Encode2 exposing (..)
-import NativeScript.Notification exposing (Action)
-import Replicated.Change as Change exposing (Change, Changer, Context)
+import Json.Decode.Exploration.Pipeline exposing (..)
+import Json.Encode exposing (..)
+import Json.Encode.Extra exposing (..)
+import Replicated.Change exposing (Changer, Context)
 import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register as Reg exposing (RW, Reg)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
-import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
-import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.Register exposing (RW, Reg)
+import Replicated.Reducer.RepDict exposing (RepDict)
+import Replicated.Reducer.RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
-import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Progress as Progress exposing (..)
-import Task.RelativeTiming as RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
-import Task.Series
+import Task.RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
 
 
 
@@ -140,27 +132,8 @@ codec =
         |> Codec.finishSeededRegister
 
 
-
--- METAACTIONS --------------------------------
-
-
 type alias ActionID =
     ID (Reg ActionSkel)
-
-
-type alias Action =
-    { parents : List (Reg TrackableLayerProperties)
-    , action : Reg ActionSkel
-    , actionID : ActionID
-    }
-
-
-makeFull : List (Reg TrackableLayerProperties) -> Reg ActionSkel -> Action
-makeFull parentPropsRegList action =
-    { parents = parentPropsRegList
-    , action = action
-    , actionID = ID.fromPointer (Reg.getPointer action)
-    }
 
 
 

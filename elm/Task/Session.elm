@@ -10,7 +10,8 @@ import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.Action exposing (TrackableLayerProperties)
 import Task.Assignable
-import Task.Assignment exposing (Assignment, AssignmentSkel)
+import Task.Assignment exposing (AssignmentSkel)
+import Task.Meta exposing (..)
 import Task.SessionSkel exposing (..)
 
 

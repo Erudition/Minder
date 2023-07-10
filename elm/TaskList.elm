@@ -36,7 +36,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
-import Popup.Editor.Task
+import Popup.Editor.Assignable
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (Change, Parent)
@@ -1218,7 +1218,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal actionMaybe)
             , Change.none
-            , [ Effect.OpenPopup (PopupType.ProjectEditor actionMaybe) ]
+            , [ Effect.OpenPopup (PopupType.AssignmentEditor actionMaybe) ]
             )
 
         CloseEditor ->

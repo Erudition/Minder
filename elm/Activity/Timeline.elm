@@ -31,7 +31,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period as Period exposing (Period)
 import Svg.Styled exposing (..)
-import Task.Assignment exposing (Assignment, AssignmentID)
+import Task.Assignment exposing (AssignmentID)
 import Time
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)

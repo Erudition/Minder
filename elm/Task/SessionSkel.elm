@@ -8,7 +8,6 @@ import Maybe.Extra
 import Replicated.Codec as Codec exposing (SelfSeededCodec, coreR, coreRW, field, fieldDict, fieldList, fieldRW)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Assignable exposing (AssignableSkel)
 
 
 

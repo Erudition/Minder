@@ -25,8 +25,9 @@ import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment, future, past)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.Assignable exposing (Assignable, AssignableID)
-import Task.Assignment exposing (Assignment, AssignmentID)
+import Task.Assignable exposing (AssignableID)
+import Task.Assignment exposing (AssignmentID)
+import Task.Meta exposing (..)
 import Task.Progress
 import Task.Project
 import ZoneHistory
@@ -102,8 +103,8 @@ type WINUrgency
 
 prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
 prioritizeTasks profile ( time, timeZone ) =
-    Task.Assignment.prioritize time timeZone <|
-        List.filter (Task.Assignment.completed >> not) <|
+    Task.Meta.prioritizeAssignments time timeZone <|
+        List.filter (Task.Meta.assignmentCompleted >> not) <|
             Profile.assignments profile ( time, timeZone )
 
 
@@ -121,7 +122,7 @@ whatsImportantNow profile ( time, timeZone ) =
                 prioritized
 
         topPickActivityMaybe =
-            Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.Assignment.getActivityID topPickMaybe)
+            Maybe.map (Profile.getActivityByID profile) (Maybe.andThen Task.Meta.assignmentActivityID topPickMaybe)
     in
     case ( topPickActivityMaybe, topPickMaybe ) of
         ( Just topPickActivity, Just topPick ) ->

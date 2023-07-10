@@ -1,36 +1,27 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, getActivityByID, getAssignmentByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, getActivityByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Session
 import Activity.Timeline exposing (Timeline)
 import ExtraCodecs as Codec
-import Helpers exposing (decodeIntDict, encodeIntDict, encodeObjectWithoutNothings, normal, omittable, withPresence)
-import ID
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Project as TodoistProject
 import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
-import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
-import Json.Encode as Encode exposing (..)
+import Json.Decode.Exploration.Pipeline exposing (..)
+import Json.Encode exposing (..)
 import List.Nonempty exposing (..)
-import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, SelfSeededCodec, SkelCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register as Register exposing (RW, Reg)
-import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
-import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
+import Replicated.Change exposing (Change)
+import Replicated.Codec as Codec exposing (SkelCodec)
+import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
-import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
-import SmartTime.Period as Period exposing (Period)
-import Task.Action exposing (Action)
-import Task.Assignable exposing (AssignableDb)
-import Task.Assignment exposing (AssignedAction, Assignment, AssignmentDb)
+import SmartTime.Period as Period
+import Task.Meta exposing (Assignment)
 import Task.Progress exposing (..)
 import Task.Project
-import Task.Session
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
-import ZoneHistory exposing (ZoneHistory)
+import ZoneHistory
 
 
 {-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
@@ -42,7 +33,6 @@ type alias AppInstance =
 type alias Profile =
     { errors : RepList String
     , projects : RepList Task.Project.Project
-    , assignments : AssignmentDb
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -57,7 +47,6 @@ codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
         |> Codec.fieldList ( 2, "projects" ) .projects Task.Project.codec
-        |> Codec.fieldDb ( 4, "assignments" ) .assignments Task.Assignment.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
@@ -79,11 +68,6 @@ todoistIntegrationDataCodec =
         |> Codec.maybeR ( 2, "parentProjectID" ) .parentProjectID Codec.int
         |> Codec.field ( 3, "activityProjectIDs" ) .activityProjectIDs (Codec.intDict Activity.idCodec) IntDict.empty
         |> Codec.finishRecord
-
-
-emptyTodoistIntegrationData : TodoistIntegrationData
-emptyTodoistIntegrationData =
-    { cache = Todoist.emptyCache, parentProjectID = Nothing, activityProjectIDs = IntDict.empty }
 
 
 
@@ -111,32 +95,13 @@ saveError appData error =
 
 {-| All actions that are not unready or expired or finished.
 -}
-assignments : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
-assignments profile ( time, timeZone ) =
+assignments : Profile -> Task.Meta.Query -> List Assignment
+assignments profile query =
     let
         assignables =
-            Task.Project.entriesToAssignables profile.projects
-
-        zoneHistory =
-            -- TODO
-            ZoneHistory.init time timeZone
-
-        rightNow =
-            Period.instantaneous time
+            Task.Meta.entriesToAssignables profile.projects
     in
-    Task.Assignment.listAllAssignments assignables profile.assignments ( zoneHistory, rightNow )
-
-
-trackedInstance : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.Assignment.Assignment
-trackedInstance profile ( time, timeZone ) =
-    Maybe.andThen (getAssignmentByID profile ( time, timeZone )) (Activity.Timeline.currentInstanceID profile.timeline)
-
-
-getAssignmentByID : Profile -> ( Moment, HumanMoment.Zone ) -> Task.Assignment.AssignmentID -> Maybe Task.Assignment.Assignment
-getAssignmentByID profile ( time, timeZone ) instanceID =
-    -- TODO optimize
-    -- Task.Assignment.listAllAssignments (RepDb.get instanceID profile.assignments)
-    Debug.todo "getAssignmentByID needed?"
+    Task.Meta.assignablesToAssignments assignables query
 
 
 getActivityByID : Profile -> ActivityID -> Activity
@@ -145,18 +110,8 @@ getActivityByID profile activityID =
     Activity.getByID activityID profile.activities
 
 
-exportExcusedUsageSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
-exportExcusedUsageSeconds app now ( activityID, activity ) =
-    String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedUsage app.timeline now ( activityID, activity ))
-
-
-exportExcusedLeftSeconds : Profile -> Moment -> ( ActivityID, Activity ) -> String
-exportExcusedLeftSeconds app now ( activityID, activity ) =
-    String.fromInt <| Duration.inSecondsRounded (Activity.Timeline.excusedLeft app.timeline now ( activityID, activity ))
-
-
 userTimeZoneAtMoment : Profile -> ( Moment, HumanMoment.Zone ) -> Moment -> Zone
-userTimeZoneAtMoment profile ( time, timeZone ) givenMoment =
+userTimeZoneAtMoment _ ( time, timeZone ) givenMoment =
     if Moment.isSameOrEarlier givenMoment time then
         -- TODO look at past history to see where User last moved before this moment
         timeZone

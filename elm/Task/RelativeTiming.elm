@@ -15,7 +15,7 @@ import Replicated.Reducer.Register
 import Replicated.Reducer.RepDb
 import Replicated.Reducer.RepDict
 import Replicated.Reducer.RepList
-import SmartTime.Duration exposing (Duration)
+import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment
 
 
@@ -46,16 +46,35 @@ relativeTimingCodec =
         |> Codec.finishCustomType
 
 
-decodeRelativeTiming : Decoder RelativeTiming
-decodeRelativeTiming =
-    Decode.map FromDeadline decodeDuration
-
-
-encodeRelativeTiming : RelativeTiming -> Encode.Value
-encodeRelativeTiming relativeTaskTiming =
-    case relativeTaskTiming of
+toStringPart1 relativeTiming =
+    case relativeTiming of
         FromDeadline duration ->
-            encodeDuration duration
+            "FromDeadline"
 
         FromToday duration ->
-            encodeDuration duration
+            "FromToday"
+
+
+toIntPart2 relativeTiming =
+    case relativeTiming of
+        FromDeadline duration ->
+            Duration.inMs duration
+
+        FromToday duration ->
+            Duration.inMs duration
+
+
+toRawPair relativeTiming =
+    ( toStringPart1 relativeTiming, toIntPart2 relativeTiming )
+
+
+fromRawPairMaybe ( part1, part2 ) =
+    case part1 of
+        "FromDeadline" ->
+            Just <| FromDeadline (Duration.fromInt part2)
+
+        "FromToday" ->
+            Just <| FromToday (Duration.fromInt part2)
+
+        _ ->
+            Nothing
