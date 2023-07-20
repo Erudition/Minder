@@ -1,7 +1,7 @@
 module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Session as Session exposing (Session, new)
+import Activity.HistorySession as Session exposing (HistorySession, makeMetaHistorySession)
 import Activity.Timeline as Timeline exposing (Timeline)
 import External.Commands as Commands
 import Helpers exposing (multiline)
@@ -30,6 +30,7 @@ import Task.Assignment exposing (AssignmentID)
 import Task.Meta exposing (..)
 import Task.Progress
 import Task.Project
+import TimeTrackable exposing (TimeTrackable)
 import ZoneHistory
 
 
@@ -132,9 +133,9 @@ whatsImportantNow profile ( time, timeZone ) =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : ActivityID -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
-switchActivity newActivityID profile ( time, timeZone ) =
-    switchTracking newActivityID Nothing profile ( time, timeZone )
+switchActivity : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchActivity trackable profile ( time, timeZone ) =
+    switchTracking trackable profile ( time, timeZone )
 
 
 refreshTracking : Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
@@ -142,16 +143,16 @@ refreshTracking profile ( time, timeZone ) =
     switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile ( time, timeZone )
 
 
-switchTracking : ActivityID -> Maybe AssignmentID -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
-switchTracking newActivityID newInstanceIDMaybe profile ( time, timeZone ) =
+switchTracking : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchTracking trackable profile ( time, timeZone ) =
     let
         switchChanges =
             case newInstanceIDMaybe of
                 Just newInstanceID ->
-                    Timeline.startTask time newActivityID newInstanceID profile.timeline
+                    Timeline.startTracking time newActivityID newInstanceID profile.timeline
 
                 Nothing ->
-                    Timeline.startActivity time newActivityID profile.timeline
+                    Timeline.startTracking time newActivityID profile.timeline
 
         oldInstanceIDMaybe =
             Timeline.currentInstanceID profile.timeline
@@ -173,7 +174,7 @@ switchTracking newActivityID newInstanceIDMaybe profile ( time, timeZone ) =
         ( switchChanges ++ reactionChanges, Cmd.batch [ reactionCmds ] )
 
 
-reactToNewSession newActivityID newInstanceIDMaybe ( time, timeZone ) oldProfile =
+reactToNewSession trackable ( time, timeZone ) oldProfile =
     let
         ( newStatusDetails, newFocusStatus ) =
             determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, timeZone )
@@ -200,8 +201,8 @@ reactToNewSession newActivityID newInstanceIDMaybe ( time, timeZone ) oldProfile
     ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
-determineNewStatus : ( ActivityID, Maybe AssignmentID ) -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
-determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, timeZone ) =
+determineNewStatus : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
+determineNewStatus trackable oldProfile ( time, timeZone ) =
     let
         newActivity =
             Profile.getActivityByID oldProfile newActivityID

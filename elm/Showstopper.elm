@@ -1,6 +1,6 @@
 module Showstopper exposing (..)
 
-import Activity.Session exposing (Session(..))
+import Activity.HistorySession exposing (HistorySession(..))
 import Browser.Navigation exposing (..)
 import Css
 import Dict

@@ -9,14 +9,14 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Action exposing (NestedOrAction(..), TrackableLayerProperties, nestedOrActionCodec, trackableLayerPropertiesCodec)
+import Task.Action exposing (NestedOrAction(..), nestedOrActionCodec)
 import Task.Assignment as Assignment exposing (AssignmentDb)
 import Task.Progress as Progress exposing (..)
 import Task.RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
@@ -51,7 +51,6 @@ type alias AssignableSkel =
     , importance : RW Float -- ActionClass
     , extra : RepDict String String
     , children : RepList NestedOrAction
-    , layerProperties : Reg TrackableLayerProperties
     , manualAssignments : AssignmentDb
 
     -- future: default Session strategy
@@ -67,7 +66,7 @@ codec : Codec String ( String, Changer (Reg AssignableSkel) ) Codec.SoloObject (
 codec =
     Codec.record AssignableSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
-        |> maybeRW ( 2, "activity" ) .activity Activity.Activity.idCodec
+        |> fieldRWM ( 2, "activity" ) .activity Activity.Activity.idCodec
         |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
         |> fieldRW ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
         |> fieldRW ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero
@@ -80,7 +79,6 @@ codec =
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
         |> Codec.fieldList ( 14, "children" ) .children nestedOrActionCodec
-        |> Codec.fieldReg ( 15, "layerProperties" ) .layerProperties trackableLayerPropertiesCodec
         |> Codec.fieldDb ( 16, "manualAssignments" ) .manualAssignments Assignment.codec
         |> Codec.finishSeededRegister
 

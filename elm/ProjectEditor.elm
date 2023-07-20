@@ -1,7 +1,7 @@
 module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Activity.Activity as Activity exposing (ActivityID)
-import Activity.Session
+import Activity.HistorySession
 import Activity.Timeline
 import Browser
 import Browser.Dom

@@ -8,8 +8,8 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, maybeRW)
-import Replicated.Reducer.Register exposing (RW, Reg)
+import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
+import Replicated.Reducer.Register exposing (RW, RWM, Reg)
 import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -35,7 +35,7 @@ Well, we still only want one set of instances/recurrence in a given tree, so let
 -}
 type NestedOrAction
     = ActionIsHere (Reg ActionSkel)
-    | ActionIsDeeper ContainerOfActions
+    | ActionIsDeeper (Reg SubAssignableSkel)
 
 
 nestedOrActionCodec : NullCodec String NestedOrAction
@@ -50,7 +50,7 @@ nestedOrActionCodec =
                     nested followerParent
         )
         |> Codec.variant1 ( 1, "ActionIsHere" ) ActionIsHere codec
-        |> Codec.variant1 ( 2, "ActionIsDeeper" ) ActionIsDeeper (Codec.lazy (\_ -> containerOfActionsCodec))
+        |> Codec.variant1 ( 2, "ActionIsDeeper" ) ActionIsDeeper (Codec.lazy (\_ -> subAssignableCodec))
         |> Codec.finishCustomType
 
 
@@ -59,22 +59,22 @@ nestedOrActionCodec =
 Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedParents.
 
 -}
-type alias ContainerOfActions =
-    { layerProperties : Reg TrackableLayerProperties
+type alias SubAssignableSkel =
+    { title : RWM String
     , children : RepList NestedOrAction
     }
 
 
-type alias ContainerOfActionsID =
-    ID ContainerOfActions
+type alias SubAssignableID =
+    ID SubAssignableSkel
 
 
-containerOfActionsCodec : SkelCodec String ContainerOfActions
-containerOfActionsCodec =
-    Codec.record ContainerOfActions
-        |> Codec.fieldReg ( 1, "layerProperties" ) .layerProperties trackableLayerPropertiesCodec
+subAssignableCodec : WrappedCodec String (Reg SubAssignableSkel)
+subAssignableCodec =
+    Codec.record SubAssignableSkel
+        |> Codec.fieldRWM ( 1, "title" ) .title Codec.string
         |> Codec.fieldList ( 2, "children" ) .children nestedOrActionCodec
-        |> Codec.finishRecord
+        |> Codec.finishRegister
 
 
 
@@ -102,7 +102,6 @@ type alias ActionSkel =
     , defaultRelevanceStarts : RepList RelativeTiming
     , defaultRelevanceEnds : RepList RelativeTiming
     , extra : RepDict String String
-    , layerProperties : Reg TrackableLayerProperties
 
     -- future: default Session strategy
     }
@@ -117,7 +116,7 @@ codec : Codec String ( String, Changer (Reg ActionSkel) ) Codec.SoloObject (Reg 
 codec =
     Codec.record ActionSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
-        |> maybeRW ( 2, "activity" ) .activity Activity.Activity.idCodec
+        |> fieldRWM ( 2, "activity" ) .activity Activity.Activity.idCodec
         |> fieldRW ( 3, "completionUnits" ) .completionUnits Progress.unitCodec Progress.Percent
         |> fieldRW ( 4, "minEffort" ) .minEffort Codec.duration Duration.zero
         |> fieldRW ( 5, "predictedEffort" ) .predictedEffort Codec.duration Duration.zero
@@ -128,25 +127,8 @@ codec =
         |> fieldList ( 10, "defaultRelevanceStarts" ) .defaultRelevanceStarts relativeTimingCodec
         |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
-        |> Codec.fieldReg ( 1, "layerProperties" ) .layerProperties trackableLayerPropertiesCodec
         |> Codec.finishSeededRegister
 
 
 type alias ActionID =
     ID (Reg ActionSkel)
-
-
-
--- FOR ALL TRACKABLE LAYERS (assignables down to actions)
-
-
-type alias TrackableLayerProperties =
-    { title : RW (Maybe String) -- Can have no title if it's just a singleton task
-    }
-
-
-trackableLayerPropertiesCodec : WrappedCodec String (Reg TrackableLayerProperties)
-trackableLayerPropertiesCodec =
-    Codec.record TrackableLayerProperties
-        |> fieldRW ( 1, "title" ) .title (Codec.maybe Codec.string) Nothing
-        |> Codec.finishRegister

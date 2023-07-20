@@ -1,4 +1,4 @@
-module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getAllIncludingHidden, getByID, getExternalID, getID, getIcon, getMaxTime, getName, getNames, getTemplate, idCodec, idToString, isShowing, setExternalID, storeCodec, totalCount, unknown)
+module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnhidden, excusableRatio, getAllIncludingHidden, getByID, getExternalID, getID, getIcon, getMaxTimePortion, getMaxTimePortionHuman, getName, getNames, getTemplate, idCodec, idToString, isShowing, setExternalID, setMaxTime, storeCodec, totalCount, unknown)
 
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
@@ -14,7 +14,7 @@ import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
 import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SelfSeededCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, maybeRW)
+import Replicated.Codec as Codec exposing (Codec, NullCodec, SelfSeededCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -90,12 +90,12 @@ builtInActivitySkelCodec =
     -- TODO currently does not use the seed passed in
     Codec.record BuiltInActivitySkel
         |> fieldList ( 1, "names" ) .names Codec.string
-        |> maybeRW ( 2, "icon" ) .icon iconCodec
-        |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
-        |> maybeRW ( 4, "taskOptional" ) .taskOptional Codec.bool
+        |> fieldRWM ( 2, "icon" ) .icon iconCodec
+        |> fieldRWM ( 3, "excusable" ) .excusable excusableCodec
+        |> fieldRWM ( 4, "taskOptional" ) .taskOptional Codec.bool
         |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
-        |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
-        |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
+        |> fieldRWM ( 7, "backgroundable" ) .backgroundable Codec.bool
+        |> fieldRWM ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
         |> fieldRW ( 9, "hidden" ) .hidden Codec.bool False
         |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
         |> Codec.finishRecord
@@ -120,12 +120,12 @@ customActivitySkelCodec =
     Codec.record CustomActivitySkel
         |> coreR ( 0, "template" ) .template Template.codec identity
         |> fieldList ( 1, "names" ) .names Codec.string
-        |> maybeRW ( 2, "icon" ) .icon iconCodec
-        |> maybeRW ( 3, "excusable" ) .excusable excusableCodec
-        |> maybeRW ( 4, "taskOptional" ) .taskOptional Codec.bool
+        |> fieldRWM ( 2, "icon" ) .icon iconCodec
+        |> fieldRWM ( 3, "excusable" ) .excusable excusableCodec
+        |> fieldRWM ( 4, "taskOptional" ) .taskOptional Codec.bool
         |> fieldList ( 5, "evidence" ) .evidence Evidence.codec
-        |> maybeRW ( 7, "backgroundable" ) .backgroundable Codec.bool
-        |> maybeRW ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
+        |> fieldRWM ( 7, "backgroundable" ) .backgroundable Codec.bool
+        |> fieldRWM ( 8, "maxTime" ) .maxTime durationPerPeriodCodec
         |> fieldRW ( 9, "hidden" ) .hidden Codec.bool False
         |> fieldDict ( 12, "externalIDs" ) .externalIDs ( Codec.string, Codec.string )
         |> Codec.finishSeededRecord
@@ -1206,8 +1206,8 @@ setBackgroundable newSetting act =
             customSkel.backgroundable.set (Just newSetting)
 
 
-getMaxTime : Activity -> DurationPerDuration
-getMaxTime act =
+getMaxTimePortionHuman : Activity -> DurationPerDuration
+getMaxTimePortionHuman act =
     case act of
         BuiltIn template builtInSkel ->
             builtInSkel.maxTime.get
@@ -1216,6 +1216,20 @@ getMaxTime act =
         Custom template customSkel _ ->
             customSkel.maxTime.get
                 |> Maybe.withDefault (defaults template).maxTime
+
+
+getMaxTimePortion : Activity -> ( Duration, Duration )
+getMaxTimePortion act =
+    case act of
+        BuiltIn template builtInSkel ->
+            builtInSkel.maxTime.get
+                |> Maybe.withDefault (defaults template).maxTime
+                |> Tuple.mapBoth SmartTime.Human.Duration.toDuration SmartTime.Human.Duration.toDuration
+
+        Custom template customSkel _ ->
+            customSkel.maxTime.get
+                |> Maybe.withDefault (defaults template).maxTime
+                |> Tuple.mapBoth SmartTime.Human.Duration.toDuration SmartTime.Human.Duration.toDuration
 
 
 setMaxTime : DurationPerDuration -> Activity -> Change

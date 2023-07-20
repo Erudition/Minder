@@ -821,8 +821,8 @@ type alias SpawnTestReplica =
 spawnTestReplicaCodec : WrappedCodec e (Reg SpawnTestReplica)
 spawnTestReplicaCodec =
     Codec.record SpawnTestReplica
-        |> Codec.maybeRW ( 1, "maybeRepList" ) .maybeRepList (Codec.repList writableObjectCodec)
-        |> Codec.maybeRW ( 2, "maybeSeeded" ) .maybeSeeded seededRecCodec
+        |> Codec.fieldRWM ( 1, "maybeRepList" ) .maybeRepList (Codec.repList writableObjectCodec)
+        |> Codec.fieldRWM ( 2, "maybeSeeded" ) .maybeSeeded seededRecCodec
         |> Codec.finishRegister
 
 

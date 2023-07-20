@@ -1,8 +1,8 @@
-module Activity.Timeline exposing (Timeline, activityTotalDuration, activityTotalDurationLive, backfill, codec, currentActivity, currentActivityID, currentAsPeriod, currentInstanceID, currentToHistory, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, historyBackByHumanDuration, historyBackByHumanDurationLive, historyLive, inHoursMinutes, insertExternalSession, instanceUniqueMomentsList, justTodayTotal, limitedHistory, limitedHistoryLive, mostRecentHistorySessionOfActivity, onlyToday, periodsLive, periodsOfActivity, periodsOfActivityLive, periodsOfInstance, periodsOfInstanceLive, sessionsOfActivity, sessionsOfInstance, startActivity, startTask)
+module Activity.Timeline exposing (Timeline, activityTotalDuration, activityTotalDurationLive, backfill, codec, currentActivity, currentActivityID, currentAsPeriod, currentInstanceID, currentToHistory, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, historyBackByHumanDuration, historyBackByHumanDurationLive, historyLive, inHoursMinutes, insertExternalSession, instanceUniqueMomentsList, justTodayTotal, limitedHistory, limitedHistoryLive, mostRecentHistorySessionOfActivity, onlyToday, periodsLive, periodsOfActivity, periodsOfActivityLive, periodsOfInstance, periodsOfInstanceLive, sessionsOfActivity, sessionsOfInstance, startTracking)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.Evidence exposing (..)
-import Activity.Session as Session exposing (..)
+import Activity.HistorySession as Session exposing (..)
 import Activity.Template exposing (..)
 import Date
 import Dict exposing (..)
@@ -35,6 +35,7 @@ import Task.Assignment exposing (AssignmentID)
 import Time
 import Time.Distance exposing (..)
 import Time.Extra exposing (..)
+import TimeTrackable exposing (TimeTrackable)
 
 
 type Timeline
@@ -43,14 +44,14 @@ type Timeline
 
 type alias TimelineSkel =
     { current : RW (Maybe CurrentSession)
-    , history : RepList Session
+    , history : RepList HistorySession
     }
 
 
 codec : Codec String Codec.Skel Codec.SoloObject Timeline
 codec =
     Codec.record TimelineSkel
-        |> Codec.maybeRW ( 1, "current" ) .current currentSessionCodec
+        |> Codec.fieldRWM ( 1, "current" ) .current currentSessionCodec
         |> Codec.fieldList ( 2, "history" ) .history Session.codec
         |> Codec.finishRecord
         |> Codec.makeOpaque Timeline (\(Timeline skel) -> skel)
@@ -58,8 +59,7 @@ codec =
 
 type alias CurrentSession =
     { start : Moment
-    , activity : ActivityID
-    , action : Maybe AssignmentID
+    , tracking : TimeTrackable
     }
 
 
@@ -67,8 +67,7 @@ currentSessionCodec : Codec String CurrentSession Codec.SoloObject CurrentSessio
 currentSessionCodec =
     Codec.record CurrentSession
         |> coreR ( 1, "start" ) .start Codec.moment .start
-        |> coreR ( 2, "activity" ) .activity Activity.idCodec .activity
-        |> coreR ( 3, "action" ) .action (Codec.maybe Codec.id) .action
+        |> coreR ( 2, "tracking" ) .tracking TimeTrackable.codec .tracking
         |> Codec.finishSeededRecord
 
 
@@ -91,7 +90,7 @@ currentActivityID ((Timeline timeline) as wrappedTimeline) =
             Activity.unknown
 
 
-historyLive : Moment -> Timeline -> List Session
+historyLive : Moment -> Timeline -> List HistorySession
 historyLive now ((Timeline timeline) as wrappedTimeline) =
     case currentAsFakeHistorySession now wrappedTimeline of
         Nothing ->
@@ -101,7 +100,7 @@ historyLive now ((Timeline timeline) as wrappedTimeline) =
             RepList.listValues timeline.history ++ [ currentSesh ]
 
 
-sessionsOfActivity : Period -> Timeline -> ActivityID -> List Session
+sessionsOfActivity : Period -> Timeline -> ActivityID -> List HistorySession
 sessionsOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activityId =
     List.filter (Session.activityMatches activityId) (limitedHistory wrappedTimeline filterPeriod)
 
@@ -111,7 +110,7 @@ currentInstanceID ((Timeline timeline) as wrappedTimeline) =
     Maybe.andThen .action timeline.current.get
 
 
-sessionsOfInstance : Timeline -> AssignmentID -> List Session
+sessionsOfInstance : Timeline -> AssignmentID -> List HistorySession
 sessionsOfInstance ((Timeline timeline) as wrappedTimeline) instance =
     List.filter (Session.instanceMatches instance) (RepList.listValues timeline.history)
 
@@ -119,7 +118,7 @@ sessionsOfInstance ((Timeline timeline) as wrappedTimeline) instance =
 {-| Narrow a timeline down to a given time frame.
 This function takes two Moments (now and the point in history up to which we want to keep). It will cap off the list with a fake session at the end, set for the pastLimit, so that sessions that span the threshold still have their relevant portion counted.
 -}
-limitedHistoryLive : Timeline -> Period -> Moment -> List Session
+limitedHistoryLive : Timeline -> Period -> Moment -> List HistorySession
 limitedHistoryLive ((Timeline timeline) as wrappedTimeline) filterPeriod now =
     let
         history =
@@ -133,13 +132,13 @@ limitedHistoryLive ((Timeline timeline) as wrappedTimeline) filterPeriod now =
             currentSesh :: history
 
 
-limitedHistory : Timeline -> Period -> List Session
+limitedHistory : Timeline -> Period -> List HistorySession
 limitedHistory (Timeline timeline) filterPeriod =
     let
         withinFilter givenMoment =
             Period.isWithin filterPeriod givenMoment
 
-        keepWithinLimits : Session -> Maybe Session
+        keepWithinLimits : HistorySession -> Maybe HistorySession
         keepWithinLimits sesh =
             case ( withinFilter (Session.getStart sesh), withinFilter (Session.getEnd sesh) ) of
                 ( True, True ) ->
@@ -153,7 +152,7 @@ limitedHistory (Timeline timeline) filterPeriod =
                         { start = Session.getStart sesh
                         , end = Period.end filterPeriod
                         , activity = Session.getActivityID sesh
-                        , action = Session.getInstanceID sesh
+                        , action = Session.getTrackable sesh
                         }
                         |> Just
 
@@ -164,7 +163,7 @@ limitedHistory (Timeline timeline) filterPeriod =
                         { start = Period.start filterPeriod
                         , end = Session.getEnd sesh
                         , activity = Session.getActivityID sesh
-                        , action = Session.getInstanceID sesh
+                        , action = Session.getTrackable sesh
                         }
                         |> Just
 
@@ -175,12 +174,12 @@ limitedHistory (Timeline timeline) filterPeriod =
     List.filterMap keepWithinLimits (RepList.listValues timeline.history)
 
 
-historyBackByHumanDuration : Timeline -> Moment -> HumanDuration -> List Session
+historyBackByHumanDuration : Timeline -> Moment -> HumanDuration -> List HistorySession
 historyBackByHumanDuration ((Timeline timeline) as wrappedTimeline) now duration =
     limitedHistory wrappedTimeline (Period.fromEnd now (dur duration))
 
 
-historyBackByHumanDurationLive : Timeline -> Moment -> HumanDuration -> List Session
+historyBackByHumanDurationLive : Timeline -> Moment -> HumanDuration -> List HistorySession
 historyBackByHumanDurationLive ((Timeline timeline) as wrappedTimeline) now duration =
     limitedHistoryLive wrappedTimeline (Period.fromEnd now (dur duration)) now
 
@@ -197,14 +196,14 @@ onlyToday ( now, zone ) =
     Period.between now last3am
 
 
-mostRecentHistorySessionOfActivity : Period -> Timeline -> ActivityID -> Maybe Session
+mostRecentHistorySessionOfActivity : Period -> Timeline -> ActivityID -> Maybe HistorySession
 mostRecentHistorySessionOfActivity filterPeriod ((Timeline timeline) as wrappedTimeline) activity =
     List.head (sessionsOfActivity filterPeriod wrappedTimeline activity)
 
 
 {-| internal only
 -}
-currentAsFakeHistorySession : Moment -> Timeline -> Maybe Session
+currentAsFakeHistorySession : Moment -> Timeline -> Maybe HistorySession
 currentAsFakeHistorySession now ((Timeline timeline) as wrappedTimeline) =
     let
         fake currentSesh =
@@ -232,27 +231,13 @@ currentToHistory ((Timeline timeline) as wrappedTimeline) now =
             [ RepList.insert RepList.Last currentSesh timeline.history ]
 
 
-startTask : Moment -> ActivityID -> AssignmentID -> Timeline -> List Change
-startTask now newActivityID instanceID ((Timeline timeline) as wrappedTimeline) =
+startTracking : Moment -> TimeTrackable -> Timeline -> List Change
+startTracking now trackable ((Timeline timeline) as wrappedTimeline) =
     let
         newCurrent : CurrentSession
         newCurrent =
             { start = now
-            , activity = newActivityID
-            , action = Just instanceID
-            }
-    in
-    timeline.current.set (Just newCurrent) :: currentToHistory wrappedTimeline now
-
-
-startActivity : Moment -> ActivityID -> Timeline -> List Change
-startActivity now newActivityID ((Timeline timeline) as wrappedTimeline) =
-    let
-        newCurrent : CurrentSession
-        newCurrent =
-            { start = now
-            , activity = newActivityID
-            , action = Nothing
+            , tracking = trackable
             }
     in
     timeline.current.set (Just newCurrent) :: currentToHistory wrappedTimeline now
@@ -275,7 +260,7 @@ backfill ((Timeline timeline) as wrappedTimeline) periodsToAdd =
 insertExternalSession : Timeline -> ( ActivityID, Maybe AssignmentID, Period ) -> List Change
 insertExternalSession ((Timeline timeline) as wrappedTimeline) ( candidateActivityID, candidateInstanceIDMaybe, candidatePeriod ) =
     let
-        newSession : Session
+        newSession : HistorySession
         newSession =
             Session.new
                 { start = Period.start candidatePeriod

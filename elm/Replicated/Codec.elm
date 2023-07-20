@@ -408,7 +408,7 @@ newN nth (Codec codecDetails) context =
 newWithChanges : WrappedCodec e repType -> Context repType -> Changer repType -> repType
 newWithChanges (Codec codecDetails) context changer =
     -- TODO change argument order
-    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "newWC", seed = changer }
+    codecDetails.nodePlaceholder { parent = Change.getContextParent context, position = Location.nestSingle (Change.getContextLocation context) "newChanged", seed = changer }
 
 
 seededNew : Codec e s o repType -> Context repType -> s -> repType
@@ -2468,23 +2468,19 @@ fieldDb fieldID fieldGetter fieldCodec recordBuilt =
     readableHelper fieldID fieldGetter (repDb fieldCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
-{-| Read a record field wrapped with `RW`. This makes the field writable.
-The last argument specifies a default value, which is used when initializing the record for the first time.
+{-| Read a record field wrapped with `RW` and `Maybe`. This makes the field writable and optional.
+Equivalent to using `fieldRW` with the `maybe` codec wrapper and a `Nothing` default value.
 
   - Due to the RW wrapper, you will need to add `.get` to the output whenever you want to access the field's latest value as usual. Read-only fields do not require this.
   - Thanks to the RW wrapper, you can add `.set` to the output anywhere in your program to produce a `Change`. These changes can then be saved, updating the stored value.
-  - Consider setting the default to the "most popular" value (e.g. "scaling factor" set to 1.0), as it will be omitted from the serialized data, saving space and bandwidth.
-  - Consider setting the default to the "safest" value, as missing fields will be parsed as the default.
-  - If you can't come up with a sensible default value (e.g. date of birth), consider wrapping the field in `Maybe` or `Result`, with e.g. `Nothing` or `Err Unset` as the default.
-  - If there's no sensible default and this record is not useful with missing data unless you add another validation step ("Parse, Don't Validate"!), consider `readableRequired` as a last resort.
 
 -}
-maybeRW : FieldIdentifier -> (full -> RW (Maybe fieldType)) -> Codec errs fieldSeed o fieldType -> PartialRegister errs i full (RW (Maybe fieldType) -> remaining) -> PartialRegister errs i full remaining
-maybeRW fieldIdentifier fieldGetter fieldCodec soFar =
+fieldRWM : FieldIdentifier -> (full -> RWM fieldType) -> Codec errs fieldSeed o fieldType -> PartialRegister errs i full (RWM fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRWM fieldIdentifier fieldGetter fieldCodec soFar =
     writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) False soFar
 
 
-{-| Read a `Maybe` record field wrapped with `RW`. This makes the field writable.
+{-| Read a record field wrapped with `RW`. This makes the field writable.
 The last argument specifies a default value, which is used when initializing the record for the first time.
 
   - Due to the RW wrapper, you will need to add `.get` to the output whenever you want to access the field's latest value as usual. Read-only fields do not require this.

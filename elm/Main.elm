@@ -1,7 +1,7 @@
 port module Main exposing (FrameworkModel, MainModel, Msg(..), StoredRON, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
-import Activity.Session as Session exposing (Session(..))
+import Activity.HistorySession as Session exposing (HistorySession(..))
 import Activity.Timeline as Timeline
 import Browser
 import Browser.Dom exposing (Viewport, getViewport, setViewport)

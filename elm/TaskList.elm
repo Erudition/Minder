@@ -1,7 +1,7 @@
 module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControls, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, viewTasks, visibilitySwap)
 
 import Activity.Activity as Activity exposing (ActivityID)
-import Activity.Session
+import Activity.HistorySession
 import Activity.Timeline
 import Browser
 import Browser.Dom
@@ -60,7 +60,7 @@ import Task.Action as Action
 import Task.Assignable as Assignable exposing (Assignable, AssignableID, AssignableSkel)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Progress exposing (..)
-import Task.Project as Project exposing (Project)
+import Task.Project as Project exposing (ProjectSkel)
 import Task.Session
 import TaskPort
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
@@ -204,12 +204,12 @@ viewProjects time timeZone filter profile =
         List.map (viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe) sortedProjects
 
 
-viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Project -> ( String, Html Msg )
+viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item ProjectSkel -> ( String, Html Msg )
 viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     ( RepList.handleString rootEntryItem, lazy4 viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem )
 
 
-viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item Project -> Html Msg
+viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> RepList.Item ProjectSkel -> Html Msg
 viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
     let
         entryContents =
@@ -576,21 +576,15 @@ viewTaskTitle task editingMaybe =
 
 startTrackingButton : Assignment -> Maybe AssignmentID -> Html Msg
 startTrackingButton task trackedTaskMaybe =
-    case ( Assignment.getActivityID task, Maybe.map ((==) (Assignment.getID task)) trackedTaskMaybe ) of
-        ( _, Just True ) ->
-            node "ion-item-option"
-                [ attribute "color" "primary", onClick (StopTracking (Assignment.getID task)) ]
-                [ node "ion-icon" [ name "pause-outline" ] [] ]
+    if Maybe.map ((==) (Assignment.getID task)) trackedTaskMaybe == Just True then
+        node "ion-item-option"
+            [ attribute "color" "primary", onClick (StopTrackingAssignment (Assignment.getID task)) ]
+            [ node "ion-icon" [ name "pause-outline" ] [] ]
 
-        ( Just activityID, _ ) ->
-            node "ion-item-option"
-                [ attribute "color" "primary", onClick (StartTracking (Assignment.getID task) activityID) ]
-                [ node "ion-icon" [ name "play-outline" ] [] ]
-
-        ( Nothing, _ ) ->
-            node "ion-item-option"
-                [ attribute "color" "primary", onClick (StartTracking (Assignment.getID task) Activity.unknown) ]
-                [ node "ion-icon" [ name "play-outline" ] [] ]
+    else
+        node "ion-item-option"
+            [ attribute "color" "primary", onClick (StartTrackingAssignment task) ]
+            [ node "ion-icon" [ name "play-outline" ] [] ]
 
 
 
@@ -1108,8 +1102,8 @@ type Msg
     | NoOp
     | TodoistServerResponse Todoist.Msg
     | MarvinServerResponse Marvin.Msg
-    | StartTracking AssignmentID ActivityID
-    | StopTracking AssignmentID
+    | StartTrackingAssignment Assignment
+    | StopTrackingAssignment Assignment
     | SimpleChange Change
     | LogError String
     | Toast String
@@ -1372,10 +1366,10 @@ update msg state profile env =
             , []
             )
 
-        StartTracking instanceID activityID ->
+        StartTrackingAssignment assignment ->
             let
                 ( addSessionChanges, sessionCommands ) =
-                    Refocus.switchTracking activityID (Just instanceID) profile ( env.time, env.timeZone )
+                    Refocus.switchTracking (Just assignment) profile ( env.time, env.timeZone )
 
                 -- ( newProfile2WithMarvinTimes, marvinCmds ) =
                 --     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env (Just instanceID) True
@@ -1389,7 +1383,7 @@ update msg state profile env =
               --     ]
             )
 
-        StopTracking instanceID ->
+        StopTrackingAssignment instanceID ->
             let
                 activityToContinue =
                     Activity.Timeline.currentActivityID profile.timeline
@@ -1450,8 +1444,8 @@ urlTriggers profile ( time, timeZone ) =
                 Just hasActivityID ->
                     Just
                         ( ID.toString (Assignment.getID fullInstance)
-                        , StartTracking (Assignment.getID fullInstance) hasActivityID
-                        , StopTracking (Assignment.getID fullInstance)
+                        , StartTrackingAssignment (Assignment.getID fullInstance) hasActivityID
+                        , StopTrackingAssignment (Assignment.getID fullInstance)
                         )
     in
     [ ( "complete", Dict.fromList tasksIDsWithDoneMsg )

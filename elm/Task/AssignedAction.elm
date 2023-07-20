@@ -37,11 +37,11 @@ assignedActionCodec : WrappedCodec String (Reg AssignedActionSkel)
 assignedActionCodec =
     Codec.record AssignedActionSkel
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0
-        |> Codec.maybeRW ( 4, "externalDeadline" ) .externalDeadline Codec.fuzzyMoment
-        |> Codec.maybeRW ( 5, "startBy" ) .startBy Codec.fuzzyMoment
-        |> Codec.maybeRW ( 6, "finishBy" ) .finishBy Codec.fuzzyMoment
-        |> Codec.maybeRW ( 8, "relevanceStarts" ) .relevanceStarts Codec.fuzzyMoment
-        |> Codec.maybeRW ( 9, "relevanceEnds" ) .relevanceEnds Codec.fuzzyMoment
+        |> Codec.fieldRWM ( 4, "externalDeadline" ) .externalDeadline Codec.fuzzyMoment
+        |> Codec.fieldRWM ( 5, "startBy" ) .startBy Codec.fuzzyMoment
+        |> Codec.fieldRWM ( 6, "finishBy" ) .finishBy Codec.fuzzyMoment
+        |> Codec.fieldRWM ( 8, "relevanceStarts" ) .relevanceStarts Codec.fuzzyMoment
+        |> Codec.fieldRWM ( 9, "relevanceEnds" ) .relevanceEnds Codec.fuzzyMoment
         |> Codec.fieldDict ( 10, "extra" ) .extra ( Codec.string, Codec.string )
         |> Codec.finishRegister
 

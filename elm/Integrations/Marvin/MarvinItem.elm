@@ -391,7 +391,7 @@ toDocketTask profile marvinItem =
     let
         -- TODO we shouldn't calculate the whole assignable/assignment list on every item import. Figure it out above, then pass to this function
         existingAssignables =
-            Task.Meta.entriesToAssignables profile.projects
+            Task.Meta.metaLayers profile.projects
 
         existingAssignablesWithMarvinLink =
             Dict.fromList <| List.filterMap pairAssignableWithMarvinIDMaybe existingAssignables

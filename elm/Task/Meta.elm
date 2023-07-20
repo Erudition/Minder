@@ -1,10 +1,13 @@
-module Task.Meta exposing (Action, Assignable, Assignment, Query(..), assignableDefaultExternalDeadline, assignableDefaultRelevanceEnds, assignableDefaultRelevanceStarts, assignableEstimatedEffort, assignableGetExtra, assignableID, assignableImportance, assignableMaxEffort, assignableMinEffort, assignableReg, assignableSetEstimatedEffort, assignableSetExtra, assignableSetImportance, assignableSetMaxEffort, assignableSetMinEffort, assignableSetTitle, assignableTitle, assignableToActions, assignableToAssignments, assignablesToAssignments, assignedActionActivityID, assignedActionActivityIDString, assignedActionCompleted, assignedActionCompletion, assignedActionEstimatedEffort, assignedActionExternalDeadline, assignedActionGetExtra, assignedActionMaxEffort, assignedActionMinEffort, assignedActionPartiallyCompleted, assignedActionProgress, assignedActionProgressMax, assignedActionRelevanceEnds, assignedActionRelevanceStarts, assignedActionSetCompletion, assignedActionSetEstimatedEffort, assignedActionSetExtra, assignedActionSetProjectTitle, assignedActionTitle, assignmentActivityID, assignmentActivityIDString, assignmentCompleted, assignmentCompletion, assignmentDelete, assignmentEstimatedEffort, assignmentExternalDeadline, assignmentGetExtra, assignmentID, assignmentIDString, assignmentMaxEffort, assignmentMinEffort, assignmentPartiallyCompleted, assignmentProgress, assignmentProgressMaxInt, assignmentReg, assignmentRelevanceEnds, assignmentRelevanceStarts, assignmentSetCompletion, assignmentSetExternalDeadline, assignmentSetExtra, assignmentSetRelevanceEnds, assignmentSetRelevanceStarts, assignmentTitle, entriesToActions, entriesToAssignables, isAssignedActionRelevantNow, listAllActions, prioritizeAssignments, setAssignableTitle, setAssignmentCompletion)
+module Task.Meta exposing (Action, Assignable, AssignedAction, Assignment, Query(..), assignableDefaultExternalDeadline, assignableDefaultRelevanceEnds, assignableDefaultRelevanceStarts, assignableEstimatedEffort, assignableGetExtra, assignableID, assignableImportance, assignableMaxEffort, assignableMinEffort, assignableReg, assignableSetEstimatedEffort, assignableSetExtra, assignableSetImportance, assignableSetMaxEffort, assignableSetMinEffort, assignableSetTitle, assignableTitle, assignableToAssignments, assignedActionActivityID, assignedActionActivityIDString, assignedActionCompleted, assignedActionCompletion, assignedActionEstimatedEffort, assignedActionExternalDeadline, assignedActionGetExtra, assignedActionMaxEffort, assignedActionMinEffort, assignedActionPartiallyCompleted, assignedActionProgress, assignedActionProgressMax, assignedActionRelevanceEnds, assignedActionRelevanceStarts, assignedActionSetCompletion, assignedActionSetEstimatedEffort, assignedActionSetExtra, assignedActionSetProjectTitle, assignedActionTitle, assignmentActivityID, assignmentActivityIDString, assignmentCompleted, assignmentCompletion, assignmentDelete, assignmentEstimatedEffort, assignmentExternalDeadline, assignmentGetExtra, assignmentID, assignmentIDString, assignmentMaxEffort, assignmentMinEffort, assignmentPartiallyCompleted, assignmentProgress, assignmentProgressMaxInt, assignmentReg, assignmentRelevanceEnds, assignmentRelevanceStarts, assignmentSetCompletion, assignmentSetExternalDeadline, assignmentSetExtra, assignmentSetRelevanceEnds, assignmentSetRelevanceStarts, assignmentTitle, isAssignedActionRelevantNow, normalizeTitle, prioritizeAssignments, projectToAssignableLayers, setAssignableTitle, setAssignmentCompletion)
 
 import Activity.Activity as Activity exposing (ActivityID)
+import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Helpers exposing (..)
 import ID
 import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
+import Maybe.Extra
 import Replicated.Change as Change exposing (Change)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
@@ -17,12 +20,12 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (Moment, TimelineOrder(..))
 import SmartTime.Period exposing (Period)
-import Task.Action as Action exposing (ActionID, ActionSkel, ContainerOfActions, NestedOrAction(..), TrackableLayerProperties)
+import Task.Action as Action exposing (ActionID, ActionSkel, NestedOrAction(..), SubAssignableID, SubAssignableSkel)
 import Task.Assignable as Assignable exposing (AssignableID, AssignableSkel)
 import Task.AssignedAction exposing (AssignedActionSkel)
 import Task.Assignment exposing (AssignmentDb, AssignmentID, AssignmentSkel)
 import Task.Progress as Progress exposing (Progress)
-import Task.Project as Project exposing (ContainerOfAssignables, NestedOrAssignable(..), Project)
+import Task.Project as Project exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
 import Task.Series exposing (Series(..))
 import ZoneHistory exposing (ZoneHistory)
 
@@ -32,75 +35,173 @@ type Query
     | WithinPeriod Period ZoneHistory
 
 
-{-| Take all the Entries and flatten them into a list of Assignables
+{-| Meta Project
 -}
-entriesToAssignables : RepList Project -> List Assignable
-entriesToAssignables entries =
-    let
-        traverseEntries : NestedOrAssignable -> List Assignable
-        traverseEntries entry =
-            insideContainerOfAssignables [] entry
-
-        insideContainerOfAssignables : List (Reg TrackableLayerProperties) -> NestedOrAssignable -> List Assignable
-        insideContainerOfAssignables accumulator child =
-            case child of
-                AssignableIsDeeper parent ->
-                    traverseContainerOfAssignables (parent.layerProperties :: accumulator) parent
-
-                AssignableIsHere assignable ->
-                    List.singleton <| makeMetaAssignable accumulator assignable
-
-        traverseContainerOfAssignables : List (Reg TrackableLayerProperties) -> ContainerOfAssignables -> List Assignable
-        traverseContainerOfAssignables accumulator parent =
-            List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
-    in
-    List.concatMap traverseEntries (RepList.listValues entries)
+type Project
+    = Project
+        { layerTitles : List String
+        , projectReg : Reg ProjectSkel
+        , projectID : ProjectID
+        }
 
 
-{-| Take all the Entries and flatten them into a list of Actions
+type alias ProjectLayers =
+    { projects : AnyDict String ProjectID Project
+    , assignables : AnyDict String AssignableID Assignable
+    , subassignables : AnyDict String SubAssignableID SubAssignable
+    , actions : AnyDict String ActionID Action
+    }
+
+
+type alias InheritableFromAssignable =
+    { layerTitles : List String
+    }
+
+
+{-| Take all the Entries and flatten them into a dict with Assignables
 -}
-entriesToActions : RepList Project -> List Action
-entriesToActions entries =
+projectToAssignableLayers : RepDb (Reg ProjectSkel) -> ProjectLayers
+projectToAssignableLayers rootProjects =
     let
-        traverseEntries : NestedOrAssignable -> List Action
-        traverseEntries entry =
-            insideContainerOfAssignables [] entry
+        start : ProjectLayers
+        start =
+            { projects = AnyDict.empty ID.toString
+            , assignables = AnyDict.empty ID.toString
+            , subassignables = AnyDict.empty ID.toString
+            , actions = AnyDict.empty ID.toString
+            }
 
-        insideContainerOfAssignables : List (Reg TrackableLayerProperties) -> NestedOrAssignable -> List Action
-        insideContainerOfAssignables accumulator child =
+        traverseProject : Maybe Project -> Reg ProjectSkel -> ProjectLayers -> ProjectLayers
+        traverseProject parentMaybe thisProjectSkelReg layersSoFar =
+            let
+                thisProjectSkel =
+                    Reg.latest thisProjectSkelReg
+
+                makeID =
+                    ID.fromPointer (Reg.getPointer thisProjectSkelReg)
+
+                metaProjectToAdd : Project
+                metaProjectToAdd =
+                    Project
+                        { layerTitles = Maybe.withDefault [] (Maybe.map (\(Project p) -> p.layerTitles) parentMaybe) ++ Maybe.Extra.toList thisProjectSkel.title.get
+                        , projectReg = thisProjectSkelReg
+                        , projectID = makeID
+                        }
+
+                childrenToProcess : ProjectLayers
+                childrenToProcess =
+                    List.foldl (itemInsideProject metaProjectToAdd) layersSoFar (RepList.list thisProjectSkel.children)
+            in
+            { childrenToProcess
+                | projects =
+                    AnyDict.insert makeID metaProjectToAdd layersSoFar.projects
+                        |> AnyDict.union childrenToProcess.projects
+            }
+
+        itemInsideProject : Project -> RepList.Item NestedOrAssignable -> ProjectLayers -> ProjectLayers
+        itemInsideProject parent child layersSoFar =
+            case child.value of
+                AssignableIsDeeper nestedProject ->
+                    traverseProject (Just parent) nestedProject layersSoFar
+
+                AssignableIsHere assignableSkelReg ->
+                    let
+                        assignableSkel =
+                            Reg.latest assignableSkelReg
+
+                        (Project parentUnwrapped) =
+                            parent
+
+                        makeID =
+                            ID.fromPointer (Reg.getPointer assignableSkelReg)
+
+                        layerTitles =
+                            parentUnwrapped.layerTitles ++ [ assignableSkel.title.get ]
+
+                        makeMetaAssignable : Assignable
+                        makeMetaAssignable =
+                            Assignable
+                                { layerTitles = layerTitles
+                                , assignableReg = assignableSkelReg -- Reg because we may need earlier versions
+                                , assignableID = makeID
+                                }
+
+                        passDown : InheritableFromAssignable
+                        passDown =
+                            { layerTitles = layerTitles }
+
+                        childrenToProcess : ProjectLayers
+                        childrenToProcess =
+                            List.foldl (itemInsideAssignable passDown) layersSoFar (RepList.listValues assignableSkel.children)
+                    in
+                    { childrenToProcess
+                        | assignables =
+                            AnyDict.insert makeID makeMetaAssignable childrenToProcess.assignables
+                    }
+
+        itemInsideAssignable : InheritableFromAssignable -> NestedOrAction -> ProjectLayers -> ProjectLayers
+        itemInsideAssignable inheritable child layersSoFar =
             case child of
-                AssignableIsDeeper parent ->
-                    traverseContainerOfAssignables (parent.layerProperties :: accumulator) parent
+                ActionIsDeeper subAssignableSkelReg ->
+                    traverseAssignableLayer inheritable subAssignableSkelReg layersSoFar
 
-                AssignableIsHere assignable ->
-                    assignableToActions ((Reg.latest assignable).layerProperties :: accumulator) assignable
-
-        traverseContainerOfAssignables : List (Reg TrackableLayerProperties) -> ContainerOfAssignables -> List Action
-        traverseContainerOfAssignables accumulator parent =
-            List.concatMap (insideContainerOfAssignables accumulator) (RepList.listValues parent.children)
-    in
-    List.concatMap traverseEntries (RepList.listValues entries)
-
-
-assignableToActions : List (Reg TrackableLayerProperties) -> Reg AssignableSkel -> List Action
-assignableToActions acc assignable =
-    let
-        traverseContainerOfActions : List (Reg TrackableLayerProperties) -> ContainerOfActions -> List Action
-        traverseContainerOfActions accumulator class =
-            -- TODO do we need to collect props here
-            List.concatMap (insideContainerOfActions accumulator) (RepList.listValues class.children)
-
-        insideContainerOfActions : List (Reg TrackableLayerProperties) -> NestedOrAction -> List Action
-        insideContainerOfActions accumulator child =
-            case child of
-                ActionIsHere action ->
+                ActionIsHere actionSkelReg ->
                     -- we've reached the bottom
-                    List.singleton <| makeMetaAction accumulator action
+                    let
+                        actionSkel =
+                            Reg.latest actionSkelReg
 
-                ActionIsDeeper followerParent ->
-                    traverseContainerOfActions (followerParent.layerProperties :: accumulator) followerParent
+                        makeID =
+                            ID.fromPointer (Reg.getPointer actionSkelReg)
+
+                        makeMetaAction : Action
+                        makeMetaAction =
+                            Action
+                                { layerTitles = inheritable.layerTitles ++ [ actionSkel.title.get ]
+                                , actionReg = actionSkelReg
+                                , actionID = makeID
+                                }
+                    in
+                    { layersSoFar
+                        | actions =
+                            AnyDict.insert makeID makeMetaAction layersSoFar.actions
+                    }
+
+        traverseAssignableLayer : InheritableFromAssignable -> Reg SubAssignableSkel -> ProjectLayers -> ProjectLayers
+        traverseAssignableLayer inheritable thisSubAssignableSkelReg layersSoFar =
+            let
+                thisSubAssignableSkel =
+                    Reg.latest thisSubAssignableSkelReg
+
+                makeID =
+                    ID.fromPointer (Reg.getPointer thisSubAssignableSkelReg)
+
+                layerTitles =
+                    inheritable.layerTitles ++ Maybe.Extra.toList thisSubAssignableSkel.title.get
+
+                metaSubAssignableToAdd : SubAssignable
+                metaSubAssignableToAdd =
+                    SubAssignable
+                        { layerTitles = layerTitles
+                        , subAssignableReg = thisSubAssignableSkelReg
+                        , subAssignableID = makeID
+                        }
+
+                passDown : InheritableFromAssignable
+                passDown =
+                    { layerTitles = layerTitles }
+
+                childrenToProcess : ProjectLayers
+                childrenToProcess =
+                    List.foldl (itemInsideAssignable passDown) layersSoFar (RepList.listValues thisSubAssignableSkel.children)
+            in
+            { childrenToProcess
+                | subassignables =
+                    AnyDict.insert makeID metaSubAssignableToAdd layersSoFar.subassignables
+                        |> AnyDict.union childrenToProcess.subassignables
+            }
     in
-    List.concatMap (insideContainerOfActions acc) (RepList.listValues (Reg.latest assignable).children)
+    List.foldl (traverseProject Nothing) start (RepDb.listValues rootProjects)
 
 
 
@@ -121,18 +222,19 @@ Parents that contain only a single task are transparently unwrapped to appear li
 -}
 type Assignable
     = Assignable
-        { parents : List (Reg TrackableLayerProperties)
+        { layerTitles : List String
         , assignableReg : Reg AssignableSkel
         , assignableID : AssignableID
         }
 
 
-makeMetaAssignable : List (Reg TrackableLayerProperties) -> Reg AssignableSkel -> Assignable
-makeMetaAssignable parentPropsRegList assignableSkelReg =
-    Assignable
-        { parents = parentPropsRegList
-        , assignableReg = assignableSkelReg -- Reg because we may need earlier versions
-        , assignableID = ID.fromPointer (Reg.getPointer assignableSkelReg)
+{-| Meta SubAssignable
+-}
+type SubAssignable
+    = SubAssignable
+        { layerTitles : List String
+        , subAssignableReg : Reg SubAssignableSkel
+        , subAssignableID : SubAssignableID
         }
 
 
@@ -142,18 +244,9 @@ makeMetaAssignable parentPropsRegList assignableSkelReg =
 
 type Action
     = Action
-        { parents : List (Reg TrackableLayerProperties)
+        { layerTitles : List String
         , actionReg : Reg ActionSkel
         , actionID : ActionID
-        }
-
-
-makeMetaAction : List (Reg TrackableLayerProperties) -> Reg ActionSkel -> Action
-makeMetaAction parentPropsRegList actionSkelReg =
-    Action
-        { parents = parentPropsRegList
-        , actionReg = actionSkelReg
-        , actionID = ID.fromPointer (Reg.getPointer actionSkelReg)
         }
 
 
@@ -165,7 +258,7 @@ makeMetaAction parentPropsRegList actionSkelReg =
 -}
 type Assignment
     = Assignment
-        { parents : List (Reg TrackableLayerProperties)
+        { layerTitles : List String
         , assignableReg : Reg AssignableSkel
         , assignmentReg : Reg AssignmentSkel
         , index : Int
@@ -175,18 +268,6 @@ type Assignment
         }
 
 
-{-| Get all relevant assignments of everything.
-
-Take the skeleton data and get all relevant(within given time period) assignments of every assignable, and return them as Full Instances.
-
-TODO organize with IDs somehow
-
--}
-assignablesToAssignments : List Assignable -> Query -> List Assignment
-assignablesToAssignments fullClasses query =
-    List.concatMap (assignableToAssignments query) fullClasses
-
-
 {-| Take a assignable and return all of the assignments relevant within the given period - saved or generated.
 
 Combine the saved assignments with generated ones, to get the full picture within a period.
@@ -194,8 +275,8 @@ Combine the saved assignments with generated ones, to get the full picture withi
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the assignableID for perf?
 
 -}
-assignableToAssignments : Query -> Assignable -> List Assignment
-assignableToAssignments relevance ((Assignable metaAssignable) as wrappedAssignable) =
+assignableToAssignments : Assignable -> Query -> List Assignment
+assignableToAssignments ((Assignable metaAssignable) as wrappedAssignable) query =
     let
         manualAssignments =
             RepDb.members (Reg.latest metaAssignable.assignableReg).manualAssignments
@@ -213,7 +294,7 @@ assignableToAssignments relevance ((Assignable metaAssignable) as wrappedAssigna
 
         -- TODO Fill in based on recurrence series. Int ID = order in series.
         _ =
-            fillSeries relevance wrappedAssignable
+            fillSeries query wrappedAssignable
     in
     relevantSavedInstances
 
@@ -231,60 +312,53 @@ makeMetaAssignment (Assignable metaAssignable) indexFromZero assignmentSkelMembe
         }
 
 
-{-| Get all relevant actions of all assignments.
--}
-listAllActions : List Assignable -> Query -> List AssignedAction
-listAllActions assignables timeData =
-    let
-        allAssignments =
-            assignablesToAssignments assignables timeData
-    in
-    List.concatMap (actionsOfAssignment timeData) allAssignments
 
-
-{-| -}
-actionsOfAssignment : Query -> Assignment -> List AssignedAction
-actionsOfAssignment query (Assignment metaAssignment) =
-    let
-        actions =
-            assignableToActions metaAssignment.parents metaAssignment.assignableReg
-
-        assignedActionsWithClassID =
-            (Reg.latest metaAssignment.assignmentReg).children
-
-        fullAssignmentFromAction : Action -> AssignedAction
-        fullAssignmentFromAction (Action metaAction) =
-            let
-                assignedActionReg =
-                    RepStore.get metaAction.actionID assignedActionsWithClassID
-
-                _ =
-                    Reg.latest assignedActionReg
-            in
-            AssignedAction
-                { parents = metaAction.parents
-                , actionReg = metaAction.actionReg
-                , actionID = metaAction.actionID
-                , assignableReg = metaAssignment.assignableReg
-                , assignmentReg = metaAssignment.assignmentReg
-                , assignmentID = metaAssignment.assignmentID
-                , assignableID = metaAssignment.assignableID
-                , assignedActionReg = assignedActionReg
-                }
-
-        fullAssignmentsFromActions : List AssignedAction
-        fullAssignmentsFromActions =
-            List.map fullAssignmentFromAction actions
-
-        -- Filter out assignments outside the window
-        relevantSavedActionAssignments =
-            List.filter isRelevant fullAssignmentsFromActions
-
-        -- TODO "If savedInstance is within period, keep"
-        isRelevant _ =
-            True
-    in
-    relevantSavedActionAssignments
+-- {-| Get all relevant actions of all assignments.
+-- -}
+-- listAllActions : List Assignable -> Query -> List AssignedAction
+-- listAllActions assignables timeData =
+--     let
+--         allAssignments =
+--             assignablesToAssignments assignables timeData
+--     in
+--     List.concatMap (actionsOfAssignment timeData) allAssignments
+-- {-| -}
+-- actionsOfAssignment : Query -> Assignment -> List AssignedAction
+-- actionsOfAssignment query (Assignment metaAssignment) =
+--     let
+--         actions =
+--             assignableToActions metaAssignment.parents metaAssignment.assignableReg
+--         assignedActionsWithClassID =
+--             (Reg.latest metaAssignment.assignmentReg).nestedAssignedActions
+--         fullAssignmentFromAction : Action -> AssignedAction
+--         fullAssignmentFromAction (Action metaAction) =
+--             let
+--                 assignedActionReg =
+--                     RepStore.get metaAction.actionID assignedActionsWithClassID
+--                 _ =
+--                     Reg.latest assignedActionReg
+--             in
+--             AssignedAction
+--                 { parents = metaAction.parents
+--                 , actionReg = metaAction.actionReg
+--                 , actionID = metaAction.actionID
+--                 , assignableReg = metaAssignment.assignableReg
+--                 , assignmentReg = metaAssignment.assignmentReg
+--                 , assignmentID = metaAssignment.assignmentID
+--                 , assignableID = metaAssignment.assignableID
+--                 , assignedActionReg = assignedActionReg
+--                 }
+--         fullAssignmentsFromActions : List AssignedAction
+--         fullAssignmentsFromActions =
+--             List.map fullAssignmentFromAction actions
+--         -- Filter out assignments outside the window
+--         relevantSavedActionAssignments =
+--             List.filter isRelevant fullAssignmentsFromActions
+--         -- TODO "If savedInstance is within period, keep"
+--         isRelevant _ =
+--             True
+--     in
+--     relevantSavedActionAssignments
 
 
 fillSeries : Query -> Assignable -> List Assignment
@@ -301,7 +375,7 @@ fillSeries relevance _ =
 -}
 type AssignedAction
     = AssignedAction
-        { parents : List (Reg TrackableLayerProperties)
+        { layerTitles : List String
         , actionReg : Reg ActionSkel
         , assignedActionReg : Reg AssignedActionSkel
         , assignableReg : Reg AssignableSkel

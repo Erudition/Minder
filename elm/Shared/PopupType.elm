@@ -1,6 +1,6 @@
 module Shared.PopupType exposing (..)
 
-import Activity.Session exposing (Session(..))
+import Activity.HistorySession exposing (HistorySession(..))
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Element exposing (..)

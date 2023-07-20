@@ -32,7 +32,7 @@ type alias AppInstance =
 
 type alias Profile =
     { errors : RepList String
-    , projects : RepList Task.Project.Project
+    , projects : RepDb Task.ProjectSkel.Project
     , activities : Activity.Store
     , timeline : Timeline
 
@@ -46,7 +46,7 @@ codec : SkelCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
-        |> Codec.fieldList ( 2, "projects" ) .projects Task.Project.codec
+        |> Codec.fieldDb ( 2, "projects" ) .projects Task.Project.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
@@ -99,7 +99,7 @@ assignments : Profile -> Task.Meta.Query -> List Assignment
 assignments profile query =
     let
         assignables =
-            Task.Meta.entriesToAssignables profile.projects
+            Task.Meta.projectToAssignableLayers profile.projects
     in
     Task.Meta.assignablesToAssignments assignables query
 

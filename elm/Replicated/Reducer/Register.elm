@@ -83,6 +83,10 @@ type alias RW fieldVal =
     }
 
 
+type alias RWM fieldOptionalVal =
+    RW (Maybe fieldOptionalVal)
+
+
 type alias RWH fieldVal =
     { get : fieldVal
     , set : fieldVal -> Change

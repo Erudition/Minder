@@ -1,7 +1,7 @@
 module Timeflow exposing (Msg(..), ViewState, init, resizeCmd, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Session as Session exposing (Session)
+import Activity.HistorySession as Session exposing (HistorySession)
 import Activity.Timeline as Timeline
 import Browser.Dom as Dom
 import Color exposing (Color)
@@ -992,7 +992,7 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Shared -> Profile -> Period -> Session -> FlowBlob
+makeHistoryBlob : Shared -> Profile -> Period -> HistorySession -> FlowBlob
 makeHistoryBlob env profile displayPeriod session =
     let
         -- sessionPositions =
