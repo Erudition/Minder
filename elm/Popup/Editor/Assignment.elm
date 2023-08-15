@@ -17,8 +17,8 @@ import Replicated.Change as Change
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Meta exposing (..)
 import Task.Progress exposing (Portion)
+import Task.Project exposing (..)
 
 
 type alias Values =

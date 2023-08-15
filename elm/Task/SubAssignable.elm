@@ -1,74 +1,50 @@
 module Task.SubAssignable exposing (..)
 
-import Activity.Activity exposing (ActivityID)
-import ExtraCodecs as Codec
+import Activity.Activity as Activity exposing (ActivityID)
+import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Helpers exposing (..)
 import ID exposing (ID)
-import Json.Decode.Exploration.Pipeline exposing (..)
+import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
-import Json.Encode.Extra exposing (..)
-import Replicated.Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
-import Replicated.Reducer.Register exposing (RW, RWMaybe, Reg)
-import Replicated.Reducer.RepDict exposing (RepDict)
-import Replicated.Reducer.RepList exposing (RepList)
-import SmartTime.Duration as Duration exposing (Duration)
-import Task.Action exposing (ActionSkel)
-import Task.Progress as Progress exposing (..)
-import Task.RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
+import Maybe.Extra
+import Replicated.Change as Change exposing (Change)
+import Replicated.Op.OpID as OpID
+import Replicated.Reducer.Register as Reg exposing (Reg)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepDict as RepDict
+import Replicated.Reducer.RepList as RepList exposing (RepList)
+import Replicated.Reducer.RepStore as RepStore
+import SmartTime.Duration exposing (Duration)
+import SmartTime.Human.Clock as Clock
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
+import SmartTime.Moment exposing (Moment, TimelineOrder(..))
+import SmartTime.Period exposing (Period)
+import Task.Assignable exposing (Assignable)
+import Task.Progress as Progress exposing (Progress)
+import Task.Series exposing (Series)
+import Task.SubAssignableSkel as SubAssignable exposing (NestedSubAssignableOrSingleAction(..), SubAssignableID, SubAssignableSkel)
+import ZoneHistory exposing (ZoneHistory)
 
 
-{-| every task must be wrapped in a parent, even if it's alone
-parents have instances, tasks do not
-...but then how to track the completion of the subtasks?
-by storing the subtask instances in a separate Dict, each tagged with the parent's instance ID.
-A failed lookup just means an incomplete task, defaults used for everything
-
-How can we let parents have parents?
-Well, we still only want one set of instances/recurrence in a given tree, so let's make "subparents" that still function as containers but have no recurrence rules or instances. Then any parent can contain either a subtask, or a subparent.
-
-...Yeah, but the problem with that, is what if you want recurrence to happen at the level of one of the subparents? Say you have a project that is one-time but one of the sub-projects is supposed to repeat.
-
+{-| Meta SubAssignable
 -}
-type NestedSubAssignableOrSingleAction
-    = ActionIsHere (Reg ActionSkel)
-    | ActionIsDeeper (Reg SubAssignableSkel)
-
-
-nestedOrActionCodec : NullCodec String NestedSubAssignableOrSingleAction
-nestedOrActionCodec =
-    Codec.customType
-        (\singleton nested value ->
-            case value of
-                ActionIsHere action ->
-                    singleton action
-
-                ActionIsDeeper followerParent ->
-                    nested followerParent
-        )
-        |> Codec.variant1 ( 1, "ActionIsHere" ) ActionIsHere Task.Action.codec
-        |> Codec.variant1 ( 2, "ActionIsDeeper" ) ActionIsDeeper (Codec.lazy (\_ -> subAssignableCodec))
-        |> Codec.finishCustomType
-
-
-{-| A "constrained" group of tasks has already had its recurrence rules set by one of it's ancestors, or does not recur at all. Since a task can only be in one RecurrenceParent container, its children (ConstrainedParents) can not have recurrence rules of its own (nor can any of its descendants).
-
-Like all parents, a ConstrainedParent can contain infinitely nested ConstrainedParents.
-
--}
-type alias SubAssignableSkel =
-    { title : RWMaybe String
-    , children : RepList NestedSubAssignableOrSingleAction
-    }
+type SubAssignable
+    = SubAssignable
+        { assignable : Assignable
+        , reg : Reg SubAssignableSkel
+        , id : SubAssignableID
+        }
 
 
 type alias SubAssignableID =
     ID SubAssignableSkel
 
 
-subAssignableCodec : WrappedCodec String (Reg SubAssignableSkel)
-subAssignableCodec =
-    Codec.record SubAssignableSkel
-        |> Codec.fieldRWM ( 1, "title" ) .title Codec.string
-        |> Codec.fieldList ( 2, "children" ) .children nestedOrActionCodec
-        |> Codec.finishRegister
+fromSkel : Assignable -> Reg SubAssignableSkel -> SubAssignable
+fromSkel parent skelReg =
+    SubAssignable
+        { reg = skelReg
+        , id = ID.fromPointer (Reg.getPointer skelReg)
+        , assignable = parent
+        }

@@ -71,7 +71,7 @@ import SmartTime.Human.Moment
 import SmartTime.Moment as Moment
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.Assignment as Assignment exposing (Assignment)
+import Task.AssignmentSkel as Assignment exposing (Assignment)
 import TaskList
 import TaskPort
 import TimeTracker

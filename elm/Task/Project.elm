@@ -1,99 +1,63 @@
-module Task.Project exposing (..)
+module Task.Project exposing (Project, ProjectID, fromSkel, id)
 
-import ExtraCodecs as Codec
+import Activity.Activity as Activity exposing (ActivityID)
+import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Helpers exposing (..)
-import ID exposing (ID)
+import ID
 import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
+import Maybe.Extra
 import Replicated.Change as Change exposing (Change)
-import Replicated.Codec as Codec exposing (SkelCodec, WrappedCodec)
-import Replicated.Reducer.Register as Reg exposing (RWMaybe, Reg)
+import Replicated.Op.OpID as OpID
+import Replicated.Reducer.Register as Reg exposing (Reg)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepDict as RepDict
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Task.Action exposing (ActionSkel)
-import Task.Assignable as Assignable exposing (AssignableSkel)
+import Replicated.Reducer.RepStore as RepStore
+import SmartTime.Duration exposing (Duration)
+import SmartTime.Human.Clock as Clock
+import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
+import SmartTime.Moment exposing (Moment, TimelineOrder(..))
+import SmartTime.Period exposing (Period)
+import Task.Progress as Progress exposing (Progress)
+import Task.ProjectSkel as ProjectSkel exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
 import Task.Series exposing (Series)
-import Task.SubAssignable as SubAssignable exposing (NestedSubAssignableOrSingleAction)
+import Task.SubAssignable as SubAssignable exposing (SubAssignable, SubAssignableID)
+import Task.SubAssignableSkel exposing (NestedSubAssignableOrSingleAction(..), SubAssignableSkel)
+import ZoneHistory exposing (ZoneHistory)
 
 
-
---  TOPMOST LAYERS: ENTRIES & CONTAINERS OF ASSIGNABLES -------------------------------
-
-
-{-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
+{-| Meta Project
 -}
-type alias ProjectSkel =
-    { title : RWMaybe String
-    , children : RepList NestedOrAssignable
-    }
-
-
-codec =
-    projectCodec
+type Project
+    = Project
+        { reg : Reg ProjectSkel
+        , id : ProjectID
+        }
 
 
 type alias ProjectID =
-    ID (Reg ProjectSkel)
+    ProjectSkel.ProjectID
 
 
-projectCodec : WrappedCodec String (Reg ProjectSkel)
-projectCodec =
-    Codec.record ProjectSkel
-        |> Codec.fieldRWM ( 3, "title" ) .title Codec.string
-        |> Codec.fieldList ( 2, "children" ) .children nestedOrAssignableCodec
-        |> Codec.finishRegister
+fromSkel : Reg ProjectSkel -> Project
+fromSkel reg =
+    Project
+        { reg = reg
+        , id = ID.fromPointer (Reg.getPointer reg)
+        }
 
 
-type NestedOrAssignable
-    = AssignableIsDeeper (Reg ProjectSkel)
-    | AssignableIsHere (Reg AssignableSkel)
-
-
-nestedOrAssignableCodec : Codec.NullCodec String NestedOrAssignable
-nestedOrAssignableCodec =
-    Codec.customType
-        (\leaderIsDeeper leaderIsHere value ->
-            case value of
-                AssignableIsDeeper wrapperParent ->
-                    leaderIsDeeper wrapperParent
-
-                AssignableIsHere leaderParent ->
-                    leaderIsHere leaderParent
-        )
-        |> Codec.variant1 ( 1, "AssignableIsDeeper" ) AssignableIsDeeper (Codec.lazy (\_ -> projectCodec))
-        |> Codec.variant1 ( 2, "AssignableIsHere" ) AssignableIsHere Assignable.codec
-        |> Codec.finishCustomType
+id (Project project) =
+    project.id
 
 
 
---  TRAVERSE & FLATTEN LAYERS --------------------------------------
+-- Task helper functions -------------------------------------------------------
 
 
-initProjectWithAssignable : Reg AssignableSkel -> Change.Creator (Reg ProjectSkel)
-initProjectWithAssignable givenAssignableReg parentContext =
-    let
-        changeChildrenOfAssignable : RepList NestedSubAssignableOrSingleAction -> List Change
-        changeChildrenOfAssignable newChildren =
-            [ RepList.insert RepList.Last (SubAssignable.ActionIsHere actionSkelReg) newChildren
-            ]
-
-        assignableChanger : Change.Changer (Reg AssignableSkel)
-        assignableChanger newAssignable =
-            changeChildrenOfAssignable (Reg.latest newAssignable).children
-
-        actionSkelReg : Reg ActionSkel
-        actionSkelReg =
-            Codec.seededNewWithChanges Task.Action.codec (Change.reuseContext "ActionIsHere" parentContext) "Untitled Action" actionSkelChanger
-
-        actionSkelChanger : Change.Changer (Reg ActionSkel)
-        actionSkelChanger _ =
-            []
-
-        projectChanger : Reg ProjectSkel -> List Change
-        projectChanger projectSkel =
-            [ RepList.insert RepList.Last (AssignableIsHere givenAssignableReg) (Reg.latest projectSkel).children
-            ]
-
-        justNewAssignable =
-            AssignableIsHere (Codec.seededNewWithChanges Assignable.codec (Change.reuseContext "AssignableIsHere" parentContext) "Untitled Assignable" assignableChanger)
-    in
-    Codec.newWithChanges codec parentContext projectChanger
+normalizeTitle : String -> String
+normalizeTitle newTaskTitle =
+    -- TODO capitalize, and other such normalization
+    String.trim newTaskTitle

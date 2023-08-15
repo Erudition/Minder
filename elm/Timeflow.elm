@@ -40,10 +40,10 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.Assignable as Assignable exposing (Assignable)
-import Task.Assignment as Assignment exposing (Assignment, AssignmentSkel)
+import Task.AssignableSkel as Assignable exposing (Assignable)
+import Task.AssignmentSkel as Assignment exposing (Assignment, AssignmentSkel)
 import Task.Progress exposing (..)
-import Task.Project as Project
+import Task.ProjectSkel as Project
 import Url.Parser as P exposing ((</>), Parser)
 import VirtualDom
 import ZoneHistory

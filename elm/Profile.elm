@@ -20,10 +20,10 @@ import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepLi
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
-import Task.Assignment as Assignment exposing (AssignmentID)
-import Task.Meta exposing (Assignment)
+import Task.AssignmentSkel as Assignment exposing (AssignmentID)
 import Task.Progress exposing (..)
-import Task.Project
+import Task.Project exposing (Assignment)
+import Task.ProjectSkel
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import TimeTrackable exposing (TimeTrackable)
 import ZoneHistory
@@ -51,7 +51,7 @@ codec : SkelCodec String Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
-        |> Codec.fieldDb ( 2, "projects" ) .projects Task.Project.codec
+        |> Codec.fieldDb ( 2, "projects" ) .projects Task.ProjectSkel.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
         |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.HistorySession.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
@@ -105,7 +105,7 @@ getAssignmentByID profile assignmentID =
             -- TODO use a real dict
             assignments profile Task.Meta.AllSaved
     in
-    List.Extra.find (\ass -> Task.Meta.assignmentID ass == assignmentID) assignmentListTemp
+    List.Extra.find (\ass -> Task.Project.assignmentID ass == assignmentID) assignmentListTemp
 
 
 
@@ -118,12 +118,12 @@ assignments : Profile -> Task.Meta.Query -> List Assignment
 assignments profile query =
     let
         projectLayers =
-            Task.Meta.projectToAssignableLayers profile.projects
+            Task.Project.projectToAssignableLayers profile.projects
 
         assignableList =
             AnyDict.values projectLayers.assignables
     in
-    List.concatMap (Task.Meta.assignableToAssignments query) assignableList
+    List.concatMap (Task.Project.assignableToAssignments query) assignableList
 
 
 getActivityByID : Profile -> ActivityID -> Activity

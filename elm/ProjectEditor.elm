@@ -52,10 +52,10 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
 import String.Normalize
 import Task as Job
-import Task.Assignable as ActionClass exposing (ActionClass, ActionClassID)
-import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
+import Task.AssignableSkel as ActionClass exposing (ActionClass, ActionClassID)
+import Task.AssignmentSkel as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Progress exposing (..)
-import Task.Project as Entry
+import Task.ProjectSkel as Entry
 import Task.Session
 import TaskPort
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)

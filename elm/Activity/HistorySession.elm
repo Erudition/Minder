@@ -21,8 +21,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (Zone)
 import SmartTime.Moment as Moment exposing (..)
 import SmartTime.Period as Period exposing (Period(..))
 import Task.Assignment exposing (AssignmentID)
-import Task.Meta exposing (ProjectLayers)
-import Task.Project exposing (ProjectSkel)
+import Task.Layers exposing (ProjectLayers)
 import TimeTrackable exposing (TimeTrackable)
 
 

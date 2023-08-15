@@ -15,3 +15,6 @@
 # Timeflow
 - Take widget out of dictionary, we'll probably only need a pre-known amount
 - Responsive screen sizing
+
+# Task data structures
+- move Assignment et. al. back into their own modules?

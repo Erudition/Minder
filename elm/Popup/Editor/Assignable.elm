@@ -18,8 +18,8 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Meta exposing (..)
 import Task.Progress exposing (Portion)
+import Task.Project exposing (..)
 import Task.RelativeTiming as RelativeTiming exposing (RelativeTiming)
 
 
