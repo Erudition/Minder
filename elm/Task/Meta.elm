@@ -1,4 +1,4 @@
-module Task.Meta exposing (Action, Assignable, AssignedAction, Assignment, Query(..), assignableDefaultExternalDeadline, assignableDefaultRelevanceEnds, assignableDefaultRelevanceStarts, assignableEstimatedEffort, assignableGetExtra, assignableID, assignableImportance, assignableMaxEffort, assignableMinEffort, assignableReg, assignableSetEstimatedEffort, assignableSetExtra, assignableSetImportance, assignableSetMaxEffort, assignableSetMinEffort, assignableSetTitle, assignableTitle, assignableToAssignments, assignedActionActivityID, assignedActionActivityIDString, assignedActionCompleted, assignedActionCompletion, assignedActionEstimatedEffort, assignedActionExternalDeadline, assignedActionGetExtra, assignedActionMaxEffort, assignedActionMinEffort, assignedActionPartiallyCompleted, assignedActionProgress, assignedActionProgressMax, assignedActionRelevanceEnds, assignedActionRelevanceStarts, assignedActionSetCompletion, assignedActionSetEstimatedEffort, assignedActionSetExtra, assignedActionSetProjectTitle, assignedActionTitle, assignmentActivityID, assignmentActivityIDString, assignmentCompleted, assignmentCompletion, assignmentDelete, assignmentEstimatedEffort, assignmentExternalDeadline, assignmentGetExtra, assignmentID, assignmentIDString, assignmentMaxEffort, assignmentMinEffort, assignmentPartiallyCompleted, assignmentProgress, assignmentProgressMaxInt, assignmentReg, assignmentRelevanceEnds, assignmentRelevanceStarts, assignmentSetCompletion, assignmentSetExternalDeadline, assignmentSetExtra, assignmentSetRelevanceEnds, assignmentSetRelevanceStarts, assignmentTitle, isAssignedActionRelevantNow, normalizeTitle, prioritizeAssignments, projectToAssignableLayers, setAssignableTitle, setAssignmentCompletion)
+module Task.Meta exposing (Action, Assignable, AssignedAction, Assignment, ProjectLayers, Query(..), SubAssignable, assignableDefaultExternalDeadline, assignableDefaultRelevanceEnds, assignableDefaultRelevanceStarts, assignableEstimatedEffort, assignableGetExtra, assignableID, assignableImportance, assignableMaxEffort, assignableMinEffort, assignableReg, assignableSetEstimatedEffort, assignableSetExtra, assignableSetImportance, assignableSetMaxEffort, assignableSetMinEffort, assignableSetTitle, assignableTitle, assignableToAssignments, assignedActionActivityID, assignedActionActivityIDString, assignedActionCompleted, assignedActionCompletion, assignedActionEstimatedEffort, assignedActionExternalDeadline, assignedActionGetExtra, assignedActionMaxEffort, assignedActionMinEffort, assignedActionPartiallyCompleted, assignedActionProgress, assignedActionProgressMax, assignedActionRelevanceEnds, assignedActionRelevanceStarts, assignedActionSetCompletion, assignedActionSetEstimatedEffort, assignedActionSetExtra, assignedActionSetProjectTitle, assignedActionTitle, assignmentActivityID, assignmentActivityIDString, assignmentCompleted, assignmentCompletion, assignmentDelete, assignmentEstimatedEffort, assignmentExternalDeadline, assignmentGetExtra, assignmentID, assignmentIDString, assignmentMaxEffort, assignmentMinEffort, assignmentPartiallyCompleted, assignmentProgress, assignmentProgressMaxInt, assignmentReg, assignmentRelevanceEnds, assignmentRelevanceStarts, assignmentSetCompletion, assignmentSetExternalDeadline, assignmentSetExtra, assignmentSetRelevanceEnds, assignmentSetRelevanceStarts, assignmentTitle, isAssignedActionRelevantNow, normalizeTitle, prioritizeAssignments, projectToAssignableLayers, setAssignableTitle, setAssignmentCompletion)
 
 import Activity.Activity as Activity exposing (ActivityID)
 import Dict exposing (Dict)
@@ -20,13 +20,14 @@ import SmartTime.Human.Clock as Clock
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (Moment, TimelineOrder(..))
 import SmartTime.Period exposing (Period)
-import Task.Action as Action exposing (ActionID, ActionSkel, NestedOrAction(..), SubAssignableID, SubAssignableSkel)
+import Task.Action as Action exposing (ActionID, ActionSkel)
 import Task.Assignable as Assignable exposing (AssignableID, AssignableSkel)
 import Task.AssignedAction exposing (AssignedActionSkel)
-import Task.Assignment exposing (AssignmentDb, AssignmentID, AssignmentSkel)
+import Task.Assignment exposing (AssignmentID(..), AssignmentSkel, ManualAssignmentDb)
 import Task.Progress as Progress exposing (Progress)
 import Task.Project as Project exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
-import Task.Series exposing (Series(..))
+import Task.Series exposing (Series)
+import Task.SubAssignable as SubAssignable exposing (NestedSubAssignableOrSingleAction(..), SubAssignableID, SubAssignableSkel)
 import ZoneHistory exposing (ZoneHistory)
 
 
@@ -139,7 +140,7 @@ projectToAssignableLayers rootProjects =
                             AnyDict.insert makeID makeMetaAssignable childrenToProcess.assignables
                     }
 
-        itemInsideAssignable : InheritableFromAssignable -> NestedOrAction -> ProjectLayers -> ProjectLayers
+        itemInsideAssignable : InheritableFromAssignable -> NestedSubAssignableOrSingleAction -> ProjectLayers -> ProjectLayers
         itemInsideAssignable inheritable child layersSoFar =
             case child of
                 ActionIsDeeper subAssignableSkelReg ->
@@ -275,8 +276,8 @@ Combine the saved assignments with generated ones, to get the full picture withi
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the assignableID for perf?
 
 -}
-assignableToAssignments : Assignable -> Query -> List Assignment
-assignableToAssignments ((Assignable metaAssignable) as wrappedAssignable) query =
+assignableToAssignments : Query -> Assignable -> List Assignment
+assignableToAssignments query ((Assignable metaAssignable) as wrappedAssignable) =
     let
         manualAssignments =
             RepDb.members (Reg.latest metaAssignable.assignableReg).manualAssignments
@@ -302,11 +303,11 @@ assignableToAssignments ((Assignable metaAssignable) as wrappedAssignable) query
 makeMetaAssignment : Assignable -> Int -> RepDb.Member (Reg AssignmentSkel) -> Assignment
 makeMetaAssignment (Assignable metaAssignable) indexFromZero assignmentSkelMember =
     Assignment
-        { parents = metaAssignable.parents
+        { layerTitles = metaAssignable.layerTitles
         , assignableReg = metaAssignable.assignableReg
         , assignmentReg = assignmentSkelMember.value
         , index = indexFromZero + 1
-        , assignmentID = assignmentSkelMember.id
+        , assignmentID = ManualAssignmentID assignmentSkelMember.id
         , assignableID = metaAssignable.assignableID
         , remove = assignmentSkelMember.remove
         }
@@ -531,7 +532,12 @@ assignableID (Assignable metaAssignable) =
 
 assignmentIDString : Assignment -> String
 assignmentIDString (Assignment metaAssignment) =
-    ID.toString metaAssignment.assignmentID
+    case metaAssignment.assignmentID of
+        ManualAssignmentID regID ->
+            ID.toString regID
+
+        SeriesAssignmentID seriesID seriesIndex ->
+            Task.Series.memberIDToString ( seriesID, seriesIndex )
 
 
 assignmentTitle (Assignment metaAssignment) =

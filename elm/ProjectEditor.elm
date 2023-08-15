@@ -256,7 +256,7 @@ describeTaskMoment now zone dueMoment =
     HumanMoment.fuzzyDescription now zone dueMoment
 
 
-describeTaskPlan : ( Moment, HumanMoment.Zone ) -> Task.Session.FullSession -> String
+describeTaskPlan : ( Moment, HumanMoment.Zone ) -> Task.Session.PlannedSession -> String
 describeTaskPlan ( time, timeZone ) fullSession =
     HumanMoment.fuzzyDescription time timeZone (Task.Session.start fullSession)
 

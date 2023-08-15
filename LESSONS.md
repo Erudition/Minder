@@ -1,0 +1,12 @@
+# Meta objects
+It's tempting to turn raw skeleton data into nice "meta" objects that contain derived data that comes from elsewhere, because that derived data will always and only be needed when using that item. For example, an object that points to other objects by ID could simply contain a reference to those, rather than just the ID which would force you to fetch it every time (requiring extra arguments to functions that consume the item).
+
+This seemed really convenient to me because the module for this type can be a library of functions that just take the item as the only argument, and spit out what you want to know about it, rather than having to pass in all of the outside data needed to calculate the meta fields every time (leading to several extra arguments for what should be a simple accessor function).
+
+But this is "making guesses about the future", and can lead to overengineering:
+- For performance reasons you may want to access just the skeleton data when you're iterating over a collection and don't need any of the derived stuff. But this means creating a separate library of functions for accessing the skeleton version vs. the meta version. Now you have two very similar data types mixed up around your app.
+- For Html.lazy you want to be able to tell if the item changed or not. By copying the skeleton data into a new meta object you are essentially losing that ability, it's always a new (different) object.
+- You don't always want that metadata derived in exactly the same way in every situation, I've learned.
+- When you change one little bit of a huge collection, the old meta collection needs to be replaced, forcing all of those meta fields to be calculated again. By leaving derived data out until the last possible moment, you can let the compiler see that same input -> same output for all of the unchanged items that are being used elsewhere, and only recalculate the items affected by the change.
+
+Instead, I'm going to try to push all derivations to "the edge" - the place where it's actually needed. Despite the extra arguments to accessor functions, it's equivalent or better performance and it avoids issues with making assumptions about how I'll use it later.

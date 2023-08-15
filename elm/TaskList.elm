@@ -2,7 +2,6 @@ module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewS
 
 import Activity.Activity as Activity exposing (ActivityID)
 import Activity.HistorySession
-import Activity.Timeline
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -61,7 +60,6 @@ import Task.Assignable as Assignable exposing (Assignable, AssignableID, Assigna
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID, AssignmentSkel, completed, getProgress, isRelevantNow)
 import Task.Progress exposing (..)
 import Task.Project as Project exposing (ProjectSkel)
-import Task.Session
 import TaskPort
 import Url.Parser as P exposing ((</>), Parser, fragment, int, map, oneOf, s, string)
 import VirtualDom
@@ -195,7 +193,7 @@ viewProjects : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
 viewProjects time timeZone filter profile =
     let
         trackedTaskMaybe =
-            Activity.Timeline.currentInstanceID profile.timeline
+            Activity.HistorySession.currentInstanceID profile.timeline
 
         sortedProjects =
             RepList.list profile.projects
@@ -379,7 +377,7 @@ viewTasks : Moment -> HumanMoment.Zone -> Filter -> Maybe CurrentlyEditing -> Pr
 viewTasks time timeZone filter editingMaybe profile =
     let
         trackedTaskMaybe =
-            Activity.Timeline.currentInstanceID profile.timeline
+            Activity.HistorySession.currentInstanceID profile.timeline
 
         sortedTasks =
             allFullTaskInstances profile ( time, timeZone )
@@ -909,7 +907,7 @@ describeTaskMoment now zone dueMoment =
     HumanMoment.fuzzyDescription now zone dueMoment
 
 
-describeTaskPlan : ( Moment, HumanMoment.Zone ) -> Task.Session.FullSession -> String
+describeTaskPlan : ( Moment, HumanMoment.Zone ) -> Task.Session.PlannedSession -> String
 describeTaskPlan ( time, timeZone ) fullSession =
     HumanMoment.fuzzyDescription time timeZone (Task.Session.start fullSession)
 
@@ -1386,10 +1384,10 @@ update msg state profile env =
         StopTrackingAssignment instanceID ->
             let
                 activityToContinue =
-                    Activity.Timeline.currentActivityID profile.timeline
+                    Activity.HistorySession.currentActivityID profile.timeline
 
                 instanceToStop =
-                    Activity.Timeline.currentInstanceID profile.timeline
+                    Activity.HistorySession.currentInstanceID profile.timeline
 
                 ( sessionChanges, sessionCommands ) =
                     Refocus.switchTracking activityToContinue Nothing profile ( env.time, env.timeZone )

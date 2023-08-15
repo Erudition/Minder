@@ -7,11 +7,12 @@ import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
 import Replicated.Change as Change exposing (Change)
 import Replicated.Codec as Codec exposing (SkelCodec, WrappedCodec)
-import Replicated.Reducer.Register as Reg exposing (RWM, Reg)
+import Replicated.Reducer.Register as Reg exposing (RWMaybe, Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Task.Action as Action exposing (ActionSkel, NestedOrAction(..))
+import Task.Action exposing (ActionSkel)
 import Task.Assignable as Assignable exposing (AssignableSkel)
-import Task.Series exposing (Series(..))
+import Task.Series exposing (Series)
+import Task.SubAssignable as SubAssignable exposing (NestedSubAssignableOrSingleAction)
 
 
 
@@ -21,7 +22,7 @@ import Task.Series exposing (Series(..))
 {-| A top-level entry in the task list. It could be a single atomic task, or it could be a composite task (group of tasks), which may contain further nested groups of tasks ad infinitum.
 -}
 type alias ProjectSkel =
-    { title : RWM String
+    { title : RWMaybe String
     , children : RepList NestedOrAssignable
     }
 
@@ -65,27 +66,34 @@ nestedOrAssignableCodec =
 
 
 --  TRAVERSE & FLATTEN LAYERS --------------------------------------
--- initProjectWithAssignable : Reg AssignableSkel -> Change.Creator (Reg ProjectSkel)
--- initProjectWithAssignable givenAssignableReg parentContext =
---     let
---         changeChildrenOfAssignable : RepList NestedOrAction -> List Change
---         changeChildrenOfAssignable newChildren =
---             [ RepList.insert RepList.Last (ActionIsHere actionSkelReg) newChildren
---             ]
---         assignableChanger : Change.Changer (Reg AssignableSkel)
---         assignableChanger newAssignable =
---             changeChildrenOfAssignable (Reg.latest newAssignable).children
---         actionSkelReg : Reg ActionSkel
---         actionSkelReg =
---             Codec.seededNewWithChanges Action.codec (Change.reuseContext "ActionIsHere" parentContext) "Untitled Action" actionSkelChanger
---         actionSkelChanger : Change.Changer (Reg ActionSkel)
---         actionSkelChanger _ =
---             []
---         projectChanger : Reg ProjectSkel -> List Change
---         projectChanger projectSkel =
---             [ RepList.insert RepList.Last (AssignableIsHere givenAssignableReg) (Reg.latest projectSkel).children
---             ]
---         justNewAssignable =
---             AssignableIsHere (Codec.seededNewWithChanges Assignable.codec (Change.reuseContext "AssignableIsHere" parentContext) "Untitled Assignable" assignableChanger)
---     in
---     Codec.newWithChanges codec parentContext projectChanger
+
+
+initProjectWithAssignable : Reg AssignableSkel -> Change.Creator (Reg ProjectSkel)
+initProjectWithAssignable givenAssignableReg parentContext =
+    let
+        changeChildrenOfAssignable : RepList NestedSubAssignableOrSingleAction -> List Change
+        changeChildrenOfAssignable newChildren =
+            [ RepList.insert RepList.Last (SubAssignable.ActionIsHere actionSkelReg) newChildren
+            ]
+
+        assignableChanger : Change.Changer (Reg AssignableSkel)
+        assignableChanger newAssignable =
+            changeChildrenOfAssignable (Reg.latest newAssignable).children
+
+        actionSkelReg : Reg ActionSkel
+        actionSkelReg =
+            Codec.seededNewWithChanges Task.Action.codec (Change.reuseContext "ActionIsHere" parentContext) "Untitled Action" actionSkelChanger
+
+        actionSkelChanger : Change.Changer (Reg ActionSkel)
+        actionSkelChanger _ =
+            []
+
+        projectChanger : Reg ProjectSkel -> List Change
+        projectChanger projectSkel =
+            [ RepList.insert RepList.Last (AssignableIsHere givenAssignableReg) (Reg.latest projectSkel).children
+            ]
+
+        justNewAssignable =
+            AssignableIsHere (Codec.seededNewWithChanges Assignable.codec (Change.reuseContext "AssignableIsHere" parentContext) "Untitled Assignable" assignableChanger)
+    in
+    Codec.newWithChanges codec parentContext projectChanger

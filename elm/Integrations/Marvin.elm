@@ -4,7 +4,7 @@ module Integrations.Marvin exposing (..)
 -}
 
 import Activity.Activity as Activity
-import Activity.Timeline as Timeline
+import Activity.HistorySession as Timeline
 import Base64
 import Bytes.Encode
 import Dict exposing (Dict)
@@ -808,7 +808,7 @@ timesUpdater : Profile -> Task.Assignment.AssignmentID -> String
 timesUpdater profile instanceID =
     let
         timesList =
-            Timeline.instanceUniqueMomentsList profile.timeline instanceID
+            Timeline.assignmentStartStopList profile.timeline instanceID
     in
     Encode.encode 0 (Encode.list encodeUnixTimestamp timesList)
 

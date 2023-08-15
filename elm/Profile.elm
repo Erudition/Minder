@@ -1,7 +1,8 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, getActivityByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, currentAssignmentID, currentSession, currentlyTracking, getActivityByID, getAssignmentByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.Timeline exposing (Timeline)
+import Activity.HistorySession exposing (HistorySession, Timeline)
+import Dict.Any as AnyDict exposing (AnyDict)
 import ExtraCodecs as Codec
 import Incubator.Todoist as Todoist
 import Incubator.Todoist.Project as TodoistProject
@@ -9,18 +10,22 @@ import IntDict exposing (IntDict)
 import Json.Decode.Exploration as Decode exposing (..)
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
+import List.Extra
 import List.Nonempty exposing (..)
 import Replicated.Change exposing (Change)
 import Replicated.Codec as Codec exposing (SkelCodec)
+import Replicated.Reducer.Register as Reg exposing (Reg(..))
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepList as RepList exposing (InsertionPoint(..), RepList)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period
+import Task.Assignment as Assignment exposing (AssignmentID)
 import Task.Meta exposing (Assignment)
 import Task.Progress exposing (..)
 import Task.Project
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
+import TimeTrackable exposing (TimeTrackable)
 import ZoneHistory
 
 
@@ -32,9 +37,9 @@ type alias AppInstance =
 
 type alias Profile =
     { errors : RepList String
-    , projects : RepDb Task.ProjectSkel.Project
+    , projects : RepDb (Reg Task.Project.ProjectSkel)
     , activities : Activity.Store
-    , timeline : Timeline
+    , timeline : RepList Activity.HistorySession.HistorySession
 
     --, locationHistory : IntDict LocationUpdate
     , todoist : TodoistIntegrationData
@@ -48,7 +53,7 @@ codec =
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
         |> Codec.fieldDb ( 2, "projects" ) .projects Task.Project.codec
         |> Codec.fieldRec ( 5, "activities" ) .activities Activity.storeCodec
-        |> Codec.fieldRec ( 6, "timeline" ) .timeline Activity.Timeline.codec
+        |> Codec.fieldList ( 6, "timeline" ) .timeline Activity.HistorySession.codec
         |> Codec.fieldReg ( 7, "todoist" ) .todoist (Codec.lazy (\_ -> todoistIntegrationDataCodec))
         |> Codec.fieldList ( 8, "timeBlocks" ) .timeBlocks TimeBlock.codec
         |> Codec.finishRecord
@@ -93,15 +98,32 @@ saveError appData error =
 --- HELPERS
 
 
+getAssignmentByID : Profile -> AssignmentID -> Maybe Assignment
+getAssignmentByID profile assignmentID =
+    let
+        assignmentListTemp =
+            -- TODO use a real dict
+            assignments profile Task.Meta.AllSaved
+    in
+    List.Extra.find (\ass -> Task.Meta.assignmentID ass == assignmentID) assignmentListTemp
+
+
+
+-- TODO
+
+
 {-| All actions that are not unready or expired or finished.
 -}
 assignments : Profile -> Task.Meta.Query -> List Assignment
 assignments profile query =
     let
-        assignables =
+        projectLayers =
             Task.Meta.projectToAssignableLayers profile.projects
+
+        assignableList =
+            AnyDict.values projectLayers.assignables
     in
-    Task.Meta.assignablesToAssignments assignables query
+    List.concatMap (Task.Meta.assignableToAssignments query) assignableList
 
 
 getActivityByID : Profile -> ActivityID -> Activity
@@ -123,4 +145,19 @@ userTimeZoneAtMoment _ ( time, timeZone ) givenMoment =
 
 currentActivityID : Profile -> ActivityID
 currentActivityID profile =
-    Activity.Timeline.currentActivityID profile.timeline
+    Activity.HistorySession.currentActivityID (RepList.listValues profile.timeline)
+
+
+currentAssignmentID : Profile -> Maybe Assignment.AssignmentID
+currentAssignmentID profile =
+    Activity.HistorySession.currentAssignmentID (RepList.listValues profile.timeline)
+
+
+currentlyTracking : Profile -> TimeTrackable
+currentlyTracking profile =
+    Activity.HistorySession.currentlyTracking (RepList.listValues profile.timeline)
+
+
+currentSession : Profile -> Maybe HistorySession
+currentSession profile =
+    Activity.HistorySession.current (RepList.listValues profile.timeline)

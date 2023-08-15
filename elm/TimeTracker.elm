@@ -1,9 +1,8 @@
 module TimeTracker exposing (Msg(..), ViewState(..), defaultView, routeView, update, urlTriggers, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.HistorySession as Session exposing (HistorySession)
+import Activity.HistorySession as Timeline exposing (HistorySession, Timeline)
 import Activity.Template
-import Activity.Timeline as Timeline exposing (Timeline)
 import Browser
 import Browser.Dom
 import Css exposing (..)
@@ -142,7 +141,7 @@ viewActivity app ( time, timeZone ) activity =
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
             , trackingFlipID
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.sessionsOfActivity filterPeriod app.timeline (Activity.getID activity)))
+            , title <| List.foldl (++) "" (List.map describeSession (Timeline.periodsOfCertainActivity filterPeriod app.timeline (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []

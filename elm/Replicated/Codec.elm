@@ -2475,7 +2475,7 @@ Equivalent to using `fieldRW` with the `maybe` codec wrapper and a `Nothing` def
   - Thanks to the RW wrapper, you can add `.set` to the output anywhere in your program to produce a `Change`. These changes can then be saved, updating the stored value.
 
 -}
-fieldRWM : FieldIdentifier -> (full -> RWM fieldType) -> Codec errs fieldSeed o fieldType -> PartialRegister errs i full (RWM fieldType -> remaining) -> PartialRegister errs i full remaining
+fieldRWM : FieldIdentifier -> (full -> RWMaybe fieldType) -> Codec errs fieldSeed o fieldType -> PartialRegister errs i full (RWMaybe fieldType -> remaining) -> PartialRegister errs i full remaining
 fieldRWM fieldIdentifier fieldGetter fieldCodec soFar =
     writableHelper fieldIdentifier fieldGetter (maybe fieldCodec) (HardcodedDefault Nothing) False soFar
 

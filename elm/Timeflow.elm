@@ -1,8 +1,7 @@
 module Timeflow exposing (Msg(..), ViewState, init, resizeCmd, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.HistorySession as Session exposing (HistorySession)
-import Activity.Timeline as Timeline
+import Activity.HistorySession as Timeline exposing (HistorySession)
 import Browser.Dom as Dom
 import Color exposing (Color)
 import Date
@@ -45,7 +44,6 @@ import Task.Assignable as Assignable exposing (Assignable)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentSkel)
 import Task.Progress exposing (..)
 import Task.Project as Project
-import Task.Session as Task
 import Url.Parser as P exposing ((</>), Parser)
 import VirtualDom
 import ZoneHistory

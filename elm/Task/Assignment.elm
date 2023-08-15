@@ -7,7 +7,7 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change as Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (Codec, NullCodec)
 import Replicated.Reducer.Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict exposing (RepDict)
@@ -15,9 +15,11 @@ import Replicated.Reducer.RepList exposing (RepList)
 import Replicated.Reducer.RepStore exposing (RepStore)
 import SmartTime.Human.Moment exposing (FuzzyMoment)
 import SmartTime.Moment exposing (..)
-import Task.Action exposing (ActionID, SubAssignableID, SubAssignableSkel, subAssignableCodec)
+import Task.Action exposing (ActionID)
 import Task.AssignedAction exposing (AssignedActionSkel, assignedActionCodec)
 import Task.Progress as Progress exposing (..)
+import Task.Series exposing (Series, SeriesIndex, SeriesMemberID)
+import Task.SubAssignable exposing (SubAssignableID, SubAssignableSkel, subAssignableCodec)
 
 
 
@@ -54,12 +56,33 @@ codec =
         |> Codec.finishRegister
 
 
-type alias AssignmentID =
-    ID (Reg AssignmentSkel)
+type AssignmentID
+    = ManualAssignmentID (ID (Reg AssignmentSkel))
+    | SeriesAssignmentID (ID Series) SeriesIndex
 
 
-type alias AssignmentDb =
+idCodec : NullCodec String AssignmentID
+idCodec =
+    Codec.customType
+        (\manualAssignmentID seriesAssignmentID value ->
+            case value of
+                ManualAssignmentID regID ->
+                    manualAssignmentID regID
+
+                SeriesAssignmentID seriesID seriesIndex ->
+                    seriesAssignmentID seriesID seriesIndex
+        )
+        |> Codec.variant1 ( 1, "ManualAssignmentID" ) ManualAssignmentID Codec.id
+        |> Codec.variant2 ( 2, "SeriesAssignmentID" ) SeriesAssignmentID Codec.id Codec.int
+        |> Codec.finishCustomType
+
+
+type alias ManualAssignmentDb =
     RepDb (Reg AssignmentSkel)
+
+
+type alias SeriesAssignmentDb =
+    RepStore SeriesIndex (Reg AssignmentSkel)
 
 
 new : Context (Reg AssignmentSkel) -> Reg AssignmentSkel
@@ -70,3 +93,7 @@ new context =
 newWithChanges : Change.Changer (Reg AssignmentSkel) -> Context (Reg AssignmentSkel) -> Reg AssignmentSkel
 newWithChanges changer context =
     Codec.newWithChanges codec context changer
+
+
+type alias SubAssignmentID =
+    ( AssignmentID, SubAssignableID )

@@ -2,6 +2,7 @@ module Integrations.Marvin.MarvinItem exposing (..)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Dict exposing (Dict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Helpers exposing (..)
 import ID
 import IntDict
@@ -391,7 +392,8 @@ toDocketTask profile marvinItem =
     let
         -- TODO we shouldn't calculate the whole assignable/assignment list on every item import. Figure it out above, then pass to this function
         existingAssignables =
-            Task.Meta.metaLayers profile.projects
+            (Task.Meta.projectToAssignableLayers profile.projects).assignables
+                |> AnyDict.values
 
         existingAssignablesWithMarvinLink =
             Dict.fromList <| List.filterMap pairAssignableWithMarvinIDMaybe existingAssignables
@@ -437,7 +439,7 @@ toDocketTask profile marvinItem =
             Task.Meta.AllSaved
 
         existingAssignments =
-            assignablesToAssignments existingAssignables query
+            List.concatMap (assignableToAssignments query) existingAssignables
 
         existingAssignmentsWithMarvinLink : Dict String Task.Assignment.AssignmentID
         existingAssignmentsWithMarvinLink =
@@ -587,7 +589,7 @@ toDocketTask profile marvinItem =
                             in
                             Task.Assignable.new (Change.reuseContext marvinItem.id c) marvinItem.title newAssignableChanger
                     in
-                    [ RepList.insertNew RepList.Last [ newEntry ] profile.projects
+                    [ RepDb.addNew newEntry profile.projects
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges

@@ -1,4 +1,4 @@
-module Task.Plan exposing (..)
+module Plan.Plan exposing (..)
 
 import Environment exposing (Environment)
 import List.Extra as List

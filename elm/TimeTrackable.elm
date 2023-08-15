@@ -1,37 +1,29 @@
-module TimeTrackable exposing (TimeTrackable, TimeTrackableID, fromID, getActivity, idCodec)
+module TimeTrackable exposing (TimeTrackable, codec, getActivityID, getAssignmentID, stub)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
+import Dict.Any exposing (AnyDict)
 import ID exposing (ID)
 import Replicated.Codec as Codec exposing (NullCodec)
 import Replicated.Reducer.RepList exposing (RepList)
-import Task.Action exposing (ContainerOfActionsID, SubAssignable)
 import Task.Assignable exposing (AssignableID)
 import Task.AssignedAction exposing (AssignedActionID)
-import Task.Assignment exposing (AssignmentID)
-import Task.Meta exposing (Assignable, AssignedAction, Assignment)
+import Task.Assignment as Assignment exposing (AssignmentID)
+import Task.Meta exposing (Assignable, AssignedAction, Assignment, ProjectLayers, SubAssignable)
 import Task.Project exposing (ProjectSkel)
+import Task.SubAssignable exposing (SubAssignableID)
 
 
 {-| Any timetrackable item. Can be a raw activity, or any layer of an assignment, but it must have an activity to be trackable, so the activity is required to be included.
 -}
 type TimeTrackable
-    = TrackActivity Activity
-    | TrackAssignment Assignment Activity
-    | TrackSubAssignment SubAssignable Activity -- TODO
-    | TrackAssignedAction AssignedAction Activity
-
-
-{-| still need to save activityIDs because tasks return a Maybe ActivityID.
--}
-type TimeTrackableID
     = TrackedActivityID ActivityID
     | TrackedAssignmentID AssignmentID ActivityID
-    | TrackedSubAssignmentID AssignmentID ContainerOfActionsID ActivityID
+    | TrackedSubAssignmentID AssignmentID SubAssignableID ActivityID
     | TrackedAssignedActionID AssignedActionID ActivityID
 
 
-idCodec : NullCodec String TimeTrackableID
-idCodec =
+codec : NullCodec String TimeTrackable
+codec =
     Codec.customType
         (\trackedActivityID trackedAssignableID trackedSubAssignableID trackedAssignedActionID value ->
             case value of
@@ -48,52 +40,44 @@ idCodec =
                     trackedAssignedActionID assignedActionID activityID
         )
         |> Codec.variant1 ( 1, "TrackedActivityID" ) TrackedActivityID Activity.idCodec
-        |> Codec.variant2 ( 2, "TrackedAssignableID" ) TrackedAssignmentID Codec.id Activity.idCodec
-        |> Codec.variant3 ( 3, "TrackedSubAssignableID" ) TrackedSubAssignmentID Codec.id Codec.id Activity.idCodec
+        |> Codec.variant2 ( 2, "TrackedAssignmentID" ) TrackedAssignmentID Assignment.idCodec Activity.idCodec
+        |> Codec.variant3 ( 3, "TrackedSubAssignmentID" ) TrackedSubAssignmentID Assignment.idCodec Codec.id Activity.idCodec
         |> Codec.variant2 ( 4, "TrackedAssignedActionID" ) TrackedAssignedActionID Codec.id Activity.idCodec
         |> Codec.finishCustomType
 
 
-fromID : Activity.Store -> RepList ProjectSkel -> TimeTrackableID -> TimeTrackable
-fromID activities projects timeTrackableID =
-    let
-        activityFromID activityID =
-            Activity.getByID activityID activities
-
-        assignmentFromID assignableID =
-            Task.Meta.assignableFromID assignableID
-
-        subAssignableFromID assignmentID subAssignableID =
-            Debug.todo "subAssignableFromID"
-
-        assignedActionFromID assignedActionID =
-            Debug.todo "assignedActionID"
-    in
-    case timeTrackableID of
-        TrackedActivityID activityID ->
-            TrackActivity <| activityFromID activityID
-
-        TrackedAssignmentID assignableID activityID ->
-            TrackAssignment (assignmentFromID assignableID) (activityFromID activityID)
-
-        TrackedSubAssignmentID assignmentID subAssignableID activityID ->
-            TrackSubAssignment (subAssignableFromID assignmentID subAssignableID) (activityFromID activityID)
-
-        TrackedAssignedActionID assignedActionID activityID ->
-            TrackAssignedAction (assignedActionFromID assignedActionID) (activityFromID activityID)
-
-
-getActivity : TimeTrackable -> Activity
-getActivity trackable =
+getActivityID : TimeTrackable -> ActivityID
+getActivityID trackable =
     case trackable of
-        TrackActivity activity ->
+        TrackedActivityID activity ->
             activity
 
-        TrackAssignment _ activity ->
+        TrackedAssignmentID _ activity ->
             activity
 
-        TrackSubAssignment _ activity ->
+        TrackedSubAssignmentID _ _ activity ->
             activity
 
-        TrackAssignedAction _ activity ->
+        TrackedAssignedActionID _ activity ->
             activity
+
+
+getAssignmentID : TimeTrackable -> Maybe AssignmentID
+getAssignmentID trackable =
+    case trackable of
+        TrackedActivityID activity ->
+            Nothing
+
+        TrackedAssignmentID assignment activity ->
+            Just assignment
+
+        TrackedSubAssignmentID sub _ activity ->
+            Debug.todo "getAssignment from SubAssignment"
+
+        TrackedAssignedActionID assignedAction activity ->
+            Debug.todo "getAssignment from TrackAssignedAction"
+
+
+stub : TimeTrackable
+stub =
+    TrackedActivityID Activity.unknown

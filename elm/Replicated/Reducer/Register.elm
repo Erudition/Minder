@@ -83,7 +83,7 @@ type alias RW fieldVal =
     }
 
 
-type alias RWM fieldOptionalVal =
+type alias RWMaybe fieldOptionalVal =
     RW (Maybe fieldOptionalVal)
 
 

@@ -1,8 +1,7 @@
 module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsImportantNow)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.HistorySession as Session exposing (HistorySession, makeMetaHistorySession)
-import Activity.Timeline as Timeline exposing (Timeline)
+import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
 import External.Commands as Commands
 import Helpers exposing (multiline)
 import ID
@@ -106,7 +105,7 @@ prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
 prioritizeTasks profile ( time, timeZone ) =
     Task.Meta.prioritizeAssignments time timeZone <|
         List.filter (Task.Meta.assignmentCompleted >> not) <|
-            Profile.assignments profile ( time, timeZone )
+            Profile.assignments profile AllSaved
 
 
 whatsImportantNow : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )
@@ -114,7 +113,7 @@ whatsImportantNow profile ( time, timeZone ) =
     let
         prioritized =
             -- Must have an activity to tell
-            List.filter (\i -> (Reg.latest i.assignable).activity.get /= Nothing)
+            List.filter (\i -> Task.Meta.assignmentActivityID i /= Nothing)
                 (prioritizeTasks profile ( time, timeZone ))
 
         -- TODO allow activities to be WIN
@@ -138,46 +137,55 @@ switchActivity trackable profile ( time, timeZone ) =
     switchTracking trackable profile ( time, timeZone )
 
 
+{-| TODO eliminate this
+-}
 refreshTracking : Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
 refreshTracking profile ( time, timeZone ) =
-    switchTracking (Profile.currentActivityID profile) (Timeline.currentInstanceID profile.timeline) profile ( time, timeZone )
+    switchTracking (Profile.currentlyTracking profile) profile ( time, timeZone )
 
 
 switchTracking : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
 switchTracking trackable profile ( time, timeZone ) =
     let
         switchChanges =
-            case newInstanceIDMaybe of
-                Just newInstanceID ->
-                    Timeline.startTracking time newActivityID newInstanceID profile.timeline
+            HistorySession.startTracking time trackable profile.timeline
 
-                Nothing ->
-                    Timeline.startTracking time newActivityID profile.timeline
+        oldAssignmentIDMaybe =
+            Profile.currentAssignmentID profile
 
-        oldInstanceIDMaybe =
-            Timeline.currentInstanceID profile.timeline
+        newActivityID =
+            TimeTrackable.getActivityID trackable
+
+        newAssignmentIDMaybe =
+            TimeTrackable.getAssignmentID trackable
     in
     if
         (Profile.currentActivityID profile == newActivityID)
-            && (newInstanceIDMaybe == oldInstanceIDMaybe)
+            && (newAssignmentIDMaybe == oldAssignmentIDMaybe)
     then
-        -- we didn't change what we were tracking
+        -- the activity and assignment stayed the same (may be a different layer of the assignment though)
         ( [], Cmd.none )
 
     else
         -- we actually changed tracking, add session to timeline
         let
             ( reactionChanges, reactionCmds ) =
-                reactToNewSession newActivityID newInstanceIDMaybe ( time, timeZone ) profile
+                reactToNewSession trackable ( time, timeZone ) profile
         in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges ++ reactionChanges, Cmd.batch [ reactionCmds ] )
+        ( switchChanges :: reactionChanges, Cmd.batch [ reactionCmds ] )
 
 
 reactToNewSession trackable ( time, timeZone ) oldProfile =
     let
+        newActivityID =
+            TimeTrackable.getActivityID trackable
+
+        newAssignmentIDMaybe =
+            TimeTrackable.getAssignmentID trackable
+
         ( newStatusDetails, newFocusStatus ) =
-            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( time, timeZone )
+            determineNewStatus trackable oldProfile ( time, timeZone )
 
         ( reactionNow, checkbackTimeMaybe ) =
             reactToStatusChange False newStatusDetails newFocusStatus
@@ -191,7 +199,7 @@ reactToNewSession trackable ( time, timeZone ) oldProfile =
                     let
                         -- everything stays the same, just in the future
                         ( futureStatusDetails, futureFocusStatus ) =
-                            determineNewStatus ( newActivityID, newInstanceIDMaybe ) oldProfile ( checkbackTime, timeZone )
+                            determineNewStatus trackable oldProfile ( checkbackTime, timeZone )
                     in
                     Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus)
 
@@ -204,6 +212,12 @@ reactToNewSession trackable ( time, timeZone ) oldProfile =
 determineNewStatus : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
 determineNewStatus trackable oldProfile ( time, timeZone ) =
     let
+        newActivityID =
+            TimeTrackable.getActivityID trackable
+
+        newAssignmentIDMaybe =
+            TimeTrackable.getAssignmentID trackable
+
         newActivity =
             Profile.getActivityByID oldProfile newActivityID
 
@@ -214,21 +228,28 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
             Profile.currentActivityID oldProfile
 
         oldInstanceIDMaybe =
-            Timeline.currentInstanceID oldProfile.timeline
+            Profile.currentAssignmentID oldProfile
+
+        timeline =
+            RepList.listValues oldProfile.timeline
 
         filterPeriod =
+            -- TODO
             Period.between Moment.zero time
+
+        assignments =
+            Profile.assignments oldProfile AllSaved
 
         statusDetails =
             { now = time
             , zone = timeZone
             , oldActivity = oldActivity
-            , lastSession = Timeline.currentAsPeriod time oldProfile.timeline |> Period.length
-            , oldInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) oldInstanceIDMaybe
+            , lastSession = Profile.currentSession oldProfile |> Maybe.map (HistorySession.duration time) |> Maybe.withDefault Duration.zero
+            , oldInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile) oldInstanceIDMaybe
             , newActivity = newActivity
             , newActivityTodayTotal =
-                Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
-            , newInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) newInstanceIDMaybe
+                HistorySession.activityTotalDuration filterPeriod timeline newActivityID
+            , newInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile) newAssignmentIDMaybe
             }
     in
     case whatsImportantNow oldProfile ( time, timeZone ) of
@@ -245,14 +266,14 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
 
                 excusedUsage =
                     -- TODO does not cover new to-be-saved session
-                    Timeline.excusedUsage oldProfile.timeline time ( newActivityID, newActivity )
+                    HistorySession.excusedUsage timeline time newActivity
 
                 excusedLeft =
                     -- TODO does not cover new to-be-saved session
-                    Timeline.excusedLeft oldProfile.timeline time ( newActivityID, newActivity )
+                    HistorySession.excusedLeft timeline time newActivity
 
                 isThisTheRightNextTask =
-                    case ( newInstanceIDMaybe, Maybe.map Task.Assignment.getID nextInstanceMaybe ) of
+                    case ( newAssignmentIDMaybe, Maybe.map Task.Meta.assignmentID nextInstanceMaybe ) of
                         ( Just newInstanceID, Just nextInstanceID ) ->
                             newInstanceID == nextInstanceID
 
@@ -260,20 +281,20 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getAssignmentByID oldProfile ( time, timeZone )) newInstanceIDMaybe
+                    Maybe.andThen (Profile.getAssignmentByID oldProfile) newAssignmentIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
-                ( Just newInstance, True, _ ) ->
+                ( Just newAssignment, True, _ ) ->
                     let
                         timeSpent =
                             -- TODO does not cover new to-be-saved session
-                            Timeline.activityTotalDurationLive filterPeriod time oldProfile.timeline newActivityID
+                            HistorySession.activityTotalDuration filterPeriod timeline newActivityID
 
                         maxTimeRemaining =
-                            Duration.subtract (Reg.latest newInstance.assignable).maxEffort.get timeSpent
+                            Duration.subtract (Task.Meta.assignmentMaxEffort newAssignment) timeSpent
 
                         remainingToTarget =
-                            Duration.subtract (Reg.latest newInstance.assignable).predictedEffort.get timeSpent
+                            Duration.subtract (Task.Meta.assignmentEstimatedEffort newAssignment) timeSpent
 
                         intendToFinishDuringThisSession =
                             -- TODO false if less time available than needed
@@ -310,7 +331,7 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
                 --     let
                 --         timeSpent =
                 --             -- TODO is this the time spent on the task?
-                --             Timeline.totalLive env.time newProfile.timeline newActivityID
+                --             HistorySession.totalLive env.time newProfile.timeline newActivityID
                 --
                 --         timeRemaining =
                 --             -- TODO
@@ -331,7 +352,7 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
                             excusedDetails =
                                 { used = excusedUsage
                                 , urgency = urgency
-                                , limit = Timeline.excusableLimit newActivity
+                                , limit = HistorySession.excusableLimit newActivity
                                 , remaining = excusedLeft
                                 , until = future statusDetails.now excusedLeft
                                 , win = win
@@ -494,7 +515,7 @@ writeDur givenDur =
 
 summarizeFocusItem : FocusItem -> String
 summarizeFocusItem ( winActivity, winInstanceMaybe ) =
-    Maybe.withDefault (Activity.getName winActivity) <| Maybe.map Task.Assignment.getTitle winInstanceMaybe
+    Maybe.withDefault (Activity.getName winActivity) <| Maybe.map Task.Meta.assignmentTitle winInstanceMaybe
 
 
 
@@ -566,12 +587,12 @@ freeSticky : StatusDetails -> List Notification
 freeSticky status =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Assignment.getTitle |> Maybe.withDefault (Activity.getName status.newActivity ++ " (no task)")
+            status.newInstanceMaybe |> Maybe.map Task.Meta.assignmentTitle |> Maybe.withDefault (Activity.getName status.newActivity ++ " (no task)")
 
         final =
             { stickyBase
@@ -579,11 +600,11 @@ freeSticky status =
                 , at = Just status.now
                 , when = Just (past status.now status.newActivityTodayTotal)
                 , subtitle = Just (Activity.getName status.newActivity ++ " (no other plans)")
-                , body = Maybe.map (\nt -> "What's Important Now: " ++ (Reg.latest nt.assignable).title.get) status.newInstanceMaybe
+                , body = Maybe.map (\nt -> "What's Important Now: " ++ Task.Meta.assignmentTitle nt) status.newInstanceMaybe
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress task)) (Task.Progress.getWhole (Task.Assignment.getProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress task)) (Task.Progress.getWhole (Task.Meta.assignmentProgress task))
 
                         Nothing ->
                             Nothing
@@ -605,12 +626,12 @@ tractionSticky : StatusDetails -> TractionDetails -> Duration -> List Notificati
 tractionSticky status traction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Assignment.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.Meta.assignmentTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -632,7 +653,7 @@ tractionSticky status traction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress task)) (Task.Progress.getWhole (Task.Assignment.getProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress task)) (Task.Progress.getWhole (Task.Meta.assignmentProgress task))
 
                         Nothing ->
                             Nothing
@@ -664,13 +685,13 @@ excusedSticky : StatusDetails -> ExcusedDetails -> Duration -> List Notification
 excusedSticky status excused elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Complete", launch = False }
             ]
 
         title =
             status.newInstanceMaybe
-                |> Maybe.map Task.Assignment.getTitle
+                |> Maybe.map Task.Meta.assignmentTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -707,7 +728,7 @@ excusedSticky status excused elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress task)) (Task.Progress.getWhole (Task.Assignment.getProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress task)) (Task.Progress.getWhole (Task.Meta.assignmentProgress task))
 
                         Nothing ->
                             -- show the decreasing amount of time left
@@ -746,12 +767,12 @@ distractionSticky : StatusDetails -> DistractionDetails -> Duration -> List Noti
 distractionSticky status distraction elapsed =
     let
         actionsIfTaskPresent instance =
-            [ { id = "stopTask=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Stop", launch = False }
-            , { id = "complete=" ++ ID.toString (Task.Assignment.getID instance), button = Notif.Button "Complete", launch = False }
+            [ { id = "stopTask=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Stop", launch = False }
+            , { id = "complete=" ++ Task.Meta.assignmentIDString instance, button = Notif.Button "Complete", launch = False }
             ]
 
         title =
-            status.newInstanceMaybe |> Maybe.map Task.Assignment.getTitle
+            status.newInstanceMaybe |> Maybe.map Task.Meta.assignmentTitle
 
         notifTime =
             Moment.future status.now elapsed
@@ -770,7 +791,7 @@ distractionSticky status distraction elapsed =
                 , progress =
                     case status.newInstanceMaybe of
                         Just task ->
-                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress task)) (Task.Progress.getWhole (Task.Assignment.getProgress task))
+                            Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress task)) (Task.Progress.getWhole (Task.Meta.assignmentProgress task))
 
                         Nothing ->
                             Nothing
@@ -885,7 +906,7 @@ scheduleDistractionReminders status distraction =
         title =
             case distraction.win of
                 ( _, Just winInstance ) ->
-                    Just ("Do now: " ++ Task.Assignment.getTitle winInstance)
+                    Just ("Do now: " ++ Task.Meta.assignmentTitle winInstance)
 
                 ( winActivity, Nothing ) ->
                     Just ("Do now: " ++ Activity.getName winActivity)
@@ -1105,21 +1126,21 @@ suggestedTasksGroup =
 
 
 suggestedTaskNotif : Moment -> ( Assignment, ActivityID ) -> Notification
-suggestedTaskNotif now ( taskInstance, taskActivityID ) =
+suggestedTaskNotif now ( assignment, taskActivityID ) =
     let
         base =
             Notif.build suggestedTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ ID.toString (Task.Assignment.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ Task.Meta.assignmentIDString assignment, button = Notif.Button "Start", launch = False }
             ]
     in
     { base
-        | id = Just <| taskClassNotifID taskInstance.assignableID
+        | id = Just <| taskClassNotifID <| Task.Meta.assignableID assignment
         , group = Just suggestedTasksGroup
         , subtitle = Just "Suggested"
         , at = Just now
-        , title = Just <| (Reg.latest taskInstance.assignable).title.get
+        , title = Just <| (Reg.latest assignment.assignable).title.get
         , body = Nothing
         , actions = actions
         , when = Nothing
@@ -1128,8 +1149,8 @@ suggestedTaskNotif now ( taskInstance, taskActivityID ) =
         , chronometer = Just False
         , expiresAfter = Just (Duration.fromHours 1) -- TODO
         , progress =
-            if Task.Assignment.partiallyCompleted taskInstance then
-                Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress taskInstance)) (Task.Progress.getWhole (Task.Assignment.getProgress taskInstance))
+            if Task.Meta.assignmentPartiallyCompleted assignment then
+                Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress assignment)) (Task.Progress.getWhole (Task.Meta.assignmentProgress assignment))
 
             else
                 Nothing
@@ -1143,7 +1164,7 @@ suggestedTasks profile ( time, timeZone ) =
             List.filterMap withActivityID (prioritizeTasks profile ( time, timeZone ))
 
         withActivityID task =
-            case Task.Assignment.getActivityID task of
+            case Task.Meta.assignmentActivityID task of
                 Nothing ->
                     Nothing
 
@@ -1184,7 +1205,7 @@ cleanupTaskNotif now ( taskInstance, needs ) =
             Notif.build cleanupTasksChannel
 
         actions =
-            [ { id = "startTask=" ++ ID.toString (Task.Assignment.getID taskInstance), button = Notif.Button "Start", launch = False }
+            [ { id = "startTask=" ++ ID.toString (Task.Meta.assignmentID taskInstance), button = Notif.Button "Start", launch = False }
             ]
     in
     { base
@@ -1211,7 +1232,7 @@ cleanupTasks profile ( time, timeZone ) =
             List.filterMap needsCleanup (prioritizeTasks profile ( time, timeZone ))
 
         needsCleanup task =
-            case Task.Assignment.getActivityID task of
+            case Task.Meta.assignmentActivityID task of
                 Nothing ->
                     Just ( task, [ NeedsActivity ] )
 
@@ -1225,7 +1246,7 @@ currentTaskNotif : Moment -> Assignment -> Notification
 currentTaskNotif now task =
     let
         currentID =
-            Task.Assignment.getID task
+            Task.Meta.assignmentID task
 
         currentTaskChannel =
             { id = "Current Task", name = "Current Task", description = Just "What you're working on.", sound = Nothing, importance = Just Notif.Max, led = Nothing, vibrate = Nothing, group = Just "Actionable" }
@@ -1260,6 +1281,6 @@ currentTaskNotif now task =
         , status_text_size = Nothing
         , background_color = Nothing
         , countdown = Nothing
-        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.Assignment.getProgress task)) (Task.Progress.getWhole (Task.Assignment.getProgress task))
+        , progress = Just <| Notif.Progress (Task.Progress.getPortion (Task.Meta.assignmentProgress task)) (Task.Progress.getWhole (Task.Meta.assignmentProgress task))
         , actions = actions
     }

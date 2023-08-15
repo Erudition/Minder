@@ -16,10 +16,10 @@ import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
-import Task.Action exposing (NestedOrAction(..), nestedOrActionCodec)
-import Task.Assignment as Assignment exposing (AssignmentDb)
+import Task.Assignment as Assignment exposing (ManualAssignmentDb)
 import Task.Progress as Progress exposing (..)
 import Task.RelativeTiming exposing (RelativeTiming(..), relativeTimingCodec)
+import Task.SubAssignable exposing (NestedSubAssignableOrSingleAction(..), nestedOrActionCodec)
 
 
 
@@ -50,8 +50,8 @@ type alias AssignableSkel =
     , defaultRelevanceEnds : RepList RelativeTiming
     , importance : RW Float -- ActionClass
     , extra : RepDict String String
-    , children : RepList NestedOrAction
-    , manualAssignments : AssignmentDb
+    , children : RepList NestedSubAssignableOrSingleAction
+    , manualAssignments : ManualAssignmentDb
 
     -- future: default Session strategy
     }
