@@ -8,12 +8,13 @@ import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra exposing (..)
-import Replicated.Change exposing (Changer, Context)
+import Replicated.Change exposing (Changer, Context, Creator)
 import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
+import Replicated.Reducer.RepStore exposing (RepStore)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
 import Task.AssignmentSkel as AssignmentSkel exposing (ManualAssignmentDb)
@@ -57,8 +58,8 @@ type alias AssignableSkel =
     }
 
 
-new : Context (Reg AssignableSkel) -> String -> Changer (Reg AssignableSkel) -> Reg AssignableSkel
-new c title changer =
+create : String -> Changer (Reg AssignableSkel) -> Creator (Reg AssignableSkel)
+create title changer c =
     Codec.seededNewWithChanges codec c title changer
 
 
@@ -79,7 +80,7 @@ codec =
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
         |> Codec.fieldList ( 14, "children" ) .children nestedOrActionCodec
-        |> Codec.fieldDb ( 16, "manualAssignments" ) .manualAssignments Assignment.codec
+        |> Codec.fieldDb ( 16, "manualAssignments" ) .manualAssignments AssignmentSkel.codec
         |> Codec.finishSeededRegister
 
 

@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, nonEmptyFrames, none, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -319,8 +319,36 @@ type alias Changer o =
     o -> List Change
 
 
+{-| Convert a `Changer` from operating on one type, to operating on another type that is derived from the original.
+
+This can be used to create your own Changers for opaque types, that wrap a reptype object in some way.
+If you use this function on multiple input types with the same output type, you can combine Changers. This allows you to create a Changer for a composite type that includes multiple different underlying reptypes.
+
+-}
+mapChanger : (a -> b) -> Changer b -> Changer a
+mapChanger aToB bChanger =
+    \a -> bChanger (aToB a)
+
+
 type alias Creator a =
     Context a -> a
+
+
+{-| Convert a `Creator` from operating on one type, to operating on another type that is derived from the original.
+-}
+mapCreator : (a -> b) -> Creator a -> Creator b
+mapCreator aToB aCreator =
+    let
+        bCreator : Context b -> b
+        bCreator (Context location parent) =
+            let
+                aContext : Context a
+                aContext =
+                    Context location parent
+            in
+            aToB (aCreator aContext)
+    in
+    bCreator
 
 
 type ObjectChange

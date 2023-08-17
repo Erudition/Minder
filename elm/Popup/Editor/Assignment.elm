@@ -17,8 +17,8 @@ import Replicated.Change as Change
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
+import Task.Assignment as Assignment exposing (Assignment)
 import Task.Progress exposing (Portion)
-import Task.Project exposing (..)
 
 
 type alias Values =
@@ -42,10 +42,10 @@ initialModel profile assignmentMaybe =
     let
         initialRawValues : Assignment -> Values
         initialRawValues assignment =
-            { relevanceStarts = assignmentRelevanceStarts assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
-            , relevanceEnds = assignmentRelevanceEnds assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
-            , externalDeadline = assignmentExternalDeadline assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
-            , completion = assignmentCompletion assignment |> Just
+            { relevanceStarts = Assignment.relevanceStarts assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
+            , relevanceEnds = Assignment.relevanceEnds assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
+            , externalDeadline = Assignment.externalDeadline assignment |> Maybe.map HumanMoment.fuzzyToString |> Maybe.withDefault ""
+            , completion = Assignment.completion assignment |> Just
             }
 
         brandNew : Values
@@ -206,32 +206,32 @@ outputToChanges existingAssignmentMaybe output =
         Just existingAssignment ->
             let
                 updateRelevanceStarts =
-                    if output.relevanceStarts == assignmentRelevanceStarts existingAssignment then
+                    if output.relevanceStarts == Assignment.relevanceStarts existingAssignment then
                         Nothing
 
                     else
-                        Just (assignmentSetRelevanceStarts output.relevanceStarts existingAssignment)
+                        Just (Assignment.setRelevanceStarts output.relevanceStarts existingAssignment)
 
                 updateRelevanceEnds =
-                    if output.relevanceEnds == assignmentRelevanceEnds existingAssignment then
+                    if output.relevanceEnds == Assignment.relevanceEnds existingAssignment then
                         Nothing
 
                     else
-                        Just (assignmentSetRelevanceEnds output.relevanceEnds existingAssignment)
+                        Just (Assignment.setRelevanceEnds output.relevanceEnds existingAssignment)
 
                 updateExternalDeadline =
-                    if output.externalDeadline == assignmentExternalDeadline existingAssignment then
+                    if output.externalDeadline == Assignment.externalDeadline existingAssignment then
                         Nothing
 
                     else
-                        Just (assignmentSetExternalDeadline output.externalDeadline existingAssignment)
+                        Just (Assignment.setExternalDeadline output.externalDeadline existingAssignment)
 
                 updateCompletion =
-                    if output.completion == assignmentCompletion existingAssignment then
+                    if output.completion == Assignment.completion existingAssignment then
                         Nothing
 
                     else
-                        Just (assignmentSetCompletion output.completion existingAssignment)
+                        Just (Assignment.setCompletion output.completion existingAssignment)
             in
             Change.saveChanges "Editing an assignment" <|
                 List.filterMap identity

@@ -6,6 +6,10 @@ import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op
 
 
+
+-- TODO rename to RepDictSparse
+
+
 {-| A Rep.Store maps custom keys to reptype values, but you don't explicitly add/remove/update entries - instead the store presents a "read-only" interface and you modify the objects in the store instead. Values must have a seedless Codec, because the defaults are used when there is no object yet at that key. Unlike dictionaries, this guarantees you always get a value for a given key - no `Maybe`!
 
   - Since all entries "already exist" (are generated on the fly if missing) for each possible key, there are no library functions to add, remove, or update entries - just `get`.

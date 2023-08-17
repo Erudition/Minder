@@ -19,7 +19,6 @@ import Task.ActionSkel exposing (ActionID)
 import Task.AssignedActionSkel exposing (AssignedActionSkel, assignedActionCodec)
 import Task.Progress as Progress exposing (..)
 import Task.Series exposing (Series, SeriesIndex, SeriesMemberID)
-import Task.SubAssignable as SubAssignable exposing (SubAssignable)
 import Task.SubAssignableSkel as SubAssignableSkel exposing (SubAssignableID, SubAssignableSkel)
 
 

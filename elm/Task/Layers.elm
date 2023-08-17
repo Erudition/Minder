@@ -22,6 +22,7 @@ import SmartTime.Moment exposing (Moment, TimelineOrder(..))
 import SmartTime.Period exposing (Period)
 import Task.Action as Action exposing (Action, ActionID)
 import Task.Assignable as Assignable exposing (Assignable, AssignableID)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentID)
 import Task.Progress as Progress exposing (Progress)
 import Task.Project as Project exposing (Project, ProjectID)
 import Task.ProjectSkel as ProjectSkel exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
@@ -34,21 +35,21 @@ import ZoneHistory exposing (ZoneHistory)
 type alias ProjectLayers =
     { projects : AnyDict String ProjectID Project
     , assignables : AnyDict String AssignableID Assignable
-    , subassignables : AnyDict String SubAssignableID SubAssignable
+    , subAssignables : AnyDict String SubAssignableID SubAssignable
     , actions : AnyDict String ActionID Action
     }
 
 
 {-| Take all the Entries and flatten them into a dict with Assignables
 -}
-projectToAssignableLayers : RepDb (Reg ProjectSkel) -> ProjectLayers
-projectToAssignableLayers rootProjects =
+buildLayerDatabase : RepDb (Reg ProjectSkel) -> ProjectLayers
+buildLayerDatabase rootProjects =
     let
         start : ProjectLayers
         start =
             { projects = AnyDict.empty ID.toString
             , assignables = AnyDict.empty ID.toString
-            , subassignables = AnyDict.empty ID.toString
+            , subAssignables = AnyDict.empty ID.toString
             , actions = AnyDict.empty ID.toString
             }
 
@@ -59,7 +60,7 @@ projectToAssignableLayers rootProjects =
                     Reg.latest thisProjectSkelReg
 
                 thisProject =
-                    Project.fromSkel thisProjectSkel
+                    Project.fromSkel parentMaybe thisProjectSkelReg
 
                 childrenToProcess : ProjectLayers
                 childrenToProcess =
@@ -72,10 +73,10 @@ projectToAssignableLayers rootProjects =
             }
 
         itemInsideProject : Project -> RepList.Item NestedOrAssignable -> ProjectLayers -> ProjectLayers
-        itemInsideProject parent child layersSoFar =
+        itemInsideProject parentProject child layersSoFar =
             case child.value of
                 AssignableIsDeeper nestedProject ->
-                    traverseProject (Just parent) nestedProject layersSoFar
+                    traverseProject (Just parentProject) nestedProject layersSoFar
 
                 AssignableIsHere assignableSkelReg ->
                     let
@@ -83,7 +84,7 @@ projectToAssignableLayers rootProjects =
                             Reg.latest assignableSkelReg
 
                         thisAssignable =
-                            Assignable.fromSkel parent assignableSkelReg
+                            Assignable.fromSkel parentProject assignableSkelReg
 
                         childrenToProcess : ProjectLayers
                         childrenToProcess =
@@ -95,43 +96,81 @@ projectToAssignableLayers rootProjects =
                     }
 
         itemInsideAssignable : Assignable -> NestedSubAssignableOrSingleAction -> ProjectLayers -> ProjectLayers
-        itemInsideAssignable parent child layersSoFar =
+        itemInsideAssignable parentAssignable child layersSoFar =
             case child of
                 ActionIsDeeper subAssignableSkelReg ->
-                    traverseAssignableLayer subAssignableSkelReg layersSoFar
+                    traverseAssignableLayer parentAssignable subAssignableSkelReg layersSoFar
 
                 ActionIsHere actionSkelReg ->
                     -- we've reached the bottom
                     let
-                        actionSkel =
-                            Reg.latest actionSkelReg
-
                         thisAction =
-                            Action.fromSkel parent actionSkel
+                            Action.fromSkelWithAssignableParent parentAssignable actionSkelReg
                     in
                     { layersSoFar
                         | actions =
                             AnyDict.insert (Action.id thisAction) thisAction layersSoFar.actions
                     }
 
-        traverseAssignableLayer : Reg SubAssignableSkel -> ProjectLayers -> ProjectLayers
-        traverseAssignableLayer thisSubAssignableSkelReg layersSoFar =
+        traverseAssignableLayer : Assignable -> Reg SubAssignableSkel -> ProjectLayers -> ProjectLayers
+        traverseAssignableLayer parentAssignable thisSubAssignableSkelReg layersSoFar =
             let
                 thisSubAssignableSkel =
                     Reg.latest thisSubAssignableSkelReg
 
-                passDown : InheritableFromAssignable
-                passDown =
-                    { layerTitles = layerTitles }
+                thisSubAssignable =
+                    SubAssignable.fromSkelWithAssignableParent parentAssignable thisSubAssignableSkelReg
 
                 childrenToProcess : ProjectLayers
                 childrenToProcess =
-                    List.foldl (itemInsideAssignable passDown) layersSoFar (RepList.listValues thisSubAssignableSkel.children)
+                    List.foldl (itemInsideSubAssignable thisSubAssignable) layersSoFar (RepList.listValues thisSubAssignableSkel.children)
             in
             { childrenToProcess
-                | subassignables =
-                    AnyDict.insert makeID metaSubAssignableToAdd layersSoFar.subassignables
-                        |> AnyDict.union childrenToProcess.subassignables
+                | subAssignables =
+                    AnyDict.insert (SubAssignable.id thisSubAssignable) thisSubAssignable layersSoFar.subAssignables
+                        |> AnyDict.union childrenToProcess.subAssignables
+            }
+
+        itemInsideSubAssignable : SubAssignable -> NestedSubAssignableOrSingleAction -> ProjectLayers -> ProjectLayers
+        itemInsideSubAssignable parentSubAssignable child layersSoFar =
+            case child of
+                ActionIsDeeper subAssignableSkelReg ->
+                    traverseSubAssignableLayer parentSubAssignable subAssignableSkelReg layersSoFar
+
+                ActionIsHere actionSkelReg ->
+                    -- we've reached the bottom
+                    let
+                        thisAction =
+                            Action.fromSkelWithSubAssignableParent parentSubAssignable actionSkelReg
+                    in
+                    { layersSoFar
+                        | actions =
+                            AnyDict.insert (Action.id thisAction) thisAction layersSoFar.actions
+                    }
+
+        traverseSubAssignableLayer : SubAssignable -> Reg SubAssignableSkel -> ProjectLayers -> ProjectLayers
+        traverseSubAssignableLayer parentSubAssignable thisSubAssignableSkelReg layersSoFar =
+            let
+                thisSubAssignableSkel =
+                    Reg.latest thisSubAssignableSkelReg
+
+                thisSubAssignable =
+                    SubAssignable.fromSkelWithSubAssignableParent parentSubAssignable thisSubAssignableSkelReg
+
+                childrenToProcess : ProjectLayers
+                childrenToProcess =
+                    List.foldl (itemInsideSubAssignable thisSubAssignable) layersSoFar (RepList.listValues thisSubAssignableSkel.children)
+            in
+            { childrenToProcess
+                | subAssignables =
+                    AnyDict.insert (SubAssignable.id thisSubAssignable) thisSubAssignable layersSoFar.subAssignables
+                        |> AnyDict.union childrenToProcess.subAssignables
             }
     in
     List.foldl (traverseProject Nothing) start (RepDb.listValues rootProjects)
+
+
+getAssignmentByID : ProjectLayers -> AssignmentID -> Maybe Assignment
+getAssignmentByID layers assignmentID =
+    AnyDict.get (Assignment.extractAssignableIDfromAssignmentID assignmentID) layers.assignables
+        |> Maybe.andThen (Assignment.getByIDFromAssignable assignmentID)

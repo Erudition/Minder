@@ -18,8 +18,8 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment)
+import Task.Assignable as Assignable exposing (Assignable)
 import Task.Progress exposing (Portion)
-import Task.Project exposing (..)
 import Task.RelativeTiming as RelativeTiming exposing (RelativeTiming)
 
 
@@ -52,14 +52,14 @@ initialModel profile assignableMaybe =
     let
         initialRawValues : Assignable -> Values
         initialRawValues assignable =
-            { title = assignableTitle assignable
-            , importance = assignableImportance assignable |> Just
-            , defaultRelevanceStarts = assignableDefaultRelevanceStarts assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
-            , defaultRelevanceEnds = assignableDefaultRelevanceEnds assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
-            , defaultExternalDeadline = assignableDefaultExternalDeadline assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
-            , minEffort = assignableMinEffort assignable |> Duration.inMinutes |> Just
-            , estimatedEffort = assignableEstimatedEffort assignable |> Duration.inMinutes |> Just
-            , maxEffort = assignableMaxEffort assignable |> Duration.inMinutes |> Just
+            { title = Assignable.title assignable
+            , importance = Assignable.importance assignable |> Just
+            , defaultRelevanceStarts = Assignable.defaultRelevanceStarts assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
+            , defaultRelevanceEnds = Assignable.defaultRelevanceEnds assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
+            , defaultExternalDeadline = Assignable.defaultExternalDeadline assignable |> RepList.listValues |> List.map RelativeTiming.toRawPair
+            , minEffort = Assignable.minEffort assignable |> Duration.inMinutes |> Just
+            , estimatedEffort = Assignable.estimatedEffort assignable |> Duration.inMinutes |> Just
+            , maxEffort = Assignable.maxEffort assignable |> Duration.inMinutes |> Just
             }
 
         brandNew : Values
@@ -302,44 +302,44 @@ outputToChanges assignableMaybe output =
         Just assignable ->
             let
                 updateTitle =
-                    if output.title == assignableTitle assignable then
+                    if output.title == Assignable.title assignable then
                         Nothing
 
                     else
-                        Just (assignableSetTitle output.title assignable)
+                        Just (Assignable.setTitle output.title assignable)
 
                 updateImportance =
                     case output.importance of
                         Just newImportance ->
-                            if newImportance == assignableImportance assignable then
+                            if newImportance == Assignable.importance assignable then
                                 Nothing
 
                             else
-                                Just (assignableSetImportance newImportance assignable)
+                                Just (Assignable.setImportance newImportance assignable)
 
                         Nothing ->
                             Nothing
 
                 updateEstimatedEffort =
-                    if output.estimatedEffort == assignableEstimatedEffort assignable then
+                    if output.estimatedEffort == Assignable.estimatedEffort assignable then
                         Nothing
 
                     else
-                        Just (assignableSetEstimatedEffort output.estimatedEffort assignable)
+                        Just (Assignable.setEstimatedEffort output.estimatedEffort assignable)
 
                 updateMinEffort =
-                    if output.minEffort == assignableMinEffort assignable then
+                    if output.minEffort == Assignable.minEffort assignable then
                         Nothing
 
                     else
-                        Just (assignableSetMinEffort output.minEffort assignable)
+                        Just (Assignable.setMinEffort output.minEffort assignable)
 
                 updateMaxEffort =
-                    if output.maxEffort == assignableMaxEffort assignable then
+                    if output.maxEffort == Assignable.maxEffort assignable then
                         Nothing
 
                     else
-                        Just (assignableSetMaxEffort output.maxEffort assignable)
+                        Just (Assignable.setMaxEffort output.maxEffort assignable)
             in
             Change.saveChanges "Editing an assignable" <|
                 List.filterMap identity

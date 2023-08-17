@@ -1,4 +1,4 @@
-module Task.Action exposing (..)
+module Task.Action exposing (Action, ActionID, activityID, activityIDString, completionUnits, defaultExternalDeadline, defaultRelevanceEnds, defaultRelevanceStarts, estimatedEffort, fromSkelWithAssignableParent, fromSkelWithSubAssignableParent, getExtra, id, maxEffort, minEffort, reg, setEstimatedEffort, setExtra, setMaxEffort, setMinEffort, setTitle, title)
 
 import Activity.Activity as Activity exposing (ActivityID)
 import Dict exposing (Dict)
@@ -21,6 +21,7 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (Moment, TimelineOrder(..))
 import SmartTime.Period exposing (Period)
 import Task.ActionSkel as ActionSkel exposing (ActionSkel)
+import Task.Assignable exposing (Assignable)
 import Task.Progress as Progress exposing (Progress)
 import Task.Series exposing (Series)
 import Task.SubAssignable exposing (SubAssignable)
@@ -30,7 +31,7 @@ import ZoneHistory exposing (ZoneHistory)
 
 type Action
     = Action
-        { subAssignable : SubAssignable
+        { parent : ActionParent
         , reg : Reg ActionSkel
         , id : ActionID
         }
@@ -40,12 +41,26 @@ type alias ActionID =
     ID (Reg ActionSkel)
 
 
-fromSkel : SubAssignable -> Reg ActionSkel -> Action
-fromSkel parent skelReg =
+type ActionParent
+    = AssignableParent Assignable
+    | SubAssignableParent SubAssignable
+
+
+fromSkelWithAssignableParent : Assignable -> Reg ActionSkel -> Action
+fromSkelWithAssignableParent parentAssignable skelReg =
     Action
         { reg = skelReg
         , id = ID.fromPointer (Reg.getPointer skelReg)
-        , subAssignable = parent
+        , parent = AssignableParent parentAssignable
+        }
+
+
+fromSkelWithSubAssignableParent : SubAssignable -> Reg ActionSkel -> Action
+fromSkelWithSubAssignableParent parentSubAssignable skelReg =
+    Action
+        { reg = skelReg
+        , id = ID.fromPointer (Reg.getPointer skelReg)
+        , parent = SubAssignableParent parentSubAssignable
         }
 
 

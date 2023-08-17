@@ -37,6 +37,7 @@
 
 
 # Later
+- experiment with using a required ".repData" field on records rather than wrapping in Register type
 - switch elm/parser to the-sett/parser-recoverable so that bad ops can be skipped without crashing
 - Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
 - spit out warnings for nested errors

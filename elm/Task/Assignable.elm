@@ -8,7 +8,7 @@ import ID exposing (ID)
 import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
 import Maybe.Extra
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Changer, Creator)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -21,11 +21,11 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment exposing (Moment, TimelineOrder(..))
 import SmartTime.Period exposing (Period)
 import Task.AssignableSkel as AssignableSkel exposing (AssignableSkel)
+import Task.AssignmentSkel as AssignmentSkel exposing (AssignmentSkel)
 import Task.Progress as Progress exposing (Progress)
 import Task.Project as Project exposing (Project, ProjectID)
 import Task.ProjectSkel as ProjectSkel exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
 import Task.Series exposing (Series)
-import Task.SubAssignable as SubAssignable exposing (SubAssignable)
 import Task.SubAssignableSkel as SubAssignable exposing (NestedSubAssignableOrSingleAction(..), SubAssignableID, SubAssignableSkel)
 import ZoneHistory exposing (ZoneHistory)
 
@@ -60,11 +60,40 @@ fromSkel project assignableSkelReg =
         }
 
 
+createWithinProject : List (Changer Assignable) -> Project -> Change
+createWithinProject changers parentProject =
+    let
+        assignableSkelChangers : List (Changer (Reg AssignableSkel))
+        assignableSkelChangers =
+            List.map (Change.mapChanger (fromSkel parentProject)) changers
+
+        assignableSkelCreator : Changer (Reg AssignableSkel) -> Creator NestedOrAssignable
+        assignableSkelCreator skelChanger =
+            \wrappedContext ->
+                AssignableSkel.create "this assignable title was not set upon creation"
+                    skelChanger
+                    -- TODO debug then just use Change.mapCreator
+                    (Change.reuseContext "NestedOrAssignable" wrappedContext)
+                    |> AssignableIsHere
+
+        wrappedAssignableCreators : List (Creator NestedOrAssignable)
+        wrappedAssignableCreators =
+            List.map assignableSkelCreator assignableSkelChangers
+    in
+    RepList.insertNew RepList.Last wrappedAssignableCreators (Project.children parentProject)
+
+
 id : Assignable -> AssignableID
 id (Assignable metaAssignable) =
     metaAssignable.id
 
 
+idString : Assignable -> String
+idString (Assignable metaAssignable) =
+    ID.toString metaAssignable.id
+
+
+manualAssignments : Assignable -> RepDb (Reg AssignmentSkel)
 manualAssignments (Assignable metaAssignable) =
     (Reg.latest metaAssignable.reg).manualAssignments
 
@@ -133,6 +162,11 @@ setExtra key value (Assignable metaAssignable) =
     RepDict.insert key value (Reg.latest metaAssignable.reg).extra
 
 
+insertExtras : List ( String, String ) -> Assignable -> Change
+insertExtras keyValueList (Assignable metaAssignable) =
+    RepDict.bulkInsert keyValueList (Reg.latest metaAssignable.reg).extra
+
+
 activityID (Assignable metaAssignable) =
     (Reg.latest metaAssignable.reg).activity.get
 
@@ -141,7 +175,5 @@ activityIDString (Assignable metaAssignable) =
     Maybe.map Activity.idToString (Reg.latest metaAssignable.reg).activity.get
 
 
-{-| only use if you need to make bulk changes
--}
-reg (Assignable metaAssignable) =
-    metaAssignable.reg
+setActivityID newActivityID (Assignable metaAssignable) =
+    (Reg.latest metaAssignable.reg).activity.set newActivityID

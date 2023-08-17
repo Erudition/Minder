@@ -201,7 +201,7 @@ startTracking now trackable timelineRepList =
     RepList.insertNew RepList.Last [ newSession ] timelineRepList
 
 
-backfill : Timeline -> List ( ActivityID, Maybe AssignmentID, Period ) -> List Change
+backfill : RepList HistorySession -> List ( ActivityID, Maybe AssignmentID, Period ) -> List Change
 backfill _ _ =
     -- case periodsToAdd of
     --     [] ->

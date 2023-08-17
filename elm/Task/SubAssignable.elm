@@ -31,7 +31,7 @@ import ZoneHistory exposing (ZoneHistory)
 -}
 type SubAssignable
     = SubAssignable
-        { assignable : Assignable
+        { parent : SubAssignableParent
         , reg : Reg SubAssignableSkel
         , id : SubAssignableID
         }
@@ -41,10 +41,29 @@ type alias SubAssignableID =
     ID SubAssignableSkel
 
 
-fromSkel : Assignable -> Reg SubAssignableSkel -> SubAssignable
-fromSkel parent skelReg =
+type SubAssignableParent
+    = AssignableParent Assignable
+    | SubAssignableParent SubAssignable
+
+
+id : SubAssignable -> SubAssignableID
+id (SubAssignable sub) =
+    sub.id
+
+
+fromSkelWithAssignableParent : Assignable -> Reg SubAssignableSkel -> SubAssignable
+fromSkelWithAssignableParent parent skelReg =
     SubAssignable
         { reg = skelReg
         , id = ID.fromPointer (Reg.getPointer skelReg)
-        , assignable = parent
+        , parent = AssignableParent parent
+        }
+
+
+fromSkelWithSubAssignableParent : SubAssignable -> Reg SubAssignableSkel -> SubAssignable
+fromSkelWithSubAssignableParent parent skelReg =
+    SubAssignable
+        { reg = skelReg
+        , id = ID.fromPointer (Reg.getPointer skelReg)
+        , parent = SubAssignableParent parent
         }

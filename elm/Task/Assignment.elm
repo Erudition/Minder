@@ -7,8 +7,9 @@ import Helpers exposing (..)
 import ID exposing (ID)
 import Json.Decode.Exploration exposing (..)
 import Json.Encode exposing (..)
+import Log
 import Maybe.Extra
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Changer, Creator)
 import Replicated.Codec as Codec exposing (NullCodec)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
@@ -24,7 +25,7 @@ import SmartTime.Period exposing (Period)
 import Task.ActionSkel as Action exposing (ActionID, ActionSkel)
 import Task.Assignable as Assignable exposing (Assignable, AssignableID)
 import Task.AssignedActionSkel exposing (AssignedActionSkel)
-import Task.AssignmentSkel exposing (AssignmentSkel)
+import Task.AssignmentSkel as AssignmentSkel exposing (AssignmentSkel)
 import Task.Progress as Progress exposing (Progress)
 import Task.ProjectSkel as Project exposing (NestedOrAssignable(..), ProjectID, ProjectSkel)
 import Task.Series exposing (Series, SeriesIndex, SeriesMemberID)
@@ -38,7 +39,6 @@ type Assignment
     = Assignment
         { assignable : Assignable
         , reg : Reg AssignmentSkel
-        , index : Int
         , id : AssignmentID
         , remove : Change
         }
@@ -53,25 +53,45 @@ type Query
     | WithinPeriod Period ZoneHistory
 
 
+{-| For UI purposes. Not a true Pointer - can point to an instance of a series or a manual assignment, and includes the AssignableID, as we always need to know the Assignable from which an Assignment comes - though this is not serialized in the AssignmentSkel as it's already stored within the Assignable. This allows faster lookups of assignments and allows assignments to be lazy loaded if unavailable.
+-}
 type AssignmentID
-    = ManualAssignmentID (ID (Reg AssignmentSkel))
-    | SeriesAssignmentID (ID Series) SeriesIndex
+    = ManualAssignmentID AssignableID (ID (Reg AssignmentSkel))
+    | SeriesAssignmentID AssignableID SeriesMemberID
 
 
+{-| Other objects may want to store a pointer to an assignment, so they need the full info to be serialized.
+TODO efficient way to look up assignment without the redundant information being stored?
+-}
 idCodec : NullCodec String AssignmentID
 idCodec =
+    let
+        tagSeriesAssignmentID givenAssignableID seriesID seriesIndex =
+            -- for serialization, seriesMemberID doesn't need to be its own tuple object
+            SeriesAssignmentID givenAssignableID ( seriesID, seriesIndex )
+    in
     Codec.customType
         (\manualAssignmentID seriesAssignmentID value ->
             case value of
-                ManualAssignmentID regID ->
-                    manualAssignmentID regID
+                ManualAssignmentID givenAssignableID regID ->
+                    manualAssignmentID givenAssignableID regID
 
-                SeriesAssignmentID seriesID seriesIndex ->
-                    seriesAssignmentID seriesID seriesIndex
+                SeriesAssignmentID givenAssignableID ( seriesID, seriesIndex ) ->
+                    seriesAssignmentID givenAssignableID seriesID seriesIndex
         )
-        |> Codec.variant1 ( 1, "ManualAssignmentID" ) ManualAssignmentID Codec.id
-        |> Codec.variant2 ( 2, "SeriesAssignmentID" ) SeriesAssignmentID Codec.id Codec.int
+        |> Codec.variant2 ( 1, "ManualAssignmentID" ) ManualAssignmentID Codec.id Codec.id
+        |> Codec.variant3 ( 2, "SeriesAssignmentID" ) tagSeriesAssignmentID Codec.id Codec.id Codec.int
         |> Codec.finishCustomType
+
+
+extractAssignableIDfromAssignmentID : AssignmentID -> AssignableID
+extractAssignableIDfromAssignmentID givenAssignmentID =
+    case givenAssignmentID of
+        ManualAssignmentID givenAssignableID _ ->
+            givenAssignableID
+
+        SeriesAssignmentID givenAssignableID _ ->
+            givenAssignableID
 
 
 {-| Take a assignable and return all of the assignments relevant within the given period - saved or generated.
@@ -88,7 +108,7 @@ fromAssignables query parent =
             RepDb.members <| Assignable.manualAssignments parent
 
         savedAssignmentsFull =
-            List.indexedMap (fromSkel parent) manualAssignments
+            List.map (fromSkelManual parent) manualAssignments
 
         -- Filter out assignments outside the window
         relevantSavedInstances =
@@ -105,15 +125,46 @@ fromAssignables query parent =
     relevantSavedInstances
 
 
-fromSkel : Assignable -> Int -> RepDb.Member (Reg AssignmentSkel) -> Assignment
-fromSkel metaAssignable indexFromZero assignmentSkelMember =
+fromSkelManual : Assignable -> RepDb.Member (Reg AssignmentSkel) -> Assignment
+fromSkelManual metaAssignable assignmentSkelMember =
     Assignment
         { assignable = metaAssignable
         , reg = assignmentSkelMember.value
-        , index = indexFromZero + 1
-        , id = ManualAssignmentID assignmentSkelMember.id
+        , id = ManualAssignmentID (Assignable.id metaAssignable) assignmentSkelMember.id
         , remove = assignmentSkelMember.remove
         }
+
+
+fromPlaceholderSkelManual : Assignable -> Reg AssignmentSkel -> Assignment
+fromPlaceholderSkelManual metaAssignable assignmentSkel =
+    Assignment
+        { assignable = metaAssignable
+        , reg = assignmentSkel
+        , id = ManualAssignmentID (Assignable.id metaAssignable) (ID.fromPointer (Reg.getPointer assignmentSkel))
+        , remove = Debug.todo "tried to remove an assignment while it was still a placeholder"
+        }
+
+
+fromSkelSeries : Assignable -> SeriesMemberID -> RepDb.Member (Reg AssignmentSkel) -> Assignment
+fromSkelSeries metaAssignable seriesMemberID assignmentSkelMember =
+    Assignment
+        { assignable = metaAssignable
+        , reg = assignmentSkelMember.value
+        , id = SeriesAssignmentID (Assignable.id metaAssignable) seriesMemberID
+        , remove = assignmentSkelMember.remove
+        }
+
+
+getByIDFromAssignable : AssignmentID -> Assignable -> Maybe Assignment
+getByIDFromAssignable idToFind containingAssignable =
+    case idToFind of
+        ManualAssignmentID _ assignmentSkelID ->
+            Assignable.manualAssignments containingAssignable
+                |> RepDb.getMember assignmentSkelID
+                |> Maybe.map (fromSkelManual containingAssignable)
+
+        SeriesAssignmentID _ seriesMemberID ->
+            Log.crashInDev "Assignable.getSeriesMember seriesMemberID" Nothing
 
 
 
@@ -282,23 +333,47 @@ compareNewness a b =
     Basics.compare (idString a) (idString b)
 
 
+create : Changer Assignment -> Assignable -> Change
+create assignmentChanger parentAssignable =
+    let
+        assignmentSkelChanger : Changer (Reg AssignmentSkel)
+        assignmentSkelChanger =
+            Change.mapChanger (fromPlaceholderSkelManual parentAssignable) assignmentChanger
+
+        assignmentSkelCreator : Creator (Reg AssignmentSkel)
+        assignmentSkelCreator =
+            AssignmentSkel.newWithChanges assignmentSkelChanger
+    in
+    RepDb.addNew assignmentSkelCreator (Assignable.manualAssignments parentAssignable)
+
+
 id : Assignment -> AssignmentID
 id (Assignment assignment) =
     assignment.id
 
 
+{-| Since AssignmentSkels have globally unique IDs, no need to keep the assignable data when stringifying for comparison purposes.
+-}
 idString : Assignment -> String
 idString (Assignment assignment) =
     case assignment.id of
-        ManualAssignmentID regID ->
+        ManualAssignmentID _ regID ->
             ID.toString regID
 
-        SeriesAssignmentID seriesID seriesIndex ->
-            Task.Series.memberIDToString ( seriesID, seriesIndex )
+        SeriesAssignmentID _ seriesMemberID ->
+            Task.Series.memberIDToString seriesMemberID
 
 
 assignable (Assignment assignment) =
     assignment.assignable
+
+
+assignableID (Assignment assignment) =
+    Assignable.id assignment.assignable
+
+
+assignableIDString (Assignment assignment) =
+    Assignable.idString assignment.assignable
 
 
 title (Assignment assignment) =
@@ -339,12 +414,28 @@ setRelevanceStarts fuzzyMoment (Assignment assignment) =
     (Reg.latest assignment.reg).relevanceStarts.set fuzzyMoment
 
 
+startBy (Assignment assignment) =
+    (Reg.latest assignment.reg).startBy.get
+
+
+setStartBy fuzzyMomentMaybe (Assignment assignment) =
+    (Reg.latest assignment.reg).startBy.set fuzzyMomentMaybe
+
+
 relevanceEnds (Assignment assignment) =
     (Reg.latest assignment.reg).relevanceEnds.get
 
 
 setRelevanceEnds fuzzyMoment (Assignment assignment) =
     (Reg.latest assignment.reg).relevanceEnds.set fuzzyMoment
+
+
+finishBy (Assignment assignment) =
+    (Reg.latest assignment.reg).finishBy.get
+
+
+setFinishBy fuzzyMomentMaybe (Assignment assignment) =
+    (Reg.latest assignment.reg).finishBy.set fuzzyMomentMaybe
 
 
 externalDeadline (Assignment assignment) =
@@ -379,12 +470,11 @@ setExtra key value (Assignment assignment) =
     RepDict.insert key value (Reg.latest assignment.reg).extra
 
 
+insertExtras : List ( String, String ) -> Assignment -> Change
+insertExtras keyValueList (Assignment assignment) =
+    RepDict.bulkInsert keyValueList (Reg.latest assignment.reg).extra
+
+
 delete : Assignment -> Change
 delete (Assignment assignment) =
     assignment.remove
-
-
-{-| only use if you need to make bulk changes
--}
-reg (Assignment assignment) =
-    assignment.reg

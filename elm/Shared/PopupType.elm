@@ -13,7 +13,8 @@ import NativeScript.Notification as Notif
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)
-import Task.Project exposing (Assignable, Assignment)
+import Task.Assignable as Assignable exposing (Assignable)
+import Task.Assignment as Assignment exposing (Assignment)
 
 
 type PopupType

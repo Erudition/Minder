@@ -1,4 +1,4 @@
-module TimeTrackable exposing (TimeTrackable, codec, getActivityID, getAssignmentID, stub)
+module TimeTrackable exposing (TimeTrackable(..), codec, getActivityID, getAssignmentID, stub)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Dict.Any exposing (AnyDict)

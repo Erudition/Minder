@@ -14,7 +14,7 @@ import List.Extra as List
 import Maybe.Extra
 import Profile exposing (Profile)
 import Regex
-import Replicated.Change as Change exposing (Change)
+import Replicated.Change as Change exposing (Change, Changer)
 import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
@@ -29,8 +29,11 @@ import SmartTime.Human.Clock exposing (TimeOfDay)
 import SmartTime.Human.Moment
 import SmartTime.Moment as Moment exposing (Moment(..))
 import SmartTime.Period as Period exposing (Period(..))
+import Task.Assignable
 import Task.AssignableSkel
+import Task.Assignment
 import Task.AssignmentSkel
+import Task.Layers
 import Task.Progress
 import Task.Project exposing (..)
 import Task.ProjectSkel
@@ -392,16 +395,16 @@ toDocketTask profile marvinItem =
     let
         -- TODO we shouldn't calculate the whole assignable/assignment list on every item import. Figure it out above, then pass to this function
         existingAssignables =
-            (Task.Project.projectToAssignableLayers profile.projects).assignables
+            (Task.Layers.buildLayerDatabase profile.projects).assignables
                 |> AnyDict.values
 
         existingAssignablesWithMarvinLink =
             Dict.fromList <| List.filterMap pairAssignableWithMarvinIDMaybe existingAssignables
 
         pairAssignableWithMarvinIDMaybe ass =
-            case Task.Project.assignableGetExtra "marvinGeneratorID" ass of
+            case Task.Assignable.getExtra "marvinGeneratorID" ass of
                 Just marvinID ->
-                    Just ( marvinID, Task.Project.assignableID ass )
+                    Just ( marvinID, Task.Assignable.id ass )
 
                 Nothing ->
                     Nothing
@@ -427,28 +430,28 @@ toDocketTask profile marvinItem =
             ]
 
         assignableChanges assignable =
-            [ assignable.predictedEffort.set <| Maybe.withDefault Duration.zero marvinItem.timeEstimate
-
-            --, assignable.importance.set <| toFloat marvinItem.isStarred
-            , assignable.activity.set <| determineClassActivity marvinItem profile.activities
-            , RepDict.bulkInsert addClassExtras assignable.extra
+            [ Task.Assignable.setTitle marvinItem.title assignable
+            , Task.Assignable.setEstimatedEffort (Maybe.withDefault Duration.zero marvinItem.timeEstimate) assignable
+            , Task.Assignable.setImportance (toFloat marvinItem.isStarred) assignable
+            , Task.Assignable.setActivityID (determineClassActivity marvinItem profile.activities) assignable
+            , Task.Assignable.insertExtras addClassExtras assignable
             ]
 
         -- ASSIGNMENTS
         query =
-            Task.Meta.AllSaved
+            Task.Assignment.AllSaved
 
         existingAssignments =
-            List.concatMap (assignableToAssignments query) existingAssignables
+            List.concatMap (Task.Assignment.fromAssignables query) existingAssignables
 
         existingAssignmentsWithMarvinLink : Dict String Task.Assignment.AssignmentID
         existingAssignmentsWithMarvinLink =
             Dict.fromList <| List.filterMap pairAssignmentWithMarvinIDMaybe existingAssignments
 
         pairAssignmentWithMarvinIDMaybe assignment =
-            case assignmentGetExtra "marvinID" assignment of
+            case Task.Assignment.getExtra "marvinID" assignment of
                 Just marvinID ->
-                    Just ( marvinID, assignmentID assignment )
+                    Just ( marvinID, Task.Assignment.id assignment )
 
                 Nothing ->
                     Nothing
@@ -524,85 +527,88 @@ toDocketTask profile marvinItem =
                 , Just ( "marvinTimes", Encode.encode 0 (Encode.list encodeUnixTimestamp marvinItem.times) )
                 ]
 
-        assignmentChanges : Reg Task.Assignment.AssignmentSkel -> List Change
-        assignmentChanges assignment =
-            let
-                instance =
-                    Reg.latest assignment
-            in
-            [ instance.completion.set <|
-                if marvinItem.done then
+        assignmentChanger : Task.Assignment.Assignment -> List Change
+        assignmentChanger assignment =
+            [ Task.Assignment.setCompletion
+                (if marvinItem.done then
                     100
 
-                else
+                 else
                     0
-            , instance.externalDeadline.set <| Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.dueDate
-            , instance.startBy.set <| Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.startDate
-            , instance.finishBy.set <|
-                Maybe.Extra.or
+                )
+                assignment
+            , Task.Assignment.setExternalDeadline (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.dueDate) assignment
+            , Task.Assignment.setStartBy (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.startDate) assignment
+            , Task.Assignment.setFinishBy
+                (Maybe.Extra.or
                     (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.endDate)
                     (Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day)
+                )
+                assignment
 
             -- TODO , RepList.append RepList.Last plannedSessionList instance.plannedSessions
-            , instance.relevanceStarts.set <|
-                if Maybe.Extra.isJust marvinItem.recurringTaskId then
+            , Task.Assignment.setRelevanceStarts
+                (if Maybe.Extra.isJust marvinItem.recurringTaskId then
                     Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day
 
-                else
+                 else
                     Nothing
-            , instance.relevanceEnds.set <|
-                if Maybe.Extra.isJust marvinItem.recurringTaskId then
+                )
+                assignment
+            , Task.Assignment.setRelevanceEnds
+                (if Maybe.Extra.isJust marvinItem.recurringTaskId then
                     Maybe.map SmartTime.Human.Moment.DateOnly marvinItem.day
 
-                else
+                 else
                     Nothing
-            , RepDict.bulkInsert addInstanceExtras instance.extra
+                )
+                assignment
+            , Task.Assignment.insertExtras addInstanceExtras assignment
             ]
 
         finalInstanceChanges =
-            case Maybe.andThen (\assignmentIDToMatch -> List.find (\ass -> assignmentID ass == assignmentIDToMatch) existingAssignments) existingAssignmentIDMaybe of
+            case Maybe.andThen (\assignmentIDToMatch -> List.find (\ass -> Task.Assignment.id ass == assignmentIDToMatch) existingAssignments) existingAssignmentIDMaybe of
                 Just existingAssignment ->
-                    assignmentChanges (assignmentReg existingAssignment)
+                    assignmentChanger existingAssignment
 
                 Nothing ->
                     []
 
         finalEntryAndClassChanges =
-            case Maybe.andThen (\assignableIDToMatch -> List.find (\ass -> assignableID ass == assignableIDToMatch) existingAssignables) existingAssignableIDMaybe of
+            case Maybe.andThen (\assignableIDToMatch -> List.find (\ass -> Task.Assignable.id ass == assignableIDToMatch) existingAssignables) existingAssignableIDMaybe of
                 Just existingAssignable ->
-                    assignableChanges (Reg.latest (assignableReg existingAssignable))
+                    assignableChanges existingAssignable
 
                 Nothing ->
                     let
-                        newEntry c =
-                            Task.ProjectSkel.initProjectWithAssignable (createAssignable (Change.reuseContext "action" c)) c
+                        createProjectWithAssignable =
+                            Task.Project.createTopLevelSkel projectChanger
 
-                        createAssignable : Change.Creator (Reg Task.Assignable.AssignableSkel)
-                        createAssignable c =
-                            let
-                                newAssignableChanger : Reg Task.Assignable.AssignableSkel -> List Change
-                                newAssignableChanger newAssignable =
-                                    RepDb.addNew
-                                        (\c2 -> Task.AssignmentSkel.newWithChanges assignmentChanges (Change.reuseContext marvinItem.id c2))
-                                        (Reg.latest newAssignable).manualAssignments
-                                        :: assignableChanges (Reg.latest newAssignable)
-                            in
-                            Task.AssignableSkel.new (Change.reuseContext marvinItem.id c) marvinItem.title newAssignableChanger
+                        projectChanger : Changer Project
+                        projectChanger newProject =
+                            -- TODO need Change.reuseContext ?
+                            [ Task.Assignable.createWithinProject [ newAssignableChanger ] newProject ]
+
+                        newAssignableChanger : Changer Task.Assignable.Assignable
+                        newAssignableChanger newAssignable =
+                            -- TODO need Change.reuseContext marvinItem.id c
+                            Task.Assignment.create assignmentChanger newAssignable
+                                :: assignableChanges newAssignable
                     in
-                    [ RepDb.addNew newEntry profile.projects
+                    [ RepDb.addNew createProjectWithAssignable profile.projects
                     ]
     in
     finalInstanceChanges ++ finalEntryAndClassChanges
 
 
-fromDocket : Task.Meta.Assignment -> Maybe MarvinItem
+fromDocket : Task.Assignment.Assignment -> Maybe MarvinItem
 fromDocket instance =
     let
         idMaybe =
-            Task.Project.assignmentGetExtra "marvinID" instance
+            Task.Assignment.getExtra "marvinID" instance
 
         revMaybe =
-            Task.Project.assignmentGetExtra "marvinCouchdbRev" instance
+            Task.Assignment.getExtra "marvinCouchdbRev" instance
 
         toDate =
             Maybe.andThen (SmartTime.Human.Calendar.fromNumberString >> Result.toMaybe)
@@ -618,44 +624,44 @@ fromDocket instance =
             Just
                 { id = id
                 , rev = rev
-                , done = Task.Project.assignmentCompleted instance
-                , day = toDate <| Task.Project.assignmentGetExtra "marvinDay" instance
-                , title = Task.Project.assignmentTitle instance
-                , parentId = Task.Project.assignmentGetExtra "marvinParentID" instance
-                , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Task.Project.assignmentGetExtra "marvinLabels" instance
-                , firstScheduled = toDate <| Task.Project.assignmentGetExtra "marvinFirstScheduled" instance
-                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Project.assignmentGetExtra "marvinRank" instance
-                , dailySection = Task.Project.assignmentGetExtra "marvinDailySection" instance
-                , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (Task.Project.assignmentGetExtra "marvinEssentialOrBonus" instance)
-                , customSection = Task.Project.assignmentGetExtra "marvinCustomSection" instance
-                , timeBlockSection = Task.Project.assignmentGetExtra "marvinTimeBlockSection" instance
-                , note = Task.Project.assignmentGetExtra "marvinNote" instance
-                , dueDate = toDate <| Task.Project.assignmentGetExtra "marvinDueDate" instance
-                , timeEstimate = Just <| Task.Project.assignmentEstimatedEffort instance
-                , isReward = Maybe.withDefault False <| Maybe.map toBool <| Task.Project.assignmentGetExtra "marvinIsReward" instance
-                , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Project.assignmentGetExtra "marvinIsStarred" instance
-                , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Project.assignmentGetExtra "marvinIsFrogged" instance
-                , plannedWeek = toDate <| Task.Project.assignmentGetExtra "marvinPlannedWeek" instance
+                , done = Task.Assignment.isCompleted instance
+                , day = toDate <| Task.Assignment.getExtra "marvinDay" instance
+                , title = Task.Assignment.title instance
+                , parentId = Task.Assignment.getExtra "marvinParentID" instance
+                , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Task.Assignment.getExtra "marvinLabels" instance
+                , firstScheduled = toDate <| Task.Assignment.getExtra "marvinFirstScheduled" instance
+                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinRank" instance
+                , dailySection = Task.Assignment.getExtra "marvinDailySection" instance
+                , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (Task.Assignment.getExtra "marvinEssentialOrBonus" instance)
+                , customSection = Task.Assignment.getExtra "marvinCustomSection" instance
+                , timeBlockSection = Task.Assignment.getExtra "marvinTimeBlockSection" instance
+                , note = Task.Assignment.getExtra "marvinNote" instance
+                , dueDate = toDate <| Task.Assignment.getExtra "marvinDueDate" instance
+                , timeEstimate = Just <| Task.Assignment.estimatedEffort instance
+                , isReward = Maybe.withDefault False <| Maybe.map toBool <| Task.Assignment.getExtra "marvinIsReward" instance
+                , isStarred = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinIsStarred" instance
+                , isFrogged = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinIsFrogged" instance
+                , plannedWeek = toDate <| Task.Assignment.getExtra "marvinPlannedWeek" instance
                 , plannedMonth = Nothing -- TODO Maybe (Year, Month)
                 , rewardPoints = 0 -- TODO Float
-                , rewardId = Task.Project.assignmentGetExtra "marvinRewardID" instance
-                , backburner = Maybe.withDefault False <| Maybe.map toBool <| Task.Project.assignmentGetExtra "marvinBackburner" instance
-                , reviewDate = toDate <| Task.Project.assignmentGetExtra "marvinReviewDate" instance
-                , itemSnoozeTime = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinItemSnoozeTime" instance
-                , permaSnoozeTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinPermaSnoozeTime" instance
-                , timeZoneOffset = Maybe.andThen String.toInt <| Task.Project.assignmentGetExtra "marvinTimeZoneOffset" instance
-                , startDate = toDate <| Task.Project.assignmentGetExtra "marvinStartDate" instance
-                , endDate = toDate <| Task.Project.assignmentGetExtra "marvinEndDate" instance
-                , db = Maybe.withDefault "tasks" <| Task.Project.assignmentGetExtra "marvinDb" instance
-                , times = parseTimesList <| Maybe.withDefault "[]" <| Task.Project.assignmentGetExtra "marvinTimes" instance
-                , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinTaskTime" instance
-                , pinId = Task.Project.assignmentGetExtra "marvinPinID" instance
-                , recurringTaskId = Task.Project.assignmentGetExtra "recurringTaskID" instance
-                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toFloat <| Task.Project.assignmentGetExtra "marvinMasterRank" instance
-                , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinCreatedAt" instance
-                , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinDoneAt" instance
-                , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Project.assignmentGetExtra "marvinUpdatedAt" instance
-                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeUnixTimestamp)) <| Task.Project.assignmentGetExtra "marvinFieldUpdates" instance
+                , rewardId = Task.Assignment.getExtra "marvinRewardID" instance
+                , backburner = Maybe.withDefault False <| Maybe.map toBool <| Task.Assignment.getExtra "marvinBackburner" instance
+                , reviewDate = toDate <| Task.Assignment.getExtra "marvinReviewDate" instance
+                , itemSnoozeTime = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Assignment.getExtra "marvinItemSnoozeTime" instance
+                , permaSnoozeTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.Assignment.getExtra "marvinPermaSnoozeTime" instance
+                , timeZoneOffset = Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinTimeZoneOffset" instance
+                , startDate = toDate <| Task.Assignment.getExtra "marvinStartDate" instance
+                , endDate = toDate <| Task.Assignment.getExtra "marvinEndDate" instance
+                , db = Maybe.withDefault "tasks" <| Task.Assignment.getExtra "marvinDb" instance
+                , times = parseTimesList <| Maybe.withDefault "[]" <| Task.Assignment.getExtra "marvinTimes" instance
+                , taskTime = Maybe.andThen (SmartTime.Human.Clock.fromStandardString >> Result.toMaybe) <| Task.Assignment.getExtra "marvinTaskTime" instance
+                , pinId = Task.Assignment.getExtra "marvinPinID" instance
+                , recurringTaskId = Task.Assignment.getExtra "recurringTaskID" instance
+                , masterRank = Maybe.withDefault 0 <| Maybe.andThen String.toFloat <| Task.Assignment.getExtra "marvinMasterRank" instance
+                , createdAt = Maybe.withDefault Moment.zero <| Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Assignment.getExtra "marvinCreatedAt" instance
+                , doneAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Assignment.getExtra "marvinDoneAt" instance
+                , updatedAt = Maybe.andThen (SmartTime.Human.Moment.fromStandardStringLoose >> Result.toMaybe) <| Task.Assignment.getExtra "marvinUpdatedAt" instance
+                , fieldUpdates = Maybe.withDefault Dict.empty <| Maybe.andThen (useDecoder (Decode.dict decodeUnixTimestamp)) <| Task.Assignment.getExtra "marvinFieldUpdates" instance
                 }
 
         _ ->

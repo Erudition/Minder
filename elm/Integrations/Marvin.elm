@@ -21,15 +21,13 @@ import Profile exposing (Profile)
 import Refocus
 import Replicated.Change as Change exposing (Change)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Set
 import SmartTime.Duration as Duration
 import SmartTime.Human.Duration as HumanDuration
 import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
-import Task.AssignableSkel
-import Task.AssignmentSkel
-import Task.ProjectSkel
+import Task.Assignable as Assignable exposing (Assignable)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentID)
 import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url.Builder
 
@@ -458,13 +456,13 @@ handle classCounter profile ( time, timeZone ) response =
                 Err (Http.BadBody _) ->
                     let
                         activeInstanceIDMaybe =
-                            Timeline.currentInstanceID profile.timeline
+                            Timeline.currentAssignmentID (RepList.listValues profile.timeline)
 
                         activeInstanceMaybe =
-                            Maybe.andThen (Profile.getAssignmentByID profile ( time, timeZone )) activeInstanceIDMaybe
+                            Maybe.andThen (Profile.getAssignmentByID profile) activeInstanceIDMaybe
 
                         activeMarvinIDMaybe =
-                            Maybe.andThen (Task.AssignmentSkel.getExtra "marvinID") activeInstanceMaybe
+                            Maybe.andThen (Assignment.getExtra "marvinID") activeInstanceMaybe
                     in
                     -- also Ok, Marvin returns empty string
                     ( Change.none
@@ -634,7 +632,7 @@ getTasks secret =
 
 {-| Update a marvin doc
 -}
-updateDocOfItem : Moment -> List String -> Task.Assignment.Assignment -> Cmd Msg
+updateDocOfItem : Moment -> List String -> Assignment -> Cmd Msg
 updateDocOfItem timestamp updatedFields taskInstance =
     let
         asMarvinItem =
@@ -775,11 +773,11 @@ timeTrack secret taskID starting =
         }
 
 
-marvinUpdateCurrentlyTracking : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe Task.Assignment.AssignmentID -> Bool -> ( List Change, Cmd Msg )
+marvinUpdateCurrentlyTracking : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Bool -> ( List Change, Cmd Msg )
 marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe starting =
-    case Maybe.andThen (Profile.getAssignmentByID profile ( time, timeZone )) instanceIDMaybe of
+    case Maybe.andThen (Profile.getAssignmentByID profile) instanceIDMaybe of
         Just instanceNowTracking ->
-            case Task.AssignmentSkel.getExtra "marvinID" instanceNowTracking of
+            case Assignment.getExtra "marvinID" instanceNowTracking of
                 Nothing ->
                     ( [], Cmd.none )
 
@@ -789,9 +787,9 @@ marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe startin
                             timeTrack partialAccessToken marvinIDAssociatedWithInstance starting
 
                         updateInstance =
-                            Task.AssignmentSkel.setExtra
+                            Assignment.setExtra
                                 "marvinTimes"
-                                (timesUpdater profile (Task.AssignmentSkel.getID instanceNowTracking))
+                                (timesUpdater profile (Assignment.id instanceNowTracking))
                                 instanceNowTracking
 
                         updateTimesCmd =
@@ -804,11 +802,11 @@ marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe startin
             ( [], Log.logSeparate "No Instance found for ID" instanceIDMaybe Cmd.none )
 
 
-timesUpdater : Profile -> Task.Assignment.AssignmentID -> String
+timesUpdater : Profile -> AssignmentID -> String
 timesUpdater profile instanceID =
     let
         timesList =
-            Timeline.assignmentStartStopList profile.timeline instanceID
+            Timeline.assignmentStartStopList (RepList.listValues profile.timeline) instanceID
     in
     Encode.encode 0 (Encode.list encodeUnixTimestamp timesList)
 
@@ -848,14 +846,14 @@ decodeTrackTruthItem =
         )
 
 
-trackTruthToTimelineSessions : Profile -> ( Moment, HumanMoment.Zone ) -> TrackTruthItem -> List ( Activity.ActivityID, Maybe Task.Assignment.AssignmentID, Period )
+trackTruthToTimelineSessions : Profile -> ( Moment, HumanMoment.Zone ) -> TrackTruthItem -> List ( Activity.ActivityID, Maybe AssignmentID, Period )
 trackTruthToTimelineSessions profile ( time, timeZone ) truthItem =
     let
         isCorrectInstance instance =
-            Just truthItem.task == Task.AssignmentSkel.getExtra "marvinID" instance
+            Just truthItem.task == Assignment.getExtra "marvinID" instance
 
         matchingInstance =
-            List.find isCorrectInstance (Profile.assignments profile ( time, timeZone ))
+            List.find isCorrectInstance (Profile.assignments profile Assignment.AllSaved)
 
         indexedTimes =
             List.indexedMap Tuple.pair truthItem.times
@@ -887,14 +885,14 @@ trackTruthToTimelineSessions profile ( time, timeZone ) truthItem =
             Log.logMessageOnly "no matching instance when constructing timeline sessions from marvin data!" []
 
         Just instance ->
-            case Task.AssignmentSkel.getActivityID instance of
+            case Assignment.activityID instance of
                 Nothing ->
                     []
 
                 Just activity ->
                     let
                         toSession moment1 moment2 =
-                            ( activity, Just <| Task.AssignmentSkel.getID instance, Period.fromPair ( moment1, moment2 ) )
+                            ( activity, Just <| Assignment.id instance, Period.fromPair ( moment1, moment2 ) )
                     in
                     List.map2 toSession startsList stopsList
 

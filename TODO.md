@@ -7,6 +7,7 @@
 - Why do certain .set changes get ignored in tests?
 - Why is parent init change not required?
 - Put showstopper RON debugger in place
+- Rename RepStore to RepDictSparse
 
 
 # Task list
@@ -17,4 +18,4 @@
 - Responsive screen sizing
 
 # Task data structures
-- move Assignment et. al. back into their own modules?
+- [X] move Assignment et. al. back into their own modules
