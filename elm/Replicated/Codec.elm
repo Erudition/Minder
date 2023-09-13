@@ -332,7 +332,6 @@ type Error e
     | DataCorrupted
     | SerializerOutOfDate
     | ObjectNotFound OpID
-    | FailedToDecodeRoot String
     | JDError JD.Error
 
 
@@ -361,7 +360,7 @@ decodeFromNode rootCodec node =
             Log.logMessageOnly "Decoding Node again." value
 
         Err jdError ->
-            Err (FailedToDecodeRoot <| JD.errorToString jdError)
+            Err (JDError jdError)
 
 
 {-| Pass in the codec for the root object.
@@ -383,7 +382,7 @@ forceDecodeFromNode rootCodec node =
             ( success, Nothing )
 
         Err jdError ->
-            ( fromScratch, Just (FailedToDecodeRoot <| Debug.log "forceDecodeFromNode: forcing success, but there was an error... " <| JD.errorToString jdError) )
+            ( fromScratch, Just (JDError <| Debug.log "forceDecodeFromNode: forcing success, but there was an error... " <| jdError) )
 
         Ok (Err err) ->
             ( fromScratch, Debug.todo "nested error - come up with nicer presentation" )
@@ -3845,9 +3844,6 @@ mapErrorHelper mapFunc =
 
                 ObjectNotFound opID ->
                     ObjectNotFound opID
-
-                FailedToDecodeRoot reason ->
-                    FailedToDecodeRoot reason
 
                 JDError jsonDecodeError ->
                     JDError jsonDecodeError

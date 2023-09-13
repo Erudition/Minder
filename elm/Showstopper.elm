@@ -89,9 +89,6 @@ codecErrorToString codecError =
         Codec.ObjectNotFound opID ->
             "Object Not Found: " ++ OpID.toString opID
 
-        Codec.FailedToDecodeRoot root ->
-            "Failed to decode root. Problem is probably nested deeper:        " ++ root
-
         Codec.JDError jdError ->
             JD.errorToString jdError
 
