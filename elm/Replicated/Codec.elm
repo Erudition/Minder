@@ -329,10 +329,69 @@ singlePrimitiveOut singlePrimitiveAtom =
 -}
 type Error e
     = CustomError e
-    | DataCorrupted
+    | BinaryDataCorrupted
+    | BadVersionNumber Int
     | SerializerOutOfDate
     | ObjectNotFound OpID
     | JDError JD.Error
+    | FailedToDecodeRegField FieldSlot FieldName String JD.Error
+    | MissingRequiredField FieldSlot FieldName
+    | NoMatchingVariant String
+    | BadBoolean String
+    | BadChar String
+    | EmptyList
+    | BadByteString String
+    | BadIndex Int
+    | WrongCutoff -- TODO what exactly goes wrong with wrong cutoff errors, may not be named correctly
+
+
+errorToString : Error e -> String
+errorToString codecError =
+    case codecError of
+        CustomError customErrorString ->
+            "customErrorString NYI"
+
+        BinaryDataCorrupted ->
+            "Binary Data Corrupted"
+
+        BadVersionNumber num ->
+            "Bad Version Number: " ++ String.fromInt num
+
+        SerializerOutOfDate ->
+            "Serializer Out Of Date"
+
+        ObjectNotFound opID ->
+            "Object Not Found: " ++ OpID.toString opID
+
+        JDError jdError ->
+            JD.errorToString jdError
+
+        FailedToDecodeRegField fieldSlot fieldName valueString jdError ->
+            "Failed to decode reg field " ++ String.fromInt fieldSlot ++ "(" ++ fieldName ++ ") value: " ++ valueString ++ " because \n" ++ JD.errorToString jdError
+
+        NoMatchingVariant tag ->
+            "No Matching Variant found for tag " ++ tag
+
+        MissingRequiredField fieldSlot fieldName ->
+            "Could not find field " ++ String.fromInt fieldSlot ++ " " ++ fieldName ++ " but it is required"
+
+        BadBoolean givenData ->
+            "I was trying to parse a boolean but what I found was " ++ givenData
+
+        BadChar givenData ->
+            "I was trying to parse a char but what I found was " ++ givenData
+
+        BadIndex givenData ->
+            "I was trying to parse an index within bounds but what I found was " ++ String.fromInt givenData
+
+        BadByteString givenData ->
+            "I was trying to parse a string of bytes but what I found was " ++ givenData
+
+        EmptyList ->
+            "I was trying to parse a nonempty list, but the list I found was empty."
+
+        WrongCutoff ->
+            "Naked register cutoff function failed."
 
 
 version : Int
@@ -469,7 +528,7 @@ decodeFromBytes codec bytes_ =
                 |> BD.andThen
                     (\value ->
                         if value <= 0 then
-                            Err DataCorrupted |> BD.succeed
+                            Err (BadVersionNumber value) |> BD.succeed
 
                         else if value == version then
                             getBytesDecoder codec
@@ -483,7 +542,7 @@ decodeFromBytes codec bytes_ =
             value
 
         Nothing ->
-            Err DataCorrupted
+            Err BinaryDataCorrupted
 
 
 {-| Run a `Codec` to turn a String encoded with `encodeToString` into an Elm value.
@@ -495,7 +554,7 @@ decodeFromURLSafeByteString codec base64 =
             decodeFromBytes codec bytes_
 
         Nothing ->
-            Err DataCorrupted
+            Err BinaryDataCorrupted
 
 
 {-| Run a `Codec` to turn a json value encoded with `encodeToJson` into an Elm value.
@@ -508,7 +567,7 @@ decodeFromJson codec json =
                 |> JD.andThen
                     (\value ->
                         if value <= 0 then
-                            Err DataCorrupted |> JD.succeed
+                            Err (BadVersionNumber value) |> JD.succeed
 
                         else if value == version then
                             JD.index 1 (getJsonDecoder codec)
@@ -521,8 +580,8 @@ decodeFromJson codec json =
         Ok value ->
             value
 
-        Err _ ->
-            Err DataCorrupted
+        Err jdError ->
+            Err (JDError jdError)
 
 
 decodeStringToBytes : String -> Maybe Bytes.Bytes
@@ -946,8 +1005,8 @@ bool =
                 "False" ->
                     JD.succeed (Ok False)
 
-                _ ->
-                    JD.succeed (Err DataCorrupted)
+                other ->
+                    JD.succeed (Err (BadBoolean other))
     in
     buildNestableCodec
         (\value ->
@@ -967,8 +1026,8 @@ bool =
                         1 ->
                             Ok True
 
-                        _ ->
-                            Err DataCorrupted
+                        other ->
+                            Err (BadBoolean (String.fromInt value))
                 )
         )
         JE.bool
@@ -1029,7 +1088,7 @@ char =
                             Ok char_
 
                         Nothing ->
-                            Err DataCorrupted
+                            Err (BadChar text)
                 )
         )
         (String.fromChar >> JE.string)
@@ -1041,7 +1100,7 @@ char =
                             Ok char_
 
                         Nothing ->
-                            Err DataCorrupted
+                            Err (BadChar text)
                 )
         )
         (\{ thingToEncode } -> singlePrimitiveOut <| Change.StringAtom <| String.fromChar <| getEncodedPrimitive thingToEncode)
@@ -1054,7 +1113,7 @@ char =
                                 Ok char_
 
                             Nothing ->
-                                Err DataCorrupted
+                                Err (BadChar text)
                     )
         )
 
@@ -1296,7 +1355,7 @@ nonempty wrappedCodec =
     let
         nonemptyFromList : Result (Error e) (List userType) -> Result (Error e) (Nonempty userType)
         nonemptyFromList givenListResult =
-            Result.andThen (\givenList -> Result.fromMaybe DataCorrupted <| Nonempty.fromList givenList) givenListResult
+            Result.andThen (\givenList -> Result.fromMaybe EmptyList <| Nonempty.fromList givenList) givenListResult
 
         listCodec =
             list wrappedCodec
@@ -1909,7 +1968,7 @@ bytes =
                             Ok bytes_
 
                         Nothing ->
-                            Err DataCorrupted
+                            Err (BadByteString text)
                 )
         )
         (\inputs -> singlePrimitiveOut <| Change.StringAtom <| replaceBase64Chars <| getEncodedPrimitive inputs.thingToEncode)
@@ -1922,7 +1981,7 @@ bytes =
                                 Ok bytes_
 
                             Nothing ->
-                                Err DataCorrupted
+                                Err (BadByteString text)
                     )
         )
 
@@ -1998,10 +2057,10 @@ quickEnum defaultItem items =
 
         getItem index =
             if index < 0 then
-                Err DataCorrupted
+                Err (BadIndex index)
 
             else if index > List.length items then
-                Err DataCorrupted
+                Err (BadIndex index)
 
             else
                 getAt (index - 1) items |> Maybe.withDefault defaultItem |> Ok
@@ -2172,7 +2231,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                             Just <| remainingRecordConstructor thisFieldValue
 
                         ( Nothing, _ ) ->
-                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: '" ++ fieldName ++ "' field decoded to nothing.. error was " ++ Debug.toString thisFieldErrors ++ " for the object at " ++ Debug.toString inputs.regPointer) Nothing
+                            Log.crashInDev ("Codec.readableHelper.nodeDecoder: '" ++ fieldName ++ "' field decoded to nothing.. error was " ++ (String.join " ... and also ..." <| List.map errorToString thisFieldErrors) ++ " for the object at " ++ Debug.toString inputs.regPointer) Nothing
 
                         ( _, Nothing ) ->
                             Log.crashInDev ("Codec.readableHelper.nodeDecoder: " ++ fieldName ++ " field was missing prior constructor, error was " ++ Debug.toString thisFieldErrors) Nothing
@@ -2629,7 +2688,8 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
                 Nothing ->
                     Log.crashInDev ("registerReadOnlyFieldDecoder: Failed to decode a field (" ++ fieldName ++ ") that should always decode (required missing, or nested should return defaults), there's no default to fall back to")
-                        ( default, [ DataCorrupted ] )
+                        -- TODO custom error type for missing field
+                        ( default, [ MissingRequiredField fieldSlot fieldName ] )
 
         Just foundField ->
             -- field was set before
@@ -2641,7 +2701,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                     ( default, [ problem ] )
 
                 Err jsonDecodeError ->
-                    ( default, [ JDError jsonDecodeError ] )
+                    ( default, [ FailedToDecodeRegField fieldSlot fieldName (Op.payloadToJsonValue foundField |> JE.encode 0) jsonDecodeError ] )
 
 
 registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> Codec e fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List (Error e) )
@@ -2885,7 +2945,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                             JD.succeed <| Ok <| regToRecord regCanBeBuilt Nothing
 
                         Nothing ->
-                            JD.succeed <| Err DataCorrupted
+                            JD.succeed <| Err WrongCutoff
             in
             JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
 
@@ -3083,7 +3143,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord regCanBeBuilt Nothing, older = Just >> regToRecord regCanBeBuilt, history = history, init = nonChanger }
 
                         Nothing ->
-                            JD.succeed <| Err DataCorrupted
+                            JD.succeed <| Err WrongCutoff
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
@@ -3836,9 +3896,6 @@ mapErrorHelper mapFunc =
                 CustomError custom ->
                     mapFunc custom |> CustomError
 
-                DataCorrupted ->
-                    DataCorrupted
-
                 SerializerOutOfDate ->
                     SerializerOutOfDate
 
@@ -3847,6 +3904,39 @@ mapErrorHelper mapFunc =
 
                 JDError jsonDecodeError ->
                     JDError jsonDecodeError
+
+                FailedToDecodeRegField fieldSlot fieldName value jdError ->
+                    FailedToDecodeRegField fieldSlot fieldName value jdError
+
+                NoMatchingVariant tag ->
+                    NoMatchingVariant tag
+
+                BinaryDataCorrupted ->
+                    BinaryDataCorrupted
+
+                BadVersionNumber num ->
+                    BadVersionNumber num
+
+                MissingRequiredField fieldSlot fieldName ->
+                    MissingRequiredField fieldSlot fieldName
+
+                BadBoolean givenData ->
+                    BadBoolean givenData
+
+                BadChar givenData ->
+                    BadChar givenData
+
+                EmptyList ->
+                    EmptyList
+
+                BadByteString badData ->
+                    BadByteString badData
+
+                BadIndex badData ->
+                    BadIndex badData
+
+                WrongCutoff ->
+                    WrongCutoff
         )
 
 
@@ -4907,13 +4997,20 @@ finishCustomType (CustomTypeCodec priorVariants) =
                     String.split "_" tag
                         |> List.Extra.last
                         |> Maybe.andThen String.toInt
-                        |> Maybe.withDefault -1
+                        |> Maybe.Extra.withDefaultLazy failedToGetTagNum
+
+                failedToGetTagNum _ =
+                    Log.crashInDev "could not find tag num! defaulting to -1" -1
 
                 checkTag tag =
-                    priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err DataCorrupted)) inputs
+                    priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err (NoMatchingVariant tag))) inputs
             in
-            -- allow non-array input for variant0s
-            JD.oneOf [ JD.index 0 JD.string |> JD.andThen checkTag, JD.string |> JD.andThen checkTag ]
+            JD.oneOf
+                [ JD.index 0 JD.string |> JD.andThen checkTag
+
+                -- allow non-array input for variant0s:
+                -- , JD.string |> JD.andThen checkTag
+                ]
     in
     Codec
         { bytesEncoder = priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes)
@@ -4921,14 +5018,14 @@ finishCustomType (CustomTypeCodec priorVariants) =
             BD.unsignedInt16 endian
                 |> BD.andThen
                     (\tag ->
-                        priorVariants.bytesDecoder tag (BD.succeed (Err DataCorrupted))
+                        priorVariants.bytesDecoder tag (BD.succeed (Err (NoMatchingVariant (String.fromInt tag))))
                     )
         , jsonEncoder = priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json)
         , jsonDecoder =
             JD.index 0 JD.int
                 |> JD.andThen
                     (\tag ->
-                        priorVariants.jsonDecoder tag (JD.succeed (Err DataCorrupted))
+                        priorVariants.jsonDecoder tag (JD.succeed (Err (NoMatchingVariant (String.fromInt tag))))
                     )
         , nodeEncoder = nodeEncoder
         , nodeDecoder = nodeDecoder

@@ -9,6 +9,7 @@ import Html.Styled as H exposing (Html, div, text)
 import Html.Styled.Attributes as HA exposing (class)
 import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
+import Json.Encode as JE
 import NativeScript.Commands exposing (..)
 import Parser.Advanced as Parser
 import Profile exposing (..)
@@ -76,21 +77,7 @@ viewCodecError savedRon codecError =
 
 
 codecErrorToString codecError =
-    case codecError of
-        Codec.CustomError string ->
-            string
-
-        Codec.DataCorrupted ->
-            "Data Corrupted"
-
-        Codec.SerializerOutOfDate ->
-            "Serializer Out Of Date"
-
-        Codec.ObjectNotFound opID ->
-            "Object Not Found: " ++ OpID.toString opID
-
-        Codec.JDError jdError ->
-            JD.errorToString jdError
+    Codec.errorToString codecError
 
 
 viewSavedRon : String -> List OpParserDeadEnd -> Html msg

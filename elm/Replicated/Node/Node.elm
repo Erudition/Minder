@@ -709,7 +709,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
 
                 Change.NestedAtoms nestedChangeAtoms ->
                     let
-                        outputAtoms =
+                        nestedOutputAtoms =
                             Nonempty.foldl perPiece
                                 { counter = accumulated.counter
                                 , piecesSoFar = []
@@ -719,14 +719,14 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                 nestedChangeAtoms
 
                         finalNestedPayloadAsString =
-                            outputAtoms.piecesSoFar
+                            nestedOutputAtoms.piecesSoFar
                     in
-                    { counter = outputAtoms.counter
-                    , prerequisiteChunks = accumulated.prerequisiteChunks ++ outputAtoms.prerequisiteChunks
+                    { counter = nestedOutputAtoms.counter
+                    , prerequisiteChunks = accumulated.prerequisiteChunks ++ nestedOutputAtoms.prerequisiteChunks
 
                     -- TODO below may get multi-atom values confused with multiple values
                     , piecesSoFar = accumulated.piecesSoFar ++ finalNestedPayloadAsString
-                    , mapping = outputAtoms.mapping
+                    , mapping = nestedOutputAtoms.mapping
                     }
 
         outputHelper pieceList reference =
