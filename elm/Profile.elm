@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, assignments, codec, currentActivityID, currentAssignmentID, currentSession, currentlyTracking, getActivityByID, getAssignmentByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
+module Profile exposing (AppInstance, Profile, TodoistIntegrationData, codec, currentActivityID, currentAssignmentID, currentSession, currentlyTracking, getActivityByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession exposing (HistorySession, Timeline)

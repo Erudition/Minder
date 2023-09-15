@@ -1,7 +1,7 @@
 port module Main exposing (FrameworkModel, MainModel, Msg(..), StoredRON, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
-import Activity.HistorySession as Timeline exposing (HistorySession(..))
+import Activity.HistorySession as HistorySession exposing (HistorySession)
 import Browser
 import Browser.Dom exposing (Viewport, getViewport, setViewport)
 import Browser.Events
@@ -67,11 +67,12 @@ import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar
 import SmartTime.Human.Clock
 import SmartTime.Human.Duration exposing (HumanDuration(..))
-import SmartTime.Human.Moment
-import SmartTime.Moment as Moment
+import SmartTime.Human.Moment as HumanMoment exposing (Zone)
+import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.AssignmentSkel as Assignment exposing (Assignment)
+import Task.Assignment as Assignment exposing (Assignment)
+import Task.Layers
 import TaskList
 import TaskPort
 import TimeTracker
@@ -210,7 +211,7 @@ init url maybeKey flags replica =
             ResizeViewport (truncate newViewport.viewport.width) (truncate newViewport.viewport.height)
 
         getTimeZone =
-            Job.perform NewTimeZone SmartTime.Human.Moment.localZone
+            Job.perform NewTimeZone HumanMoment.localZone
     in
     ( []
     , initialMainModel
@@ -420,7 +421,7 @@ globalLayout model replica innerStuff =
         formattedTime =
             let
                 ( calendarDate, timeOfDay ) =
-                    SmartTime.Human.Moment.humanize env.timeZone env.time
+                    HumanMoment.humanize env.timeZone env.time
             in
             String.concat
                 [ SmartTime.Human.Calendar.toStandardString calendarDate
@@ -536,22 +537,34 @@ globalLayout model replica innerStuff =
         ]
 
 
+trackingDisplay : Profile -> Moment -> Moment -> Zone -> H.Html msg
 trackingDisplay replica time launchTime timeZone =
     let
+        timeline =
+            RepList.listValues replica.timeline
+
+        currentSessionMaybe =
+            HistorySession.current timeline
+
+        currentActivityID =
+            HistorySession.currentActivityID timeline
+
         currentActivity =
-            Timeline.currentActivity replica.activities replica.timeline
+            Activity.getByID currentActivityID replica.activities
 
-        currentInstanceIDMaybe =
-            Timeline.currentInstanceID replica.timeline
+        currentAssignmentIDMaybe =
+            HistorySession.currentAssignmentID timeline
 
-        allInstances =
-            Profile.assignments replica ( launchTime, timeZone )
+        projectLayers =
+            -- TODO use from above
+            Task.Layers.buildLayerDatabase replica.projects
 
-        currentInstanceMaybe currentInstanceID =
-            List.head (List.filter (\t -> Assignment.getID t == currentInstanceID) allInstances)
+        currentAssignmentMaybe =
+            Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) currentAssignmentIDMaybe
 
         timeSinceSession =
-            Period.length (Timeline.currentAsPeriod time replica.timeline)
+            Maybe.map (\s -> Period.length (HistorySession.getPeriodWithDefaultEnd time s)) currentSessionMaybe
+                |> Maybe.withDefault Duration.zero
 
         tracking_for_string thing givenTime =
             "Tracking "
@@ -560,9 +573,9 @@ trackingDisplay replica time launchTime timeZone =
                 ++ SmartTime.Human.Duration.singleLetterSpaced [ SmartTime.Human.Duration.inLargestWholeUnits givenTime ]
 
         trackingTitle =
-            case Maybe.andThen currentInstanceMaybe currentInstanceIDMaybe of
+            case currentAssignmentMaybe of
                 Just trackedAssignment ->
-                    Assignment.getTitle trackedAssignment
+                    Assignment.title trackedAssignment
 
                 Nothing ->
                     Activity.getName currentActivity
@@ -598,7 +611,7 @@ trackingTaskCompletionSlider instance =
         , Element.behindContent
             (row [ width fill, height fill ]
                 [ Element.el
-                    [ Element.width (fillPortion (Assignment.getCompletionInt instance))
+                    [ Element.width (fillPortion (Assignment.completion instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 1 0 0.5)
@@ -606,7 +619,7 @@ trackingTaskCompletionSlider instance =
                     ]
                     Element.none
                 , Element.el
-                    [ Element.width (fillPortion (Assignment.getProgressMaxInt instance - Assignment.getCompletionInt instance))
+                    [ Element.width (fillPortion (Assignment.progressMaxInt instance - Assignment.completion instance))
                     , Element.height fill
                     , Element.centerY
                     , Background.color (Element.rgba 0 0 0 0)
@@ -620,9 +633,9 @@ trackingTaskCompletionSlider instance =
         , label =
             Input.labelHidden "Task Progress"
         , min = 0
-        , max = toFloat <| Assignment.getProgressMaxInt instance
+        , max = toFloat <| Assignment.progressMaxInt instance
         , step = Just 1
-        , value = toFloat (Assignment.getCompletionInt instance)
+        , value = toFloat (Assignment.completion instance)
         , thumb =
             Input.thumb []
         }
@@ -744,7 +757,7 @@ type Msg
     | MouseMoved Bool Float
     | ResizeViewport Int Int
     | VisibilityChanged Browser.Events.Visibility
-    | NewTimeZone SmartTime.Human.Moment.Zone
+    | NewTimeZone Zone
     | ToggleDarkTheme Bool
     | NotificationScheduled (TaskPort.Result String)
     | ClearPreferences
@@ -915,7 +928,7 @@ update msg ({ replica } as frameworkModel) =
         ThirdPartyServerResponded (MarvinServer response) ->
             let
                 ( marvinChanges, whatHappened, nextStep ) =
-                    Marvin.handle (RepDb.size replica.assignments + 1000) replica ( shared.time, shared.timeZone ) response
+                    Marvin.handle replica ( shared.time, shared.timeZone ) response
 
                 _ =
                     Profile.saveError replica ("Synced with Marvin: \n" ++ whatHappened)

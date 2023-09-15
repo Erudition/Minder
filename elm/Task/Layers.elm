@@ -174,3 +174,8 @@ getAssignmentByID : ProjectLayers -> AssignmentID -> Maybe Assignment
 getAssignmentByID layers assignmentID =
     AnyDict.get (Assignment.extractAssignableIDfromAssignmentID assignmentID) layers.assignables
         |> Maybe.andThen (Assignment.getByIDFromAssignable assignmentID)
+
+
+getAllSavedAssignments : ProjectLayers -> List Assignment
+getAllSavedAssignments layers =
+    List.concatMap (Assignment.fromAssignable Assignment.AllSaved) (AnyDict.values layers.assignables)

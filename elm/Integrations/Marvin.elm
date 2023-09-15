@@ -28,6 +28,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task.Assignable as Assignable exposing (Assignable)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID)
+import Task.Layers exposing (ProjectLayers)
 import TimeBlock.TimeBlock exposing (TimeBlock)
 import Url.Builder
 
@@ -281,8 +282,12 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Int -> Profile -> ( Moment, HumanMoment.Zone ) -> Msg -> ( Change.Frame, String, Cmd Msg )
-handle classCounter profile ( time, timeZone ) response =
+handle : Profile -> ( Moment, HumanMoment.Zone ) -> Msg -> ( Change.Frame, String, Cmd Msg )
+handle profile ( time, timeZone ) response =
+    let
+        projectLayers =
+            Task.Layers.buildLayerDatabase profile.projects
+    in
     case response of
         TestResult result ->
             case result of
@@ -381,16 +386,14 @@ handle classCounter profile ( time, timeZone ) response =
                 Ok timesList ->
                     let
                         updatedTimeline =
-                            Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile ( time, timeZone )) timesList)
+                            Timeline.backfill profile.timeline (List.concatMap (trackTruthToTimelineSessions profile projectLayers ( time, timeZone )) timesList)
 
                         updatedProfile =
                             -- TODO how to get this to incorprate changes in profile
                             profile
 
                         ( refocusChanges, refocusCmds ) =
-                            Refocus.refreshTracking
-                                updatedProfile
-                                ( time, timeZone )
+                            Refocus.refreshTracking updatedProfile projectLayers ( time, timeZone )
                     in
                     ( Change.saveChanges "Backfilled timeline with Marvin data" refocusChanges
                     , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
@@ -420,7 +423,7 @@ handle classCounter profile ( time, timeZone ) response =
                         asSessions =
                             case itemIDMaybe of
                                 Just itemID ->
-                                    trackTruthToTimelineSessions profile ( time, timeZone ) (TrackTruthItem itemID timesList)
+                                    trackTruthToTimelineSessions profile projectLayers ( time, timeZone ) (TrackTruthItem itemID timesList)
 
                                 Nothing ->
                                     Log.crashInDev "wha??? no task?? " []
@@ -459,7 +462,7 @@ handle classCounter profile ( time, timeZone ) response =
                             Timeline.currentAssignmentID (RepList.listValues profile.timeline)
 
                         activeInstanceMaybe =
-                            Maybe.andThen (Profile.getAssignmentByID profile) activeInstanceIDMaybe
+                            Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) activeInstanceIDMaybe
 
                         activeMarvinIDMaybe =
                             Maybe.andThen (Assignment.getExtra "marvinID") activeInstanceMaybe
@@ -773,9 +776,9 @@ timeTrack secret taskID starting =
         }
 
 
-marvinUpdateCurrentlyTracking : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Bool -> ( List Change, Cmd Msg )
-marvinUpdateCurrentlyTracking profile ( time, timeZone ) instanceIDMaybe starting =
-    case Maybe.andThen (Profile.getAssignmentByID profile) instanceIDMaybe of
+marvinUpdateCurrentlyTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Bool -> ( List Change, Cmd Msg )
+marvinUpdateCurrentlyTracking profile projectLayers ( time, timeZone ) instanceIDMaybe starting =
+    case Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) instanceIDMaybe of
         Just instanceNowTracking ->
             case Assignment.getExtra "marvinID" instanceNowTracking of
                 Nothing ->
@@ -846,14 +849,14 @@ decodeTrackTruthItem =
         )
 
 
-trackTruthToTimelineSessions : Profile -> ( Moment, HumanMoment.Zone ) -> TrackTruthItem -> List ( Activity.ActivityID, Maybe AssignmentID, Period )
-trackTruthToTimelineSessions profile ( time, timeZone ) truthItem =
+trackTruthToTimelineSessions : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> TrackTruthItem -> List ( Activity.ActivityID, Maybe AssignmentID, Period )
+trackTruthToTimelineSessions profile projectLayers ( time, timeZone ) truthItem =
     let
         isCorrectInstance instance =
             Just truthItem.task == Assignment.getExtra "marvinID" instance
 
         matchingInstance =
-            List.find isCorrectInstance (Profile.assignments profile Assignment.AllSaved)
+            List.find isCorrectInstance (Task.Layers.getAllSavedAssignments projectLayers)
 
         indexedTimes =
             List.indexedMap Tuple.pair truthItem.times

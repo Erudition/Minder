@@ -177,3 +177,7 @@ activityIDString (Assignable metaAssignable) =
 
 setActivityID newActivityID (Assignable metaAssignable) =
     (Reg.latest metaAssignable.reg).activity.set newActivityID
+
+
+children (Assignable metaAssignable) =
+    (Reg.latest metaAssignable.reg).children

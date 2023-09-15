@@ -442,7 +442,7 @@ toDocketTask profile marvinItem =
             Task.Assignment.AllSaved
 
         existingAssignments =
-            List.concatMap (Task.Assignment.fromAssignables query) existingAssignables
+            List.concatMap (Task.Assignment.fromAssignable query) existingAssignables
 
         existingAssignmentsWithMarvinLink : Dict String Task.Assignment.AssignmentID
         existingAssignmentsWithMarvinLink =

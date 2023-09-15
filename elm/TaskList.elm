@@ -1,4 +1,4 @@
-module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, viewKeyedTask, viewTask, visibilitySwap)
+module TaskList exposing (ExpandedTask, Filter(..), Msg(..), NewTaskField, ViewState(..), attemptDateChange, defaultView, dynamicSliderThumbCss, extractSliderInput, filterName, onEnter, progressSlider, routeView, timingInfo, update, urlTriggers, view, viewControlsClear, viewControlsCount, viewControlsFilters, viewInput, visibilitySwap)
 
 import Activity.Activity as Activity exposing (ActivityID)
 import Activity.HistorySession
@@ -211,21 +211,21 @@ viewKeyedProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
 
 
 viewProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Project -> Html Msg
-viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
+viewProject profile ( time, timeZone ) trackedTaskMaybe project =
     let
         entryContents =
-            case rootEntryItem.value of
-                ProjectSkel.AssignableIsDeeper containerOfAssignables ->
-                    Debug.todo "containerOfAssignables"
+            case Project.children project |> RepList.listValues of
+                [ ProjectSkel.AssignableIsHere assignableSkelReg ] ->
+                    viewAssignable profile ( time, timeZone ) trackedTaskMaybe (Assignable.fromSkel project assignableSkelReg)
 
-                ProjectSkel.AssignableIsHere assignable ->
-                    viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable
+                _ ->
+                    text "viewing multiple assignables in project NYI"
     in
     node "ion-item-sliding"
         []
         [ node "ion-item"
             [ classList []
-            , attribute "data-flip-key" ("project-" ++ RepList.handleString rootEntryItem)
+            , attribute "data-flip-key" ("project-" ++ Project.idString project)
             ]
             [ -- node "ion-thumbnail"
               -- [ class "project-image"
@@ -254,30 +254,16 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe rootEntryItem =
 
 
 viewAssignable : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Assignable -> Html Msg
-viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
+viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
     let
-        assignable =
-            Reg.latest assignableReg
-
-        properties =
-            Reg.latest assignable.layerProperties
-
-        viewAssignableWrapperTitle =
-            case properties.title.get of
-                Just title ->
-                    [ text title ]
-
-                Nothing ->
-                    []
-
         viewAssignableTitle =
-            viewAssignableWrapperTitle ++ [ text assignable.title.get ]
+            [ text <| Assignable.title assignable ]
 
         viewSubAssignables =
-            List.map viewSubAssignable (RepList.listValues assignable.children)
+            List.map viewSubAssignable (RepList.listValues (Assignable.children assignable))
 
-        viewSubAssignable subAssignable =
-            case subAssignable of
+        viewSubAssignable subAssignableNested =
+            case subAssignableNested of
                 SubAssignableSkel.ActionIsHere actionClassReg ->
                     text (Reg.latest actionClassReg).title.get
 
@@ -285,8 +271,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
                     text (Debug.toString containerOfActions)
 
         assignments =
-            RepDb.members profile.assignments
-                |> List.filter (\assignmentMember -> (Reg.latest assignmentMember.value).assignableID == ID.fromPointer (Reg.getPointer assignableReg))
+            Assignment.fromAssignable Assignment.AllSaved assignable
 
         viewAssignments =
             List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
@@ -302,7 +287,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
                 , node "ion-card-content"
                     []
                     []
-                , node "ion-button" [ attribute "fill" "clear", onClick (AddAssignment (ID.fromPointer <| Reg.getPointer assignableReg)) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
+                , node "ion-button" [ attribute "fill" "clear", onClick (AddAssignment assignable) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
                 ]
     in
     div
@@ -312,13 +297,11 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignableReg =
         ]
 
 
-viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
+viewAssignment : ( Moment, Zone ) -> Maybe AssignmentID -> Int -> Assignment -> Html Msg
+viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
     let
-        assignment =
-            Reg.latest assignmentRegItem.value
-
         assignmentCreated =
-            Reg.createdAt assignmentRegItem.value
+            Assignment.created assignment
 
         assignedTimeText =
             case assignmentCreated of
@@ -329,7 +312,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                     ", " ++ HumanMoment.describeGapVsNowSimple timeZone time assignedAt
 
         sheetButtonID =
-            "actionsheet-" ++ RepDb.idString assignmentRegItem
+            "actionsheet-trigger-for-assignment-" ++ Assignment.idString assignment
 
         presentActionSheet =
             ActionSheet.actionSheet
@@ -337,7 +320,8 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                 , ActionSheet.isOpen True
                 , ActionSheet.trigger sheetButtonID
                 ]
-                [ ActionSheet.deleteButton (DeleteAssignment assignmentRegItem)
+                [ ActionSheet.deleteButton (DeleteAssignment assignment)
+                , startTrackingButton assignment trackedTaskMaybe
                 , ActionSheet.button "Continue" (Toast "clicked Continue!")
                 ]
                 |> SH.fromUnstyled
@@ -347,12 +331,12 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
                 List.intersperse "\n" <|
                     List.filterMap identity
                         ([ Just ("Assignment #" ++ String.fromInt (index + 1))
-                         , Just ("ID: " ++ ID.toString assignmentRegItem.id)
-                         , Just ("completion: " ++ String.fromInt assignment.completion.get)
-                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") assignment.relevanceStarts.get
-                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") assignment.relevanceEnds.get
+                         , Just ("ID: " ++ Assignment.idString assignment)
+                         , Just ("completion: " ++ String.fromInt (Assignment.completion assignment))
+                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.relevanceStarts assignment)
+                         , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.relevanceEnds assignment)
                          ]
-                            ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list assignment.extra)
+                            ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Assignment.extras assignment))
                         )
     in
     node "ion-card"
@@ -361,15 +345,32 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
             []
             [ node "ion-note"
                 [ title assignmentTooltip ]
-                [ SH.fromUnstyled <| identicon "1em" (RepDb.idString assignmentRegItem)
+                [ SH.fromUnstyled <| identicon "1em" (Assignment.idString assignment)
                 , text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText
                 ]
             , node "ion-list" [] [ node "ion-item" [] [ text <| "action 1" ] ]
-            , node "ion-button" [ attribute "fill" "clear", attribute "color" "danger", onClick (DeleteAssignment assignmentRegItem) ] [ node "ion-icon" [ name "trash-outline" ] [] ]
+            , node "ion-button" [ attribute "fill" "clear", attribute "color" "danger", onClick (DeleteAssignment assignment) ] [ node "ion-icon" [ name "trash-outline" ] [] ]
             , node "ion-button" [ attribute "fill" "clear", attribute "color" "primary", SHA.id sheetButtonID ] [ node "ion-icon" [ name "menu-outline" ] [] ]
             ]
         , presentActionSheet
         ]
+
+
+startTrackingButton : Assignment -> Maybe AssignmentID -> ActionSheet.Button Msg
+startTrackingButton assignment trackedTaskMaybe =
+    case Assignment.activityID assignment of
+        Nothing ->
+            -- assignment has no activity
+            ActionSheet.button "Track" (Toast "No activity set!")
+
+        Just assignmentActivityID ->
+            -- assignment has an activity, it's trackable
+            if Maybe.map ((==) (Assignment.id assignment)) trackedTaskMaybe == Just True then
+                -- this is the assignment we're currently tracking
+                ActionSheet.buttonWithIcon "Pause tracking" "pause-outline" (StopTrackingAssignment assignment)
+
+            else
+                ActionSheet.buttonWithIcon "Start tracking" "play-outline" (StartTrackingAssignment assignment assignmentActivityID)
 
 
 
@@ -399,186 +400,151 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignmentRegItem =
 --     <|
 --         List.map (viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe) (List.filter isVisible sortedTasks)
 -- VIEW INDIVIDUAL ENTRIES
-
-
-viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> ( String, Html Msg )
-viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
-    ( Assignment.idString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
-
-
-
--- viewTask : Assignment -> Html Msg
-
-
-viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> Html Msg
-viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
-    node "ion-item-sliding"
-        []
-        [ node "ion-item"
-            [ classList [ ( "completed", Assignment.isCompleted task ), ( "editing", False ) ]
-            , attribute "data-flip-key" ("task-" ++ Assignment.assignableIDString task)
-            ]
-            [ div
-                [ class "task-bubble"
-                , attribute "slot" "start"
-                , title (taskTooltip ( time, timeZone ) task)
-                , onClick (OpenEditor <| Just task)
-                , css
-                    [ Css.height (rem 2)
-                    , Css.width (rem 2)
-                    , backgroundColor (activityColor task).lighter
-                    , Css.color (activityColor task).medium
-                    , border3 (px 2) solid (activityColor task).darker
-                    , displayFlex
-                    , borderRadius (pct 100)
-
-                    -- , margin (rem 0.5)
-                    , fontSize (rem 1)
-                    , alignItems center
-                    , justifyContent center
-
-                    -- , padding (rem 0.2)
-                    , fontFamily monospace
-                    , fontWeight Css.normal
-                    , textAlign center
-                    ]
-                ]
-                [ if SmartTime.Duration.isZero (Assignment.estimatedEffort task) then
-                    text "?"
-
-                  else
-                    text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
-                ]
-
-            --, node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
-            , viewTaskTitle task editingMaybe
-            , timingInfo ( time, timeZone ) task
-            , div
-                [ class "view" ]
-                [ div
-                    [ class "task-times"
-                    , css
-                        [ Css.width (rem 3)
-                        , displayFlex
-                        , flex3 (num 0) (num 0) (rem 3)
-                        , flexDirection column
-                        , fontSize (rem 0.7)
-                        , justifyContent center
-                        , alignItems center
-                        , textAlign center
-                        , letterSpacing (rem -0.1)
-                        ]
-                    ]
-                    [ div
-                        [ class "minimum-duration"
-                        , css
-                            [ justifyContent Css.end
-                            ]
-                        ]
-                        [ if SmartTime.Duration.isZero (Assignment.minEffort task) then
-                            text ""
-
-                          else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
-                        ]
-                    , div
-                        [ class "maximum-duration"
-                        , css
-                            [ justifyContent Css.end
-                            ]
-                        ]
-                        [ if SmartTime.Duration.isZero (Assignment.maxEffort task) then
-                            text ""
-
-                          else
-                            text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
-                        ]
-                    ]
-
-                -- , div
-                --     [ class "sessions"
-                --     , css
-                --         [ fontSize (Css.em 0.5)
-                --         , Css.width (pct 50)
-                --         , displayFlex
-                --         , flexDirection column
-                --         , alignItems end
-                --         , textAlign center
-                --         ]
-                --     ]
-                --     (plannedSessions ( time, timeZone ) task)
-                ]
-            ]
-        , node "ion-item-options"
-            []
-            [ node "ion-item-option" [ attribute "color" "danger", onClick (Delete task) ] [ text "delete" ]
-            , startTrackingButton task trackedTaskMaybe
-            ]
-        ]
-
-
-viewTaskTitle : Assignment -> Maybe CurrentlyEditing -> Html Msg
-viewTaskTitle task editingMaybe =
-    let
-        titleNotEditing =
-            node "ion-label"
-                [ css
-                    [ fontWeight (Css.int <| Basics.round (Assignable.importance Assignment.assignable task * 200 + 200)) ]
-                , onDoubleClick (EditingClassTitle task <| Assignment.title task)
-                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.title task))
-                ]
-                [ text <| Assignment.title task
-                , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt task.index ]
-                ]
-
-        titleEditing newTitleSoFar =
-            node "ion-input"
-                [ value newTitleSoFar
-                , placeholder <| "Enter a new name for: " ++ Assignment.title task
-                , name "title"
-                , id ("task-title-" ++ Assignment.idString task)
-                , onInput (EditingClassTitle task)
-                , on "ionBlur" (JD.succeed StopEditing)
-                , onEnter (UpdateTitle task newTitleSoFar)
-                , SHA.property "clearInput" (JE.bool True)
-                , autofocus True
-                , attribute "enterkeyhint" "done"
-                , attribute "helper-text" <| "Enter a new title for the project. "
-                , spellcheck True
-                , minlength 2
-                , SHA.required True
-                , attribute "error-text" <| "Minimum 2 characters."
-                , attribute "autocorrect" "on"
-                , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.title task))
-                ]
-                []
-    in
-    case editingMaybe of
-        Just (EditingAssignableTitle classID newTitleSoFar) ->
-            if classID == task.assignableID then
-                titleEditing newTitleSoFar
-
-            else
-                titleNotEditing
-
-        _ ->
-            titleNotEditing
-
-
-startTrackingButton : Assignment -> Maybe AssignmentID -> Html Msg
-startTrackingButton task trackedTaskMaybe =
-    if Maybe.map ((==) (Assignment.id task)) trackedTaskMaybe == Just True then
-        node "ion-item-option"
-            [ attribute "color" "primary", onClick (StopTrackingAssignment (Assignment.id task)) ]
-            [ node "ion-icon" [ name "pause-outline" ] [] ]
-
-    else
-        node "ion-item-option"
-            [ attribute "color" "primary", onClick (StartTrackingAssignment task) ]
-            [ node "ion-icon" [ name "play-outline" ] [] ]
-
-
-
+-- viewKeyedTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> ( String, Html Msg )
+-- viewKeyedTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
+--     ( Assignment.idString task, lazy4 viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task )
+-- -- viewTask : Assignment -> Html Msg
+-- viewTask : ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Maybe CurrentlyEditing -> Assignment -> Html Msg
+-- viewTask ( time, timeZone ) trackedTaskMaybe editingMaybe task =
+--     node "ion-item-sliding"
+--         []
+--         [ node "ion-item"
+--             [ classList [ ( "completed", Assignment.isCompleted task ), ( "editing", False ) ]
+--             , attribute "data-flip-key" ("task-" ++ Assignment.assignableIDString task)
+--             ]
+--             [ div
+--                 [ class "task-bubble"
+--                 , attribute "slot" "start"
+--                 , title (taskTooltip ( time, timeZone ) task)
+--                 , onClick (OpenEditor <| Just task)
+--                 , css
+--                     [ Css.height (rem 2)
+--                     , Css.width (rem 2)
+--                     , backgroundColor (activityColor task).lighter
+--                     , Css.color (activityColor task).medium
+--                     , border3 (px 2) solid (activityColor task).darker
+--                     , displayFlex
+--                     , borderRadius (pct 100)
+--                     -- , margin (rem 0.5)
+--                     , fontSize (rem 1)
+--                     , alignItems center
+--                     , justifyContent center
+--                     -- , padding (rem 0.2)
+--                     , fontFamily monospace
+--                     , fontWeight Css.normal
+--                     , textAlign center
+--                     ]
+--                 ]
+--                 [ if SmartTime.Duration.isZero (Assignment.estimatedEffort task) then
+--                     text "?"
+--                   else
+--                     text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
+--                 ]
+--             --, node "ion-icon" [ name "star", attribute "slot" "start", onClick (OpenEditor <| Just task) ] []
+--             , viewTaskTitle task editingMaybe
+--             , timingInfo ( time, timeZone ) task
+--             , div
+--                 [ class "view" ]
+--                 [ div
+--                     [ class "task-times"
+--                     , css
+--                         [ Css.width (rem 3)
+--                         , displayFlex
+--                         , flex3 (num 0) (num 0) (rem 3)
+--                         , flexDirection column
+--                         , fontSize (rem 0.7)
+--                         , justifyContent center
+--                         , alignItems center
+--                         , textAlign center
+--                         , letterSpacing (rem -0.1)
+--                         ]
+--                     ]
+--                     [ div
+--                         [ class "minimum-duration"
+--                         , css
+--                             [ justifyContent Css.end
+--                             ]
+--                         ]
+--                         [ if SmartTime.Duration.isZero (Assignment.minEffort task) then
+--                             text ""
+--                           else
+--                             text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
+--                         ]
+--                     , div
+--                         [ class "maximum-duration"
+--                         , css
+--                             [ justifyContent Css.end
+--                             ]
+--                         ]
+--                         [ if SmartTime.Duration.isZero (Assignment.maxEffort task) then
+--                             text ""
+--                           else
+--                             text (String.fromInt (Basics.round (SmartTime.Duration.inMinutes (Assignment.estimatedEffort task))))
+--                         ]
+--                     ]
+--                 -- , div
+--                 --     [ class "sessions"
+--                 --     , css
+--                 --         [ fontSize (Css.em 0.5)
+--                 --         , Css.width (pct 50)
+--                 --         , displayFlex
+--                 --         , flexDirection column
+--                 --         , alignItems end
+--                 --         , textAlign center
+--                 --         ]
+--                 --     ]
+--                 --     (plannedSessions ( time, timeZone ) task)
+--                 ]
+--             ]
+--         , node "ion-item-options"
+--             []
+--             [ node "ion-item-option" [ attribute "color" "danger", onClick (Delete task) ] [ text "delete" ]
+--             , startTrackingButton task trackedTaskMaybe
+--             ]
+--         ]
+-- viewTaskTitle : Assignment -> Maybe CurrentlyEditing -> Html Msg
+-- viewTaskTitle assignment editingMaybe =
+--     let
+--         titleNotEditing =
+--             node "ion-label"
+--                 [ css
+--                     [ fontWeight (Css.int <| Basics.round (Assignable.importance (Assignment.assignable assignment) * 200 + 200)) ]
+--                 , onDoubleClick (EditingClassTitle assignment <| Assignment.title assignment)
+--                 , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.title assignment))
+--                 ]
+--                 [ text <| Assignment.title assignment
+--                 , span [ css [ opacity (num 0.4), fontSize (Css.em 0.5), fontWeight (Css.int 200) ] ] [ text <| "#" ++ String.fromInt assignment.index ]
+--                 ]
+--         titleEditing newTitleSoFar =
+--             node "ion-input"
+--                 [ value newTitleSoFar
+--                 , placeholder <| "Enter a new name for: " ++ Assignment.title assignment
+--                 , name "title"
+--                 , id ("task-title-" ++ Assignment.idString assignment)
+--                 , onInput (EditingClassTitle assignment)
+--                 , on "ionBlur" (JD.succeed StopEditing)
+--                 , onEnter (UpdateTitle assignment newTitleSoFar)
+--                 , SHA.property "clearInput" (JE.bool True)
+--                 , autofocus True
+--                 , attribute "enterkeyhint" "done"
+--                 , attribute "helper-text" <| "Enter a new title for the project. "
+--                 , spellcheck True
+--                 , minlength 2
+--                 , SHA.required True
+--                 , attribute "error-text" <| "Minimum 2 characters."
+--                 , attribute "autocorrect" "on"
+--                 , attribute "data-flip-key" ("title-for-task-named-" ++ String.Normalize.slug (Assignment.title assignment))
+--                 ]
+--                 []
+--     in
+--     case editingMaybe of
+--         Just (EditingAssignableTitle classID newTitleSoFar) ->
+--             if classID == assignment.assignableID then
+--                 titleEditing newTitleSoFar
+--             else
+--                 titleNotEditing
+--         _ ->
+--             titleNotEditing
 -- viewTaskEditModal : Profile -> Shared -> (Maybe Assignment) -> Html Msg
 -- viewTaskEditModal profile env assignmentMaybe =
 --     let
@@ -673,22 +639,23 @@ activityColor task =
             }
 
 
-taskTooltip : ( Moment, HumanMoment.Zone ) -> Assignment.Assignment -> String
-taskTooltip ( time, timeZone ) task =
-    -- hover tooltip
-    String.concat <|
-        List.intersperse "\n" <|
-            List.filterMap identity
-                ([ Just ("Class ID: " ++ Assignment.assignableIDString task)
-                 , Just ("Instance ID: " ++ Assignment.idString task)
-                 , Maybe.map (String.append "activity ID: ") (Assignment.activityIDString task)
-                 , Just ("importance: " ++ String.fromFloat (Assignable.importance Assignment.assignable task))
-                 , Just ("progress: " ++ Task.Progress.toString (Assignment.progress task))
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.relevanceStarts task)
-                 , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.relevanceEnds task)
-                 ]
-                    ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.assignment).extra)
-                )
+
+-- taskTooltip : ( Moment, HumanMoment.Zone ) -> Assignment.Assignment -> String
+-- taskTooltip ( time, timeZone ) task =
+--     -- hover tooltip
+--     String.concat <|
+--         List.intersperse "\n" <|
+--             List.filterMap identity
+--                 ([ Just ("Class ID: " ++ Assignment.assignableIDString task)
+--                  , Just ("Instance ID: " ++ Assignment.idString task)
+--                  , Maybe.map (String.append "activity ID: ") (Assignment.activityIDString task)
+--                  , Just ("importance: " ++ String.fromFloat (Assignable.importance Assignment.assignable task))
+--                  , Just ("progress: " ++ Task.Progress.toString (Assignment.progress task))
+--                  , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance starts: ") (Assignment.relevanceStarts task)
+--                  , Maybe.map (HumanMoment.fuzzyDescription time timeZone >> String.append "relevance ends: ") (Assignment.relevanceEnds task)
+--                  ]
+--                     ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Reg.latest task.assignment).extra)
+--                 )
 
 
 {-| This slider is an html input type=range so it does most of the work for us. (It's accessible, works with arrow keys, etc.) No need to make our own ad-hoc solution! We theme it to look less like a form control, and become the background of our Assignment entry.
@@ -1073,15 +1040,13 @@ viewControlsClear tasksCompleted =
 
 type Msg
     = Refilter (List Filter)
-    | EditingClassTitle Assignment String
     | StopEditing
-    | UpdateTitle Assignment String
+    | UpdateTitle Assignable String
     | OpenEditor (Maybe Assignment)
     | CloseEditor
     | AddProject
     | AddAssignment Assignable
     | DeleteAssignment Assignment
-    | Delete Assignment
     | DeleteComplete
     | UpdateProgress Assignment Portion
     | FocusSlider Assignment Bool
@@ -1115,7 +1080,7 @@ update msg state profile env =
                             Project.createTopLevelSkel projectChanger
 
                         projectChanger project =
-                            [ Project.setTitle newProjectTitle project ]
+                            [ Project.setTitle (Just newProjectTitle) project ]
 
                         -- newAssignable : Change.Creator (Reg AssignableSkel)
                         -- newAssignable c =
@@ -1162,14 +1127,14 @@ update msg state profile env =
             , []
             )
 
-        DeleteAssignment assignmentRegItem ->
+        DeleteAssignment assignment ->
             let
                 frameDescription =
                     "Deleted assignment"
 
                 finalChanges =
                     [ RepList.insert RepList.Last frameDescription profile.errors
-                    , assignmentRegItem.remove
+                    , Assignment.delete assignment
                     ]
             in
             ( state
@@ -1186,16 +1151,6 @@ update msg state profile env =
               -- TODO will collapse expanded tasks. Should it?
             , Change.none
             , []
-            )
-
-        EditingClassTitle assignable newTitleSoFar ->
-            let
-                (Normal filters expanded typedSoFar _) =
-                    state
-            in
-            ( Normal filters expanded typedSoFar (Just <| EditingAssignableTitle assignable.assignableID newTitleSoFar)
-            , Change.none
-            , [ Effect.FocusIonInput ("task-title-" ++ Assignment.idString assignable) ]
             )
 
         OpenEditor actionMaybe ->
@@ -1228,7 +1183,7 @@ update msg state profile env =
             , []
             )
 
-        UpdateTitle assignment newTitle ->
+        UpdateTitle assignable newTitle ->
             let
                 (Normal filters expanded typedSoFar _) =
                     state
@@ -1237,11 +1192,11 @@ update msg state profile env =
                     String.trim newTitle
 
                 changeTitleIfValid =
-                    if (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignment.title assignment then
+                    if (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignable.title assignable then
                         Change.none
 
                     else
-                        Change.saveChanges "Updating project title" [ Assignable.setTitle newTitle (Assignment.assignable assignment) ]
+                        Change.saveChanges "Updating project title" [ Assignable.setTitle newTitle assignable ]
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
@@ -1258,15 +1213,6 @@ update msg state profile env =
             -- , []
             -- )
             Debug.todo "Not yet implemented: UpdateTaskTitle"
-
-        Delete assignment ->
-            ( state
-            , Change.saveChanges "Deleting an assignment"
-                [ Assignment.delete assignment
-                , RepList.insert RepList.Last ("Deleted an assignment of: " ++ Assignment.title assignment) profile.errors
-                ]
-            , []
-            )
 
         DeleteComplete ->
             ( state
@@ -1360,8 +1306,11 @@ update msg state profile env =
 
         StartTrackingAssignment assignment activityID ->
             let
+                projectLayers =
+                    Debug.todo "projectlayers for switching tracking"
+
                 ( addSessionChanges, sessionCommands ) =
-                    Refocus.switchTracking (TimeTrackable.TrackedAssignmentID (Assignment.id assignment) activityID) profile ( env.time, env.timeZone )
+                    Refocus.switchTracking (TimeTrackable.TrackedAssignmentID (Assignment.id assignment) activityID) profile projectLayers ( env.time, env.timeZone )
 
                 -- ( newProfile2WithMarvinTimes, marvinCmds ) =
                 --     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env (Just instanceID) True
@@ -1383,8 +1332,11 @@ update msg state profile env =
                 instanceToStop =
                     Activity.HistorySession.currentAssignmentID (RepList.listValues profile.timeline)
 
+                projectLayers =
+                    Debug.todo "projectlayers for switching tracking"
+
                 ( sessionChanges, sessionCommands ) =
-                    Refocus.switchTracking TimeTrackable.stub profile ( env.time, env.timeZone )
+                    Refocus.switchTracking TimeTrackable.stub profile projectLayers ( env.time, env.timeZone )
 
                 -- ( newProfile2WithMarvinTimes, marvinCmds ) =
                 --     Marvin.marvinUpdateCurrentlyTracking newProfile1WithSession env instanceToStop False
@@ -1412,7 +1364,8 @@ urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dic
 urlTriggers profile ( time, timeZone ) =
     let
         fullTaskInstances =
-            Profile.assignments profile ( time, timeZone )
+            -- TODO include unsaved assignments
+            Task.Layers.getAllSavedAssignments (Task.Layers.buildLayerDatabase profile.projects)
 
         tasksIDsWithDoneMsg =
             List.map doneTriggerEntry fullTaskInstances

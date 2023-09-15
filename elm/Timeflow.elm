@@ -1,7 +1,7 @@
 module Timeflow exposing (Msg(..), ViewState, init, resizeCmd, routeView, subscriptions, update, view)
 
 import Activity.Activity as Activity exposing (..)
-import Activity.HistorySession as Timeline exposing (HistorySession)
+import Activity.HistorySession as HistorySession exposing (HistorySession)
 import Browser.Dom as Dom
 import Color exposing (Color)
 import Date
@@ -40,10 +40,11 @@ import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment(..), Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
-import Task.AssignableSkel as Assignable exposing (Assignable)
-import Task.AssignmentSkel as Assignment exposing (Assignment, AssignmentSkel)
+import Task.Assignment as Assignment exposing (Assignment)
+import Task.Layers exposing (ProjectLayers)
 import Task.Progress exposing (..)
 import Task.ProjectSkel as Project
+import TimeTrackable exposing (TimeTrackable)
 import Url.Parser as P exposing ((</>), Parser)
 import VirtualDom
 import ZoneHistory
@@ -182,6 +183,10 @@ routeView =
 
 view : ViewState -> Profile -> Shared -> SH.Html Msg
 view vState profile env =
+    let
+        projectLayers =
+            Task.Layers.buildLayerDatabase profile.projects
+    in
     SH.fromUnstyled <|
         layout [ width fill, height fill ] <|
             column [ width fill, height fill ]
@@ -189,7 +194,7 @@ view vState profile env =
                     [ el [ centerX ] <| Element.text <| Calendar.toStandardString <| HumanMoment.extractDate env.timeZone env.time ]
                 , row
                     [ width fill, height fill, htmlAttribute (HA.style "touch-action" "none"), htmlAttribute (HA.id "timeflow-container"), clipY, htmlAttribute (Html.Events.Extra.Wheel.onWheel Wheel) ]
-                    [ Element.html <| svgExperiment vState profile env ]
+                    [ Element.html <| svgExperiment vState profile projectLayers env ]
                 , row [ width fill, height (px 30), Background.color (Element.rgb 0.5 0.5 0.5) ]
                     [ el [ centerX ] <|
                         Element.text
@@ -217,11 +222,11 @@ view vState profile env =
 -- svgExperiment : ViewState -> Profile -> Shared -> ( widgetID, ( widgetState, widgetInitCmd ) )
 
 
-svgExperiment state profile env =
+svgExperiment state profile projectLayers env =
     Widget.view
         state.widgetState
         [ graphPaperCustom 100 0.03 (GraphicSVG.rgb 20 20 20)
-        , group (allShapes state profile env)
+        , group (allShapes state profile projectLayers env)
             |> move ( 0, state.settings.widgetHeight / 2 )
             |> notifyMouseMoveAt PointerMove
             |> notifyTouchMoveAt PointerMove
@@ -230,7 +235,7 @@ svgExperiment state profile env =
         ]
 
 
-allShapes state profile env =
+allShapes state profile projectLayers env =
     let
         boxHeight =
             toFloat <| List.length (Period.divide state.settings.hourRowSize state.settings.flowRenderPeriod) * state.settings.rowHeight
@@ -266,7 +271,7 @@ allShapes state profile env =
     --    |> move ( state.pointer.x / 4, state.pointer.y / 4 )
     --    |> notifyMouseMoveAt PointerMove
     ]
-        ++ List.map (blobToShape state env) (historyBlobs env profile state.settings.flowRenderPeriod)
+        ++ List.map (blobToShape state env) (historyBlobs env profile projectLayers state.settings.flowRenderPeriod)
         ++ [ timeLabel env state.settings.pivotMoment ]
 
 
@@ -880,15 +885,15 @@ blobToPoints displaySettings _ blob =
             sandwichBlob (toFloat x - 1)
 
 
-historyBlobs : Shared -> Profile -> Period -> List FlowBlob
-historyBlobs env profile displayPeriod =
+historyBlobs : Shared -> Profile -> ProjectLayers -> Period -> List FlowBlob
+historyBlobs env profile projectLayers displayPeriod =
     let
         historyList =
-            Timeline.historyLive env.time profile.timeline
+            RepList.listValues profile.timeline
     in
-    List.map (makeHistoryBlob env profile displayPeriod)
+    List.map (makeHistoryBlob env profile projectLayers displayPeriod)
         (List.filter
-            (\sesh -> Period.haveOverlap displayPeriod (Session.getPeriod sesh))
+            (\sesh -> Period.haveOverlap displayPeriod (HistorySession.getPeriodWithDefaultEnd env.time sesh))
             historyList
         )
 
@@ -990,19 +995,21 @@ dayString env moment =
     Calendar.toStandardString (HumanMoment.extractDate env.timeZone moment)
 
 
-makeHistoryBlob : Shared -> Profile -> Period -> HistorySession -> FlowBlob
-makeHistoryBlob env profile displayPeriod session =
+makeHistoryBlob : Shared -> Profile -> ProjectLayers -> Period -> HistorySession -> FlowBlob
+makeHistoryBlob env profile projectLayers displayPeriod session =
     let
+        sessionPeriod =
+            HistorySession.getPeriodWithDefaultEnd env.time session
+
         -- sessionPositions =
         --     getPositionInDay day.rowLength day.period sessionPeriod
         ( ( startDate, startTime ), ( endDate, endTime ) ) =
-            ( HumanMoment.humanize env.timeZone (Session.getStart session)
-            , HumanMoment.humanize env.timeZone (Session.getEnd session)
+            ( HumanMoment.humanize env.timeZone (Period.start sessionPeriod)
+            , HumanMoment.humanize env.timeZone (Period.end sessionPeriod)
             )
 
         describeTiming =
-            (session
-                |> Session.getPeriod
+            (sessionPeriod
                 |> Period.length
                 |> Duration.inMinutes
                 |> round
@@ -1013,14 +1020,14 @@ makeHistoryBlob env profile displayPeriod session =
                 ++ Maybe.withDefault activityName sessionProjectName
 
         sessionActivity =
-            Activity.getByID (Session.getActivityID session) profile.activities
+            Activity.getByID (HistorySession.getActivityID session) profile.activities
 
         sessionProjectMaybe =
-            Maybe.andThen (Profile.getAssignmentByID profile ( env.time, env.timeZone )) (Session.getInstanceID session)
+            Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) (TimeTrackable.getAssignmentID session.tracked)
 
         sessionProjectName =
             -- TODO
-            Maybe.map Assignment.getTitle sessionProjectMaybe
+            Maybe.map Assignment.title sessionProjectMaybe
 
         activityName =
             Activity.getName sessionActivity
@@ -1049,10 +1056,10 @@ makeHistoryBlob env profile displayPeriod session =
                 |> HSLuv.toColor
 
         croppedSessionPeriod =
-            Period.crop displayPeriod (Session.getPeriod session)
+            Period.crop displayPeriod sessionPeriod
 
         stringID =
-            HumanMoment.toStandardString (Session.getStart session)
+            HumanMoment.toStandardString (Period.start sessionPeriod)
     in
     FlowBlob
         (Period.start croppedSessionPeriod)

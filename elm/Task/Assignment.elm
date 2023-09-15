@@ -14,7 +14,7 @@ import Replicated.Codec as Codec exposing (NullCodec)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
-import Replicated.Reducer.RepDict as RepDict
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Replicated.Reducer.RepStore as RepStore
 import SmartTime.Duration exposing (Duration)
@@ -101,8 +101,8 @@ Combine the saved assignments with generated ones, to get the full picture withi
 TODO: best data structure? Is Dict unnecessary here? Or should the key involve the assignableID for perf?
 
 -}
-fromAssignables : Query -> Assignable -> List Assignment
-fromAssignables query parent =
+fromAssignable : Query -> Assignable -> List Assignment
+fromAssignable query parent =
     let
         manualAssignments =
             RepDb.members <| Assignable.manualAssignments parent
@@ -475,6 +475,16 @@ insertExtras keyValueList (Assignment assignment) =
     RepDict.bulkInsert keyValueList (Reg.latest assignment.reg).extra
 
 
+extras : Assignment -> RepDict String String
+extras (Assignment assignment) =
+    (Reg.latest assignment.reg).extra
+
+
 delete : Assignment -> Change
 delete (Assignment assignment) =
     assignment.remove
+
+
+created : Assignment -> Maybe Moment
+created (Assignment { reg }) =
+    Reg.createdAt reg

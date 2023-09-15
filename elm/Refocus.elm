@@ -2,6 +2,7 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
+import Dict.Any as AnyDict exposing (AnyDict)
 import External.Commands as Commands
 import Helpers exposing (multiline)
 import ID
@@ -26,6 +27,7 @@ import SmartTime.Period as Period exposing (Period)
 import Task as Job
 import Task.Assignable as Assignable exposing (Assignable, AssignableID)
 import Task.Assignment as Assignment exposing (Assignment, AssignmentID)
+import Task.Layers exposing (ProjectLayers)
 import Task.Progress
 import Task.Project exposing (..)
 import Task.ProjectSkel
@@ -101,20 +103,20 @@ type WINUrgency
     | Strong
 
 
-prioritizeTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Assignment
-prioritizeTasks profile ( time, timeZone ) =
+prioritizeTasks : ProjectLayers -> ( Moment, HumanMoment.Zone ) -> List Assignment
+prioritizeTasks layers ( time, timeZone ) =
     Assignment.prioritize time timeZone <|
         List.filter (Assignment.isCompleted >> not) <|
-            Profile.assignments profile Assignment.AllSaved
+            Task.Layers.getAllSavedAssignments layers
 
 
-whatsImportantNow : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )
-whatsImportantNow profile ( time, timeZone ) =
+whatsImportantNow : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> Maybe ( FocusItem, WINUrgency )
+whatsImportantNow profile projectLayers ( time, timeZone ) =
     let
         prioritized =
             -- Must have an activity to tell
             List.filter (\i -> Assignment.activityID i /= Nothing)
-                (prioritizeTasks profile ( time, timeZone ))
+                (prioritizeTasks projectLayers ( time, timeZone ))
 
         -- TODO allow activities to be WIN
         topPickMaybe =
@@ -132,23 +134,23 @@ whatsImportantNow profile ( time, timeZone ) =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
-switchActivity trackable profile ( time, timeZone ) =
-    switchTracking trackable profile ( time, timeZone )
+switchActivity : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchActivity trackable profile projectLayers ( time, timeZone ) =
+    switchTracking trackable profile projectLayers ( time, timeZone )
 
 
 {-| TODO eliminate this
 -}
-refreshTracking : Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
-refreshTracking profile ( time, timeZone ) =
-    switchTracking (Profile.currentlyTracking profile) profile ( time, timeZone )
+refreshTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+refreshTracking profile projectLayers ( time, timeZone ) =
+    switchTracking (Profile.currentlyTracking profile) profile projectLayers ( time, timeZone )
 
 
-switchTracking : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
-switchTracking trackable profile ( time, timeZone ) =
+switchTracking : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchTracking trackable profile projectLayers ( time, timeZone ) =
     let
         switchChanges =
-            HistorySession.startTracking time trackable profile.timeline
+            HistorySession.switchTracking time trackable profile.timeline
 
         oldAssignmentIDMaybe =
             Profile.currentAssignmentID profile
@@ -170,13 +172,13 @@ switchTracking trackable profile ( time, timeZone ) =
         -- we actually changed tracking, add session to timeline
         let
             ( reactionChanges, reactionCmds ) =
-                reactToNewSession trackable ( time, timeZone ) profile
+                reactToNewSession trackable ( time, timeZone ) profile projectLayers
         in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges :: reactionChanges, Cmd.batch [ reactionCmds ] )
+        ( switchChanges ++ reactionChanges, Cmd.batch [ reactionCmds ] )
 
 
-reactToNewSession trackable ( time, timeZone ) oldProfile =
+reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
     let
         newActivityID =
             TimeTrackable.getActivityID trackable
@@ -185,7 +187,7 @@ reactToNewSession trackable ( time, timeZone ) oldProfile =
             TimeTrackable.getAssignmentID trackable
 
         ( newStatusDetails, newFocusStatus ) =
-            determineNewStatus trackable oldProfile ( time, timeZone )
+            determineNewStatus trackable oldProfile projectLayers ( time, timeZone )
 
         ( reactionNow, checkbackTimeMaybe ) =
             reactToStatusChange False newStatusDetails newFocusStatus
@@ -199,18 +201,18 @@ reactToNewSession trackable ( time, timeZone ) oldProfile =
                     let
                         -- everything stays the same, just in the future
                         ( futureStatusDetails, futureFocusStatus ) =
-                            determineNewStatus trackable oldProfile ( checkbackTime, timeZone )
+                            determineNewStatus trackable oldProfile projectLayers ( checkbackTime, timeZone )
                     in
                     Tuple.first (reactToStatusChange True futureStatusDetails futureFocusStatus)
 
         suggestions =
-            suggestedTasks oldProfile ( time, timeZone )
+            suggestedTasks oldProfile projectLayers ( time, timeZone )
     in
     ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
 
 
-determineNewStatus : TimeTrackable -> Profile -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
-determineNewStatus trackable oldProfile ( time, timeZone ) =
+determineNewStatus : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
+determineNewStatus trackable oldProfile projectLayers ( time, timeZone ) =
     let
         newActivityID =
             TimeTrackable.getActivityID trackable
@@ -237,22 +239,19 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
             -- TODO
             Period.between Moment.zero time
 
-        assignments =
-            Profile.assignments oldProfile Assignment.AllSaved
-
         statusDetails =
             { now = time
             , zone = timeZone
             , oldActivity = oldActivity
             , lastSession = Profile.currentSession oldProfile |> Maybe.map (HistorySession.duration time) |> Maybe.withDefault Duration.zero
-            , oldInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile) oldInstanceIDMaybe
+            , oldInstanceMaybe = Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) oldInstanceIDMaybe
             , newActivity = newActivity
             , newActivityTodayTotal =
                 HistorySession.activityTotalDuration filterPeriod timeline newActivityID
-            , newInstanceMaybe = Maybe.andThen (Profile.getAssignmentByID oldProfile) newAssignmentIDMaybe
+            , newInstanceMaybe = Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) newAssignmentIDMaybe
             }
     in
-    case whatsImportantNow oldProfile ( time, timeZone ) of
+    case whatsImportantNow oldProfile projectLayers ( time, timeZone ) of
         Nothing ->
             -- ALL DONE
             ( statusDetails, Free )
@@ -281,7 +280,7 @@ determineNewStatus trackable oldProfile ( time, timeZone ) =
                             False
 
                 newInstanceMaybe =
-                    Maybe.andThen (Profile.getAssignmentByID oldProfile) newAssignmentIDMaybe
+                    Maybe.andThen (Task.Layers.getAssignmentByID projectLayers) newAssignmentIDMaybe
             in
             case ( newInstanceMaybe, isThisTheRightNextTask, nextActivity == newActivity ) of
                 ( Just newAssignment, True, _ ) ->
@@ -1157,11 +1156,11 @@ suggestedTaskNotif now ( assignment, taskActivityID ) =
     }
 
 
-suggestedTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Notification
-suggestedTasks profile ( time, timeZone ) =
+suggestedTasks : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> List Notification
+suggestedTasks profile projectLayers ( time, timeZone ) =
     let
         actionableTasks =
-            List.filterMap withActivityID (prioritizeTasks profile ( time, timeZone ))
+            List.filterMap withActivityID (prioritizeTasks projectLayers ( time, timeZone ))
 
         withActivityID task =
             case Assignment.activityID task of
@@ -1225,11 +1224,11 @@ cleanupTaskNotif now ( taskInstance, needs ) =
     }
 
 
-cleanupTasks : Profile -> ( Moment, HumanMoment.Zone ) -> List Notification
-cleanupTasks profile ( time, timeZone ) =
+cleanupTasks : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> List Notification
+cleanupTasks profile projectLayers ( time, timeZone ) =
     let
         tasksToCleanup =
-            List.filterMap needsCleanup (prioritizeTasks profile ( time, timeZone ))
+            List.filterMap needsCleanup (prioritizeTasks projectLayers ( time, timeZone ))
 
         needsCleanup task =
             case Assignment.activityID task of

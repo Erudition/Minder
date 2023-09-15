@@ -1,4 +1,4 @@
-module Activity.HistorySession exposing (HistorySession, Timeline, activityIDMatches, activityTotalDuration, assignmentIDMatches, assignmentStartStopList, backfill, codec, current, currentActivityID, currentAssignmentID, currentlyTracking, duration, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, getActivityID, getPeriod, inHoursMinutes, justTodayTotal, listAsPeriods, periodsOfActivity, periodsOfAssignment, startTracking, todayUntilNowPeriod, truncateTimeline)
+module Activity.HistorySession exposing (HistorySession, Timeline, activityIDMatches, activityTotalDuration, assignmentIDMatches, assignmentStartStopList, backfill, codec, current, currentActivityID, currentAssignmentID, currentlyTracking, duration, excusableLimit, excusableLimitWindow, excusedLeft, excusedUsage, getActivityID, getPeriodWithDefaultEnd, inHoursMinutes, justTodayTotal, listAsPeriods, periodsOfActivity, periodsOfAssignment, switchTracking, todayUntilNowPeriod, truncateTimeline)
 
 import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Activity.Evidence exposing (..)
@@ -11,6 +11,7 @@ import ID
 import IntDict
 import List.Extra
 import List.Nonempty exposing (..)
+import Maybe.Extra
 import Replicated.Change exposing (Change, Context)
 import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, seededRW)
 import Replicated.Reducer.Register exposing (RW, RWMaybe)
@@ -57,8 +58,8 @@ getActivityID { tracked } =
 
 {-| Get a session as a Period, using the given time as the cutoff for unended sessions.
 -}
-getPeriod : Moment -> HistorySession -> Period
-getPeriod now session =
+getPeriodWithDefaultEnd : Moment -> HistorySession -> Period
+getPeriodWithDefaultEnd now session =
     Period.fromPair ( session.started.get, Maybe.withDefault now session.endedMaybe.get )
 
 
@@ -81,7 +82,7 @@ duration now { started, endedMaybe } =
 
 
 listAsPeriods sessionList =
-    List.map getPeriod sessionList
+    List.map getPeriodWithDefaultEnd sessionList
 
 
 
@@ -105,21 +106,21 @@ currentActivityID timeline =
 
 currentAssignmentID : Timeline -> Maybe AssignmentID
 currentAssignmentID timeline =
-    List.head timeline
+    List.Extra.last timeline
         |> Maybe.map .tracked
         |> Maybe.andThen TimeTrackable.getAssignmentID
 
 
 currentlyTracking : Timeline -> TimeTrackable
 currentlyTracking timeline =
-    List.head timeline
+    List.Extra.last timeline
         |> Maybe.map .tracked
         |> Maybe.withDefault TimeTrackable.stub
 
 
 current : Timeline -> Maybe HistorySession
 current timeline =
-    List.head timeline
+    List.Extra.last timeline
 
 
 {-| Narrow a timeline down to a given time frame.
@@ -187,8 +188,8 @@ todayUntilNowPeriod ( now, zone ) =
 -- TIMELINE SETTERS ---------------------------------
 
 
-startTracking : Moment -> TimeTrackable -> RepList HistorySession -> Change
-startTracking now trackable timelineRepList =
+switchTracking : Moment -> TimeTrackable -> RepList HistorySession -> List Change
+switchTracking now trackable timelineRepList =
     let
         newSession context =
             Codec.seededNew codec
@@ -197,8 +198,16 @@ startTracking now trackable timelineRepList =
                 , endedMaybe = Nothing
                 , tracked = trackable
                 }
+
+        oldSessionMaybe =
+            current (RepList.listValues timelineRepList)
+
+        endOldSession =
+            Maybe.map (\s -> s.endedMaybe.set (Just now)) oldSessionMaybe
+                |> Maybe.Extra.toList
     in
     RepList.insertNew RepList.Last [ newSession ] timelineRepList
+        :: endOldSession
 
 
 backfill : RepList HistorySession -> List ( ActivityID, Maybe AssignmentID, Period ) -> List Change

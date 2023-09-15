@@ -40,6 +40,16 @@ button label action =
     }
 
 
+buttonWithIcon : String -> String -> msg -> Button msg
+buttonWithIcon label icon action =
+    { text = label
+    , role = Nothing
+    , actionString = label
+    , actionMsg = action
+    , icon = Just icon
+    }
+
+
 deleteButton : msg -> Button msg
 deleteButton action =
     { text = "Delete"

@@ -36,7 +36,9 @@ import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period)
 import Task as Job
+import Task.Layers
 import Time
+import TimeTrackable exposing (TimeTrackable)
 import Url.Parser as P exposing ((</>), (<?>), Parser, fragment, int, map, oneOf, s, string)
 import Url.Parser.Query as PQ
 import VirtualDom
@@ -121,8 +123,8 @@ viewActivities ( time, timeZone ) app =
 viewActivity : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> Html Msg
 viewActivity app ( time, timeZone ) activity =
     let
-        describeSession sesh =
-            Timeline.inHoursMinutes (Session.duration sesh) ++ "\n"
+        describePeriod sesh =
+            Timeline.inHoursMinutes (Period.length sesh) ++ "\n"
 
         filterPeriod =
             Period.between Moment.zero time
@@ -141,7 +143,7 @@ viewActivity app ( time, timeZone ) activity =
             , classList [ ( "current", Profile.currentActivityID app == Activity.getID activity ) ]
             , onClick (StartTracking (Activity.getID activity))
             , trackingFlipID
-            , title <| List.foldl (++) "" (List.map describeSession (Timeline.periodsOfCertainActivity filterPeriod app.timeline (Activity.getID activity)))
+            , title <| List.foldl (++) "" (List.map describePeriod (Timeline.periodsOfActivity filterPeriod (RepList.listValues app.timeline) (Activity.getID activity)))
             ]
             [ viewIcon (Activity.getIcon activity)
             , div []
@@ -192,19 +194,19 @@ writeActivityUsage : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> Stri
 writeActivityUsage app ( time, timeZone ) activity =
     let
         maxTimeDenominator =
-            Tuple.second (Activity.getMaxTime activity)
+            Tuple.second (Activity.getMaxTimePortion activity)
 
         lastPeriod =
-            Period.fromEnd time (dur maxTimeDenominator)
+            Period.fromEnd time maxTimeDenominator
 
         total =
-            Timeline.activityTotalDurationLive lastPeriod time app.timeline (Activity.getID activity)
+            Timeline.activityTotalDuration lastPeriod (RepList.listValues app.timeline) (Activity.getID activity)
 
         totalMinutes =
             Duration.inMinutesRounded total
     in
     if inMs total > 0 then
-        String.fromInt totalMinutes ++ "/" ++ String.fromInt (inMinutesRounded (toDuration maxTimeDenominator)) ++ "m"
+        String.fromInt totalMinutes ++ "/" ++ String.fromInt (inMinutesRounded maxTimeDenominator) ++ "m"
 
     else
         ""
@@ -212,7 +214,7 @@ writeActivityUsage app ( time, timeZone ) activity =
 
 writeActivityToday : Profile -> ( Moment, HumanMoment.Zone ) -> Activity -> String
 writeActivityToday app ( time, timeZone ) activity =
-    Timeline.inHoursMinutes (Timeline.justTodayTotal app.timeline ( time, timeZone ) (Activity.getID activity))
+    Timeline.inHoursMinutes (Timeline.justTodayTotal (RepList.listValues app.timeline) ( time, timeZone ) (Activity.getID activity))
 
 
 exportActivityViewModel : Profile -> ( Moment, HumanMoment.Zone ) -> Encode.Value
@@ -246,7 +248,7 @@ type Msg
 
 
 update : Msg -> ViewState -> Profile -> ( Moment, HumanMoment.Zone ) -> ( Change.Frame, ViewState, Cmd Msg )
-update msg state app ( time, timeZone ) =
+update msg state profile ( time, timeZone ) =
     case msg of
         NoOp ->
             ( Change.none
@@ -256,8 +258,14 @@ update msg state app ( time, timeZone ) =
 
         StartTracking activityId ->
             let
+                projectLayers =
+                    Task.Layers.buildLayerDatabase profile.projects
+
+                newTrackable =
+                    TimeTrackable.TrackedActivityID activityId
+
                 ( changes, cmds ) =
-                    Refocus.switchActivity activityId app ( time, timeZone )
+                    Refocus.switchActivity newTrackable profile projectLayers ( time, timeZone )
             in
             ( Change.saveChanges "Started tracking" changes
             , state
@@ -271,7 +279,7 @@ update msg state app ( time, timeZone ) =
         ExportVM ->
             ( Change.none
             , state
-            , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel app ( time, timeZone ) )
+            , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel profile ( time, timeZone ) )
             )
 
 
