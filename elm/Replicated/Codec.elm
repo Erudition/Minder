@@ -1328,7 +1328,7 @@ list codec =
                             JD.succeed (Ok [])
 
                         else
-                            JD.fail "Not empty"
+                            JD.fail "Not empty, moving on to normal list decoder below"
                     )
                     JD.string
                 , normalJsonDecoder
@@ -4997,19 +4997,81 @@ finishCustomType (CustomTypeCodec priorVariants) =
                     String.split "_" tag
                         |> List.Extra.last
                         |> Maybe.andThen String.toInt
-                        |> Maybe.Extra.withDefaultLazy failedToGetTagNum
+                        |> Maybe.Extra.withDefaultLazy (\_ -> -1)
 
-                failedToGetTagNum _ =
-                    Log.crashInDev "could not find tag num! defaulting to -1" -1
+                findDecoderMatchingTag : JD.Decoder (Result (Error e) a)
+                findDecoderMatchingTag =
+                    let
+                        nestedDecoderFromTag tag =
+                            priorVariants.nodeDecoder (getTagNum tag) (fallback tag) inputs
+                    in
+                    JD.index 0 JD.string
+                        |> JD.andThen nestedDecoderFromTag
 
-                checkTag tag =
-                    priorVariants.nodeDecoder (getTagNum tag) (\_ -> JD.succeed (Err (NoMatchingVariant tag))) inputs
+                fallback tag =
+                    \_ -> JD.succeed (Err (NoMatchingVariant tag))
+
+                captureSubGroups : List JE.Value -> List JE.Value
+                captureSubGroups inputList =
+                    -- This is needed because we may have custom types nested within custom types with different numbers of parameters, but there is no easy way for a nested decoder to report back the number of atoms it consumes. This is a known amount normally, so it would be good to switch to that method at some point for more compact code and less atoms (though potentially worse readability). For now we wrap nested atoms with parens.
+                    let
+                        inputListWithoutParens =
+                            -- strip parens if we were given a parenthesized list
+                            if Maybe.map isNotOpeningParen (List.head inputList) == Just False then
+                                List.drop 1 inputList |> List.Extra.init |> Maybe.withDefault []
+
+                            else
+                                inputList
+
+                        isNotOpeningParen val =
+                            JE.encode 0 val /= "\"(\""
+                    in
+                    case List.Extra.span isNotOpeningParen inputListWithoutParens of
+                        ( [], [] ) ->
+                            []
+
+                        ( outsideList, [] ) ->
+                            outsideList
+
+                        --outsideList
+                        ( outsideList, [ justParen ] ) ->
+                            Log.crashInDev ("found opening paren but nothing after it: " ++ String.join "," (List.map (JE.encode 0) outsideList)) outsideList
+
+                        ( outsideBeforeFirstGroup, openingParen :: afterParen ) ->
+                            let
+                                foundClosingParen val =
+                                    JE.encode 0 val /= "\")\""
+                            in
+                            -- found subgroup. Drop the opening paren, then take until the closing one.
+                            case ( List.Extra.dropWhileRight foundClosingParen afterParen |> List.Extra.init, List.Extra.takeWhileRight foundClosingParen afterParen ) of
+                                ( Nothing, afterGroup ) ->
+                                    Log.crashInDev ("found opening paren but nothing after it: " ++ String.join "," (List.map (JE.encode 0) afterParen)) outsideBeforeFirstGroup
+
+                                ( Just insideGroup, afterGroup ) ->
+                                    -- encode the inner group into a sublist Json Value. Recurse on remainder, but not on inner group as this function will be run again in the nested decoder.
+                                    outsideBeforeFirstGroup
+                                        ++ [ JE.list identity insideGroup ]
+                                        ++ captureSubGroups afterGroup
+
+                reDecodeGroupedList groupedList =
+                    -- hack. how can we transform input to a decoder rather than output?
+                    -- for now we have to use JD.andThen to get the decoded value, then re-encode it and run further decoder on that value.
+                    let
+                        reEncoded =
+                            JE.list identity groupedList
+                    in
+                    case JD.decodeValue findDecoderMatchingTag reEncoded of
+                        Ok successValue ->
+                            JD.succeed successValue
+
+                        Err errorMessage ->
+                            JD.fail (JD.errorToString errorMessage)
             in
             JD.oneOf
-                [ JD.index 0 JD.string |> JD.andThen checkTag
+                [ JD.list JD.value |> JD.map captureSubGroups |> JD.andThen reDecodeGroupedList
 
                 -- allow non-array input for variant0s:
-                -- , JD.string |> JD.andThen checkTag
+                --, findDecoderMatchingTag
                 ]
     in
     Codec

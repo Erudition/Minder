@@ -719,7 +719,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                 nestedChangeAtoms
 
                         finalNestedPayloadAsString =
-                            nestedOutputAtoms.piecesSoFar
+                            Op.NakedStringAtom "(" :: nestedOutputAtoms.piecesSoFar ++ [ Op.NakedStringAtom ")" ]
                     in
                     { counter = nestedOutputAtoms.counter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ nestedOutputAtoms.prerequisiteChunks
