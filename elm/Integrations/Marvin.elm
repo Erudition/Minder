@@ -348,7 +348,7 @@ handle profile ( time, timeZone ) response =
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "when getting labels: " ++ describeError err
                     , Cmd.none
                     )
@@ -362,7 +362,7 @@ handle profile ( time, timeZone ) response =
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "when getting time blocks: " ++ describeError err
                     , Cmd.none
                     )
@@ -370,13 +370,13 @@ handle profile ( time, timeZone ) response =
         GotTimeBlockAssignments assignmentsResult ->
             case assignmentsResult of
                 Ok assignmentDict ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "Fetched timeblock assignments: " ++ Debug.toString assignmentDict
                     , getTimeBlocks assignmentDict
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "when getting time block assignments: " ++ describeError err
                     , Cmd.none
                     )
@@ -401,7 +401,7 @@ handle profile ( time, timeZone ) response =
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "when getting canonical timetrack timing tables: " ++ describeError err
                     , Cmd.none
                     )
@@ -443,7 +443,7 @@ handle profile ( time, timeZone ) response =
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , "when sending start/stop timetracking signal: " ++ describeError err
                     , Cmd.none
                     )
@@ -451,7 +451,7 @@ handle profile ( time, timeZone ) response =
         GotTrackedItem result ->
             case result of
                 Ok itemID ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , ""
                     , trackTruth partialAccessToken itemID
                     )
@@ -468,13 +468,13 @@ handle profile ( time, timeZone ) response =
                             Maybe.andThen (Assignment.getExtra "marvinID") activeInstanceMaybe
                     in
                     -- also Ok, Marvin returns empty string
-                    ( Change.none
+                    ( Change.emptyFrame
                     , ""
                     , Maybe.withDefault Cmd.none <| Maybe.map (trackTruth partialAccessToken) activeMarvinIDMaybe
                     )
 
                 Err err ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , describeError err
                     , Cmd.none
                     )

@@ -141,7 +141,7 @@ fromPlaceholderSkelManual metaAssignable assignmentSkel =
         { assignable = metaAssignable
         , reg = assignmentSkel
         , id = ManualAssignmentID (Assignable.id metaAssignable) (ID.fromPointer (Reg.getPointer assignmentSkel))
-        , remove = Debug.todo "tried to remove an assignment while it was still a placeholder"
+        , remove = Change.noChange
         }
 
 

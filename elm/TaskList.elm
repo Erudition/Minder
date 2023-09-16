@@ -1100,7 +1100,7 @@ update msg state profile env =
                 Normal filters _ "" _ ->
                     ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
-                    , Change.none
+                    , Change.emptyFrame
                     , Effect.none
                     )
 
@@ -1190,7 +1190,7 @@ update msg state profile env =
               in
               Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
-            , Change.none
+            , Change.emptyFrame
             , Effect.none
             )
 
@@ -1200,7 +1200,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal actionMaybe)
-            , Change.none
+            , Change.emptyFrame
             , Effect.OpenPopup (PopupType.AssignmentEditor actionMaybe)
             )
 
@@ -1210,7 +1210,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar Nothing
-            , Change.none
+            , Change.emptyFrame
             , Effect.ClosePopup
             )
 
@@ -1220,7 +1220,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar Nothing
-            , Change.none
+            , Change.emptyFrame
             , Effect.none
             )
 
@@ -1234,7 +1234,7 @@ update msg state profile env =
 
                 changeTitleIfValid =
                     if (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignable.title assignable then
-                        Change.none
+                        Change.emptyFrame
 
                     else
                         Change.saveChanges "Updating project title" [ Assignable.setTitle newTitle assignable ]
@@ -1257,7 +1257,7 @@ update msg state profile env =
 
         DeleteComplete ->
             ( state
-            , Change.none
+            , Change.emptyFrame
               -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
             , Effect.none
             )
@@ -1313,13 +1313,13 @@ update msg state profile env =
 
         FocusSlider task focused ->
             ( state
-            , Change.none
+            , Change.emptyFrame
             , Effect.none
             )
 
         NoOp ->
             ( state
-            , Change.none
+            , Change.emptyFrame
             , Effect.none
             )
 
@@ -1335,13 +1335,13 @@ update msg state profile env =
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, Change.none, Effect.none )
+            ( state, Change.emptyFrame, Effect.none )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField editing ->
                     Normal newList expandedTaskMaybe newTaskField editing
-            , Change.none
+            , Change.emptyFrame
             , Effect.none
             )
 
@@ -1398,10 +1398,10 @@ update msg state profile env =
             ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Effect.none )
 
         Toast toastMsg ->
-            ( state, Change.none, Effect.Toast toastMsg )
+            ( state, Change.emptyFrame, Effect.Toast toastMsg )
 
         RunEffect effect ->
-            ( state, Change.none, effect )
+            ( state, Change.emptyFrame, effect )
 
         PromptRename oldName newNameToChange ->
             let
@@ -1422,7 +1422,7 @@ update msg state profile env =
                     , inputText = Just oldName
                     }
             in
-            ( state, Change.none, Effect.DialogPrompt handleResult promptOptions )
+            ( state, Change.emptyFrame, Effect.DialogPrompt handleResult promptOptions )
 
 
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )

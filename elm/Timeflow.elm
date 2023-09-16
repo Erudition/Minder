@@ -1115,7 +1115,7 @@ update msg stateMaybe profile env =
                         withNewPeriodToRender =
                             { withoutNewPeriodToRender | flowRenderPeriod = Period.fromPair ( newStart, newFinish ) }
                     in
-                    ( Change.none, { state | settings = withNewPeriodToRender }, Cmd.none )
+                    ( Change.emptyFrame, { state | settings = withNewPeriodToRender }, Cmd.none )
 
                 Wheel wheelEvent ->
                     let
@@ -1138,14 +1138,14 @@ update msg stateMaybe profile env =
                         newSettings =
                             { oldSettings | flowRenderPeriod = Period.fromPair ( shiftMoment oldStart, shiftMoment oldFinish ), pivotMoment = shiftMoment oldSettings.pivotMoment }
                     in
-                    ( Change.none, { state | settings = newSettings }, Cmd.none )
+                    ( Change.emptyFrame, { state | settings = newSettings }, Cmd.none )
 
                 WidgetMsg widgetMsg ->
                     let
                         ( newWidgetState, widgetOutCmds ) =
                             Widget.update widgetMsg state.widgetState
                     in
-                    ( Change.none
+                    ( Change.emptyFrame
                     , { state | widgetState = newWidgetState }
                     , Cmd.map WidgetMsg widgetOutCmds
                     )
@@ -1158,7 +1158,7 @@ update msg stateMaybe profile env =
                         newPointer =
                             { oldPointer | x = blockBrokenCoord x, y = blockBrokenCoord y }
                     in
-                    ( Change.none, { state | pointer = newPointer }, Cmd.none )
+                    ( Change.emptyFrame, { state | pointer = newPointer }, Cmd.none )
 
                 MouseDownAt itemID startPoint ->
                     let
@@ -1169,13 +1169,13 @@ update msg stateMaybe profile env =
                             -- make sure drag start location agrees with pointer location
                             { x = Tuple.first startPoint, y = Tuple.second startPoint }
                     in
-                    ( Change.none
+                    ( Change.emptyFrame
                     , { state | dragging = Just dragState, pointer = newPointer }
                     , Cmd.none
                     )
 
                 MouseUp ->
-                    ( Change.none
+                    ( Change.emptyFrame
                     , { state | dragging = Nothing }
                     , Cmd.none
                     )
@@ -1198,7 +1198,7 @@ update msg stateMaybe profile env =
                         ( widget1state, widget1init ) =
                             Widget.init newWidth newHeight "0"
                     in
-                    ( Change.none
+                    ( Change.emptyFrame
                     , { settings = newSettings
                       , widgetState = widget1state
                       , widgetInit = widget1init
@@ -1213,7 +1213,7 @@ update msg stateMaybe profile env =
                 ( initState, initCmd ) =
                     init profile env
             in
-            ( Change.none, initState, Cmd.batch [ initCmd, resizeCmd ] )
+            ( Change.emptyFrame, initState, Cmd.batch [ initCmd, resizeCmd ] )
 
 
 resizeCmd =

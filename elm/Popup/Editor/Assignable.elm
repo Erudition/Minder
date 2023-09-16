@@ -351,4 +351,4 @@ outputToChanges assignableMaybe output =
                     ]
 
         Nothing ->
-            Change.none
+            Change.emptyFrame

@@ -251,7 +251,7 @@ update : Msg -> ViewState -> Profile -> ( Moment, HumanMoment.Zone ) -> ( Change
 update msg state profile ( time, timeZone ) =
     case msg of
         NoOp ->
-            ( Change.none
+            ( Change.emptyFrame
             , state
             , Cmd.none
             )
@@ -277,7 +277,7 @@ update msg state profile ( time, timeZone ) =
             )
 
         ExportVM ->
-            ( Change.none
+            ( Change.emptyFrame
             , state
             , Tasker.variableOut ( "activities", Encode.encode 0 <| exportActivityViewModel profile ( time, timeZone ) )
             )

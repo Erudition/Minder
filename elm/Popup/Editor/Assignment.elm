@@ -242,4 +242,4 @@ outputToChanges existingAssignmentMaybe output =
                     ]
 
         Nothing ->
-            Change.none
+            Change.emptyFrame

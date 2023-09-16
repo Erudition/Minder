@@ -350,7 +350,7 @@ update msg state profile env =
                 Normal filters _ "" _ ->
                     ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
-                    , Change.none
+                    , Change.emptyFrame
                     , Cmd.none
                     )
 
@@ -389,7 +389,7 @@ update msg state profile env =
               in
               Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
@@ -399,7 +399,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectTitle action.classID newTitleSoFar)
-            , Change.none
+            , Change.emptyFrame
             , Process.sleep 100
                 |> Job.andThen (\_ -> ionInputSetFocus ("task-title-" ++ Assignment.getIDString action))
                 |> Job.attempt (\_ -> NoOp)
@@ -411,7 +411,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal action)
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
@@ -421,7 +421,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar Nothing
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
@@ -431,7 +431,7 @@ update msg state profile env =
                     state
             in
             ( Normal filters expanded typedSoFar Nothing
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
@@ -446,7 +446,7 @@ update msg state profile env =
                 changeTitleIfValid =
                     case (String.length normalizedNewTitle < 2) || normalizedNewTitle == Assignment.getTitle action of
                         True ->
-                            Change.none
+                            Change.emptyFrame
 
                         False ->
                             Change.saveChanges "Updating project title" [ Assignment.setProjectTitle newTitle action ]
@@ -476,7 +476,7 @@ update msg state profile env =
 
         DeleteComplete ->
             ( state
-            , Change.none
+            , Change.emptyFrame
               -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
             , Cmd.none
             )
@@ -536,13 +536,13 @@ update msg state profile env =
 
         FocusSlider task focused ->
             ( state
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
         NoOp ->
             ( state
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
@@ -558,13 +558,13 @@ update msg state profile env =
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, Change.none, Cmd.none )
+            ( state, Change.emptyFrame, Cmd.none )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField editing ->
                     Normal newList expandedTaskMaybe newTaskField editing
-            , Change.none
+            , Change.emptyFrame
             , Cmd.none
             )
 
