@@ -161,6 +161,18 @@ type OpImportWarning
     | EmptyChunk
 
 
+opImportWarningToString opImportWarning =
+    case opImportWarning of
+        ParseFail deadEndList ->
+            Debug.todo "ParseFail (List (Parser.DeadEnd Op.Context Op.Problem))"
+
+        UnknownReference opID ->
+            "Unknown reference, OpID: " ++ OpID.toString opID
+
+        EmptyChunk ->
+            "Got an empty chunk"
+
+
 type alias RonProcessedInfo =
     { node : Node
     , warnings : List OpImportWarning

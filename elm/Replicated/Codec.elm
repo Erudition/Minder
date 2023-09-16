@@ -5071,7 +5071,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
                 [ JD.list JD.value |> JD.map captureSubGroups |> JD.andThen reDecodeGroupedList
 
                 -- allow non-array input for variant0s:
-                --, findDecoderMatchingTag
+                , findDecoderMatchingTag
                 ]
     in
     Codec

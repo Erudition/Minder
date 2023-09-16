@@ -247,7 +247,7 @@ initWrapper userInit wrappedFlags =
     in
     ( PreInit
         { restoredNode = storedNodeMaybe
-        , warnings = [] -- TODO
+        , warnings = List.map Node.opImportWarningToString startWarnings
         , flags = wrappedFlags
         , userInit = userInit
         }
@@ -408,9 +408,14 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         ( newUserReplica, userReplicaDecodeWarnings ) =
                             Codec.forceDecodeFromNode userReplicaCodec node
                     in
-                    ( UserRunning { replicator | replica = newUserReplica }
-                    , Cmd.none
-                    )
+                    case userReplicaDecodeWarnings of
+                        Nothing ->
+                            ( UserRunning { replicator | replica = newUserReplica }
+                            , Cmd.none
+                            )
+
+                        Just problem ->
+                            Debug.todo <| "problem when decoding replica! " ++ Codec.errorToString problem
 
                 ( UserRunning ({ node } as replicator), nextRonFrame :: moreRonFrames ) ->
                     let

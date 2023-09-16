@@ -1008,14 +1008,14 @@ update msg ({ replica } as frameworkModel) =
                         ( oldPanelState, position ) =
                             getPanelViewState viewState.taskList TaskList.defaultView
 
-                        ( newPanelState, newFrame, outEffects ) =
+                        ( newPanelState, newFrame, outEffect ) =
                             TaskList.update subMsg oldPanelState replica shared
 
                         newViewState =
                             { viewState | taskList = OpenPanel position newPanelState }
 
                         ( effectFrames, newShared, effectCmds ) =
-                            Effect.perform (\_ -> NoOp) shared replica outEffects
+                            Effect.perform (\_ -> NoOp) shared replica [ Effect.map TaskListMsg outEffect ]
                     in
                     ( newFrame :: effectFrames
                     , { shared = newShared, viewState = newViewState }

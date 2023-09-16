@@ -11,6 +11,9 @@ import Dict.Any as AnyDict exposing (AnyDict)
 import Effect exposing (Effect(..))
 import External.Commands as Commands
 import Helpers exposing (..)
+import Html as H
+import Html.Attributes as HA
+import Html.Events as HE
 import Html.Styled as SH exposing (..)
 import Html.Styled.Attributes as SHA exposing (..)
 import Html.Styled.Events exposing (..)
@@ -25,6 +28,7 @@ import IntDict
 import Integrations.Marvin as Marvin
 import Integrations.Todoist
 import Ion.ActionSheet as ActionSheet
+import Ion.Button
 import Ion.Icon
 import Ion.Item
 import Ion.List
@@ -184,9 +188,9 @@ onEnter msg =
     on "keydown" (JD.andThen isEnter keyCode)
 
 
-
--- VIEW ALL TODOS
--- viewTasks : String -> List Assignment -> Html Msg
+viewMenuButton triggerID =
+    Ion.Button.button [ HA.attribute "slot" "end", HA.id triggerID ] [ Ion.Icon.basic "ellipsis-vertical-outline" ]
+        |> SH.fromUnstyled
 
 
 viewProjects : Moment -> HumanMoment.Zone -> Filter -> Profile -> Html Msg
@@ -215,11 +219,32 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
     let
         entryContents =
             case Project.children project |> RepList.listValues of
-                [ ProjectSkel.AssignableIsHere assignableSkelReg ] ->
+                [] ->
+                    text "No assignables in this project."
+
+                someChildren ->
+                    div [] <| List.map viewProjectChild someChildren
+
+        viewProjectChild projectChild =
+            case projectChild of
+                ProjectSkel.AssignableIsHere assignableSkelReg ->
                     viewAssignable profile ( time, timeZone ) trackedTaskMaybe (Assignable.fromSkel project assignableSkelReg)
 
-                _ ->
-                    text "viewing multiple assignables in project NYI"
+                ProjectSkel.AssignableIsDeeper nestedProjectSkelReg ->
+                    viewProject profile ( time, timeZone ) trackedTaskMaybe (Project.fromSkel (Just project) nestedProjectSkelReg)
+
+        sheetButtonID =
+            "actionsheet-trigger-for-project-" ++ Project.idString project
+
+        presentActionSheet =
+            ActionSheet.actionSheet
+                [ ActionSheet.header <| Maybe.withDefault "This project" (Project.title project)
+                , ActionSheet.trigger sheetButtonID
+                ]
+                [ ActionSheet.deleteButton (Toast "NYI: Delete Project")
+                , ActionSheet.button "Rename" (Toast "clicked Continue!")
+                ]
+                |> SH.fromUnstyled
     in
     node "ion-item-sliding"
         []
@@ -240,16 +265,19 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
               -- ]
               div [ css [ Css.width (pct 100) ] ]
                 [ node "ion-label"
-                    []
-                    [ text "" -- Project title if assignable is deeper
+                    [ onDoubleClick (PromptRename (Project.title project |> Maybe.withDefault "Untitled Project") (\t -> Project.setTitle (Just t) project)) ]
+                    [ text (Project.title project |> Maybe.withDefault "Untitled Project") -- Project title if assignable is deeper
                     ]
                 , entryContents
+                , viewMenuButton sheetButtonID
                 ]
             ]
         , node "ion-item-options"
             []
             [ node "ion-item-option" [ attribute "color" "danger" ] [ text "delete" ]
+            , node "ion-item-option" [ attribute "color" "primary", onClick (AddAssignable project) ] [ text "add assignable" ]
             ]
+        , presentActionSheet
         ]
 
 
@@ -292,7 +320,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
     in
     div
         [ class "assignments" ]
-        [ node "ion-card-title" [] (viewAssignableTitle ++ viewSubAssignables)
+        [ node "ion-card-title" [ onDoubleClick (PromptRename (Assignable.title assignable) (\t -> Assignable.setTitle t assignable)) ] (viewAssignableTitle ++ viewSubAssignables)
         , div [ css [ displayFlex, overflowX scroll ] ] viewAssignments
         ]
 
@@ -317,7 +345,6 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
         presentActionSheet =
             ActionSheet.actionSheet
                 [ ActionSheet.header "Action Sheet!"
-                , ActionSheet.isOpen True
                 , ActionSheet.trigger sheetButtonID
                 ]
                 [ ActionSheet.deleteButton (DeleteAssignment assignment)
@@ -1045,6 +1072,7 @@ type Msg
     | OpenEditor (Maybe Assignment)
     | CloseEditor
     | AddProject
+    | AddAssignable Project
     | AddAssignment Assignable
     | DeleteAssignment Assignment
     | DeleteComplete
@@ -1060,9 +1088,11 @@ type Msg
     | SimpleChange Change
     | LogError String
     | Toast String
+    | RunEffect (Effect Msg)
+    | PromptRename String (String -> Change)
 
 
-update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Change.Frame, List (Effect msg) )
+update : Msg -> ViewState -> Profile -> Shared -> ( ViewState, Change.Frame, Effect Msg )
 update msg state profile env =
     case msg of
         AddProject ->
@@ -1071,7 +1101,7 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
                     , Change.none
-                    , []
+                    , Effect.none
                     )
 
                 Normal filters _ newProjectTitle _ ->
@@ -1082,18 +1112,6 @@ update msg state profile env =
                         projectChanger project =
                             [ Project.setTitle (Just newProjectTitle) project ]
 
-                        -- newAssignable : Change.Creator (Reg AssignableSkel)
-                        -- newAssignable c =
-                        --     let
-                        --         assignableChanger : Reg AssignableSkel -> List Change
-                        --         assignableChanger parentAssignable =
-                        --             [ RepDb.addNew (Assignment.new (ID.fromPointer (Reg.getPointer parentAssignable))) profile.assignments
-                        --             , RepList.insert RepList.Last (Action.ActionIsHere actionToAdd) (Reg.latest parentAssignable).children
-                        --             ]
-                        --         actionToAdd =
-                        --             Action.newActionSkel (Change.reuseContext "in-action" c) "first action" (\_ -> [])
-                        --     in
-                        --     Assignable.newWithoutAction c (Assignable.normalizeTitle newProjectTitle) assignableChanger
                         frameDescription =
                             "Added project: " ++ newProjectTitle
 
@@ -1109,8 +1127,31 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- ^resets new-entry-textbox to empty, collapses tasks
                     , Change.saveChanges frameDescription finalChanges
-                    , []
+                    , Effect.none
                     )
+
+        AddAssignable project ->
+            let
+                frameDescription =
+                    "Added a new assignable to project."
+
+                assignableChanger : Assignable -> List Change
+                assignableChanger parentAssignable =
+                    [-- RepDb.addNew (Assignment.new (ID.fromPointer (Reg.getPointer parentAssignable))) profile.assignments
+                     --RepList.insertNew RepList.Last (SubAssignableSkel.ActionIsHere actionToAdd) (Assignable.children parentAssignable)
+                    ]
+
+                -- actionToAdd =
+                --     Action.newActionSkel (Change.reuseContext "in-action" c) "first action" (\_ -> [])
+                finalChanges =
+                    [ RepList.insert RepList.Last frameDescription profile.errors
+                    , Assignable.createWithinProject [ assignableChanger ] project
+                    ]
+            in
+            ( state
+            , Change.saveChanges frameDescription finalChanges
+            , Effect.none
+            )
 
         AddAssignment assignable ->
             let
@@ -1124,7 +1165,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges frameDescription finalChanges
-            , []
+            , Effect.none
             )
 
         DeleteAssignment assignment ->
@@ -1139,7 +1180,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges frameDescription finalChanges
-            , []
+            , Effect.none
             )
 
         UpdateNewEntryField typedSoFar ->
@@ -1150,7 +1191,7 @@ update msg state profile env =
               Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
             , Change.none
-            , []
+            , Effect.none
             )
 
         OpenEditor actionMaybe ->
@@ -1160,7 +1201,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar (Just <| EditingProjectModal actionMaybe)
             , Change.none
-            , [ Effect.OpenPopup (PopupType.AssignmentEditor actionMaybe) ]
+            , Effect.OpenPopup (PopupType.AssignmentEditor actionMaybe)
             )
 
         CloseEditor ->
@@ -1170,7 +1211,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , Change.none
-            , [ Effect.ClosePopup ]
+            , Effect.ClosePopup
             )
 
         StopEditing ->
@@ -1180,7 +1221,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , Change.none
-            , []
+            , Effect.none
             )
 
         UpdateTitle assignable newTitle ->
@@ -1200,7 +1241,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
-            , []
+            , Effect.none
             )
 
         UpdateTaskDate id field date ->
@@ -1218,7 +1259,7 @@ update msg state profile env =
             ( state
             , Change.none
               -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
-            , []
+            , Effect.none
             )
 
         UpdateProgress givenTask newCompletion ->
@@ -1273,13 +1314,13 @@ update msg state profile env =
         FocusSlider task focused ->
             ( state
             , Change.none
-            , []
+            , Effect.none
             )
 
         NoOp ->
             ( state
             , Change.none
-            , []
+            , Effect.none
             )
 
         TodoistServerResponse response ->
@@ -1289,19 +1330,19 @@ update msg state profile env =
             in
             ( state
             , todoistChanges
-            , [ Effect.Toast whatHappened ]
+            , Effect.Toast whatHappened
             )
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, Change.none, [] )
+            ( state, Change.none, Effect.none )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField editing ->
                     Normal newList expandedTaskMaybe newTaskField editing
             , Change.none
-            , []
+            , Effect.none
             )
 
         StartTrackingAssignment assignment activityID ->
@@ -1317,7 +1358,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges "Start tracking" addSessionChanges
-            , []
+            , Effect.none
               -- , Cmd.batch
               --     [ sessionCommands
               --     -- , Cmd.map MarvinServerResponse <| marvinCmds
@@ -1343,7 +1384,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges "Stop tracking" sessionChanges
-            , []
+            , Effect.none
               -- , Cmd.batch
               --     [ sessionCommands
               --     -- , Cmd.map MarvinServerResponse <| marvinCmds
@@ -1351,13 +1392,37 @@ update msg state profile env =
             )
 
         SimpleChange change ->
-            ( state, Change.saveChanges "Simple change" [ change ], [] )
+            ( state, Change.saveChanges "Simple change" [ change ], Effect.none )
 
         LogError errorMsg ->
-            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], [] )
+            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Effect.none )
 
         Toast toastMsg ->
-            ( state, Change.none, [ Effect.Toast toastMsg ] )
+            ( state, Change.none, Effect.Toast toastMsg )
+
+        RunEffect effect ->
+            ( state, Change.none, effect )
+
+        PromptRename oldName newNameToChange ->
+            let
+                handleResult result =
+                    case result of
+                        Ok newName ->
+                            RunEffect <| Effect.Save <| Change.saveChanges "renaming" [ newNameToChange newName ]
+
+                        Err _ ->
+                            RunEffect <| Effect.none
+
+                promptOptions =
+                    { title = Just ("Renaming " ++ oldName)
+                    , message = "Enter a new name for \"" ++ oldName ++ "\"."
+                    , okButtonTitle = Just "Rename"
+                    , cancelButtonTitle = Nothing
+                    , inputPlaceholder = Just oldName
+                    , inputText = Just oldName
+                    }
+            in
+            ( state, Change.none, Effect.DialogPrompt handleResult promptOptions )
 
 
 urlTriggers : Profile -> ( Moment, HumanMoment.Zone ) -> List ( String, Dict.Dict String Msg )
