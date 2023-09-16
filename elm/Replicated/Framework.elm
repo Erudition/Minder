@@ -4,11 +4,12 @@ import Browser
 import Browser.Navigation exposing (Key)
 import Console
 import Html
+import Html.Styled exposing (fromUnstyled, toUnstyled)
 import Log
 import Process
 import Replicated.Change as Change exposing (Frame)
 import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
-import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Node.Node as Node exposing (Node, RonProcessedInfo)
 import Replicated.Op.Op as Op exposing (Op)
 import Showstopper exposing (InitFailure(..), ShowstopperDetails)
 import SmartTime.Duration as Duration exposing (Duration)
@@ -33,6 +34,7 @@ type Msg userMsg
     | UserInit
     | Tick userMsg
     | U userMsg Moment -- short name, userMsg first param, all to maximize visibility in Elm Debugger
+    | ShowstopperMsg Showstopper.Msg
 
 
 type Model userFlags userMsg userReplica temp
@@ -53,6 +55,7 @@ type Model userFlags userMsg userReplica temp
         , loadProgress : ( Int, Int )
         }
     | UserRunning (Replicator userReplica temp)
+    | Crash Showstopper.ShowstopperDetails
 
 
 {-| This framework takes over Elm's "Model" and instead only gives you a `Replicator`, which is read-only. No worries, you can store your own model inside its `temp` and `replica` fields, with any types you want to model your app with, as usual.
@@ -165,6 +168,13 @@ viewWrapperBrowser userView premodel =
             , body = List.map (Html.map Tick) body
             }
 
+        Crash details ->
+            { title = "Showstopper"
+            , body =
+                [ Html.Styled.map ShowstopperMsg (Showstopper.view details) ]
+                    |> List.map toUnstyled
+            }
+
 
 viewWrapperElement : (Replicator userReplica temp -> Html.Html userMsg) -> Model userFlags userMsg userReplica temp -> Html.Html (Msg userMsg)
 viewWrapperElement userView premodel =
@@ -193,6 +203,10 @@ viewWrapperElement userView premodel =
         UserRunning replicator ->
             userView replicator
                 |> Html.map Tick
+
+        Crash details ->
+            Html.Styled.map ShowstopperMsg (Showstopper.view details)
+                |> toUnstyled
 
 
 {-| Internal helper to get the Model the user expects when everything initialized correctly.
@@ -394,13 +408,14 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         totalFrames =
                             Tuple.second frameworkReady.loadProgress
                     in
-                    ( FrameworkReady
-                        { frameworkReady
-                            | node = updated.node
-                            , loadProgress = ( totalFrames - List.length moreRonFrames, totalFrames )
-                        }
-                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
-                    )
+                    crashIfNeeded nextRonFrame updated <|
+                        ( FrameworkReady
+                            { frameworkReady
+                                | node = updated.node
+                                , loadProgress = ( totalFrames - List.length moreRonFrames, totalFrames )
+                            }
+                        , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
+                        )
 
                 ( UserRunning ({ node } as replicator), [] ) ->
                     -- no more RON frames to process
@@ -422,12 +437,16 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                         updated =
                             Node.updateWithRon { node = node, warnings = [], newObjects = [] } (Log.logMessageOnly ("Importing RON frame: \n" ++ nextRonFrame) nextRonFrame)
                     in
-                    ( UserRunning { replicator | node = updated.node }
-                    , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
-                    )
+                    crashIfNeeded nextRonFrame updated <|
+                        ( UserRunning { replicator | node = updated.node }
+                        , Job.perform (\_ -> LoadMoreData moreRonFrames) (Job.succeed ())
+                        )
 
                 ( PreInit _, _ ) ->
                     ( Log.crashInDev "LoadMoreData when model was PreInit" wrappedModel, Cmd.none )
+
+                ( Crash details, _ ) ->
+                    ( Log.crashInDev "Tried to LoadMoreData while in crashed state" wrappedModel, Cmd.none )
 
         UserInit ->
             case wrappedModel of
@@ -449,3 +468,23 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                 _ ->
                     -- never possible
                     ( Log.crashInDev "UserInit when model wasn't FrameworkReady" wrappedModel, Cmd.none )
+
+        ShowstopperMsg msg ->
+            ( wrappedModel, Cmd.none )
+
+
+crashIfNeeded : String -> RonProcessedInfo -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) ) -> ( Model userFlags userMsg userReplica temp, Cmd (Msg userMsg) )
+crashIfNeeded savedRon info passThroughModel =
+    let
+        crashInfo : Showstopper.ShowstopperDetails
+        crashInfo =
+            { savedRon = savedRon
+            , problem = Showstopper.ImportFail info.warnings
+            }
+    in
+    case info.warnings of
+        [] ->
+            passThroughModel
+
+        more ->
+            ( Crash crashInfo, Cmd.none )

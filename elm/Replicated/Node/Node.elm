@@ -159,6 +159,7 @@ type OpImportWarning
     = ParseFail (List (Parser.DeadEnd Op.Context Op.Problem))
     | UnknownReference OpID
     | EmptyChunk
+    | NoSuccessfulOps String
 
 
 opImportWarningToString opImportWarning =
@@ -171,6 +172,9 @@ opImportWarningToString opImportWarning =
 
         EmptyChunk ->
             "Got an empty chunk"
+
+        NoSuccessfulOps frame ->
+            "Did not successfully import any ops from this frame: " ++ frame
 
 
 type alias RonProcessedInfo =
@@ -191,7 +195,15 @@ updateWithRon old inputRon =
                         { old | warnings = old.warnings ++ [ EmptyChunk ] }
 
                 foundFrames ->
-                    updateWithMultipleFrames parsedRonFrames old
+                    let
+                        output =
+                            updateWithMultipleFrames parsedRonFrames old
+                    in
+                    if AnyDict.size old.node.ops == AnyDict.size output.node.ops then
+                        output
+
+                    else
+                        { output | warnings = output.warnings ++ [ NoSuccessfulOps inputRon ] }
 
         Err parseDeadEnds ->
             { old | warnings = old.warnings ++ [ ParseFail parseDeadEnds ] }

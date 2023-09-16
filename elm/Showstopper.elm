@@ -6,7 +6,7 @@ import Css
 import Dict
 import External.Commands exposing (..)
 import Html.Styled as H exposing (Html, div, text)
-import Html.Styled.Attributes as HA exposing (class)
+import Html.Styled.Attributes as HA exposing (class, css)
 import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
 import Json.Encode as JE
@@ -35,7 +35,6 @@ type InitFailure
 type alias ShowstopperDetails =
     { savedRon : String
     , problem : InitFailure
-    , url : Url.Url
     }
 
 
@@ -63,7 +62,10 @@ view { savedRon, problem } =
                     , viewSavedRon savedRon []
                     ]
     in
-    H.section [ class "showstopper" ]
+    H.section
+        [ class "showstopper"
+        , css [ Css.overflow Css.scroll, Css.height (Css.vh 100) ] -- override Ionic overflow:hidden on page
+        ]
         viewProblem
 
 
@@ -177,4 +179,10 @@ viewImportWarning importWarning =
         Node.EmptyChunk ->
             div []
                 [ text <| "I encountered an empty Chunk"
+                ]
+
+        Node.NoSuccessfulOps badFrame ->
+            div []
+                [ text <| "No ops added to node after processing this frame!"
+                , text <| badFrame
                 ]
