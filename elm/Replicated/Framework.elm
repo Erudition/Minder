@@ -5,6 +5,7 @@ import Browser.Navigation exposing (Key)
 import Console
 import Html
 import Html.Styled exposing (fromUnstyled, toUnstyled)
+import List.Extra
 import Log
 import Process
 import Replicated.Change as Change exposing (Frame)
@@ -358,10 +359,17 @@ updateWrapper userReplicaCodec setStorage userUpdate wrappedMsg wrappedModel =
                                             -- Node.startNewNode (Just now) []
                                             Codec.startNodeFromRoot maybeTime userReplicaCodec
 
+                                        cleanStartChunks =
+                                            List.filter (not << List.isEmpty) startChunks
+
                                         --tempDefaultChanges
                                         saveNodeCmd =
-                                            setStorage (Op.closedChunksToFrameText startChunks)
-                                                |> Cmd.map (\m -> U m now)
+                                            if not (List.isEmpty cleanStartChunks) then
+                                                setStorage (Op.closedChunksToFrameText startChunks)
+                                                    |> Cmd.map (\m -> U m now)
+
+                                            else
+                                                Cmd.none
 
                                         userStartupCmd =
                                             Job.perform (\_ -> UserInit) (Job.succeed ())
@@ -483,6 +491,7 @@ crashIfNeeded savedRon info passThroughModel =
             }
     in
     case info.warnings of
+        -- List.Extra.filterNot ((==) Node.EmptyChunk) info.warnings
         [] ->
             passThroughModel
 

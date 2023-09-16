@@ -46,16 +46,17 @@ const dbConfig = {
   }
 }
 
-const store = async (name) => {
-  // Create IPFS instance
-  const ipfs = await create(ipfsConfig)
-  // Create an OrbitDB instance
-  const orbitdb = await OrbitDb.createInstance(ipfs)
-  // Open (or create) database
-  const db = await orbitdb.log(name, dbConfig)
-  // Done
-  return db
-}
+// const store = async (name) => {
+//   // Create IPFS instance
+//   const ipfs = await create(ipfsConfig)
+//   // Create an OrbitDB instance
+//   const orbitdb = await OrbitDb.createInstance(ipfs)
+//   // Open (or create) database
+//   const db = await orbitdb.log(name, dbConfig)
+
+//   // Done
+//   return db
+// }
 
 export async function startOrbit(dbName) {
   

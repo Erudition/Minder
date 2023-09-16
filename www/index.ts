@@ -181,6 +181,7 @@ async function getPassphrase(shouldReset) {
 async function attachOrbit(elmApp) {
     const storedPassphrase : string | null = await  getPassphrase(false);
     const db = await startOrbit(storedPassphrase);
+    globalThis["minderLog"] = db;
     const dbEntries = db.iterator({ limit: -1 }).collect();
     console.log("Loaded inital database entries", dbEntries);
     let oldFrames = dbEntries.map((e) => e.payload.value).join('\n');
@@ -189,9 +190,12 @@ async function attachOrbit(elmApp) {
 
     // SET STORAGE
     elmApp.ports.setStorage.subscribe(async function(state) {
+        if (state.trim() != "")
+        {
           // TODO elm may call this before it's ready. make taskport, hoist to top and use await db.load? or onReady?
           console.log("Adding state to database", state);
           const hash = db.add(state); //async?
+        }
   });
 
     // Notify elm of new frame from peers

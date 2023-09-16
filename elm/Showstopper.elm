@@ -2,11 +2,12 @@ module Showstopper exposing (..)
 
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Navigation exposing (..)
+import Color
 import Css
 import Dict
 import External.Commands exposing (..)
-import Html.Styled as H exposing (Html, div, text)
-import Html.Styled.Attributes as HA exposing (class, css)
+import Html.Styled as SH exposing (Html, div, text)
+import Html.Styled.Attributes as SHA exposing (class, css)
 import Json.Decode as JD
 import Json.Decode.Exploration exposing (..)
 import Json.Encode as JE
@@ -58,22 +59,22 @@ view { savedRon, problem } =
                     viewCodecError savedRon codecError
 
                 OtherFail Node.DecodingOldIdentityProblem ->
-                    [ H.h1 [] [ H.text "Showstopper: Identity data is corrupt" ]
+                    [ SH.h1 [] [ SH.text "Showstopper: Identity data is corrupt" ]
                     , viewSavedRon savedRon []
                     ]
     in
-    H.section
+    SH.section
         [ class "showstopper"
-        , css [ Css.overflow Css.scroll, Css.height (Css.vh 100) ] -- override Ionic overflow:hidden on page
+        , css [ Css.overflow Css.scroll, Css.height (Css.vh 100), Css.backgroundColor (Css.rgb 255 255 255) ] -- override Ionic overflow:hidden on page
         ]
         viewProblem
 
 
 viewCodecError : String -> Codec.Error String -> List (Html msg)
 viewCodecError savedRon codecError =
-    [ H.h1 [] [ H.text "Showstopper" ]
-    , H.h2 [] [ H.text "Node failed to decode" ]
-    , H.h3 [] [ H.text (codecErrorToString codecError) ]
+    [ SH.h1 [] [ SH.text "Showstopper" ]
+    , SH.h2 [] [ SH.text "Node failed to decode" ]
+    , SH.h3 [] [ SH.text (codecErrorToString codecError) ]
     , viewSavedRon savedRon []
     ]
 
@@ -104,11 +105,11 @@ viewSavedRon savedRon deadEndList =
                     showLine rowNum (splitLine deadEndsThisRow lineText)
 
         showLine rowNum lineContents =
-            H.pre []
-                [ H.span
-                    [ HA.css [ Css.color (Css.rgb 191 191 191) ] ]
+            SH.pre []
+                [ SH.span
+                    [ SHA.css [ Css.color (Css.rgb 191 191 191) ] ]
                     [ text (String.fromInt rowNum ++ " ") ]
-                , H.span [] lineContents
+                , SH.span [] lineContents
                 ]
 
         splitLine deadEndsThisRow lineText =
@@ -124,14 +125,14 @@ viewSavedRon savedRon deadEndList =
                     showProblemColumn (List.map .problem deadEndsThisColumn) char
 
         showProblemColumn problemsHere char =
-            H.span
-                [ HA.css [ Css.backgroundColor (Css.rgb 255 0 0) ]
-                , HA.title
+            SH.span
+                [ SHA.css [ Css.backgroundColor (Css.rgb 255 0 0) ]
+                , SHA.title
                     (String.join "\n" <| List.map Op.problemToString problemsHere)
                 ]
                 [ text <| String.fromChar char ]
     in
-    H.section [] linesFormatted
+    SH.section [] linesFormatted
 
 
 deadEndToString : OpParserDeadEnd -> String
@@ -149,9 +150,9 @@ viewImportWarnings savedRon opImportWarningList =
                 _ ->
                     Nothing
     in
-    [ H.h1 [] [ H.text "Import Warnings Encountered" ]
-    , H.h2 [] [ H.text "Did not import RON cleanly" ]
-    , H.div [] (List.map viewImportWarning opImportWarningList)
+    [ SH.h1 [] [ SH.text "Import Warnings Encountered" ]
+    , SH.h2 [] [ SH.text "Did not import RON cleanly" ]
+    , SH.div [] (List.map viewImportWarning opImportWarningList)
     , viewSavedRon savedRon (List.filterMap keepParseFailure opImportWarningList |> List.concat)
     ]
 
@@ -161,8 +162,8 @@ viewImportWarning importWarning =
         Node.ParseFail deadEndList ->
             let
                 perDeadEnd deadEnd =
-                    H.pre
-                        [ HA.css
+                    SH.pre
+                        [ SHA.css
                             [ Css.border3 (Css.px 2) Css.solid (Css.rgb 255 0 0)
                             , Css.backgroundColor (Css.rgb 255 0 0)
                             ]
@@ -184,5 +185,5 @@ viewImportWarning importWarning =
         Node.NoSuccessfulOps badFrame ->
             div []
                 [ text <| "No ops added to node after processing this frame!"
-                , text <| badFrame
+                , SH.pre [ SHA.css [ Css.color (Css.rgb 200 0 0) ] ] [ text <| badFrame ]
                 ]

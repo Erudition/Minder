@@ -84,7 +84,7 @@ type Problem
     | ExpectingSpecObjectIDAtom
     | ExpectingReducerName
     | ExpectingOpSeparator
-    | ExpectingAlphaNumUnderscore
+    | ExpectingAlphaNumUnderscoreParens
     | ExpectingIntegerAtom
     | ExpectingFloatAtom
     | InvalidIntegerAtom
@@ -128,7 +128,7 @@ problemToString problem =
         ExpectingOpSeparator ->
             "Expecting an op separator (,)"
 
-        ExpectingAlphaNumUnderscore ->
+        ExpectingAlphaNumUnderscoreParens ->
             "Expecting an alphanumeric character (or underscore)"
 
         ExpectingIntegerAtom ->
@@ -543,15 +543,15 @@ May NOT start with a digit.
 nakedStringTag : RonParser OpPayloadAtom
 nakedStringTag =
     let
-        letterNumbersUnderscore char =
-            Char.isAlphaNum char || char == '_'
+        letterNumbersUnderscoreParens char =
+            Char.isAlphaNum char || char == '_' || char == '(' || char == ')'
     in
     Parser.map NakedStringAtom <|
         Parser.getChompedString <|
             succeed ()
                 -- chompWhile always succeeds, we need this to fail on empty
-                |. Parser.chompIf letterNumbersUnderscore ExpectingAlphaNumUnderscore
-                |. Parser.chompWhile letterNumbersUnderscore
+                |. Parser.chompIf letterNumbersUnderscoreParens ExpectingAlphaNumUnderscoreParens
+                |. Parser.chompWhile letterNumbersUnderscoreParens
 
 
 {-| Borrowed from <https://github.com/elm/parser/issues/14#issuecomment-450547742>
@@ -1193,24 +1193,24 @@ closedChunksToFrameText chunkList =
         perChunk opsInChunk =
             case opsInChunk of
                 [] ->
-                    ""
+                    Nothing
 
                 _ ->
                     List.Extra.mapAccuml perOp Nothing opsInChunk
                         |> Tuple.second
                         |> String.join " ,\n"
                         |> (\s -> s ++ " ;\n\n")
+                        |> Just
 
         perOp prevOpMaybe thisOp =
             ( Just thisOp, closedOpToString (CompressedOps prevOpMaybe) thisOp )
 
         -- ( Just thisOp, closedOpToString (ClosedOps) thisOp )
     in
-    case chunkList of
+    case List.filterMap perChunk chunkList of
         [] ->
             ""
 
-        chunks ->
-            List.map perChunk chunks
-                |> String.concat
-                |> (\s -> s ++ ".❃\n")
+        readyChunks ->
+            String.concat readyChunks
+                |> (\s -> s ++ ".❃")

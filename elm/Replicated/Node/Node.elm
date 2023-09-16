@@ -191,15 +191,15 @@ updateWithRon old inputRon =
             case parsedRonFrames of
                 [] ->
                     Log.log ("parsed 0 frames from input ron: '" ++ inputRon ++ "'")
-                        --make sure we don't pretend to succeed when we didn't actually get anything
-                        { old | warnings = old.warnings ++ [ EmptyChunk ] }
+                        old
 
                 foundFrames ->
                     let
                         output =
                             updateWithMultipleFrames parsedRonFrames old
                     in
-                    if AnyDict.size old.node.ops == AnyDict.size output.node.ops then
+                    if True then
+                        -- AnyDict.size old.node.ops == AnyDict.size output.node.ops
                         output
 
                     else
