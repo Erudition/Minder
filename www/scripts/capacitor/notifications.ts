@@ -34,12 +34,59 @@ export function scheduleNotifications(notificationList) {
                 notifObj["id"] = (0 - now.getTime());
             }
 
+            // convert from NativeScript format to Capacitor format for now -----
+            if (notifObj["subtitle"]) {
+                notifObj["title"] = notifObj["title"] + " (" + notifObj["subtitle"] + ")";
+                // since capacitor notification does not support subtitle
+            } 
+            if (notifObj["bigTextStyle"]) {
+                notifObj["largeBody"] = notifObj["body"];
+            } 
+            if (notifObj["groupSummary"]) {
+                notifObj["summaryText"] = notifObj["groupSummary"];
+            } 
+            if (notifObj["groupedMessages"]) {
+                notifObj["inboxList"] = notifObj["groupedMessages"];
+            } 
+            if (notifObj["color"]) {
+                notifObj["iconColor"] = notifObj["color"];
+            } 
+            if (notifObj["channel"]) {
+                notifObj["channelId"] = notifObj["channel"];
+            } 
+
+
+            // missing support: silhouetteIcon
+            // missing support: image
+            // missing support: thumbnail
+
+            // TODO: image -> Attachment
+
+            setupChannel(notifObj);
+
             return notifObj;
         }
     );
 
 
+
     return LocalNotifications.schedule({
         notifications: correctedList
         });
+}
+
+function setupChannel(notif) {
+    if (notif["channel"]) {
+        LocalNotifications.createChannel(
+            {
+            id: notif["channel"],
+            name: notif["channel"],
+            description: notif["channelDescription"],
+            sound: notif["sound"],
+            importance: notif["priority"],
+            lightColor: notif["notificationLed"],
+            // vibration?: boolean; TODO not pattern
+            }
+        );
+    } 
 }

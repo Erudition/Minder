@@ -16,6 +16,8 @@ import './scripts/ionicInit'
 import * as TaskPort from 'elm-taskport';
 import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/capacitor/notifications'
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
+import { native } from '@nativescript/capacitor';
+
 
 
 

@@ -65,7 +65,6 @@
     "@multiformats/multiaddr": "^12.1.3",
     "@nativescript-community/perms": "^2.3.0",
     "@nativescript-community/ui-webview": "^1.4.4",
-    "@nativescript/capacitor": "^5.0.1",
     "@nativescript/core": "^8.5.3",
     "@nativescript/geolocation": "^8.2.0",
     "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
