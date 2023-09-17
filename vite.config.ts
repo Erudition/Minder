@@ -36,7 +36,7 @@ export default defineConfig({
     elmPlugin({debug: false, optimize: false} ),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
-        protocolImports: false,
+        protocolImports: true,
         exclude: ['fs'],
       }),
     ],

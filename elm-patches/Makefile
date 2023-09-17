@@ -1,4 +1,4 @@
-all: VirtualDom Url
+all: VirtualDom Url Browser
 
 VirtualDom:
 	rm -f ~/.elm/0.19.1/packages/elm/virtual-dom/1.0.3/artifacts.dat
@@ -9,3 +9,8 @@ Url:
 	rm -f ~/.elm/0.19.1/packages/elm/url/1.0.0/artifacts.dat
 	rm -f ~/.elm/0.19.1/packages/elm/url/1.0.0/docs.json
 	patch -uN --reject-file=/tmp/rej ~/.elm/0.19.1/packages/elm/url/1.0.0/src/Url.elm ./Url.elm.patch || true
+
+Browser:
+	rm -f ~/.elm/0.19.1/packages/elm/browser/1.0.2/artifacts.dat
+	rm -f ~/.elm/0.19.1/packages/elm/browser/1.0.2/docs.json
+	patch -uN --reject-file=/tmp/rej ~/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js ./PatchBrowserForFlipAnimations.patch || true

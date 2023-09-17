@@ -1,0 +1,19 @@
+--- /home/adroit/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js	2023-09-16 18:37:38.706324195 -0500
++++ /home/adroit/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/clean.js	2023-09-16 18:33:51.266590000 -0500
+@@ -106,7 +106,6 @@
+ 		? requestAnimationFrame
+ 		: function(callback) { return setTimeout(callback, 1000 / 60); };
+ 
+-function flipDraw(modelIn) {window.flipping.read();draw(modelIn);window.afterDraw();}
+ 
+ function _Browser_makeAnimator(model, draw)
+ {
+@@ -118,7 +117,7 @@
+ 	{
+ 		state = state === __4_EXTRA_REQUEST
+ 			? __4_NO_REQUEST
+-			: ( _Browser_requestAnimationFrame(updateIfNeeded), flipDraw(model), __4_EXTRA_REQUEST );
++			: ( _Browser_requestAnimationFrame(updateIfNeeded), draw(model), __4_EXTRA_REQUEST );
+ 	}
+ 
+ 	return function(nextModel, isSync)

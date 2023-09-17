@@ -1,0 +1,19 @@
+--- /home/adroit/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/clean.js	2023-09-16 18:33:51.266590000 -0500
++++ /home/adroit/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js	2023-09-16 18:42:32.617985997 -0500
+@@ -117,8 +117,15 @@
+ 	{
+ 		state = state === __4_EXTRA_REQUEST
+ 			? __4_NO_REQUEST
+-			: ( _Browser_requestAnimationFrame(updateIfNeeded), draw(model), __4_EXTRA_REQUEST );
++			: ( _Browser_requestAnimationFrame(updateIfNeeded), flipDraw(model), __4_EXTRA_REQUEST );
+ 	}
++	
++	function flipDraw(modelIn)
++	{   window.flipping.read();
++	    draw(modelIn);
++	    window.afterDraw();
++	}
++
+ 
+ 	return function(nextModel, isSync)
+ 	{
