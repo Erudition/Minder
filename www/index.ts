@@ -115,8 +115,8 @@ function elmStarted(app) {
       // });
 
       App.addListener('appStateChange', ({ isActive }) => {
-        console.log('App state changed. Is active?', isActive);
         detectDarkMode();
+        Toast.show({ text: ("App became " + isActive ? "active!" : "inactive."), duration: "short"}).then();
       });
       
       App.addListener('appUrlOpen', data => {
@@ -211,9 +211,9 @@ async function attachOrbit(elmApp) {
 // FLIP ANIMATIONS
 // Requires patch to ~/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js
 // in function _Browser_makeAnimator(model, draw)
-// only in nested function updateIfNeeded()
+// only in nested function updateIfNeeded(), change this line:
 // : ( _Browser_requestAnimationFrame(updateIfNeeded), flipDraw(model), __4_EXTRA_REQUEST );
-// where function flipDraw(modelIn) {window.flipping.read();draw(modelIn);window.afterDraw();}
+// and add function flipDraw(modelIn) {window.flipping.read();draw(modelIn);window.afterDraw();}
 //import Flipping from 'flipping/lib/adapters/web';
 //compare to:
 import Flipping from 'flipping/lib/adapters/css';

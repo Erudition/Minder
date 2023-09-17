@@ -6,17 +6,17 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: { 
     allowNavigation: ["erudition.github.io"],
-    //url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
-    //hostname: 'erudition.github.io',
+    url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
+    hostname: 'localhost',
     androidScheme: 'https',
     cleartext: true,
-    errorPath: "localhost",
+    errorPath: "error.html",
     },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0,
+      launchShowDuration: 200,
       launchAutoHide: true,
-      launchFadeOutDuration: 0,
+      launchFadeOutDuration: 200,
       backgroundColor: "#ffffffff",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",

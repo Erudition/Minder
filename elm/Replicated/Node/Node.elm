@@ -190,7 +190,7 @@ updateWithRon old inputRon =
         Ok parsedRonFrames ->
             case parsedRonFrames of
                 [] ->
-                    Log.log ("parsed 0 frames from input ron: '" ++ inputRon ++ "'")
+                    Log.logMessageOnly ("parsed 0 frames from input ron: '" ++ inputRon ++ "'")
                         old
 
                 foundFrames ->

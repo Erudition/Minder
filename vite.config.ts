@@ -8,31 +8,31 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // identify what plugins we want to use
   plugins: [ // PWA plugin causing import errors
-    // VitePWA({ registerType: 'autoUpdate',
-    //     //devOptions: {enabled: true},
-    //     includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-    //     workbox: {
-    //       globPatterns: ['**/*.{js,css,html,ico,png,svg}']
-    //     },
-    //     manifest: {
-    //       name: 'Minder Prototype',
-    //       short_name: 'Minder',
-    //       description: 'Mental Assistant',
-    //       theme_color: '#ffffff',
-    //       icons: [
-    //         {
-    //           src: 'android-chrome-192x192.png',
-    //           sizes: '192x192',
-    //           type: 'image/png'
-    //         },
-    //         {
-    //           src: 'android-chrome-512x512.png',
-    //           sizes: '512x512',
-    //           type: 'image/png'
-    //         }
-    //       ]
-    //     }
-    // }),
+    VitePWA({ registerType: 'autoUpdate',
+        //devOptions: {enabled: true},
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        },
+        manifest: {
+          name: 'Minder Prototype',
+          short_name: 'Minder',
+          description: 'Mental Assistant',
+          theme_color: '#ffffff',
+          icons: [
+            {
+              src: 'android-chrome-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'android-chrome-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            }
+          ]
+        }
+    }),
     elmPlugin({debug: false, optimize: false} ),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
@@ -72,5 +72,6 @@ export default defineConfig({
   },
   server: {
     strictPort: true
-  }
+  },
+  publicDir: "vite-extra-assets"
 })
