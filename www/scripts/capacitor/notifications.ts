@@ -81,10 +81,10 @@ function setupChannel(notif) {
             {
             id: notif["channel"],
             name: notif["channel"],
-            description: notif["channelDescription"],
-            sound: notif["sound"],
-            importance: notif["priority"],
-            lightColor: notif["notificationLed"],
+            description: notif["channelDescription"] ? notif["channelDescription"] : null,
+            sound: notif["sound"] ? notif["sound"] : null,
+            importance: notif["priority"] ? notif["priority"] : null,
+            lightColor: notif["notificationLed"] ? notif["notificationLed"] : null,
             // vibration?: boolean; TODO not pattern
             }
         );

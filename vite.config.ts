@@ -11,9 +11,11 @@ export default defineConfig({
     VitePWA({ registerType: 'autoUpdate',
         //devOptions: {enabled: true},
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        workbox: {  
+          navigateFallbackDenylist: [/.js/],
+          globPatterns: ['**/*.{css,ico,png,svg}'] // TODO removed js so capacitor plugins can work
         },
+        outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
         manifest: {
           name: 'Minder Prototype',
           short_name: 'Minder',
