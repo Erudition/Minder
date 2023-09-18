@@ -15,7 +15,8 @@ export default defineConfig({
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         workbox: {  
           //additionalManifestEntries: ["fallback.html"], // TODO test if this works
-          //navigateFallbackDenylist: [/.js/],
+          navigateFallback: "error.html",
+          navigateFallbackDenylist: [/sw2.js/],
           globPatterns: ['**/*.{html,css,ico,png,svg}'] // TODO removed js so capacitor plugins can work
         },
         outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
