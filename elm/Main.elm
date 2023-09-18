@@ -508,7 +508,8 @@ globalLayout model replica innerStuff =
                         [ Ion.Item.label [] [ H.text "Test Marvin Sync" ]
                         , Ion.Icon.withAttr "sync-outline" [ Ion.Toolbar.placeEnd ]
                         ]
-                    , menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
+
+                    --, menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/fallback.html"
                     , menuItemHref "Redirect" "sync-outline" "https://localhost/"
