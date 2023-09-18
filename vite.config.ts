@@ -16,7 +16,7 @@ export default defineConfig({
         workbox: {  
           //additionalManifestEntries: ["fallback.html"], // TODO test if this works
           navigateFallback: "error.html",
-          navigateFallbackDenylist: [new RegExp(".*")],
+          navigateFallbackDenylist: [new RegExp("sw.js"), new RegExp("sw2.js")],
           globPatterns: ['**/*.{html,css,ico,png,svg}'] // TODO removed js so capacitor plugins can work
         },
         outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
