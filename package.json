@@ -15,7 +15,8 @@
     "build": "tsc && vite build",
     "build-ci": "vite build",
     "build-sync": "vite build && cap sync",
-    "patch-elm": "rm -rf ~/.elm/0.19.1/packages/ && elm make --output=www/elm-gui.js elm/Main.elm && make --directory ./elm-patches && rm -rf elm-stuff"
+    "patch-elm": "rm -rf ~/.elm/0.19.1/packages/ && elm make --output=www/elm-gui.js elm/Main.elm && make --directory ./elm-patches && rm -rf elm-stuff",
+    "capacitor:copy:after": "if [ $CAPACITOR_PLATFORM_NAME == 'web' ]; then echo leaving index in place for web. ; else echo replacing index with go-online... && mv android/app/src/main/assets/public/index.html android/app/src/main/assets/public/fallback.html && mv android/app/src/main/assets/public/go-online.html android/app/src/main/assets/public/index.html; fi"
   },
   "repository": {
     "type": "git",

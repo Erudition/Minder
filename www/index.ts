@@ -118,7 +118,7 @@ function elmStarted(app) {
 
       App.addListener('appStateChange', ({ isActive }) => {
         detectDarkMode();
-        Toast.show({ text: ("App became " + isActive ? "active!" : "inactive."), duration: "short"}).then();
+        Toast.show({ text: ("App became " + (isActive ? "active!" : "inactive.")), duration: "short"}).then();
       });
       
       App.addListener('appUrlOpen', data => {
@@ -134,7 +134,7 @@ function elmStarted(app) {
       
         console.log('App opened with URL: ' + url);
       };
-
+      Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
         attachOrbit(app);
       } catch (problemWithOrbit)
