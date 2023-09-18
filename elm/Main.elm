@@ -512,8 +512,8 @@ globalLayout model replica innerStuff =
                     --, menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
                     , menuItemHref "Service worker js file" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/sw.js"
-                    , menuItemHref "Installed branch" "sync-outline" "https://localhost/fallback.html"
-                    , menuItemHref "Redirect" "sync-outline" "https://localhost/"
+                    , menuItemHref "Installed branch" "sync-outline" "https://minder-localhost/fallback.html"
+                    , menuItemHref "Redirect" "sync-outline" "https://minder-localhost/go-online.html"
                     , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
                     , Ion.Item.item [ Ion.Item.button, HE.onClick ClearPreferences, Ion.Item.detail False ]
                         [ Ion.Item.label [] [ H.text "Switch Account" ]

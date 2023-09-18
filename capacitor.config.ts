@@ -5,10 +5,11 @@ const config: CapacitorConfig = {
   appName: 'Minder',
   webDir: 'dist',
   server: { 
-    allowNavigation: ["erudition.github.io", "localhost"], // don't add "localhost" here
+    allowNavigation: ["erudition.github.io"], // don't add "localhost" here
     // url: "https://localhost/", // default is https://localhost, but setting this to ANYTHING prevent navigation to localhost...
     //url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
-    hostname: 'localhost',
+    hostname: 'minder-localhost',
+    // can't be localhost because service worker is blocked in android webview. https://stackoverflow.com/a/76373851/8645412 can't be erudition.github.io or else online requests will become local requests.
     androidScheme: 'https',
     cleartext: true,
     //errorPath: "error.html",
