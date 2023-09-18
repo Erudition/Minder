@@ -511,7 +511,7 @@ globalLayout model replica innerStuff =
 
                     --, menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
                     , menuItemHref "Reload App" "sync-outline" "index.html"
-                    , menuItemHref "Service worker js file" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/sw2.js"
+                    , menuItemHref "Service worker js file" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/sw.js"
                     , menuItemHref "Installed branch" "sync-outline" "https://localhost/fallback.html"
                     , menuItemHref "Redirect" "sync-outline" "https://localhost/"
                     , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
