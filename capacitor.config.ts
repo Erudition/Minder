@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Minder',
   webDir: 'dist',
   server: { 
-    allowNavigation: ["erudition.github.io"],
+    allowNavigation: ["erudition.github.io", "localhost"],
     url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
     hostname: 'localhost',
     androidScheme: 'https',
