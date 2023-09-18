@@ -9,9 +9,12 @@ export default defineConfig({
   // identify what plugins we want to use
   plugins: [ // PWA plugin causing import errors
     VitePWA({ registerType: 'autoUpdate',
+        // After messing with service worker you may need to rm -rf android/app/src/main/assets/* before sync. https://github.com/ionic-team/capacitor/issues/5430#issuecomment-1042990925
         //devOptions: {enabled: true},
+        filename: 'sw2.js', // useful if cache is sticky
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         workbox: {  
+          //additionalManifestEntries: ["fallback.html"], // TODO test if this works
           //navigateFallbackDenylist: [/.js/],
           globPatterns: ['**/*.{html,css,ico,png,svg}'] // TODO removed js so capacitor plugins can work
         },
