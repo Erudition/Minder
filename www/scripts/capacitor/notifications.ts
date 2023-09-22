@@ -62,6 +62,7 @@ export function scheduleNotifications(notificationList) {
 
             // TODO: image -> Attachment
 
+            // TODO if NOT web
             setupChannel(notifObj);
 
             return notifObj;

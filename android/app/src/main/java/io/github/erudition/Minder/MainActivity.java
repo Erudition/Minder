@@ -16,7 +16,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends BridgeActivity {
 
     // https://github.com/ionic-team/capacitor/issues/5278#issuecomment-1653869040
-    @Override
+    // can confirm this stops the SW from failing to register. still blocks capacitor though.
+    // @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
@@ -28,7 +29,7 @@ public class MainActivity extends BridgeActivity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
             if (request.getUrl().toString().contains(".js")) {
-                request.getRequestHeaders().put("Accept", "text/html");
+                request.getRequestHeaders().put("Accept", "*/*"); // changed to accept all
             }
             return bridge.getLocalServer().shouldInterceptRequest(request);
             }
