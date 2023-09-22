@@ -17,7 +17,8 @@ export default defineConfig({
           //additionalManifestEntries: ["fallback.html"], // TODO test if this works
           navigateFallback: "error.html",
           navigateFallbackDenylist: [new RegExp("sw\\.js"), new RegExp("sw\.js"), new RegExp("sw.js"), new RegExp("sw2.js")],
-          globPatterns: ['**/*.{html,css,ico,png,svg}'] // TODO removed js so capacitor plugins can work
+          globPatterns: ['**/*'], // was **/*.{js,html,css,ico,png,svg}
+          globIgnores: ['**/*.js.map'] // don't precache map files
         },
         outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
         manifest: {
@@ -54,18 +55,33 @@ export default defineConfig({
     target: "es2020",
     sourcemap: true,
     emptyOutDir: true,
-    // rollupOptions: { // trick to try to avoid OOM in CI
-    // currently just raising node ram limit
-    // https://github.com/vitejs/vite/issues/2433
-    //   maxParallelFileOps: 2,
-    //   output: {
-    //     sourcemap: true,
-    //     manualChunks: (id) => { //don't sourcemap node_modules?
-    //      if (id.includes('node_modules')) {
-    //         return 'vendor';
-    //       }
-    //     },
-    // }
+    rollupOptions: { 
+      // trick to try to avoid OOM in CI
+      //currently just raising node ram limit
+      //https://github.com/vitejs/vite/issues/2433
+      //maxParallelFileOps: 2,
+      output: {
+        sourcemap: true, //don't sourcemap node_modules?
+        manualChunks: (id) => { 
+          // this makes node_modules manually chunked so we don't have a huge index.ts file or too many micro js files
+          if (id.includes('capacitor')) {
+            return 'capacitor-modules';
+          } else if (id.includes('libp2p')) {
+            return 'libp2p-modules';
+          } else if (id.includes('ipfs') || id.includes('helia') || id.includes('multiaddr') || id.includes('multiformats')) {
+            return 'ipfs-modules';
+          } else if (id.includes('orbit') || id.includes('orbit-db') || id.includes('dids') || id.includes('apg-js')) {
+            return 'orbit-modules';
+          } else if (id.includes('ionic') || id.includes('ion-')) {
+            return 'ionic-modules';
+          } else if (id.includes('elm')) {
+            return 'elm-modules';
+          } else if (id.includes('node_modules')) {
+            return 'other-modules';
+          }
+        },
+      }
+    }
   },
   root: "www/",
   optimizeDeps: {
