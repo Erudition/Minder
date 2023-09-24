@@ -17,6 +17,7 @@ import * as TaskPort from 'elm-taskport';
 import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/capacitor/notifications'
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
+import { minderAsciiLogo } from './scripts/asciiArt';
 
 
 
@@ -76,7 +77,7 @@ function installTaskPorts() {
 }
 
 function elmStarted(app) {
-  
+    console.log(minderAsciiLogo);
     // hide the splash screen
     SplashScreen.hide().catch((err) => {
         console.log("No Capacitor splash screen to hide.");
@@ -230,7 +231,4 @@ import Flipping from 'flipping/lib/adapters/css';
   //for delayed updates
   //requestAnimationFrame(async () => await (window as any).flipping.flip());
 }
-
-
-
 
