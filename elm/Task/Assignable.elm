@@ -181,3 +181,7 @@ setActivityID newActivityID (Assignable metaAssignable) =
 
 children (Assignable metaAssignable) =
     (Reg.latest metaAssignable.reg).children
+
+
+parent (Assignable metaAssignable) =
+    metaAssignable.project

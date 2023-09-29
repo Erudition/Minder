@@ -287,6 +287,9 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         viewAssignableTitle =
             [ text <| Assignable.title assignable ]
 
+        project =
+            Assignable.parent assignable
+
         viewSubAssignables =
             List.map viewSubAssignable (RepList.listValues (Assignable.children assignable))
 
@@ -317,12 +320,65 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     []
                 , node "ion-button" [ attribute "fill" "clear", onClick (AddAssignment assignable) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
                 ]
+
+        presentActionSheet =
+            ActionSheet.actionSheet
+                [ ActionSheet.header <| Maybe.withDefault "This project" (Project.title project)
+                , ActionSheet.trigger sheetButtonID
+                ]
+                [ ActionSheet.deleteButton (Toast "NYI: Delete Project")
+                , ActionSheet.button "Rename" (Toast "clicked Continue!")
+                ]
+                |> SH.fromUnstyled
+
+        sheetButtonID =
+            "actionsheet-trigger-for-assignable-" ++ Assignable.idString assignable
     in
-    div
-        [ class "assignments" ]
-        [ node "ion-card-title" [ onDoubleClick (PromptRename (Assignable.title assignable) (\t -> Assignable.setTitle t assignable)) ] (viewAssignableTitle ++ viewSubAssignables)
-        , div [ css [ displayFlex, overflowX scroll ] ] viewAssignments
+    node "ion-item-sliding"
+        []
+        [ node "ion-item"
+            [ classList []
+            , attribute "data-flip-key" ("assignable-" ++ Assignable.idString assignable)
+            ]
+            [ -- node "ion-thumbnail"
+              -- [ class "project-image"
+              -- , attribute "slot" "start"
+              -- , css
+              --     [ backgroundColor <| Css.hsl 0 0 0.5
+              --     , Css.height (pct 100)
+              --     ]
+              -- ]
+              -- [ --img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
+              --   SH.fromUnstyled <| identicon "100%" (RepList.handleString rootEntryItem)
+              -- ]
+              div [ css [ Css.width (pct 100) ] ]
+                [ node "ion-label"
+                    [ onDoubleClick (PromptRename (Project.title project |> Maybe.withDefault "Untitled Project") (\t -> Project.setTitle (Just t) project)) ]
+                    [ text (Project.title (Assignable.parent assignable) |> Maybe.withDefault "")
+                    ]
+                , node "ion-label"
+                    [ onDoubleClick (PromptRename (Assignable.title assignable) (\t -> Project.setTitle (Just t) project)) ]
+                    [ text (Assignable.title assignable)
+                    ]
+                , div [] [ text (String.fromInt (List.length assignments) ++ "assignments") ]
+                , viewMenuButton sheetButtonID
+                ]
+            ]
+        , node "ion-item-options"
+            []
+            [ node "ion-item-option" [ attribute "color" "danger" ] [ text "delete" ]
+            , node "ion-item-option" [ attribute "color" "primary", onClick (AddAssignable project) ] [ text "add assignable" ]
+            ]
+        , presentActionSheet
         ]
+
+
+
+-- div
+--     [ class "assignments" ]
+--     [ node "ion-card-title" [ onDoubleClick (PromptRename (Assignable.title assignable) (\t -> Assignable.setTitle t assignable)) ] (viewAssignableTitle ++ viewSubAssignables)
+--     , div [ css [ displayFlex, overflowX scroll ] ] viewAssignments
+--     ]
 
 
 viewAssignment : ( Moment, Zone ) -> Maybe AssignmentID -> Int -> Assignment -> Html Msg

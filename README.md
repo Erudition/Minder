@@ -1,3 +1,5 @@
+[![Awesome Humane Tech](https://raw.githubusercontent.com/humanetech-community/awesome-humane-tech/main/humane-tech-badge.svg?sanitize=true)](https://github.com/humanetech-community/awesome-humane-tech)
+
 # Minder
 The ultimate assistant for ADHD. Keeps track of what you _should be doing_ and sends effective reminders (including zaps) if you're off task.
 
@@ -37,3 +39,23 @@ Much later, seeing the power of NativeScript to easily handle my local notificat
 - But that "export" of data from Elm still needs to be triggered from elm somehow. I tried triggering it on every `update` ever (like `updateWithTime` and `updateWithStorage`), but it wasn't working, and we really only need it when the values are changed anyway. So now I have it trigger whenever the activity is changed! Still need a way to trigger it at launch though, without taking up the launch URL.
 - Android notifs can only have one vibe pattern per channel? Fine, guess I'll have multiple channels then.
 - Seems like "global" variables can't be read or changed from within the worker. For once that makes sense since the workers are supposed to be totally isolated. So I put the storing of the ViewModel update in the main thread (app.js) and just told the worker to let the main thread know. Works well.
+
+
+
+
+== Using GitHub Under Protest ==
+
+This project is currently hosted on GitHub.  This is not ideal; GitHub is a
+proprietary, trade-secret system that is not Free, Libre, Open Souce Software
+(FLO).  We are deeply concerned about using a proprietary system like GitHub
+to develop our FOSS project. In the long term, we may make the move to Nest, powered by Pijul.
+We urge you to read about the
+[Give up GitHub](https://GiveUpGitHub.org) campaign from
+[the Software Freedom Conservancy](https://sfconservancy.org) to understand
+some of the reasons why GitHub is not a good place to host FLOSS projects.
+
+Any use of this project's code by GitHub Copilot, past or present, is done
+without our permission.  We do not consent to GitHub's use of this project's
+code in Copilot.
+
+![Logo of the GiveUpGitHub campaign](https://sfconservancy.org/img/GiveUpGitHub.png)
