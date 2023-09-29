@@ -71,6 +71,7 @@
     "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
     "@triniwiz/nativescript-toasty": "^4.1.3",
     "circular-dependency-plugin": "^5.2.2",
+    "elm-land": "^0.19.3",
     "elm-native-js": "^1.0.3",
     "elm-taskport": "^2.0.1",
     "elm-test": "0.19.1-revision9",
