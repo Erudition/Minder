@@ -5,12 +5,7 @@
   "main": "app/app.ts",
   "scripts": {
     "packages-install": "pnpm i --shamefully-hoist",
-    "build-live": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js",
-    "build-live-insecure": "./node_modules/.bin/elm make --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js",
-    "debug-live-insecure": "./node_modules/.bin/elm make --debug --output=www/elm-gui.js elm/Main.elm && ./node_modules/.bin/elm make --output=www/elm-browserless.js elm/Browserless.elm && ./node_modules/.bin/elm make --output=www/elm-headless.js elm/Headless.elm && ./node_modules/.bin/elm-live elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js --debug",
-    "build-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm",
-    "build-live-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm ; node_modules/.bin/elm-live.cmd elm/Main.elm --dir=www --pushstate --ssl -- --output=www/elm-gui.js",
-    "build-live-insecure-win": "powershell node_modules/.bin/elm.cmd make --output=www/elm-gui.js elm/Main.elm ; node_modules/.bin/elm.cmd make --output=www/elm-browserless.js elm/Browserless.elm ; node_modules/.bin/elm.cmd make --output=www/elm-headless.js elm/Headless.elm ; node_modules/.bin/elm-live.cmd elm/Main.elm --dir=www --pushstate -- --output=www/elm-gui.js",
+    "start": "elm-land generate && cp elm-patches/HashRouting.elm .elm-land/src/ && vite",
     "postinstall": "elm-tooling install && pnpm patch-elm",
     "build": "tsc && vite build",
     "build-ci": "vite build",
