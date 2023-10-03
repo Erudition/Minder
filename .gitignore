@@ -42,6 +42,8 @@ www/elm-headless.js
 www/elm-browserless.js
 elmjutsu-config.json
 dist/
+/.elm-land
+src
 
 
 
