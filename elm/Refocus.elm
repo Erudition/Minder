@@ -18,7 +18,7 @@ import Replicated.Change as Change exposing (Change)
 import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration(..), abbreviatedSpaced, breakdownHM, dur)
 import SmartTime.Human.Moment as HumanMoment

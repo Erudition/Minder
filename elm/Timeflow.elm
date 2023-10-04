@@ -30,7 +30,7 @@ import Refocus
 import Replicated.Change as Change exposing (ChangeSet, Frame)
 import Replicated.Op.OpID as OpID exposing (OpID)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week

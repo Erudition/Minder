@@ -1,4 +1,4 @@
-port module Main exposing (FrameworkModel, MainModel, Msg(..), StoredRON, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
+port module OldMain exposing (FrameworkModel, MainModel, Msg(..), StoredRON, ViewState, emptyViewState, incomingFramesFromElsewhere, infoFooter, init, main, nativeView, navigate, setStorage, subscriptions, update, view)
 
 import Activity.Activity as Activity
 import Activity.HistorySession as HistorySession exposing (HistorySession)
@@ -8,7 +8,6 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import DevTools
 import Dict
-import Effect exposing (Effect)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -51,6 +50,7 @@ import Native.Layout as Layout
 import Native.Page as Page
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
+import OldEffect exposing (Effect)
 import Popup.Popups as Popups
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Frame)
@@ -60,9 +60,9 @@ import Replicated.Node.Node
 import Replicated.Op.OpID
 import Replicated.Reducer.RepDb as RepDb
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
-import Shared.Msg
-import Shared.PopupType as PopupType
+import OldShared.Model exposing (..)
+import OldShared.Msg
+import OldShared.PopupType as PopupType
 import SmartTime.Duration as Duration
 import SmartTime.Human.Calendar
 import SmartTime.Human.Clock
@@ -820,7 +820,7 @@ update msg ({ replica } as frameworkModel) =
         RunEffects effects ->
             let
                 ( effectFrames, newShared, effectCmds ) =
-                    Effect.perform (\_ -> NoOp) shared replica effects
+                    OldEffect.perform (\_ -> NoOp) shared replica effects
             in
             ( effectFrames
             , { unchangedMainModel | shared = newShared }
@@ -833,7 +833,7 @@ update msg ({ replica } as frameworkModel) =
                     Popups.update popupMsg viewState.popup replica shared
 
                 ( effectFrames, newShared, effectCmds ) =
-                    Effect.perform (\_ -> NoOp) shared replica (List.map (Effect.map PopupMsg) outEffects)
+                    OldEffect.perform (\_ -> NoOp) shared replica (List.map (OldEffect.map PopupMsg) outEffects)
 
                 newViewState =
                     { viewState | popup = outModel }
@@ -1018,7 +1018,7 @@ update msg ({ replica } as frameworkModel) =
                             { viewState | taskList = OpenPanel position newPanelState }
 
                         ( effectFrames, newShared, effectCmds ) =
-                            Effect.perform (\_ -> NoOp) shared replica [ Effect.map TaskListMsg outEffect ]
+                            OldEffect.perform (\_ -> NoOp) shared replica [ OldEffect.map TaskListMsg outEffect ]
                     in
                     ( newFrame :: effectFrames
                     , { shared = newShared, viewState = newViewState }

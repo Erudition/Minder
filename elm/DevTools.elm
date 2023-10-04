@@ -11,7 +11,7 @@ import Ion.List
 import Profile exposing (..)
 import Replicated.Change as Change exposing (Change, Frame)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import SmartTime.Human.Moment exposing (FuzzyMoment(..))
 import String.Normalize
 import Task.Progress exposing (..)

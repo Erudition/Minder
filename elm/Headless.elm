@@ -5,7 +5,7 @@ import Main exposing (..)
 import Platform exposing (worker)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import Url
 
 

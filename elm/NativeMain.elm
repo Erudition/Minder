@@ -10,7 +10,7 @@ import Native.Layout as Layout
 import Native.Page as Page
 import Profile exposing (Profile)
 import Replicated.Framework as Framework
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import Url
 
 

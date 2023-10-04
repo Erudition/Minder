@@ -1,4 +1,4 @@
-module Effect exposing (Effect(..), map, none, perform)
+module OldEffect exposing (Effect(..), map, none, perform)
 
 import External.Commands
 import Http
@@ -13,8 +13,8 @@ import Profile exposing (Profile)
 import Replicated.Change as Change
 import Replicated.Framework
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
-import Shared.PopupType as PopupType exposing (PopupType)
+import OldShared.Model exposing (..)
+import OldShared.PopupType as PopupType exposing (PopupType)
 import Task as ElmTask
 import TaskPort
 

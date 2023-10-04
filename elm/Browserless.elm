@@ -6,7 +6,7 @@ import Html.Styled exposing (node, toUnstyled)
 import Main exposing (Msg, StoredRON)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import Url
 import VirtualDom
 

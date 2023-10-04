@@ -6,7 +6,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import {Clipboard} from '@capacitor/clipboard'
 import {LocalNotifications} from '@capacitor/local-notifications'
 import { Preferences } from '@capacitor/preferences';
-import {Elm} from '../elm/Main.elm'
+// import {Elm} from '../elm/Main.elm'
+import {Elm} from '../.elm-land/src/Main.elm'
 import { Dialog } from '@capacitor/dialog';
 import {startOrbit} from './scripts/orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';

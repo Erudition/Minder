@@ -8,7 +8,7 @@ import Css exposing (..)
 import Date
 import Dict
 import Dict.Any as AnyDict exposing (AnyDict)
-import Effect exposing (Effect(..))
+import OldEffect exposing (Effect(..))
 import External.Commands as Commands
 import Helpers exposing (..)
 import Html as H
@@ -49,8 +49,8 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
-import Shared.PopupType as PopupType exposing (PopupType)
+import OldShared.Model exposing (..)
+import OldShared.PopupType as PopupType exposing (PopupType)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -1157,7 +1157,7 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- resets new-entry-textbox to empty, collapses tasks
                     , Change.emptyFrame
-                    , Effect.none
+                    , OldEffect.none
                     )
 
                 Normal filters _ newProjectTitle _ ->
@@ -1183,7 +1183,7 @@ update msg state profile env =
                     ( Normal filters Nothing "" Nothing
                       -- ^resets new-entry-textbox to empty, collapses tasks
                     , Change.saveChanges frameDescription finalChanges
-                    , Effect.none
+                    , OldEffect.none
                     )
 
         AddAssignable project ->
@@ -1206,7 +1206,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges frameDescription finalChanges
-            , Effect.none
+            , OldEffect.none
             )
 
         AddAssignment assignable ->
@@ -1221,7 +1221,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges frameDescription finalChanges
-            , Effect.none
+            , OldEffect.none
             )
 
         DeleteAssignment assignment ->
@@ -1236,7 +1236,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges frameDescription finalChanges
-            , Effect.none
+            , OldEffect.none
             )
 
         UpdateNewEntryField typedSoFar ->
@@ -1247,7 +1247,7 @@ update msg state profile env =
               Normal filters expanded typedSoFar editingMaybe
               -- TODO will collapse expanded tasks. Should it?
             , Change.emptyFrame
-            , Effect.none
+            , OldEffect.none
             )
 
         OpenEditor actionMaybe ->
@@ -1277,7 +1277,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , Change.emptyFrame
-            , Effect.none
+            , OldEffect.none
             )
 
         UpdateTitle assignable newTitle ->
@@ -1297,7 +1297,7 @@ update msg state profile env =
             in
             ( Normal filters expanded typedSoFar Nothing
             , changeTitleIfValid
-            , Effect.none
+            , OldEffect.none
             )
 
         UpdateTaskDate id field date ->
@@ -1315,7 +1315,7 @@ update msg state profile env =
             ( state
             , Change.emptyFrame
               -- TODO { profile | taskInstances = IntDict.filter (\_ t -> not (Assignment.completed t)) profile.taskInstances }
-            , Effect.none
+            , OldEffect.none
             )
 
         UpdateProgress givenTask newCompletion ->
@@ -1370,13 +1370,13 @@ update msg state profile env =
         FocusSlider task focused ->
             ( state
             , Change.emptyFrame
-            , Effect.none
+            , OldEffect.none
             )
 
         NoOp ->
             ( state
             , Change.emptyFrame
-            , Effect.none
+            , OldEffect.none
             )
 
         TodoistServerResponse response ->
@@ -1391,14 +1391,14 @@ update msg state profile env =
 
         MarvinServerResponse response ->
             -- gets intercepted up top!
-            ( state, Change.emptyFrame, Effect.none )
+            ( state, Change.emptyFrame, OldEffect.none )
 
         Refilter newList ->
             ( case state of
                 Normal filterList expandedTaskMaybe newTaskField editing ->
                     Normal newList expandedTaskMaybe newTaskField editing
             , Change.emptyFrame
-            , Effect.none
+            , OldEffect.none
             )
 
         StartTrackingAssignment assignment activityID ->
@@ -1414,7 +1414,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges "Start tracking" addSessionChanges
-            , Effect.none
+            , OldEffect.none
               -- , Cmd.batch
               --     [ sessionCommands
               --     -- , Cmd.map MarvinServerResponse <| marvinCmds
@@ -1440,7 +1440,7 @@ update msg state profile env =
             in
             ( state
             , Change.saveChanges "Stop tracking" sessionChanges
-            , Effect.none
+            , OldEffect.none
               -- , Cmd.batch
               --     [ sessionCommands
               --     -- , Cmd.map MarvinServerResponse <| marvinCmds
@@ -1448,10 +1448,10 @@ update msg state profile env =
             )
 
         SimpleChange change ->
-            ( state, Change.saveChanges "Simple change" [ change ], Effect.none )
+            ( state, Change.saveChanges "Simple change" [ change ], OldEffect.none )
 
         LogError errorMsg ->
-            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], Effect.none )
+            ( state, Change.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg profile.errors ], OldEffect.none )
 
         Toast toastMsg ->
             ( state, Change.emptyFrame, Effect.Toast toastMsg )
@@ -1467,7 +1467,7 @@ update msg state profile env =
                             RunEffect <| Effect.Save <| Change.saveChanges "renaming" [ newNameToChange newName ]
 
                         Err _ ->
-                            RunEffect <| Effect.none
+                            RunEffect <| OldEffect.none
 
                 promptOptions =
                     { title = Just ("Renaming " ++ oldName)

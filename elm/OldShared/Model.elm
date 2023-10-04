@@ -1,4 +1,4 @@
-module Shared.Model exposing (..)
+module OldShared.Model exposing (..)
 
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Events
@@ -10,7 +10,7 @@ import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
 import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
-import Shared.PopupType exposing (PopupType(..))
+import OldShared.PopupType exposing (PopupType(..))
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone, utc)
 import SmartTime.Moment exposing (Moment, zero)

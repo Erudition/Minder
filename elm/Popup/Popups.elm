@@ -1,6 +1,6 @@
 module Popup.Popups exposing (Model, Msg, getCorrectModel, init, initEmpty, popupWrapper, update)
 
-import Effect exposing (Effect)
+import OldEffect exposing (Effect)
 import Form
 import Html as H exposing (Html)
 import Html.Attributes as HA
@@ -11,8 +11,8 @@ import Popup.Editor.Assignable as AssignableEditor
 import Popup.Editor.Assignment as AssignmentEditor
 import Profile as Profile exposing (Profile)
 import Replicated.Change as Change
-import Shared.Model exposing (Shared)
-import Shared.PopupType as PopupType exposing (PopupType)
+import OldShared.Model exposing (Shared)
+import OldShared.PopupType as PopupType exposing (PopupType)
 
 
 type Model

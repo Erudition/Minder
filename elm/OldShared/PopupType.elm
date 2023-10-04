@@ -1,4 +1,4 @@
-module Shared.PopupType exposing (..)
+module OldShared.PopupType exposing (..)
 
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Events

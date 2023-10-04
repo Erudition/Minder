@@ -1,6 +1,6 @@
 module Popup.Editor.Assignable exposing (..)
 
-import Effect exposing (Effect)
+import OldEffect exposing (Effect)
 import Form exposing (Form)
 import Form.Base.RangeField as RangeField
 import Form.Base.TextField as TextField

@@ -28,7 +28,7 @@ import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import Shared.Model exposing (..)
+import OldShared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (..)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
 import SmartTime.Human.Duration as HumanDuration exposing (..)
