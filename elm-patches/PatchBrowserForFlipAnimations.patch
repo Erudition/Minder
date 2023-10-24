@@ -9,9 +9,9 @@
  	}
 +	
 +	function flipDraw(modelIn)
-+	{   window.flipping.read();
++	{   if (window.flipping) {window.flipping.read()};
 +	    draw(modelIn);
-+	    window.afterDraw();
++	    if (window.flipping) {window.afterDraw()};
 +	}
 +
  
