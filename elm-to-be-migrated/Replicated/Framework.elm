@@ -1,4 +1,4 @@
-module Replicated.Framework exposing (Program, Replicator, browserApplication, browserElement)
+module ...elm-to-be-migrated.Replicated.Framework exposing (..)module Replicated.Framework exposing (Program, Replicator, browserApplication, browserElement)
 
 import Browser
 import Browser.Navigation exposing (Key)

@@ -1,9 +1,7 @@
-module Pages.Home_ exposing (Model, Msg, page)
+module Pages.TaskList exposing (Model, Msg, page)
 
-import Auth
 import Effect exposing (Effect)
 import Html
-import Layouts
 import Page exposing (Page)
 import Route exposing (Route)
 import Shared
@@ -18,15 +16,6 @@ page shared route =
         , subscriptions = subscriptions
         , view = view
         }
-        |> Page.withLayout toLayout
-
-
-{-| Use the appframe layout on this page
--}
-toLayout : Model -> Layouts.Layout Msg
-toLayout model =
-    Layouts.AppFrame
-        {}
 
 
 
@@ -55,6 +44,9 @@ type Msg
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
+        -- TODO
+        -- TaskList.MarvinServerResponse subSubMsg ->
+        --            justRunCommand <| Job.perform (\_ -> ThirdPartyServerResponded (MarvinServer subSubMsg)) (Job.succeed ())
         NoOp ->
             ( model
             , Effect.none
@@ -76,6 +68,6 @@ subscriptions model =
 
 view : Model -> View Msg
 view model =
-    { title = "Home"
-    , body = [ Html.text "/:home" ]
+    { title = "Pages.TaskList"
+    , body = [ Html.text "/task-list" ]
     }

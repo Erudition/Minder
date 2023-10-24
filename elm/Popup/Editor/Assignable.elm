@@ -1,6 +1,6 @@
 module Popup.Editor.Assignable exposing (..)
 
-import OldEffect exposing (Effect)
+import Effect exposing (Effect)
 import Form exposing (Form)
 import Form.Base.RangeField as RangeField
 import Form.Base.TextField as TextField
@@ -12,7 +12,7 @@ import Html.Events as HE exposing (on, onClick)
 import Json.Decode as JD
 import Json.Encode as JE
 import Popup.IonicForm
-import Profile as Profile exposing (Profile)
+import Profile exposing (Profile)
 import Replicated.Change as Change
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList
@@ -290,8 +290,9 @@ update msg model =
                     { oldFormModel | state = Form.View.Loading }
             in
             ( { model | formModel = newFormModel }
-            , [ Effect.Save <| outputToChanges model.assignable output
-              , Effect.ClosePopup
+            , [ Effect.saveFrame <| outputToChanges model.assignable output
+
+              --, Effect.ClosePopup
               ]
             )
 

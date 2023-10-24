@@ -1,9 +1,7 @@
-module Pages.Home_ exposing (Model, Msg, page)
+module Pages.Timeflow exposing (Model, Msg, page)
 
-import Auth
 import Effect exposing (Effect)
 import Html
-import Layouts
 import Page exposing (Page)
 import Route exposing (Route)
 import Shared
@@ -18,15 +16,6 @@ page shared route =
         , subscriptions = subscriptions
         , view = view
         }
-        |> Page.withLayout toLayout
-
-
-{-| Use the appframe layout on this page
--}
-toLayout : Model -> Layouts.Layout Msg
-toLayout model =
-    Layouts.AppFrame
-        {}
 
 
 
@@ -67,7 +56,8 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Sub.batch
+        []
 
 
 
@@ -76,6 +66,6 @@ subscriptions model =
 
 view : Model -> View Msg
 view model =
-    { title = "Home"
-    , body = [ Html.text "/:home" ]
+    { title = "Pages.Timeflow"
+    , body = [ Html.text "/timeflow" ]
     }

@@ -1,11 +1,9 @@
-module Pages.Home_ exposing (Model, Msg, page)
+module Pages.TimeTracker exposing (Model, Msg, page)
 
-import Auth
 import Effect exposing (Effect)
-import Html
-import Layouts
-import Page exposing (Page)
 import Route exposing (Route)
+import Html
+import Page exposing (Page)
 import Shared
 import View exposing (View)
 
@@ -18,15 +16,6 @@ page shared route =
         , subscriptions = subscriptions
         , view = view
         }
-        |> Page.withLayout toLayout
-
-
-{-| Use the appframe layout on this page
--}
-toLayout : Model -> Layouts.Layout Msg
-toLayout model =
-    Layouts.AppFrame
-        {}
 
 
 
@@ -76,6 +65,6 @@ subscriptions model =
 
 view : Model -> View Msg
 view model =
-    { title = "Home"
-    , body = [ Html.text "/:home" ]
+    { title = "Pages.TimeTracker"
+    , body = [ Html.text "/time-tracker" ]
     }

@@ -1,6 +1,6 @@
 module Popup.Popups exposing (Model, Msg, getCorrectModel, init, initEmpty, popupWrapper, update)
 
-import OldEffect exposing (Effect)
+import Effect exposing (Effect)
 import Form
 import Html as H exposing (Html)
 import Html.Attributes as HA
@@ -9,10 +9,11 @@ import Json.Decode as JD
 import Json.Encode as JE
 import Popup.Editor.Assignable as AssignableEditor
 import Popup.Editor.Assignment as AssignmentEditor
-import Profile as Profile exposing (Profile)
+import Profile exposing (Profile)
 import Replicated.Change as Change
-import OldShared.Model exposing (Shared)
-import OldShared.PopupType as PopupType exposing (PopupType)
+import Shared
+import Shared.Model exposing (Model)
+import Shared.PopupType as PopupType exposing (PopupType)
 
 
 type Model
@@ -46,7 +47,7 @@ initEmpty =
     JustText (H.div [] [ H.text "Just text" ])
 
 
-update : Msg -> Model -> Profile -> Shared -> ( Model, List (Effect Msg) )
+update : Msg -> Model -> Profile -> Shared.Model -> ( Model, List (Effect Msg) )
 update msg model profile shared =
     let
         correctModel =
@@ -77,7 +78,7 @@ update msg model profile shared =
             ( correctModel, [] )
 
 
-viewPopup : Model -> Profile -> Shared -> Html Msg
+viewPopup : Model -> Profile -> Shared.Model -> Html Msg
 viewPopup model profile shared =
     case getCorrectModel profile shared model of
         AssignableEditor formModel ->
@@ -93,7 +94,7 @@ viewPopup model profile shared =
                 |> H.map (\_ -> JustTextMsg)
 
 
-popupWrapper : Model -> Profile -> Shared -> H.Html Msg
+popupWrapper : Model -> Profile -> Shared.Model -> H.Html Msg
 popupWrapper popupModel profile shared =
     -- It's important that this be unstyled Html for now, since adding style elements throws off the elm-ionic interaction
     let
@@ -106,7 +107,8 @@ popupWrapper popupModel profile shared =
                         [ HA.attribute "slot" "end" ]
                         [ H.node "ion-button"
                             [ HA.attribute "color" "medium"
-                            , HE.onClick (RunEffects [ Effect.ClosePopup ])
+
+                            --, HE.onClick (RunEffects [ Effect.ClosePopup ])
                             ]
                             [ H.text "Cancel" ]
                         ]
@@ -138,12 +140,12 @@ popupWrapper popupModel profile shared =
     in
     H.node "ion-modal"
         [ HA.property "isOpen" (JE.bool isOpen)
-        , HE.on "didDismiss" <| JD.succeed (RunEffects [ Effect.ClosePopup ])
+        , HE.on "didDismiss" <| JD.succeed (RunEffects [ Debug.todo "Effect.ClosePopup" ])
         ]
         [ H.div [ HA.class "ion-delegate-host", HA.class "ion-page" ] contents ]
 
 
-getCorrectModel : Profile -> Shared -> Model -> Model
+getCorrectModel : Profile -> Shared.Model -> Model -> Model
 getCorrectModel profile shared model =
     case ( shared.modal, model ) of
         -- model is correct match

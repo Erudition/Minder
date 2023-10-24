@@ -8,13 +8,12 @@ import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as JE exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
 import ML.OnlineChat
+import OldShared.Model exposing (..)
+import OldShared.PopupType as PopupType exposing (PopupType)
 import Process
 import Profile exposing (Profile)
 import Replicated.Change as Change
-import Replicated.Framework
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import OldShared.Model exposing (..)
-import OldShared.PopupType as PopupType exposing (PopupType)
 import Task as ElmTask
 import TaskPort
 
@@ -131,23 +130,6 @@ map changeMsg effect =
 
         LogError error ->
             LogError error
-
-
-{-| No effect.
--}
-none : Effect msg
-none =
-    NoOp
-
-
-ionInputSetFocus : String -> TaskPort.Task ()
-ionInputSetFocus ionInputIDToFocus =
-    TaskPort.call
-        { function = "ionInputSetFocus"
-        , valueDecoder = TaskPort.ignoreValue
-        , argsEncoder = JE.string
-        }
-        ionInputIDToFocus
 
 
 type alias PromptOptions =

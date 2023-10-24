@@ -28,9 +28,10 @@ public class MainActivity extends BridgeActivity {
         swController.setServiceWorkerClient(new ServiceWorkerClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
-            if (request.getUrl().toString().contains(".js")) {
-                request.getRequestHeaders().put("Accept", "*/*"); // changed to accept all
-            }
+                Log.v("Java intercepting service worker for URL ", request.getUrl().toString());
+                if (request.getUrl().toString().contains("index.html")) {
+                    request.getRequestHeaders().put("Accept", "text/html");
+                }
             return bridge.getLocalServer().shouldInterceptRequest(request);
             }
         });

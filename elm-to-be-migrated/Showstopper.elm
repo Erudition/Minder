@@ -1,4 +1,4 @@
-module Showstopper exposing (..)
+module ...elm-to-be-migrated.Showstopper exposing (..)
 
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Navigation exposing (..)

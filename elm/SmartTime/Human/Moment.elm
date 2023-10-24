@@ -97,13 +97,7 @@ today =
     Job.map2 extractDate localZone Moment.now
 
 
-{-| Like `every`, but lines itself up with the local clock - or any other period.
-Pass in an exact (non-past!) starting Moment, and the `every` will start from then on.
-
-Also requires the current time.
-
-Make sure the "waitUntil" moment is fixed for the lifetime of your program (e.g. an offset from "app launch moment"), and not based on something you `update` (e.g. the current time) or this timer will be constantly resetting itself.
-
+{-| Every minute, on the minute. Useful for keeping clocks in your UI up to date on increments that users will recognize, while minimizing updates vs. smaller increments. No need for a time zone!
 -}
 everyMinuteOnTheMinute : Moment -> (Moment -> msg) -> Sub msg
 everyMinuteOnTheMinute now tagger =
