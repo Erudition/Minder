@@ -17,7 +17,6 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Effect exposing (Effect)
 import Element exposing (..)
-import External.Commands exposing (..)
 import Html exposing (Html)
 import Integrations.Marvin as Marvin
 import Integrations.Todoist as Todoist

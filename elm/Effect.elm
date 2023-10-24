@@ -20,7 +20,6 @@ port module Effect exposing
 
 import Browser.Navigation
 import Dict exposing (Dict)
-import External.Commands
 import Http
 import Integrations.Marvin as Marvin
 import Integrations.Todoist as Todoist

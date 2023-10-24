@@ -3,7 +3,7 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
 import Dict.Any as AnyDict exposing (AnyDict)
-import External.Commands as Commands
+import Effect
 import Helpers exposing (multiline)
 import ID
 import List.Extra as List

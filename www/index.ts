@@ -96,7 +96,7 @@ function elmStarted(app) {
 
 
     // FLASH OR TOAST
-    app.ports.flash.subscribe(function(data) {
+    app.ports.toastPort.subscribe(function(data) {
 
         // Workaround for https://github.com/ionic-team/pwa-elements/issues/34
         // (Line breaks are ignored and replaced with spaces)

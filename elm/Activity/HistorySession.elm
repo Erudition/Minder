@@ -4,7 +4,6 @@ import Activity.Activity as Activity exposing (Activity, ActivityID)
 import Activity.Evidence exposing (..)
 import Activity.Template exposing (..)
 import Dict exposing (..)
-import External.Commands exposing (..)
 import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID

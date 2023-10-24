@@ -3,16 +3,9 @@ module Shared.Msg exposing (Msg(..))
 {-| -}
 
 import Browser.Events
-import Browser.Navigation exposing (..)
-import Element exposing (..)
-import External.Commands exposing (..)
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
-import Json.Decode.Exploration exposing (..)
-import List.Nonempty exposing (Nonempty(..))
-import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
-import Profile exposing (..)
 import Replicated.Change as Change
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone)

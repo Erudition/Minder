@@ -2,7 +2,6 @@ module Shared.PopupType exposing (..)
 
 import Browser.Navigation exposing (..)
 import Element exposing (..)
-import External.Commands exposing (..)
 import Html exposing (Html)
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))

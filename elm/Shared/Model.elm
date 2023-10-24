@@ -3,7 +3,6 @@ module Shared.Model exposing (Model)
 import Browser.Events
 import Browser.Navigation exposing (..)
 import Element exposing (..)
-import External.Commands exposing (..)
 import Json.Decode.Exploration exposing (..)
 import List.Nonempty exposing (Nonempty(..))
 import NativeScript.Commands exposing (..)

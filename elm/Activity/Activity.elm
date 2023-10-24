@@ -3,7 +3,6 @@ module Activity.Activity exposing (Activity, ActivityID, Icon(..), Store, allUnh
 import Activity.Evidence as Evidence exposing (..)
 import Activity.Template as Template exposing (..)
 import Dict exposing (..)
-import External.Commands exposing (..)
 import ExtraCodecs as Codec
 import Helpers exposing (..)
 import ID exposing (ID)
@@ -372,7 +371,7 @@ defaults startWith =
 
         Toothbrush ->
             { names = [ "Toothbrush", "Teeth", "Brushing Teeth", "Teethbrushing" ]
-            , icon = Emoji "\u{1FAA5}"
+            , icon = Emoji "🪥"
             , excusable = NeverExcused
             , taskOptional = True
             , evidence = []
