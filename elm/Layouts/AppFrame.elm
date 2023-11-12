@@ -200,12 +200,12 @@ view sharedModel route { toContentMsg, model, content } =
     in
     { title = content.title
     , body =
-        [ globalLayout model sharedModel route content.body toContentMsg
+        [ SH.fromUnstyled <| globalLayout model sharedModel route content.body toContentMsg
         ]
     }
 
 
-globalLayout : Model -> Shared.Model -> Route () -> List (H.Html contentMsg) -> (Msg -> contentMsg) -> H.Html contentMsg
+globalLayout : Model -> Shared.Model -> Route () -> List (SH.Html contentMsg) -> (Msg -> contentMsg) -> H.Html contentMsg
 globalLayout model shared route bodyContentList toContentMsg =
     let
         formattedTime =
@@ -237,7 +237,7 @@ globalLayout model shared route bodyContentList toContentMsg =
                         ]
                     ]
                 ]
-            , Ion.Content.content [ HA.classList [ ( "ion-padding", not (route.path == Route.Path.Timeflow) ) ], HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ H.node "page" [] bodyContentList ]
+            , Ion.Content.content [ HA.classList [ ( "ion-padding", not (route.path == Route.Path.Timeflow) ) ], HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ SH.toUnstyled <| SH.node "page" [] bodyContentList ]
             , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
                 [ --Ion.Toolbar.title [] [ H.text "Footer" ]
                   bottomNavTabBar route

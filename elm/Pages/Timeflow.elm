@@ -1,7 +1,7 @@
 module Pages.Timeflow exposing (Model, Msg, page)
 
 import Effect exposing (Effect)
-import Html
+import Html.Styled as SH exposing (Html)
 import Page exposing (Page)
 import Route exposing (Route)
 import Shared
@@ -67,5 +67,5 @@ subscriptions model =
 view : Model -> View Msg
 view model =
     { title = "Pages.Timeflow"
-    , body = [ Html.text "/timeflow" ]
+    , body = [ SH.text "/timeflow" ]
     }

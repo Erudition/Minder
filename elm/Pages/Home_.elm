@@ -2,7 +2,7 @@ module Pages.Home_ exposing (Model, Msg, page)
 
 import Auth
 import Effect exposing (Effect)
-import Html
+import Html.Styled as SH exposing (Html)
 import Layouts
 import Page exposing (Page)
 import Route exposing (Route)
@@ -77,5 +77,5 @@ subscriptions model =
 view : Model -> View Msg
 view model =
     { title = "Home"
-    , body = [ Html.text "/:home" ]
+    , body = [ SH.text "/:home" ]
     }

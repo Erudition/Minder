@@ -1,9 +1,9 @@
 module Pages.DevTools exposing (Model, Msg, page)
 
 import Effect exposing (Effect)
-import Route exposing (Route)
-import Html
+import Html.Styled as SH exposing (Html)
 import Page exposing (Page)
+import Route exposing (Route)
 import Shared
 import View exposing (View)
 
@@ -66,5 +66,5 @@ subscriptions model =
 view : Model -> View Msg
 view model =
     { title = "Pages.DevTools"
-    , body = [ Html.text "/dev-tools" ]
+    , body = [ SH.text "/dev-tools" ]
     }

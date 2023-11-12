@@ -1,7 +1,7 @@
 module Pages.TaskList exposing (Model, Msg, page)
 
 import Effect exposing (Effect)
-import Html
+import Html.Styled as SH exposing (Html)
 import Page exposing (Page)
 import Route exposing (Route)
 import Shared
@@ -69,5 +69,5 @@ subscriptions model =
 view : Model -> View Msg
 view model =
     { title = "Pages.TaskList"
-    , body = [ Html.text "/task-list" ]
+    , body = [ SH.text "/task-list" ]
     }
