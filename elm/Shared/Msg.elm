@@ -10,6 +10,7 @@ import NativeScript.Notification as Notif
 import Replicated.Change as Change
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone)
+import SmartTime.Moment exposing (Moment)
 import TaskPort
 
 
@@ -18,6 +19,7 @@ Naming Convention: Use "what happened" phrasing, not "action to take" (verb) phr
 -}
 type Msg
     = NoUpdate
+    | Tick Moment
     | ReplicatorUpdate Components.Replicator.Msg
       --| RunEffects (List (Effect.Effect Msg))
     | WantsLogCleared

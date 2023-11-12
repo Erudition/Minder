@@ -55,6 +55,7 @@ import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Route exposing (Route)
 import Route.Path
 import Shared
+import Shared.Model
 import Shared.Msg exposing (..)
 import Shared.PopupType as PopupType
 import SmartTime.Duration as Duration
@@ -84,7 +85,7 @@ layout props shared route =
         { init = init
         , update = update
         , view = view shared route
-        , subscriptions = subscriptions
+        , subscriptions = subscriptions shared
         }
 
 
@@ -113,7 +114,8 @@ init _ =
 
 
 type Msg
-    = JustRunEffects (List (Effect Shared.Msg))
+    = NoOp
+    | JustRunEffects (List (Effect Shared.Msg))
     | EffectsAndLogError (List (Effect Shared.Msg)) String
     | SendSharedMsg Shared.Msg
     | AskAModel
@@ -123,6 +125,9 @@ type Msg
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Effect.none )
+
         JustRunEffects effects ->
             ( model
             , Effect.batch effects
@@ -177,8 +182,8 @@ update msg model =
             )
 
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions : Shared.Model.Model -> Model -> Sub Msg
+subscriptions shared model =
     Sub.none
 
 

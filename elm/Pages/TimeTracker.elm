@@ -53,7 +53,7 @@ import VitePluginHelper
 page : Shared.Model -> Route () -> Page Model Msg
 page shared route =
     Page.new
-        { init = init
+        { init = init route
         , update = update shared
         , subscriptions = subscriptions
         , view = view shared route
@@ -77,11 +77,26 @@ type alias Model =
     {}
 
 
-init : () -> ( Model, Effect Msg )
-init () =
+init : Route () -> () -> ( Model, Effect Msg )
+init route () =
     ( {}
     , Effect.none
     )
+
+
+urlTriggers : Profile -> List ( String, Dict.Dict String Msg )
+urlTriggers app =
+    let
+        activitiesWithNames =
+            List.concat <| List.map entriesPerActivity (Activity.allUnhidden app.activities)
+
+        entriesPerActivity activity =
+            List.map (\nm -> ( nm, StartTracking (Activity.getID activity) )) (Activity.getNames activity)
+                ++ List.map (\nm -> ( String.toLower nm, StartTracking (Activity.getID activity) )) (Activity.getNames activity)
+    in
+    [ ( "start", Dict.fromList activitiesWithNames )
+    , ( "stop", Dict.fromList [ ( "stop", StartTracking Activity.unknown ) ] )
+    ]
 
 
 
@@ -137,9 +152,6 @@ view shared route model =
         [ section
             [ class "activity-screen" ]
             [ lazy2 viewActivities ( shared.time, shared.timeZone ) shared.replica
-            ]
-        , section [ css [ opacity (num 0.1) ] ]
-            [ text "Quite Ambitious."
             ]
         ]
     }

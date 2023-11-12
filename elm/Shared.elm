@@ -119,6 +119,9 @@ update route msg shared =
             , Effect.none
             )
 
+        Tick newTime ->
+            ( { shared | time = newTime }, Effect.none )
+
         ReplicatorUpdate replicatorMsg ->
             let
                 { newReplicator, newReplica, cmd } =
@@ -256,7 +259,7 @@ subscriptions route model =
         visibleOnlySubscriptions =
             if model.windowVisibility == Browser.Events.Visible then
                 Sub.batch <|
-                    [ HumanMoment.everyMinuteOnTheMinute model.time (\_ -> NoUpdate)
+                    [ HumanMoment.everySecondOnTheSecond model.time Tick
                     , Browser.Events.onResize (\width height -> ViewportResized width height)
                     ]
 
