@@ -24,6 +24,7 @@ import Json.Decode.Exploration as Decode
 import Json.Decode.Exploration.Pipeline as Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra as Encode2 exposing (..)
+import Layouts
 import Page exposing (Page)
 import Profile exposing (..)
 import Refocus
@@ -57,6 +58,15 @@ page shared route =
         , subscriptions = subscriptions
         , view = view shared route
         }
+        |> Page.withLayout toLayout
+
+
+{-| Use the appframe layout on this page
+-}
+toLayout : Model -> Layouts.Layout Msg
+toLayout model =
+    Layouts.AppFrame
+        {}
 
 
 
@@ -81,7 +91,6 @@ init () =
 type Msg
     = NoOp
     | StartTracking ActivityID
-    | ExportVM
 
 
 update : Shared.Model.Model -> Msg -> Model -> ( Model, Effect Msg )
