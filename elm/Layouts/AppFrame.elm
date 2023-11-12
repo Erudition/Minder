@@ -15,7 +15,6 @@ import Element.Border as Border
 import Element.Events
 import Element.Font
 import Element.Input as Input
-import External.Commands exposing (..)
 import Html as H exposing (Html)
 import Html.Attributes as HA exposing (class)
 import Html.Events as HE
@@ -44,7 +43,6 @@ import Layout exposing (Layout)
 import List.Nonempty exposing (Nonempty(..))
 import Log
 import ML.OnlineChat
-import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
 import Popup.Popups as Popups
 import Profile exposing (..)
@@ -210,20 +208,6 @@ view sharedModel route { toContentMsg, model, content } =
 globalLayout : Model -> Shared.Model -> Route () -> List (H.Html contentMsg) -> (Msg -> contentMsg) -> H.Html contentMsg
 globalLayout model shared route bodyContentList toContentMsg =
     let
-        buttonProps path =
-            [ HA.href (Route.Path.toString path), HA.selected (route.path == Route.Path.TaskList) ]
-
-        tabBar =
-            HK.node "ion-tab-bar"
-                [ HA.style "width" "100%" ]
-                [ ( "home-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Home" "albums-outline" )
-                , ( "cares-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline" )
-                , ( "projects-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TaskList) "Projects" "list-outline" )
-                , ( "timeflow-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.Timeflow) "Timeflow" "hourglass-outline" )
-                , ( "timetracker-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TimeTracker) "Activities" "stopwatch-outline" )
-                , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools" ] "Dev" "code-working-outline" )
-                ]
-
         formattedTime =
             let
                 ( calendarDate, timeOfDay ) =
@@ -235,24 +219,12 @@ globalLayout model shared route bodyContentList toContentMsg =
                 , SmartTime.Human.Clock.toStandardString timeOfDay
                 ]
 
-        menuItemHref label icon href =
-            Ion.Item.item [ Ion.Item.button, HA.href href, Ion.Item.detail False ]
-                [ Ion.Item.label [] [ H.text label ]
-                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
-                ]
-
-        menuItemOnClick label icon clickHandler =
-            Ion.Item.item [ Ion.Item.button, HE.onClick clickHandler, Ion.Item.detail False ]
-                [ Ion.Item.label [] [ H.text label ]
-                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
-                ]
-
         activitySelectOption givenActivity =
             H.node "ion-select-option"
                 [ HA.value (Activity.idToString (Activity.getID givenActivity)) ]
                 [ H.text <| Activity.getName givenActivity ]
     in
-    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", shared.darkThemeActive ) ], HA.id "ion-app" ]
+    Ion.Content.appWithAttributes [ HA.classList [ ( "dark", shared.darkThemeOn ) ], HA.id "ion-app" ]
         [ H.div [ HA.class "ion-page", HA.id "main-content" ]
             [ Ion.Toolbar.header [ Ion.Toolbar.translucentOnIos ]
                 [ Ion.Toolbar.toolbar []
@@ -268,57 +240,89 @@ globalLayout model shared route bodyContentList toContentMsg =
             , Ion.Content.content [ HA.classList [ ( "ion-padding", not (route.path == Route.Path.Timeflow) ) ], HA.attribute "fullscreen" "true", HA.attribute "scrollY" "true" ] [ H.node "page" [] bodyContentList ]
             , Ion.Toolbar.footer [ Ion.Toolbar.translucentOnIos ]
                 [ --Ion.Toolbar.title [] [ H.text "Footer" ]
-                  tabBar
+                  bottomNavTabBar route
                 , trackingDisplay shared.replica shared.time shared.launchTime shared.timeZone
                 ]
             ]
-        , H.map toContentMsg <|
-            Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.overlay ]
-                [ Ion.Toolbar.header []
-                    [ Ion.Toolbar.toolbar []
-                        [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
-                        , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                            [ Ion.Button.button [ HE.onClick (JustRunEffects [ Effect.sendMsg (ToggledDarkTheme (not shared.darkThemeActive)) ]) ] [ Ion.Icon.basic "contrast-outline" ]
-                            ]
-                        ]
-                    ]
-                , Ion.Content.content []
-                    [ Ion.List.list []
-                        [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (SendSharedMsg <| ToggledDarkTheme (not shared.darkThemeActive))
-                        , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.syncMarvin ]), Ion.Item.detail False ]
-                            [ Ion.Item.label [] [ H.text "Test Marvin Sync" ]
-                            , Ion.Icon.withAttr "sync-outline" [ Ion.Toolbar.placeEnd ]
-                            ]
-
-                        --, menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
-                        , menuItemHref "Reload App" "sync-outline" "index.html"
-                        , menuItemHref "Service worker js file" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/sw.js"
-                        , menuItemHref "Installed branch" "sync-outline" "https://minder-localhost/fallback.html"
-                        , menuItemHref "Redirect" "sync-outline" "https://minder-localhost/go-online.html"
-                        , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
-                        , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.clearPreferences ]), Ion.Item.detail False ]
-                            [ Ion.Item.label [] [ H.text "Switch Account" ]
-                            , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
-                            ]
-                        , Ion.Item.item [ Ion.Item.button, HE.onClick AskAModel, Ion.Item.detail False ]
-                            [ Ion.Item.label [] [ H.text "Ask a model" ]
-                            , Ion.Icon.withAttr "chatbox-ellipses-outline" [ Ion.Toolbar.placeEnd ]
-                            ]
-                        , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.requestNotificationPermission ]), Ion.Item.detail False ]
-                            [ Ion.Item.label []
-                                [ if shared.notifPermission /= Notif.Granted then
-                                    H.text "Enable Notifications"
-
-                                  else
-                                    H.text "Notifications Enabled"
-                                ]
-                            , Ion.Icon.withAttr "notifications-outline" [ Ion.Toolbar.placeEnd ]
-                            ]
-                        ]
-                    ]
-                ]
+        , H.map toContentMsg (mainMenu shared)
 
         --TODO , Popups.popupWrapper model.viewState.popup shared.replica shared |> H.map PopupMsg
+        ]
+
+
+mainMenu shared =
+    let
+        menuItemHref label icon href =
+            Ion.Item.item [ Ion.Item.button, HA.href href, Ion.Item.detail False ]
+                [ Ion.Item.label [] [ H.text label ]
+                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
+                ]
+
+        menuItemOnClick label icon clickHandler =
+            Ion.Item.item [ Ion.Item.button, HE.onClick clickHandler, Ion.Item.detail False ]
+                [ Ion.Item.label [] [ H.text label ]
+                , Ion.Icon.withAttr icon [ Ion.Toolbar.placeEnd ]
+                ]
+    in
+    Ion.Menu.menu [ Ion.Menu.contentID "main-content", Ion.Menu.overlay ]
+        [ Ion.Toolbar.header []
+            [ Ion.Toolbar.toolbar []
+                [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
+                , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
+                    [ Ion.Button.button [ HE.onClick (JustRunEffects [ Effect.sendMsg (ToggledDarkTheme (not shared.darkThemeOn)) ]) ] [ Ion.Icon.basic "contrast-outline" ]
+                    ]
+                ]
+            ]
+        , Ion.Content.content []
+            [ Ion.List.list []
+                [ menuItemOnClick "Toggle Dark Theme" "contrast-outline" (SendSharedMsg <| ToggledDarkTheme (not shared.darkThemeOn))
+                , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.syncMarvin ]), Ion.Item.detail False ]
+                    [ Ion.Item.label [] [ H.text "Test Marvin Sync" ]
+                    , Ion.Icon.withAttr "sync-outline" [ Ion.Toolbar.placeEnd ]
+                    ]
+
+                --, menuItemHref "Test Marvin Sync" "sync-outline" "?sync=marvin"
+                , menuItemHref "Reload App" "sync-outline" "index.html"
+                , menuItemHref "Service worker js file" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/sw.js"
+                , menuItemHref "Installed branch" "sync-outline" "https://minder-localhost/fallback.html"
+                , menuItemHref "Redirect" "sync-outline" "https://minder-localhost/go-online.html"
+                , menuItemHref "Master branch" "sync-outline" "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/"
+                , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.clearPreferences ]), Ion.Item.detail False ]
+                    [ Ion.Item.label [] [ H.text "Switch Account" ]
+                    , Ion.Icon.withAttr "trash-outline" [ Ion.Toolbar.placeEnd ]
+                    ]
+                , Ion.Item.item [ Ion.Item.button, HE.onClick AskAModel, Ion.Item.detail False ]
+                    [ Ion.Item.label [] [ H.text "Ask a model" ]
+                    , Ion.Icon.withAttr "chatbox-ellipses-outline" [ Ion.Toolbar.placeEnd ]
+                    ]
+                , Ion.Item.item [ Ion.Item.button, HE.onClick (JustRunEffects [ Effect.requestNotificationPermission ]), Ion.Item.detail False ]
+                    [ Ion.Item.label []
+                        [ if shared.notifPermission /= Notif.Granted then
+                            H.text "Enable Notifications"
+
+                          else
+                            H.text "Notifications Enabled"
+                        ]
+                    , Ion.Icon.withAttr "notifications-outline" [ Ion.Toolbar.placeEnd ]
+                    ]
+                ]
+            ]
+        ]
+
+
+bottomNavTabBar route =
+    let
+        buttonProps path =
+            [ HA.href (Route.Path.toString path), HA.selected (route.path == Route.Path.TaskList) ]
+    in
+    HK.node "ion-tab-bar"
+        [ HA.style "width" "100%" ]
+        [ ( "home-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.Home_) "Home" "albums-outline" )
+        , ( "cares-tab-button", Ion.Tab.labeledIconButton [ HA.disabled True ] "Cares" "heart-circle-outline" )
+        , ( "projects-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TaskList) "Projects" "list-outline" )
+        , ( "timeflow-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.Timeflow) "Timeflow" "hourglass-outline" )
+        , ( "timetracker-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TimeTracker) "Activities" "stopwatch-outline" )
+        , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools" ] "Dev" "code-working-outline" )
         ]
 
 
