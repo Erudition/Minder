@@ -3,6 +3,7 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
 import Dict.Any as AnyDict exposing (AnyDict)
+import Effect
 import Helpers exposing (multiline)
 import ID
 import List.Extra as List
@@ -132,19 +133,19 @@ whatsImportantNow profile projectLayers ( time, timeZone ) =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchActivity : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
 switchActivity trackable profile projectLayers ( time, timeZone ) =
     switchTracking trackable profile projectLayers ( time, timeZone )
 
 
 {-| TODO eliminate this
 -}
-refreshTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+refreshTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
 refreshTracking profile projectLayers ( time, timeZone ) =
     switchTracking (Profile.currentlyTracking profile) profile projectLayers ( time, timeZone )
 
 
-switchTracking : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Cmd msg )
+switchTracking : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
 switchTracking trackable profile projectLayers ( time, timeZone ) =
     let
         switchChanges =
@@ -164,7 +165,7 @@ switchTracking trackable profile projectLayers ( time, timeZone ) =
             && (newAssignmentIDMaybe == oldAssignmentIDMaybe)
     then
         -- the activity and assignment stayed the same (may be a different layer of the assignment though)
-        ( [], Cmd.none )
+        ( [], Effect.none )
 
     else
         -- we actually changed tracking, add session to timeline
@@ -173,7 +174,7 @@ switchTracking trackable profile projectLayers ( time, timeZone ) =
                 reactToNewSession trackable ( time, timeZone ) profile projectLayers
         in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges ++ reactionChanges, Cmd.batch [ reactionCmds ] )
+        ( switchChanges ++ reactionChanges, Effect.batch [ reactionCmds ] )
 
 
 reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
@@ -193,7 +194,7 @@ reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
         reactionWhenExpired =
             case checkbackTimeMaybe of
                 Nothing ->
-                    Cmd.none
+                    Effect.none
 
                 Just checkbackTime ->
                     let
@@ -206,7 +207,7 @@ reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
         suggestions =
             suggestedTasks oldProfile projectLayers ( time, timeZone )
     in
-    ( [], Cmd.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, notify suggestions ] )
+    ( [], Effect.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, Effect.SendNotifications suggestions ] )
 
 
 determineNewStatus : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
@@ -382,7 +383,7 @@ type alias CheckBack =
     Moment
 
 
-reactToStatusChange : Bool -> StatusDetails -> FocusStatus -> ( Cmd msg, Maybe CheckBack )
+reactToStatusChange : Bool -> StatusDetails -> FocusStatus -> ( Effect msg, Maybe CheckBack )
 reactToStatusChange isExtrapolated status focusStatus =
     case focusStatus of
         Free ->
@@ -402,20 +403,20 @@ reactToStatusChange isExtrapolated status focusStatus =
 -- REACTIONS
 
 
-newlyFreeReaction : StatusDetails -> Cmd msg
+newlyFreeReaction : StatusDetails -> Effect msg
 newlyFreeReaction status =
-    Cmd.batch
+    Effect.batch
         [ sessionToast status "Liesure time"
-        , notify <| freeSticky status
+        , Effect.SendNotifications <| freeSticky status
         , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
         ]
 
 
-newlyTractionReaction : StatusDetails -> TractionDetails -> Cmd msg
+newlyTractionReaction : StatusDetails -> TractionDetails -> Effect msg
 newlyTractionReaction status traction =
-    Cmd.batch
+    Effect.batch
         [ sessionToast status "✔️"
-        , notify <|
+        , Effect.SendNotifications <|
             tractionSticky status traction Duration.zero
                 ++ scheduleTractionReminders status traction
         , cancelAll (distractionReminderIDs ++ excusedReminderIDs)
@@ -423,8 +424,8 @@ newlyTractionReaction status traction =
 
 
 newlyExcusedReaction isExtrapolated status excused =
-    Cmd.batch <|
-        [ notify <|
+    Effect.batch <|
+        [ Effect.SendNotifications <|
             excusedSticky status excused Duration.zero
                 ++ scheduleExcusedReminders status excused
         ]
@@ -449,15 +450,15 @@ newlyDistractionReaction isExtrapolated status distraction =
             else
                 []
     in
-    Cmd.batch <|
+    Effect.batch <|
         realTimeOnly
-            ++ [ notify <|
+            ++ [ Effect.SendNotifications <|
                     distractionSticky status distraction Duration.zero
                         ++ scheduleDistractionReminders status distraction
                ]
 
 
-sessionToast : StatusDetails -> String -> Cmd msg
+sessionToast : StatusDetails -> String -> Effect msg
 sessionToast status addedText =
     multiLineToast
         [ [ getName status.oldActivity, "stopped after", writeDur status.lastSession ]
@@ -472,7 +473,7 @@ sessionToast status addedText =
 
 
 cancelAll idList =
-    Cmd.batch <| List.map notifyCancel idList
+    Effect.batch <| List.map Effect.cancelNotification idList
 
 
 distractionReminderIDs =
@@ -501,7 +502,7 @@ stickyID =
 
 
 multiLineToast message =
-    Debug.todo (multiline message)
+    Effect.toast (multiline message)
 
 
 writeDur givenDur =

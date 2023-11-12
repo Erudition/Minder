@@ -4,7 +4,7 @@ port module Effect exposing
     , sendCmd, sendMsg
     , pushRoute, replaceRoute, loadExternalUrl
     , map, toCmd
-    , PromptOptions, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, setStorage, syncMarvin, syncTodoist, toast
+    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, setStorage, syncMarvin, syncTodoist, toast
     )
 
 {-|
@@ -64,6 +64,7 @@ type Effect msg
     | ClearPreferences
     | RequestNotificationPermission
     | SendNotifications (List Notif.Notification)
+    | CancelNotification Notif.NotificationID
     | Toast String
     | DialogPrompt (Result TaskPort.Error String -> msg) PromptOptions
       -- INTEGRATIONS
@@ -146,111 +147,23 @@ loadExternalUrl =
     LoadExternalUrl
 
 
-
--- Normal Ports
-
-
-port setStorage : String -> Cmd msg
-
-
-
--- TaskPorts
-
-
-clearPreferencesTaskPort : TaskPort.Task ()
-clearPreferencesTaskPort =
-    TaskPort.callNoArgs
-        { function = "changePassphrase"
-        , valueDecoder = TaskPort.ignoreValue
-        }
-
-
 clearPreferences =
     ClearPreferences
 
 
-ionInputSetFocus : String -> TaskPort.Task ()
-ionInputSetFocus ionInputIDToFocus =
-    TaskPort.call
-        { function = "ionInputSetFocus"
-        , valueDecoder = TaskPort.ignoreValue
-        , argsEncoder = JE.string
+dialogPrompt :
+    (Result TaskPort.Error String -> msg)
+    ->
+        { title : Maybe String
+        , message : String
+        , okButtonTitle : Maybe String
+        , cancelButtonTitle : Maybe String
+        , inputPlaceholder : Maybe String
+        , inputText : Maybe String
         }
-        ionInputIDToFocus
-
-
-type alias PromptOptions =
-    { title : Maybe String
-    , message : String
-    , okButtonTitle : Maybe String
-    , cancelButtonTitle : Maybe String
-    , inputPlaceholder : Maybe String
-    , inputText : Maybe String
-    }
-
-
-dialogPrompt : (Result TaskPort.Error String -> msg) -> PromptOptions -> Effect msg
+    -> Effect msg
 dialogPrompt toMsg promptOptions =
     DialogPrompt toMsg promptOptions
-
-
-dialogPromptTaskPort : PromptOptions -> TaskPort.Task String
-dialogPromptTaskPort inOptions =
-    let
-        optionsEncoder : PromptOptions -> JE.Value
-        optionsEncoder options =
-            JE.object
-                [ ( "title"
-                  , case options.title of
-                        Just title ->
-                            JE.string title
-
-                        Nothing ->
-                            JE.null
-                  )
-                , ( "message"
-                  , JE.string options.message
-                  )
-                , ( "okButtonTitle"
-                  , case options.okButtonTitle of
-                        Just okButtonTitle ->
-                            JE.string okButtonTitle
-
-                        Nothing ->
-                            JE.null
-                  )
-                , ( "cancelButtonTitle"
-                  , case options.cancelButtonTitle of
-                        Just cancelButtonTitle ->
-                            JE.string cancelButtonTitle
-
-                        Nothing ->
-                            JE.null
-                  )
-                , ( "inputPlaceholder"
-                  , case options.inputPlaceholder of
-                        Just inputPlaceholder ->
-                            JE.string inputPlaceholder
-
-                        Nothing ->
-                            JE.null
-                  )
-                , ( "inputText"
-                  , case options.inputText of
-                        Just inputText ->
-                            JE.string inputText
-
-                        Nothing ->
-                            JE.null
-                  )
-                ]
-    in
-    TaskPort.call
-        { function = "dialogPrompt"
-        , valueDecoder = JD.at [ "value" ] JD.string
-        , argsEncoder = optionsEncoder
-        }
-        inOptions
 
 
 closePopup =
@@ -260,9 +173,6 @@ closePopup =
 toast : String -> Effect msg
 toast toastMsg =
     Toast toastMsg
-
-
-port toastPort : String -> Cmd msg
 
 
 saveFrame : Change.Frame -> Effect msg
@@ -285,63 +195,42 @@ sendNotifications notifList =
     SendNotifications notifList
 
 
-notificationsToJS : List Notif.Notification -> Cmd msg
-notificationsToJS notifs =
-    ns_notify (JE.list Notif.encode notifs)
-
-
-notifyCancelToJS : Notif.NotificationID -> Cmd msg
-notifyCancelToJS id =
-    ns_notify_cancel (JE.int id)
+cancelNotification : Notif.NotificationID -> Effect msg
+cancelNotification notifID =
+    CancelNotification notifID
 
 
 mlPredict =
     MLPredict
 
 
-port ns_notify : JE.Value -> Cmd msg
 
-
-port ns_notify_cancel : JE.Value -> Cmd msg
-
-
-port ns_toast : JE.Value -> Cmd msg
-
-
-
-{- The goal here is to get (mouse x / window width) on each mouse event. So if
-   the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
-   Getting the mouse x is not too hard, but getting window width is a bit tricky.
-   We want the window.innerWidth value, which happens to be available at:
-       event.currentTarget.defaultView.innerWidth
-   The value at event.currentTarget is the document in these cases, but this will
-   not work if you have a <section> or a <div> with a normal elm/html event handler.
-   So if currentTarget is NOT the document, you should instead get the value at:
-       event.currentTarget.ownerDocument.defaultView.innerWidth
-                           ^^^^^^^^^^^^^
--}
-
-
-decodeFraction : JD.Decoder Float
-decodeFraction =
-    JD.map2 (/)
-        (JD.field "pageX" JD.float)
-        (JD.at [ "currentTarget", "defaultView", "innerWidth" ] JD.float)
-
-
-
-{- What happens when the user is dragging, but the "mouse up" occurs outside
-   the browser window? We need to stop listening for mouse movement and end the
-   drag. We use MouseEvent.buttons to detect this:
-       https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
-   The "buttons" value is 1 when "left-click" is pressed, so we use that to
-   detect zombie drags.
--}
-
-
-decodeButtons : JD.Decoder Bool
-decodeButtons =
-    JD.field "buttons" (JD.map (\buttons -> buttons == 1) JD.int)
+-- {- The goal here is to get (mouse x / window width) on each mouse event. So if
+--    the mouse is at 500px and the screen is 1000px wide, we should get 0.5 from this.
+--    Getting the mouse x is not too hard, but getting window width is a bit tricky.
+--    We want the window.innerWidth value, which happens to be available at:
+--        event.currentTarget.defaultView.innerWidth
+--    The value at event.currentTarget is the document in these cases, but this will
+--    not work if you have a <section> or a <div> with a normal elm/html event handler.
+--    So if currentTarget is NOT the document, you should instead get the value at:
+--        event.currentTarget.ownerDocument.defaultView.innerWidth
+--                            ^^^^^^^^^^^^^
+-- -}
+-- decodeFraction : JD.Decoder Float
+-- decodeFraction =
+--     JD.map2 (/)
+--         (JD.field "pageX" JD.float)
+--         (JD.at [ "currentTarget", "defaultView", "innerWidth" ] JD.float)
+-- {- What happens when the user is dragging, but the "mouse up" occurs outside
+--    the browser window? We need to stop listening for mouse movement and end the
+--    drag. We use MouseEvent.buttons to detect this:
+--        https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
+--    The "buttons" value is 1 when "left-click" is pressed, so we use that to
+--    detect zombie drags.
+-- -}
+-- decodeButtons : JD.Decoder Bool
+-- decodeButtons =
+--     JD.field "buttons" (JD.map (\buttons -> buttons == 1) JD.int)
 
 
 syncTodoist : Effect Shared.Msg.Msg
@@ -362,9 +251,6 @@ syncMarvin =
 
 requestNotificationPermission =
     RequestNotificationPermission
-
-
-port incomingRon : (String -> msg) -> Sub msg
 
 
 
@@ -413,6 +299,9 @@ map fn effect =
         SendNotifications list ->
             SendNotifications list
 
+        CancelNotification notifID ->
+            CancelNotification notifID
+
         Save frame ->
             Save frame
 
@@ -432,7 +321,8 @@ map fn effect =
             FocusIonInput inputID
 
 
-{-| Elm Land depends on this function to perform your effects.
+{-| Final conversion of Effects to raw Cmds.
+Elm Land depends on this function to perform our effects.
 -}
 toCmd :
     { key : Browser.Navigation.Key
@@ -474,6 +364,14 @@ toCmd options effect =
                 |> Task.perform options.fromSharedMsg
 
         ClearPreferences ->
+            let
+                clearPreferencesTaskPort : TaskPort.Task ()
+                clearPreferencesTaskPort =
+                    TaskPort.callNoArgs
+                        { function = "changePassphrase"
+                        , valueDecoder = TaskPort.ignoreValue
+                        }
+            in
             sharedMsgTaskAttempt (\_ -> Shared.Msg.NoUpdate) clearPreferencesTaskPort
 
         RequestNotificationPermission ->
@@ -488,7 +386,10 @@ toCmd options effect =
                 Marvin.getLabelsCmd
 
         SendNotifications notifList ->
-            notificationsToJS notifList
+            ns_notify (JE.list Notif.encode notifList)
+
+        CancelNotification ->
+            ns_notify_cancel (JE.int id)
 
         Save frames ->
             Cmd.map (options.fromSharedMsg << Shared.Msg.ReplicatorUpdate) <|
@@ -504,10 +405,101 @@ toCmd options effect =
             toastPort toastMsg
 
         DialogPrompt toMsg promptOptions ->
+            let
+                dialogPromptTaskPort : PromptOptions -> TaskPort.Task String
+                dialogPromptTaskPort inOptions =
+                    let
+                        optionsEncoder : PromptOptions -> JE.Value
+                        optionsEncoder options =
+                            JE.object
+                                [ ( "title"
+                                  , case options.title of
+                                        Just title ->
+                                            JE.string title
+
+                                        Nothing ->
+                                            JE.null
+                                  )
+                                , ( "message"
+                                  , JE.string options.message
+                                  )
+                                , ( "okButtonTitle"
+                                  , case options.okButtonTitle of
+                                        Just okButtonTitle ->
+                                            JE.string okButtonTitle
+
+                                        Nothing ->
+                                            JE.null
+                                  )
+                                , ( "cancelButtonTitle"
+                                  , case options.cancelButtonTitle of
+                                        Just cancelButtonTitle ->
+                                            JE.string cancelButtonTitle
+
+                                        Nothing ->
+                                            JE.null
+                                  )
+                                , ( "inputPlaceholder"
+                                  , case options.inputPlaceholder of
+                                        Just inputPlaceholder ->
+                                            JE.string inputPlaceholder
+
+                                        Nothing ->
+                                            JE.null
+                                  )
+                                , ( "inputText"
+                                  , case options.inputText of
+                                        Just inputText ->
+                                            JE.string inputText
+
+                                        Nothing ->
+                                            JE.null
+                                  )
+                                ]
+                    in
+                    TaskPort.call
+                        { function = "dialogPrompt"
+                        , valueDecoder = JD.at [ "value" ] JD.string
+                        , argsEncoder = optionsEncoder
+                        }
+                        inOptions
+            in
             Task.attempt toMsg (dialogPromptTaskPort promptOptions)
 
         FocusIonInput inputToFocus ->
+            let
+                ionInputSetFocus : String -> TaskPort.Task ()
+                ionInputSetFocus ionInputIDToFocus =
+                    TaskPort.call
+                        { function = "ionInputSetFocus"
+                        , valueDecoder = TaskPort.ignoreValue
+                        , argsEncoder = JE.string
+                        }
+                        ionInputIDToFocus
+            in
             Process.sleep 100
                 |> Task.andThen (\_ -> ionInputSetFocus inputToFocus)
                 |> Task.attempt (\_ -> Shared.Msg.NoUpdate)
                 |> Cmd.map options.fromSharedMsg
+
+
+
+-- PORTS --------------------------------------------------------
+
+
+port incomingRon : (String -> msg) -> Sub msg
+
+
+port ns_notify : JE.Value -> Cmd msg
+
+
+port ns_notify_cancel : JE.Value -> Cmd msg
+
+
+port ns_toast : JE.Value -> Cmd msg
+
+
+port toastPort : String -> Cmd msg
+
+
+port setStorage : String -> Cmd msg
