@@ -15,7 +15,8 @@ module Shared exposing
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
-import Effect exposing (Effect)
+import Components.Replicator
+import Effect exposing (Effect, incomingRon)
 import Element exposing (..)
 import Html exposing (Html)
 import Integrations.Marvin as Marvin
@@ -23,9 +24,9 @@ import Integrations.Todoist as Todoist
 import Json.Decode
 import List.Nonempty exposing (Nonempty(..))
 import Log
-import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif
 import Profile exposing (Profile)
+import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
 import Route exposing (Route)
 import Route.Path
 import Shared.Model
@@ -45,15 +46,18 @@ import SmartTime.Period as Period exposing (Period)
 
 
 type alias Flags =
-    { darkTheme : Bool }
+    { darkTheme : Bool
+    , launchTime : Moment
+    }
 
 
 {-| TODO can we get away without decoding?
 -}
 decoder : Json.Decode.Decoder Flags
 decoder =
-    Json.Decode.map Flags
+    Json.Decode.map2 Flags
         (Json.Decode.field "darkTheme" Json.Decode.bool)
+        (Json.Decode.field "launchTime" (Json.Decode.map Moment.fromElmInt Json.Decode.int))
 
 
 
@@ -75,22 +79,27 @@ init flagsResult route =
 
                 Err reason ->
                     { darkTheme = True
+                    , launchTime = zero
                     }
+
+        ( replicator, replica ) =
+            Components.Replicator.init { launchTime = Just flags.launchTime, replicaCodec = Profile.codec, outPort = Effect.setStorage }
     in
     ( { time = zero -- temporary placeholder
-
-      --, navkey = maybeKey -- passed from init
+      , replicator = replicator
       , timeZone = utc -- temporary placeholder
-      , launchTime = zero -- temporary placeholder
+      , launchTime = flags.launchTime
       , notifPermission = Notif.Denied
       , viewportSize = { width = 0, height = 0 }
       , viewportSizeClass = Element.Phone
       , windowVisibility = Browser.Events.Visible
-      , darkThemeActive = flags.darkTheme
+      , systemSaysDarkTheme = flags.darkTheme
+      , darkThemeOn = flags.darkTheme
       , modal = Nothing
-      , replica = Debug.todo "init replica"
+      , replica = replica
       }
     , Effect.none
+      -- TODO Effect.saveChanges "init" initChanges
     )
 
 
@@ -110,10 +119,13 @@ update route msg shared =
             , Effect.none
             )
 
-        Save frame ->
-            -- TODO
-            ( shared
-            , Effect.none
+        ReplicatorUpdate replicatorMsg ->
+            let
+                { newReplicator, newReplica, cmd } =
+                    Components.Replicator.update replicatorMsg shared.replicator
+            in
+            ( { shared | replicator = newReplicator, replica = newReplica }
+            , Effect.sendCmd (Cmd.map ReplicatorUpdate cmd)
             )
 
         NotificationScheduled response ->
@@ -142,7 +154,7 @@ update route msg shared =
             )
 
         ToggledDarkTheme isDark ->
-            ( { shared | darkThemeActive = isDark }
+            ( { shared | darkThemeOn = isDark }
             , Effect.none
             )
 
@@ -251,4 +263,4 @@ subscriptions route model =
             else
                 Sub.none
     in
-    Sub.batch [ alwaysSubscriptions, visibleOnlySubscriptions ]
+    Sub.batch [ alwaysSubscriptions, visibleOnlySubscriptions, Sub.map ReplicatorUpdate (Components.Replicator.subscriptions incomingRon) ]

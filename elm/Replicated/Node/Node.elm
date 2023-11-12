@@ -15,7 +15,7 @@ import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
-import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OutCounter)
+import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
 import Set exposing (Set)
 import SmartTime.Moment exposing (Moment)
 
@@ -25,8 +25,6 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , ops : OpDb
-
-    -- , objects : Dict OpID.OpIDSortable
     , root : Maybe ObjectID
     , highestSeenClock : Int
     , peers : List Peer
@@ -34,7 +32,7 @@ type alias Node =
 
 
 type alias OpDb =
-    AnyDict OpID.OpIDSortable OpID Op
+    AnyDict OpIDSortable OpID Op
 
 
 type alias InitArgs =

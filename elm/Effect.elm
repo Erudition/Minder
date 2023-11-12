@@ -4,7 +4,7 @@ port module Effect exposing
     , sendCmd, sendMsg
     , pushRoute, replaceRoute, loadExternalUrl
     , map, toCmd
-    , PromptOptions, clearPreferences, closePopup, dialogPrompt, mlPredict, requestNotificationPermission, saveChanges, saveFrame, sendNotifications, syncMarvin, syncTodoist, toast
+    , PromptOptions, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, setStorage, syncMarvin, syncTodoist, toast
     )
 
 {-|
@@ -19,6 +19,7 @@ port module Effect exposing
 -}
 
 import Browser.Navigation
+import Components.Replicator
 import Dict exposing (Dict)
 import Http
 import Integrations.Marvin as Marvin
@@ -58,7 +59,7 @@ type Effect msg
       -- SHARED
     | SendSharedMsg Shared.Msg.Msg
       -- REPLICATOR
-    | StoreFrame Change.Frame
+    | Save (List Change.Frame)
       -- EXTERNAL APP
     | ClearPreferences
     | RequestNotificationPermission
@@ -266,7 +267,12 @@ port toastPort : String -> Cmd msg
 
 saveFrame : Change.Frame -> Effect msg
 saveFrame changeFrame =
-    StoreFrame changeFrame
+    Save [ changeFrame ]
+
+
+saveFrames : List Change.Frame -> Effect msg
+saveFrames changeFrames =
+    Save changeFrames
 
 
 saveChanges : String -> List Change.Change -> Effect msg
@@ -358,6 +364,9 @@ requestNotificationPermission =
     RequestNotificationPermission
 
 
+port incomingRon : (String -> msg) -> Sub msg
+
+
 
 -- INTERNALS
 
@@ -404,8 +413,8 @@ map fn effect =
         SendNotifications list ->
             SendNotifications list
 
-        StoreFrame frame ->
-            StoreFrame frame
+        Save frame ->
+            Save frame
 
         ClosePopup ->
             ClosePopup
@@ -481,8 +490,9 @@ toCmd options effect =
         SendNotifications notifList ->
             notificationsToJS notifList
 
-        StoreFrame frame ->
-            Debug.todo "setStorage port"
+        Save frames ->
+            Cmd.map (options.fromSharedMsg << Shared.Msg.ReplicatorUpdate) <|
+                Components.Replicator.saveEffect frames
 
         ClosePopup ->
             Debug.todo "close popup port/taskport"

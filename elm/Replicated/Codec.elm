@@ -730,8 +730,7 @@ replaceForUrl =
     Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
 
 
-{-| Generates naked Changes from a Codec's default values. These are all the values that would normally be skipped, not encoded to Changes.
-Useful for spitting out test data, and seeing the whole heirarchy of your types.
+{-| Start a new node
 -}
 startNodeFromRoot : Maybe Moment -> WrappedOrSkelCodec e s a -> ( Node, List Op.ClosedChunk )
 startNodeFromRoot maybeMoment rootCodec =
