@@ -151,16 +151,19 @@ clearPreferences =
     ClearPreferences
 
 
+type alias PromptOptions =
+    { title : Maybe String
+    , message : String
+    , okButtonTitle : Maybe String
+    , cancelButtonTitle : Maybe String
+    , inputPlaceholder : Maybe String
+    , inputText : Maybe String
+    }
+
+
 dialogPrompt :
     (Result TaskPort.Error String -> msg)
-    ->
-        { title : Maybe String
-        , message : String
-        , okButtonTitle : Maybe String
-        , cancelButtonTitle : Maybe String
-        , inputPlaceholder : Maybe String
-        , inputText : Maybe String
-        }
+    -> PromptOptions
     -> Effect msg
 dialogPrompt toMsg promptOptions =
     DialogPrompt toMsg promptOptions
@@ -388,7 +391,7 @@ toCmd options effect =
         SendNotifications notifList ->
             ns_notify (JE.list Notif.encode notifList)
 
-        CancelNotification ->
+        CancelNotification id ->
             ns_notify_cancel (JE.int id)
 
         Save frames ->
@@ -405,78 +408,9 @@ toCmd options effect =
             toastPort toastMsg
 
         DialogPrompt toMsg promptOptions ->
-            let
-                dialogPromptTaskPort : PromptOptions -> TaskPort.Task String
-                dialogPromptTaskPort inOptions =
-                    let
-                        optionsEncoder : PromptOptions -> JE.Value
-                        optionsEncoder options =
-                            JE.object
-                                [ ( "title"
-                                  , case options.title of
-                                        Just title ->
-                                            JE.string title
-
-                                        Nothing ->
-                                            JE.null
-                                  )
-                                , ( "message"
-                                  , JE.string options.message
-                                  )
-                                , ( "okButtonTitle"
-                                  , case options.okButtonTitle of
-                                        Just okButtonTitle ->
-                                            JE.string okButtonTitle
-
-                                        Nothing ->
-                                            JE.null
-                                  )
-                                , ( "cancelButtonTitle"
-                                  , case options.cancelButtonTitle of
-                                        Just cancelButtonTitle ->
-                                            JE.string cancelButtonTitle
-
-                                        Nothing ->
-                                            JE.null
-                                  )
-                                , ( "inputPlaceholder"
-                                  , case options.inputPlaceholder of
-                                        Just inputPlaceholder ->
-                                            JE.string inputPlaceholder
-
-                                        Nothing ->
-                                            JE.null
-                                  )
-                                , ( "inputText"
-                                  , case options.inputText of
-                                        Just inputText ->
-                                            JE.string inputText
-
-                                        Nothing ->
-                                            JE.null
-                                  )
-                                ]
-                    in
-                    TaskPort.call
-                        { function = "dialogPrompt"
-                        , valueDecoder = JD.at [ "value" ] JD.string
-                        , argsEncoder = optionsEncoder
-                        }
-                        inOptions
-            in
             Task.attempt toMsg (dialogPromptTaskPort promptOptions)
 
         FocusIonInput inputToFocus ->
-            let
-                ionInputSetFocus : String -> TaskPort.Task ()
-                ionInputSetFocus ionInputIDToFocus =
-                    TaskPort.call
-                        { function = "ionInputSetFocus"
-                        , valueDecoder = TaskPort.ignoreValue
-                        , argsEncoder = JE.string
-                        }
-                        ionInputIDToFocus
-            in
             Process.sleep 100
                 |> Task.andThen (\_ -> ionInputSetFocus inputToFocus)
                 |> Task.attempt (\_ -> Shared.Msg.NoUpdate)
@@ -503,3 +437,76 @@ port toastPort : String -> Cmd msg
 
 
 port setStorage : String -> Cmd msg
+
+
+
+-- TASKPORTS ------------------------------------------
+
+
+dialogPromptTaskPort : PromptOptions -> TaskPort.Task String
+dialogPromptTaskPort inOptions =
+    let
+        optionsEncoder : PromptOptions -> JE.Value
+        optionsEncoder promptOptions =
+            JE.object
+                [ ( "title"
+                  , case promptOptions.title of
+                        Just title ->
+                            JE.string title
+
+                        Nothing ->
+                            JE.null
+                  )
+                , ( "message"
+                  , JE.string promptOptions.message
+                  )
+                , ( "okButtonTitle"
+                  , case promptOptions.okButtonTitle of
+                        Just okButtonTitle ->
+                            JE.string okButtonTitle
+
+                        Nothing ->
+                            JE.null
+                  )
+                , ( "cancelButtonTitle"
+                  , case promptOptions.cancelButtonTitle of
+                        Just cancelButtonTitle ->
+                            JE.string cancelButtonTitle
+
+                        Nothing ->
+                            JE.null
+                  )
+                , ( "inputPlaceholder"
+                  , case promptOptions.inputPlaceholder of
+                        Just inputPlaceholder ->
+                            JE.string inputPlaceholder
+
+                        Nothing ->
+                            JE.null
+                  )
+                , ( "inputText"
+                  , case promptOptions.inputText of
+                        Just inputText ->
+                            JE.string inputText
+
+                        Nothing ->
+                            JE.null
+                  )
+                ]
+    in
+    TaskPort.call
+        { function = "dialogPrompt"
+        , valueDecoder = JD.at [ "value" ] JD.string
+        , argsEncoder = optionsEncoder
+        }
+        inOptions
+
+
+ionInputSetFocus : String -> TaskPort.Task ()
+ionInputSetFocus ionInputIDToFocus =
+    TaskPort.call
+        { function = "ionInputSetFocus"
+        , valueDecoder = TaskPort.ignoreValue
+        , argsEncoder = JE.string
+        }
+        ionInputIDToFocus
