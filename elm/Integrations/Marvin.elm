@@ -18,7 +18,6 @@ import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
 import Profile exposing (Profile)
-import Refocus
 import Replicated.Change as Change exposing (Change)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration
@@ -392,12 +391,14 @@ handle profile ( time, timeZone ) response =
                             -- TODO how to get this to incorprate changes in profile
                             profile
 
-                        ( refocusChanges, refocusCmds ) =
-                            Refocus.refreshTracking updatedProfile projectLayers ( time, timeZone )
+                        --( refocusChanges, refocusCmds ) =
+                        --    Refocus.refreshTracking updatedProfile projectLayers ( time, timeZone )
                     in
-                    ( Change.saveChanges "Backfilled timeline with Marvin data" refocusChanges
+                    ( Change.emptyFrame
+                      --Change.saveChanges "Backfilled timeline with Marvin data" refocusChanges
                     , "Fetched canonical timetrack timing tables: " ++ Debug.toString timesList
-                    , refocusCmds
+                    , Cmd.none
+                      --refocusCmds
                     )
 
                 Err err ->

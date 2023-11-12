@@ -3,6 +3,7 @@ module Shared.Msg exposing (Msg(..))
 {-| -}
 
 import Browser.Events
+import Components.Replicator
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import NativeScript.Notification as Notif
@@ -17,7 +18,7 @@ Naming Convention: Use "what happened" phrasing, not "action to take" (verb) phr
 -}
 type Msg
     = NoUpdate
-    | Save Change.Frame
+    | ReplicatorUpdate Components.Replicator.Msg
       --| RunEffects (List (Effect.Effect Msg))
     | WantsLogCleared
     | ViewportResized Int Int

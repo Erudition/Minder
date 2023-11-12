@@ -3,14 +3,12 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
 import Dict.Any as AnyDict exposing (AnyDict)
-import Effect
 import Helpers exposing (multiline)
 import ID
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
 import Maybe.Extra as Maybe
-import NativeScript.Commands exposing (..)
 import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (Profile)
 import Random
@@ -503,7 +501,7 @@ stickyID =
 
 
 multiLineToast message =
-    Commands.toast (multiline message)
+    Debug.todo (multiline message)
 
 
 writeDur givenDur =

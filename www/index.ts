@@ -190,7 +190,7 @@ async function attachOrbit(elmApp) {
     console.log("Loaded inital database entries", dbEntries);
     let oldFrames = dbEntries.map((e) => e.payload.value).join('\n');
 
-    elmApp.ports.incomingFramesFromElsewhere.send(oldFrames);
+    elmApp.ports.incomingRon.send(oldFrames);
 
     // SET STORAGE
     elmApp.ports.setStorage.subscribe(async function(state) {
@@ -205,7 +205,7 @@ async function attachOrbit(elmApp) {
     // Notify elm of new frame from peers
     db.events.on("replicate.progress", (address, hash, entry, progress, have) => {
       const newFrame = entry.payload.value;
-      elmApp.ports.incomingFramesFromElsewhere.send(newFrame);
+      elmApp.ports.incomingRon.send(newFrame);
       console.log("New frames from peer @", address, "Progress is ", progress)
     })
 }
