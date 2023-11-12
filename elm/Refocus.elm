@@ -3,7 +3,7 @@ module Refocus exposing (refreshTracking, switchActivity, switchTracking, whatsI
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession as HistorySession exposing (HistorySession, Timeline)
 import Dict.Any as AnyDict exposing (AnyDict)
-import Effect
+import Effect exposing (Effect)
 import Helpers exposing (multiline)
 import ID
 import List.Extra as List
@@ -133,19 +133,19 @@ whatsImportantNow profile projectLayers ( time, timeZone ) =
             Log.logSeparate "top pick" somethingelse Nothing
 
 
-switchActivity : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
+switchActivity : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> Effect msg
 switchActivity trackable profile projectLayers ( time, timeZone ) =
     switchTracking trackable profile projectLayers ( time, timeZone )
 
 
 {-| TODO eliminate this
 -}
-refreshTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
+refreshTracking : Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> Effect msg
 refreshTracking profile projectLayers ( time, timeZone ) =
     switchTracking (Profile.currentlyTracking profile) profile projectLayers ( time, timeZone )
 
 
-switchTracking : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( List Change, Effect msg )
+switchTracking : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> Effect msg
 switchTracking trackable profile projectLayers ( time, timeZone ) =
     let
         switchChanges =
@@ -165,16 +165,16 @@ switchTracking trackable profile projectLayers ( time, timeZone ) =
             && (newAssignmentIDMaybe == oldAssignmentIDMaybe)
     then
         -- the activity and assignment stayed the same (may be a different layer of the assignment though)
-        ( [], Effect.none )
+        Effect.none
 
     else
         -- we actually changed tracking, add session to timeline
         let
-            ( reactionChanges, reactionCmds ) =
+            reaction =
                 reactToNewSession trackable ( time, timeZone ) profile projectLayers
         in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        ( switchChanges ++ reactionChanges, Effect.batch [ reactionCmds ] )
+        Effect.batch [ reaction, Effect.saveChanges "Started tracking" switchChanges ]
 
 
 reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
@@ -207,7 +207,7 @@ reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =
         suggestions =
             suggestedTasks oldProfile projectLayers ( time, timeZone )
     in
-    ( [], Effect.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, Effect.SendNotifications suggestions ] )
+    Effect.batch [ reactionNow, Debug.log "FUTURE REACTION" reactionWhenExpired, Effect.sendNotifications suggestions ]
 
 
 determineNewStatus : TimeTrackable -> Profile -> ProjectLayers -> ( Moment, HumanMoment.Zone ) -> ( StatusDetails, FocusStatus )
@@ -407,7 +407,7 @@ newlyFreeReaction : StatusDetails -> Effect msg
 newlyFreeReaction status =
     Effect.batch
         [ sessionToast status "Liesure time"
-        , Effect.SendNotifications <| freeSticky status
+        , Effect.sendNotifications <| freeSticky status
         , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
         ]
 
@@ -416,7 +416,7 @@ newlyTractionReaction : StatusDetails -> TractionDetails -> Effect msg
 newlyTractionReaction status traction =
     Effect.batch
         [ sessionToast status "✔️"
-        , Effect.SendNotifications <|
+        , Effect.sendNotifications <|
             tractionSticky status traction Duration.zero
                 ++ scheduleTractionReminders status traction
         , cancelAll (distractionReminderIDs ++ excusedReminderIDs)
@@ -424,19 +424,22 @@ newlyTractionReaction status traction =
 
 
 newlyExcusedReaction isExtrapolated status excused =
+    let
+        ifNotExtrapolatedEffectsAsList =
+            if not isExtrapolated then
+                [ sessionToast status "❌ Not W.I.N. Excused."
+                , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
+                ]
+
+            else
+                []
+    in
     Effect.batch <|
-        [ Effect.SendNotifications <|
+        [ Effect.sendNotifications <|
             excusedSticky status excused Duration.zero
                 ++ scheduleExcusedReminders status excused
         ]
-            ++ (if not isExtrapolated then
-                    [ sessionToast status "❌ Not W.I.N. Excused."
-                    , cancelAll (distractionReminderIDs ++ tractionReminderIDs)
-                    ]
-
-                else
-                    []
-               )
+            ++ ifNotExtrapolatedEffectsAsList
 
 
 newlyDistractionReaction isExtrapolated status distraction =
@@ -452,7 +455,7 @@ newlyDistractionReaction isExtrapolated status distraction =
     in
     Effect.batch <|
         realTimeOnly
-            ++ [ Effect.SendNotifications <|
+            ++ [ Effect.sendNotifications <|
                     distractionSticky status distraction Duration.zero
                         ++ scheduleDistractionReminders status distraction
                ]
