@@ -33,4 +33,5 @@ type alias Model =
     , launchTime : Moment -- when we officially started the session
     , notifPermission : Notif.PermissionStatus
     , modal : Maybe PopupType
+    , tickEnabled : Bool
     }

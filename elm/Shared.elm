@@ -97,6 +97,7 @@ init flagsResult route =
       , darkThemeOn = flags.darkTheme
       , modal = Nothing
       , replica = replica
+      , tickEnabled = False
       }
     , Effect.none
       -- TODO Effect.saveChanges "init" initChanges
@@ -121,6 +122,9 @@ update route msg shared =
 
         Tick newTime ->
             ( { shared | time = newTime }, Effect.none )
+
+        SetTickEnabled newSetting ->
+            ( { shared | tickEnabled = newSetting }, Effect.none )
 
         ReplicatorUpdate replicatorMsg ->
             let
@@ -153,7 +157,7 @@ update route msg shared =
 
         VisibilityChanged newVisibility ->
             ( { shared | windowVisibility = newVisibility }
-            , Effect.none
+            , Effect.updateTime
             )
 
         ToggledDarkTheme isDark ->
@@ -246,24 +250,23 @@ update route msg shared =
 
 
 subscriptions : Route () -> Model -> Sub Msg
-subscriptions route model =
+subscriptions route shared =
     let
         -- Old for reference:
         -- , storageChangedElsewhere NewAppData
         --, Browser.Events.onMouseMove <| JD.map2 MouseMoved decodeButtons decodeFraction
         --, SmartTime.Human.Moment.everySecondOnTheSecond model.time (\_ -> NoOp)
-        alwaysSubscriptions =
-            Sub.batch <|
-                [ Browser.Events.onVisibilityChange VisibilityChanged ]
-
-        visibleOnlySubscriptions =
-            if model.windowVisibility == Browser.Events.Visible then
-                Sub.batch <|
-                    [ HumanMoment.everySecondOnTheSecond model.time Tick
-                    , Browser.Events.onResize (\width height -> ViewportResized width height)
-                    ]
+        tickSubscriptionMaybe =
+            if shared.windowVisibility == Browser.Events.Visible && shared.tickEnabled then
+                Just <| HumanMoment.everySecondOnTheSecond shared.time Tick
 
             else
-                Sub.none
+                Nothing
     in
-    Sub.batch [ alwaysSubscriptions, visibleOnlySubscriptions, Sub.map ReplicatorUpdate (Components.Replicator.subscriptions incomingRon) ]
+    Sub.batch <|
+        List.filterMap identity
+            [ Just <| Browser.Events.onVisibilityChange VisibilityChanged
+            , Just <| Browser.Events.onResize (\width height -> ViewportResized width height)
+            , tickSubscriptionMaybe
+            , Just <| Sub.map ReplicatorUpdate (Components.Replicator.subscriptions incomingRon)
+            ]

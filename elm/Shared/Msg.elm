@@ -31,3 +31,4 @@ type Msg
     | GotNotificationPermissionStatus (TaskPort.Result Notif.PermissionStatus)
     | GotTodoistServerResponse Todoist.Msg
     | GotMarvinServerResponse Marvin.Msg
+    | SetTickEnabled Bool

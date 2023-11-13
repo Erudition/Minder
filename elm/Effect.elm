@@ -4,7 +4,7 @@ port module Effect exposing
     , sendCmd, sendMsg
     , pushRoute, replaceRoute, loadExternalUrl
     , map, toCmd
-    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, setStorage, syncMarvin, syncTodoist, toast
+    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, sendSharedMsg, setStorage, syncMarvin, syncTodoist, toast, updateTime
     )
 
 {-|
@@ -39,6 +39,7 @@ import Route exposing (Route)
 import Route.Path
 import Shared.Model
 import Shared.Msg
+import SmartTime.Moment as Moment
 import Task
 import TaskPort
 import Url exposing (Url)
@@ -58,6 +59,7 @@ type Effect msg
     | LoadExternalUrl String
       -- SHARED
     | SendSharedMsg Shared.Msg.Msg
+    | UpdateTime
       -- REPLICATOR
     | Save (List Change.Frame)
       -- EXTERNAL APP
@@ -111,6 +113,13 @@ sendMsg msg =
         |> SendCmd
 
 
+{-| Send a Shared.Msg.Msg as an effect.
+-}
+sendSharedMsg : Shared.Msg.Msg -> Effect msg
+sendSharedMsg msg =
+    SendSharedMsg msg
+
+
 
 -- ROUTING
 
@@ -145,6 +154,15 @@ replaceRoute route =
 loadExternalUrl : String -> Effect msg
 loadExternalUrl =
     LoadExternalUrl
+
+
+
+-- APP ----------
+
+
+updateTime : Effect msg
+updateTime =
+    UpdateTime
 
 
 clearPreferences =
@@ -236,7 +254,7 @@ mlPredict =
 --     JD.field "buttons" (JD.map (\buttons -> buttons == 1) JD.int)
 
 
-syncTodoist : Effect Shared.Msg.Msg
+syncTodoist : Effect msg
 syncTodoist =
     batch
         [ toast "Reached out to Todoist server for sync..."
@@ -244,7 +262,7 @@ syncTodoist =
         ]
 
 
-syncMarvin : Effect Shared.Msg.Msg
+syncMarvin : Effect msg
 syncMarvin =
     batch
         [ toast "Reached out to Marvin server for sync..."
@@ -286,6 +304,9 @@ map fn effect =
 
         SendSharedMsg sharedMsg ->
             SendSharedMsg sharedMsg
+
+        UpdateTime ->
+            UpdateTime
 
         ClearPreferences ->
             ClearPreferences
@@ -365,6 +386,9 @@ toCmd options effect =
         SendSharedMsg sharedMsg ->
             Task.succeed sharedMsg
                 |> Task.perform options.fromSharedMsg
+
+        UpdateTime ->
+            Task.perform (options.fromSharedMsg << Shared.Msg.Tick) Moment.now
 
         ClearPreferences ->
             let
