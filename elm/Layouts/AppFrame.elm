@@ -115,8 +115,8 @@ init _ =
 
 type Msg
     = NoOp
-    | JustRunEffects (List (Effect Shared.Msg))
-    | EffectsAndLogError (List (Effect Shared.Msg)) String
+    | JustRunEffects (List (Effect Msg))
+    | EffectsAndLogError (List (Effect Msg)) String
     | SendSharedMsg Shared.Msg
     | AskAModel
     | HandlePredictionResponse (Result String ML.OnlineChat.Prediction -> Msg) ML.OnlineChat.Prediction
@@ -131,20 +131,17 @@ update msg model =
         JustRunEffects effects ->
             ( model
             , Effect.batch effects
-                |> Effect.map SendSharedMsg
             )
 
         EffectsAndLogError effects errorMessage ->
             -- TODO. shared update?
             ( model
             , Effect.batch effects
-                |> Effect.map SendSharedMsg
             )
 
         SendSharedMsg sharedMsg ->
             ( model
-            , Effect.sendMsg sharedMsg
-                |> Effect.map SendSharedMsg
+            , Effect.sendSharedMsg sharedMsg
             )
 
         AskAModel ->
@@ -274,7 +271,7 @@ mainMenu shared =
             [ Ion.Toolbar.toolbar []
                 [ Ion.Toolbar.title [] [ H.text "Minder (Alpha)" ]
                 , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                    [ Ion.Button.button [ HE.onClick (JustRunEffects [ Effect.sendMsg (ToggledDarkTheme (not shared.darkThemeOn)) ]) ] [ Ion.Icon.basic "contrast-outline" ]
+                    [ Ion.Button.button [ HE.onClick (SendSharedMsg (ToggledDarkTheme (not shared.darkThemeOn))) ] [ Ion.Icon.basic "contrast-outline" ]
                     ]
                 ]
             ]
@@ -308,8 +305,11 @@ mainMenu shared =
                           else
                             H.text "Notifications Enabled"
                         ]
+                    , Ion.Item.note [] [ H.text <| Notif.permissionStatusToEnglish shared.notifPermission ]
                     , Ion.Icon.withAttr "notifications-outline" [ Ion.Toolbar.placeEnd ]
                     ]
+                , Ion.Item.item [ Ion.Item.button, HE.onClick (SendSharedMsg <| SetTickEnabled (not shared.tickEnabled)), Ion.Item.detail False ]
+                    [ H.node "ion-toggle" [ HA.checked shared.tickEnabled ] [ H.text "Clock tick" ] ]
                 ]
             ]
         ]

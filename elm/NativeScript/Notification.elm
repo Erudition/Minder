@@ -883,6 +883,22 @@ permissonStatusDecoder =
         |> JD.andThen toStatus
 
 
+permissionStatusToEnglish : PermissionStatus -> String
+permissionStatusToEnglish permissionStatus =
+    case permissionStatus of
+        Prompt ->
+            "Prompt Required"
+
+        PromptWithRationale ->
+            "Prompt Required (Rationale Given)"
+
+        Granted ->
+            "Permission Granted"
+
+        Denied ->
+            "Permission Denied"
+
+
 requestPermisson : TaskPort.Task PermissionStatus
 requestPermisson =
     TaskPort.callNoArgs
