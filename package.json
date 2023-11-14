@@ -4,12 +4,13 @@
   "description": "Minder - life tracker",
   "main": "app/app.ts",
   "scripts": {
-    "packages-install": "pnpm i --shamefully-hoist",
-    "start": "elm-land generate && cp elm-patches/HashRouting.elm .elm-land/src/ && vite",
+    "setup": "pnpm i --shamefully-hoist",
+    "start": "pnpm run elm-land-generate && vite",
+    "elm-land-generate": "elm-land generate && cp elm-patches/HashRouting.elm .elm-land/src/",
     "postinstall": "elm-tooling install && pnpm patch-elm",
     "build": "tsc && vite build",
-    "build-ci": "vite build",
-    "build-sync": "vite build && cap sync",
+    "build-ci": "pnpm run elm-land-generate && vite build",
+    "build-sync": "pnpm run elm-land-generate && vite build && cap sync",
     "patch-elm": "rm -rf ~/.elm/0.19.1/packages/ && cd elm-patches/dummyproject/ && elm make --output=/dev/null Dummy.elm && cd ../.. && make --directory ./elm-patches && rm -rf elm-stuff",
     "capacitor:copy:after": "if [ $CAPACITOR_PLATFORM_NAME == 'web' ]; then echo leaving index in place for web. ; else echo replacing index with go-online... && mv android/app/src/main/assets/public/index.html android/app/src/main/assets/public/fallback.html && mv android/app/src/main/assets/public/go-online.html android/app/src/main/assets/public/index.html; fi"
   },
