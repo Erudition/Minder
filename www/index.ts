@@ -18,6 +18,7 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
 import { minderAsciiLogo } from './scripts/asciiArt';
+import * as WebnativeElm from "webnative-elm"
 
 
 
@@ -45,7 +46,7 @@ import '@ionic/core/css/display.css';
 // FIXME: can't underlay status bar because theme switch resets status bar padding 
 
 
-
+WebnativeElm.init({ TaskPort })
 window.onerror = function(e){alert(e);}
 
 // START ELM

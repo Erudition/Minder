@@ -163,6 +163,12 @@ dependencies:
   pnpm:
     specifier: ^8.5.0
     version: 8.5.0
+  webnative:
+    specifier: ^0.36.3
+    version: 0.36.3
+  webnative-elm:
+    specifier: ^8.1.0
+    version: 8.1.0(elm-taskport@2.0.1)(webnative@0.36.3)
 
 devDependencies:
   '@capacitor/assets':
@@ -11206,7 +11212,7 @@ packages:
     dependencies:
       interface-store: 3.0.4
       nanoid: 4.0.2
-      uint8arrays: 4.0.3
+      uint8arrays: 4.0.6
     dev: false
 
   /interface-datastore@8.2.0:
@@ -19413,6 +19419,46 @@ packages:
   /webidl-conversions@7.0.0:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
+    dev: false
+
+  /webnative-elm@8.1.0(elm-taskport@2.0.1)(webnative@0.36.3):
+    resolution: {integrity: sha512-E8sgEWHXOxxXJSCIKwR3GuRCe8N4+gnZN/1lv9W8E+KMdMAonB7vDjmEKhbATYQKClsGl6GjXwhAmslmqmNi6w==}
+    peerDependencies:
+      elm-taskport: '>=0.2.0'
+      webnative: '>0.35.0'
+    dependencies:
+      elm-taskport: 2.0.1
+      webnative: 0.36.3
+    dev: false
+
+  /webnative@0.36.3:
+    resolution: {integrity: sha512-MucN6ydnyY5E8GczuARAWXSOn3+yjXKSLNTIPeJhcFmZpxPBDRfpZ0SpKJjKWtVLNiEaUQibeiKsIYDfij/wIQ==}
+    engines: {node: '>=16'}
+    deprecated: webnative has been renamed to @oddjs/odd. Upgrade to @oddjs/odd.
+    dependencies:
+      '@ipld/dag-cbor': 8.0.1
+      '@ipld/dag-pb': 3.0.2
+      '@libp2p/interface-keys': 1.0.8
+      '@libp2p/peer-id': 1.1.18
+      '@multiformats/multiaddr': 11.6.1
+      blockstore-core: 2.0.2
+      blockstore-datastore-adapter: 4.0.0
+      datastore-core: 8.0.4
+      datastore-level: 9.0.4
+      events: 3.3.0
+      fission-bloom-filters: 1.7.1
+      ipfs-core-types: 0.13.0
+      ipfs-repo: 16.0.0
+      keystore-idb: 0.15.5
+      localforage: 1.10.0
+      multiformats: 10.0.3
+      one-webcrypto: 1.0.3
+      throttle-debounce: 3.0.1
+      tweetnacl: 1.0.3
+      uint8arrays: 3.1.1
+      wnfs: 0.1.7
+    transitivePeerDependencies:
+      - supports-color
     dev: false
 
   /webpack-bundle-analyzer@4.8.0:

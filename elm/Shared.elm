@@ -15,6 +15,7 @@ module Shared exposing
 import Activity.HistorySession exposing (HistorySession)
 import Browser.Events
 import Browser.Navigation as Nav exposing (..)
+import Components.Odd as Odd
 import Components.Replicator
 import Effect exposing (Effect, incomingRon)
 import Element exposing (..)
@@ -84,6 +85,9 @@ init flagsResult route =
 
         ( replicator, replica ) =
             Components.Replicator.init { launchTime = Just flags.launchTime, replicaCodec = Profile.codec, outPort = Effect.setStorage }
+
+        ( oddModel, oddInit ) =
+            Odd.init
     in
     ( { time = zero -- temporary placeholder
       , replicator = replicator
@@ -98,8 +102,9 @@ init flagsResult route =
       , modal = Nothing
       , replica = replica
       , tickEnabled = False
+      , oddModel = oddModel
       }
-    , Effect.none
+    , Effect.sendCmd (Cmd.map OddUpdate oddInit)
       -- TODO Effect.saveChanges "init" initChanges
     )
 
@@ -133,6 +138,15 @@ update route msg shared =
             in
             ( { shared | replicator = newReplicator, replica = newReplica }
             , Effect.sendCmd (Cmd.map ReplicatorUpdate cmd)
+            )
+
+        OddUpdate oddMsg ->
+            let
+                ( newOddModel, oddCmds ) =
+                    Odd.update oddMsg shared.oddModel
+            in
+            ( { shared | oddModel = newOddModel }
+            , Effect.sendCmd (Cmd.map OddUpdate oddCmds)
             )
 
         NotificationScheduled response ->

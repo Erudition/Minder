@@ -2,6 +2,7 @@ module Shared.Model exposing (Model)
 
 import Browser.Events
 import Browser.Navigation exposing (..)
+import Components.Odd as Odd
 import Components.Replicator
 import Element exposing (..)
 import Json.Decode.Exploration exposing (..)
@@ -34,4 +35,5 @@ type alias Model =
     , notifPermission : Notif.PermissionStatus
     , modal : Maybe PopupType
     , tickEnabled : Bool
+    , oddModel : Odd.Model
     }

@@ -3,6 +3,7 @@ module Shared.Msg exposing (Msg(..))
 {-| -}
 
 import Browser.Events
+import Components.Odd
 import Components.Replicator
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
@@ -21,6 +22,7 @@ type Msg
     = NoUpdate
     | Tick Moment
     | ReplicatorUpdate Components.Replicator.Msg
+    | OddUpdate Components.Odd.Msg
       --| RunEffects (List (Effect.Effect Msg))
     | WantsLogCleared
     | ViewportResized Int Int
