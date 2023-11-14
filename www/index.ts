@@ -9,7 +9,6 @@ import { Preferences } from '@capacitor/preferences';
 // import {Elm} from '../elm/Main.elm'
 import {Elm} from '../.elm-land/src/Main.elm'
 import { Dialog } from '@capacitor/dialog';
-import {startOrbit} from './scripts/orbit'
 import { defineCustomElements as loadPwaElements } from '@ionic/pwa-elements/loader';
 import { detectDarkMode, toggleDarkTheme } from './darkMode';
 //import { defineCustomElements as loadIonicElements } from '@ionic/core/loader'
@@ -47,8 +46,7 @@ import '@ionic/core/css/display.css';
 
 
 
-var orbitIsReady = false;
-
+window.onerror = function(e){alert(e);}
 
 // START ELM
 async function startElmApp() {
@@ -138,7 +136,7 @@ function elmStarted(app) {
       };
       Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
-        attachOrbit(app);
+        //attachOrbit(app);
       } catch (problemWithOrbit)
       {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
@@ -180,11 +178,10 @@ async function getPassphrase(shouldReset) {
     }
 }
 
-
-
 async function attachOrbit(elmApp) {
+    const orbit = await import( './scripts/orbit')
     const storedPassphrase : string | null = await  getPassphrase(false);
-    const db = await startOrbit(storedPassphrase);
+    const db = await orbit.startOrbit(storedPassphrase);
     globalThis["minderLog"] = db;
     const dbEntries = db.iterator({ limit: -1 }).collect();
     console.log("Loaded inital database entries", dbEntries);
