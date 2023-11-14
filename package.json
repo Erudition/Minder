@@ -64,6 +64,7 @@
     "@nativescript/core": "^8.5.3",
     "@nativescript/geolocation": "^8.2.0",
     "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
+    "@oddjs/odd": "^0.37.2",
     "@triniwiz/nativescript-toasty": "^4.1.3",
     "circular-dependency-plugin": "^5.2.2",
     "elm-land": "^0.19.3",

@@ -137,6 +137,7 @@ function elmStarted(app) {
       Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
         //attachOrbit(app);
+        attachODD();
       } catch (problemWithOrbit)
       {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
@@ -207,6 +208,12 @@ async function attachOrbit(elmApp) {
     })
 }
 
+
+async function attachODD() {
+  //const oddIntegration = await import('@oddjs/odd')
+  
+
+}
 
 
 // FLIP ANIMATIONS
