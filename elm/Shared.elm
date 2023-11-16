@@ -84,7 +84,13 @@ init flagsResult route =
                     }
 
         ( replicator, replica ) =
-            Components.Replicator.init { launchTime = Just flags.launchTime, replicaCodec = Profile.codec, outPort = Effect.setStorage }
+            Components.Replicator.init
+                { launchTime = Just flags.launchTime
+                , replicaCodec = Profile.codec
+                , outPort = Effect.setStorage
+
+                --, outPort = \stuffToWrite -> Effect.sendMsg (OddUpdate <| Odd.WriteFileContents stuffToWrite)
+                }
 
         ( oddModel, oddInit ) =
             Odd.init

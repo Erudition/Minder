@@ -52,7 +52,7 @@ window.onerror = function(e){alert(e);}
 // START ELM
 async function startElmApp() {
 
-    installTaskPorts();
+    await installTaskPorts();
 
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : (null) 
@@ -64,10 +64,10 @@ async function startElmApp() {
 }
 startElmApp();
 
-function installTaskPorts() {
+async function installTaskPorts() {
   
   TaskPort.install({ logCallErrors: true, logInteropErrors: false });
-  
+  await attachODDElmLibrary();
   registerPreferencesTaskPorts();
   registerNotificationTaskPorts();
   TaskPort.register("changePassphrase", () => getPassphrase(true));
@@ -138,7 +138,7 @@ function elmStarted(app) {
       Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
         //attachOrbit(app);
-        attachODD(app);
+        attachODDManual(app);
       } catch (problemWithOrbit)
       {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
@@ -210,10 +210,7 @@ async function attachOrbit(elmApp) {
 }
 
 
-async function attachODD(elmApp) {
-  // Elm library (currently broken)
-  //const webnativeElm = await import("webnative-elm")
-  //webnativeElm.init({ TaskPort })
+async function attachODDManual(elmApp) {
   const oddIntegration = await import('./scripts/odd')
   let retrievedRon = await oddIntegration.readData();
   if (retrievedRon) {
@@ -231,9 +228,14 @@ async function attachODD(elmApp) {
         console.error("Tried to save empty RON data...")
       }
   });
-
 }
 
+async function attachODDElmLibrary() {
+  // Elm library (currently broken)
+  const webnativeElm = await import("webnative-elm")
+  await webnativeElm.init({ TaskPort }) // await so it will be ready before elm initializes
+  console.log("webnative initialized", webnativeElm)
+}
 
 // FLIP ANIMATIONS
 // Requires patch to ~/.elm/0.19.1/packages/elm/browser/1.0.2/src/Elm/Kernel/Browser.js

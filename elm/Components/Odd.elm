@@ -1,12 +1,14 @@
 module Components.Odd exposing (..)
 
+import Html exposing (th)
 import Task
 import Webnative exposing (Foundation)
 import Webnative.AppInfo
 import Webnative.Auth
+import Webnative.CID
 import Webnative.Configuration
 import Webnative.Error exposing (Error(..))
-import Webnative.FileSystem exposing (Base(..), FileSystem)
+import Webnative.FileSystem exposing (Base(..), FileSystem, exists)
 import Webnative.Namespace
 import Webnative.Path as Path
 import Webnative.Program exposing (Program)
@@ -19,7 +21,7 @@ import Webnative.Session exposing (Session)
 
 appInfo : Webnative.AppInfo.AppInfo
 appInfo =
-    { creator = "Webnative", name = "Example" }
+    { creator = "Minder", name = "Minder" }
 
 
 config : Webnative.Configuration.Configuration
@@ -50,6 +52,10 @@ init =
     )
 
 
+path =
+    Path.file [ "RON", "profile.ron" ]
+
+
 
 -- UPDATE
 
@@ -58,6 +64,9 @@ type Msg
     = HandleWebnativeError Error
     | GotFileContents String
     | GotSessionAndFileSystem (Maybe { session : Session, fileSystem : FileSystem })
+    | ReadFileContents
+    | WriteFileContents String
+    | Published Webnative.CID.CID
     | Liftoff Foundation
     | RegisterUser Program { success : Bool }
 
@@ -99,7 +108,22 @@ update msg model =
 
                 -- Option (B), link an existing account.
                 -- See 'Linking' section below.
-                _ ->
+                Authenticated program session fileSystem ->
+                    let
+                        createIfExists exists =
+                            if exists then
+                                ReadFileContents
+
+                            else
+                                WriteFileContents "first"
+                    in
+                    Webnative.FileSystem.exists fileSystem (AppData appInfo) path
+                        |> Webnative.attemptTask
+                            { ok = createIfExists
+                            , error = HandleWebnativeError
+                            }
+
+                Unprepared ->
                     Cmd.none
             )
 
@@ -126,30 +150,52 @@ update msg model =
               case model of
                 NotAuthenticated program ->
                     Authenticated program session fileSystem
+                        |> Debug.log "Authenticated successfully in Odd.elm"
 
                 _ ->
                     model
               -- Next action
               --------------
-            , let
-                path =
-                    Path.file [ "Sub Directory", "hello.txt" ]
-              in
-              "👋"
-                |> Webnative.FileSystem.writeUtf8 fileSystem Private path
-                |> Task.andThen (\_ -> Webnative.FileSystem.publish fileSystem)
-                |> Task.andThen (\_ -> Webnative.FileSystem.readUtf8 fileSystem Private path)
-                |> Webnative.attemptTask
-                    { ok = GotFileContents
-                    , error = HandleWebnativeError
-                    }
+            , Task.perform (\_ -> ReadFileContents) (Task.succeed ())
             )
+
+        ReadFileContents ->
+            case model of
+                Authenticated program session fileSystem ->
+                    ( model
+                    , Webnative.FileSystem.readUtf8 fileSystem (AppData appInfo) path
+                        |> Webnative.attemptTask
+                            { ok = GotFileContents
+                            , error = HandleWebnativeError
+                            }
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        WriteFileContents newContents ->
+            case model of
+                Authenticated program session fileSystem ->
+                    ( model
+                    , Webnative.FileSystem.writeUtf8 fileSystem (AppData appInfo) path newContents
+                        |> Task.andThen (\_ -> Webnative.FileSystem.publish fileSystem)
+                        |> Webnative.attemptTask
+                            { ok = Published
+                            , error = HandleWebnativeError
+                            }
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Published newCID ->
+            ( Debug.log "Published successfully!" model, Cmd.none )
 
         -----------------------------------------
         -- 💾
         -----------------------------------------
         GotFileContents string ->
-            Debug.log string ( model, Cmd.none )
+            Debug.log ("Odd.elm got file contents!" ++ string) ( model, Cmd.none )
 
         -----------------------------------------
         -- 🥵
