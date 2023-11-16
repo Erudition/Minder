@@ -18,7 +18,7 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
 import { minderAsciiLogo } from './scripts/asciiArt';
-import * as WebnativeElm from "webnative-elm"
+
 
 
 
@@ -46,7 +46,7 @@ import '@ionic/core/css/display.css';
 // FIXME: can't underlay status bar because theme switch resets status bar padding 
 
 
-WebnativeElm.init({ TaskPort })
+
 window.onerror = function(e){alert(e);}
 
 // START ELM
@@ -138,7 +138,7 @@ function elmStarted(app) {
       Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
         //attachOrbit(app);
-        attachODD();
+        attachODD(app);
       } catch (problemWithOrbit)
       {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
@@ -199,7 +199,7 @@ async function attachOrbit(elmApp) {
           console.log("Adding state to database", state);
           const hash = db.add(state); //async?
         }
-  });
+    });
 
     // Notify elm of new frame from peers
     db.events.on("replicate.progress", (address, hash, entry, progress, have) => {
@@ -210,9 +210,27 @@ async function attachOrbit(elmApp) {
 }
 
 
-async function attachODD() {
-  //const oddIntegration = await import('@oddjs/odd')
-  
+async function attachODD(elmApp) {
+  // Elm library (currently broken)
+  //const webnativeElm = await import("webnative-elm")
+  //webnativeElm.init({ TaskPort })
+  const oddIntegration = await import('./scripts/odd')
+  let retrievedRon = await oddIntegration.readData();
+  if (retrievedRon) {
+    elmApp.ports.incomingRon.send(retrievedRon)
+  } else {
+    console.error("Couldn't retrieve RON from WNFS", retrievedRon)
+  }
+    // SET STORAGE
+  elmApp.ports.setStorage.subscribe(async function(state) {
+      if (state.trim() != "")
+      {
+        console.log("Adding state to WNFS", state);
+        const hash = oddIntegration.saveData(state); 
+      } else {
+        console.error("Tried to save empty RON data...")
+      }
+  });
 
 }
 
