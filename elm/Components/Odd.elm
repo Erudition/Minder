@@ -39,13 +39,13 @@ init : ( Model, Cmd Msg )
 init =
     ( Unprepared
     , -- 🚀
-      --   config
-      --     |> Webnative.program
-      --     |> Webnative.attemptTask
-      --         { ok = Liftoff
-      --         , error = HandleWebnativeError
-      --         }
-      Cmd.none
+      config
+        |> Webnative.program
+        |> Webnative.attemptTask
+            { ok = Liftoff
+            , error = HandleWebnativeError
+            }
+      --   Cmd.none
       -- temporarily disabled while the package is broken
     )
 

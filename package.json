@@ -11,7 +11,7 @@
     "build": "tsc && vite build",
     "build-ci": "pnpm run elm-land-generate && vite build",
     "build-sync": "pnpm run elm-land-generate && vite build && cap sync",
-    "patch-elm": "rm -rf ~/.elm/0.19.1/packages/ && cd elm-patches/dummyproject/ && elm make --output=/dev/null Dummy.elm && cd ../.. && make --directory ./elm-patches && rm -rf elm-stuff",
+    "patch-elm": "sh elm-patches/patch-elm-libraries.sh",
     "capacitor:copy:after": "if [ $CAPACITOR_PLATFORM_NAME == 'web' ]; then echo leaving index in place for web. ; else echo replacing index with go-online... && mv android/app/src/main/assets/public/index.html android/app/src/main/assets/public/fallback.html && mv android/app/src/main/assets/public/go-online.html android/app/src/main/assets/public/index.html; fi"
   },
   "repository": {
@@ -87,8 +87,7 @@
     "nativescript-wear-os": "link:customized-node-modules/nativescript-wear-os",
     "orbit-db": "^0.29.0",
     "pnpm": "^8.5.0",
-    "webnative": "^0.36.3",
-    "webnative-elm": "^8.1.0"
+    "webnative-elm": "link:../webnative-elm"
   },
   "devDependencies": {
     "@capacitor/assets": "^2.0.4",
