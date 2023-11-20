@@ -47,7 +47,7 @@ import '@ionic/core/css/display.css';
 
 
 
-window.onerror = function(e){alert(e);}
+addEventListener("error", (event) => {alert(event.message + "\n filename: " + event.filename + "\n line: " + event.lineno + "\n column: " + event.colno + "\n error: " + event.error)});
 
 // START ELM
 async function startElmApp() {
