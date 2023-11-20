@@ -84,10 +84,9 @@
     "native-run": "^1.7.2",
     "nativescript": "^8.5.3",
     "nativescript-theme-core": "^1.0.6",
-    "nativescript-wear-os": "link:customized-node-modules/nativescript-wear-os",
     "orbit-db": "^0.29.0",
     "pnpm": "^8.5.0",
-    "webnative-elm": "link:../webnative-elm"
+    "webnative-elm": "^8.1.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^2.0.4",
@@ -115,7 +114,8 @@
   "pnpm": {
     "patchedDependencies": {
       "orbit-db-storage-adapter@0.9.0": "patches/orbit-db-storage-adapter@0.9.0.patch",
-      "@ionic/pwa-elements@3.1.1": "patches/@ionic__pwa-elements@3.1.1.patch"
+      "@ionic/pwa-elements@3.1.1": "patches/@ionic__pwa-elements@3.1.1.patch",
+      "webnative-elm@8.1.0": "patches/webnative-elm@8.1.0.patch"
     }
   }
 }
