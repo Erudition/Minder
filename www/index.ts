@@ -72,7 +72,7 @@ async function installTaskPorts() {
   registerNotificationTaskPorts();
   TaskPort.register("changePassphrase", () => getPassphrase(true));
   TaskPort.register("requestNotificationPermission", LocalNotifications.requestPermissions)
-  TaskPort.register("ionInputSetFocus", (id : String) => document?.getElementById(id).setFocus())
+  TaskPort.register("ionInputSetFocus", (id : string) => document?.getElementById(id)!.setFocus())
   TaskPort.register("dialogPrompt", Dialog.prompt)
 }
 
@@ -158,7 +158,7 @@ async function getPassphrase(shouldReset) {
     const notPreviouslySet = storedPassphrase == null || storedPassphrase == ""
 
     if (notPreviouslySet || shouldReset) {
-        const fallbackPassphrase = notPreviouslySet ? ("tester" + Math.floor(Math.random()*1000)) : storedPassphrase
+        const fallbackPassphrase = storedPassphrase ? ("tester" + Math.floor(Math.random()*1000)) : storedPassphrase
 
         const { value, cancelled } = await Dialog.prompt({
           title: 'New Device',
@@ -212,22 +212,25 @@ async function attachOrbit(elmApp) {
 
 async function attachODDManual(elmApp) {
   const oddIntegration = await import('./scripts/odd')
-  let retrievedRon = await oddIntegration.readData();
-  if (retrievedRon) {
-    elmApp.ports.incomingRon.send(retrievedRon)
-  } else {
-    console.error("Couldn't retrieve RON from WNFS", retrievedRon)
-  }
-    // SET STORAGE
-  elmApp.ports.setStorage.subscribe(async function(state) {
-      if (state.trim() != "")
-      {
-        console.log("Adding state to WNFS", state);
-        const hash = oddIntegration.saveData(state); 
-      } else {
-        console.error("Tried to save empty RON data...")
-      }
-  });
+  //const program = oddIntegration.init();
+
+
+  // let retrievedRon = await oddIntegration.readData(program, program!.session);
+  // if (retrievedRon) {
+  //   elmApp.ports.incomingRon.send(retrievedRon)
+  // } else {
+  //   console.error("Couldn't retrieve RON from WNFS", retrievedRon)
+  // }
+  //   // SET STORAGE
+  // elmApp.ports.setStorage.subscribe(async function(state) {
+  //     if (state.trim() != "")
+  //     {
+  //       console.log("Adding state to WNFS", state);
+  //       const hash = oddIntegration.saveData(state); 
+  //     } else {
+  //       console.error("Tried to save empty RON data...")
+  //     }
+  // });
 }
 
 async function attachODDElmLibrary() {
