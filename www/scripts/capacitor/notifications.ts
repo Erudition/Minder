@@ -88,6 +88,6 @@ function setupChannel(notif) {
             lightColor: notif["notificationLed"] ? notif["notificationLed"] : null,
             // vibration?: boolean; TODO not pattern
             }
-        );
+        ).catch(function(err) {}); // will fail if not on mobile
     } 
 }
