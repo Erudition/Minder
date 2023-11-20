@@ -7,7 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   // identify what plugins we want to use
-  plugins: [ // PWA plugin causing import errors
+  plugins: [ // PWA plugin causing capacitor errors
     VitePWA({ registerType: 'autoUpdate',
         // After messing with service worker you may need to rm -rf android/app/src/main/assets/* before sync. https://github.com/ionic-team/capacitor/issues/5430#issuecomment-1042990925
         //devOptions: {enabled: true},
@@ -62,24 +62,24 @@ export default defineConfig({
       //maxParallelFileOps: 2,
       output: {
         sourcemap: true, //don't sourcemap node_modules?
-        manualChunks: (id) => { 
-          // this makes node_modules manually chunked so we don't have a huge index.ts file or too many micro js files
-          if (id.includes('capacitor')) {
-            return 'capacitor-modules';
-          } else if (id.includes('libp2p')) {
-            return 'libp2p-modules';
-          } else if (id.includes('ipfs') || id.includes('helia') || id.includes('multiaddr') || id.includes('multiformats')) {
-            return 'ipfs-modules';
-          } else if (id.includes('orbit') || id.includes('orbit-db') || id.includes('dids') || id.includes('apg-js')) {
-            return 'orbit-modules';
-          } else if (id.includes('ionic') || id.includes('ion-')) {
-            return 'ionic-modules';
-          } else if (id.includes('elm')) {
-            return 'elm-modules';
-          } else if (id.includes('node_modules')) {
-            return 'other-modules';
-          }
-        },
+        // manualChunks: (id) => { 
+        //   // this makes node_modules manually chunked so we don't have a huge index.ts file or too many micro js files
+        //   if (id.includes('capacitor')) {
+        //     return 'capacitor-modules';
+        //   } else if (id.includes('libp2p')) {
+        //     return 'libp2p-modules';
+        //   } else if (id.includes('ipfs') || id.includes('helia') || id.includes('multiaddr') || id.includes('multiformats')) {
+        //     return 'ipfs-modules';
+        //   } else if (id.includes('orbit') || id.includes('orbit-db') || id.includes('dids') || id.includes('apg-js')) {
+        //     return 'orbit-modules';
+        //   } else if (id.includes('ionic') || id.includes('ion-')) {
+        //     return 'ionic-modules';
+        //   } else if (id.includes('elm')) {
+        //     return 'elm-modules';
+        //   } else if (id.includes('node_modules')) {
+        //     return 'other-modules';
+        //   }
+        // },
       }
     }
   },

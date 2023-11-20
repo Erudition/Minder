@@ -138,7 +138,7 @@ function elmStarted(app) {
       Toast.show({ text: window.location.href, duration: "short"}).then();
       try {
         //attachOrbit(app);
-        attachODDManual(app);
+        //attachODDManual(app);
       } catch (problemWithOrbit)
       {
         console.error("Failed to attach Orbit to Elm!", problemWithOrbit)
