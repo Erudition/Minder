@@ -35,34 +35,17 @@
         body.pre-js {
             cursor: wait; background: no-repeat center center url('./media/logos/Minder/alpha-logo.png') fixed; text-align: center; background-size: auto 30%;
             height: 100vh; /*  So that body doesn't shrinkwrap, causing cursor property to not apply past the bottom  */
+            display: flex;
+            align-content: end;
+            align-items: end;
+            flex-direction: column;
         }
     </style>
     
 </head>
 
 <body class="pre-js">
-    Loading the program.
-<!-- <svg class="centered" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="lds-ripple">
-    <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c1}}" ng-attr-stroke-width="{{config.width}}" stroke="#1d3f72" stroke-width="2">
-        <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
-        <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="-1.4s" repeatCount="indefinite"></animate>
-    </circle>
-    <circle cx="50" cy="50" r="0" fill="none" ng-attr-stroke="{{config.c2}}" ng-attr-stroke-width="{{config.width}}" stroke="#5699d2" stroke-width="2">
-        <animate attributeName="r" calcMode="spline" values="0;40" keyTimes="0;1" dur="2.8" keySplines="0 0.2 0.8 1" begin="0s" repeatCount="indefinite"></animate>
-        <animate attributeName="opacity" calcMode="spline" values="1;0" keyTimes="0;1" dur="2.8" keySplines="0.2 0 0.8 1" begin="0s" repeatCount="indefinite">
-        </animate>
-    </circle>
-</svg> -->
-
-    <style>
-    .centered {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      /* bring your own prefixes */
-      transform: translate(-50%, -50%);
-    }
-    </style>
+    <div id="load-info">HTML loaded, Starting JS.</div>
 </body>
 
 
