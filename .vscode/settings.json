@@ -1,6 +1,5 @@
 {
     "editor.formatOnSave": true,
-    "elmLS.elmTestPath": "/home/adroit/.elm/elm-tooling/elm-test-rs/2.0.0/elm-test-rs",
     "editor.formatOnSaveMode": "file",
     "editor.formatOnType": false,
     "elmLS.elmTestRunner.showElmTestOutput": true
