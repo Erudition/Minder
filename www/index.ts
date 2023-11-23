@@ -49,14 +49,21 @@ import '@ionic/core/css/display.css';
 
 addEventListener("error", (event) => {alert(event.message + "\n filename: " + event.filename + "\n line: " + event.lineno + "\n column: " + event.colno + "\n error: " + event.error)});
 
+function updateLoadInfo(message : string) : void {
+  document.getElementById("load-info")!.innerText = message;
+}
+updateLoadInfo("Starting JS");
 // START ELM
 async function startElmApp() {
 
+    updateLoadInfo("Installing TaskPorts");
     await installTaskPorts();
-
+    updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : (null) 
-        , userFlags : {darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches}
+        , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
+        , notifPermission : await LocalNotifications.checkPermissions()
+        , launchTime : Date.now()
         }
     });
     elmStarted(app);
