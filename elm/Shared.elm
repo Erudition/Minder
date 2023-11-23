@@ -49,6 +49,7 @@ import SmartTime.Period as Period exposing (Period)
 type alias Flags =
     { darkTheme : Bool
     , launchTime : Moment
+    , notifPermission : Notif.PermissionStatus
     }
 
 
@@ -56,9 +57,10 @@ type alias Flags =
 -}
 decoder : Json.Decode.Decoder Flags
 decoder =
-    Json.Decode.map2 Flags
+    Json.Decode.map3 Flags
         (Json.Decode.field "darkTheme" Json.Decode.bool)
         (Json.Decode.field "launchTime" (Json.Decode.map Moment.fromElmInt Json.Decode.int))
+        (Json.Decode.field "notifPermission" Notif.permissonStatusDecoder)
 
 
 
@@ -76,12 +78,14 @@ init flagsResult route =
         flags =
             case flagsResult of
                 Ok value ->
-                    value
+                    Debug.log "flags" value
 
                 Err reason ->
-                    { darkTheme = True
-                    , launchTime = zero
-                    }
+                    Log.crashInDev ("Failed to decode startup flags. " ++ Json.Decode.errorToString reason)
+                        { darkTheme = True
+                        , launchTime = zero
+                        , notifPermission = Notif.Prompt
+                        }
 
         ( replicator, replica ) =
             Components.Replicator.init
@@ -99,7 +103,7 @@ init flagsResult route =
       , replicator = replicator
       , timeZone = utc -- temporary placeholder
       , launchTime = flags.launchTime
-      , notifPermission = Notif.Denied
+      , notifPermission = flags.notifPermission
       , viewportSize = { width = 0, height = 0 }
       , viewportSizeClass = Element.Phone
       , windowVisibility = Browser.Events.Visible
