@@ -60,8 +60,8 @@ fromSkel project assignableSkelReg =
         }
 
 
-createWithinProject : List (Changer Assignable) -> Project -> Change
-createWithinProject changers parentProject =
+createWithinProject : String -> List (Changer Assignable) -> Project -> Change
+createWithinProject newAssignableTitle changers parentProject =
     let
         assignableSkelChangers : List (Changer (Reg AssignableSkel))
         assignableSkelChangers =
@@ -70,7 +70,7 @@ createWithinProject changers parentProject =
         assignableSkelCreator : Changer (Reg AssignableSkel) -> Creator NestedOrAssignable
         assignableSkelCreator skelChanger =
             \wrappedContext ->
-                AssignableSkel.create "this assignable title was not set upon creation"
+                AssignableSkel.create newAssignableTitle
                     skelChanger
                     -- TODO debug then just use Change.mapCreator
                     (Change.reuseContext "NestedOrAssignable" wrappedContext)

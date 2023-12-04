@@ -207,8 +207,25 @@ update shared msg model =
 
         AddAssignable project ->
             let
-                frameDescription =
-                    "Added a new assignable to project."
+                handleResult result =
+                    case result of
+                        Ok newName ->
+                            RunEffect <| Effect.saveChanges (frameDescription newName) (finalChanges newName)
+
+                        Err _ ->
+                            RunEffect <| Effect.none
+
+                promptOptions =
+                    { title = Just ("New Assignable in project: " ++ Maybe.withDefault "Untitled Project" (Project.title project))
+                    , message = "Enter a name for the assignable."
+                    , okButtonTitle = Just "Rename"
+                    , cancelButtonTitle = Nothing
+                    , inputPlaceholder = Just "Assignable title here"
+                    , inputText = Nothing
+                    }
+
+                frameDescription newName =
+                    "Added a new assignable to project: " ++ newName
 
                 assignableChanger : Assignable -> List Change
                 assignableChanger parentAssignable =
@@ -218,12 +235,12 @@ update shared msg model =
 
                 -- actionToAdd =
                 --     Action.newActionSkel (Change.reuseContext "in-action" c) "first action" (\_ -> [])
-                finalChanges =
-                    [ RepList.insert RepList.Last frameDescription shared.replica.errors
-                    , Assignable.createWithinProject [ assignableChanger ] project
+                finalChanges newName =
+                    [ RepList.insert RepList.Last (frameDescription newName) shared.replica.errors
+                    , Assignable.createWithinProject newName [ assignableChanger ] project
                     ]
             in
-            ( model, Effect.saveChanges frameDescription finalChanges )
+            ( model, Effect.dialogPrompt handleResult promptOptions )
 
         AddAssignment assignable ->
             let
@@ -525,7 +542,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
         entryContents =
             case Project.children project |> RepList.listValues of
                 [] ->
-                    text "No assignables in this project."
+                    node "ion-button" [ attribute "fill" "clear", onClick (AddAssignable project) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "Add first assignable" ]
 
                 someChildren ->
                     div [] <| List.map viewProjectChild someChildren

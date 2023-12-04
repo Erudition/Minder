@@ -587,7 +587,7 @@ toDocketTask profile marvinItem =
                         projectChanger : Changer Project
                         projectChanger newProject =
                             -- TODO need Change.reuseContext ?
-                            [ Task.Assignable.createWithinProject [ newAssignableChanger ] newProject ]
+                            [ Task.Assignable.createWithinProject "TODO - Marvin assignable title?" [ newAssignableChanger ] newProject ]
 
                         newAssignableChanger : Changer Task.Assignable.Assignable
                         newAssignableChanger newAssignable =
