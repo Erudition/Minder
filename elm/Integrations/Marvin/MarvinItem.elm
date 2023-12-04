@@ -128,7 +128,7 @@ type alias MarvinItem =
     , parentId : Maybe CategoryOrProjectID
     , labelIds : List LabelID
     , firstScheduled : Maybe CalendarDate
-    , rank : Int
+    , rank : Float
     , dailySection : Maybe String
     , bonusSection : EssentialOrBonus
     , customSection : Maybe CustomSectionID
@@ -174,7 +174,7 @@ encodeMarvinItem task =
         , normal ( "parentId", Encode.string (Maybe.withDefault "unassigned" task.parentId) )
         , omittableList ( "labelIds", Encode.string, task.labelIds )
         , normal ( "firstScheduled", Maybe.withDefault (Encode.string "unassigned") (Maybe.map encodeCalendarDate task.firstScheduled) )
-        , normal ( "rank", Encode.int task.rank )
+        , normal ( "rank", Encode.float task.rank )
         , omittable ( "dailySection", Encode.string, task.dailySection )
         , normal ( "bonusSection", encodeEssentialOrBonus task.bonusSection )
         , omittable ( "customSection", Encode.string, task.customSection )
@@ -218,7 +218,7 @@ decodeMarvinItem =
         |> optional "parentId" (oneOf [ check string "unassigned" <| succeed Nothing, nullable string ]) Nothing
         |> optional "labelIds" (list string) []
         |> optional "firstScheduled" (oneOf [ check string "unassigned" <| succeed Nothing, nullable calendarDateDecoder ]) Nothing
-        |> optional "rank" int 0
+        |> optional "rank" float 0
         |> optional "dailySection" (nullable string) Nothing
         |> optional "bonusSection" essentialOrBonusDecoder Essential
         |> optional "customSection" (nullable string) Nothing
@@ -499,7 +499,7 @@ toDocketTask profile marvinItem =
                 , Maybe.map (\d -> ( "marvinDay", SmartTime.Human.Calendar.toStandardString d )) marvinItem.day
                 , Maybe.map (\p -> ( "marvinParentID", p )) marvinItem.parentId
                 , Maybe.map (\d -> ( "marvinFirstScheduled", SmartTime.Human.Calendar.toStandardString d )) marvinItem.firstScheduled
-                , Just ( "marvinRank", String.fromInt marvinItem.rank )
+                , Just ( "marvinRank", String.fromFloat marvinItem.rank )
                 , Just ( "marvinLabels", String.join " " marvinItem.labelIds )
                 , Just ( "marvinEssentialOrBonus", Encode.encode 0 (encodeEssentialOrBonus marvinItem.bonusSection) )
                 , Maybe.map (\d -> ( "marvinCustomSection", d )) marvinItem.customSection
@@ -630,7 +630,7 @@ fromDocket instance =
                 , parentId = Task.Assignment.getExtra "marvinParentID" instance
                 , labelIds = Maybe.withDefault [] <| Maybe.map String.words <| Task.Assignment.getExtra "marvinLabels" instance
                 , firstScheduled = toDate <| Task.Assignment.getExtra "marvinFirstScheduled" instance
-                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toInt <| Task.Assignment.getExtra "marvinRank" instance
+                , rank = Maybe.withDefault 0 <| Maybe.andThen String.toFloat <| Task.Assignment.getExtra "marvinRank" instance
                 , dailySection = Task.Assignment.getExtra "marvinDailySection" instance
                 , bonusSection = Maybe.withDefault Essential <| Maybe.andThen (useDecoder essentialOrBonusDecoder) (Task.Assignment.getExtra "marvinEssentialOrBonus" instance)
                 , customSection = Task.Assignment.getExtra "marvinCustomSection" instance
