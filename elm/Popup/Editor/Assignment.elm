@@ -201,7 +201,7 @@ update msg model =
             )
 
 
-outputToChanges : Maybe Assignment -> Output -> Change.Frame
+outputToChanges : Maybe Assignment -> Output -> Change.Frame String
 outputToChanges existingAssignmentMaybe output =
     case existingAssignmentMaybe of
         Just existingAssignment ->
@@ -234,7 +234,7 @@ outputToChanges existingAssignmentMaybe output =
                     else
                         Just (Assignment.setCompletion output.completion existingAssignment)
             in
-            Change.saveChanges "Editing an assignment" <|
+            Change.saveUserChanges "Editing an assignment" <|
                 List.filterMap identity
                     [ updateRelevanceStarts
                     , updateRelevanceEnds

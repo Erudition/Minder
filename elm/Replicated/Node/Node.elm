@@ -111,7 +111,7 @@ startNewNode nowMaybe testMode givenStartChanges =
             []
 
         firstChangeFrame =
-            Change.saveChanges "Node initialized" (givenStartChanges ++ startChanges)
+            Change.saveUserChanges "Node initialized" (givenStartChanges ++ startChanges)
 
         startNode =
             { identity = firstSessionEver
@@ -343,7 +343,7 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Bool -> Node -> Change.Frame -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
+apply : Maybe Moment -> Bool -> Node -> Change.Frame desc -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
 apply timeMaybe testMode node (Change.Frame { changes, description }) =
     let
         nextUnseenCounter =

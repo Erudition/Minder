@@ -252,7 +252,7 @@ nodeModifications =
                             List.map (\( changer, _ ) -> changer exampleObjectFound) changeList
 
                         { updatedNode, outputFrame } =
-                            Node.apply Nothing beforeNode (Change.saveChanges "making some changes to the writable object" makeChanges)
+                            Node.apply Nothing beforeNode (Change.saveUserChanges "making some changes to the writable object" makeChanges)
 
                         logOps =
                             Log.logMessageOnly (Console.green <| Op.closedChunksToFrameText outputFrame) ()
@@ -315,7 +315,7 @@ fakeNodeWithSimpleList =
         Ok repList ->
             let
                 applied =
-                    Node.apply Nothing startNode (Change.saveChanges "adding replist changes" [ addChanges repList ])
+                    Node.apply Nothing startNode (Change.saveUserChanges "adding replist changes" [ addChanges repList ])
 
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
@@ -366,7 +366,7 @@ fakeNodeWithModifiedList =
                         ]
 
                 applied =
-                    Node.apply Nothing fakeNodeWithSimpleList (Change.saveChanges "making some changes to the replist" changes)
+                    Node.apply Nothing fakeNodeWithSimpleList (Change.saveUserChanges "making some changes to the replist" changes)
 
                 logOps =
                     Op.closedChunksToFrameText applied.outputFrame
@@ -536,7 +536,7 @@ nodeWithModifiedNestedStressTest =
                     SomeOfBoth (Codec.newN 1 (Codec.repList exampleSubObjectCodec) p) (Codec.newN 2 (Codec.repList exampleSubObjectCodec) p)
 
                 applied =
-                    Node.apply Nothing startNode (Change.saveChanges "modifying the nested stress test" changes)
+                    Node.apply Nothing startNode (Change.saveUserChanges "modifying the nested stress test" changes)
 
                 ronData =
                     Op.closedChunksToFrameText startFrame ++ Console.bold (Op.closedChunksToFrameText applied.outputFrame)
@@ -730,7 +730,7 @@ testDelayedCreation =
                         -- outChunks =
                         --     Debug.log "changes to delay test" <| all.outputFrame
                         all =
-                            Node.apply Nothing startNode (Change.saveChanges "making some changes to the delay test object" (givenChanges delayTestReplica))
+                            Node.apply Nothing startNode (Change.saveUserChanges "making some changes to the delay test object" (givenChanges delayTestReplica))
                     in
                     all
 
@@ -851,7 +851,7 @@ testSpawning =
                         -- outChunks =
                         --     Debug.log "changes to delay test" <| all.outputFrame
                         all =
-                            Node.apply Nothing startNode (Change.saveChanges "making some changes to the spawn test object" (givenChanges spawnTestReplica))
+                            Node.apply Nothing startNode (Change.saveUserChanges "making some changes to the spawn test object" (givenChanges spawnTestReplica))
                     in
                     all
 

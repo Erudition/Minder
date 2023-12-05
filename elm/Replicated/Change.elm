@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -621,31 +621,36 @@ redundantObjectChange possiblyRedundantObjectChange canonicalObjectChange =
 -- CHANGEFRAMES ------------------------------------------------
 
 
-type Frame
+type Frame desc
     = Frame
         { changes : ChangeSet
-        , description : String
+        , description : Maybe desc
         }
 
 
-saveChanges : String -> List Change -> Frame
-saveChanges description changes =
-    Frame { changes = collapseChangesToChangeSet "save" changes, description = description }
+saveUserChanges : desc -> List Change -> Frame desc
+saveUserChanges description changes =
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Just description }
+
+
+saveSystemChanges : List Change -> Frame desc
+saveSystemChanges changes =
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Nothing }
 
 
 {-| An empty Frame, for when you have no changes to save.
 -}
-emptyFrame : Frame
+emptyFrame : Frame desc
 emptyFrame =
-    Frame { changes = emptyChangeSet, description = "Empty Frame" }
+    Frame { changes = emptyChangeSet, description = Nothing }
 
 
-isEmpty : Frame -> Bool
+isEmpty : Frame desc -> Bool
 isEmpty (Frame { changes }) =
     isEmptyChangeSet changes
 
 
-nonEmptyFrames : List Frame -> List Frame
+nonEmptyFrames : List (Frame desc) -> List (Frame desc)
 nonEmptyFrames frames =
     List.filter (not << isEmpty) frames
 

@@ -174,7 +174,7 @@ switchTracking trackable profile projectLayers ( time, timeZone ) =
                 reactToNewSession trackable ( time, timeZone ) profile projectLayers
         in
         -- TODO RUN reactToNewSession AFTER CHANGE
-        Effect.batch [ reaction, Effect.saveChanges "Started tracking" switchChanges ]
+        Effect.batch [ reaction, Effect.saveUserChanges "Started tracking" switchChanges ]
 
 
 reactToNewSession trackable ( time, timeZone ) oldProfile projectLayers =

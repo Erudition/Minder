@@ -281,7 +281,7 @@ getLabelsCmd =
     Cmd.batch [ getLabels partialAccessToken ]
 
 
-handle : Profile -> ( Moment, HumanMoment.Zone ) -> Msg -> ( Change.Frame, String, Cmd Msg )
+handle : Profile -> ( Moment, HumanMoment.Zone ) -> Msg -> ( Change.Frame String, String, Cmd Msg )
 handle profile ( time, timeZone ) response =
     let
         projectLayers =
@@ -291,13 +291,13 @@ handle profile ( time, timeZone ) response =
         TestResult result ->
             case result of
                 Ok serversays ->
-                    ( Change.saveChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin TestResult: " ++ serversays) profile.errors ]
+                    ( Change.saveUserChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin TestResult: " ++ serversays) profile.errors ]
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
+                    ( Change.saveUserChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , describeError err
                     , Cmd.none
                     )
@@ -305,13 +305,13 @@ handle profile ( time, timeZone ) response =
         AuthResult result ->
             case result of
                 Ok serversays ->
-                    ( Change.saveChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin AuthResult: " ++ serversays) profile.errors ]
+                    ( Change.saveUserChanges "Logging Marvin changes" [ RepList.insert RepList.Last ("Marvin AuthResult: " ++ serversays) profile.errors ]
                     , serversays
                     , Cmd.none
                     )
 
                 Err err ->
-                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
+                    ( Change.saveUserChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , describeError err
                     , Cmd.none
                     )
@@ -323,13 +323,13 @@ handle profile ( time, timeZone ) response =
                         changes =
                             importItems profile itemList
                     in
-                    ( Change.saveChanges "Imported Marvin Items" changes
+                    ( Change.saveUserChanges "Imported Marvin Items" changes
                     , "Fetched items: " ++ Debug.toString itemList
                     , getTimeBlockAssignments
                     )
 
                 Err err ->
-                    ( Change.saveChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
+                    ( Change.saveUserChanges "Logging Marvin error" [ RepList.insert RepList.Last (Debug.toString err) profile.errors ]
                     , "when getting items: " ++ describeError err
                     , Cmd.none
                     )
@@ -341,7 +341,7 @@ handle profile ( time, timeZone ) response =
                         changes =
                             importLabels profile labelList
                     in
-                    ( Change.saveChanges "Imported Marvin Labels" changes
+                    ( Change.saveUserChanges "Imported Marvin Labels" changes
                     , "Fetched labels: " ++ Debug.toString labelList
                     , getTodayItems partialAccessToken
                     )
@@ -355,7 +355,7 @@ handle profile ( time, timeZone ) response =
         GotTimeBlocks assignments result ->
             case result of
                 Ok timeBlockList ->
-                    ( Change.saveChanges "Imported Marvin Timeblocks" <| importTimeBlocks profile assignments timeBlockList
+                    ( Change.saveUserChanges "Imported Marvin Timeblocks" <| importTimeBlocks profile assignments timeBlockList
                     , "Fetched timeblocks: " ++ Debug.toString timeBlockList
                     , getTrackedItem partialAccessToken
                     )
@@ -438,7 +438,7 @@ handle profile ( time, timeZone ) response =
                         logMsg =
                             "got timetrack acknowledgement at " ++ HumanMoment.toStandardString time ++ " my time, newest marvin time was off by " ++ (Maybe.withDefault "none" <| Maybe.map newestReport (List.last timesList))
                     in
-                    ( Change.saveChanges "Got Marvin tracking acknowledgement" updateTimeline
+                    ( Change.saveUserChanges "Got Marvin tracking acknowledgement" updateTimeline
                     , logMsg
                     , Cmd.none
                     )

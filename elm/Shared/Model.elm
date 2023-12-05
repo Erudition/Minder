@@ -20,7 +20,7 @@ import SmartTime.Moment exposing (Moment)
 Intentionally minimal - we originally went with the common elm habit of stuffing any and all kinds of 'state' into the model, but we find it cleaner to separate the _"real" state_ (transient stuff, e.g. "dialog box is open", all stored in the page's URL (`viewState`)) from _"application data"_ (e.g. "task is due thursday", all stored in App "Database").
 -}
 type alias Model =
-    { replicator : Components.Replicator.Replicator Profile
+    { replicator : Components.Replicator.Replicator Profile String
     , replica : Profile
     , viewportSize : { width : Int, height : Int }
     , viewportSizeClass : Element.DeviceClass
@@ -36,4 +36,5 @@ type alias Model =
     , modal : Maybe PopupType
     , tickEnabled : Bool
     , oddModel : Odd.Model
+    , uiHistory : List Profile.UserChange
     }

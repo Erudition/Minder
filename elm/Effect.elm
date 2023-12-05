@@ -4,7 +4,7 @@ port module Effect exposing
     , sendCmd, sendMsg
     , pushRoute, replaceRoute, loadExternalUrl
     , map, toCmd
-    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveChanges, saveFrame, saveFrames, sendNotifications, sendSharedMsg, setStorage, syncMarvin, syncTodoist, toast, updateTime
+    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveFrame, saveFrames, saveSystemChanges, saveUserChanges, sendNotifications, sendSharedMsg, setStorage, syncMarvin, syncTodoist, toast, updateTime, userChangeNow
     )
 
 {-|
@@ -61,7 +61,7 @@ type Effect msg
     | SendSharedMsg Shared.Msg.Msg
     | UpdateTime
       -- REPLICATOR
-    | Save (List Change.Frame)
+    | Save (List (Change.Frame String))
       -- EXTERNAL APP
     | ClearPreferences
     | RequestNotificationPermission
@@ -196,19 +196,24 @@ toast toastMsg =
     Toast toastMsg
 
 
-saveFrame : Change.Frame -> Effect msg
+saveFrame : Change.Frame String -> Effect msg
 saveFrame changeFrame =
     Save [ changeFrame ]
 
 
-saveFrames : List Change.Frame -> Effect msg
+saveFrames : List (Change.Frame String) -> Effect msg
 saveFrames changeFrames =
     Save changeFrames
 
 
-saveChanges : String -> List Change.Change -> Effect msg
-saveChanges frameTitle changes =
-    saveFrame (Change.saveChanges frameTitle changes)
+saveUserChanges : String -> List Change.Change -> Effect msg
+saveUserChanges frameTitle changes =
+    saveFrame (Change.saveUserChanges frameTitle changes)
+
+
+saveSystemChanges : List Change.Change -> Effect msg
+saveSystemChanges changes =
+    saveFrame (Change.saveSystemChanges changes)
 
 
 sendNotifications : List Notif.Notification -> Effect msg
@@ -223,6 +228,11 @@ cancelNotification notifID =
 
 mlPredict =
     MLPredict
+
+
+userChangeNow : Profile.UserChange -> Effect msg
+userChangeNow profileChange =
+    SendSharedMsg <| Shared.Msg.ProfileChange profileChange
 
 
 

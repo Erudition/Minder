@@ -49,7 +49,7 @@ devSecret =
     "0bdc5149510737ab941485bace8135c60e2d812b"
 
 
-handle : Todoist.Msg -> Profile -> ( Change.Frame, String )
+handle : Todoist.Msg -> Profile -> ( Change.Frame String, String )
 handle msg app =
     case Todoist.handleResponse msg app.todoist.cache of
         Ok ( newCache, changes ) ->
@@ -89,7 +89,7 @@ handle msg app =
                     --   }
                     []
             in
-            ( Change.saveChanges "" finalChanges
+            ( Change.saveUserChanges "" finalChanges
             , describeSuccess changes
             )
 
@@ -98,7 +98,7 @@ handle msg app =
                 description =
                     Todoist.describeError err
             in
-            ( Change.saveChanges "" [ saveError app description ], description )
+            ( Change.saveUserChanges "" [ saveError app description ], description )
 
 
 describeSuccess : Todoist.LatestChanges -> String

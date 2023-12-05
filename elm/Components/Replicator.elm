@@ -14,12 +14,12 @@ import Task
 
 {-| Internal Model of the replicator component.
 -}
-type Replicator replica
+type Replicator replica frameDesc
     = ReplicatorModel
         { node : Node
         , replicaCodec : SkelCodec ReplicaError replica
         , replica : replica
-        , outPort : String -> Cmd Msg
+        , outPort : String -> Cmd (Msg frameDesc)
         }
 
 
@@ -29,14 +29,14 @@ type alias ReplicaError =
 
 {-| Data required to initialize the replicator.
 -}
-type alias ReplicatorConfig replica =
+type alias ReplicatorConfig replica yourFrameDesc =
     { launchTime : Maybe Moment
     , replicaCodec : SkelCodec ReplicaError replica
-    , outPort : String -> Cmd Msg
+    , outPort : String -> Cmd (Msg yourFrameDesc)
     }
 
 
-init : ReplicatorConfig replica -> ( Replicator replica, replica )
+init : ReplicatorConfig replica desc -> ( Replicator replica desc, replica )
 init { launchTime, replicaCodec, outPort } =
     let
         ( startNode, initChanges ) =
@@ -58,15 +58,15 @@ init { launchTime, replicaCodec, outPort } =
 
 {-| This component's internal Msg type.
 -}
-type Msg
+type Msg desc
     = LoadRon Int (List String)
-    | ApplyFrames (List Change.Frame) Moment
+    | ApplyFrames (List (Change.Frame desc)) Moment
 
 
 update :
-    Msg
-    -> Replicator replica
-    -> { newReplicator : Replicator replica, newReplica : replica, warnings : List OpImportWarning, cmd : Cmd Msg }
+    Msg desc
+    -> Replicator replica desc
+    -> { newReplicator : Replicator replica desc, newReplica : replica, warnings : List OpImportWarning, cmd : Cmd (Msg desc) }
 update msg (ReplicatorModel oldReplicator) =
     case msg of
         LoadRon originalFrameCount [] ->
@@ -144,8 +144,8 @@ update msg (ReplicatorModel oldReplicator) =
 
 {-| Type for your "incoming frames" port. Use this on your JS port which is called when you receive new changeframes from elsewhere. The RON data (as a string) will be processed into the replicator.
 -}
-type alias IncomingFramesPort =
-    (String -> Msg) -> Sub Msg
+type alias IncomingFramesPort desc =
+    (String -> Msg desc) -> Sub (Msg desc)
 
 
 {-| Wire this component's subscriptions up into your `Shared.subscriptions`, using `Sub.map` to convert it to your message type, like:
@@ -159,7 +159,7 @@ type alias IncomingFramesPort =
 `incomingRon` is a port you create (you can put it in the `Effect` module if you like) that receives a String, and has the type `IncomingFramesPort`.
 
 -}
-subscriptions : IncomingFramesPort -> Sub Msg
+subscriptions : IncomingFramesPort desc -> Sub (Msg desc)
 subscriptions incomingFramesPort =
     let
         splitIncomingFrames inRon =
@@ -172,7 +172,7 @@ subscriptions incomingFramesPort =
     incomingFramesPort splitIncomingFrames
 
 
-saveEffect : List Change.Frame -> Cmd Msg
+saveEffect : List (Change.Frame desc) -> Cmd (Msg desc)
 saveEffect framesToSave =
     case Change.nonEmptyFrames framesToSave of
         [] ->

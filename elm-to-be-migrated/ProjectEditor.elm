@@ -33,6 +33,7 @@ import Json.Encode.Extra as Encode2 exposing (..)
 import List.Extra as List
 import Log
 import Maybe.Extra as Maybe
+import OldShared.Model exposing (..)
 import Process
 import Profile exposing (..)
 import Refocus
@@ -42,7 +43,6 @@ import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import OldShared.Model exposing (..)
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock as Clock exposing (TimeOfDay)
@@ -342,7 +342,7 @@ type Msg
     | LogError String
 
 
-update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame, Cmd Msg )
+update : Msg -> ViewState -> Profile -> Environment -> ( ViewState, Change.Frame String, Cmd Msg )
 update msg state profile env =
     case msg of
         Add ->

@@ -297,7 +297,7 @@ update msg model =
             )
 
 
-outputToChanges : Maybe Assignable -> Output -> Change.Frame
+outputToChanges : Maybe Assignable -> Output -> Change.Frame String
 outputToChanges assignableMaybe output =
     case assignableMaybe of
         Just assignable ->
@@ -342,7 +342,7 @@ outputToChanges assignableMaybe output =
                     else
                         Just (Assignable.setMaxEffort output.maxEffort assignable)
             in
-            Change.saveChanges "Editing an assignable" <|
+            Change.saveUserChanges "Editing an assignable" <|
                 List.filterMap identity
                     [ updateTitle
                     , updateImportance

@@ -4,9 +4,9 @@ import Browser
 import Html as PlainHtml
 import Html.Styled exposing (node, toUnstyled)
 import Main exposing (Msg, StoredRON)
+import OldShared.Model exposing (..)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
-import OldShared.Model exposing (..)
 import Url
 import VirtualDom
 
@@ -25,7 +25,7 @@ main =
 -- }
 
 
-initBrowserless : ( String, Profile ) -> ( List Change.Frame, Main.MainModel, Cmd Msg )
+initBrowserless : ( String, Profile ) -> ( List (Change.Frame String), Main.MainModel, Cmd Msg )
 initBrowserless ( urlAsString, profile ) =
     let
         flags =

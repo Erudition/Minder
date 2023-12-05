@@ -2,10 +2,10 @@ port module Headless exposing (main)
 
 import Json.Decode.Exploration exposing (..)
 import Main exposing (..)
+import OldShared.Model exposing (..)
 import Platform exposing (worker)
 import Profile exposing (..)
 import Replicated.Change as Change exposing (ChangeSet, Frame)
-import OldShared.Model exposing (..)
 import Url
 
 
@@ -22,7 +22,7 @@ main =
 -- }
 
 
-initHeadless : ( String, Profile ) -> ( List Change.Frame, MainModel, Cmd Msg )
+initHeadless : ( String, Profile ) -> ( List (Change.Frame String), MainModel, Cmd Msg )
 initHeadless ( urlAsString, profile ) =
     let
         flags =
