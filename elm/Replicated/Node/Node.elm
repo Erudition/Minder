@@ -3,6 +3,7 @@ module Replicated.Node.Node exposing (..)
 import Console
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
+import Element.Region exposing (description)
 import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
@@ -343,8 +344,19 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply : Maybe Moment -> Bool -> Node -> Change.Frame desc -> { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List ObjectID }
-apply timeMaybe testMode node (Change.Frame { changes, description }) =
+apply :
+    Maybe Moment
+    -> Bool
+    -> Node
+    -> Change.Frame desc
+    ->
+        { outputFrame : List Op.ClosedChunk
+        , updatedNode : Node
+        , created : List ObjectID
+        , outputReverseFrameMaybe : Maybe (Change.ReverseFrame desc)
+        , nowReversed : List OpID
+        }
+apply timeMaybe testMode node (Change.Frame { changes, description, reversedFrames }) =
     let
         nextUnseenCounter =
             OpID.importCounter (node.highestSeenClock + 1)
@@ -381,6 +393,9 @@ apply timeMaybe testMode node (Change.Frame { changes, description }) =
         ( ( step2OutCounter, step2OutMapping ), step2OutChunks ) =
             List.mapAccuml (oneChangeSetToOpChunks node) ( step1OutCounter, { step1OutMapping | delayed = [] } ) delayedChangeSets
 
+        -- -- Step 3. Process User Undo/Redo ops
+        -- ( step3OutCounter, _) =
+        --     List.mapAccuml createReversionOp step2OutCounter reversions
         outChunks =
             step1OutChunks ++ List.concat step2OutChunks
 
@@ -415,11 +430,17 @@ apply timeMaybe testMode node (Change.Frame { changes, description }) =
                 , [ "Delayed Updates:" ]
                 , [ Op.closedChunksToFrameText (List.concat step2OutChunks) ]
                 ]
+
+        reverseFrameMaybe =
+            -- If this is a user frame (has description), build a reversal in case the user wants to undo
+            Maybe.andThen (Change.createReverseFrame (getReversibleOps allGeneratedOps)) description
     in
     Log.logMessageOnly logApplyResults
         { outputFrame = outChunks
         , updatedNode = finalNode
         , created = newObjectsCreated
+        , outputReverseFrameMaybe = reverseFrameMaybe
+        , nowReversed = reversedFrames
         }
 
 
@@ -437,6 +458,34 @@ creationOpsToObjectIDs ops =
     List.filterMap getCreationIDs ops
 
 
+{-| Get the IDs of the ops that are reversible
+-}
+getReversibleOps : List Op -> List Op
+getReversibleOps ops =
+    let
+        getCreationIDs op =
+            case Op.pattern op of
+                Op.NormalOp ->
+                    Just op
+
+                Op.DeletionOp ->
+                    Just op
+
+                Op.UnDeletionOp ->
+                    Just op
+
+                Op.CreationOp ->
+                    Nothing
+
+                Op.Annotation ->
+                    Nothing
+
+                Op.Acknowledgement ->
+                    Nothing
+    in
+    List.filterMap getCreationIDs ops
+
+
 {-| Collects info on what ObjectIDs map back to what placeholder IDs from before they were initialized. In case we want to reference the new object same-frame.
 Use with Change.pendingIDToString
 -}
@@ -449,6 +498,16 @@ type alias UpdatesSoFar =
 
 keepChangeSetIfNonempty changeSetMaybe =
     Maybe.Extra.filter (not << Change.isEmptyChangeSet) changeSetMaybe
+
+
+
+-- createReversionOp : InCounter -> OpID -> (OutCounter, Op)
+-- createReversionOp inCounter opIDToReverse =
+--     let
+--         ( newID, stampOutCounter ) =
+--             OpID.generate stampInCounter node.identity givenUCO.reversion
+--     in
+--     Op.cr
 
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params

@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, ReverseFrame, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReverseFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, getReverseFrameID, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, markReversal, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, reverseFrameToChangeFrame, saveSystemChanges, saveUserChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -14,15 +14,12 @@ import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
 import Result.Extra
 
 
-{-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
-
-Outputs a Chunk - Chunks are same-object changes within a Frame.
-
--}
 type ChangeSet
     = ChangeSet ChangeSetDetails
 
 
+{-| Represents a _POTENTIAL_ change to the node - if you have one, you can "apply" your pending changes to make actual modifications to your model.
+-}
 type Change
     = WithFrameIndex (Location -> ChangeSet)
 
@@ -510,7 +507,7 @@ isEmptyChangeSet (ChangeSet details) =
 
 extractOwnSubChanges : Pointer -> List Change -> { earlier : ChangeSet, mine : List ObjectChange, later : ChangeSet }
 extractOwnSubChanges pointer changeList =
-    -- TODO FIXME
+    -- TODO no longer needed?
     -- ideally this would find changes that directly modify nested objects, and turn them into QuoteNestedObject references, with full nested contents, rather than just a pending ref and a delayed installer for the object that's already being created anyway. this optimizes op order.
     let
         supplyIndexToChange index (WithFrameIndex toChangeSet) =
@@ -625,24 +622,25 @@ type Frame desc
     = Frame
         { changes : ChangeSet
         , description : Maybe desc
+        , reversedFrames : List OpID
         }
 
 
 saveUserChanges : desc -> List Change -> Frame desc
 saveUserChanges description changes =
-    Frame { changes = collapseChangesToChangeSet "save" changes, description = Just description }
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Just description, reversedFrames = [] }
 
 
 saveSystemChanges : List Change -> Frame desc
 saveSystemChanges changes =
-    Frame { changes = collapseChangesToChangeSet "save" changes, description = Nothing }
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Nothing, reversedFrames = [] }
 
 
 {-| An empty Frame, for when you have no changes to save.
 -}
 emptyFrame : Frame desc
 emptyFrame =
-    Frame { changes = emptyChangeSet, description = Nothing }
+    Frame { changes = emptyChangeSet, description = Nothing, reversedFrames = [] }
 
 
 isEmpty : Frame desc -> Bool
@@ -655,7 +653,62 @@ nonEmptyFrames frames =
     List.filter (not << isEmpty) frames
 
 
+type ReverseFrame desc
+    = ReverseFrame
+        { description : desc
+        , ops : Nonempty Op
+        , undone : Bool
+        }
 
+
+createReverseFrame : List Op -> desc -> Maybe (ReverseFrame desc)
+createReverseFrame opsToReverse description =
+    let
+        reverseFrame nonemptyOpsToReverse =
+            ReverseFrame
+                { description = description
+                , ops = nonemptyOpsToReverse
+                , undone = False
+                }
+    in
+    Maybe.map reverseFrame (Nonempty.fromList opsToReverse)
+
+
+getReverseFrameID : ReverseFrame desc -> OpID
+getReverseFrameID (ReverseFrame reverseFrame) =
+    Nonempty.head reverseFrame.ops
+        |> Op.id
+
+
+markReversal : ReverseFrame desc -> ReverseFrame desc
+markReversal (ReverseFrame reverseFrameRec) =
+    ReverseFrame { reverseFrameRec | undone = not reverseFrameRec.undone }
+
+
+reverseFrameToChangeFrame : ReverseFrame desc -> Frame desc
+reverseFrameToChangeFrame (ReverseFrame reverseFrame) =
+    let
+        changeSet =
+            ChangeSet
+                { objectsToCreate = emptyObjectsToCreate
+                , existingObjectChanges = Nonempty.foldl addOpToChangeSet emptyExistingObjectChanges reverseFrame.ops
+                , delayed = []
+                , opsToRepeat = emptyOpsToRepeat
+                }
+
+        addOpToChangeSet op existingObjectChanges =
+            let
+                existingID =
+                    ExistingID (Op.reducer op) (Op.object op)
+            in
+            -- AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
+            AnyDict.insert existingID [ RevertOp (Op.id op) ] existingObjectChanges
+    in
+    Frame { changes = changeSet, description = Nothing, reversedFrames = [ Nonempty.head reverseFrame.ops |> Op.id ] }
+
+
+
+--Frame { changes = emptyChangeSet, description = Nothing, opsToReverse = opsToReverse }
 -- POINTERS -----------------------------------------------------------------
 
 

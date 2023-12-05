@@ -1,6 +1,7 @@
 module Components.Replicator exposing (..)
 
 import Console
+import Dict.Any as AnyDict exposing (AnyDict)
 import Log
 import Maybe.Extra
 import Platform exposing (Task)
@@ -8,6 +9,7 @@ import Replicated.Change as Change
 import Replicated.Codec as Codec exposing (SkelCodec)
 import Replicated.Node.Node as Node exposing (Node, OpImportWarning)
 import Replicated.Op.Op as Op
+import Replicated.Op.OpID as OpID
 import SmartTime.Moment as Moment exposing (Moment)
 import Task
 
@@ -20,6 +22,7 @@ type Replicator replica frameDesc
         , replicaCodec : SkelCodec ReplicaError replica
         , replica : replica
         , outPort : String -> Cmd (Msg frameDesc)
+        , history : AnyDict OpID.OpIDSortable OpID.OpID (Change.ReverseFrame frameDesc)
         }
 
 
@@ -51,6 +54,7 @@ init { launchTime, replicaCodec, outPort } =
         , replicaCodec = replicaCodec
         , replica = startReplica
         , outPort = outPort
+        , history = AnyDict.empty OpID.toSortablePrimitives
         }
     , startReplica
     )
@@ -113,19 +117,31 @@ update msg (ReplicatorModel oldReplicator) =
 
         ApplyFrames newFrames newTime ->
             let
-                ( nodeWithUpdates, finalOutputFrame ) =
-                    List.foldl applyFrame ( oldReplicator.node, [] ) newFrames
+                ( nodeWithUpdates, finalOutputFrame, ( allNowReversed, allFutureReverseFrames ) ) =
+                    List.foldl applyFrame ( oldReplicator.node, [], ( [], [] ) ) newFrames
 
-                applyFrame givenFrame ( inNode, outputsSoFar ) =
+                applyFrame givenFrame ( inNode, outputsSoFar, ( nowReversedPrior, reversibleFrames ) ) =
                     let
-                        { outputFrame, updatedNode } =
+                        { outputFrame, updatedNode, outputReverseFrameMaybe, nowReversed } =
                             Node.apply (Just newTime) False inNode givenFrame
                     in
-                    ( updatedNode, outputsSoFar ++ outputFrame )
+                    ( updatedNode, outputsSoFar ++ outputFrame, ( nowReversed ++ nowReversedPrior, reversibleFrames ++ Maybe.Extra.toList outputReverseFrameMaybe ) )
+
+                historyWithNewFutureReverseFrames1 =
+                    List.foldl (\rf hist -> AnyDict.insert (Change.getReverseFrameID rf) rf hist) oldReplicator.history allFutureReverseFrames
+
+                historyWithReversalsApplied2 =
+                    List.foldl (\rfID hist -> AnyDict.update rfID (Maybe.map Change.markReversal) hist) historyWithNewFutureReverseFrames1 allNowReversed
             in
             case Codec.decodeFromNode oldReplicator.replicaCodec nodeWithUpdates of
                 Ok updatedUserReplica ->
-                    { newReplicator = ReplicatorModel { oldReplicator | node = nodeWithUpdates, replica = updatedUserReplica }
+                    { newReplicator =
+                        ReplicatorModel
+                            { oldReplicator
+                                | node = nodeWithUpdates
+                                , replica = updatedUserReplica
+                                , history = historyWithReversalsApplied2
+                            }
                     , newReplica = updatedUserReplica
                     , warnings = []
                     , cmd = Cmd.batch [ oldReplicator.outPort (Op.closedChunksToFrameText finalOutputFrame) ]
