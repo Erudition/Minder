@@ -8,6 +8,7 @@ import Components.Replicator
 import Incubator.Todoist as Todoist
 import Integrations.Marvin as Marvin
 import NativeScript.Notification as Notif
+import Profile
 import Replicated.Change as Change
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment exposing (Zone)
@@ -20,8 +21,9 @@ Naming Convention: Use "what happened" phrasing, not "action to take" (verb) phr
 -}
 type Msg
     = NoUpdate
+    | ProfileChange Profile.UserChange
     | Tick Moment
-    | ReplicatorUpdate Components.Replicator.Msg
+    | ReplicatorUpdate (Components.Replicator.Msg String)
     | OddUpdate Components.Odd.Msg
       --| RunEffects (List (Effect.Effect Msg))
     | WantsLogCleared

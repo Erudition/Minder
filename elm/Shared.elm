@@ -2,6 +2,7 @@ module Shared exposing
     ( Flags, decoder
     , Model, Msg
     , init, update, subscriptions
+    , profileChangeToString
     )
 
 {-|
@@ -27,7 +28,13 @@ import List.Nonempty exposing (Nonempty(..))
 import Log
 import NativeScript.Notification as Notif
 import Profile exposing (Profile)
+import Replicated.Change as Change exposing (Change, Parent)
 import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
+import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Reducer.Register as Reg exposing (Reg)
+import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
+import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
+import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Route exposing (Route)
 import Route.Path
 import Shared.Model
@@ -40,6 +47,14 @@ import SmartTime.Human.Duration exposing (HumanDuration(..))
 import SmartTime.Human.Moment as HumanMoment exposing (Zone, utc)
 import SmartTime.Moment as Moment exposing (Moment, zero)
 import SmartTime.Period as Period exposing (Period)
+import Task.ActionSkel as Action
+import Task.Assignable as Assignable exposing (Assignable, AssignableID)
+import Task.Assignment as Assignment exposing (Assignment, AssignmentID)
+import Task.Layers
+import Task.Progress
+import Task.Project as Project exposing (Project)
+import Task.ProjectSkel as ProjectSkel
+import Task.SubAssignableSkel as SubAssignableSkel exposing (SubAssignableSkel)
 
 
 
@@ -113,6 +128,7 @@ init flagsResult route =
       , replica = replica
       , tickEnabled = False
       , oddModel = oddModel
+      , uiHistory = []
       }
     , Effect.sendCmd (Cmd.map OddUpdate oddInit)
       -- TODO Effect.saveChanges "init" initChanges
@@ -134,6 +150,13 @@ update route msg shared =
             ( shared
             , Effect.none
             )
+
+        ProfileChange profileChange ->
+            let
+                ( afterHandlerShared, afterHandlerEffects ) =
+                    profileUpdate Nothing profileChange shared
+            in
+            ( { afterHandlerShared | uiHistory = profileChange :: afterHandlerShared.uiHistory }, afterHandlerEffects )
 
         Tick newTime ->
             ( { shared | time = newTime }, Effect.none )
@@ -264,9 +287,40 @@ update route msg shared =
                 , Effect.sendNotifications [ notification ]
                 , Effect.toast whatHappened
                 , Effect.saveFrame marvinChanges
-                , Effect.saveChanges "Log it temporarily" [ Profile.saveError shared.replica ("Synced with Marvin: \n" ++ whatHappened) ]
+                , Effect.saveUserChanges "Log it temporarily" [ Profile.saveError shared.replica ("Synced with Marvin: \n" ++ whatHappened) ]
                 ]
             )
+
+
+profileUpdate : Maybe Moment -> Profile.UserChange -> Model -> ( Model, Effect Msg )
+profileUpdate happenedMaybe profileChange shared =
+    let
+        frameDescription =
+            profileChangeToString profileChange
+    in
+    case profileChange of
+        Profile.AddProject newProjectTitle ->
+            let
+                newProjectSkel =
+                    Project.createTopLevelSkel projectChanger
+
+                projectChanger project =
+                    [ Project.setTitle (Just newProjectTitle) project ]
+
+                finalChanges =
+                    [ RepDb.addNew newProjectSkel shared.replica.projects
+                    ]
+            in
+            ( { shared | uiHistory = profileChange :: shared.uiHistory }
+            , Effect.saveUserChanges frameDescription finalChanges
+            )
+
+
+profileChangeToString : Profile.UserChange -> String
+profileChangeToString profileChange =
+    case profileChange of
+        Profile.AddProject newProjectTitle ->
+            "Created new project \"" ++ newProjectTitle ++ "\""
 
 
 

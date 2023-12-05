@@ -1,4 +1,4 @@
-module Profile exposing (AppInstance, Profile, TodoistIntegrationData, codec, currentActivityID, currentAssignmentID, currentSession, currentlyTracking, getActivityByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
+module Profile exposing (Profile, TodoistIntegrationData, UserChange(..), codec, currentActivityID, currentAssignmentID, currentSession, currentlyTracking, getActivityByID, saveDecodeErrors, saveError, saveWarnings, userTimeZoneAtMoment)
 
 import Activity.Activity as Activity exposing (..)
 import Activity.HistorySession exposing (HistorySession, Timeline)
@@ -28,12 +28,6 @@ import Task.ProjectSkel as ProjectSkel exposing (ProjectSkel)
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import TimeTrackable exposing (TimeTrackable)
 import ZoneHistory
-
-
-{-| TODO "Instance" will be a UUID. Was going to have a user ID (for multi-user one day) and a device ID, but instead we can just have one UUID for every instance out there and determine who owns it when needed.
--}
-type alias AppInstance =
-    Int
 
 
 type alias Profile =
@@ -135,3 +129,11 @@ currentlyTracking profile =
 currentSession : Profile -> Maybe HistorySession
 currentSession profile =
     Activity.HistorySession.current (RepList.listValues profile.timeline)
+
+
+
+-- USER CHANGE
+
+
+type UserChange
+    = AddProject String

@@ -235,7 +235,7 @@ globalLayout model shared route bodyContentList toContentMsg =
                     , Ion.Toolbar.title [] [ H.text "Minder" ]
                     , Ion.Toolbar.title [ HA.attribute "size" "small" ] [ H.text formattedTime ]
                     , Ion.Toolbar.buttons [ Ion.Toolbar.placeEnd ]
-                        [ Ion.Button.button [ HA.disabled True ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
+                        [ Ion.Button.button [ Route.Path.href Route.Path.Undo ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
                         ]
                     ]
                 ]
@@ -423,7 +423,7 @@ trackingTaskCompletionSlider instance =
                 ]
             )
         ]
-        { onChange = \input -> JustRunEffects [ Effect.saveChanges "Updating Progress" [ Assignment.setCompletion (round input) instance ] ]
+        { onChange = \input -> JustRunEffects [ Effect.saveUserChanges "Updating Progress" [ Assignment.setCompletion (round input) instance ] ]
         , label =
             Input.labelHidden "Task Progress"
         , min = 0

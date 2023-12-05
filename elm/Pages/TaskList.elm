@@ -182,27 +182,8 @@ update shared msg model =
                     ( model, Effect.none )
 
                 newProjectTitle ->
-                    let
-                        newProjectSkel =
-                            Project.createTopLevelSkel projectChanger
-
-                        projectChanger project =
-                            [ Project.setTitle (Just newProjectTitle) project ]
-
-                        frameDescription =
-                            "Added project: " ++ newProjectTitle
-
-                        finalChanges =
-                            [ RepList.insert RepList.Last frameDescription shared.replica.errors
-                            , RepDb.addNew newProjectSkel shared.replica.projects
-
-                            -- , RepList.insertNew RepList.Last
-                            --     [ \c -> Project.AssignableIsHere (newAssignable (Change.reuseContext "Assignable in Project" c)) ]
-                            --     shared.replica.projects
-                            ]
-                    in
                     ( { model | newTaskField = "", expandedTask = Nothing }
-                    , Effect.saveChanges frameDescription finalChanges
+                    , Effect.userChangeNow (Profile.AddProject newProjectTitle)
                     )
 
         AddAssignable project ->
@@ -210,7 +191,7 @@ update shared msg model =
                 handleResult result =
                     case result of
                         Ok newName ->
-                            RunEffect <| Effect.saveChanges (frameDescription newName) (finalChanges newName)
+                            RunEffect <| Effect.saveUserChanges (frameDescription newName) (finalChanges newName)
 
                         Err _ ->
                             RunEffect <| Effect.none
@@ -252,7 +233,7 @@ update shared msg model =
                     , Assignment.create (\_ -> []) assignable
                     ]
             in
-            ( model, Effect.saveChanges frameDescription finalChanges )
+            ( model, Effect.saveUserChanges frameDescription finalChanges )
 
         DeleteAssignment assignment ->
             let
@@ -264,7 +245,7 @@ update shared msg model =
                     , Assignment.delete assignment
                     ]
             in
-            ( model, Effect.saveChanges frameDescription finalChanges )
+            ( model, Effect.saveUserChanges frameDescription finalChanges )
 
         UpdateNewEntryField typedSoFar ->
             ( { model | newTaskField = typedSoFar }
@@ -298,7 +279,7 @@ update shared msg model =
                         Effect.none
 
                     else
-                        Effect.saveChanges "Updating project title" [ Assignable.setTitle newTitle assignable ]
+                        Effect.saveUserChanges "Updating project title" [ Assignable.setTitle newTitle assignable ]
             in
             ( { model | currentlyEditing = Nothing }
             , changeTitleIfValid
@@ -426,10 +407,10 @@ update shared msg model =
             )
 
         SimpleChange change ->
-            ( model, Effect.saveChanges "Simple change" [ change ] )
+            ( model, Effect.saveUserChanges "Simple change" [ change ] )
 
         LogError errorMsg ->
-            ( model, Effect.saveChanges "Log Error" [ RepList.insert RepList.Last errorMsg shared.replica.errors ] )
+            ( model, Effect.saveUserChanges "Log Error" [ RepList.insert RepList.Last errorMsg shared.replica.errors ] )
 
         Toast toastMsg ->
             ( model, Effect.toast toastMsg )
@@ -442,7 +423,7 @@ update shared msg model =
                 handleResult result =
                     case result of
                         Ok newName ->
-                            RunEffect <| Effect.saveChanges "renaming" [ newNameToChange newName ]
+                            RunEffect <| Effect.saveUserChanges "renaming" [ newNameToChange newName ]
 
                         Err _ ->
                             RunEffect <| Effect.none
