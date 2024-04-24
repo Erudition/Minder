@@ -128,7 +128,6 @@ init flagsResult route =
       , replica = replica
       , tickEnabled = False
       , oddModel = oddModel
-      , uiHistory = []
       }
     , Effect.sendCmd (Cmd.map OddUpdate oddInit)
       -- TODO Effect.saveChanges "init" initChanges
@@ -156,7 +155,7 @@ update route msg shared =
                 ( afterHandlerShared, afterHandlerEffects ) =
                     profileUpdate Nothing profileChange shared
             in
-            ( { afterHandlerShared | uiHistory = profileChange :: afterHandlerShared.uiHistory }, afterHandlerEffects )
+            ( afterHandlerShared, afterHandlerEffects )
 
         Tick newTime ->
             ( { shared | time = newTime }, Effect.none )
@@ -311,7 +310,7 @@ profileUpdate happenedMaybe profileChange shared =
                     [ RepDb.addNew newProjectSkel shared.replica.projects
                     ]
             in
-            ( { shared | uiHistory = profileChange :: shared.uiHistory }
+            ( shared
             , Effect.saveUserChanges frameDescription finalChanges
             )
 

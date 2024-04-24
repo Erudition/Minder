@@ -36,5 +36,4 @@ type alias Model =
     , modal : Maybe PopupType
     , tickEnabled : Bool
     , oddModel : Odd.Model
-    , uiHistory : List Profile.UserChange
     }

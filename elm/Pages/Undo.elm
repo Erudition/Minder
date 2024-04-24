@@ -1,13 +1,19 @@
 module Pages.Undo exposing (Model, Msg, page)
 
+import Components.Replicator as Replicator exposing (Replicator)
+import Css exposing (..)
+import Dict.Any as AnyDict exposing (AnyDict)
 import Effect exposing (Effect)
 import Html.Attributes as HA
+import Html.Events as HE
 import Html.Styled as SH exposing (..)
-import Html.Styled.Attributes exposing (attribute)
+import Html.Styled.Attributes exposing (attribute, css)
+import Html.Styled.Events as SHE
 import Ion.Button
 import Ion.Icon
 import Layouts
 import Page exposing (Page)
+import Replicated.Change as Change
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -53,6 +59,7 @@ init () =
 
 type Msg
     = NoOp
+    | Undo (Change.Frame String)
 
 
 update : Msg -> Model -> ( Model, Effect Msg )
@@ -62,6 +69,9 @@ update msg model =
             ( model
             , Effect.none
             )
+
+        Undo frame ->
+            ( model, Effect.saveFrame frame )
 
 
 
@@ -79,16 +89,25 @@ subscriptions model =
 
 view : Shared.Model -> Model -> View Msg
 view shared model =
-    let
-        viewChange profileChange =
-            node "ion-item"
-                []
-                [ text (Shared.profileChangeToString profileChange)
-                , SH.fromUnstyled <| Ion.Button.button [ HA.attribute "slot" "end" ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
-                ]
-    in
     { title = "UI History (undo)"
     , body =
-        [ node "ion-list" [] (List.map viewChange shared.uiHistory)
+        [ node "ion-list" [] []
         ]
     }
+
+
+viewHistoryFrame : { description : String, reverse : Change.Frame String, undone : Bool } -> Html Msg
+viewHistoryFrame historyItem =
+    let
+        itemAttr =
+            if historyItem.undone then
+                [ css [ textDecoration lineThrough ] ]
+
+            else
+                []
+    in
+    node "ion-item"
+        []
+        [ span itemAttr [ text <| historyItem.description ]
+        , SH.fromUnstyled <| Ion.Button.button [ HA.attribute "slot" "end", HE.onClick (Undo historyItem.reverse) ] [ Ion.Icon.basic "arrow-undo-circle-outline" ]
+        ]

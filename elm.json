@@ -51,6 +51,7 @@
             "rtfeldman/elm-css": "18.0.0",
             "sporto/time-distance": "1.0.1",
             "turboMaCk/any-dict": "2.6.0",
+            "turboMaCk/any-set": "1.6.0",
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {

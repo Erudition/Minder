@@ -8,6 +8,13 @@
 - Why is parent init change not required?
 - Put showstopper RON debugger in place
 - Rename RepStore to RepDictSparse
+- Put OpDb in its own type file
+
+- UNDO/REDO Framework
+    - Create ReversibleOps type - `List OpID` of reversible ops
+    - Allow output of changes with ReversibleOps placeholder as value
+    - When converting changes to ops, fill in any ReversibleOps placeholder with the frame's reversible OpIDs
+    - When converting reversal changes to reversal ops, calculate OpIDs' ExistingObjectIDs and merge into ChangeSets
 
 
 # Task list

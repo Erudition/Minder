@@ -1,7 +1,8 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, ReverseFrame, SoloObjectEncoded, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReverseFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, getReverseFrameID, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, markReversal, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, reverseFrameToChangeFrame, saveSystemChanges, saveUserChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, UndoData, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReversionFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator,  mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
+import Set.Any as AnySet exposing (AnySet)
 import Html exposing (del)
 import Json.Encode as JE
 import List.Extra
@@ -86,9 +87,6 @@ mergeChanges (ChangeSet changeSetLater) (ChangeSet changeSetEarlier) =
             -- later-specified changes should be added at bottom of list for correct precedence
             unionCombine emptyExistingObjectChanges changeSetEarlier.existingObjectChanges changeSetLater.existingObjectChanges
         , delayed = changeSetEarlier.delayed ++ changeSetLater.delayed
-        , opsToRepeat =
-            -- on collision, preference is given to later set, though ops should never differ
-            AnyDict.union changeSetLater.opsToRepeat changeSetEarlier.opsToRepeat
         }
 
 
@@ -101,12 +99,13 @@ mergeMaybeChange maybeChange change =
         Nothing ->
             change
 
-
+{-| Set of all changes to make.
+Decision: real changes only, no repeated ops. Ops to be reverted are specified at the frame level.
+-}
 type alias ChangeSetDetails =
     { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
     , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
     , delayed : List DelayedChange
-    , opsToRepeat : OpDb
     }
 
 
@@ -128,13 +127,12 @@ emptyChangeSet =
         { objectsToCreate = emptyObjectsToCreate
         , existingObjectChanges = emptyExistingObjectChanges
         , delayed = []
-        , opsToRepeat = emptyOpsToRepeat
         }
 
 
-emptyOpsToRepeat : AnyDict OpID.OpIDSortable OpID Op
-emptyOpsToRepeat =
-    AnyDict.empty OpID.toSortablePrimitives
+emptyOpIDSet : AnySet OpID.OpIDSortable OpID
+emptyOpIDSet =
+    AnySet.empty OpID.toSortablePrimitives
 
 
 emptyExistingObjectChanges =
@@ -288,7 +286,6 @@ delayedChangesToSets delayed =
                         { objectsToCreate = AnyDict.empty pendingIDToComparable
                         , existingObjectChanges = AnyDict.singleton existingID givenObjectChanges existingIDToComparable
                         , delayed = []
-                        , opsToRepeat = emptyOpsToRepeat
                         }
 
                 PlaceholderPointer pendingID _ ->
@@ -296,7 +293,6 @@ delayedChangesToSets delayed =
                         { objectsToCreate = AnyDict.singleton pendingID givenObjectChanges pendingIDToComparable
                         , existingObjectChanges = AnyDict.empty existingIDToComparable
                         , delayed = []
-                        , opsToRepeat = emptyOpsToRepeat
                         }
     in
     List.map delayedGroupToChangeSet groupedByPointer
@@ -314,8 +310,8 @@ delayedChangeObject target objectChange =
 -- CHANGE MISC --------------------------------------------------
 
 
-type alias OpDb =
-    AnyDict OpID.OpIDSortable OpID Op
+type alias OpIDSet =
+    AnySet OpID.OpIDSortable OpID
 
 
 type alias Changer o =
@@ -481,7 +477,6 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                         { objectsToCreate = AnyDict.empty pendingIDToComparable
                         , existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
                         , delayed = []
-                        , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
 
@@ -490,7 +485,6 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
                         { objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
                         , existingObjectChanges = AnyDict.empty existingIDToComparable
                         , delayed = ancestorsInstallChanges
-                        , opsToRepeat = AnyDict.empty OpID.toSortablePrimitives
                         }
                         |> withExternalChanges
     in
@@ -502,7 +496,7 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
 
 isEmptyChangeSet : ChangeSet -> Bool
 isEmptyChangeSet (ChangeSet details) =
-    AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && AnyDict.isEmpty details.opsToRepeat && List.isEmpty details.delayed
+    AnyDict.isEmpty details.existingObjectChanges && AnyDict.isEmpty details.objectsToCreate && List.isEmpty details.delayed
 
 
 extractOwnSubChanges : Pointer -> List Change -> { earlier : ChangeSet, mine : List ObjectChange, later : ChangeSet }
@@ -622,27 +616,27 @@ type Frame desc
     = Frame
         { changes : ChangeSet
         , description : Maybe desc
-        , reversedFrames : List OpID
         }
 
 
 saveUserChanges : desc -> List Change -> Frame desc
 saveUserChanges description changes =
-    Frame { changes = collapseChangesToChangeSet "save" changes, description = Just description, reversedFrames = [] }
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Just description }
 
 
 saveSystemChanges : List Change -> Frame desc
 saveSystemChanges changes =
-    Frame { changes = collapseChangesToChangeSet "save" changes, description = Nothing, reversedFrames = [] }
+    Frame { changes = collapseChangesToChangeSet "save" changes, description = Nothing}
 
 
 {-| An empty Frame, for when you have no changes to save.
 -}
 emptyFrame : Frame desc
 emptyFrame =
-    Frame { changes = emptyChangeSet, description = Nothing, reversedFrames = [] }
+    Frame { changes = emptyChangeSet, description = Nothing }
 
-
+{-| Returns True if a change Frame contains no changes (including Ops to invert).
+-}
 isEmpty : Frame desc -> Bool
 isEmpty (Frame { changes }) =
     isEmptyChangeSet changes
@@ -653,49 +647,19 @@ nonEmptyFrames frames =
     List.filter (not << isEmpty) frames
 
 
-type ReverseFrame desc
-    = ReverseFrame
-        { description : desc
-        , ops : Nonempty Op
-        , undone : Bool
-        }
+{-| Data that can be used for user undo/redo.
+Internally, this type contains a set of IDs for all the Ops that can be reverted, if any, that were generated by an applied Change Frame. You can use this to create a new Change Frame to undo those changes, or redo those changes if they were previously undone.
+ -}
+type alias UndoData = OpIDSet
 
+{-| Used internally by Node module to create a Change Frame that reverts the given Ops. 
 
-createReverseFrame : List Op -> desc -> Maybe (ReverseFrame desc)
-createReverseFrame opsToReverse description =
+Note: does not work with the original Ops (before all reversions). The Node module takes the UndoData (OpIDs of original changes) and traces all undo/redo operations recursively to the most recent reversion of each one, and provides this function with the those Ops (actual Ops, not just IDs).
+-}
+createReversionFrame : List Op -> Frame desc
+createReversionFrame opsToRevert =
     let
-        reverseFrame nonemptyOpsToReverse =
-            ReverseFrame
-                { description = description
-                , ops = nonemptyOpsToReverse
-                , undone = False
-                }
-    in
-    Maybe.map reverseFrame (Nonempty.fromList opsToReverse)
-
-
-getReverseFrameID : ReverseFrame desc -> OpID
-getReverseFrameID (ReverseFrame reverseFrame) =
-    Nonempty.head reverseFrame.ops
-        |> Op.id
-
-
-markReversal : ReverseFrame desc -> ReverseFrame desc
-markReversal (ReverseFrame reverseFrameRec) =
-    ReverseFrame { reverseFrameRec | undone = not reverseFrameRec.undone }
-
-
-reverseFrameToChangeFrame : ReverseFrame desc -> Frame desc
-reverseFrameToChangeFrame (ReverseFrame reverseFrame) =
-    let
-        changeSet =
-            ChangeSet
-                { objectsToCreate = emptyObjectsToCreate
-                , existingObjectChanges = Nonempty.foldl addOpToChangeSet emptyExistingObjectChanges reverseFrame.ops
-                , delayed = []
-                , opsToRepeat = emptyOpsToRepeat
-                }
-
+        -- add a reversion operation to the existingObjectChanges for the target object.
         addOpToChangeSet op existingObjectChanges =
             let
                 existingID =
@@ -703,8 +667,15 @@ reverseFrameToChangeFrame (ReverseFrame reverseFrame) =
             in
             -- AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
             AnyDict.insert existingID [ RevertOp (Op.id op) ] existingObjectChanges
+
+        changeSet =
+            ChangeSet
+                { objectsToCreate = emptyObjectsToCreate
+                , existingObjectChanges = List.foldl addOpToChangeSet emptyExistingObjectChanges opsToRevert
+                , delayed = []
+                }
     in
-    Frame { changes = changeSet, description = Nothing, reversedFrames = [ Nonempty.head reverseFrame.ops |> Op.id ] }
+    Frame { changes = changeSet, description = Nothing }
 
 
 

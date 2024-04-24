@@ -353,10 +353,8 @@ apply :
         { outputFrame : List Op.ClosedChunk
         , updatedNode : Node
         , created : List ObjectID
-        , outputReverseFrameMaybe : Maybe (Change.ReverseFrame desc)
-        , nowReversed : List OpID
         }
-apply timeMaybe testMode node (Change.Frame { changes, description, reversedFrames }) =
+apply timeMaybe testMode node (Change.Frame { changes, description }) =
     let
         nextUnseenCounter =
             OpID.importCounter (node.highestSeenClock + 1)
@@ -431,16 +429,12 @@ apply timeMaybe testMode node (Change.Frame { changes, description, reversedFram
                 , [ Op.closedChunksToFrameText (List.concat step2OutChunks) ]
                 ]
 
-        reverseFrameMaybe =
-            -- If this is a user frame (has description), build a reversal in case the user wants to undo
-            Maybe.andThen (Change.createReverseFrame (getReversibleOps allGeneratedOps)) description
+
     in
     Log.logMessageOnly logApplyResults
         { outputFrame = outChunks
         , updatedNode = finalNode
         , created = newObjectsCreated
-        , outputReverseFrameMaybe = reverseFrameMaybe
-        , nowReversed = reversedFrames
         }
 
 
@@ -501,14 +495,6 @@ keepChangeSetIfNonempty changeSetMaybe =
 
 
 
--- createReversionOp : InCounter -> OpID -> (OutCounter, Op)
--- createReversionOp inCounter opIDToReverse =
---     let
---         ( newID, stampOutCounter ) =
---             OpID.generate stampInCounter node.identity givenUCO.reversion
---     in
---     Op.cr
-
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
 -}
@@ -553,8 +539,7 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
         outMapping =
             { postExistingMapping | delayed = postExistingMapping.delayed ++ changeSet.delayed }
 
-        -- TODO Step 3. collect ops to repeat
-        --
+
         -- logOps =
         --     List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)
         --         |> String.concat
@@ -835,7 +820,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
         Change.RevertOp opIDToRevert ->
             ( ( inCounter, inMapping )
             , { prerequisiteChunks = []
-              , thisUnstampedOp = { reference = Just opIDToRevert, payload = [], reversion = True }
+              , thisUnstampedOp = { reference = Just opIDToRevert, payload = [], reversion = not (OpID.isReversion opIDToRevert) }
               }
             )
 
