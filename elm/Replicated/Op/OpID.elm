@@ -1,4 +1,4 @@
-module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromRonPointerString, fromSortable, fromString, fromStringForced, generate, getClock, getMoment, highestCounter, importCounter, isIncremental, isReversion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toRonPointerString, toSortablePrimitives, toString, unusedCounter)
+module Replicated.Op.OpID exposing (EventStamp, InCounter, ObjectID, ObjectIDString, ObjectVersion, OpID, OpIDSortable, OpIDString, OutCounter, exportCounter, firstCounterOfFrame, fromPrimitives, fromRonPointerString, fromSortable, fromString, fromStringForced, generate, getClock, getMoment, highestCounter, importCounter, isIncremental, isDeletion, jsonDecoder, latest, nextGenCounter, nextOpInChain, parser, toInt, toRonPointerString, toSortablePrimitives, toString, unusedCounter)
 
 import Json.Decode as JD
 import Parser.Advanced as Parser exposing ((|.), (|=), Parser, float, spaces, succeed, symbol)
@@ -41,13 +41,13 @@ type alias OpOrigin =
 type alias EventStamp =
     { clock : OpClock
     , origin : NodeID
-    , reversion : Bool
+    , deletion : Bool
     }
 
 
-isReversion : OpID -> Bool
-isReversion input =
-    (toStamp input).reversion
+isDeletion : OpID -> Bool
+isDeletion input =
+    (toStamp input).deletion
 
 
 highestCounter : NewOpCounter -> NewOpCounter -> NewOpCounter
@@ -66,8 +66,8 @@ unusedCounter =
 
 
 generate : InCounter -> NodeID -> Bool -> ( OpID, OutCounter )
-generate (NewOpCounter counter) origin reversion =
-    ( fromStamp { clock = counter, origin = origin, reversion = reversion }, NewOpCounter (counter + 1) )
+generate (NewOpCounter counter) origin deletion =
+    ( fromStamp { clock = counter, origin = origin, deletion = deletion }, NewOpCounter (counter + 1) )
 
 
 toString : OpID -> OpIDString
@@ -78,11 +78,11 @@ toString (OpID string) =
 toSortablePrimitives : OpID -> OpIDSortable
 toSortablePrimitives opID =
     let
-        { clock, origin, reversion } =
+        { clock, origin, deletion } =
             toStamp opID
 
         tieBreaker =
-            if reversion then
+            if deletion then
                 "-" ++ NodeID.toString origin
 
             else
@@ -100,7 +100,7 @@ The origin could be used as a tie-breaker, modulating the clock number by some a
 toInt : OpID -> Int
 toInt opID =
     let
-        { clock, origin, reversion } =
+        { clock, origin, deletion } =
             toStamp opID
     in
     clock
@@ -112,7 +112,7 @@ In production environments this number will be relatively close to the actual ti
 getClock : OpID -> OpClock
 getClock opID =
     let
-        { clock, origin, reversion } =
+        { clock, origin, deletion } =
             toStamp opID
     in
     clock
@@ -131,10 +131,10 @@ fromSortable ( clock, rest ) =
 
 
 fromPrimitives : Int -> Bool -> String -> OpID
-fromPrimitives clock reversion nodeName =
+fromPrimitives clock deletion nodeName =
     OpID
         (String.fromInt clock
-            ++ (if reversion then
+            ++ (if deletion then
                     "-" ++ nodeName
 
                 else
@@ -188,7 +188,7 @@ fromStamp eventStamp =
             String.fromInt eventStamp.clock
 
         separator =
-            if eventStamp.reversion then
+            if eventStamp.deletion then
                 "-"
 
             else

@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser, opIDFromReference)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -864,7 +864,7 @@ type OpPattern
 
 pattern : Op -> OpPattern
 pattern (Op opRecord) =
-    case ( OpID.isReversion opRecord.operationID, Maybe.map OpID.isReversion (opIDFromReference opRecord.reference) ) of
+    case ( OpID.isDeletion opRecord.operationID, Maybe.map OpID.isDeletion (opIDFromReference opRecord.reference) ) of
         ( False, Just False ) ->
             -- "+", "+"
             NormalOp
@@ -983,7 +983,7 @@ closedOpToString format (Op op) =
                     [ opID, ref ]
 
                 CompressedOps (Just (Op previousOp)) ->
-                    case ( OpID.isIncremental previousOp.operationID op.operationID && not (OpID.isReversion op.operationID), op.reference == OpReference previousOp.operationID ) of
+                    case ( OpID.isIncremental previousOp.operationID op.operationID && not (OpID.isDeletion op.operationID), op.reference == OpReference previousOp.operationID ) of
                         ( True, True ) ->
                             [ emptyAtom, emptyAtom ]
 

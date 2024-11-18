@@ -80,7 +80,7 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
             -- op ref means it's an event op (or reversion)
             let
                 ( newEventDict, newWarnings ) =
-                    if OpID.isReversion (Op.id newOp) then
+                    if OpID.isDeletion (Op.id newOp) then
                         -- this op reverts a real event
                         revertEventHelper ref oldObject.events opDict
                         -- |> Debug.log ("Op " ++ OpID.toString (Op.id newOp) ++ " reverts op " ++ OpID.toString ref ++ " in object " ++ OpID.toString oldObject.creation ++ ". new event dict")
@@ -111,7 +111,7 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
 -}
 revertEventHelper : OpID -> EventDict -> OpDict -> ( EventDict, List ObjectBuildWarning )
 revertEventHelper opIDToRevert eventDict opDict =
-    case ( AnyDict.member opIDToRevert eventDict, OpID.isReversion opIDToRevert ) of
+    case ( AnyDict.member opIDToRevert eventDict, OpID.isDeletion opIDToRevert ) of
         ( True, _ ) ->
             -- found our reverted event. remove it!
             ( AnyDict.remove opIDToRevert eventDict, [] )
@@ -131,7 +131,7 @@ revertEventHelper opIDToRevert eventDict opDict =
 
                         Op.OpReference thirdOpID ->
                             -- does the second reversion op point to a third reversion op?
-                            if OpID.isReversion thirdOpID then
+                            if OpID.isDeletion thirdOpID then
                                 -- yup. start over with that one.
                                 revertEventHelper thirdOpID eventDict opDict
 

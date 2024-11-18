@@ -10,6 +10,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
+import Set.Any as AnySet exposing (AnySet)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Identifier exposing (..)
@@ -264,16 +265,20 @@ updateNodeWithChunk chunk old =
 
                 Just firstOpenOp ->
                     case ( firstOpenOp.objectSpecified, firstOpenOp.reducerSpecified, firstOpenOp.reference ) of
-                        ( Just explicitReducer, Just explicitObject, _ ) ->
+                        (  Just explicitObject, Just explicitReducer, _ ) ->
                             -- closed ops - reducer and objectID are explicit
-                            Ok ( explicitObject, explicitReducer )
+                            Ok (  explicitReducer, explicitObject )
 
                         ( _, _, Op.ReducerReference reducerID ) ->
                             -- It's a header / creation op, no need to lookup
                             Ok ( reducerID, firstOpenOp.opID )
 
                         ( _, _, Op.OpReference referencedOpID ) ->
-                            lookupObject old.node referencedOpID
+                            case lookupObject old.node referencedOpID of
+                                Just foundBoth ->
+                                    Ok foundBoth
+                                Nothing ->
+                                    Err (UnknownReference referencedOpID)
 
         closedOpListResult =
             case deduceChunkReducerAndObject of
@@ -311,15 +316,15 @@ closeOp deducedReducer deducedObject openOp =
 First we compare against object creation IDs, then the stored "last seen" IDs, since it will usually be that. Finally, we check all other op IDs.
 
 -}
-lookupObject : Node -> OpID -> Result OpImportWarning ( ReducerID, ObjectID )
+lookupObject : Node -> OpID -> Maybe ( ReducerID, ObjectID )
 lookupObject node opIDToFind =
     case AnyDict.get opIDToFind node.ops of
         -- will even find objects by middle ops (version references)
         Just foundOp ->
-            Ok ( Op.reducer foundOp, Op.object foundOp )
+            Just ( Op.reducer foundOp, Op.object foundOp )
 
         Nothing ->
-            Err (UnknownReference opIDToFind)
+            Nothing
 
 
 {-| Quick way to see how many recognized objects are in the Node.
@@ -478,6 +483,62 @@ getReversibleOps ops =
                     Nothing
     in
     List.filterMap getCreationIDs ops
+
+{-| Find all Ops that use the given Op as a reference.
+TODO just index the OpDb by reference
+-}
+findAllReferencesToOp : Node -> OpID -> List Op
+findAllReferencesToOp node opID =
+    AnyDict.filter (\_ op -> Op.opIDFromReference (Op.reference op) == Just opID) node.ops
+    |> AnyDict.values
+
+
+{-| Given a list of OpIDs representing the original change, find the Ops of their latest reversion.
+
+TODO: once OpDb is indexed by object and reference, eliminate the recursive search.
+-}
+findFinalOpsToRevert : Node -> Change.UndoData -> List Op
+findFinalOpsToRevert node opIDsToRevert = 
+    let
+        findFinalReversionOp earlierOpID =
+            let
+                earlierOpMaybe =
+                    -- TODO ideally we don't have to fetch the op itself for this.
+                    AnyDict.get earlierOpID node.ops
+
+                earlierOpPatternMaybe =
+                    Maybe.map (Op.pattern) earlierOpMaybe
+
+                -- if the op is normal, the next reversion will be a deletion op.
+                -- if the op is a deletion already, the next reversion (undeletion) will look like a normal opID.
+                opPatternToLookFor = 
+                    case earlierOpPatternMaybe of
+                        Just Op.DeletionOp ->
+                            Op.UnDeletionOp
+                        
+                        Just Op.UnDeletionOp ->
+                            Op.DeletionOp
+
+                        _ ->
+                            Op.NormalOp
+
+                allOpsReferringToEarlierOp =
+                    findAllReferencesToOp node earlierOpID
+            in
+                case List.filter (\op -> Op.pattern op == opPatternToLookFor ) allOpsReferringToEarlierOp of
+                    [] ->
+                        -- Looks like this op was never reverted, so it's the final op
+                        earlierOpMaybe
+
+                    [foundReversionOp] ->
+                        -- the earlier op has been reverted, repeat the process with the newfound reversion
+                        findFinalReversionOp (Op.id foundReversionOp)
+
+                    firstOpFound :: moreFound ->
+                        Log.crashInDev "When trying to find reversions of an op, I found multiple..." (Just firstOpFound)
+    in
+    List.filterMap findFinalReversionOp (AnySet.toList opIDsToRevert)
+
 
 
 {-| Collects info on what ObjectIDs map back to what placeholder IDs from before they were initialized. In case we want to reference the new object same-frame.
@@ -669,7 +730,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
         stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
             let
                 ( newID, stampOutCounter ) =
-                    OpID.generate stampInCounter node.identity givenUCO.reversion
+                    OpID.generate stampInCounter node.identity givenUCO.deletion
 
                 stampedOp =
                     Op.create reducerID objectID newID (Op.OpReference <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
@@ -693,7 +754,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
 
 
 type alias UnstampedChunkOp =
-    { reference : Maybe OpID, payload : Op.OpPayloadAtoms, reversion : Bool }
+    { reference : Maybe OpID, payload : Op.OpPayloadAtoms, deletion : Bool }
 
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
@@ -805,7 +866,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
               , thisUnstampedOp =
                     { reference = reference
                     , payload = piecesSoFar
-                    , reversion = False
+                    , deletion = False
                     }
               }
             )
@@ -820,7 +881,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
         Change.RevertOp opIDToRevert ->
             ( ( inCounter, inMapping )
             , { prerequisiteChunks = []
-              , thisUnstampedOp = { reference = Just opIDToRevert, payload = [], reversion = not (OpID.isReversion opIDToRevert) }
+              , thisUnstampedOp = { reference = Just opIDToRevert, payload = [], deletion = not (OpID.isDeletion opIDToRevert) }
               }
             )
 

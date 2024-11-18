@@ -937,13 +937,13 @@ id =
 
                 Just node ->
                     case Node.lookupObject node opID of
-                        Err _ ->
+                        Nothing ->
                             Log.crashInDev
                                 ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!")
                                 ID.fromPointer
                                 (ExistingObjectPointer (Change.ExistingID "error" opID))
 
-                        Ok ( reducerID, objectID ) ->
+                        Just ( reducerID, objectID ) ->
                             -- TODO should we use the OpID instead? For versioning?
                             -- Or is this better to switch to canonical ObjectIDs
                             ID.fromPointer (ExistingObjectPointer (Change.ExistingID reducerID objectID))
