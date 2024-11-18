@@ -15,6 +15,7 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
+import Replicated.Op.Db as OpDb exposing (OpDb)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
 import Set exposing (Set)
@@ -31,10 +32,6 @@ type alias Node =
     , highestSeenClock : Int
     , peers : List Peer
     }
-
-
-type alias OpDb =
-    AnyDict OpIDSortable OpID Op
 
 
 type alias InitArgs =

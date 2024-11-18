@@ -8,7 +8,7 @@
 - Why is parent init change not required?
 - Put showstopper RON debugger in place
 - Rename RepStore to RepDictSparse
-- Put OpDb in its own type file
+- [X] Put OpDb in its own type file
 
 - UNDO/REDO Framework
     - Create ReversibleOps type - `List OpID` of reversible ops
